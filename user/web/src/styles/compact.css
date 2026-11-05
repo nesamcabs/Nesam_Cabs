@@ -1,0 +1,494 @@
+/* Compact, corporate scale for the whole site: smaller type, tighter spacing, quieter headers.
+   Loaded last so it refines every other sheet. */
+:root {
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.8125rem;
+  --fs-body: 0.875rem;
+  --fs-md: 1rem;
+  --fs-lg: 1.125rem;
+  --fs-xl: 1.25rem;
+  --fs-h1: clamp(1.25rem, 1.1rem + 0.7vw, 1.5rem);
+  --tap: 44px;
+  --control-h: 44px;
+}
+
+/* ── Page header: a small back button, a modest title, a slim progress bar ──────────────────────────── */
+.page-head {
+  gap: 6px 12px;
+  margin-bottom: var(--s-4);
+}
+.page-head__text {
+  gap: 2px;
+}
+.page-head__text h1 {
+  font-size: var(--fs-h1);
+  line-height: 1.2;
+}
+.back-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+}
+.page-head > .back-btn {
+  margin-top: 0;
+}
+.flow-steps {
+  gap: 4px;
+  margin-bottom: var(--s-4);
+}
+.flow-steps span {
+  width: 40px;
+  height: 3px;
+}
+
+/* ── Buttons in a page header sit beside the title, small and tidy ─────────────────────────────────── */
+.page-head__actions {
+  align-self: center;
+  flex-wrap: nowrap;
+  gap: 8px;
+  margin-left: auto;
+}
+.page-head__actions .btn {
+  min-height: 34px;
+  padding: 6px 12px;
+  font-size: var(--fs-sm);
+}
+
+/* ── Notifications: a compact list ────────────────────────────────────────────────────────────────── */
+.inbox__filters {
+  gap: 6px;
+}
+.inbox__filter {
+  min-height: 32px;
+  padding: 4px 12px;
+  font-size: var(--fs-sm);
+}
+.notif {
+  gap: 10px;
+  padding: 12px 14px;
+}
+.notif__icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+}
+.notif__head strong {
+  font-size: var(--fs-body);
+}
+.notif__head time {
+  font-size: var(--fs-xs);
+}
+.notif__msg {
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+}
+.notif__cta {
+  font-size: var(--fs-sm);
+}
+
+/* ── Mobile layouts have no footer: the bottom bar and the account menu carry the links ──────────────── */
+@media (max-width: 999.98px) {
+  .footer {
+    display: none;
+  }
+}
+
+/* ── Trip summary card: type and Edit on top, the route, then date and distance on one line ─────────── */
+.trip-sum {
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: var(--r-lg);
+}
+.trip-sum__top .badge {
+  padding: 2px 10px;
+  font-size: var(--fs-xs);
+}
+.trip-sum .link-btn,
+.trip-sum .btn-edit-trip {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-decoration: none;
+}
+.trip-sum .route-title {
+  gap: 2px 8px;
+  font-size: var(--fs-md);
+  line-height: 1.3;
+}
+.trip-sum .route-title .icon {
+  color: var(--muted);
+}
+.trip-sum__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 0;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+.trip-sum .trip-sum__when {
+  color: var(--text);
+  font-weight: 600;
+}
+.trip-sum__lead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.trip-sum__title {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  line-height: 1.2;
+}
+.trip-sum__meta > span + span::before {
+  content: '';
+  display: inline-block;
+  width: 1px;
+  height: 12px;
+  margin: 0 10px;
+  background: var(--line-strong);
+  vertical-align: -1px;
+}
+
+/* ── Vehicle cards: lighter price, and a quiet footer (inclusions on the left, fare breakup on the right) ── */
+.cab__label {
+  padding: 12px 14px 0;
+}
+.cab__price strong {
+  font-size: 1.5rem;
+}
+.cab__foot {
+  gap: 2px 12px;
+  margin: 10px 14px 0;
+  padding: 8px 0 10px;
+  font-size: var(--fs-xs);
+}
+.cab__foot .link-btn {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+/* Multicity: after the chosen cities, one plain "Add city" button (no empty extra box). */
+.bf-add-city {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px dashed var(--red-line);
+  border-radius: var(--r-field);
+  background: transparent;
+  color: var(--red-ink);
+  font: inherit;
+  font-size: var(--fs-sm, 0.875rem);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--dur, 0.15s) var(--ease, ease);
+}
+.bf-add-city:hover,
+.bf-add-city:focus-visible {
+  background: var(--red-soft);
+}
+.bf-add-city.is-invalid {
+  border-color: var(--danger, #c62828);
+  color: var(--danger, #c62828);
+}
+
+/* AI chat on phones: the floating call and AI buttons are round, with the icon centred; the chat opens as a
+   small floating window (not full screen) that sits above the on-screen keyboard. */
+@media (max-width: 767.98px) {
+  .floating-call-btn,
+  .floating-ai-launcher {
+    display: grid;
+    place-items: center;
+    padding: 0;
+    gap: 0;
+  }
+  .floating-call-btn__label,
+  .floating-ai-launcher__text,
+  .floating-ai-launcher__pulse {
+    display: none;
+  }
+  .floating-call-btn__icon {
+    display: grid;
+    place-items: center;
+    width: auto;
+    height: auto;
+    background: none;
+    animation: none;
+  }
+  .floating-call-btn__icon svg {
+    display: block;
+    width: 26px;
+    height: 26px;
+  }
+  .floating-ai-launcher__sparkle {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    font-size: 0;
+  }
+  .floating-ai-launcher__sparkle .ai-glyph,
+  .floating-ai-launcher__sparkle svg {
+    display: block;
+    width: 24px;
+    height: 24px;
+  }
+  .floating-ai-launcher.is-active {
+    display: none;
+  }
+
+  .ai-chat-window {
+    inset: auto 10px calc(10px + var(--kb, 0px) + env(safe-area-inset-bottom, 0px)) 10px;
+    width: auto;
+    height: min(540px, calc(var(--vvh, 100dvh) - 24px));
+    max-height: calc(var(--vvh, 100dvh) - 24px);
+    border: 1px solid var(--line, #e2e8f0);
+    border-radius: 16px;
+    box-shadow: 0 18px 44px rgb(15 23 42 / 0.28), 0 4px 12px rgb(15 23 42 / 0.1);
+  }
+  .ai-chat-input {
+    font-size: 16px;
+  }
+}
+.ai-glyph {
+  display: block;
+}
+.ai-chat-avatar .ai-glyph {
+  color: #fff;
+}
+
+/* ── Side menu (hamburger): every footer link in one simple list, on phones and tablets ──────────── */
+.menu-btn {
+  display: none;
+}
+@media (max-width: 999.98px) {
+  .menu-btn {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    margin-left: -6px;
+    border: 0;
+    border-radius: var(--r-md);
+    background: transparent;
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .menu-btn:active {
+    background: var(--sunken, #f1f3f5);
+  }
+}
+.drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+}
+.drawer__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(15 23 42 / 0.45);
+}
+.drawer__panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(86vw, 340px);
+  height: 100%;
+  background: var(--surface, #fff);
+  box-shadow: 0 0 40px rgb(0 0 0 / 0.25);
+}
+.drawer__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px 10px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.drawer__close {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.drawer__close:hover {
+  background: var(--sunken, #f1f3f5);
+  color: var(--ink);
+}
+.drawer__body {
+  flex: 1;
+  min-height: 0;
+  padding: 8px 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.drawer__quick,
+.drawer__links {
+  margin: 0;
+  padding: 0 8px;
+  list-style: none;
+}
+.drawer__quick {
+  padding-bottom: 8px;
+}
+.drawer__quick a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 46px;
+  padding: 0 10px;
+  border-radius: var(--r-md);
+  color: var(--ink);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+.drawer__quick a .icon {
+  color: var(--red);
+}
+.drawer__quick a:hover,
+.drawer__links a:hover {
+  background: var(--sunken, #f1f3f5);
+}
+.drawer__group {
+  border-top: 1px solid var(--line);
+}
+.drawer__group summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 0 18px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  list-style: none;
+  cursor: pointer;
+}
+.drawer__group summary::-webkit-details-marker {
+  display: none;
+}
+.drawer__group summary .icon {
+  transition: rotate 0.2s ease;
+}
+.drawer__group[open] summary .icon {
+  rotate: 180deg;
+}
+.drawer__links {
+  padding-bottom: 10px;
+}
+.drawer__links a {
+  display: block;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  color: var(--ink);
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+.drawer__foot {
+  display: grid;
+  gap: 8px;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--line);
+}
+.drawer__call {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  border-radius: var(--r-md);
+  background: var(--red);
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+}
+.drawer__copy {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--fs-xs, 0.75rem);
+  text-align: center;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .drawer__backdrop {
+    animation: drawer-fade 0.2s ease;
+  }
+  .drawer__panel {
+    animation: drawer-in 0.26s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+}
+@keyframes drawer-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes drawer-in {
+  from {
+    translate: -100% 0;
+  }
+}
+
+/* Booking form, kept simple: the trip-type switch is a light pill, and a chosen place shows just its name. */
+.bf-journey.tabs .tab.is-active,
+.bf-journey.tabs .tab[aria-selected='true'] {
+  background: var(--surface, #fff);
+  color: var(--red-ink);
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.14);
+}
+.bf-field .bf-addr {
+  display: none;
+}
+
+/* The Book Now bar always sits at the bottom edge of the screen, even when the page above it is short. */
+@media (max-width: 999.98px) {
+  .flow-bar {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 120;
+    margin: 0;
+  }
+  main :has(> .flow-bar) {
+    padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+  }
+}
+@media (max-width: 999.98px) {
+  .shell--flow .floating-call-btn {
+    bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+  }
+  .shell--flow .floating-ai-launcher {
+    bottom: calc(158px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Phone home: the booking form, then services, routes, fleet, how it works, reviews and FAQs.
+   Offers, destinations, safety, the app promo and the catalogue stay in the side menu. */
+@media (max-width: 767.98px) {
+  .home .hx-strip,
+  .home [aria-labelledby='hx-destinations'],
+  .home [aria-labelledby='hx-safe'],
+  .home .hx-banners,
+  .home .get-app,
+  .home .catalog-band {
+    display: none;
+  }
+}

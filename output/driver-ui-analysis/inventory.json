@@ -1,0 +1,429 @@
+{
+  "source": "C:\\Users\\User\\AppData\\Local\\Packages\\5319275A.WhatsAppDesktop_cv1g1gvanyjgm\\LocalState\\sessions\\D7D63B2FDAD1E6D555CC68856B66F53BB992169A\\transfers\\2026-42\\Nesam_Driver_App_UX_Updated.html",
+  "line_count": 688,
+  "bytes": 576633,
+  "sha256": "3757dab48cfcb79fd10c12737e9469756f17f47fc19a99312b4f48799b63b0a1",
+  "functions": [
+    {
+      "name": "persist",
+      "line": 432
+    },
+    {
+      "name": "toast",
+      "line": 433
+    },
+    {
+      "name": "availability",
+      "line": 434
+    },
+    {
+      "name": "metrics",
+      "line": 435
+    },
+    {
+      "name": "routeStack",
+      "line": 436
+    },
+    {
+      "name": "dutyCard",
+      "line": 437
+    },
+    {
+      "name": "availableSection",
+      "line": 438
+    },
+    {
+      "name": "ledger",
+      "line": 446
+    },
+    {
+      "name": "profilePage",
+      "line": 447
+    },
+    {
+      "name": "openDialog",
+      "line": 448
+    },
+    {
+      "name": "openSupport",
+      "line": 449
+    },
+    {
+      "name": "openPickup",
+      "line": 450
+    },
+    {
+      "name": "copyAddress",
+      "line": 451
+    },
+    {
+      "name": "resetPreview",
+      "line": 452
+    },
+    {
+      "name": "freshState",
+      "line": 457
+    },
+    {
+      "name": "blankFlow",
+      "line": 458
+    },
+    {
+      "name": "getFlow",
+      "line": 459
+    },
+    {
+      "name": "calculateTrip",
+      "line": 460
+    },
+    {
+      "name": "sanitizeFlow",
+      "line": 470
+    },
+    {
+      "name": "restoreState",
+      "line": 488
+    },
+    {
+      "name": "dateText",
+      "line": 498
+    },
+    {
+      "name": "closedRecords",
+      "line": 499
+    },
+    {
+      "name": "allCompleted",
+      "line": 500
+    },
+    {
+      "name": "pendingBase",
+      "line": 501
+    },
+    {
+      "name": "pendingCollections",
+      "line": 502
+    },
+    {
+      "name": "currentDuty",
+      "line": 503
+    },
+    {
+      "name": "refreshIcons",
+      "line": 504
+    },
+    {
+      "name": "updateNav",
+      "line": 505
+    },
+    {
+      "name": "dutyDay",
+      "line": 515
+    },
+    {
+      "name": "nextTrip",
+      "line": 516
+    },
+    {
+      "name": "homePage",
+      "line": 517
+    },
+    {
+      "name": "completedCard",
+      "line": 518
+    },
+    {
+      "name": "cancelledCard",
+      "line": 519
+    },
+    {
+      "name": "tripsPage",
+      "line": 520
+    },
+    {
+      "name": "earningsPage",
+      "line": 521
+    },
+    {
+      "name": "walletPage",
+      "line": 522
+    },
+    {
+      "name": "openDuty",
+      "line": 523
+    },
+    {
+      "name": "acceptDuty",
+      "line": 524
+    },
+    {
+      "name": "openNotifications",
+      "line": 525
+    },
+    {
+      "name": "render",
+      "line": 526
+    },
+    {
+      "name": "goPage",
+      "line": 527
+    },
+    {
+      "name": "openTrip",
+      "line": 528
+    },
+    {
+      "name": "stepTo",
+      "line": 529
+    },
+    {
+      "name": "swipeMarkup",
+      "line": 530
+    },
+    {
+      "name": "navigateButton",
+      "line": 531
+    },
+    {
+      "name": "customerAccess",
+      "line": 534
+    },
+    {
+      "name": "customerDetails",
+      "line": 535
+    },
+    {
+      "name": "tripPage",
+      "line": 543
+    },
+    {
+      "name": "separateChargesNote",
+      "line": 556
+    },
+    {
+      "name": "closingForm",
+      "line": 557
+    },
+    {
+      "name": "cashMoney",
+      "line": 558
+    },
+    {
+      "name": "collectionCard",
+      "line": 559
+    },
+    {
+      "name": "onlinePaymentBadge",
+      "line": 560
+    },
+    {
+      "name": "reviewTrip",
+      "line": 561
+    },
+    {
+      "name": "tripReceipt",
+      "line": 562
+    },
+    {
+      "name": "commitTripSwipe",
+      "line": 563
+    },
+    {
+      "name": "bindTripSliders",
+      "line": 564
+    },
+    {
+      "name": "photoRecord",
+      "line": 585
+    },
+    {
+      "name": "hasStartPhotos",
+      "line": 586
+    },
+    {
+      "name": "startReady",
+      "line": 587
+    },
+    {
+      "name": "stopCamera",
+      "line": 588
+    },
+    {
+      "name": "startTripChecks",
+      "line": 589
+    },
+    {
+      "name": "cameraPage",
+      "line": 590
+    },
+    {
+      "name": "setCameraError",
+      "line": 591
+    },
+    {
+      "name": "openLiveCamera",
+      "line": 592
+    },
+    {
+      "name": "captureLivePhoto",
+      "line": 611
+    },
+    {
+      "name": "useLivePhoto",
+      "line": 613
+    },
+    {
+      "name": "isCancelled",
+      "line": 618
+    },
+    {
+      "name": "cancellationPending",
+      "line": 619
+    },
+    {
+      "name": "cancellationQuote",
+      "line": 620
+    },
+    {
+      "name": "cancellationReason",
+      "line": 627
+    },
+    {
+      "name": "cancellationPolicy",
+      "line": 628
+    },
+    {
+      "name": "openCancellationPolicy",
+      "line": 629
+    },
+    {
+      "name": "tripHelpEntry",
+      "line": 630
+    },
+    {
+      "name": "openTripHelp",
+      "line": 635
+    },
+    {
+      "name": "openCancellationRequest",
+      "line": 641
+    },
+    {
+      "name": "submitCancellation",
+      "line": 644
+    },
+    {
+      "name": "cancellationStatus",
+      "line": 648
+    },
+    {
+      "name": "cancelledRecords",
+      "line": 649
+    },
+    {
+      "name": "cancellationSummary",
+      "line": 650
+    },
+    {
+      "name": "penaltyTotal",
+      "line": 651
+    },
+    {
+      "name": "approvedBalance",
+      "line": 652
+    },
+    {
+      "name": "cancellationLedger",
+      "line": 653
+    },
+    {
+      "name": "applyAdminCancellationUpdate",
+      "line": 655
+    }
+  ],
+  "literal_actions": [
+    "accept-duty",
+    "camera-back",
+    "camera-capture",
+    "camera-open",
+    "camera-retake",
+    "camera-retry",
+    "camera-use",
+    "cancel-request-open",
+    "cancellation-policy",
+    "close-dialog",
+    "confirm-reset",
+    "copy-address",
+    "earnings-period",
+    "flow-close",
+    "flow-edit",
+    "flow-open",
+    "flow-receipt",
+    "notifications",
+    "refresh",
+    "reset",
+    "support",
+    "today-earnings",
+    "toggle-notifications",
+    "toggle-online",
+    "trip-help",
+    "trip-tab",
+    "view-duty",
+    "wallet-breakdown"
+  ],
+  "svg_symbols": [
+    "i-home",
+    "i-trip",
+    "i-chart",
+    "i-wallet",
+    "i-user",
+    "i-bell",
+    "i-arrow",
+    "i-chevron",
+    "i-calendar",
+    "i-clock",
+    "i-pin",
+    "i-car",
+    "i-check",
+    "i-shield",
+    "i-help",
+    "i-close",
+    "i-refresh",
+    "i-power",
+    "i-info",
+    "i-copy",
+    "i-phone",
+    "i-document",
+    "i-distance"
+  ],
+  "embedded_payloads": [
+    {
+      "media": "font/woff",
+      "encoded_chars": 3144,
+      "decoded_bytes": 2356,
+      "sha256": "9bcc97191297f8b56070ae4a75cf95d3e26d0169e9c9a8106ed96dd5daeb4fa7"
+    },
+    {
+      "media": "image/jpeg",
+      "encoded_chars": 212924,
+      "decoded_bytes": 159691,
+      "sha256": "ca643004e6c133ffc75b7d6262a1f64e914519f6673cbb263fba959fc6791ab8"
+    },
+    {
+      "media": "image/jpeg",
+      "encoded_chars": 212924,
+      "decoded_bytes": 159691,
+      "sha256": "ca643004e6c133ffc75b7d6262a1f64e914519f6673cbb263fba959fc6791ab8"
+    }
+  ],
+  "media_queries": [
+    "@media print",
+    "@media(max-width:1130px)",
+    "@media(max-width:360px)",
+    "@media(max-width:700px)",
+    "@media(max-width:900px) and (min-width:701px)",
+    "@media(min-width:1450px)",
+    "@media(min-width:701px)",
+    "@media(prefers-reduced-motion:reduce)"
+  ]
+}

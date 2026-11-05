@@ -1,0 +1,2771 @@
+{
+  "functions": [
+    {
+      "name": "ico",
+      "start": 1562,
+      "end": 1562
+    },
+    {
+      "name": "t",
+      "start": 1582,
+      "end": 1582
+    },
+    {
+      "name": "esc",
+      "start": 1583,
+      "end": 1583
+    },
+    {
+      "name": "money",
+      "start": 1584,
+      "end": 1584
+    },
+    {
+      "name": "round2",
+      "start": 1585,
+      "end": 1585
+    },
+    {
+      "name": "istDate",
+      "start": 1586,
+      "end": 1586
+    },
+    {
+      "name": "stamp",
+      "start": 1587,
+      "end": 1587
+    },
+    {
+      "name": "attachClock",
+      "start": 1588,
+      "end": 1588
+    },
+    {
+      "name": "useLiveClock",
+      "start": 1589,
+      "end": 1589
+    },
+    {
+      "name": "clock",
+      "start": 1590,
+      "end": 1590
+    },
+    {
+      "name": "day",
+      "start": 1591,
+      "end": 1591
+    },
+    {
+      "name": "fullDate",
+      "start": 1592,
+      "end": 1592
+    },
+    {
+      "name": "city",
+      "start": 1593,
+      "end": 1593
+    },
+    {
+      "name": "serviceName",
+      "start": 1594,
+      "end": 1594
+    },
+    {
+      "name": "carBy",
+      "start": 1595,
+      "end": 1595
+    },
+    {
+      "name": "clone",
+      "start": 1596,
+      "end": 1596
+    },
+    {
+      "name": "draftDefault",
+      "start": 1597,
+      "end": 1597
+    },
+    {
+      "name": "routeKm",
+      "start": 1598,
+      "end": 1598
+    },
+    {
+      "name": "routePoints",
+      "start": 1601,
+      "end": 1601
+    },
+    {
+      "name": "validate",
+      "start": 1602,
+      "end": 1611
+    },
+    {
+      "name": "quote",
+      "start": 1612,
+      "end": 1619
+    },
+    {
+      "name": "balance",
+      "start": 1620,
+      "end": 1620
+    },
+    {
+      "name": "finalTotal",
+      "start": 1621,
+      "end": 1621
+    },
+    {
+      "name": "driverStatus",
+      "start": 1622,
+      "end": 1622
+    },
+    {
+      "name": "seedBooking",
+      "start": 1623,
+      "end": 1623
+    },
+    {
+      "name": "initial",
+      "start": 1624,
+      "end": 1624
+    },
+    {
+      "name": "persist",
+      "start": 1630,
+      "end": 1630
+    },
+    {
+      "name": "current",
+      "start": 1631,
+      "end": 1631
+    },
+    {
+      "name": "alertUser",
+      "start": 1632,
+      "end": 1632
+    },
+    {
+      "name": "announce",
+      "start": 1633,
+      "end": 1633
+    },
+    {
+      "name": "openBooking",
+      "start": 1634,
+      "end": 1634
+    },
+    {
+      "name": "findDraft",
+      "start": 1635,
+      "end": 1635
+    },
+    {
+      "name": "confirmBooking",
+      "start": 1636,
+      "end": 1645
+    },
+    {
+      "name": "assignDriver",
+      "start": 1646,
+      "end": 1646
+    },
+    {
+      "name": "paymentAmount",
+      "start": 1647,
+      "end": 1647
+    },
+    {
+      "name": "beginPayment",
+      "start": 1648,
+      "end": 1648
+    },
+    {
+      "name": "finishPayment",
+      "start": 1649,
+      "end": 1649
+    },
+    {
+      "name": "resolvePayment",
+      "start": 1650,
+      "end": 1650
+    },
+    {
+      "name": "completeTrip",
+      "start": 1651,
+      "end": 1651
+    },
+    {
+      "name": "companyCancel",
+      "start": 1652,
+      "end": 1652
+    },
+    {
+      "name": "markUrgent",
+      "start": 1653,
+      "end": 1653
+    },
+    {
+      "name": "B",
+      "start": 1655,
+      "end": 1655
+    },
+    {
+      "name": "notice",
+      "start": 1656,
+      "end": 1656
+    },
+    {
+      "name": "input",
+      "start": 1657,
+      "end": 1657
+    },
+    {
+      "name": "head",
+      "start": 1658,
+      "end": 1658
+    },
+    {
+      "name": "pill",
+      "start": 1659,
+      "end": 1659
+    },
+    {
+      "name": "routeTitle",
+      "start": 1660,
+      "end": 1660
+    },
+    {
+      "name": "routeSummary",
+      "start": 1661,
+      "end": 1661
+    },
+    {
+      "name": "fieldsLocation",
+      "start": 1662,
+      "end": 1662
+    },
+    {
+      "name": "home",
+      "start": 1663,
+      "end": 1681
+    },
+    {
+      "name": "cars",
+      "start": 1682,
+      "end": 1682
+    },
+    {
+      "name": "farePanel",
+      "start": 1683,
+      "end": 1683
+    },
+    {
+      "name": "review",
+      "start": 1684,
+      "end": 1684
+    },
+    {
+      "name": "driverPanel",
+      "start": 1685,
+      "end": 1686
+    },
+    {
+      "name": "confirmed",
+      "start": 1687,
+      "end": 1687
+    },
+    {
+      "name": "paymentPanel",
+      "start": 1688,
+      "end": 1692
+    },
+    {
+      "name": "statusLabel",
+      "start": 1693,
+      "end": 1693
+    },
+    {
+      "name": "tripCard",
+      "start": 1694,
+      "end": 1694
+    },
+    {
+      "name": "empty",
+      "start": 1695,
+      "end": 1695
+    },
+    {
+      "name": "trips",
+      "start": 1696,
+      "end": 1696
+    },
+    {
+      "name": "progress",
+      "start": 1697,
+      "end": 1697
+    },
+    {
+      "name": "booking",
+      "start": 1698,
+      "end": 1698
+    },
+    {
+      "name": "payment",
+      "start": 1699,
+      "end": 1704
+    },
+    {
+      "name": "help",
+      "start": 1705,
+      "end": 1705
+    },
+    {
+      "name": "account",
+      "start": 1706,
+      "end": 1706
+    },
+    {
+      "name": "notifications",
+      "start": 1707,
+      "end": 1707
+    },
+    {
+      "name": "addresses",
+      "start": 1708,
+      "end": 1708
+    },
+    {
+      "name": "locationsList",
+      "start": 1709,
+      "end": 1709
+    },
+    {
+      "name": "lab",
+      "start": 1710,
+      "end": 1710
+    },
+    {
+      "name": "modalView",
+      "start": 1711,
+      "end": 1718
+    },
+    {
+      "name": "shareText",
+      "start": 1719,
+      "end": 1719
+    },
+    {
+      "name": "render",
+      "start": 1720,
+      "end": 1720
+    },
+    {
+      "name": "policyDefault",
+      "start": 1723,
+      "end": 1723
+    },
+    {
+      "name": "policyFor",
+      "start": 1724,
+      "end": 1724
+    },
+    {
+      "name": "policyMarkup",
+      "start": 1725,
+      "end": 1725
+    },
+    {
+      "name": "cancellationQuote",
+      "start": 1726,
+      "end": 1726
+    },
+    {
+      "name": "approveCancellation",
+      "start": 1727,
+      "end": 1727
+    },
+    {
+      "name": "timeInput",
+      "start": 1728,
+      "end": 1728
+    },
+    {
+      "name": "modalTime24",
+      "start": 1729,
+      "end": 1729
+    },
+    {
+      "name": "futureTime",
+      "start": 1730,
+      "end": 1730
+    },
+    {
+      "name": "openTime",
+      "start": 1731,
+      "end": 1731
+    },
+    {
+      "name": "timeModal",
+      "start": 1732,
+      "end": 1732
+    },
+    {
+      "name": "photoKey",
+      "start": 1733,
+      "end": 1733
+    },
+    {
+      "name": "featureBadges",
+      "start": 1734,
+      "end": 1734
+    },
+    {
+      "name": "carsV2",
+      "start": 1735,
+      "end": 1741
+    },
+    {
+      "name": "fareViewV2",
+      "start": 1742,
+      "end": 1742
+    },
+    {
+      "name": "cancellationModal",
+      "start": 1743,
+      "end": 1743
+    },
+    {
+      "name": "cancelledPaymentV2",
+      "start": 1744,
+      "end": 1744
+    },
+    {
+      "name": "v2Modal",
+      "start": 1746,
+      "end": 1746
+    },
+    {
+      "name": "handleV2",
+      "start": 1747,
+      "end": 1758
+    },
+    {
+      "name": "home",
+      "start": 1765,
+      "end": 1781
+    },
+    {
+      "name": "accountRow",
+      "start": 1783,
+      "end": 1783
+    },
+    {
+      "name": "account",
+      "start": 1784,
+      "end": 1784
+    },
+    {
+      "name": "getProfileDraft",
+      "start": 1785,
+      "end": 1785
+    },
+    {
+      "name": "profile",
+      "start": 1786,
+      "end": 1786
+    },
+    {
+      "name": "payments",
+      "start": 1787,
+      "end": 1790
+    },
+    {
+      "name": "settings",
+      "start": 1791,
+      "end": 1791
+    },
+    {
+      "name": "about",
+      "start": 1792,
+      "end": 1792
+    },
+    {
+      "name": "bottomNavigation",
+      "start": 1793,
+      "end": 1793
+    },
+    {
+      "name": "bookingPayOptions",
+      "start": 1795,
+      "end": 1799
+    },
+    {
+      "name": "review",
+      "start": 1802,
+      "end": 1807
+    },
+    {
+      "name": "paymentAmount",
+      "start": 1809,
+      "end": 1809
+    },
+    {
+      "name": "snapshotAccount",
+      "start": 1864,
+      "end": 1864
+    },
+    {
+      "name": "signOut",
+      "start": 1865,
+      "end": 1865
+    },
+    {
+      "name": "login",
+      "start": 1866,
+      "end": 1866
+    },
+    {
+      "name": "verifyLogin",
+      "start": 1867,
+      "end": 1867
+    },
+    {
+      "name": "newDemo",
+      "start": 1868,
+      "end": 1868
+    },
+    {
+      "name": "scenario",
+      "start": 1869,
+      "end": 1880
+    },
+    {
+      "name": "submitRequest",
+      "start": 1881,
+      "end": 1881
+    },
+    {
+      "name": "receipt",
+      "start": 1882,
+      "end": 1882
+    },
+    {
+      "name": "act",
+      "start": 1883,
+      "end": 1935
+    },
+    {
+      "name": "trackInput",
+      "start": 1938,
+      "end": 1943
+    },
+    {
+      "name": "fieldId",
+      "start": 1957,
+      "end": 1957
+    },
+    {
+      "name": "fieldError",
+      "start": 1958,
+      "end": 1958
+    },
+    {
+      "name": "draftErrors",
+      "start": 1967,
+      "end": 1994
+    },
+    {
+      "name": "focusFieldError",
+      "start": 1996,
+      "end": 1996
+    },
+    {
+      "name": "locationKeyLabel",
+      "start": 1997,
+      "end": 1997
+    },
+    {
+      "name": "allowedPlace",
+      "start": 1998,
+      "end": 1998
+    },
+    {
+      "name": "placeRow",
+      "start": 1999,
+      "end": 1999
+    },
+    {
+      "name": "locationResults",
+      "start": 2000,
+      "end": 2000
+    },
+    {
+      "name": "locationPicker",
+      "start": 2001,
+      "end": 2001
+    },
+    {
+      "name": "selectPlace",
+      "start": 2002,
+      "end": 2002
+    },
+    {
+      "name": "flowNavigation",
+      "start": 2003,
+      "end": 2009
+    },
+    {
+      "name": "searching",
+      "start": 2010,
+      "end": 2010
+    },
+    {
+      "name": "unavailable",
+      "start": 2011,
+      "end": 2011
+    },
+    {
+      "name": "connection",
+      "start": 2012,
+      "end": 2012
+    },
+    {
+      "name": "mobileChangeView",
+      "start": 2013,
+      "end": 2013
+    },
+    {
+      "name": "tripContact",
+      "start": 2018,
+      "end": 2018
+    },
+    {
+      "name": "sendChangeChallenge",
+      "start": 2019,
+      "end": 2019
+    },
+    {
+      "name": "routeSearchKey",
+      "start": 2093,
+      "end": 2093
+    },
+    {
+      "name": "uniqueRecentRoutes",
+      "start": 2094,
+      "end": 2094
+    },
+    {
+      "name": "rememberRoute",
+      "start": 2095,
+      "end": 2095
+    },
+    {
+      "name": "routeArea",
+      "start": 2098,
+      "end": 2098
+    },
+    {
+      "name": "routeClockIcon",
+      "start": 2099,
+      "end": 2099
+    },
+    {
+      "name": "decorativeRouteLine",
+      "start": 2100,
+      "end": 2100
+    },
+    {
+      "name": "routeShortcuts",
+      "start": 2101,
+      "end": 2109
+    },
+    {
+      "name": "hasPendingPayment",
+      "start": 2110,
+      "end": 2110
+    },
+    {
+      "name": "canStartPayment",
+      "start": 2111,
+      "end": 2111
+    },
+    {
+      "name": "paymentView",
+      "start": 2112,
+      "end": 2112
+    },
+    {
+      "name": "tripPaymentNote",
+      "start": 2113,
+      "end": 2113
+    },
+    {
+      "name": "paymentHistory",
+      "start": 2114,
+      "end": 2114
+    },
+    {
+      "name": "syncPaymentView",
+      "start": 2115,
+      "end": 2115
+    },
+    {
+      "name": "headerActions",
+      "start": 2153,
+      "end": 2153
+    },
+    {
+      "name": "supportView",
+      "start": 2154,
+      "end": 2154
+    },
+    {
+      "name": "addressEditorView",
+      "start": 2157,
+      "end": 2157
+    },
+    {
+      "name": "activeBeforeTrip",
+      "start": 2158,
+      "end": 2158
+    },
+    {
+      "name": "canDirectCancel",
+      "start": 2161,
+      "end": 2161
+    },
+    {
+      "name": "verifiedArrival",
+      "start": 2162,
+      "end": 2162
+    },
+    {
+      "name": "syncCancellationRefund",
+      "start": 2165,
+      "end": 2165
+    },
+    {
+      "name": "syncDriverSettlement",
+      "start": 2166,
+      "end": 2166
+    },
+    {
+      "name": "finalizeCancellation",
+      "start": 2167,
+      "end": 2167
+    },
+    {
+      "name": "cancellationTools",
+      "start": 2169,
+      "end": 2169
+    },
+    {
+      "name": "syncCancellationView",
+      "start": 2170,
+      "end": 2170
+    },
+    {
+      "name": "unsettledCancellations",
+      "start": 2174,
+      "end": 2174
+    },
+    {
+      "name": "duesTotal",
+      "start": 2175,
+      "end": 2175
+    },
+    {
+      "name": "dues",
+      "start": 2176,
+      "end": 2176
+    },
+    {
+      "name": "officeRecordCash",
+      "start": 2190,
+      "end": 2190
+    },
+    {
+      "name": "officeWaiveFee",
+      "start": 2191,
+      "end": 2191
+    },
+    {
+      "name": "arrivalCancellationSample",
+      "start": 2198,
+      "end": 2198
+    },
+    {
+      "name": "confirmationSoundEnabled",
+      "start": 2236,
+      "end": 2236
+    },
+    {
+      "name": "primeConfirmationAudio",
+      "start": 2237,
+      "end": 2237
+    },
+    {
+      "name": "stopConfirmationSound",
+      "start": 2238,
+      "end": 2238
+    },
+    {
+      "name": "playConfirmationChime",
+      "start": 2239,
+      "end": 2268
+    },
+    {
+      "name": "confirmationSoundButton",
+      "start": 2271,
+      "end": 2271
+    },
+    {
+      "name": "confirmationJourneyArt",
+      "start": 2272,
+      "end": 2272
+    },
+    {
+      "name": "ticketDate",
+      "start": 2273,
+      "end": 2273
+    },
+    {
+      "name": "syncConfirmationPresentation",
+      "start": 2275,
+      "end": 2275
+    },
+    {
+      "name": "confirmationSoundSettings",
+      "start": 2278,
+      "end": 2278
+    },
+    {
+      "name": "webServices",
+      "start": 2301,
+      "end": 2301
+    },
+    {
+      "name": "webHomeHero",
+      "start": 2302,
+      "end": 2302
+    },
+    {
+      "name": "webFooter",
+      "start": 2313,
+      "end": 2313
+    },
+    {
+      "name": "webAccountSidebar",
+      "start": 2314,
+      "end": 2314
+    },
+    {
+      "name": "webSelectionSummary",
+      "start": 2315,
+      "end": 2315
+    },
+    {
+      "name": "webCabTools",
+      "start": 2316,
+      "end": 2316
+    },
+    {
+      "name": "responsiveContent",
+      "start": 2321,
+      "end": 2347
+    },
+    {
+      "name": "nsTravelIcon",
+      "start": 2381,
+      "end": 2383
+    },
+    {
+      "name": "nsNavigationButton",
+      "start": 2384,
+      "end": 2388
+    },
+    {
+      "name": "nsRestoredRouteArt",
+      "start": 2416,
+      "end": 2423
+    },
+    {
+      "name": "nsAppDownloadPanel",
+      "start": 2468,
+      "end": 2470
+    },
+    {
+      "name": "nsSectionHeading",
+      "start": 2538,
+      "end": 2540
+    },
+    {
+      "name": "nsWhySection",
+      "start": 2542,
+      "end": 2551
+    },
+    {
+      "name": "nsReviewsSection",
+      "start": 2553,
+      "end": 2561
+    },
+    {
+      "name": "nsFaqSection",
+      "start": 2563,
+      "end": 2574
+    },
+    {
+      "name": "nsAppSection",
+      "start": 2576,
+      "end": 2578
+    },
+    {
+      "name": "nsFooterButton",
+      "start": 2580,
+      "end": 2582
+    },
+    {
+      "name": "nsCorporateFooter",
+      "start": 2584,
+      "end": 2588
+    },
+    {
+      "name": "nsInfoContent",
+      "start": 2602,
+      "end": 2607
+    }
+  ],
+  "assignments": [
+    {
+      "name": "handleV2",
+      "line": 1812,
+      "end": 1823
+    },
+    {
+      "name": "handleV2",
+      "line": 1831,
+      "end": 1858
+    },
+    {
+      "name": "draftDefault",
+      "line": 1952,
+      "end": 1952
+    },
+    {
+      "name": "initial",
+      "line": 1956,
+      "end": 1956
+    },
+    {
+      "name": "input",
+      "line": 1960,
+      "end": 1960
+    },
+    {
+      "name": "timeInput",
+      "line": 1962,
+      "end": 1962
+    },
+    {
+      "name": "fieldsLocation",
+      "line": 1963,
+      "end": 1966
+    },
+    {
+      "name": "validate",
+      "line": 1995,
+      "end": 1995
+    },
+    {
+      "name": "v2Modal",
+      "line": 2015,
+      "end": 2015
+    },
+    {
+      "name": "lab",
+      "line": 2017,
+      "end": 2017
+    },
+    {
+      "name": "handleV2",
+      "line": 2021,
+      "end": 2069
+    },
+    {
+      "name": "initial",
+      "line": 2092,
+      "end": 2092
+    },
+    {
+      "name": "beginPayment",
+      "line": 2117,
+      "end": 2117
+    },
+    {
+      "name": "finishPayment",
+      "line": 2119,
+      "end": 2119
+    },
+    {
+      "name": "handleV2",
+      "line": 2121,
+      "end": 2138
+    },
+    {
+      "name": "notifications",
+      "line": 2155,
+      "end": 2155
+    },
+    {
+      "name": "addresses",
+      "line": 2156,
+      "end": 2156
+    },
+    {
+      "name": "policyDefault",
+      "line": 2159,
+      "end": 2159
+    },
+    {
+      "name": "policyFor",
+      "line": 2160,
+      "end": 2160
+    },
+    {
+      "name": "policyMarkup",
+      "line": 2163,
+      "end": 2163
+    },
+    {
+      "name": "cancellationQuote",
+      "line": 2164,
+      "end": 2164
+    },
+    {
+      "name": "approveCancellation",
+      "line": 2168,
+      "end": 2168
+    },
+    {
+      "name": "cancellationModal",
+      "line": 2171,
+      "end": 2171
+    },
+    {
+      "name": "submitRequest",
+      "line": 2173,
+      "end": 2173
+    },
+    {
+      "name": "confirmBooking",
+      "line": 2178,
+      "end": 2178
+    },
+    {
+      "name": "review",
+      "line": 2180,
+      "end": 2180
+    },
+    {
+      "name": "paymentView",
+      "line": 2182,
+      "end": 2182
+    },
+    {
+      "name": "canStartPayment",
+      "line": 2184,
+      "end": 2184
+    },
+    {
+      "name": "cancelledPaymentV2",
+      "line": 2185,
+      "end": 2185
+    },
+    {
+      "name": "finishPayment",
+      "line": 2187,
+      "end": 2187
+    },
+    {
+      "name": "resolvePayment",
+      "line": 2189,
+      "end": 2189
+    },
+    {
+      "name": "v2Modal",
+      "line": 2193,
+      "end": 2193
+    },
+    {
+      "name": "flowNavigation",
+      "line": 2195,
+      "end": 2195
+    },
+    {
+      "name": "lab",
+      "line": 2197,
+      "end": 2197
+    },
+    {
+      "name": "handleV2",
+      "line": 2200,
+      "end": 2223
+    },
+    {
+      "name": "account",
+      "line": 2226,
+      "end": 2226
+    },
+    {
+      "name": "help",
+      "line": 2228,
+      "end": 2228
+    },
+    {
+      "name": "tone.onended",
+      "line": 2260,
+      "end": 2260
+    },
+    {
+      "name": "confirmed",
+      "line": 2274,
+      "end": 2274
+    },
+    {
+      "name": "render",
+      "line": 2277,
+      "end": 2277
+    },
+    {
+      "name": "settings",
+      "line": 2280,
+      "end": 2280
+    },
+    {
+      "name": "handleV2",
+      "line": 2283,
+      "end": 2293
+    },
+    {
+      "name": "home",
+      "line": 2304,
+      "end": 2310
+    },
+    {
+      "name": "headerActions",
+      "line": 2312,
+      "end": 2312
+    },
+    {
+      "name": "fareViewV2",
+      "line": 2318,
+      "end": 2318
+    },
+    {
+      "name": "paymentPanel",
+      "line": 2320,
+      "end": 2320
+    },
+    {
+      "name": "handleV2",
+      "line": 2349,
+      "end": 2353
+    },
+    {
+      "name": "render",
+      "line": 2355,
+      "end": 2355
+    },
+    {
+      "name": "bottomNavigation",
+      "line": 2389,
+      "end": 2393
+    },
+    {
+      "name": "webServices",
+      "line": 2394,
+      "end": 2397
+    },
+    {
+      "name": "routeShortcuts",
+      "line": 2424,
+      "end": 2428
+    },
+    {
+      "name": "webHomeHero",
+      "line": 2430,
+      "end": 2432
+    },
+    {
+      "name": "home",
+      "line": 2433,
+      "end": 2466
+    },
+    {
+      "name": "headerActions",
+      "line": 2472,
+      "end": 2477
+    },
+    {
+      "name": "handleV2",
+      "line": 2479,
+      "end": 2502
+    },
+    {
+      "name": "home",
+      "line": 2591,
+      "end": 2597
+    },
+    {
+      "name": "webFooter",
+      "line": 2598,
+      "end": 2600
+    },
+    {
+      "name": "v2Modal",
+      "line": 2610,
+      "end": 2614
+    },
+    {
+      "name": "about",
+      "line": 2615,
+      "end": 2617
+    },
+    {
+      "name": "handleV2",
+      "line": 2620,
+      "end": 2637
+    },
+    {
+      "name": "render",
+      "line": 2639,
+      "end": 2650
+    },
+    {
+      "name": "progress",
+      "line": 2688,
+      "end": 2695
+    },
+    {
+      "name": "statusLabel",
+      "line": 2697,
+      "end": 2699
+    },
+    {
+      "name": "driverPanel",
+      "line": 2701,
+      "end": 2703
+    }
+  ],
+  "buttons": [
+    {
+      "line": 1658,
+      "args": [
+        "'page'",
+        "'Back'",
+        "'arrow-left'",
+        "'nc-back'"
+      ]
+    },
+    {
+      "line": 1661,
+      "args": [
+        "'edit'",
+        "'Edit'",
+        "'pencil'",
+        "'nc-textbutton'"
+      ]
+    },
+    {
+      "line": 1662,
+      "args": [
+        "'location'",
+        "'Use current location'",
+        "'locate-fixed'",
+        "'nc-locationbutton'"
+      ]
+    },
+    {
+      "line": 1665,
+      "args": [
+        "'service'",
+        "label",
+        "icon",
+        "'nc-service'"
+      ]
+    },
+    {
+      "line": 1667,
+      "args": [
+        "'airport-direction'",
+        "x==='to'?'To airport':'From airport'",
+        "''",
+        "''+(d.airportDirection===x?'active':'')"
+      ]
+    },
+    {
+      "line": 1670,
+      "args": [
+        "'stop-up'",
+        "'Move stop up'",
+        "'arrow-up'",
+        "''"
+      ]
+    },
+    {
+      "line": 1670,
+      "args": [
+        "'stop-remove'",
+        "'Remove stop'",
+        "'x'",
+        "''"
+      ]
+    },
+    {
+      "line": 1673,
+      "args": [
+        "'swap'",
+        "'Swap route'",
+        "'arrow-up-down'",
+        "'nc-textbutton'"
+      ]
+    },
+    {
+      "line": 1674,
+      "args": [
+        "'stop-add'",
+        "'Add stop'",
+        "'plus'",
+        "'nc-textbutton'"
+      ]
+    },
+    {
+      "line": 1680,
+      "args": [
+        "'page'",
+        "'View all'",
+        "'arrow-up-right'",
+        "'nc-textbutton'"
+      ]
+    },
+    {
+      "line": 1684,
+      "args": [
+        "'confirm'",
+        "'Book & Confirm'",
+        "'check'"
+      ]
+    },
+    {
+      "line": 1686,
+      "args": [
+        "'call-driver'",
+        "'Call driver'",
+        "'phone'",
+        "'nc-secondary'"
+      ]
+    },
+    {
+      "line": 1686,
+      "args": [
+        "'share'",
+        "'Share trip'",
+        "'share-2'",
+        "'nc-secondary'"
+      ]
+    },
+    {
+      "line": 1691,
+      "args": [
+        "'payment'",
+        "b.status==='completed'?'Pay balance':'Pay now'",
+        "'credit-card'",
+        "'nc-primary nc-gap'"
+      ]
+    },
+    {
+      "line": 1691,
+      "args": [
+        "'receipt'",
+        "'View receipt'",
+        "'download'",
+        "'nc-secondary nc-gap'"
+      ]
+    },
+    {
+      "line": 1695,
+      "args": [
+        "'page'",
+        "'Book a trip'",
+        "'plus'",
+        "'nc-primary'"
+      ]
+    },
+    {
+      "line": 1696,
+      "args": [
+        "'tab'",
+        "x",
+        "''",
+        "tab===x?'active':''"
+      ]
+    },
+    {
+      "line": 1698,
+      "args": [
+        "'star'",
+        "String(n)+' star'",
+        "'star'",
+        "n<=(rating||b.rating)?'selected':''"
+      ]
+    },
+    {
+      "line": 1698,
+      "args": [
+        "'rating'",
+        "'Submit rating'",
+        "''",
+        "'nc-secondary'"
+      ]
+    },
+    {
+      "line": 1698,
+      "args": [
+        "'request-change'",
+        "'Request a change'",
+        "'calendar-clock'",
+        "'nc-listrow'"
+      ]
+    },
+    {
+      "line": 1703,
+      "args": [
+        "'checkout'",
+        "b.status==='completed'?'Pay balance':'Pay now'",
+        "'lock-keyhole'"
+      ]
+    },
+    {
+      "line": 1705,
+      "args": [
+        "'ticket'",
+        "'Send request'",
+        "'send'",
+        "'nc-secondary'"
+      ]
+    },
+    {
+      "line": 1706,
+      "args": [
+        "'profile-save'",
+        "'Save changes'",
+        "''",
+        "'nc-secondary'"
+      ]
+    },
+    {
+      "line": 1706,
+      "args": [
+        "'login'",
+        "'Sign in'",
+        "'user-round'"
+      ]
+    },
+    {
+      "line": 1706,
+      "args": [
+        "'addresses'",
+        "'Saved addresses'",
+        "'map-pin'",
+        "'nc-listrow'"
+      ]
+    },
+    {
+      "line": 1706,
+      "args": [
+        "'language'",
+        "'Language'",
+        "'languages'",
+        "'nc-listrow'"
+      ]
+    },
+    {
+      "line": 1706,
+      "args": [
+        "'page'",
+        "'Notifications & updates'",
+        "'bell'",
+        "'nc-listrow'"
+      ]
+    },
+    {
+      "line": 1706,
+      "args": [
+        "'page'",
+        "'Help'",
+        "'headphones'",
+        "'nc-listrow'"
+      ]
+    },
+    {
+      "line": 1706,
+      "args": [
+        "'logout'",
+        "'Sign out'",
+        "'log-out'",
+        "'nc-listrow'"
+      ]
+    },
+    {
+      "line": 1706,
+      "args": [
+        "'page'",
+        "'Open test scenarios'",
+        "'flask-conical'",
+        "'nc-secondary'"
+      ]
+    },
+    {
+      "line": 1708,
+      "args": [
+        "'address-use'",
+        "'Select'",
+        "'arrow-up-right'",
+        "'nc-iconbutton'"
+      ]
+    },
+    {
+      "line": 1708,
+      "args": [
+        "'address-delete'",
+        "'Delete'",
+        "'trash-2'",
+        "'nc-iconbutton'"
+      ]
+    },
+    {
+      "line": 1708,
+      "args": [
+        "'address-save'",
+        "'Save changes'",
+        "'plus'",
+        "'nc-secondary'"
+      ]
+    },
+    {
+      "line": 1710,
+      "args": [
+        "'booking'",
+        "'View booking'",
+        "'arrow-right'",
+        "'nc-secondary'"
+      ]
+    },
+    {
+      "line": 1710,
+      "args": [
+        "'demo-assign'",
+        "'Driver accepts now'"
+      ]
+    },
+    {
+      "line": 1710,
+      "args": [
+        "'demo-wait'",
+        "'No driver · before 5 PM'"
+      ]
+    },
+    {
+      "line": 1710,
+      "args": [
+        "'demo-urgent'",
+        "'No driver · at 5 PM'"
+      ]
+    },
+    {
+      "line": 1710,
+      "args": [
+        "'demo-late'",
+        "'Assign after deadline'"
+      ]
+    },
+    {
+      "line": 1710,
+      "args": [
+        "'demo-onway'",
+        "'Driver on the way'"
+      ]
+    },
+    {
+      "line": 1710,
+      "args": [
+        "'demo-arrive'",
+        "'Arrived · show OTP'"
+      ]
+    },
+    {
+      "line": 1710,
+      "args": [
+        "'demo-start'",
+        "'Start sample trip'"
+      ]
+    },
+    {
+      "line": 1710,
+      "args": [
+        "'demo-close300'",
+        "'Full prepaid · 300 km'"
+      ]
+    },
+    {
+      "line": 1710,
+      "args": [
+        "'demo-close310'",
+        "'Full prepaid · 310 km'"
+      ]
+    },
+    {
+      "line": 1710,
+      "args": [
+        "'demo-rental'",
+        "'Rental · extra km & time'"
+      ]
+    },
+    {
+      "line": 1710,
+      "args": [
+        "'demo-pending'",
+        "'Payment pending'"
+      ]
+    },
+    {
+      "line": 1710,
+      "args": [
+        "'demo-resolve'",
+        "'Verify pending payment'"
+      ]
+    },
+    {
+      "line": 1710,
+      "args": [
+        "'demo-company-cancel'",
+        "'NESAM cannot provide cab'",
+        "''",
+        "'danger'"
+      ]
+    },
+    {
+      "line": 1710,
+      "args": [
+        "'demo-refund'",
+        "'Confirm refund received'"
+      ]
+    },
+    {
+      "line": 1710,
+      "args": [
+        "'demo-cancel-charge'",
+        "'Preview ₹300 cancellation'"
+      ]
+    },
+    {
+      "line": 1710,
+      "args": [
+        "'demo-no-show'",
+        "'Verified no-show'"
+      ]
+    },
+    {
+      "line": 1710,
+      "args": [
+        "'demo-waive'",
+        "'Office waives charge'"
+      ]
+    },
+    {
+      "line": 1710,
+      "args": [
+        "'demo-approve-request'",
+        "'Office approves request'"
+      ]
+    },
+    {
+      "line": 1710,
+      "args": [
+        "'demo-decline-request'",
+        "'Office declines request'"
+      ]
+    },
+    {
+      "line": 1710,
+      "args": [
+        "'demo-peak'",
+        "state.peakBlocked?'Enable booking slot':'Block sample peak slot'"
+      ]
+    },
+    {
+      "line": 1710,
+      "args": [
+        "'demo-clock'",
+        "'Use live IST clock'"
+      ]
+    },
+    {
+      "line": 1710,
+      "args": [
+        "'demo-logout'",
+        "'Guest booking flow'"
+      ]
+    },
+    {
+      "line": 1710,
+      "args": [
+        "'reset'",
+        "'Reset all sample data'",
+        "''",
+        "'danger'"
+      ]
+    },
+    {
+      "line": 1711,
+      "args": [
+        "'close-modal'",
+        "'Back'",
+        "''",
+        "'nc-secondary'"
+      ]
+    },
+    {
+      "line": 1711,
+      "args": [
+        "'reset-confirm'",
+        "'Reset sample'",
+        "''",
+        "'nc-primary'"
+      ]
+    },
+    {
+      "line": 1711,
+      "args": [
+        "'close-modal'",
+        "'Close'",
+        "'x'",
+        "'nc-back'"
+      ]
+    },
+    {
+      "line": 1711,
+      "args": [
+        "'send-otp'",
+        "'Continue'",
+        "'arrow-right'"
+      ]
+    },
+    {
+      "line": 1711,
+      "args": [
+        "'verify-otp'",
+        "'Verify OTP'",
+        "'shield-check'"
+      ]
+    },
+    {
+      "line": 1711,
+      "args": [
+        "'resend-otp'",
+        "'Resend OTP'",
+        "''",
+        "'nc-textbutton'"
+      ]
+    },
+    {
+      "line": 1712,
+      "args": [
+        "'location-select'",
+        "a.name+' · '+a.address",
+        "'map-pin'",
+        "'nc-listrow'"
+      ]
+    },
+    {
+      "line": 1712,
+      "args": [
+        "'close-modal'",
+        "'Back'",
+        "'arrow-left'",
+        "'nc-secondary'"
+      ]
+    },
+    {
+      "line": 1713,
+      "args": [
+        "'close-modal'",
+        "'Close'",
+        "'x'",
+        "'nc-back'"
+      ]
+    },
+    {
+      "line": 1713,
+      "args": [
+        "'pay-success'",
+        "'Simulate successful payment'",
+        "'check'"
+      ]
+    },
+    {
+      "line": 1713,
+      "args": [
+        "'pay-pending'",
+        "'Pending response'",
+        "'clock-3'",
+        "'nc-secondary'"
+      ]
+    },
+    {
+      "line": 1713,
+      "args": [
+        "'pay-failed'",
+        "'Failed response'",
+        "'circle-x'",
+        "'nc-secondary'"
+      ]
+    },
+    {
+      "line": 1714,
+      "args": [
+        "'close-modal'",
+        "'Close'",
+        "'x'",
+        "'nc-back'"
+      ]
+    },
+    {
+      "line": 1714,
+      "args": [
+        "'submit-request'",
+        "'Send request'",
+        "'send'"
+      ]
+    },
+    {
+      "line": 1715,
+      "args": [
+        "'copy-share'",
+        "'Copy trip details'",
+        "'copy'"
+      ]
+    },
+    {
+      "line": 1715,
+      "args": [
+        "'close-modal'",
+        "'Close'",
+        "''",
+        "'nc-secondary'"
+      ]
+    },
+    {
+      "line": 1716,
+      "args": [
+        "'close-modal'",
+        "'Close'",
+        "''",
+        "'nc-secondary'"
+      ]
+    },
+    {
+      "line": 1720,
+      "args": [
+        "'demo-clock'",
+        "'Use live time'",
+        "''",
+        "''"
+      ]
+    },
+    {
+      "line": 1732,
+      "args": [
+        "'close-modal'",
+        "'Close'",
+        "'x'",
+        "'nc-back'"
+      ]
+    },
+    {
+      "line": 1732,
+      "args": [
+        "'confirm-time'",
+        "'Confirm time'",
+        "'check'",
+        "'nc-primary'"
+      ]
+    },
+    {
+      "line": 1739,
+      "args": [
+        "'fare-details'",
+        "'View fare'",
+        "'chevron-right'",
+        "'nc-textbutton'"
+      ]
+    },
+    {
+      "line": 1743,
+      "args": [
+        "'close-modal'",
+        "'Close'",
+        "'x'",
+        "'nc-back'"
+      ]
+    },
+    {
+      "line": 1743,
+      "args": [
+        "'submit-request'",
+        "'Confirm & send request'",
+        "'send'"
+      ]
+    },
+    {
+      "line": 1744,
+      "args": [
+        "'payment'",
+        "'Pay now'",
+        "'credit-card'"
+      ]
+    },
+    {
+      "line": 1746,
+      "args": [
+        "'close-modal'",
+        "'Close'",
+        "'x'",
+        "'nc-back'"
+      ]
+    },
+    {
+      "line": 1766,
+      "args": [
+        "'service'",
+        "label",
+        "icon",
+        "''"
+      ]
+    },
+    {
+      "line": 1769,
+      "args": [
+        "'airport-direction'",
+        "x==='to'?'To airport':'From airport'",
+        "''",
+        "d.airportDirection===x?'active':''"
+      ]
+    },
+    {
+      "line": 1775,
+      "args": [
+        "'swap'",
+        "'Swap route'",
+        "'arrow-up-down'",
+        "'nc-textbutton'"
+      ]
+    },
+    {
+      "line": 1776,
+      "args": [
+        "'stop-add'",
+        "'Add stop'",
+        "'plus'",
+        "'nc-textbutton'"
+      ]
+    },
+    {
+      "line": 1784,
+      "args": [
+        "'login'",
+        "'Sign in'",
+        "'user-round'"
+      ]
+    },
+    {
+      "line": 1784,
+      "args": [
+        "'logout'",
+        "'Sign out'",
+        "'log-out'",
+        "'nc-textbutton'"
+      ]
+    },
+    {
+      "line": 1786,
+      "args": [
+        "'mobile-change'",
+        "'Change'",
+        "''",
+        "'nc-textbutton'"
+      ]
+    },
+    {
+      "line": 1786,
+      "args": [
+        "'profile-save'",
+        "'Save changes'",
+        "''",
+        "'nc-primary'"
+      ]
+    },
+    {
+      "line": 1786,
+      "args": [
+        "'login'",
+        "'Sign in'",
+        "'user-round'"
+      ]
+    },
+    {
+      "line": 1789,
+      "args": [
+        "'open'",
+        "'View booking'",
+        "'arrow-right'",
+        "'nc-textbutton'"
+      ]
+    },
+    {
+      "line": 1789,
+      "args": [
+        "'receipt-for'",
+        "'View receipt'",
+        "'download'",
+        "'nc-textbutton'"
+      ]
+    },
+    {
+      "line": 1789,
+      "args": [
+        "'payment-for'",
+        "b.status==='completed'?'Pay balance':'Pay now'",
+        "'credit-card'",
+        "'nc-textbutton'"
+      ]
+    },
+    {
+      "line": 1791,
+      "args": [
+        "'language'",
+        "state.lang==='en'?'English → தமிழ்':'தமிழ் → English'",
+        "''",
+        "'nc-textbutton'"
+      ]
+    },
+    {
+      "line": 1791,
+      "args": [
+        "'page'",
+        "'Open test scenarios'",
+        "'flask-conical'",
+        "'nc-secondary'"
+      ]
+    },
+    {
+      "line": 1792,
+      "args": [
+        "'page'",
+        "'Help & Support'",
+        "'headphones'",
+        "'nc-secondary'"
+      ]
+    },
+    {
+      "line": 1793,
+      "args": [
+        "'service'",
+        "label",
+        "icon",
+        "page==='home'&&state.draft.service===id?'active':''"
+      ]
+    },
+    {
+      "line": 1793,
+      "args": [
+        "'page'",
+        "'Account'",
+        "'user-round'",
+        "accountActive?'active':''"
+      ]
+    },
+    {
+      "line": 1803,
+      "args": [
+        "'fare-details'",
+        "'View fare details'",
+        "''",
+        "'nc-textbutton'"
+      ]
+    },
+    {
+      "line": 1807,
+      "args": [
+        "'confirm'",
+        "bookingPaymentMode==='later'?'Book & Confirm':'Pay '+money(now)+' & Confirm'",
+        "''",
+        "'nc-primary'"
+      ]
+    },
+    {
+      "line": 1965,
+      "args": [
+        "'stop-up'",
+        "'Move stop up'",
+        "'arrow-up'",
+        "''"
+      ]
+    },
+    {
+      "line": 1965,
+      "args": [
+        "'stop-remove'",
+        "'Remove stop'",
+        "'x'",
+        "''"
+      ]
+    },
+    {
+      "line": 1965,
+      "args": [
+        "'choose-location'",
+        "'Choose location'",
+        "'chevron-right'",
+        "'nc-locationbutton'"
+      ]
+    },
+    {
+      "line": 2000,
+      "args": [
+        "'place-current'",
+        "`${t('Use current location')} · ${t('Preview location')}`",
+        "'locate-fixed'",
+        "'nc-place'"
+      ]
+    },
+    {
+      "line": 2001,
+      "args": [
+        "'close-modal'",
+        "'Back'",
+        "'arrow-left'",
+        "'nc-back'"
+      ]
+    },
+    {
+      "line": 2004,
+      "args": [
+        "'review'",
+        "'Continue'",
+        "'arrow-right'",
+        "'nc-primary'"
+      ]
+    },
+    {
+      "line": 2004,
+      "args": [
+        "'flow-back'",
+        "'Back'",
+        "'arrow-left'",
+        "'nc-secondary'"
+      ]
+    },
+    {
+      "line": 2004,
+      "args": [
+        "'dashboard-home'",
+        "'Home'",
+        "'house'",
+        "'nc-secondary'"
+      ]
+    },
+    {
+      "line": 2005,
+      "args": [
+        "'close-modal'",
+        "'Back'",
+        "'arrow-left'",
+        "'nc-secondary'"
+      ]
+    },
+    {
+      "line": 2005,
+      "args": [
+        "'dashboard-home'",
+        "'Home'",
+        "'house'",
+        "'nc-secondary'"
+      ]
+    },
+    {
+      "line": 2006,
+      "args": [
+        "'dashboard-home'",
+        "'Back to Home'",
+        "'house'",
+        "'nc-primary'"
+      ]
+    },
+    {
+      "line": 2006,
+      "args": [
+        "'booking'",
+        "'View Booking'",
+        "'arrow-right'",
+        "'nc-textbutton'"
+      ]
+    },
+    {
+      "line": 2007,
+      "args": [
+        "'flow-back'",
+        "'Back'",
+        "'arrow-left'",
+        "'nc-secondary'"
+      ]
+    },
+    {
+      "line": 2007,
+      "args": [
+        "'dashboard-home'",
+        "'Home'",
+        "'house'",
+        "'nc-secondary'"
+      ]
+    },
+    {
+      "line": 2010,
+      "args": [
+        "'dashboard-home'",
+        "'Back to Home'",
+        "''",
+        "'nc-textbutton'"
+      ]
+    },
+    {
+      "line": 2011,
+      "args": [
+        "'change-search-time'",
+        "'Change time'",
+        "'clock-3'",
+        "'nc-primary'"
+      ]
+    },
+    {
+      "line": 2011,
+      "args": [
+        "'edit'",
+        "'Change search'",
+        "''",
+        "'nc-textbutton'"
+      ]
+    },
+    {
+      "line": 2012,
+      "args": [
+        "'search-retry'",
+        "'Retry'",
+        "'repeat-2'",
+        "'nc-primary'"
+      ]
+    },
+    {
+      "line": 2012,
+      "args": [
+        "'edit'",
+        "'Change search'",
+        "''",
+        "'nc-textbutton'"
+      ]
+    },
+    {
+      "line": 2013,
+      "args": [
+        "'close-modal'",
+        "'Back'",
+        "'arrow-left'",
+        "'nc-back'"
+      ]
+    },
+    {
+      "line": 2013,
+      "args": [
+        "'mobile-verify'",
+        "'Verify & update'",
+        "'shield-check'"
+      ]
+    },
+    {
+      "line": 2013,
+      "args": [
+        "'mobile-resend'",
+        "'Resend OTP'",
+        "''",
+        "'nc-textbutton'"
+      ]
+    },
+    {
+      "line": 2013,
+      "args": [
+        "'mobile-send'",
+        "'Continue'",
+        "'arrow-right'"
+      ]
+    },
+    {
+      "line": 2017,
+      "args": [
+        "'demo-search-normal'",
+        "'Loading → available'"
+      ]
+    },
+    {
+      "line": 2017,
+      "args": [
+        "'demo-search-none'",
+        "'No cabs available'"
+      ]
+    },
+    {
+      "line": 2017,
+      "args": [
+        "'demo-search-offline'",
+        "'Connection error → retry'"
+      ]
+    },
+    {
+      "line": 2154,
+      "args": [
+        "'support-close'",
+        "'Back'",
+        "'arrow-left'",
+        "'nc-back'"
+      ]
+    },
+    {
+      "line": 2155,
+      "args": [
+        "'header-return'",
+        "'Back'",
+        "'arrow-left'",
+        "'nc-back'"
+      ]
+    },
+    {
+      "line": 2155,
+      "args": [
+        "'notifications-read'",
+        "'Mark all as read'",
+        "''",
+        "'nc-textbutton'"
+      ]
+    },
+    {
+      "line": 2156,
+      "args": [
+        "'address-use'",
+        "'Use as pickup'",
+        "'arrow-up-right'",
+        "'nc-textbutton'"
+      ]
+    },
+    {
+      "line": 2156,
+      "args": [
+        "'address-edit'",
+        "'Edit'",
+        "'pencil'",
+        "'nc-textbutton'"
+      ]
+    },
+    {
+      "line": 2156,
+      "args": [
+        "'address-delete'",
+        "'Delete'",
+        "'trash-2'",
+        "'nc-textbutton nc-delete'"
+      ]
+    },
+    {
+      "line": 2156,
+      "args": [
+        "'address-add'",
+        "'Add address'",
+        "'plus'",
+        "'nc-secondary'"
+      ]
+    },
+    {
+      "line": 2157,
+      "args": [
+        "'close-modal'",
+        "'Back'",
+        "'arrow-left'",
+        "'nc-back'"
+      ]
+    },
+    {
+      "line": 2157,
+      "args": [
+        "'address-save'",
+        "'Save address'",
+        "'check'"
+      ]
+    },
+    {
+      "line": 2169,
+      "args": [
+        "'request-cancel'",
+        "'Cancel booking'",
+        "'circle-x'",
+        "'nc-listrow'"
+      ]
+    },
+    {
+      "line": 2171,
+      "args": [
+        "'close-modal'",
+        "'Close'",
+        "'x'",
+        "'nc-back'"
+      ]
+    },
+    {
+      "line": 2171,
+      "args": [
+        "'submit-request'",
+        "'Confirm cancellation'",
+        "'circle-x'"
+      ]
+    },
+    {
+      "line": 2176,
+      "args": [
+        "'due-pay'",
+        "'Pay '+money(balance(b))+' & continue'",
+        "'credit-card'",
+        "'nc-primary'"
+      ]
+    },
+    {
+      "line": 2176,
+      "args": [
+        "'dues-return'",
+        "'Continue booking'",
+        "'arrow-right'",
+        "'nc-primary nc-gap'"
+      ]
+    },
+    {
+      "line": 2176,
+      "args": [
+        "'support-open'",
+        "'Get help'",
+        "'headphones'",
+        "'nc-secondary'"
+      ]
+    },
+    {
+      "line": 2185,
+      "args": [
+        "'payment'",
+        "'Pay '+money(due)",
+        "'credit-card'",
+        "'nc-primary nc-gap'"
+      ]
+    },
+    {
+      "line": 2185,
+      "args": [
+        "'support-open'",
+        "'Get help'",
+        "'headphones'",
+        "'nc-textbutton'"
+      ]
+    },
+    {
+      "line": 2195,
+      "args": [
+        "'dues-return'",
+        "'Back'",
+        "'arrow-left'",
+        "'nc-secondary'"
+      ]
+    },
+    {
+      "line": 2195,
+      "args": [
+        "'dashboard-home'",
+        "'Home'",
+        "'house'",
+        "'nc-secondary'"
+      ]
+    },
+    {
+      "line": 2197,
+      "args": [
+        "'demo-cancel-direct'",
+        "'Before cutoff · direct cancel'"
+      ]
+    },
+    {
+      "line": 2197,
+      "args": [
+        "'demo-cancel-cutoff'",
+        "'At cutoff · call office'"
+      ]
+    },
+    {
+      "line": 2197,
+      "args": [
+        "'demo-arrival-due'",
+        "'1 PM pickup · ₹300 due'"
+      ]
+    },
+    {
+      "line": 2197,
+      "args": [
+        "'demo-arrival-advance'",
+        "'Arrival fee · advance refund'"
+      ]
+    },
+    {
+      "line": 2197,
+      "args": [
+        "'demo-arrival-cash'",
+        "'Office confirms driver cash'"
+      ]
+    },
+    {
+      "line": 2197,
+      "args": [
+        "'demo-fee-review'",
+        "'Office holds charge for review'"
+      ]
+    },
+    {
+      "line": 2197,
+      "args": [
+        "'demo-fee-waive'",
+        "'Office waives cancellation fee'"
+      ]
+    },
+    {
+      "line": 2278,
+      "args": [
+        "'confirmation-sound-toggle'",
+        "on?'On':'Off'",
+        "on?'volume-2':'volume-x'",
+        "'nc-textbutton'"
+      ]
+    },
+    {
+      "line": 2278,
+      "args": [
+        "'confirmation-sound-preview'",
+        "'Preview sound'",
+        "'volume-2'",
+        "'nc-textbutton'"
+      ]
+    },
+    {
+      "line": 2301,
+      "args": [
+        "'service'",
+        "id==='airport'?'Airport':label",
+        "icon",
+        "''"
+      ]
+    },
+    {
+      "line": 2312,
+      "args": [
+        "'dashboard-home'",
+        "'Book a cab'",
+        "'car-front'",
+        "page==='home'?'active':''"
+      ]
+    },
+    {
+      "line": 2312,
+      "args": [
+        "'page'",
+        "'Account'",
+        "'user-round'",
+        "'nc-header-action nc-web-account-button'"
+      ]
+    },
+    {
+      "line": 2313,
+      "args": [
+        "'page'",
+        "'About NESAM'",
+        "''",
+        "'nc-textbutton'"
+      ]
+    },
+    {
+      "line": 2313,
+      "args": [
+        "'page'",
+        "'Help & Support'",
+        "''",
+        "'nc-textbutton'"
+      ]
+    },
+    {
+      "line": 2313,
+      "args": [
+        "'page'",
+        "'Account'",
+        "''",
+        "'nc-textbutton'"
+      ]
+    },
+    {
+      "line": 2314,
+      "args": [
+        "'page'",
+        "label",
+        "icon",
+        "page===id?'active':''"
+      ]
+    },
+    {
+      "line": 2314,
+      "args": [
+        "'dashboard-home'",
+        "'Book a cab'",
+        "'plus'",
+        "'nc-secondary'"
+      ]
+    },
+    {
+      "line": 2315,
+      "args": [
+        "'review'",
+        "'Continue'",
+        "'arrow-right'",
+        "'nc-primary'"
+      ]
+    },
+    {
+      "line": 2315,
+      "args": [
+        "'fare-details'",
+        "'View fare details'",
+        "''",
+        "'nc-textbutton'"
+      ]
+    },
+    {
+      "line": 2316,
+      "args": [
+        "'web-cab-filter'",
+        "label",
+        "''",
+        "webCabFilter===id?'active':''"
+      ]
+    },
+    {
+      "line": 2613,
+      "args": [
+        "'close-modal'",
+        "'Close'",
+        "'x'",
+        "'nc-back'"
+      ]
+    }
+  ],
+  "listeners": [
+    {
+      "line": 1824,
+      "target": "root.addEventListener",
+      "type": "'change'"
+    },
+    {
+      "line": 1829,
+      "target": "root.addEventListener",
+      "type": "'input'"
+    },
+    {
+      "line": 1830,
+      "target": "root.addEventListener",
+      "type": "'change'"
+    },
+    {
+      "line": 1936,
+      "target": "root.addEventListener",
+      "type": "'click'"
+    },
+    {
+      "line": 1937,
+      "target": "root.addEventListener",
+      "type": "'submit'"
+    },
+    {
+      "line": 1944,
+      "target": "root.addEventListener",
+      "type": "'input'"
+    },
+    {
+      "line": 1945,
+      "target": "root.addEventListener",
+      "type": "'change'"
+    },
+    {
+      "line": 1946,
+      "target": "root.addEventListener",
+      "type": "'keydown'"
+    },
+    {
+      "line": 2070,
+      "target": "root.addEventListener",
+      "type": "'input'"
+    },
+    {
+      "line": 2076,
+      "target": "root.addEventListener",
+      "type": "'change'"
+    },
+    {
+      "line": 2139,
+      "target": "root.addEventListener",
+      "type": "'keydown'"
+    },
+    {
+      "line": 2224,
+      "target": "root.addEventListener",
+      "type": "'input'"
+    },
+    {
+      "line": 2281,
+      "target": "root.addEventListener",
+      "type": "'click'"
+    },
+    {
+      "line": 2356,
+      "target": "root.addEventListener",
+      "type": "'change'"
+    },
+    {
+      "line": 2503,
+      "target": "root.addEventListener",
+      "type": "'keydown'"
+    },
+    {
+      "line": 2651,
+      "target": "root.addEventListener",
+      "type": "'keydown'"
+    }
+  ],
+  "syntaxDiagnostics": []
+}

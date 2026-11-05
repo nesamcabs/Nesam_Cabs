@@ -1,0 +1,1342 @@
+
+--- PAGE 1 ---
+DEVELOPER HANDOFF / 01
+Tariff & Operations
+Specification
+Nesam Tours & Travels Private Limited | Version 2.0 | Business decisions through 09 October 2026
+Customer pricing. Partner
+settlement.
+Booking, fleet and access
+controls.
+Consolidated implementation handoff for the Admin panel, Customer app/panel, Driver app and Vendor
+app. This document incorporates the discussion and the two latest confirmed changes; it does not claim
+that the existing application already implements these features.
+LATEST CONFIRMED CHANGES
+1. Fixed-route customer fares are fulfilled through Open Marketplace bidding; accepted bid determines partner
+payout.
+2. Round trips are billed by Indian calendar date, not rolling 24-hour periods.
+Coverage
+Pages
+Rule status, pricing and settlement structure
+2
+Customer / partner tariffs, extras and multi-city
+3-7
+Fixed routes, marketplace and wallet accounting
+8-10
+Trip execution, payment and onboarding
+11-13
+Eligibility, schedules, privacy and documents
+14-17
+Permissions, cancellation and booking communications
+18-20
+Season pricing, acceptance cases and open decisions
+21-23
+Policy research and source references
+24
+LOCAL RENTAL DISTANCE RULE IS NOT FINAL. Hourly amounts and minute-based overtime are recorded.
+The meaning of 50 / 70 / 80 in the kilometre rule is unresolved; no interpretation is approved by this document.
+See pages 5 and 23.
+All fare examples exclude GST and optional extras unless explicitly stated. Tax treatment, expense allocation and
+statutory applicability must be configured separately. Monetary figures are in INR.
+NESAM
+TRAVELS
+PRIVATE LIMITED  |  DEVELOPER SPECIFICATION
+NTT / DEV-SPEC 2.0  |  09 OCT 2026  |  INTERNAL
+1 / 24
+
+
+--- PAGE 2 ---
+DEVELOPER HANDOFF / 02
+Rule status & system structure
+Read this page before implementing calculations or migrating older tariff logic.
+Status
+How the developer must use it
+CONFIRMED
+Explicit owner instruction. Implement as described, subject to the stated tax / legal
+applicability checks.
+PROPOSED
+Recommended implementation behaviour or a working assumption. Keep configurable
+and obtain business sign-off before treating it as a contractual rule.
+PENDING
+Missing or ambiguous commercial decision. Do not invent a value, treat it as zero, or
+silently enable an automatic charge.
+Separate these concepts
+Concept
+Definition
+Service type
+One-way, round trip, local rental, local city drop or same-day multi-city.
+Customer price mode
+Standard tariff or a matched fixed-route / approved seasonal quote.
+Partner payout mode
+NORMAL_RATE or MARKETPLACE_ACCEPTED_AMOUNT.
+Partner
+Independent owner-driver, or Vendor owning the settlement account.
+Vendor employee driver
+Trip execution user. No open-duty, bid or vendor-wallet management access.
+Vehicle identity
+Approved vehicle, model, seat capacity, fuel type and document validity; separate
+from driver identity.
+Priority and supersession
+• Normal duties: the newly supplied fixed partner rates replace the earlier flat 10% commission model.
+Do not apply both.
+• Marketplace duties: accepted partner payout replaces normal per-km / minimum-km payout for that
+duty.
+• Fixed routes: bypass the normal 130-km customer minimum and enter marketplace fulfilment.
+• Crysta one-way customer bata: latest value is ₹600; earlier ₹500 is superseded.
+• Executive access: authorised Executives may suspend and remove/change/reassign duties. Unblock
+remains a higher-authority action.
+Store the customer quote, partner payout policy, tax policy, inclusions, exclusions and terms version on each
+confirmed booking. Later tariff edits must not reprice confirmed bookings without an explicit amendment and
+customer consent.
+NESAM
+TRAVELS
+PRIVATE LIMITED  |  DEVELOPER SPECIFICATION
+NTT / DEV-SPEC 2.0  |  09 OCT 2026  |  INTERNAL
+2 / 24
+
+
+--- PAGE 3 ---
+DEVELOPER HANDOFF / 03
+One-way tariff
+All SUV pricing below includes normal Innova; Innova Crysta has its own rate.
+Category
+Customer / km
+Customer bata
+Partner / km
+Partner bata
+Sedan
+₹15.00
+₹400
+₹13.50
+₹300
+SUV / Innova
+₹20.00
+₹400
+₹18.00
+₹300
+Innova Crysta
+₹26.00
+₹600
+₹24.00
+₹400
+Customer minimum: 130 km per standard one-way booking. Fixed-route bookings are excluded from
+this minimum.
+Normal-trip calculation
+At quote: included KM = max(130, quoted route KM); customer base = included KM × customer rate + customer
+bata.
+At completion: locked customer base + max(0, verified trip KM − quoted included KM) × customer extra-km
+rate.
+Partner base = approved partner billable KM × partner rate + partner bata.
+Working assumption: the same 130-km floor applies to normal partner payout. Confirm its floor and quoted-KM
+treatment before production; neither applies to marketplace duties.
+130-km example
+Customer base
+Partner base*
+Difference
+Sedan
+₹2,350
+₹2,055
+₹295
+SUV / Innova
+₹3,000
+₹2,640
+₹360
+Crysta
+₹3,980
+₹3,520
+₹460
+*Partner examples use the matching-floor assumption above. Differences exclude tax, reimbursements and company
+costs.
+Extra distance must not duplicate the quoted base
+Example: a Sedan is quoted for 300 km. Customer base = 300 × ₹15 + ₹400 = ₹4,900. Verified final
+distance is 310 km. Add only 10 × ₹15 = ₹150; final base = ₹5,050. Partner base on the same billable
+distance is 310 × ₹13.50 + ₹300 = ₹4,485.
+• Persist quoted included KM, final verified KM and extra KM separately. A driver enters total KM; the
+server derives the additional amount.
+• Do not reduce a minimum or guaranteed quoted package merely because actual KM is lower, unless an
+approved refund / amendment rule applies.
+• Recommended: payout follows the booked duty category. A partner voluntarily using a larger eligible
+car does not automatically earn a higher category rate.
+• Use customer pickup-to-drop distance for point-to-point quoting; any different garage-distance rule
+requires explicit disclosure and approval.
+NESAM
+TRAVELS
+PRIVATE LIMITED  |  DEVELOPER SPECIFICATION
+NTT / DEV-SPEC 2.0  |  09 OCT 2026  |  INTERNAL
+3 / 24
+
+
+--- PAGE 4 ---
+DEVELOPER HANDOFF / 04
+Round trip: calendar-day billing
+CONFIRMED UPDATE | Use Asia/Kolkata for all chargeable calendar dates.
+Category
+Customer / km
+Bata / day
+Partner / km
+Partner bata /
+day
+Min km / day
+Sedan
+₹14
+₹400
+₹12.60
+₹300
+250
+SUV / Innova
+₹19
+₹400
+₹17.10
+₹300
+250
+Crysta
+₹22
+₹500
+₹20
+₹400
+300
+The SUV ₹17.10 and Crysta ₹20 entries are interpreted as round-trip partner rates because they were
+supplied in the round-trip block. The original lines repeated the words one-way; retain this interpretation
+for business confirmation.
+Days = Indian end date − Indian pickup date + 1.
+Customer billable KM = max(total actual KM, minimum KM/day × days).
+Customer base = billable KM × customer rate + customer bata/day × days.
+Partner calculation uses its approved KM floor, partner rate and daily partner bata. A matching daily KM floor is
+the working assumption.
+Pickup in India
+Trip ends in India
+Days
+09 Oct, 12:00 noon
+09 Oct, 10:00 pm
+1
+09 Oct, 12:00 noon
+10 Oct, 10:00 am
+2
+09 Oct, 11:00 pm
+10 Oct, 01:00 am
+2
+A midnight boundary changes the calendar date even when fewer than 24 hours have elapsed. Use trip
+dates, not the date/time the booking record was created. Reject an end time before pickup.
+One-day minimum
+Customer base
+Partner base*
+Sedan: 250 km
+₹3,900
+₹3,450
+SUV: 250 km
+₹5,150
+₹4,575
+Crysta: 300 km
+₹7,100
+₹6,400
+Two-day minimums: Sedan 500 km; SUV 500 km; Crysta 600 km. Bata is charged for each billable day. *Partner examples
+assume matching minimums.
+Show dates, billable days, daily minimum KM and daily bata before confirmation. A trip extension into another
+date must show the revised calculation. Any company-caused delay adjustment or waiver must be an audited
+exception, not a hidden change to the calendar-day rule.
+NESAM
+TRAVELS
+PRIVATE LIMITED  |  DEVELOPER SPECIFICATION
+NTT / DEV-SPEC 2.0  |  09 OCT 2026  |  INTERNAL
+4 / 24
+
+
+--- PAGE 5 ---
+DEVELOPER HANDOFF / 05
+Local rental: confirmed time rules
+Distance calculation remains an open decision; do not code a guessed package rule.
+Category
+First hour
+Later / hour
+Min hours
+Min time fare
+Partner / hour
+Sedan
+₹500
+₹350
+4
+₹1,550
+₹250
+SUV
+₹700
+₹450
+5
+₹2,500
+₹400
+Crysta
+₹800
+₹600
+10
+₹6,200
+₹500
+Time fare = minimum time fare + max(0, actual minutes − minimum minutes) × later-hour rate / 60.
+Do not round an extra minute into a full hour. Preserve decimal precision in calculation; round the final monetary
+amount to paise.
+Example
+Calculation
+Time fare
+Sedan: 4 h 30 min
+₹1,550 + 30 × ₹350 / 60
+₹1,725
+SUV: 5 h 20 min
+₹2,500 + 20 × ₹450 / 60
+₹2,650
+Crysta: 10 h 15 min
+₹6,200 + 15 × ₹600 / 60
+₹6,350
+Distance values supplied by the owner
+Category
+First per km wording
+Extra-km value
+Sedan
+50
+₹35
+SUV
+70
+₹45
+Crysta
+80
+₹60
+Confirmed intention: compare the applicable time and distance calculations and select the higher charge;
+do not add the two complete fares. The exact distance component is not confirmed.
+DECISION REQUIRED: Sedan, 4 hours / 50 km
+A. First 1 km costs ₹50; remaining 49 km × ₹35: distance fare ₹1,765; higher fare ₹1,765.
+B. 50 km is included in the ₹1,550 minimum package: fare ₹1,550.
+The owner repeated the wording but did not select A or B. Neither is an approved rule. Apply the eventual
+decision consistently to 70 / 80 for SUV / Crysta.
+Also pending: rental clock start/end event, minute/fractional-distance rounding, partner minimum hours, partner
+overtime basis, partner extra-km payment and handling of distance-driven customer revenue. Do not automatically give
+all extra-KM revenue to the company without a defined partner rule.
+NESAM
+TRAVELS
+PRIVATE LIMITED  |  DEVELOPER SPECIFICATION
+NTT / DEV-SPEC 2.0  |  09 OCT 2026  |  INTERNAL
+5 / 24
+
+
+--- PAGE 6 ---
+DEVELOPER HANDOFF / 06
+Local city drop & add-ons
+Local pickup/drop is a separate city-limits-only product, not hourly rental.
+Category
+Customer 20-km
+base
+Customer extra /
+km
+Partner 20-km base
+Partner extra / km
+Sedan
+₹800
+₹35
+₹500
+₹25
+SUV
+₹1,200
+₹50
+₹700
+₹35
+Crysta
+₹2,000
+₹70
+₹1,200
+₹50
+Customer bases are 20 × ₹40 / ₹60 / ₹100 respectively. Partner amounts ₹500 / ₹700 / ₹1,200 are entire
+minimum packages, not per-km rates.
+Extra KM = max(0, actual KM − 20).
+Customer base fare = minimum package + extra KM × customer extra rate.
+Partner entitlement = partner minimum package + extra KM × partner extra rate.
+30-km Sedan example: customer ₹800 + 10 × ₹35 = ₹1,150; partner ₹500 + 10 × ₹25 = ₹750. Apply
+extra rate only to distance beyond 20 km.
+Add-ons applicable across service types
+Item
+Customer rule
+Control
+Toll / parking
+Actual applicable cost
+Record receipt/evidence and who paid it; avoid double
+collection.
+Carrier
+₹400 when used
+CNG Sedan only is exempt. Other CNG categories are not
+automatically exempt.
+Hills
+₹300
+Disclose before booking; charging unit still pending.
+Pet
+₹500
+Customer declares pet before assignment; record partner
+acceptance.
+State entry / permit
+Applicable configured charge
+Validate vehicle/state applicability and permit coverage.
+PENDING: whether carrier / hills / pet amounts apply once per booking or per day; partner share of each add-on;
+and city boundary definitions. Do not silently add daily duplicates or treat expense reimbursements as company
+margin.
+If a local-drop route falls outside the configured city zone, display a revised service/quote for customer acceptance. Do
+not silently apply a different tariff after confirmation.
+NESAM
+TRAVELS
+PRIVATE LIMITED  |  DEVELOPER SPECIFICATION
+NTT / DEV-SPEC 2.0  |  09 OCT 2026  |  INTERNAL
+6 / 24
+
+
+--- PAGE 7 ---
+DEVELOPER HANDOFF / 07
+State charges & multi-city drop
+State amounts below are owner-supplied commercial inputs, not verified statutory tax rates.
+State
+Sedan
+SUV 6+1
+SUV 7+1
+Puducherry
+₹500
+₹800*
+₹800*
+Andhra Pradesh
+₹450
+₹1,000
+₹2,200
+Karnataka
+₹400
+₹1,200
+PENDING
+Kerala
+₹450
+₹1,000
+₹2,000
+*Owner supplied one SUV rate for Puducherry; applicability to both seat classes needs confirmation. Crysta-specific
+charges, Karnataka 7+1, validity duration and repeat crossings are not supplied.
+• Maintain state, vehicle category, registered seating, effective dates and charge basis. Missing amounts
+are not zero.
+• Check whether a valid permit/tax payment already covers the vehicle and dates. Do not label an
+unnecessary collection as government tax.
+• Separate a statutory amount from any disclosed service fee and allocate reimbursements to the party
+that incurred the cost.
+Point-to-point one-way rules
+Use the booked pickup-to-drop route. Reasonable tea, coffee, food, restroom, rest and emergency stops
+are permitted. Temple, shopping, sightseeing or other destination detours require an approved itinerary
+change.
+Same-day multi-city example
+Chennai → Tiruvannamalai → Trichy
+This is a multi-city drop, not a normal Chennai → Trichy one-way duty. Quote the full via-route and disclose the
+planned halt before confirmation. The owner-specified halt rate is ₹150 per hour.
+Rule
+Required behaviour
+Duration
+This multi-city product is valid for one day only. Overnight use requires a revised product /
+quote.
+Route change
+Customer agrees to revised route, distance, price and expected end time before the
+changed service begins.
+Waiting
+Separate planned destination halt from traffic or ordinary permitted comfort stops. Do not
+bill traffic as a halt.
+Pending rates
+Confirm multi-city base tariff, partner rate/share of waiting and partial-hour rounding.
+NESAM
+TRAVELS
+PRIVATE LIMITED  |  DEVELOPER SPECIFICATION
+NTT / DEV-SPEC 2.0  |  09 OCT 2026  |  INTERNAL
+7 / 24
+
+
+--- PAGE 8 ---
+DEVELOPER HANDOFF / 08
+Fixed route → marketplace
+CONFIRMED UPDATE | Customer fixed fare plus separately accepted marketplace partner payout.
+Sedan direction
+Customer fixed fare
+Chennai Airport → Mahabalipuram
+₹1,800
+Mahabalipuram → Chennai Airport
+₹1,600
+Chennai Airport → Kanchipuram
+₹1,500
+Kanchipuram → Chennai Airport
+₹1,600
+A short fixed route must not trigger the normal 130-km customer calculation. After booking approval, fulfil these
+duties through Open Marketplace. Partner entitlement is the accepted bid/offer, not the normal 130-km payout.
+Admin Route Master fields
+• Origin and destination place IDs / defined map zones; direction; vehicle category and permitted seating.
+• Effective dates, operating time windows, weekday / season overrides, active status and customer fixed
+fare.
+• Explicit inclusions: bata, GST, toll, parking, state charge and permitted route variations. Do not add a
+charge already included.
+• Marketplace start offer, ceiling, posting mode, expiry/cut-off and any authorised payout adjustment.
+Confirmed owner example
+Customer
+Accepted partner payout
+Fare/payout difference
+₹1,800
+₹1,500
+₹300
+If partner collects ₹1,800, settle ₹300 as wallet debit. If company collects ₹1,800, pay partner ₹1,500.
+Treat tax and allocated expenses separately; ₹300 is not automatically net profit.
+• A reverse route is a separate tariff. Configure each vehicle class; never copy Sedan prices into every
+category.
+• Match by route zones/place IDs and direction, not only typed city text. Added destinations require a new
+quote.
+• Disabling a route affects new quotes only. Existing confirmed fixed-route prices remain locked.
+• Use an approved payout ceiling and margin check. Raise an unassigned alert if no suitable bid is
+obtained; do not silently raise customer fare.
+NESAM
+TRAVELS
+PRIVATE LIMITED  |  DEVELOPER SPECIFICATION
+NTT / DEV-SPEC 2.0  |  09 OCT 2026  |  INTERNAL
+8 / 24
+
+
+--- PAGE 9 ---
+DEVELOPER HANDOFF / 09
+Open Marketplace mechanics
+Only marketplace-posted duties expose bidding; normal duties use their normal partner payout policy.
+Setting
+Owner example / rule
+Customer amount
+₹6,000; remains unchanged when the partner offer increases.
+Start / ceiling
+₹4,000 / ₹5,000.
+Increment
+5% of the current offer after each unaccepted 60-minute interval.
+Formula
+next = min(ceiling, round(current × 1.05, 2)).
+Elapsed time
+Partner offer
+Posted
+₹4,000.00
+1 hour
+₹4,200.00
+2 hours
+₹4,410.00
+3 hours
+₹4,630.50
+4 hours
+₹4,862.03
+5 hours
+₹5,000.00 - capped
+Two distinct assignment modes - proposed separation
+Mode
+Assignment semantics
+Accept Current Offer
+First eligible, successful acceptance reserves/assigns the duty atomically;
+timer stops.
+Bid & Admin Assign
+A submitted bid is not an assignment. Admin selects an eligible bid, checks
+vehicle/driver availability, and commits assignment.
+The owner requested both acceptance at a current price and Admin review of bids. Set one explicit mode
+on each posting; do not run two competing assignment paths. Fixed-route duties may use
+Admin-reviewed bidding.
+• Eligible owner-drivers and Vendors can participate. Vendor employee drivers cannot bid. Assignment
+still requires a compatible, approved driver and vehicle.
+• Use server timestamps. Timer retries cannot compound the same hourly increment twice. Stop on
+assignment, cancellation, expiry or configured pickup cut-off.
+• At ceiling without an assignee, alert Admin and keep customer fare fixed. Do not exceed the cap
+automatically.
+Screenshot observation: Partner payout, Post to marketplace and Review bids/assign were visible, along with a
+marketplace error. The screenshot did not verify timer/ceiling behaviour or establish the error cause.
+NESAM
+TRAVELS
+PRIVATE LIMITED  |  DEVELOPER SPECIFICATION
+NTT / DEV-SPEC 2.0  |  09 OCT 2026  |  INTERNAL
+9 / 24
+
+
+--- PAGE 10 ---
+DEVELOPER HANDOFF / 10
+Wallet ledger & settlement
+One settlement model handles company payments, advances and partner cash collection.
+Net partner settlement = total partner entitlement − actual partner collections.
+Positive: company owes a payout. Negative: partner wallet debit / receivable. Zero: no further settlement. Track
+actual receipts, tax and reimbursements separately.
+Normal booking example, before tax and extras
+130-km Sedan
+Amount
+Customer base fare
+₹2,350
+Partner entitlement
+₹2,055
+Customer pays partner in full
+₹295 partner wallet debit
+Customer pays company in full
+₹2,055 payout; no additional ₹295 debit
+Marketplace example: customer ₹6,000; partner ₹4,000
+Company receives
+Partner receives
+Required settlement
+₹0
+₹6,000
+Debit partner wallet ₹2,000
+₹1,000 advance
+₹5,000
+Debit partner wallet ₹1,000
+₹2,000 advance
+₹4,000
+No net payout/debit
+₹6,000
+₹0
+Pay partner ₹4,000
+• For normal duties, use the agreed fixed partner tariff. For marketplace duties, use the accepted payout
+plus approved adjustments. Never add the old 10% deduction.
+• A Vendor trip settles against the Vendor wallet only. Do not also debit the employee driver for the same
+obligation.
+• If customer totals include GST, part of a collection/debit may represent tax, not margin. Do not deduct
+tax twice or treat toll reimbursements as commission.
+• Every entry stores booking ID, partner ID, amount, type, source payment/reference, timestamp and
+idempotency key.
+• Reversals append linked compensating entries. Do not erase original penalty/payment history.
+PENDING: tax-inclusive versus tax-exclusive quote rules, GST scope/rate, expense shares, negative-wallet
+acceptance limits, payout holds and partner floors. Configure these with the business/CA before live automatic
+settlement.
+NESAM
+TRAVELS
+PRIVATE LIMITED  |  DEVELOPER SPECIFICATION
+NTT / DEV-SPEC 2.0  |  09 OCT 2026  |  INTERNAL
+10 / 24
+
+
+--- PAGE 11 ---
+DEVELOPER HANDOFF / 11
+Driver trip execution
+The same Driver app supports independent owner-drivers and assigned Vendor employee drivers.
+Stage
+Driver action / server validation
+Assigned / Upcoming
+Home highlights the next actionable duty. My Trips separates assigned/current and
+future trips; order by pickup time.
+Start for Pickup
+Check assignment, driver/car status, document validity, previous-trip completion and
+start eligibility.
+Live identity capture
+Capture driver selfie and vehicle front photo using the camera. Gallery/file upload is
+not allowed for this step.
+Navigate / Reached
+Offer pickup navigation. Reached is available only with a fresh, valid location inside
+the configured pickup radius.
+Boarding OTP
+Verify the customer boarding OTP on the server before starting the passenger trip.
+Trip in progress
+Record the valid trip state and required distance/time evidence. Recheck effects on
+upcoming assignments.
+Trip end
+Driver enters total KM. Server calculates fare, tax, advance adjustment and
+collectable balance; driver cannot edit tariff.
+Pickup radius: use 3 km as the latest working value from the earlier 5 km / 3 km wording, subject to
+confirmation. Outside the approved radius, reject Reached on the server, not only in the UI. Keep any
+emergency override separate, reasoned and audited.
+• Live captures are tied to booking, driver, vehicle and capture timestamp. A cached old photo must not
+satisfy a new trip check.
+• Reached is a workflow gate, not proof of exact arrival for a customer cancellation charge.
+• Block repeated OTP attempts; do not log the raw OTP or expose it to Vendor users.
+• Show the customer-facing invoice/collection breakdown to the assigned driver as required for collection.
+Vendor employee drivers do not get marketplace or Vendor account controls.
+• Do not allow an upcoming trip to start while the driver/car is still executing an incompatible current trip.
+Distance discrepancy handling, location freshness tolerance, fractional-KM rounding and start-time windows are
+configurable implementation decisions requiring operational approval.
+NESAM
+TRAVELS
+PRIVATE LIMITED  |  DEVELOPER SPECIFICATION
+NTT / DEV-SPEC 2.0  |  09 OCT 2026  |  INTERNAL
+11 / 24
+
+
+--- PAGE 12 ---
+DEVELOPER HANDOFF / 12
+Customer payments & partner payout
+Confirmed payments must drive the collection screen; a button click is not payment evidence.
+Cash / balance to collect = max(0, final customer invoice − confirmed payments already received).
+Show any overpayment separately as a refund/credit case. Record who received every payment so settlement
+stays correct.
+Scenario
+Driver collection screen
+No advance
+Show the entire unpaid final invoice amount.
+₹1,000 confirmed advance
+Deduct exactly ₹1,000 from the final invoice; collect only the balance.
+Customer has fully paid online
+Show ₹0 to collect; create the applicable partner payout.
+Online payment pending / failed
+Do not mark paid based on an unverified client message.
+Customer pays partner directly
+Record receipt against the trip and partner; use it in wallet settlement.
+Four-hour payout requirement
+For completed trips where company holds money due to the partner, create a payout due time of trip
+completed_at + 4 hours. Admin must be able to release the verified partner amount by bank/UPI or
+another approved payout channel.
+• States: Due, Processing, Paid, Failed and On Hold. A Paid state requires transfer confirmation/reference.
+• Validate beneficiary and confirmed customer receipts. If a hold is required, record reason, owner and
+resolution deadline; retain the original overdue timer.
+• Escalate due/failed/overdue payouts. Retry safely without paying twice. Record initiated time and
+confirmed transfer time separately.
+• Email is a notification of payment status, not a payment mechanism. Actual bank credit timing must be
+distinguished from transfer initiation.
+Invoice and reconciliation
+Invoice lines should identify service, dates/days, included and extra KM/time, bata, approved extras, tax,
+total, paid amount and outstanding balance. Keep partner payout/margin lines out of the customer
+invoice.
+Earlier discussion mentioned wallet credits for amounts below ₹300. Its interaction with the four-hour payout
+rule is not final. Define the threshold, withdrawal availability and priority before automating it; a wallet credit
+must not disappear or become company revenue.
+NESAM
+TRAVELS
+PRIVATE LIMITED  |  DEVELOPER SPECIFICATION
+NTT / DEV-SPEC 2.0  |  09 OCT 2026  |  INTERNAL
+12 / 24
+
+
+--- PAGE 13 ---
+DEVELOPER HANDOFF / 13
+Onboarding & temporary IDs
+Keep driver identity, vehicle identity, Vendor membership and settlement ownership separate.
+Account type
+Required workflow
+Owner-driver
+Mobile login/verification → licence, selfie, RC, insurance, FC, permit and vehicle-front
+photo → Admin review → approved driver/vehicle → eligible duties.
+Vendor
+Recommended: request registration in Vendor app; office issues a one-time invitation
+link → business/account details and fleet documentation → Admin approval.
+Vendor employee driver
+Vendor adds driver using the driver’s own verified identity/mobile; approved
+membership and vehicle assignment unlock assigned-trip execution only.
+• Vendors may add multiple vehicles/drivers. New records remain pending until approved; invitation
+expiry and identity verification prevent uncontrolled account creation.
+• Vendors cannot permanently delete, suspend or unblock accounts. They may request removal/changes;
+authorised staff handles the audited action.
+• Prevent duplicate active driver identities/licences and vehicle registrations. Moving a driver between
+Vendors requires an authorised membership change, not a second identity.
+Admin-only emergency, single-trip onboarding
+Allow Admin to create a restricted identity using verified mobile, driving licence, live selfie and verified
+vehicle details such as mParivahan records. Verify all required valid driving/vehicle permissions;
+temporary onboarding is not a waiver of insurance, permit or fitness requirements.
+Restriction
+Implementation
+Scope
+One specified booking only; no open market, bidding or general duty acceptance.
+Lifetime
+Expire on trip completion/cancellation or configured emergency validity limit; revoke
+active sessions. No later login under temporary access.
+Record retention
+Keep Driver ID, Vehicle ID, captures, trip, collection and payout history. Do not delete the
+identity after the trip.
+Later attachment
+Complete full documents and approval against the same IDs. Do not accidentally disable
+an existing permanent account.
+Payments still settle after temporary access expires. Admin/notifications must provide a traceable settlement channel;
+never create an anonymous or unverified payout beneficiary.
+NESAM
+TRAVELS
+PRIVATE LIMITED  |  DEVELOPER SPECIFICATION
+NTT / DEV-SPEC 2.0  |  09 OCT 2026  |  INTERNAL
+13 / 24
+
+
+--- PAGE 14 ---
+DEVELOPER HANDOFF / 14
+Vehicle eligibility & duty release
+Vendor visibility is broad; assignment eligibility remains restricted.
+Attached vehicle
+Sedan
+SUV 6+1
+SUV 7+1
+Innova
+Crysta
+Sedan
+YES
+NO
+NO
+NO
+NO
+Other SUV 6+1
+YES
+YES
+NO
+NO
+NO
+Other SUV 7+1
+YES
+YES
+YES
+NO
+NO
+Innova 6+1
+YES
+YES
+NO
+YES
+NO
+Innova 7+1
+YES
+YES
+YES
+YES
+NO
+Crysta 6+1
+YES
+YES
+NO
+YES
+YES
+Crysta 7+1
+YES
+YES
+YES
+YES
+YES
+• Independent owner-drivers see only duties allowed by their attached approved vehicle.
+• Vendors can see all duty categories, but assignment must still use an approved, compatible
+driver/vehicle with sufficient legal passenger capacity.
+• Vendor employee drivers see only trips assigned to them. No unassigned duty feed, independent
+vehicle attachment, acceptance or bidding controls.
+• Customer consent alone must not permit overloading. A lower-seat vehicle can only be substituted if
+actual passengers/luggage fit, the revised category is accepted and Admin records the change.
+Normal duty release timing from earlier requirements
+After Admin approval
+Audience
+0 to under 2 minutes
+Eligible top-rated independent owner-drivers first.
+At 2 minutes
+Expand to eligible lower-rated independent drivers.
+At 3 minutes
+Add Vendors; prior eligible audiences retain visibility until assignment.
+PENDING: the exact top-rated threshold, minimum review count, new-driver treatment and whether marketplace
+posts share this release delay. Do not give Vendor employee drivers marketplace access merely because a
+Vendor is eligible.
+Normal duty acceptance and marketplace assignment must use the same final eligibility and single-assignment checks.
+Visibility is not authority to assign an incompatible vehicle.
+NESAM
+TRAVELS
+PRIVATE LIMITED  |  DEVELOPER SPECIFICATION
+NTT / DEV-SPEC 2.0  |  09 OCT 2026  |  INTERNAL
+14 / 24
+
+
+--- PAGE 15 ---
+DEVELOPER HANDOFF / 15
+Schedule overlap & dispatch alerts
+A running trip does not block every future assignment.
+Available for next pickup when:
+estimated current-trip end + travel time from its drop to the next pickup + operating buffer ≤ next pickup time.
+Run this check for both the driver and vehicle.
+Expected behaviour
+• Allow an upcoming duty when the resource is expected to finish and reach the next pickup in time. Sort
+upcoming trips by pickup time.
+• Block overlap for either resource, including when a Vendor assigns a different driver but reuses a busy
+car.
+• Recalculate after material delay, route amendment, driver/vehicle change or revised trip end. Raise an
+At Risk alert rather than hiding the conflict.
+• Lock the upcoming trip’s Start for Pickup while an incompatible current trip is active; future reservation
+and current execution are separate states.
+Earlier example
+Outcome
+Chennai → Trichy starts 05:00; journey estimate 5 h
+Estimate trip end, repositioning and buffer; do not use a
+universal fixed availability time.
+Resource is ready for next pickup only at 12:00
+An 11:30 pickup is not eligible.
+Next pickup is 12:30
+May be assigned only if its location/travel time and all
+other checks pass.
+Proposed Admin alert ladder - timings need approval
+Trigger
+Action
+T−8 h / T−4 h
+Flag booking lacking a confirmed partner, driver or vehicle.
+T−2 h / T−1 h
+Escalate unresolved assignment or ETA risk to the responsible
+Executive/TL/Manager.
+Short-notice booking
+Evaluate immediately instead of waiting for a reminder time already passed.
+Delay, cancellation or document
+block
+Alert dispatch immediately; show affected upcoming bookings and reassignment
+options.
+Store acknowledgement, owner, next escalation and resolution. Avoid duplicate notifications for the same unresolved
+event. Buffer values, journey estimates and exact escalation times are configurable, not previously finalised owner
+decisions.
+NESAM
+TRAVELS
+PRIVATE LIMITED  |  DEVELOPER SPECIFICATION
+NTT / DEV-SPEC 2.0  |  09 OCT 2026  |  INTERNAL
+15 / 24
+
+
+--- PAGE 16 ---
+DEVELOPER HANDOFF / 16
+Customer phone privacy & audit
+CONFIRMED: assigned driver only, from 8 hours before scheduled pickup. Vendor always masked.
+Viewer / time
+Allowed view
+Assigned driver, before T−8 h
+Masked number; no raw number in payload.
+Assigned driver, from T−8 h
+Customer number available for the assigned active booking.
+Booking assigned within 8 h of pickup
+Current assigned driver may access immediately after validation.
+Vendor or Vendor staff
+Always masked, including documents and exports.
+Old driver after reassignment
+Revoke access immediately, even if a previous reveal was allowed.
+Cancelled / suspended access
+Deny new reveals; revoke access as applicable.
+The Vendor eye icon must not reveal the number.
+Use it for masked access-history information. Detailed authorised reveal/denial history is visible to Admin. An
+eye icon cannot override the Vendor privacy rule.
+Audit event fields
+Booking ID, actor ID, role, linked Driver/Vendor/staff ID, timestamp, action (reveal / denied attempt),
+device/session reference and reason where applicable. Admin sees total views and distinct viewer IDs.
+Log every authorised staff reveal as well as driver reveals.
+• Enforce access on the server. Masking only the UI is insufficient; raw values must not leak through APIs,
+notifications, email, PDFs, exports or caches.
+• Use individual staff accounts. A shared login cannot identify the actual person who viewed a number.
+• Re-evaluate the T−8 h window when pickup time changes. A previously allowed future-trip access may
+need revocation.
+• Keep audit references to the customer/booking rather than unnecessary copies of raw phone numbers.
+• A logged view is not proof of customer diversion. Investigate misuse separately. A call-relay option may
+be added later.
+PROPOSED: withdraw driver phone access after completion once the operational purpose ends. Define any
+dispute-support exception and audit-retention period before release.
+NESAM
+TRAVELS
+PRIVATE LIMITED  |  DEVELOPER SPECIFICATION
+NTT / DEV-SPEC 2.0  |  09 OCT 2026  |  INTERNAL
+16 / 24
+
+
+--- PAGE 17 ---
+DEVELOPER HANDOFF / 17
+Documents, inactivity & accident holds
+Keep ordinary account access separate from permission to accept or operate trips.
+Condition
+Automatic operational action
+Driver licence expires
+Block that driver from new acceptance/assignment/start.
+Vehicle insurance / FC / permit or other required
+document expires
+Block that vehicle; do not block every vehicle owned by the
+Vendor.
+Future trip beyond document validity
+Reject assignment or require valid renewal covering the trip
+period.
+Renewal uploaded
+Pending verification. Higher-authority approval restores
+operational eligibility.
+Normal document block
+Panel stays accessible for documents, support and wallet; no
+account deletion.
+Expiry dashboard and reminders
+Provide separate Driver and Vehicle expiry lists with document type, expiry date, days remaining, status,
+linked owner/Vendor and affected future bookings. Send the owner-required reminder 20 days before
+expiry. Additional 7/3/1-day reminders are recommended.
+Capture RC and required operational-document validity; add PUC where applicable. Renewal needs
+evidence and review. A TL emergency permission cannot make an expired/unsafe vehicle eligible.
+Regular / occasional / inactive reports
+Report trips completed in the last 30/90 days, last trip, last login, acceptance/completion/cancellation
+metrics and future assignments. Classification thresholds and inactive-block period are configurable and
+still pending.
+• Send warning before inactivity restriction; account for new-driver grace, approved leave and valid
+future assignments.
+• Do not equate low login frequency with licence expiry or delete historical records.
+• Only authorised Manager/Admin can restore access; any delegated TL action is time-scoped and
+audited.
+Accident vehicle workflow
+Place the affected car on operational hold immediately; stop new assignments and identify affected bookings. If
+passengers are on board, manage a safe handover rather than abruptly abandoning the trip. Reactivate only
+after repair/fitness/document verification and higher-authority approval.
+NESAM
+TRAVELS
+PRIVATE LIMITED  |  DEVELOPER SPECIFICATION
+NTT / DEV-SPEC 2.0  |  09 OCT 2026  |  INTERNAL
+17 / 24
+
+
+--- PAGE 18 ---
+DEVELOPER HANDOFF / 18
+Staff permissions & suspensions
+Latest owner instruction expands Executive powers while keeping unblock with higher authority.
+Action
+Executive
+Manager / Admin
+TL
+Driver / Vendor
+Suspend ID; remove / change /
+reassign duty
+Yes, if
+authorised
+Yes
+Delegated scope
+No administrative
+rights
+Unblock / reactivate
+No
+Yes, with validation
+Only explicit
+higher-authority
+delegation
+No
+Permanent block
+No by default
+Yes
+No by default
+No
+Emergency temporary ID
+No
+Admin only
+No by default
+No
+Penalty reversal
+No by default
+Authorised role
+Delegated only
+Can submit dispute
+Model permissions explicitly; role titles alone do not grant powers. Delegation must state who granted it,
+which actions/entities it covers and when it expires. Legal-validity and safety checks remain mandatory.
+Owner-requested conduct policies
+Verified incident
+Requested response
+Diverting a platform customer into an unauthorised direct booking
+One-month suspension. Exact expiry
+convention (calendar month versus 30 days)
+remains to be configured.
+Other substantiated customer complaint / misconduct
+One-week suspension, with reason and case
+history.
+Accident vehicle
+Operational block until ready and verified; see
+page 17.
+• Normal pickup-coordination calls are not customer diversion. A complaint or phone-number view alone
+is not proof of misconduct.
+• Use a case: allegation/evidence → provisional hold if necessary → review → reasoned decision →
+appeal/reversal.
+• Separate Driver, Vendor and Vehicle statuses. Suspend the responsible entity; assess linked future
+bookings explicitly.
+• An active passenger trip requires a safe operational plan. Remove/reassign future duties and notify
+affected parties.
+• Preserve who acted, timestamp, evidence, previous/new state, duration and reason. Do not destroy
+transaction or complaint history.
+NESAM
+TRAVELS
+PRIVATE LIMITED  |  DEVELOPER SPECIFICATION
+NTT / DEV-SPEC 2.0  |  09 OCT 2026  |  INTERNAL
+18 / 24
+
+
+--- PAGE 19 ---
+DEVELOPER HANDOFF / 19
+Cancellation & dispute policy
+Owner-requested amounts are recorded here; statutory applicability and timing parameters remain release gates.
+Event
+Requested charge / action
+Customer cancels after the car actually reaches pickup
+₹300 payable to the driver, subject to
+applicable rules and verified circumstances.
+Partner cancels after holding an accepted duty for 4 hours
+₹500 penalty.
+Partner cancels at the last minute
+₹1,000 penalty; last-minute time window not
+yet approved.
+Reassigned duty is cancelled
+Assess the responsible assignee and event
+history; Admin may waive for a valid reason.
+Valid dispute after deduction
+Linked wallet credit reversing the approved
+amount; retain original debit.
+• Measure holding duration from accepted_at and last-minute timing from scheduled pickup. Do not stack
+₹500 and ₹1,000 for the same cancellation.
+• For Vendor duties, apply the designated partner-liability rule once; do not debit Vendor and employee
+driver for the same event.
+• A customer no-show needs a disclosed grace period, contact attempts and actual arrival evidence. A
+3-km Reached event alone is insufficient.
+• Do not apply ordinary customer-cancellation charges when the provider supplies an unsafe/wrong car or
+cannot fulfil the booked service. Calculate eligible refunds transparently.
+LEGAL APPLICABILITY CHECK [S4-S5]
+MoRTH’s 2025 Aggregator Guidelines specify, within that framework, unjustified driver/passenger cancellation
+penalties of 10% of fare capped at ₹100, and at least 80% fare share in specified driver-owned arrangements.
+Confirm state adoption, licence and service-model applicability before enabling the proposed amounts or payout
+floors. This document does not declare those provisions universally applicable to Nesam.
+Consumer e-commerce rules, where applicable, address cancellation-charge symmetry, explicit consent,
+grievance acknowledgement within 48 hours and redress within one month [S5]. Set a refund timeline
+and case owner; do not copy a competitor’s blanket non-refundable rule.
+Recommended parameters for approval: last-minute window, customer free-cancel window, no-show grace,
+emergency exceptions, cancellation compensation/refund when the company cancels, appeal window and evidence
+requirements.
+NESAM
+TRAVELS
+PRIVATE LIMITED  |  DEVELOPER SPECIFICATION
+NTT / DEV-SPEC 2.0  |  09 OCT 2026  |  INTERNAL
+19 / 24
+
+
+--- PAGE 20 ---
+DEVELOPER HANDOFF / 20
+Manual bookings, IDs & messages
+App and call-centre bookings must use the same pricing, assignment and payment engine.
+Create New Booking in Admin
+Capture customer name/mobile, optional email, source APP/CALL, service/category, seats/passengers,
+pickup/drop/waypoints, Maps place IDs and coordinates, pickup/end date-time, quote, inclusions, add-ons,
+payment status and consent to applicable terms. Permit reviewed map-pin corrections.
+Recommended public booking ID: NTT-2026-000001
+Increment a server-generated unique sequence; use the year in Asia/Kolkata. App and call bookings share the
+sequence and store source separately. Do not reuse cancelled IDs or renumber existing historical bookings.
+Use an internal immutable identifier as well. Concurrent creates must not receive the same public ID.
+Display customer total and partner/payout status to authorised staff; log any manual fare override.
+Role-specific transactional notifications
+Recipient
+Required notifications / limits
+Customer
+Booking confirmation, itinerary amendments, assignment details, pickup updates,
+invoice, payment/cancellation/refund status.
+Assigned driver
+Assignment, pickup reminders, trip changes, collection/payout and document status.
+Number disclosure still obeys the 8-hour rule.
+Vendor
+Own booking/assignment, driver/car updates, wallet/payout and document status.
+Customer phone always masked.
+Admin / operations
+Unassigned/at-risk duty, overlap, document block, bid ceiling, dispute, payout overdue
+and delivery failure.
+Use email where an address exists and app notification/SMS/authorised messaging fallback as configured.
+Retain delivery status and retry safely. Transactional terms consent and marketing consent must be
+separate.
+Customer rating
+After a completed trip, allow one verified 1-5 star rating with optional comments and service feedback.
+Store booking linkage and rating count. Do not create duplicate reviews, automatically suppress low
+ratings, or apply a misconduct penalty solely from a star value.
+Recommended: capture terms/version and affirmative consent at confirmation, including for call-centre
+bookings using a documented consent process. Phone privacy rules also apply to every generated confirmation
+and export.
+NESAM
+TRAVELS
+PRIVATE LIMITED  |  DEVELOPER SPECIFICATION
+NTT / DEV-SPEC 2.0  |  09 OCT 2026  |  INTERNAL
+20 / 24
+
+
+--- PAGE 21 ---
+DEVELOPER HANDOFF / 21
+Season pricing & operating reports
+Use direction-specific demand and supply, with Admin control over published prices.
+• Admin configures festival/date/time window, direction, category/seating, eligible routes, regular rate or
+discount, validity and an approved margin floor.
+• Owner’s intent: keep regular tariff on high-demand directions and allow lower prices where movement
+is weak. No automatic surge multiplier has been approved.
+• Recommended price precedence: date/time-specific route offer → regular fixed route → applicable
+seasonal normal tariff → standard tariff. Do not apply two discounts/surcharges unintentionally.
+• Freeze the confirmed quote. Rate changes affect new quotes only; itinerary amendments require an
+explicit revised quote.
+Daily report
+Decision supported
+Searches → quotes → bookings
+Conversion by route, direction, category and date.
+Available eligible cars / unassigned duties
+Where supply is insufficient or returning empty.
+Acceptance delay / bid ceiling events
+Whether partner offers or dispatch timing need adjustment.
+Cancellation / completion / complaints
+Service quality and operational risk.
+Customer revenue / partner entitlement / tax /
+expenses
+True contribution after allocation; separate cash collection
+from earned margin.
+Driver activity / expiry / payout ageing
+Fleet availability and exceptions needing an owner.
+Competitor comparison should use like-for-like route, date, car and fare inclusions from manually verified
+quotes or authorised data/API sources. Search results alone do not provide reliable live final fares for
+every competitor. Show source time and let Admin approve price suggestions.
+Cross-cutting implementation controls
+• Store money as integer paise or exact decimal; never binary floating-point for settlement. Use explicit
+rounding policies.
+• Keep UTC timestamps internally and derive Indian calendar dates deliberately. Server clocks govern
+expiry, bids and contact release.
+• Version tariffs, terms, permissions and quote snapshots; keep append-only financial entries and audited
+state changes.
+• Deduplicate payment, bid, timer, notification and payout events. Enforce resource/assignment changes
+atomically.
+NESAM
+TRAVELS
+PRIVATE LIMITED  |  DEVELOPER SPECIFICATION
+NTT / DEV-SPEC 2.0  |  09 OCT 2026  |  INTERNAL
+21 / 24
+
+
+--- PAGE 22 ---
+DEVELOPER HANDOFF / 22
+Acceptance cases for development
+Expected outcomes below are specification checks, not a claim that software tests have already passed.
+Case
+Expected outcome
+Normal Sedan, 130 km
+Customer base ₹2,350; partner ₹2,055 under the matching-floor
+assumption; no extra 10% deduction.
+Normal Crysta, 130 km
+Customer base ₹3,980 including ₹600 bata.
+Round Sedan, 09 Oct noon → 10 Oct 10 am;
+actual 400 km
+2 days; customer billable 500 km; base ₹7,800. Partner ₹6,900 under
+matching floors.
+Sedan rental, 4 h 30 min
+Time component ₹1,725. Final distance comparison is gated until the KM
+rule is confirmed.
+City Sedan, 30 km
+Customer ₹1,150; partner ₹750, before extras/tax.
+Fixed route ₹1,800; accepted bid ₹1,500
+No 130-km floor; partner cash collection ₹1,800 means debit ₹300. Full
+company receipt means payout ₹1,500.
+Bid escalation ₹4,000 / ₹5,000 ceiling
+₹4,200 → ₹4,410 → ₹4,630.50 → ₹4,862.03 → ₹5,000; duplicate timer
+event changes nothing.
+₹6,000 trip; ₹4,000 partner; ₹1,000
+company advance
+Partner collects ₹5,000; wallet debit ₹1,000, not ₹2,000.
+₹6,000 fully paid to company; ₹4,000
+partner
+Driver collectable ₹0; payout ₹4,000; no second deduction.
+Two partners accept concurrently
+Exactly one valid assignment; losing request does not debit or reserve the
+duty.
+Vendor / driver phone access
+Vendor always masked. Driver at T−8 h may reveal only if assigned;
+former assignee denied.
+Expired vehicle / overlapping future
+booking
+Reject invalid assignment/start; unaffected Vendor cars remain available;
+alert dispatch.
+Penalty reversal delivered twice
+Exactly one linked credit. Original debit and reason remain visible.
+Temporary ID trip completes
+Sessions revoked; later login denied; trip and unpaid settlement records
+retained.
+Also verify live-camera enforcement, OTP validation, under-3-km Reached gate once approved, route deactivation
+fallback, midnight boundaries, customer advances/refunds, Executive suspend versus higher-authority unblock, and
+currency rounding.
+NESAM
+TRAVELS
+PRIVATE LIMITED  |  DEVELOPER SPECIFICATION
+NTT / DEV-SPEC 2.0  |  09 OCT 2026  |  INTERNAL
+22 / 24
+
+
+--- PAGE 23 ---
+DEVELOPER HANDOFF / 23
+Open decision register
+Build confirmed modules now; keep the following decisions explicit before their automatic charging/access paths go live.
+ID
+Decision still needed
+Effect
+D01
+Rental 50 / 70 / 80: first-km prices or included KM?
+Blocks final rental distance calculation.
+D02
+Rental partner minimum hours, per-minute overtime, extra-KM
+payment; clock start/end.
+Blocks final rental settlement.
+D03
+Confirm normal partner minimum/quoted KM treatment and
+round-trip SUV/Crysta rate interpretation.
+Locks normal partner tariff floor.
+D04
+GST treatment/rate, fare inclusion, invoice ownership and tax
+allocation.
+Blocks production tax/settlement
+configuration.
+D05
+Carrier/hills/pet charge unit and partner share; waiting and
+reimbursement allocation.
+Prevents duplicate / misallocated
+extras.
+D06
+Missing state/Crysta rates, permit validity and Puducherry seating
+applicability.
+Missing amount must not default to
+zero.
+D07
+Multi-city base/partner rates and partial-hour halt rule.
+Controls multi-city automatic quote.
+D08
+Fixed-route inclusions, map zones and marketplace cut-off.
+Defines a valid route match and quote.
+D09
+Per-post accept mode versus Admin-review mode; marketplace
+release timing.
+Prevents competing assignment paths.
+D10
+Cancellation limits/applicability, time windows, no-show grace and
+refund schedule.
+Financial-policy publication gate.
+D11
+Rating threshold/new-driver handling, 3-km radius, buffers and
+alert times.
+Dispatch configuration.
+D12
+Inactivity thresholds, grace periods and emergency delegation
+scope.
+Account restriction configuration.
+D13
+One-month suspension expiry convention and dispute/appeal
+process.
+Consistent conduct enforcement.
+D14
+Under-₹300 wallet credit versus 4-hour payout; negative wallet
+and hold rules.
+Withdrawal and reconciliation policy.
+D15
+Local city boundaries, minute/KM rounding and manual-override
+permissions.
+Consistent quoting and evidence.
+Already resolved: fixed routes use marketplace accepted payout; round trips use calendar dates. Do not
+reopen those decisions or silently revert to the older 130-km / 24-hour interpretations.
+NESAM
+TRAVELS
+PRIVATE LIMITED  |  DEVELOPER SPECIFICATION
+NTT / DEV-SPEC 2.0  |  09 OCT 2026  |  INTERNAL
+23 / 24
+
+
+--- PAGE 24 ---
+DEVELOPER HANDOFF / 24
+Policy research & references
+Sources reviewed 08-09 October 2026. Competitor terms inform clarity, not automatic adoption of their contracts.
+Source
+Relevant finding and application
+S1 - Savaari
+Published cancellation/refund terms demonstrate why the applicable booking policy
+and its version must be shown. Do not assume every service/page has the same
+window.
+S2 - MakeMyTrip
+Use booking-specific cancellation rules, disclose charges and send transaction
+updates. Do not copy broad liability waivers into Nesam terms.
+S3 - Gozo
+Disclose fare inclusions/exclusions and booking-specific cancellation conditions;
+record customer agreement to itinerary changes.
+S4 - MoRTH 2025 framework
+Clauses 17.4 and 18.1-18.2 affect certain driver-owned payout shares and
+cancellation amounts if the framework applies. Obtain a service/state-specific
+applicability decision.
+S5 - Consumer e-commerce rules
+Relevant controls include explicit consent, cancellation-charge symmetry and
+grievance handling where applicable.
+Source links
+S1. Savaari - Terms and Conditions
+https://www.savaari.com/term-conditions
+S2. MakeMyTrip - User Agreement / Cabs
+https://www.makemytrip.com/legal/in/eng/user_agreement.html
+S3. Gozo - Terms and Conditions
+https://www.gozocabs.com/terms
+S4. MoRTH - Motor Vehicle Aggregator Guidelines 2025 (official publication)
+https://morth.nic.in/sites/default/files/circulars_document/MV-Aggregators-Guidelines-2025%20-%20English%20and%20H
+indi.pdf
+S4a. Copy of the same MoRTH government document used for clause verification
+https://avantiscdnprodstorage.blob.core.windows.net/legalupdatedocs/44140/Motor-Vehicles-Aggregator-Guidelines-2025
+-July022025.pdf
+S5. Department of Consumer Affairs - Consumer Protection (E-Commerce) Rules, 2020
+https://consumeraffairs.gov.in/public/upload/files/E%20commerce%20rules_1732703966.pdf
+This is a development specification and business-policy draft, not a legal approval or certification of the present
+application. Owner-supplied tariffs are recorded exactly where confirmed. Resolve the listed tax/legal
+applicability and commercial gaps before enabling the affected live charges.
+Prepared for Nesam Tours & Travels Private Limited. All source summaries are paraphrased; no competitor terms are
+incorporated wholesale.
+NESAM
+TRAVELS
+PRIVATE LIMITED  |  DEVELOPER SPECIFICATION
+NTT / DEV-SPEC 2.0  |  09 OCT 2026  |  INTERNAL
+24 / 24

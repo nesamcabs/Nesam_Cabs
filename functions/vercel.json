@@ -1,0 +1,56 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "npm install",
+  "buildCommand": "npm run build",
+  "functions": {
+    "api/call/[name].js": {
+      "maxDuration": 60,
+      "memory": 1024,
+      "includeFiles": "lib/**"
+    },
+    "api/whatsapp-webhook.js": {
+      "maxDuration": 30,
+      "includeFiles": "lib/**"
+    },
+    "api/cron/*.js": {
+      "maxDuration": 60,
+      "includeFiles": "lib/**"
+    },
+    "api/razorpay-webhook.js": {
+      "maxDuration": 30,
+      "includeFiles": "lib/**"
+    }
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000; includeSubDomains; preload"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "POST, GET, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Authorization, Content-Type, X-Client-Request-Id, x-client-request-id"
+        },
+        {
+          "key": "Access-Control-Max-Age",
+          "value": "600"
+        }
+      ]
+    }
+  ]
+}

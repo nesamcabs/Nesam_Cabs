@@ -1,0 +1,167 @@
+﻿file,origin,width,height,alpha,prompt_id
+heroes/hero-desktop.png,newly generated,1774,887,False,hero-desktop
+heroes/hero-mobile.png,newly generated,1122,1402,False,hero-mobile
+heroes/hero-centered.png,newly generated,2048,768,False,hero-centered
+destinations/route-chennai-pondicherry.png,newly generated,1536,1024,False,route-chennai-pondicherry
+destinations/route-coimbatore-ooty.png,newly generated,1536,1024,False,route-coimbatore-ooty
+heroes/hero-family.png,newly generated,1774,887,False,hero-family
+destinations/route-chennai-bangalore.png,newly generated,1536,1024,False,route-chennai-bangalore
+destinations/route-madurai-rameshwaram.png,newly generated,1536,1024,False,route-madurai-rameshwaram
+destinations/destination-chennai.png,newly generated,1536,1024,False,destination-chennai
+destinations/destination-thanjavur.png,newly generated,1536,1024,False,destination-thanjavur
+destinations/destination-madurai.png,newly generated,1536,1024,False,destination-madurai
+destinations/destination-coimbatore.png,newly generated,1536,1024,False,destination-coimbatore
+destinations/destination-kodaikanal.png,newly generated,1536,1024,False,destination-kodaikanal
+destinations/destination-trichy.png,newly generated,1536,1024,False,destination-trichy
+photography/service-one-way.png,newly generated,1448,1086,False,service-one-way
+photography/service-round-trip.png,newly generated,1448,1086,False,service-round-trip
+photography/service-family.png,newly generated,1448,1086,False,service-family
+photography/service-pilgrimage.png,newly generated,1448,1086,False,service-pilgrimage
+photography/service-airport.png,newly generated,1448,1086,False,service-airport
+photography/service-corporate.png,newly generated,1448,1086,False,service-corporate
+photography/trust-driver.png,newly generated,1448,1086,False,trust-driver
+photography/service-group.png,newly generated,1448,1086,False,service-group
+photography/trust-interior.png,newly generated,1448,1086,False,trust-interior
+photography/trust-support.png,newly generated,1448,1086,False,trust-support
+photography/about-fleet.png,newly generated,1448,1086,False,about-fleet
+backgrounds/offer-background.png,newly generated,1672,941,False,offer-background
+backgrounds/app-promotion-background.png,newly generated,1448,1086,False,app-promotion-background
+backgrounds/social-cover.png,newly generated,1730,909,False,social-cover
+features/feature-transparent-fare.png,newly generated,1254,1254,True,feature-transparent-fare
+features/feature-chauffeur.png,newly generated,1254,1254,True,feature-chauffeur
+features/feature-clean-ac.png,newly generated,1254,1254,True,feature-clean-ac
+features/feature-support.png,newly generated,1254,1254,True,feature-support
+vehicles/hatchback.png,existing collection,1536,1024,True,
+vehicles/minibus.png,existing collection,1536,1024,True,
+vehicles/mpv.png,existing collection,1536,1024,True,
+vehicles/passenger-van.png,existing collection,1536,1024,True,
+vehicles/premium-sedan.png,existing collection,1672,941,True,
+vehicles/sedan.png,existing collection,1536,1024,True,
+vehicles/suv.png,existing collection,1536,1024,True,
+vehicles/tourist-coach.png,existing collection,1672,941,True,
+illustrations/account-review.png,existing collection,1254,1254,True,
+illustrations/book-journey.png,existing collection,1254,1254,True,
+illustrations/booking-confirmed.png,existing collection,1254,1254,True,
+illustrations/choose-vehicle.png,existing collection,1254,1254,True,
+illustrations/driver-arriving.png,existing collection,1254,1254,True,
+illustrations/error.png,existing collection,1254,1254,True,
+illustrations/journey-progress.png,existing collection,1254,1254,True,
+illustrations/no-notifications.png,existing collection,1254,1254,True,
+illustrations/no-offers.png,existing collection,1254,1254,True,
+illustrations/no-payments.png,existing collection,1254,1254,True,
+illustrations/no-saved-places.png,existing collection,1254,1254,True,
+illustrations/no-trips.png,existing collection,1254,1254,True,
+illustrations/offline.png,existing collection,1254,1254,True,
+illustrations/phone-verification.png,existing collection,1254,1254,True,
+illustrations/profile-setup.png,existing collection,1254,1254,True,
+illustrations/support.png,existing collection,1254,1254,True,
+illustrations/trip-completed.png,existing collection,1254,1254,True,
+illustrations/welcome.png,existing collection,1254,1254,True,
+icons/customer/air-conditioning.svg,existing vector collection,24,24,,
+icons/customer/cancellation.svg,existing vector collection,24,24,,
+icons/customer/favourite.svg,existing vector collection,24,24,,
+icons/customer/local-rental.svg,existing vector collection,24,24,,
+icons/customer/luggage.svg,existing vector collection,24,24,,
+icons/customer/one-way.svg,existing vector collection,24,24,,
+icons/customer/outstation.svg,existing vector collection,24,24,,
+icons/customer/round-trip.svg,existing vector collection,24,24,,
+icons/customer/tour-package.svg,existing vector collection,24,24,,
+icons/customer/trip-tracking.svg,existing vector collection,24,24,,
+icons/customer/vehicle-seats.svg,existing vector collection,24,24,,
+icons/driver/accept-trip.svg,existing vector collection,24,24,,
+icons/driver/available-trip.svg,existing vector collection,24,24,,
+icons/driver/boarding-verification.svg,existing vector collection,24,24,,
+icons/driver/driving-licence.svg,existing vector collection,24,24,,
+icons/driver/duty-status.svg,existing vector collection,24,24,,
+icons/driver/front-vehicle-photo.svg,existing vector collection,24,24,,
+icons/driver/fuel.svg,existing vector collection,24,24,,
+icons/driver/insurance.svg,existing vector collection,24,24,,
+icons/driver/interior-vehicle-photo.svg,existing vector collection,24,24,,
+icons/driver/payout.svg,existing vector collection,24,24,,
+icons/driver/reached-pickup.svg,existing vector collection,24,24,,
+icons/driver/rear-vehicle-photo.svg,existing vector collection,24,24,,
+icons/driver/toll.svg,existing vector collection,24,24,,
+icons/driver/trip-completed.svg,existing vector collection,24,24,,
+icons/driver/trip-started.svg,existing vector collection,24,24,,
+icons/driver/vehicle-inspection.svg,existing vector collection,24,24,,
+icons/driver/vehicle-registration.svg,existing vector collection,24,24,,
+icons/shared/add.svg,existing vector collection,24,24,,
+icons/shared/bank-transfer.svg,existing vector collection,24,24,,
+icons/shared/booking.svg,existing vector collection,24,24,,
+icons/shared/calendar.svg,existing vector collection,24,24,,
+icons/shared/camera.svg,existing vector collection,24,24,,
+icons/shared/car.svg,existing vector collection,24,24,,
+icons/shared/chat.svg,existing vector collection,24,24,,
+icons/shared/check.svg,existing vector collection,24,24,,
+icons/shared/chevron-down.svg,existing vector collection,24,24,,
+icons/shared/chevron-left.svg,existing vector collection,24,24,,
+icons/shared/chevron-right.svg,existing vector collection,24,24,,
+icons/shared/chevron-up.svg,existing vector collection,24,24,,
+icons/shared/clock.svg,existing vector collection,24,24,,
+icons/shared/close.svg,existing vector collection,24,24,,
+icons/shared/collapse.svg,existing vector collection,24,24,,
+icons/shared/current-location.svg,existing vector collection,24,24,,
+icons/shared/destination.svg,existing vector collection,24,24,,
+icons/shared/document-upload.svg,existing vector collection,24,24,,
+icons/shared/document.svg,existing vector collection,24,24,,
+icons/shared/download.svg,existing vector collection,24,24,,
+icons/shared/driver.svg,existing vector collection,24,24,,
+icons/shared/earnings.svg,existing vector collection,24,24,,
+icons/shared/edit.svg,existing vector collection,24,24,,
+icons/shared/email.svg,existing vector collection,24,24,,
+icons/shared/emergency.svg,existing vector collection,24,24,,
+icons/shared/error.svg,existing vector collection,24,24,,
+icons/shared/expand.svg,existing vector collection,24,24,,
+icons/shared/external-link.svg,existing vector collection,24,24,,
+icons/shared/filter.svg,existing vector collection,24,24,,
+icons/shared/fleet.svg,existing vector collection,24,24,,
+icons/shared/gallery.svg,existing vector collection,24,24,,
+icons/shared/help.svg,existing vector collection,24,24,,
+icons/shared/home.svg,existing vector collection,24,24,,
+icons/shared/information.svg,existing vector collection,24,24,,
+icons/shared/location-pin.svg,existing vector collection,24,24,,
+icons/shared/lock.svg,existing vector collection,24,24,,
+icons/shared/logout.svg,existing vector collection,24,24,,
+icons/shared/more-options.svg,existing vector collection,24,24,,
+icons/shared/navigation.svg,existing vector collection,24,24,,
+icons/shared/notifications.svg,existing vector collection,24,24,,
+icons/shared/offers.svg,existing vector collection,24,24,,
+icons/shared/offline.svg,existing vector collection,24,24,,
+icons/shared/online.svg,existing vector collection,24,24,,
+icons/shared/otp-security.svg,existing vector collection,24,24,,
+icons/shared/passengers.svg,existing vector collection,24,24,,
+icons/shared/payment-card.svg,existing vector collection,24,24,,
+icons/shared/phone.svg,existing vector collection,24,24,,
+icons/shared/pickup.svg,existing vector collection,24,24,,
+icons/shared/profile.svg,existing vector collection,24,24,,
+icons/shared/rating.svg,existing vector collection,24,24,,
+icons/shared/receipt.svg,existing vector collection,24,24,,
+icons/shared/refresh.svg,existing vector collection,24,24,,
+icons/shared/remove.svg,existing vector collection,24,24,,
+icons/shared/route.svg,existing vector collection,24,24,,
+icons/shared/saved-place.svg,existing vector collection,24,24,,
+icons/shared/search.svg,existing vector collection,24,24,,
+icons/shared/settings.svg,existing vector collection,24,24,,
+icons/shared/share.svg,existing vector collection,24,24,,
+icons/shared/sort.svg,existing vector collection,24,24,,
+icons/shared/success.svg,existing vector collection,24,24,,
+icons/shared/support.svg,existing vector collection,24,24,,
+icons/shared/trip-history.svg,existing vector collection,24,24,,
+icons/shared/verified.svg,existing vector collection,24,24,,
+icons/shared/wallet.svg,existing vector collection,24,24,,
+icons/shared/warning.svg,existing vector collection,24,24,,
+icons/vendor/add-vehicle.svg,existing vector collection,24,24,,
+icons/vendor/assign-driver.svg,existing vector collection,24,24,,
+icons/vendor/business-profile.svg,existing vector collection,24,24,,
+icons/vendor/commission.svg,existing vector collection,24,24,,
+icons/vendor/document-expiry.svg,existing vector collection,24,24,,
+icons/vendor/driver-invitation.svg,existing vector collection,24,24,,
+icons/vendor/driver-management.svg,existing vector collection,24,24,,
+icons/vendor/fleet-overview.svg,existing vector collection,24,24,,
+icons/vendor/maintenance.svg,existing vector collection,24,24,,
+icons/vendor/marketplace-bid.svg,existing vector collection,24,24,,
+icons/vendor/settlement.svg,existing vector collection,24,24,,
+icons/vendor/team.svg,existing vector collection,24,24,,
+icons/vendor/vehicle-availability.svg,existing vector collection,24,24,,
+brand/original-logo.png,original supplied logo,1024,1024,False,
+backgrounds/subtle-route.svg,new authored vector,2400,900,False,B04

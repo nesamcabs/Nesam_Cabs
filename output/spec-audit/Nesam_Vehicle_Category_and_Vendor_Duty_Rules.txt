@@ -1,0 +1,202 @@
+
+--- PAGE 1 ---
+NESAM
+TRAVELS
+NESAM-ADD-001  |  v1.0
+08 OCTOBER 2026
+Nesam Tours & Travels Pvt Ltd | Vehicle matching addendum
+01 / 03
+01 / DEVELOPER ADDENDUM - LATEST BUSINESS INSTRUCTIONS
+Vehicle category
+& duty matching
+Customer categories: Sedan, SUV 6+1, SUV 7+1, Innova, Innova Crysta. This document records the revised
+vehicle matrix and the confirmed Vendor visibility rule.
+Confirmed: Vendors see duties from every category
+The Vendor Open Duties list must not be filtered by the types or seating capacity of vehicles currently
+attached to that Vendor. A Vendor may accept any category of open duty released to Vendors.
+Owner Driver matching matrix
+Use this table for Owner Driver duty visibility/acceptance and for the vehicle selected during Vendor assignment. Do not use it to
+filter the Vendor Open Duties list.
+Attached vehicle
+ Sedan
+ duty
+ SUV 6+1
+ duty
+ SUV 7+1
+ duty
+ Innova
+ duty
+ Innova Crysta
+ duty
+Sedan
+ YES
+ NO
+ NO
+ NO
+ NO
+Other SUV - 6+1
+ YES
+ YES
+ NO
+ NO
+ NO
+Other SUV - 7+1
+ YES
+ YES
+ YES
+ NO
+ NO
+Innova - 6+1
+ YES
+ YES
+ NO
+ YES
+ NO
+Innova - 7+1
+ YES
+ YES
+ YES
+ YES
+ NO
+Innova Crysta - 6+1
+ YES
+ YES
+ NO
+ YES
+ YES
+Innova Crysta - 7+1
+ YES
+ YES
+ YES
+ YES
+ YES
+YES = category match, subject to approval, availability and capacity. NO = no automatic match. "Other SUV" excludes Innova and
+Innova Crysta. Seating figures refer to the Admin-verified vehicle configuration.
+Capacity is a separate requirement
+6+1 = 6 passengers + driver; 7+1 = 7 passengers + driver. Store passenger capacity separately from the
+model. SUV 7+1 requires at least seven approved passenger seats even if fewer passengers are travelling. A 6+1
+vehicle cannot automatically take that duty.
+For Innova and Crysta bookings, capture the passenger count and required passenger seats. A model match
+never overrides insufficient capacity. A Crysta may fulfil an Innova booking; a normal Innova cannot fulfil a
+Crysta booking.
+Scope: apply these matching rules within the existing approval, dispatch-release timing and open-booking status rules. This is a
+focused addendum to the earlier application specification.
+
+
+--- PAGE 2 ---
+NESAM
+TRAVELS
+NESAM-ADD-001  |  v1.0
+08 OCTOBER 2026
+Nesam Tours & Travels Pvt Ltd | Vehicle matching addendum
+02 / 03
+02 / ROLE BEHAVIOUR & BOOKING CHANGES
+Vendor flow & assignment
+Keep seeing a duty, accepting a duty and assigning a vehicle as separate checks.
+Stage
+Required behaviour
+Owner Driver: list / accept
+Filter by the approved attached vehicle using the matrix on page 1, then apply capacity and
+the existing eligibility checks. Recheck the current vehicle when the driver accepts.
+Vendor: list
+Show all five duty categories available to Vendors, even when the Vendor currently has no
+vehicle matching a particular duty. Do not hide that duty because of the fleet composition.
+Vendor: accept
+Allow acceptance of any category of open duty under the existing claim rules. A missing
+matching vehicle does not itself block the claim. Reserve the accepted duty to that Vendor.
+Vendor: assign
+Only allow an approved, available Driver and an approved, available Vehicle. The selected
+vehicle must pass the page 1 matrix and the booking capacity check. Revalidate vehicle
+swaps/reassignments.
+No matching approved
+vehicle
+Keep the duty accepted but awaiting assignment. The Vendor may add a suitable vehicle
+for Admin approval or contact Admin. Do not silently assign an incompatible vehicle.
+Vendor employee Driver
+Receives only the trip assigned to that driver. "Vendors see all categories" does not give
+employee Drivers access to Open Duties.
+Customer-approved alternative vehicle
+1. Call centre / Admin checks the actual passenger count, required space and the available vehicle, then obtains
+the customer's agreement to the alternative category/model.
+2. Admin records the original and revised booking requirement, customer consent, reason, operator and time.
+Any fare change must be agreed and recorded before assignment.
+3. Re-run matching against the revised booking. For example, a seven-seat SUV booking for five passengers
+may be changed to SUV 6+1 with consent. Seven passengers must not be placed in six passenger seats.
+No direct bypass of the matching rules
+Forwarding a duty is not permission to assign a smaller or different-category vehicle. Update the approved
+booking requirement first, then apply the same matching and capacity checks.
+Fare handling - recommended implementation
+Show the booked category and agreed fare on the duty card. If an eligible SUV, Innova or Crysta takes a
+Sedan booking, retain the agreed Sedan booking fare. A larger vehicle must not automatically trigger a
+higher-category price.
+The assignment deadline, escalation and any re-release of an unassigned Vendor claim continue to use the main specification /
+configured Admin policy; this addendum does not invent a new timeout.
+
+
+--- PAGE 3 ---
+NESAM
+TRAVELS
+NESAM-ADD-001  |  v1.0
+08 OCTOBER 2026
+Nesam Tours & Travels Pvt Ltd | Vehicle matching addendum
+03 / 03
+03 / IMPLEMENTATION & ACCEPTANCE
+Developer checks
+These implementation details support the confirmed matrix and Vendor rule. Validate them on the server as
+well as in the app interface.
+Minimum information to keep separate
+Vehicle: ID, verified model/family, passenger seats excluding driver, approval and availability.
+Booking: Category, passenger count, required passenger seats, agreed fare and approved version.
+Assignment: Accepted partner, Driver ID, Vehicle ID and the booking version checked.
+Matching: use an explicit category matrix, then verify seating capacity and existing eligibility. Do not infer
+compatibility from a simple price ranking or the word "SUV" alone. Innova and Innova Crysta must remain
+distinct model families.
+Acceptance checklist
+ID
+Scenario
+Expected result
+V01
+All 35 cells of the page 1 matrix
+For each vehicle/category pair, allow YES and reject NO when
+other required checks are satisfied.
+V02
+Sedan duty; any listed approved vehicle type
+Owner Driver can see and accept it when capacity and other
+eligibility checks pass.
+V03
+SUV 7+1 duty; any 6+1 vehicle
+Hidden/rejected for that Owner Driver; Vendor cannot assign
+the 6+1 vehicle to the unchanged booking.
+V04
+Innova vs. Crysta booking
+Crysta can fulfil Innova; normal Innova cannot fulfil Crysta.
+Capacity must still match.
+V05
+Innova booking requires seven passenger
+seats
+A 6+1 Innova or 6+1 Crysta is rejected despite the model
+match.
+V06
+Vendor fleet has only Sedan; Crysta duty is
+open
+Crysta duty remains visible and can be accepted. Sedan
+cannot be assigned to it.
+V07
+Vendor adds a suitable Crysta after acceptance
+Assignment waits for the required vehicle approval; then
+succeeds if capacity and availability match.
+V08
+Admin changes 7+1 booking to 6+1 with
+consent
+After the change is recorded, matching uses the revised
+requirement; passenger count must fit.
+V09
+Two claims or a stale vehicle/booking change
+Only one claim wins. Revalidate current vehicle and booking
+data before committing assignment.
+V10
+Larger eligible vehicle takes a Sedan duty
+Under the recommended fare rule, keep the agreed booking
+fare; no automatic category surcharge.
+Delivery basis: the business-supplied revised matrix and the confirmation that Vendors see all duty categories, dated 08 October
+2026. Fare handling is labelled as a recommendation. Existing application code has not been inspected.

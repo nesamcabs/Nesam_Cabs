@@ -1,0 +1,866 @@
+
+--- PAGE 1 ---
+NESAM
+TRAVELS
+NESAM-FRS-001  |  v1.0
+08 OCTOBER 2026
+Nesam Tours & Travels Pvt Ltd | Developer handoff
+01 / 16
+DEVELOPER HANDOFF / PRODUCT REQUIREMENTS
+Application Workflow
+& Settlement Specification
+Nesam Tours & Travels Private Limited
+Admin Panel | Customer Panel | Driver App | Vendor App
+Purpose
+A consolidated specification of the business discussion on 08 October 2026. It defines who can onboard, see and
+accept duties, operate a trip, view an invoice and receive a wallet settlement.
+Document control
+Value
+Document ID / version
+NESAM-FRS-001 / 1.0
+Prepared for
+Development, QA and Nesam operations teams
+Business contact
+90250 99990 | nesamtravels.com
+Status
+Ready for development review. Open business decisions are listed on page 16.
+Scope of evidence
+Conversation requirements; no inspection or certification of the existing application
+code.
+How to read this document
+[C] Confirmed: explicitly requested business behaviour. [R] Recommended: proposed implementation detail. [D] Decision: a
+value or policy still requiring confirmation. Recommended controls are not presented as already approved business terms.
+Page map
+Product & operations
+Money & delivery
+02 Accounts & permissions
+10 Partner settlement
+03 Owner & vendor onboarding
+11 Wallet & small payouts
+04 Driver identity & fleet management
+12 Data & calculation contract
+05 Booking approval & dispatch
+13 Server controls & operational handling
+06 Trip lifecycle
+14 Acceptance checks: access & trips
+07 Driver screens & trip evidence
+15 Acceptance checks: money
+08 Fare rules & worked example
+16 Decision register & references
+09 Customer invoice & collections
+
+
+--- PAGE 2 ---
+NESAM
+TRAVELS
+NESAM-FRS-001  |  v1.0
+08 OCTOBER 2026
+Nesam Tours & Travels Pvt Ltd | Developer handoff
+02 / 16
+02 / FUNCTIONAL SPECIFICATION
+Accounts & permissions
+[C] One Driver App serves two operational account types. An approved server-side account determines the
+experience after mobile OTP login.
+Account
+Application
+Purpose
+Customer
+Customer Panel
+Create a booking; see status, payments and the customer invoice.
+Admin
+Admin Panel
+Verify accounts/documents, approve bookings, control assignments and
+account changes.
+Owner Driver
+Driver App
+An individual operating their own attached vehicle; can claim eligible Open
+Duties.
+Vendor Owner
+Vendor App
+Manage a fleet and drivers; claim bookings and assign approved resources.
+Vendor Driver
+Same Driver App
+Operate only the trips assigned to that driver; no marketplace or partner
+wallet.
+Driver App permission matrix
+Capability
+Owner Driver
+Vendor Driver
+Open Duties / accept a booking
+Yes, after approval and dispatch
+eligibility
+No
+Own vehicle registration
+Yes, with verification
+No
+Assigned / Upcoming / Completed trips
+Own trips
+Own assigned trips only
+Live photos, pickup, OTP, start/end
+Yes
+Yes
+Customer invoice / amount to collect
+Yes
+Yes
+Commission, wallet, payout
+Own partner account
+Hidden; settles to the Vendor
+Change role / Vendor / account deletion
+Admin-controlled
+Admin-controlled
+Access rule
+A Vendor Driver never receives Open Duty access, including after the three-minute Vendor release. Hiding a button
+is insufficient: the server must reject unauthorized listing, claim and wallet requests.
+[R] Determine Owner Driver versus Vendor by operating model, not vehicle count alone. A person with one vehicle and a hired
+driver can still be a Vendor.
+
+
+--- PAGE 3 ---
+NESAM
+TRAVELS
+NESAM-FRS-001  |  v1.0
+08 OCTOBER 2026
+Nesam Tours & Travels Pvt Ltd | Developer handoff
+03 / 16
+03 / FUNCTIONAL SPECIFICATION
+Owner & vendor onboarding
+[C] Registration creates a pending application. It does not grant duty access until the relevant Admin approval is
+complete.
+Owner Driver: self-registration in Driver App
+1. Verify the driver's own mobile number by OTP.
+2. Submit driving licence details/image and a selfie.
+3. Register the attached vehicle with RC, Insurance, FC, Permit and a front vehicle photo.
+4. Admin reviews the driver and the vehicle. Rejected or incomplete submissions show a reason and allow
+correction.
+5. After both are approved, activate the Owner Driver experience and eligible duty access.
+Vendor registration: proposed combined entry route [R / D03]
+Entry route
+Same approval process
+Apply inside Vendor App
+Mobile OTP; name, Travels/business name, operating area, vehicle count and
+required verification details.
+Office-assisted invitation
+Vendor calls 90250 99990; Admin sends a registration invitation that opens the same
+application.
+After submission
+Show Under Review. Admin approves before Bookings, Drivers, Vehicles and Wallet
+become operational.
+The original business proposal was call + invitation only. The combined in-app application and assisted-link route is a
+recommendation, not a confirmed replacement. Resolve D03 before enabling public Vendor applications.
+Account status shown to the applicant
+Status
+User can do
+DRAFT / INCOMPLETE
+Complete the permitted application fields.
+PENDING_REVIEW
+View status; no booking marketplace access.
+CHANGES_REQUIRED
+Read the reason; correct and resubmit the identified details.
+APPROVED / ACTIVE
+Use only the features allowed for the approved account type.
+SUSPENDED / INACTIVE
+View the support/status message; no new duty access.
+[R] Invitation links should be mobile-bound, single-use and expiring. Possessing a link is not approval. Driver identity, Vehicle
+approval and Vendor approval remain separate records.
+
+
+--- PAGE 4 ---
+NESAM
+TRAVELS
+NESAM-FRS-001  |  v1.0
+08 OCTOBER 2026
+Nesam Tours & Travels Pvt Ltd | Developer handoff
+04 / 16
+04 / FUNCTIONAL SPECIFICATION
+Driver identity & fleet management
+[C] Vendors can add multiple Drivers and Vehicles. Removing/deleting or changing account relationships
+remains under Admin control.
+Action
+Required behaviour
+Add Driver
+Create an invitation/pending profile using the driver's own mobile number and licence
+details. System generates Driver ID.
+Activate Vendor Driver
+Driver verifies that number by OTP in the same Driver App and completes required
+identity/selfie verification. Admin approval grants the limited Vendor Driver role.
+Existing Driver ID
+Match the existing identity. Do not create a second account or silently move an Owner Driver
+into a Vendor. Request Admin review/linking.
+Add Vehicle
+Create Vehicle ID with registration number, vehicle category and RC, Insurance, FC, Permit
+and front photo.
+Assign Trip
+Select an approved, available Driver and an approved, available Vehicle. Both must belong to
+the Vendor's authorized fleet relationship.
+Remove / transfer
+Vendor may request a change. Admin approves deactivation, unlinking or transfer; retain
+historical trip and financial records.
+Driver and vehicle are separate resources
+A driver is not permanently the same entity as a vehicle. A trip stores both assigned_driver_id and
+assigned_vehicle_id. This permits a Vendor to select another approved vehicle without creating a new Driver ID.
+[R] Check schedule overlap for the Driver and Vehicle independently. A running trip must not block every future
+booking; it blocks assignments whose time window and travel buffer conflict. Buffer rules remain configurable
+[D06].
+No automatic promotion
+Removing a Vendor association must never turn a Vendor Driver into an Owner Driver. Show an
+inactive/unassigned state until Admin approves a new Vendor link or an Owner Driver application.
+[R] Preserve account history during approved role changes. Do not transfer settled earnings or historical wallet ownership when
+a driver changes employer. Pending documentation or unapproved replacement vehicles cannot be used to bypass verification.
+
+
+--- PAGE 5 ---
+NESAM
+TRAVELS
+NESAM-FRS-001  |  v1.0
+08 OCTOBER 2026
+Nesam Tours & Travels Pvt Ltd | Developer handoff
+05 / 16
+05 / FUNCTIONAL SPECIFICATION
+Booking approval & dispatch
+[C] Customer submits booking to Admin. Only an approved booking enters the duty distribution process. Admin
+can see the booking throughout.
+Server elapsed time
+Eligible offer audience
+0:00 to before 2:00
+Approved high-rated Owner Drivers first. Exact rating threshold / review count is D01.
+At 2:00 (120 seconds)
+Other eligible approved Owner Drivers are added. The initial group remains eligible.
+At 3:00 (180 seconds)
+Approved eligible Vendors are added. Owner Drivers remain eligible.
+After any successful claim
+Stop further release for that booking and remove it from other Open Duty lists.
+Timing interpretation: Vendor access begins after three complete minutes, not at the start of the third minute. Use Admin
+approval / dispatch start as time zero; confirm this interpretation with D01.
+ADMIN APPROVES
+Server records the dispatch start time.
+OWNER DRIVER WINS
+Accept + attach the approved vehicle.
+VENDOR WINS
+Reserve to Vendor; assign Driver + Vehicle.
+ONE BOOKING - ONE SUCCESSFUL CLAIM - ONE SETTLEMENT OWNER
+Claim and assignment contract [R]
+1. Apply eligibility by role, approval, requested vehicle category, service area and the booking time window. No
+Vendor Driver belongs to this offer audience.
+2. Make claim acceptance atomic on the server. Concurrent Owner Driver/Vendor attempts produce exactly one
+winner; the others receive Already Assigned.
+3. For a Vendor winner, reserve the booking to that Vendor before assigning Driver + Vehicle. The assignment
+deadline and release policy are still D06.
+4. Notify the customer when driver/vehicle details are assigned. If no eligible partner claims the booking, keep it
+visible to Admin for intervention rather than silently completing or cancelling it.
+[R] Timers use server time and survive app closure. Cancel obsolete offer jobs after claim/cancellation; do not replay an old
+dispatch wave into an assigned trip.
+
+
+--- PAGE 6 ---
+NESAM
+TRAVELS
+NESAM-FRS-001  |  v1.0
+08 OCTOBER 2026
+Nesam Tours & Travels Pvt Ltd | Developer handoff
+06 / 16
+06 / FUNCTIONAL SPECIFICATION
+Trip lifecycle
+[C] Both driver types use the same trip operation sequence. The Vendor Driver only operates a trip already
+assigned to that driver.
+State / action
+Gate and result
+ASSIGNED / UPCOMING
+Show pickup, drop, date/time and assigned vehicle. Future trips appear in My Trips.
+Start availability uses the configured start window [D06].
+Start for Pickup
+Open verification capture for this assigned trip. Capture live driver selfie and live
+front vehicle photo; no gallery selector.
+READY TO DEPART / EN_ROUTE
+After required evidence is accepted, allow Navigate to Pickup and show the next trip
+action.
+Reached Pickup
+Server validates distance from pickup coordinates before accepting the action.
+Working radius is 3 km; final confirmation is D02.
+BOARDING OTP
+Require the customer's trip-specific OTP. Reached Pickup alone does not start the
+passenger journey.
+IN_PROGRESS
+Enable trip operation / navigation. Do not allow another trip to start for the same
+Driver or Vehicle.
+End Trip / submit Trip KM
+Driver enters total billable trip kilometres only. Server validates the entry and
+calculates the final fare from the stored rate rules.
+COMPLETED / invoice ready
+Driver and Customer see the same customer fare breakdown, verified payments and
+amount still to collect.
+Payment / settlement
+Confirmed receipts update payment status. Collection confirmation and partner
+settlement are separate from Trip Completed.
+Independent states
+Trip status, payment status and settlement status are separate. A completed trip can be awaiting payment; an
+online payment can be received before the trip; a paid trip can be awaiting partner payout.
+[R] Reject out-of-sequence actions, another driver's trip actions and duplicate terminal transitions. Admin exceptions require an
+explicit reason and an audit record. Cancellation, no-show and disputed-distance charging are not defined business tariffs [D10].
+
+
+--- PAGE 7 ---
+NESAM
+TRAVELS
+NESAM-FRS-001  |  v1.0
+08 OCTOBER 2026
+Nesam Tours & Travels Pvt Ltd | Developer handoff
+07 / 16
+07 / FUNCTIONAL SPECIFICATION
+Driver screens & trip evidence
+[C] Vendor Drivers should have a focused trip screen, not the Owner Driver registration, vehicle-management or
+earning experience.
+Screen / area
+Owner Driver
+Vendor Driver
+Home
+Current/next assigned trip with next action;
+Open Duties available separately.
+Current/next assigned trip and next action only.
+My Trips
+Assigned, Upcoming and Completed own trips.
+Assigned, Upcoming and Completed trips
+belonging to this driver only.
+No assigned trip
+Normal approved Owner Driver home.
+No trip is currently assigned. No Open Duty
+promotion.
+Invoice
+Customer fare, paid amount and balance to
+collect.
+Same customer fare, paid amount and balance
+to collect.
+Wallet / financial details
+Own commission, entries and settlement.
+No wallet, commission or Vendor payout
+screen.
+Basic menu
+Profile/support/logout as permitted.
+Minimal support/logout and necessary account
+status.
+Live capture and pickup gate
+[C] The selfie and vehicle front photo must be captured in-app for the current trip when Start for Pickup is
+initiated. Remove the gallery-upload choice. This is trip evidence; it must not be represented as certified facial
+recognition unless such a feature is separately built.
+[R] Store capture time, trip, driver and vehicle references with the evidence. Validate file ownership and
+completion of both captures before advancing. GPS/permission errors should show a retry/support path, not
+bypass the gate.
+Working geofence: 3,000 metres [D02]
+Enable Reached Pickup only when a current server-validated position is within the configured pickup radius. The
+spoken requirement mentioned both 5 km and 3 km; the latest interpretation is 3 km. Confirm the final value and
+GPS accuracy policy before release.
+Distance entered at End Trip
+The requested input is total Trip KM, not an unexplained closing odometer reading. Whether billable distance
+starts at the customer pickup or at the garage is an open business rule [D05]. GPS comparisons may flag unusual
+entries for review but must not silently change the customer's agreed fare basis.
+
+
+--- PAGE 8 ---
+NESAM
+TRAVELS
+NESAM-FRS-001  |  v1.0
+08 OCTOBER 2026
+Nesam Tours & Travels Pvt Ltd | Developer handoff
+08 / 16
+08 / FUNCTIONAL SPECIFICATION
+Fare rules & worked example
+[C] The example uses Sedan at ₹15/km, driver bata ₹400 and GST 5%. These are example booking parameters,
+not a universal fare for every vehicle or service.
+Store the included kilometres, quoted running fare, allowance, tax breakup and extra-km rate at booking
+confirmation. Later changes to the rate card must not alter a confirmed booking.
+Customer fare line
+300 km quote
+310 km final
+Running fare
+₹4,500.00
+₹4,650.00
+Driver bata
+₹400.00
+₹400.00
+Taxable subtotal
+₹4,900.00
+₹5,050.00
+Trip GST at 5%
+₹245.00
+₹252.50
+Customer invoice total
+₹5,145.00
+₹5,302.50
+Only the additional distance is added
+Extra 10 km = ₹157.50 including tax
+310 - 300 = 10 extra km. 10 × ₹15 = ₹150. Extra GST = ₹7.50. Final total = already quoted ₹5,145 + ₹150 + ₹7.50 =
+₹5,302.50.
+Calculation contract
+extra_km = max(actual_trip_km - included_km, 0)
+extra_net_fare = extra_km × stored_extra_km_rate
+final_total = quoted_gross_fare + extra_net_fare + extra_gst
+The formula assumes the extra-km rate excludes GST and the package quote already includes GST. A
+tax-inclusive extra rate must be split into base and tax, not taxed again.
+Declared example assumptions [D04 / D05]
+1. The ₹400 bata is included in the taxable base here. Confirm this tax treatment and tax responsibility with the
+accountant.
+2. Commission is only on the running fare excluding trip GST; the bata is not commissionable under the stated
+rule.
+3. The fixed quoted package is retained below included km in this draft calculation. Confirm the below-package
+minimum and billable-distance definition before production.
+[R] Use decimal/paise arithmetic and a documented two-decimal rounding method. Do not round each kilometre or use binary
+float values as the accounting source of truth.
+
+
+--- PAGE 9 ---
+NESAM
+TRAVELS
+NESAM-FRS-001  |  v1.0
+08 OCTOBER 2026
+Nesam Tours & Travels Pvt Ltd | Developer handoff
+09 / 16
+09 / FUNCTIONAL SPECIFICATION
+Customer invoice & collections
+[C] Customer and Driver see the same customer invoice. Drivers can enter Trip KM but cannot manually change
+rates, GST, allowance or total fare.
+Invoice / screen field
+310 km example with ₹1,000 company advance
+Booking / journey
+Booking ID; Chennai to Trichy; date/time; assigned vehicle; customer details from
+booking.
+Distance / rate
+Included 300 km; actual 310 km; extra 10 km; rate ₹15/km.
+Running fare + bata
+₹4,650.00 + ₹400.00 = ₹5,050.00
+Trip GST / final total
+₹252.50 GST; final total ₹5,302.50
+Verified payments received
+₹1,000.00 received by Nesam
+Amount to Collect
+₹4,302.50
+After the balance is received
+Paid ₹5,302.50; Amount to Collect ₹0.00; payment receipt/reference recorded.
+One payment record per real receipt [R]
+Record amount, booking, collection channel, actual recipient (Nesam / partner), status, timestamp and a unique
+payment reference. Customer-to-driver UPI is partner-collected; it is not company-collected merely because it is
+online.
+amount_to_collect = max(final_invoice - confirmed_net_receipts, 0)
+Only successful payments and confirmed cash receipts reduce the balance. Pending/failed gateway events do
+not. If receipts exceed the invoice, show a separate refund/credit due; never display a negative amount to collect.
+Paid quote is not always a paid final invoice
+If the customer paid the original ₹5,145 online and then travelled 310 km, ₹157.50 still remains. Show zero
+collection only when the final ₹5,302.50 has been received.
+Collection and visibility
+[R] After fare calculation, provide a payment-received confirmation with audit evidence for cash/driver-UPI
+collections. Do not automatically mark the invoice Paid on End Trip. A Vendor Driver may see and confirm the
+customer collection without gaining access to Vendor commission, wallet or payout data.
+The production invoice template must use the verified company/tax configuration. No invented GSTIN, tax classification or
+company address is supplied by this specification.
+
+
+--- PAGE 10 ---
+NESAM
+TRAVELS
+NESAM-FRS-001  |  v1.0
+08 OCTOBER 2026
+Nesam Tours & Travels Pvt Ltd | Developer handoff
+10 / 16
+10 / FUNCTIONAL SPECIFICATION
+Partner settlement
+[C] The same commercial calculation applies to Owner Drivers and Vendors. The settlement owner is fixed for
+each booking; the assigned Vendor Driver does not receive the Vendor settlement.
+Component
+Calculation
+Amount
+Running fare
+310 × ₹15
+₹4,650.00
+Nesam commission
+10% of running fare
+₹465.00
+Trip GST collected
+5% of ₹5,050
+₹252.50
+Nesam fee + trip GST
+₹465 + ₹252.50
+₹717.50
+Partner entitlement
+₹5,302.50 - ₹717.50
+₹4,585.00
+The full ₹400 bata remains in the partner entitlement. ₹465 is the service fee; ₹252.50 is the tax amount held for remittance, not
+additional commission revenue. Separate fee-tax treatment remains D04.
+After the customer balance has actually been collected
+Nesam received
+Partner collects
+Final transfer / wallet result
+₹0.00
+₹5,302.50
+Debit partner ₹717.50.
+₹1,000.00 advance
+₹4,302.50
+Nesam owes partner ₹282.50.
+₹5,145.00 quoted fare
+₹157.50 extra
+Nesam owes partner ₹4,427.50.
+₹5,302.50 final fare
+₹0.00
+Nesam owes partner ₹4,585.00.
+Settlement ownership
+Owner Driver booking: post against that Owner Driver partner account.
+Vendor booking: post against that Vendor partner account, even if the assigned driver physically collects the
+cash. Vendor employee wages are outside this settlement model.
+net_partner_transfer = partner_entitlement - partner_actual_collections
+Positive means payable to the partner; negative means due from the partner. For a fully paid invoice with no
+other adjustments, this also equals Nesam receipts minus Nesam fee and trip GST.
+Do not settle unpaid cash as if it was collected
+Keep customer receivables separate while payment is incomplete. Complete normal payout only from confirmed
+receipts and reconciled liabilities; exceptional credit decisions require an explicit Admin policy.
+
+
+--- PAGE 11 ---
+NESAM
+TRAVELS
+NESAM-FRS-001  |  v1.0
+08 OCTOBER 2026
+Nesam Tours & Travels Pvt Ltd | Developer handoff
+11 / 16
+11 / FUNCTIONAL SPECIFICATION
+Wallet & small payouts
+[C] The business requested payments below ₹300 to go directly into the appropriate Driver or Vendor wallet. The
+interpretation below is still D07.
+Proposed threshold interpretation [D07]
+Apply the rule to the positive net amount Nesam owes the partner after collection, commission and trip GST
+adjustments. If 0 < net payable < ₹300, retain/credit it in the correct wallet automatically. Confirm the basis, exactly
+₹300 and amounts above ₹300 before enabling routing.
+₹1,000 advance: transparent ledger example
+Partner ledger entry
+Effect
+Customer payment received by Nesam
++₹1,000.00
+Nesam running-fare commission
+-₹465.00
+Trip GST held by Nesam
+-₹252.50
+Net partner wallet increase
++₹282.50
+The +₹282.50 is the result of those entries. Do not add another +₹282.50 entry on top of them. If the advance
+was already credited earlier, reference that original entry rather than posting the advance twice.
+Posting rules [R]
+1. Attach every credit/debit to the booking and settlement owner. Use unique event references so retries cannot
+post the same receipt, fee or GST twice.
+2. A wallet credit must not also trigger a duplicate direct bank payout for the same amount.
+3. A later approved wallet withdrawal reduces that wallet balance and has its own payout reference. Wallet credit
+does not mean the money can never be withdrawn.
+4. For Vendor bookings, use only the Vendor wallet. The employee Driver receives no separate credit/debit for
+the same partner settlement.
+5. Store reversals as new linked entries. Do not edit or delete historical ledger amounts after posting.
+Separate receipt, entitlement and transfer
+Maintain the earned partner entitlement even when the payout channel is not decided. Exactly ₹300, larger
+payouts, withdrawal timing, minimum balances and negative-balance duty rules remain business decisions [D07 /
+D08].
+
+
+--- PAGE 12 ---
+NESAM
+TRAVELS
+NESAM-FRS-001  |  v1.0
+08 OCTOBER 2026
+Nesam Tours & Travels Pvt Ltd | Developer handoff
+12 / 16
+12 / FUNCTIONAL SPECIFICATION
+Data & calculation contract
+[R] These are logical records for the developer, not a requirement to use a particular language, database,
+payment provider or mobile framework.
+Record
+Minimum information / invariant
+Account / Driver
+Stable account_id and driver_id; normalized mobile; verified identity; account type; approval
+status. A phone number alone is not an authorization rule.
+Vendor membership
+vendor_id; driver_id; membership status and effective dates; approved changes and history.
+Vehicle
+vehicle_id; normalized registration; category/capacity; Vendor/Owner association; document
+approvals/expiry.
+Booking / quote
+Customer, pickup/drop coordinates, schedule, service/category; included km; quoted
+base/bata/GST; extra rate; tax-inclusive flags; pricing version.
+Offer / claim
+dispatch_started_at; release stages; eligibility; one winning claim; claimed_partner_type/id;
+status/version.
+Assignment / trip
+Assigned Driver + Vehicle; settlement owner snapshot; each state transition; photo evidence;
+pickup position; OTP verification event; entered KM.
+Invoice / payment
+Versioned line items; amounts in paise/decimal; paid balance; receipt
+recipient/channel/status/reference; reversals/refunds.
+Ledger / payout
+Immutable entries; booking and partner; credit/debit type; unique source event; reversal links;
+payout/withdrawal state.
+Audit event
+Actor, role, entity, operation, old/new value or event, timestamp and Admin reason where
+relevant.
+Do not mix identities
+Keep accepted_partner, assigned_driver and assigned_vehicle separate. On a Vendor trip, the Vendor is the
+commercial partner while the employee is the operator. Later employment changes must not move historical
+bookings or settled money to a different partner.
+Persist the booking agreement
+Calculation must use the stored quote and approved adjustments, not the current public rate card. Capture the
+source of every fare/payment change so Customer invoice, Driver view, Admin report and Vendor settlement
+reconcile to the same booking.
+Use internal generated IDs instead of a licence number as a public identifier. Protect identity documents by ownership and role,
+and avoid exposing them through general Open Duty responses.
+
+
+--- PAGE 13 ---
+NESAM
+TRAVELS
+NESAM-FRS-001  |  v1.0
+08 OCTOBER 2026
+Nesam Tours & Travels Pvt Ltd | Developer handoff
+13 / 16
+13 / FUNCTIONAL SPECIFICATION
+Server controls & operational handling
+[R] The following controls make the requested behaviour reliable across multiple apps, repeated taps, network
+retries and account changes.
+Control
+Required result
+Role + ownership checks
+Owner Driver sees own permitted records. Vendor sees its authorized fleet/bookings.
+Vendor Driver sees only own assigned trips. Validate every request [S1].
+Approval gate
+Pending/suspended accounts and unapproved resources cannot gain marketplace or trip
+privileges by changing client fields.
+Atomic booking claim
+Exactly one successful booking claimant. Concurrent losers receive the current assignment
+state.
+State transition validation
+Reject invalid or stale trip actions. Scope customer boarding OTP to the correct trip and do
+not reuse account-login OTP.
+Payment verification
+Trust verified payment events/confirmed receipts, not a client-supplied Paid flag.
+Deduplicate provider events.
+Ledger idempotency
+One posting per financial event. Repeated End Trip / callback retries cannot create extra
+deductions or payouts.
+Role or Vendor change
+Server permissions change when Admin updates the account. An old app screen/session
+must not preserve revoked access.
+Resource conflict
+Recheck Driver and Vehicle availability at assignment/start. A concurrent assignment must
+not bypass overlap checks.
+Documents / evidence
+Restrict document access and evidence ownership. Expired required documents block new
+assignments under the configured policy.
+Offline / failed request
+Show the last confirmed state plus a retry message. Do not pretend a booking was
+accepted, OTP verified or payment received.
+Admin exceptions remain traceable
+Provide review queues for unassigned bookings, missing assignments, document corrections, distance disputes
+and unsettled payments. Cancellation, reassignment, payment correction and wallet reversal require a recorded
+actor/reason and consistent customer/partner updates.
+Do not invent cancellation charges, toll/parking rules, automatic no-show charges, penalties or automatic overdraft blocks. Route
+undefined cases to Admin until the relevant policy is approved [D08-D10].
+
+
+--- PAGE 14 ---
+NESAM
+TRAVELS
+NESAM-FRS-001  |  v1.0
+08 OCTOBER 2026
+Nesam Tours & Travels Pvt Ltd | Developer handoff
+14 / 16
+14 / FUNCTIONAL SPECIFICATION
+Acceptance checks: access & trips
+[R] QA should record pass/fail and evidence against these checks. Open parameters must be supplied from page
+16; tests must not silently choose business rules.
+ID
+Scenario
+Expected result
+A01
+New Owner Driver submits documents
+Remains pending; duty access opens only after required Admin
+approvals.
+A02
+Vendor adds an employee; employee logs in
+Existing approved Vendor Driver role loads; no Owner onboarding,
+Open Duty or wallet access.
+A03
+Employee calls an Open Duty/claim API directly
+Server rejects it even if a modified app shows the button.
+A04
+Vendor A requests Vendor B's data
+No access to the other Vendor's fleet, bookings, documents or
+wallet.
+A05
+Existing mobile/licence is added again
+No silent duplicate ID or role/relationship overwrite; review/linking
+process applies.
+A06
+Dispatch at 119, 120, 179 and 180 seconds
+Audience expands at exactly the configured 120/180 second
+boundaries; only unclaimed bookings expand.
+A07
+Two partners accept together
+One succeeds. Others see Already Assigned; no duplicate live
+assignment.
+A08
+Driver is removed from Vendor
+No automatic Owner Driver privileges. History and settled
+ownership stay intact.
+A09
+Gallery image submitted for start verification
+Cannot replace the required current camera captures through the
+normal flow.
+A10
+Reached attempted outside/inside configured
+radius
+Outside rejected; inside accepted with valid location and state.
+Reached alone does not start trip.
+A11
+Wrong or other-trip boarding OTP
+Trip does not start. Correct current-trip OTP permits the next state.
+A12
+Upcoming booking during another active trip
+Can be listed/assigned if schedule permits; cannot start
+concurrently.
+A13
+Driver or vehicle has an overlapping booking
+Conflicting assignment is blocked or routed to Admin per approved
+policy.
+A14
+Driver tries to edit rate/GST/total
+Rejected. Only permitted Trip KM input affects the server-calculated
+fare.
+Verify both driver experiences
+Run the same pickup-to-invoice tests once as Owner Driver and once as Vendor Driver. The trip operation succeeds
+for the assigned user while earning/marketplace access remains different.
+
+
+--- PAGE 15 ---
+NESAM
+TRAVELS
+NESAM-FRS-001  |  v1.0
+08 OCTOBER 2026
+Nesam Tours & Travels Pvt Ltd | Developer handoff
+15 / 16
+15 / FUNCTIONAL SPECIFICATION
+Acceptance checks: money
+[R] Reference fixture: 300 included km, ₹15/km, ₹400 bata, 5% trip GST on running fare + bata, 10% commission
+on running fare only.
+ID
+Scenario
+Expected result
+M01
+Actual 300 km
+Invoice ₹5,145.00; zero extra km. Original tax is not added twice.
+M02
+Actual 310 km
+Extra ₹150 + GST ₹7.50; final ₹5,302.50.
+M03
+310 km commission calculation
+Commission ₹465.00; trip GST ₹252.50; partner entitlement
+₹4,585.00.
+M04
+No advance; partner collects all
+Collect ₹5,302.50; net partner debit ₹717.50.
+M05
+Nesam received ₹1,000 advance
+Collect ₹4,302.50; net payable to partner ₹282.50 after the balance
+is received.
+M06
+Nesam received original ₹5,145 quote
+Extra ₹157.50 still due; after partner collects it, Nesam owes
+₹4,427.50.
+M07
+Nesam received final ₹5,302.50
+Amount to Collect ₹0; partner payable ₹4,585.00.
+M08
+₹282.50 small-payout example
+If D07 is approved: correct partner wallet rises by ₹282.50 net; no
+second ₹282.50 credit.
+M09
+Same booking assigned through Vendor
+All partner debits/credits belong to Vendor; employee Driver
+receives no duplicate settlement.
+M10
+Duplicate End Trip / payment callback
+Invoice/receipt/ledger/payout are not duplicated.
+M11
+Pending or failed online transaction
+Does not reduce customer balance or release payout.
+M12
+Advance already credited earlier
+Settlement references the original entry; does not add the advance
+a second time.
+M13
+₹299.99, ₹300.00 and ₹300.01 net payable
+Strict below-₹300 rule includes only ₹299.99. Routing for the other
+two awaits D07.
+M14
+Invoice refund or correction
+Authorized linked reversal/revision; customer balance and partner
+ledger reconcile once.
+All expected amounts assume this fixture and no extra charges or separate fee-tax adjustment. Under-distance/minimum
+charging, other service tariffs and fee-GST treatment need their own approved fixtures before release.
+
+
+--- PAGE 16 ---
+NESAM
+TRAVELS
+NESAM-FRS-001  |  v1.0
+08 OCTOBER 2026
+Nesam Tours & Travels Pvt Ltd | Developer handoff
+16 / 16
+16 / FUNCTIONAL SPECIFICATION
+Decision register & references
+These items were not fully settled in the discussion. Implement configurable fields where appropriate; do not
+turn an assumption into an irreversible production rule.
+ID
+Decision to confirm
+Working position in this draft
+D01
+Rating eligibility and timed release
+High-rated first; exact 5.0/cutoff, minimum reviews and unrated-driver policy
+pending. Release at 120/180 seconds after approval.
+D02
+Reached Pickup distance
+3,000 m working radius; spoken input also mentioned 5 km. Confirm radius, GPS
+freshness and accuracy handling.
+D03
+Vendor registration entry
+Original call + invite versus recommended in-app application plus assisted
+invite. Both retain Admin approval.
+D04
+Tax and fee configuration
+Example taxes bata with running fare at 5%. Accountant to confirm tax base,
+invoice responsibility, fee-GST treatment and tax settings.
+D05
+Billable KM / minimum fare
+Total Trip KM input assumed. Confirm pickup/drop versus garage basis, partial
+km rounding and fare when actual km is below package.
+D06
+Assignment and scheduling
+windows
+Vendor assignment deadline; no-claim escalation; start window; trip
+duration/travel buffer; redispatch after failed assignment.
+D07
+Below-₹300 wallet rule
+Assumed positive net company-to-partner payable, strictly below ₹300. Confirm
+basis, exactly ₹300 and above-threshold routing.
+D08
+Wallet / withdrawal policy
+Withdrawal schedule, payout method, wallet balance limits and
+negative-balance booking behaviour are not specified.
+D09
+Cash confirmation and disputes
+Define confirmation evidence, handling of a denied cash receipt and who may
+approve adjustments.
+D10
+Other charges / exceptions
+Toll, parking, state tax, no-show, cancellation, refunds and reassignment
+charges require explicit business rules.
+Source notes
+Business source: Nesam requirements and clarifications supplied in this conversation on 08 October 2026. This document
+consolidates those instructions and labels recommended implementation details.
+[S1] OWASP Authorization Cheat Sheet. Server-side authorization, deny-by-default and per-request/object checks.
+cheatsheetseries.owasp.org - Authorization Cheat Sheet
+[S2] CBIC GST Goods and Services Rates. Passenger-transport entries and associated conditions. The 5% examples here are the
+business model supplied, not tax certification.
+cbic-gst.gov.in - GST Goods and Services Rates
+[S3] CBIC Notification 17/2017-Central Tax (Rate). Specified passenger services through electronic commerce operators;
+accountant to assess applicability and amendments.
+cbic-gst.gov.in - Notification 17/2017

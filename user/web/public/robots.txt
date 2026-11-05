@@ -1,0 +1,90 @@
+# Robots.txt for NESAM Cabs (https://www.nesamcabs.com)
+# Configured for maximum search engine visibility and crawl efficiency
+
+User-agent: Googlebot
+Allow: /
+Allow: /book
+Allow: /routes/
+Allow: /routes/*
+Allow: /services/
+Allow: /services/*
+Allow: /offers
+Allow: /support
+Allow: /legal
+Allow: /about
+Allow: /assets/
+Allow: /website-images/
+Allow: /vehicles/
+Allow: /art/
+Allow: /brand/
+Disallow: /account/
+Disallow: /account/*
+Disallow: /trips/
+Disallow: /trips/*
+Disallow: /ride/
+Disallow: /ride/*
+Disallow: /notifications
+Disallow: /book/ride
+Disallow: /book/confirm
+
+User-agent: Bingbot
+Allow: /
+Allow: /book
+Allow: /routes/
+Allow: /routes/*
+Allow: /services/
+Allow: /services/*
+Allow: /offers
+Allow: /support
+Allow: /legal
+Allow: /about
+Disallow: /account/
+Disallow: /account/*
+Disallow: /trips/
+Disallow: /trips/*
+Disallow: /ride/
+Disallow: /ride/*
+Disallow: /notifications
+Disallow: /book/ride
+Disallow: /book/confirm
+
+User-agent: Applebot
+Allow: /
+Allow: /book
+Allow: /routes/
+Allow: /routes/*
+Allow: /services/
+Allow: /services/*
+Disallow: /account/
+Disallow: /trips/
+Disallow: /ride/
+Disallow: /notifications
+
+User-agent: *
+Allow: /
+Allow: /book
+Allow: /routes/
+Allow: /routes/*
+Allow: /services/
+Allow: /services/*
+Allow: /offers
+Allow: /support
+Allow: /legal
+Allow: /about
+Allow: /assets/
+Allow: /website-images/
+Allow: /vehicles/
+Allow: /art/
+Allow: /brand/
+Disallow: /account/
+Disallow: /account/*
+Disallow: /trips/
+Disallow: /trips/*
+Disallow: /ride/
+Disallow: /ride/*
+Disallow: /notifications
+Disallow: /book/ride
+Disallow: /book/confirm
+
+# Sitemap Directives for Google Search Console & Bing Webmaster Tools
+Sitemap: https://www.nesamcabs.com/sitemap.xml

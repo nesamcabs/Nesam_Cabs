@@ -1,0 +1,8 @@
+917a6d6fae027496bc17c277194d9f29
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+var _expoModulesCore = require("expo-modules-core");
+var _default = exports.default = (0, _expoModulesCore.requireNativeModule)('ExponentImagePicker');
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJfZXhwb01vZHVsZXNDb3JlIiwicmVxdWlyZSIsIl9kZWZhdWx0IiwiZXhwb3J0cyIsImRlZmF1bHQiLCJyZXF1aXJlTmF0aXZlTW9kdWxlIl0sInNvdXJjZXMiOlsiRXhwb25lbnRJbWFnZVBpY2tlci50cyJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyByZXF1aXJlTmF0aXZlTW9kdWxlIH0gZnJvbSAnZXhwby1tb2R1bGVzLWNvcmUnO1xuZXhwb3J0IGRlZmF1bHQgcmVxdWlyZU5hdGl2ZU1vZHVsZSgnRXhwb25lbnRJbWFnZVBpY2tlcicpO1xuIl0sIm1hcHBpbmdzIjoiOzs7O0FBQUEsSUFBQUEsZ0JBQUEsR0FBQUMsT0FBQTtBQUF3RCxJQUFBQyxRQUFBLEdBQUFDLE9BQUEsQ0FBQUMsT0FBQSxHQUN6QyxJQUFBQyxvQ0FBbUIsRUFBQyxxQkFBcUIsQ0FBQyIsImlnbm9yZUxpc3QiOltdfQ==

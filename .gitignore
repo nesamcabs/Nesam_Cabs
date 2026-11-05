@@ -1,0 +1,213 @@
+# ── NESAM TOURS & TRAVELS — ROOT GITIGNORE ────────────────────────
+# ── Generated 2026-09-29  (Expo SDK 57 / React Native 0.86 / Vite) ──
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 1. Node Modules & Package Manager Artefacts
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+node_modules/
+**/node_modules/
+.pnpm-store/
+**/.pnpm-store/
+pnpm-lock.yaml
+**/pnpm-lock.yaml
+.yarn/
+**/.yarn/
+.yarnrc.yml
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 2. Web / Vite Production Build Outputs
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+dist/
+**/dist/
+dist-ssr/
+**/dist-ssr/
+build/
+**/build/
+out/
+**/out/
+.vite/
+**/.vite/
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 3. Expo / React Native Generated Folders & Caches
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+.expo/
+**/.expo/
+.expo-shared/
+**/.expo-shared/
+web-build/
+**/web-build/
+expo-env.d.ts
+**/expo-env.d.ts
+
+# Generated native project folders (Expo Continuous Native Generation — CNG)
+# Never edit these by hand; they are re-created by `expo prebuild`
+**/android/
+**/ios/
+**/.kotlin/
+
+# Metro bundler
+.metro-health-check*
+**/.metro-health-check*
+**/.metro/
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 4. Mobile Build Outputs & Local APK Mirror
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Local Gradle / CMake build caches (mirrored to C:\nb by the build script)
+**/android/app/build/
+**/android/build/
+**/android/.gradle/
+**/android/.cxx/
+
+# Compiled APK / AAB / AAR release artefacts (too large for git; use Releases)
+release-output/
+*.apk
+*.aab
+*.aar
+
+# Temporary export/audit bundles
+**/dist-audit/
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 5. Environment & Secret Files
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Named "env" (no extension) — contains Firebase API keys
+admin/env
+user/web/env
+driver/web/env
+vendor/web/env
+
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.development.local
+.env.test.local
+.env.production.local
+**/.env
+**/.env.*
+!**/.env.example
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 6. Firebase & GCP Credential Files
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Firebase Admin SDK service-account keys (full project access — never commit)
+**/service-account*.json
+**/serviceAccount*.json
+**/*-service-account-key.json
+**/*-firebase-adminsdk-*.json
+**/nesamtoursandtravels-*.json
+google-services.json
+**/google-services.json
+GoogleService-Info.plist
+**/GoogleService-Info.plist
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 7. Android Signing & iOS Credentials (NEVER commit private keys)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+*.jks
+*.keystore
+*.p8
+*.p12
+*.mobileprovision
+*.pem
+*.cer
+*.key
+!*.key.pub
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 8. Firebase Cloud Functions
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+functions/lib/
+firebase-debug.log
+firebase-debug.*.log
+.firebaserc.local
+.runtimeconfig.json
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 9. IDE, Editor & OS System Files
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+.DS_Store
+**/.DS_Store
+Thumbs.db
+**/Thumbs.db
+desktop.ini
+**/desktop.ini
+*.swp
+*.swo
+*.orig
+
+# VS Code (keep shared extension recommendations; ignore personal settings)
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json.example
+
+# JetBrains / IntelliJ / Android Studio
+.idea/
+**/.idea/
+*.iml
+.classpath
+.project
+.settings/
+*.launch
+
+# Windows Subsystem for Linux
+.wslconfig
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 10. Logs & Temporary Artifacts
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.eslintcache
+.stylelintcache
+*.tmp
+*.temp
+*.tsbuildinfo
+**/*.tsbuildinfo
+coverage/
+**/coverage/
+.nyc_output/
+
+# Test result logs (keep test source; ignore heavy output files)
+tests/firestore-rules/latest-results.log
+output/jest-*/
+output/wiring-*.json
+output/admin-audit/
+output/admin-control-summary.json
+structure.txt
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 11. Large Binary / Archive Files (use Git LFS or Releases instead)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+*.rar
+*.zip
+*.tar
+*.tar.gz
+*.7z
+*.gz
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 12. Miscellaneous Tool Caches
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+.cache/
+**/.cache/
+.turbo/
+**/.turbo/
+.next/
+**/.next/
+.nuxt/
+**/.nuxt/
+.parcel-cache/
+**/.parcel-cache/
+storybook-static/
+
+# mise / asdf version managers
+.mise.local.toml
+.mise.toml.local
+.tool-versions.local

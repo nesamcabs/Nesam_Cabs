@@ -1,0 +1,31 @@
+# ── Web Portal (Vite + React + TypeScript) ───────────────────────
+
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+dist-ssr/
+out/
+.vite/
+
+# Environment files (contain Firebase API keys — use .env.example instead)
+.env
+.env.*
+!.env.example
+env
+
+# Logs & caches
+*.log
+*.tmp
+*.tsbuildinfo
+.eslintcache
+.stylelintcache
+coverage/
+
+# IDE & OS
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/

@@ -1,0 +1,91 @@
+bc038c0a8313163b1881c7fc9c647a01
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+var _exportNames = {
+  PermissionStatus: true,
+  EventEmitter: true,
+  _getCurrentWatchId: true,
+  installWebGeolocationPolyfill: true,
+  Accuracy: true,
+  ActivityType: true,
+  GeofencingEventType: true,
+  GeofencingRegionState: true
+};
+Object.defineProperty(exports, "Accuracy", {
+  enumerable: true,
+  get: function () {
+    return _Location2.LocationAccuracy;
+  }
+});
+Object.defineProperty(exports, "ActivityType", {
+  enumerable: true,
+  get: function () {
+    return _Location2.LocationActivityType;
+  }
+});
+Object.defineProperty(exports, "EventEmitter", {
+  enumerable: true,
+  get: function () {
+    return _LocationEventEmitter.LocationEventEmitter;
+  }
+});
+Object.defineProperty(exports, "GeofencingEventType", {
+  enumerable: true,
+  get: function () {
+    return _Location2.LocationGeofencingEventType;
+  }
+});
+Object.defineProperty(exports, "GeofencingRegionState", {
+  enumerable: true,
+  get: function () {
+    return _Location2.LocationGeofencingRegionState;
+  }
+});
+Object.defineProperty(exports, "PermissionStatus", {
+  enumerable: true,
+  get: function () {
+    return _expo.PermissionStatus;
+  }
+});
+Object.defineProperty(exports, "_getCurrentWatchId", {
+  enumerable: true,
+  get: function () {
+    return _LocationSubscribers._getCurrentWatchId;
+  }
+});
+Object.defineProperty(exports, "installWebGeolocationPolyfill", {
+  enumerable: true,
+  get: function () {
+    return _GeolocationPolyfill.installWebGeolocationPolyfill;
+  }
+});
+var _expo = require("expo");
+var _LocationEventEmitter = require("./LocationEventEmitter");
+var _LocationSubscribers = require("./LocationSubscribers");
+var _GeolocationPolyfill = require("./GeolocationPolyfill");
+var _Location = require("./Location");
+Object.keys(_Location).forEach(function (key) {
+  if (key === "default" || key === "__esModule") return;
+  if (Object.prototype.hasOwnProperty.call(_exportNames, key)) return;
+  if (key in exports && exports[key] === _Location[key]) return;
+  Object.defineProperty(exports, key, {
+    enumerable: true,
+    get: function () {
+      return _Location[key];
+    }
+  });
+});
+var _Location2 = require("./Location.types");
+Object.keys(_Location2).forEach(function (key) {
+  if (key === "default" || key === "__esModule") return;
+  if (Object.prototype.hasOwnProperty.call(_exportNames, key)) return;
+  if (key in exports && exports[key] === _Location2[key]) return;
+  Object.defineProperty(exports, key, {
+    enumerable: true,
+    get: function () {
+      return _Location2[key];
+    }
+  });
+});
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJfZXhwbyIsInJlcXVpcmUiLCJfTG9jYXRpb25FdmVudEVtaXR0ZXIiLCJfTG9jYXRpb25TdWJzY3JpYmVycyIsIl9HZW9sb2NhdGlvblBvbHlmaWxsIiwiX0xvY2F0aW9uIiwiT2JqZWN0Iiwia2V5cyIsImZvckVhY2giLCJrZXkiLCJwcm90b3R5cGUiLCJoYXNPd25Qcm9wZXJ0eSIsImNhbGwiLCJfZXhwb3J0TmFtZXMiLCJleHBvcnRzIiwiZGVmaW5lUHJvcGVydHkiLCJlbnVtZXJhYmxlIiwiZ2V0IiwiX0xvY2F0aW9uMiJdLCJzb3VyY2VzIjpbIi4uL3NyYy9pbmRleC50cyJdLCJzb3VyY2VzQ29udGVudCI6WyJleHBvcnQgeyBQZXJtaXNzaW9uU3RhdHVzLCB0eXBlIFBlcm1pc3Npb25Ib29rT3B0aW9ucywgdHlwZSBQZXJtaXNzaW9uRXhwaXJhdGlvbiB9IGZyb20gJ2V4cG8nO1xuXG5leHBvcnQgeyBMb2NhdGlvbkV2ZW50RW1pdHRlciBhcyBFdmVudEVtaXR0ZXIgfSBmcm9tICcuL0xvY2F0aW9uRXZlbnRFbWl0dGVyJztcbmV4cG9ydCB7IF9nZXRDdXJyZW50V2F0Y2hJZCB9IGZyb20gJy4vTG9jYXRpb25TdWJzY3JpYmVycyc7XG5leHBvcnQgeyBpbnN0YWxsV2ViR2VvbG9jYXRpb25Qb2x5ZmlsbCB9IGZyb20gJy4vR2VvbG9jYXRpb25Qb2x5ZmlsbCc7XG5cbmV4cG9ydCAqIGZyb20gJy4vTG9jYXRpb24nO1xuZXhwb3J0ICogZnJvbSAnLi9Mb2NhdGlvbi50eXBlcyc7XG5cbmV4cG9ydCB7XG4gIExvY2F0aW9uQWNjdXJhY3kgYXMgQWNjdXJhY3ksXG4gIExvY2F0aW9uQWN0aXZpdHlUeXBlIGFzIEFjdGl2aXR5VHlwZSxcbiAgTG9jYXRpb25HZW9mZW5jaW5nRXZlbnRUeXBlIGFzIEdlb2ZlbmNpbmdFdmVudFR5cGUsXG4gIExvY2F0aW9uR2VvZmVuY2luZ1JlZ2lvblN0YXRlIGFzIEdlb2ZlbmNpbmdSZWdpb25TdGF0ZSxcbn0gZnJvbSAnLi9Mb2NhdGlvbi50eXBlcyc7XG4iXSwibWFwcGluZ3MiOiI7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7QUFBQSxJQUFBQSxLQUFBLEdBQUFDLE9BQUE7QUFFQSxJQUFBQyxxQkFBQSxHQUFBRCxPQUFBO0FBQ0EsSUFBQUUsb0JBQUEsR0FBQUYsT0FBQTtBQUNBLElBQUFHLG9CQUFBLEdBQUFILE9BQUE7QUFFQSxJQUFBSSxTQUFBLEdBQUFKLE9BQUE7QUFBQUssTUFBQSxDQUFBQyxJQUFBLENBQUFGLFNBQUEsRUFBQUcsT0FBQSxXQUFBQyxHQUFBO0VBQUEsSUFBQUEsR0FBQSxrQkFBQUEsR0FBQTtFQUFBLElBQUFILE1BQUEsQ0FBQUksU0FBQSxDQUFBQyxjQUFBLENBQUFDLElBQUEsQ0FBQUMsWUFBQSxFQUFBSixHQUFBO0VBQUEsSUFBQUEsR0FBQSxJQUFBSyxPQUFBLElBQUFBLE9BQUEsQ0FBQUwsR0FBQSxNQUFBSixTQUFBLENBQUFJLEdBQUE7RUFBQUgsTUFBQSxDQUFBUyxjQUFBLENBQUFELE9BQUEsRUFBQUwsR0FBQTtJQUFBTyxVQUFBO0lBQUFDLEdBQUEsV0FBQUEsQ0FBQTtNQUFBLE9BQUFaLFNBQUEsQ0FBQUksR0FBQTtJQUFBO0VBQUE7QUFBQTtBQUNBLElBQUFTLFVBQUEsR0FBQWpCLE9BQUE7QUFBQUssTUFBQSxDQUFBQyxJQUFBLENBQUFXLFVBQUEsRUFBQVYsT0FBQSxXQUFBQyxHQUFBO0VBQUEsSUFBQUEsR0FBQSxrQkFBQUEsR0FBQTtFQUFBLElBQUFILE1BQUEsQ0FBQUksU0FBQSxDQUFBQyxjQUFBLENBQUFDLElBQUEsQ0FBQUMsWUFBQSxFQUFBSixHQUFBO0VBQUEsSUFBQUEsR0FBQSxJQUFBSyxPQUFBLElBQUFBLE9BQUEsQ0FBQUwsR0FBQSxNQUFBUyxVQUFBLENBQUFULEdBQUE7RUFBQUgsTUFBQSxDQUFBUyxjQUFBLENBQUFELE9BQUEsRUFBQUwsR0FBQTtJQUFBTyxVQUFBO0lBQUFDLEdBQUEsV0FBQUEsQ0FBQTtNQUFBLE9BQUFDLFVBQUEsQ0FBQVQsR0FBQTtJQUFBO0VBQUE7QUFBQSIsImlnbm9yZUxpc3QiOltdfQ==

@@ -1,0 +1,205 @@
+/* Booking form tidy-up.
+   1. An empty box shows only its label: no "Choose …" hint inside it.
+   2. The One Way / Round Trip (and To / From airport) switch is a compact pill control. */
+
+/* ── 1. Empty boxes: the label is the prompt ─────────────────────────────────────────────────────── */
+.bf-field:has(.bf-trigger.is-empty) .bf-label {
+  color: var(--muted);
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+/* With no text inside, the whole box stays clickable (the trigger covers it) and keeps a sensible height. */
+.bf-trigger.is-empty {
+  min-height: 0;
+}
+.bf-stop-trigger {
+  align-self: stretch;
+  min-height: 40px;
+}
+
+/* ── 2. Journey switch ───────────────────────────────────────────────────────────────────────────── */
+.bf-journey.tabs {
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(max-content, 1fr);
+  width: fit-content;
+  max-width: 100%;
+  gap: 4px;
+  padding: 4px;
+  border: 0;
+  border-radius: var(--r-lg);
+  background: var(--sunken);
+}
+.bf-journey.tabs .tab {
+  min-height: 40px;
+  padding: 8px 26px;
+  border-radius: var(--r-field);
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.bf-journey.tabs .tab:hover {
+  color: var(--ink);
+}
+.bf-journey.tabs .tab.is-active,
+.bf-journey.tabs .tab[aria-selected='true'] {
+  background: var(--red);
+  color: #fff;
+  box-shadow: 0 6px 14px -6px rgb(198 40 40 / 0.6);
+}
+.bf-journey.tabs .tab.is-active::after,
+.bf-journey.tabs .tab[aria-selected='true']::after {
+  display: none;
+}
+
+/* On phones the two choices share the full width. */
+@media (max-width: 767.98px) {
+  .bf-journey.tabs {
+    display: grid;
+    grid-auto-columns: minmax(0, 1fr);
+    width: 100%;
+  }
+  .bf-journey.tabs .tab {
+    padding-inline: 12px;
+  }
+}
+
+/* A row with a single field (Local Rental's package) takes the full width, so its text never gets cut off. */
+.bf-row.bf-row--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+.bf-row.bf-row--single .bf-input {
+  width: 100%;
+  text-overflow: ellipsis;
+}
+
+/* Multicity: a city between pickup and drop, and its remove button (above the box's click area). */
+.bf-pin--stop {
+  width: 8px;
+  height: 8px;
+  margin: 2px;
+  border-color: var(--red);
+  background: var(--red);
+}
+.bf-stop-remove {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.bf-stop-remove:hover {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+/* Bottom bar: Outstation, the main service, is the raised filled button in the middle. */
+@media (max-width: 999.98px) {
+  .bottom-nav__item--main {
+    font-weight: 700;
+  }
+  .bottom-nav__item--main .bottom-nav__symbol {
+    width: 50px;
+    height: 50px;
+    margin-top: -26px;
+    border: 4px solid #fff;
+    border-radius: 50%;
+    background: var(--red);
+    color: #fff;
+    box-shadow: 0 8px 18px -6px rgb(198 40 40 / 0.7);
+    transition: transform var(--dur) var(--ease);
+  }
+  .bottom-nav__item--main:active .bottom-nav__symbol {
+    transform: scale(0.94);
+  }
+  .bottom-nav__item--main.is-active::before {
+    display: none;
+  }
+}
+
+/* Floating call and AI buttons: a little larger than before, and larger again on big screens. */
+.floating-call-btn {
+  gap: 12px;
+  padding: 11px 20px 11px 13px;
+}
+.floating-call-btn__icon {
+  width: 40px;
+  height: 40px;
+}
+.floating-call-btn__icon svg {
+  width: 21px;
+  height: 21px;
+}
+.floating-call-btn__label-main {
+  font-size: 14.5px;
+}
+.floating-call-btn__label-sub {
+  font-size: 12px;
+}
+.floating-ai-launcher {
+  gap: 9px;
+  padding: 11px 19px 11px 15px;
+  font-size: 14.5px;
+}
+.floating-ai-launcher__sparkle {
+  font-size: 18px;
+}
+@media (min-width: 1000px) {
+  .floating-ai-launcher {
+    bottom: 100px;
+  }
+}
+@media (min-width: 1600px) {
+  .floating-call-btn {
+    bottom: 32px;
+  }
+  .floating-ai-launcher {
+    bottom: 116px;
+  }
+}
+@media (min-width: 1600px) {
+  .floating-call-btn {
+    right: 32px;
+    gap: 14px;
+    padding: 14px 25px 14px 15px;
+  }
+  .floating-call-btn__icon {
+    width: 46px;
+    height: 46px;
+  }
+  .floating-call-btn__icon svg {
+    width: 24px;
+    height: 24px;
+  }
+  .floating-call-btn__label-main {
+    font-size: 16px;
+  }
+  .floating-call-btn__label-sub {
+    font-size: 13px;
+  }
+  .floating-ai-launcher {
+    right: 32px;
+    gap: 10px;
+    padding: 13px 23px 13px 17px;
+    font-size: 16px;
+  }
+  .floating-ai-launcher__sparkle {
+    font-size: 20px;
+  }
+}
+@media (min-width: 768px) and (max-width: 999.98px) {
+  .floating-ai-launcher {
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px) + 84px);
+  }
+  .shell--flow .floating-ai-launcher {
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px) + 78px);
+  }
+}

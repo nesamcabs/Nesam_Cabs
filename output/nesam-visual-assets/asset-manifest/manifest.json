@@ -1,0 +1,3212 @@
+[
+  {
+    "filename": "backgrounds/auth-customer.png",
+    "panel": "shared",
+    "placement": "auth customer",
+    "format": "png",
+    "width": 1024,
+    "height": 1536,
+    "transparency": false,
+    "bytes": 1686789
+  },
+  {
+    "filename": "backgrounds/auth-driver.png",
+    "panel": "shared",
+    "placement": "auth driver",
+    "format": "png",
+    "width": 1024,
+    "height": 1536,
+    "transparency": false,
+    "bytes": 1686347
+  },
+  {
+    "filename": "backgrounds/auth-vendor.png",
+    "panel": "shared",
+    "placement": "auth vendor",
+    "format": "png",
+    "width": 1024,
+    "height": 1536,
+    "transparency": false,
+    "bytes": 1667672
+  },
+  {
+    "filename": "backgrounds/dark-background.png",
+    "panel": "shared",
+    "placement": "dark background",
+    "format": "png",
+    "width": 1280,
+    "height": 720,
+    "transparency": false,
+    "bytes": 36318
+  },
+  {
+    "filename": "backgrounds/dark-background.svg",
+    "panel": "shared",
+    "placement": "dark background",
+    "format": "svg",
+    "width": "viewBox",
+    "height": "viewBox",
+    "transparency": "vector background",
+    "bytes": 254
+  },
+  {
+    "filename": "backgrounds/fleet-road-pattern.png",
+    "panel": "shared",
+    "placement": "fleet road pattern",
+    "format": "png",
+    "width": 1280,
+    "height": 1280,
+    "transparency": false,
+    "bytes": 38096
+  },
+  {
+    "filename": "backgrounds/fleet-road-pattern.svg",
+    "panel": "shared",
+    "placement": "fleet road pattern",
+    "format": "svg",
+    "width": "viewBox",
+    "height": "viewBox",
+    "transparency": "vector background",
+    "bytes": 272
+  },
+  {
+    "filename": "backgrounds/light-background.png",
+    "panel": "shared",
+    "placement": "light background",
+    "format": "png",
+    "width": 1280,
+    "height": 720,
+    "transparency": false,
+    "bytes": 35955
+  },
+  {
+    "filename": "backgrounds/light-background.svg",
+    "panel": "shared",
+    "placement": "light background",
+    "format": "svg",
+    "width": "viewBox",
+    "height": "viewBox",
+    "transparency": "vector background",
+    "bytes": 254
+  },
+  {
+    "filename": "backgrounds/location-pin-pattern.png",
+    "panel": "shared",
+    "placement": "location pin pattern",
+    "format": "png",
+    "width": 1280,
+    "height": 1280,
+    "transparency": false,
+    "bytes": 47722
+  },
+  {
+    "filename": "backgrounds/location-pin-pattern.svg",
+    "panel": "shared",
+    "placement": "location pin pattern",
+    "format": "svg",
+    "width": "viewBox",
+    "height": "viewBox",
+    "transparency": "vector background",
+    "bytes": 266
+  },
+  {
+    "filename": "backgrounds/route-pattern.png",
+    "panel": "shared",
+    "placement": "route pattern",
+    "format": "png",
+    "width": 1280,
+    "height": 1280,
+    "transparency": false,
+    "bytes": 43872
+  },
+  {
+    "filename": "backgrounds/route-pattern.svg",
+    "panel": "shared",
+    "placement": "route pattern",
+    "format": "svg",
+    "width": "viewBox",
+    "height": "viewBox",
+    "transparency": "vector background",
+    "bytes": 233
+  },
+  {
+    "filename": "brand/generation-prompts-second-batch.json",
+    "panel": "shared",
+    "placement": "generation prompts second batch",
+    "format": "json",
+    "width": "",
+    "height": "",
+    "transparency": "not applicable",
+    "bytes": 24620
+  },
+  {
+    "filename": "brand/original-asset-brief.txt",
+    "panel": "shared",
+    "placement": "original asset brief",
+    "format": "txt",
+    "width": "",
+    "height": "",
+    "transparency": "not applicable",
+    "bytes": 15338
+  },
+  {
+    "filename": "brand/original-logo.png",
+    "panel": "shared",
+    "placement": "original logo",
+    "format": "png",
+    "width": 1024,
+    "height": 1024,
+    "transparency": false,
+    "bytes": 222459
+  },
+  {
+    "filename": "brand/style-guide.md",
+    "panel": "shared",
+    "placement": "style guide",
+    "format": "md",
+    "width": "",
+    "height": "",
+    "transparency": "not applicable",
+    "bytes": 1823
+  },
+  {
+    "filename": "icons/customer/air-conditioning.png",
+    "panel": "customer",
+    "placement": "air conditioning",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 982
+  },
+  {
+    "filename": "icons/customer/air-conditioning.svg",
+    "panel": "customer",
+    "placement": "air conditioning",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 231
+  },
+  {
+    "filename": "icons/customer/cancellation.png",
+    "panel": "customer",
+    "placement": "cancellation",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 519
+  },
+  {
+    "filename": "icons/customer/cancellation.svg",
+    "panel": "customer",
+    "placement": "cancellation",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 198
+  },
+  {
+    "filename": "icons/customer/favourite.png",
+    "panel": "customer",
+    "placement": "favourite",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1548
+  },
+  {
+    "filename": "icons/customer/favourite.svg",
+    "panel": "customer",
+    "placement": "favourite",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 226
+  },
+  {
+    "filename": "icons/customer/local-rental.png",
+    "panel": "customer",
+    "placement": "local rental",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 2032
+  },
+  {
+    "filename": "icons/customer/local-rental.svg",
+    "panel": "customer",
+    "placement": "local rental",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 220
+  },
+  {
+    "filename": "icons/customer/luggage.png",
+    "panel": "customer",
+    "placement": "luggage",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 996
+  },
+  {
+    "filename": "icons/customer/luggage.svg",
+    "panel": "customer",
+    "placement": "luggage",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 267
+  },
+  {
+    "filename": "icons/customer/one-way.png",
+    "panel": "customer",
+    "placement": "one way",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1324
+  },
+  {
+    "filename": "icons/customer/one-way.svg",
+    "panel": "customer",
+    "placement": "one way",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 199
+  },
+  {
+    "filename": "icons/customer/outstation.png",
+    "panel": "customer",
+    "placement": "outstation",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1367
+  },
+  {
+    "filename": "icons/customer/outstation.svg",
+    "panel": "customer",
+    "placement": "outstation",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 276
+  },
+  {
+    "filename": "icons/customer/round-trip.png",
+    "panel": "customer",
+    "placement": "round trip",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1620
+  },
+  {
+    "filename": "icons/customer/round-trip.svg",
+    "panel": "customer",
+    "placement": "round trip",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 246
+  },
+  {
+    "filename": "icons/customer/tour-package.png",
+    "panel": "customer",
+    "placement": "tour package",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 863
+  },
+  {
+    "filename": "icons/customer/tour-package.svg",
+    "panel": "customer",
+    "placement": "tour package",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 253
+  },
+  {
+    "filename": "icons/customer/trip-tracking.png",
+    "panel": "customer",
+    "placement": "trip tracking",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1755
+  },
+  {
+    "filename": "icons/customer/trip-tracking.svg",
+    "panel": "customer",
+    "placement": "trip tracking",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 270
+  },
+  {
+    "filename": "icons/customer/vehicle-seats.png",
+    "panel": "customer",
+    "placement": "vehicle seats",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 584
+  },
+  {
+    "filename": "icons/customer/vehicle-seats.svg",
+    "panel": "customer",
+    "placement": "vehicle seats",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 219
+  },
+  {
+    "filename": "icons/driver/accept-trip.png",
+    "panel": "driver",
+    "placement": "accept trip",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 426
+  },
+  {
+    "filename": "icons/driver/accept-trip.svg",
+    "panel": "driver",
+    "placement": "accept trip",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 193
+  },
+  {
+    "filename": "icons/driver/available-trip.png",
+    "panel": "driver",
+    "placement": "available trip",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1367
+  },
+  {
+    "filename": "icons/driver/available-trip.svg",
+    "panel": "driver",
+    "placement": "available trip",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 276
+  },
+  {
+    "filename": "icons/driver/boarding-verification.png",
+    "panel": "driver",
+    "placement": "boarding verification",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1723
+  },
+  {
+    "filename": "icons/driver/boarding-verification.svg",
+    "panel": "driver",
+    "placement": "boarding verification",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 240
+  },
+  {
+    "filename": "icons/driver/driving-licence.png",
+    "panel": "driver",
+    "placement": "driving licence",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1263
+  },
+  {
+    "filename": "icons/driver/driving-licence.svg",
+    "panel": "driver",
+    "placement": "driving licence",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 299
+  },
+  {
+    "filename": "icons/driver/duty-status.png",
+    "panel": "driver",
+    "placement": "duty status",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1406
+  },
+  {
+    "filename": "icons/driver/duty-status.svg",
+    "panel": "driver",
+    "placement": "duty status",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 272
+  },
+  {
+    "filename": "icons/driver/front-vehicle-photo.png",
+    "panel": "driver",
+    "placement": "front vehicle photo",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 741
+  },
+  {
+    "filename": "icons/driver/front-vehicle-photo.svg",
+    "panel": "driver",
+    "placement": "front vehicle photo",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 246
+  },
+  {
+    "filename": "icons/driver/fuel.png",
+    "panel": "driver",
+    "placement": "fuel",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1152
+  },
+  {
+    "filename": "icons/driver/fuel.svg",
+    "panel": "driver",
+    "placement": "fuel",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 277
+  },
+  {
+    "filename": "icons/driver/insurance.png",
+    "panel": "driver",
+    "placement": "insurance",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1723
+  },
+  {
+    "filename": "icons/driver/insurance.svg",
+    "panel": "driver",
+    "placement": "insurance",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 240
+  },
+  {
+    "filename": "icons/driver/interior-vehicle-photo.png",
+    "panel": "driver",
+    "placement": "interior vehicle photo",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1214
+  },
+  {
+    "filename": "icons/driver/interior-vehicle-photo.svg",
+    "panel": "driver",
+    "placement": "interior vehicle photo",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 277
+  },
+  {
+    "filename": "icons/driver/payout.png",
+    "panel": "driver",
+    "placement": "payout",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 538
+  },
+  {
+    "filename": "icons/driver/payout.svg",
+    "panel": "driver",
+    "placement": "payout",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 218
+  },
+  {
+    "filename": "icons/driver/reached-pickup.png",
+    "panel": "driver",
+    "placement": "reached pickup",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 2048
+  },
+  {
+    "filename": "icons/driver/reached-pickup.svg",
+    "panel": "driver",
+    "placement": "reached pickup",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 281
+  },
+  {
+    "filename": "icons/driver/rear-vehicle-photo.png",
+    "panel": "driver",
+    "placement": "rear vehicle photo",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 747
+  },
+  {
+    "filename": "icons/driver/rear-vehicle-photo.svg",
+    "panel": "driver",
+    "placement": "rear vehicle photo",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 245
+  },
+  {
+    "filename": "icons/driver/toll.png",
+    "panel": "driver",
+    "placement": "toll",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 675
+  },
+  {
+    "filename": "icons/driver/toll.svg",
+    "panel": "driver",
+    "placement": "toll",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 229
+  },
+  {
+    "filename": "icons/driver/trip-completed.png",
+    "panel": "driver",
+    "placement": "trip completed",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 2085
+  },
+  {
+    "filename": "icons/driver/trip-completed.svg",
+    "panel": "driver",
+    "placement": "trip completed",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 222
+  },
+  {
+    "filename": "icons/driver/trip-started.png",
+    "panel": "driver",
+    "placement": "trip started",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1324
+  },
+  {
+    "filename": "icons/driver/trip-started.svg",
+    "panel": "driver",
+    "placement": "trip started",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 199
+  },
+  {
+    "filename": "icons/driver/vehicle-inspection.png",
+    "panel": "driver",
+    "placement": "vehicle inspection",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1144
+  },
+  {
+    "filename": "icons/driver/vehicle-inspection.svg",
+    "panel": "driver",
+    "placement": "vehicle inspection",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 288
+  },
+  {
+    "filename": "icons/driver/vehicle-registration.png",
+    "panel": "driver",
+    "placement": "vehicle registration",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 620
+  },
+  {
+    "filename": "icons/driver/vehicle-registration.svg",
+    "panel": "driver",
+    "placement": "vehicle registration",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 217
+  },
+  {
+    "filename": "icons/shared/add.png",
+    "panel": "shared",
+    "placement": "add",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 369
+  },
+  {
+    "filename": "icons/shared/add.svg",
+    "panel": "shared",
+    "placement": "add",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 194
+  },
+  {
+    "filename": "icons/shared/bank-transfer.png",
+    "panel": "shared",
+    "placement": "bank transfer",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 858
+  },
+  {
+    "filename": "icons/shared/bank-transfer.svg",
+    "panel": "shared",
+    "placement": "bank transfer",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 240
+  },
+  {
+    "filename": "icons/shared/booking.png",
+    "panel": "shared",
+    "placement": "booking",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1188
+  },
+  {
+    "filename": "icons/shared/booking.svg",
+    "panel": "shared",
+    "placement": "booking",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 296
+  },
+  {
+    "filename": "icons/shared/calendar.png",
+    "panel": "shared",
+    "placement": "calendar",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 995
+  },
+  {
+    "filename": "icons/shared/calendar.svg",
+    "panel": "shared",
+    "placement": "calendar",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 270
+  },
+  {
+    "filename": "icons/shared/camera.png",
+    "panel": "shared",
+    "placement": "camera",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1620
+  },
+  {
+    "filename": "icons/shared/camera.svg",
+    "panel": "shared",
+    "placement": "camera",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 272
+  },
+  {
+    "filename": "icons/shared/car.png",
+    "panel": "shared",
+    "placement": "car",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 668
+  },
+  {
+    "filename": "icons/shared/car.svg",
+    "panel": "shared",
+    "placement": "car",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 237
+  },
+  {
+    "filename": "icons/shared/chat.png",
+    "panel": "shared",
+    "placement": "chat",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 615
+  },
+  {
+    "filename": "icons/shared/chat.svg",
+    "panel": "shared",
+    "placement": "chat",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 210
+  },
+  {
+    "filename": "icons/shared/check.png",
+    "panel": "shared",
+    "placement": "check",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 426
+  },
+  {
+    "filename": "icons/shared/check.svg",
+    "panel": "shared",
+    "placement": "check",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 193
+  },
+  {
+    "filename": "icons/shared/chevron-down.png",
+    "panel": "shared",
+    "placement": "chevron down",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 419
+  },
+  {
+    "filename": "icons/shared/chevron-down.svg",
+    "panel": "shared",
+    "placement": "chevron down",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 190
+  },
+  {
+    "filename": "icons/shared/chevron-left.png",
+    "panel": "shared",
+    "placement": "chevron left",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 394
+  },
+  {
+    "filename": "icons/shared/chevron-left.svg",
+    "panel": "shared",
+    "placement": "chevron left",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 191
+  },
+  {
+    "filename": "icons/shared/chevron-right.png",
+    "panel": "shared",
+    "placement": "chevron right",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 394
+  },
+  {
+    "filename": "icons/shared/chevron-right.svg",
+    "panel": "shared",
+    "placement": "chevron right",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 190
+  },
+  {
+    "filename": "icons/shared/chevron-up.png",
+    "panel": "shared",
+    "placement": "chevron up",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 418
+  },
+  {
+    "filename": "icons/shared/chevron-up.svg",
+    "panel": "shared",
+    "placement": "chevron up",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 191
+  },
+  {
+    "filename": "icons/shared/clock.png",
+    "panel": "shared",
+    "placement": "clock",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 2032
+  },
+  {
+    "filename": "icons/shared/clock.svg",
+    "panel": "shared",
+    "placement": "clock",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 220
+  },
+  {
+    "filename": "icons/shared/close.png",
+    "panel": "shared",
+    "placement": "close",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 519
+  },
+  {
+    "filename": "icons/shared/close.svg",
+    "panel": "shared",
+    "placement": "close",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 198
+  },
+  {
+    "filename": "icons/shared/collapse.png",
+    "panel": "shared",
+    "placement": "collapse",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 450
+  },
+  {
+    "filename": "icons/shared/collapse.svg",
+    "panel": "shared",
+    "placement": "collapse",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 215
+  },
+  {
+    "filename": "icons/shared/current-location.png",
+    "panel": "shared",
+    "placement": "current location",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1755
+  },
+  {
+    "filename": "icons/shared/current-location.svg",
+    "panel": "shared",
+    "placement": "current location",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 270
+  },
+  {
+    "filename": "icons/shared/destination.png",
+    "panel": "shared",
+    "placement": "destination",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 552
+  },
+  {
+    "filename": "icons/shared/destination.svg",
+    "panel": "shared",
+    "placement": "destination",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 199
+  },
+  {
+    "filename": "icons/shared/document-upload.png",
+    "panel": "shared",
+    "placement": "document upload",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 707
+  },
+  {
+    "filename": "icons/shared/document-upload.svg",
+    "panel": "shared",
+    "placement": "document upload",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 223
+  },
+  {
+    "filename": "icons/shared/document.png",
+    "panel": "shared",
+    "placement": "document",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 620
+  },
+  {
+    "filename": "icons/shared/document.svg",
+    "panel": "shared",
+    "placement": "document",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 217
+  },
+  {
+    "filename": "icons/shared/download.png",
+    "panel": "shared",
+    "placement": "download",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 628
+  },
+  {
+    "filename": "icons/shared/download.svg",
+    "panel": "shared",
+    "placement": "download",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 212
+  },
+  {
+    "filename": "icons/shared/driver.png",
+    "panel": "shared",
+    "placement": "driver",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1607
+  },
+  {
+    "filename": "icons/shared/driver.svg",
+    "panel": "shared",
+    "placement": "driver",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 253
+  },
+  {
+    "filename": "icons/shared/earnings.png",
+    "panel": "shared",
+    "placement": "earnings",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 2183
+  },
+  {
+    "filename": "icons/shared/earnings.svg",
+    "panel": "shared",
+    "placement": "earnings",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 243
+  },
+  {
+    "filename": "icons/shared/edit.png",
+    "panel": "shared",
+    "placement": "edit",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1020
+  },
+  {
+    "filename": "icons/shared/edit.svg",
+    "panel": "shared",
+    "placement": "edit",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 211
+  },
+  {
+    "filename": "icons/shared/email.png",
+    "panel": "shared",
+    "placement": "email",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1119
+  },
+  {
+    "filename": "icons/shared/email.svg",
+    "panel": "shared",
+    "placement": "email",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 239
+  },
+  {
+    "filename": "icons/shared/emergency.png",
+    "panel": "shared",
+    "placement": "emergency",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1520
+  },
+  {
+    "filename": "icons/shared/emergency.svg",
+    "panel": "shared",
+    "placement": "emergency",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 243
+  },
+  {
+    "filename": "icons/shared/error.png",
+    "panel": "shared",
+    "placement": "error",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 2128
+  },
+  {
+    "filename": "icons/shared/error.svg",
+    "panel": "shared",
+    "placement": "error",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 227
+  },
+  {
+    "filename": "icons/shared/expand.png",
+    "panel": "shared",
+    "placement": "expand",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 448
+  },
+  {
+    "filename": "icons/shared/expand.svg",
+    "panel": "shared",
+    "placement": "expand",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 216
+  },
+  {
+    "filename": "icons/shared/external-link.png",
+    "panel": "shared",
+    "placement": "external link",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 633
+  },
+  {
+    "filename": "icons/shared/external-link.svg",
+    "panel": "shared",
+    "placement": "external link",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 214
+  },
+  {
+    "filename": "icons/shared/filter.png",
+    "panel": "shared",
+    "placement": "filter",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 765
+  },
+  {
+    "filename": "icons/shared/filter.svg",
+    "panel": "shared",
+    "placement": "filter",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 201
+  },
+  {
+    "filename": "icons/shared/fleet.png",
+    "panel": "shared",
+    "placement": "fleet",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 863
+  },
+  {
+    "filename": "icons/shared/fleet.svg",
+    "panel": "shared",
+    "placement": "fleet",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 253
+  },
+  {
+    "filename": "icons/shared/gallery.png",
+    "panel": "shared",
+    "placement": "gallery",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1214
+  },
+  {
+    "filename": "icons/shared/gallery.svg",
+    "panel": "shared",
+    "placement": "gallery",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 277
+  },
+  {
+    "filename": "icons/shared/help.png",
+    "panel": "shared",
+    "placement": "help",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 2423
+  },
+  {
+    "filename": "icons/shared/help.svg",
+    "panel": "shared",
+    "placement": "help",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 249
+  },
+  {
+    "filename": "icons/shared/home.png",
+    "panel": "shared",
+    "placement": "home",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 935
+  },
+  {
+    "filename": "icons/shared/home.svg",
+    "panel": "shared",
+    "placement": "home",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 218
+  },
+  {
+    "filename": "icons/shared/information.png",
+    "panel": "shared",
+    "placement": "information",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1982
+  },
+  {
+    "filename": "icons/shared/information.svg",
+    "panel": "shared",
+    "placement": "information",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 225
+  },
+  {
+    "filename": "icons/shared/location-pin.png",
+    "panel": "shared",
+    "placement": "location pin",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 2123
+  },
+  {
+    "filename": "icons/shared/location-pin.svg",
+    "panel": "shared",
+    "placement": "location pin",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 255
+  },
+  {
+    "filename": "icons/shared/lock.png",
+    "panel": "shared",
+    "placement": "lock",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1249
+  },
+  {
+    "filename": "icons/shared/lock.svg",
+    "panel": "shared",
+    "placement": "lock",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 259
+  },
+  {
+    "filename": "icons/shared/logout.png",
+    "panel": "shared",
+    "placement": "logout",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 575
+  },
+  {
+    "filename": "icons/shared/logout.svg",
+    "panel": "shared",
+    "placement": "logout",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 211
+  },
+  {
+    "filename": "icons/shared/more-options.png",
+    "panel": "shared",
+    "placement": "more options",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 376
+  },
+  {
+    "filename": "icons/shared/more-options.svg",
+    "panel": "shared",
+    "placement": "more options",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 258
+  },
+  {
+    "filename": "icons/shared/navigation.png",
+    "panel": "shared",
+    "placement": "navigation",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1324
+  },
+  {
+    "filename": "icons/shared/navigation.svg",
+    "panel": "shared",
+    "placement": "navigation",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 199
+  },
+  {
+    "filename": "icons/shared/notifications.png",
+    "panel": "shared",
+    "placement": "notifications",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1063
+  },
+  {
+    "filename": "icons/shared/notifications.svg",
+    "panel": "shared",
+    "placement": "notifications",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 226
+  },
+  {
+    "filename": "icons/shared/offers.png",
+    "panel": "shared",
+    "placement": "offers",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 813
+  },
+  {
+    "filename": "icons/shared/offers.svg",
+    "panel": "shared",
+    "placement": "offers",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 243
+  },
+  {
+    "filename": "icons/shared/offline.png",
+    "panel": "shared",
+    "placement": "offline",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1503
+  },
+  {
+    "filename": "icons/shared/offline.svg",
+    "panel": "shared",
+    "placement": "offline",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 294
+  },
+  {
+    "filename": "icons/shared/online.png",
+    "panel": "shared",
+    "placement": "online",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1406
+  },
+  {
+    "filename": "icons/shared/online.svg",
+    "panel": "shared",
+    "placement": "online",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 272
+  },
+  {
+    "filename": "icons/shared/otp-security.png",
+    "panel": "shared",
+    "placement": "otp security",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1249
+  },
+  {
+    "filename": "icons/shared/otp-security.svg",
+    "panel": "shared",
+    "placement": "otp security",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 259
+  },
+  {
+    "filename": "icons/shared/passengers.png",
+    "panel": "shared",
+    "placement": "passengers",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1802
+  },
+  {
+    "filename": "icons/shared/passengers.svg",
+    "panel": "shared",
+    "placement": "passengers",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 273
+  },
+  {
+    "filename": "icons/shared/payment-card.png",
+    "panel": "shared",
+    "placement": "payment card",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 825
+  },
+  {
+    "filename": "icons/shared/payment-card.svg",
+    "panel": "shared",
+    "placement": "payment card",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 242
+  },
+  {
+    "filename": "icons/shared/phone.png",
+    "panel": "shared",
+    "placement": "phone",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1663
+  },
+  {
+    "filename": "icons/shared/phone.svg",
+    "panel": "shared",
+    "placement": "phone",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 236
+  },
+  {
+    "filename": "icons/shared/pickup.png",
+    "panel": "shared",
+    "placement": "pickup",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 2048
+  },
+  {
+    "filename": "icons/shared/pickup.svg",
+    "panel": "shared",
+    "placement": "pickup",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 281
+  },
+  {
+    "filename": "icons/shared/profile.png",
+    "panel": "shared",
+    "placement": "profile",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1565
+  },
+  {
+    "filename": "icons/shared/profile.svg",
+    "panel": "shared",
+    "placement": "profile",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 233
+  },
+  {
+    "filename": "icons/shared/rating.png",
+    "panel": "shared",
+    "placement": "rating",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1754
+  },
+  {
+    "filename": "icons/shared/rating.svg",
+    "panel": "shared",
+    "placement": "rating",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 247
+  },
+  {
+    "filename": "icons/shared/receipt.png",
+    "panel": "shared",
+    "placement": "receipt",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 833
+  },
+  {
+    "filename": "icons/shared/receipt.svg",
+    "panel": "shared",
+    "placement": "receipt",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 237
+  },
+  {
+    "filename": "icons/shared/refresh.png",
+    "panel": "shared",
+    "placement": "refresh",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1620
+  },
+  {
+    "filename": "icons/shared/refresh.svg",
+    "panel": "shared",
+    "placement": "refresh",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 246
+  },
+  {
+    "filename": "icons/shared/remove.png",
+    "panel": "shared",
+    "placement": "remove",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 201
+  },
+  {
+    "filename": "icons/shared/remove.svg",
+    "panel": "shared",
+    "placement": "remove",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 186
+  },
+  {
+    "filename": "icons/shared/route.png",
+    "panel": "shared",
+    "placement": "route",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1367
+  },
+  {
+    "filename": "icons/shared/route.svg",
+    "panel": "shared",
+    "placement": "route",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 276
+  },
+  {
+    "filename": "icons/shared/saved-place.png",
+    "panel": "shared",
+    "placement": "saved place",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 710
+  },
+  {
+    "filename": "icons/shared/saved-place.svg",
+    "panel": "shared",
+    "placement": "saved place",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 198
+  },
+  {
+    "filename": "icons/shared/search.png",
+    "panel": "shared",
+    "placement": "search",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1576
+  },
+  {
+    "filename": "icons/shared/search.svg",
+    "panel": "shared",
+    "placement": "search",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 219
+  },
+  {
+    "filename": "icons/shared/settings.png",
+    "panel": "shared",
+    "placement": "settings",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1645
+  },
+  {
+    "filename": "icons/shared/settings.svg",
+    "panel": "shared",
+    "placement": "settings",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 305
+  },
+  {
+    "filename": "icons/shared/share.png",
+    "panel": "shared",
+    "placement": "share",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1335
+  },
+  {
+    "filename": "icons/shared/share.svg",
+    "panel": "shared",
+    "placement": "share",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 287
+  },
+  {
+    "filename": "icons/shared/sort.png",
+    "panel": "shared",
+    "placement": "sort",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 611
+  },
+  {
+    "filename": "icons/shared/sort.svg",
+    "panel": "shared",
+    "placement": "sort",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 221
+  },
+  {
+    "filename": "icons/shared/success.png",
+    "panel": "shared",
+    "placement": "success",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 2085
+  },
+  {
+    "filename": "icons/shared/success.svg",
+    "panel": "shared",
+    "placement": "success",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 222
+  },
+  {
+    "filename": "icons/shared/support.png",
+    "panel": "shared",
+    "placement": "support",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1285
+  },
+  {
+    "filename": "icons/shared/support.svg",
+    "panel": "shared",
+    "placement": "support",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 246
+  },
+  {
+    "filename": "icons/shared/trip-history.png",
+    "panel": "shared",
+    "placement": "trip history",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 2032
+  },
+  {
+    "filename": "icons/shared/trip-history.svg",
+    "panel": "shared",
+    "placement": "trip history",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 220
+  },
+  {
+    "filename": "icons/shared/verified.png",
+    "panel": "shared",
+    "placement": "verified",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1723
+  },
+  {
+    "filename": "icons/shared/verified.svg",
+    "panel": "shared",
+    "placement": "verified",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 240
+  },
+  {
+    "filename": "icons/shared/wallet.png",
+    "panel": "shared",
+    "placement": "wallet",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 989
+  },
+  {
+    "filename": "icons/shared/wallet.svg",
+    "panel": "shared",
+    "placement": "wallet",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 285
+  },
+  {
+    "filename": "icons/shared/warning.png",
+    "panel": "shared",
+    "placement": "warning",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1025
+  },
+  {
+    "filename": "icons/shared/warning.svg",
+    "panel": "shared",
+    "placement": "warning",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 208
+  },
+  {
+    "filename": "icons/vendor/add-vehicle.png",
+    "panel": "vendor",
+    "placement": "add vehicle",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 758
+  },
+  {
+    "filename": "icons/vendor/add-vehicle.svg",
+    "panel": "vendor",
+    "placement": "add vehicle",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 267
+  },
+  {
+    "filename": "icons/vendor/assign-driver.png",
+    "panel": "vendor",
+    "placement": "assign driver",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1670
+  },
+  {
+    "filename": "icons/vendor/assign-driver.svg",
+    "panel": "vendor",
+    "placement": "assign driver",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 266
+  },
+  {
+    "filename": "icons/vendor/business-profile.png",
+    "panel": "vendor",
+    "placement": "business profile",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 620
+  },
+  {
+    "filename": "icons/vendor/business-profile.svg",
+    "panel": "vendor",
+    "placement": "business profile",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 217
+  },
+  {
+    "filename": "icons/vendor/commission.png",
+    "panel": "vendor",
+    "placement": "commission",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1123
+  },
+  {
+    "filename": "icons/vendor/commission.svg",
+    "panel": "vendor",
+    "placement": "commission",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 249
+  },
+  {
+    "filename": "icons/vendor/document-expiry.png",
+    "panel": "vendor",
+    "placement": "document expiry",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1380
+  },
+  {
+    "filename": "icons/vendor/document-expiry.svg",
+    "panel": "vendor",
+    "placement": "document expiry",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 272
+  },
+  {
+    "filename": "icons/vendor/driver-invitation.png",
+    "panel": "vendor",
+    "placement": "driver invitation",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1192
+  },
+  {
+    "filename": "icons/vendor/driver-invitation.svg",
+    "panel": "vendor",
+    "placement": "driver invitation",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 265
+  },
+  {
+    "filename": "icons/vendor/driver-management.png",
+    "panel": "vendor",
+    "placement": "driver management",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1802
+  },
+  {
+    "filename": "icons/vendor/driver-management.svg",
+    "panel": "vendor",
+    "placement": "driver management",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 273
+  },
+  {
+    "filename": "icons/vendor/fleet-overview.png",
+    "panel": "vendor",
+    "placement": "fleet overview",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 863
+  },
+  {
+    "filename": "icons/vendor/fleet-overview.svg",
+    "panel": "vendor",
+    "placement": "fleet overview",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 253
+  },
+  {
+    "filename": "icons/vendor/maintenance.png",
+    "panel": "vendor",
+    "placement": "maintenance",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1366
+  },
+  {
+    "filename": "icons/vendor/maintenance.svg",
+    "panel": "vendor",
+    "placement": "maintenance",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 238
+  },
+  {
+    "filename": "icons/vendor/marketplace-bid.png",
+    "panel": "vendor",
+    "placement": "marketplace bid",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 674
+  },
+  {
+    "filename": "icons/vendor/marketplace-bid.svg",
+    "panel": "vendor",
+    "placement": "marketplace bid",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 222
+  },
+  {
+    "filename": "icons/vendor/settlement.png",
+    "panel": "vendor",
+    "placement": "settlement",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 538
+  },
+  {
+    "filename": "icons/vendor/settlement.svg",
+    "panel": "vendor",
+    "placement": "settlement",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 218
+  },
+  {
+    "filename": "icons/vendor/team.png",
+    "panel": "vendor",
+    "placement": "team",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1802
+  },
+  {
+    "filename": "icons/vendor/team.svg",
+    "panel": "vendor",
+    "placement": "team",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 273
+  },
+  {
+    "filename": "icons/vendor/vehicle-availability.png",
+    "panel": "vendor",
+    "placement": "vehicle availability",
+    "format": "png",
+    "width": 96,
+    "height": 96,
+    "transparency": true,
+    "bytes": 1406
+  },
+  {
+    "filename": "icons/vendor/vehicle-availability.svg",
+    "panel": "vendor",
+    "placement": "vehicle availability",
+    "format": "svg",
+    "width": 24,
+    "height": 24,
+    "transparency": true,
+    "bytes": 272
+  },
+  {
+    "filename": "illustrations/customer/account-review.png",
+    "panel": "customer",
+    "placement": "account review",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 888437
+  },
+  {
+    "filename": "illustrations/customer/book-journey.png",
+    "panel": "customer",
+    "placement": "book journey",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 791551
+  },
+  {
+    "filename": "illustrations/customer/booking-confirmed.png",
+    "panel": "customer",
+    "placement": "booking confirmed",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 819167
+  },
+  {
+    "filename": "illustrations/customer/choose-vehicle.png",
+    "panel": "customer",
+    "placement": "choose vehicle",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 684678
+  },
+  {
+    "filename": "illustrations/customer/driver-arriving.png",
+    "panel": "customer",
+    "placement": "driver arriving",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 681372
+  },
+  {
+    "filename": "illustrations/customer/error.png",
+    "panel": "customer",
+    "placement": "error",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 706624
+  },
+  {
+    "filename": "illustrations/customer/journey-progress.png",
+    "panel": "customer",
+    "placement": "journey progress",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 1213040
+  },
+  {
+    "filename": "illustrations/customer/no-notifications.png",
+    "panel": "customer",
+    "placement": "no notifications",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 529361
+  },
+  {
+    "filename": "illustrations/customer/no-offers.png",
+    "panel": "customer",
+    "placement": "no offers",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 765663
+  },
+  {
+    "filename": "illustrations/customer/no-payments.png",
+    "panel": "customer",
+    "placement": "no payments",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 784452
+  },
+  {
+    "filename": "illustrations/customer/no-saved-places.png",
+    "panel": "customer",
+    "placement": "no saved places",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 648081
+  },
+  {
+    "filename": "illustrations/customer/no-trips.png",
+    "panel": "customer",
+    "placement": "no trips",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 950930
+  },
+  {
+    "filename": "illustrations/customer/offline.png",
+    "panel": "customer",
+    "placement": "offline",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 690819
+  },
+  {
+    "filename": "illustrations/customer/phone-verification.png",
+    "panel": "customer",
+    "placement": "phone verification",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 834059
+  },
+  {
+    "filename": "illustrations/customer/profile-setup.png",
+    "panel": "customer",
+    "placement": "profile setup",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 833638
+  },
+  {
+    "filename": "illustrations/customer/support.png",
+    "panel": "customer",
+    "placement": "support",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 1113639
+  },
+  {
+    "filename": "illustrations/customer/trip-completed.png",
+    "panel": "customer",
+    "placement": "trip completed",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 825165
+  },
+  {
+    "filename": "illustrations/customer/welcome.png",
+    "panel": "customer",
+    "placement": "welcome",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 819816
+  },
+  {
+    "filename": "illustrations/driver/account-suspended.png",
+    "panel": "driver",
+    "placement": "account suspended",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 770401
+  },
+  {
+    "filename": "illustrations/driver/approval-pending.png",
+    "panel": "driver",
+    "placement": "approval pending",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 1009714
+  },
+  {
+    "filename": "illustrations/driver/boarding-verification.png",
+    "panel": "driver",
+    "placement": "boarding verification",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 810167
+  },
+  {
+    "filename": "illustrations/driver/changes-requested.png",
+    "panel": "driver",
+    "placement": "changes requested",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 721110
+  },
+  {
+    "filename": "illustrations/driver/documents-submitted.png",
+    "panel": "driver",
+    "placement": "documents submitted",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 703258
+  },
+  {
+    "filename": "illustrations/driver/go-online.png",
+    "panel": "driver",
+    "placement": "go online",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 849058
+  },
+  {
+    "filename": "illustrations/driver/new-trip.png",
+    "panel": "driver",
+    "placement": "new trip",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 899643
+  },
+  {
+    "filename": "illustrations/driver/no-available-trips.png",
+    "panel": "driver",
+    "placement": "no available trips",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 862738
+  },
+  {
+    "filename": "illustrations/driver/no-earnings.png",
+    "panel": "driver",
+    "placement": "no earnings",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 936336
+  },
+  {
+    "filename": "illustrations/driver/offline-dashboard.png",
+    "panel": "driver",
+    "placement": "offline dashboard",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 811963
+  },
+  {
+    "filename": "illustrations/driver/payout-completed.png",
+    "panel": "driver",
+    "placement": "payout completed",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 591200
+  },
+  {
+    "filename": "illustrations/driver/payout-requested.png",
+    "panel": "driver",
+    "placement": "payout requested",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 834029
+  },
+  {
+    "filename": "illustrations/driver/reached-pickup.png",
+    "panel": "driver",
+    "placement": "reached pickup",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 669981
+  },
+  {
+    "filename": "illustrations/driver/registration.png",
+    "panel": "driver",
+    "placement": "registration",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 1450865
+  },
+  {
+    "filename": "illustrations/driver/safety-support.png",
+    "panel": "driver",
+    "placement": "safety support",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 1172820
+  },
+  {
+    "filename": "illustrations/driver/trip-completed.png",
+    "panel": "driver",
+    "placement": "trip completed",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 994092
+  },
+  {
+    "filename": "illustrations/driver/vehicle-photo-verification.png",
+    "panel": "driver",
+    "placement": "vehicle photo verification",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 1311565
+  },
+  {
+    "filename": "illustrations/driver/welcome.png",
+    "panel": "driver",
+    "placement": "welcome",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 990211
+  },
+  {
+    "filename": "illustrations/vendor/account-hold.png",
+    "panel": "vendor",
+    "placement": "account hold",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 625827
+  },
+  {
+    "filename": "illustrations/vendor/add-vehicle.png",
+    "panel": "vendor",
+    "placement": "add vehicle",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 729371
+  },
+  {
+    "filename": "illustrations/vendor/approval-pending.png",
+    "panel": "vendor",
+    "placement": "approval pending",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 929510
+  },
+  {
+    "filename": "illustrations/vendor/assign-trip.png",
+    "panel": "vendor",
+    "placement": "assign trip",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 1068912
+  },
+  {
+    "filename": "illustrations/vendor/business-onboarding.png",
+    "panel": "vendor",
+    "placement": "business onboarding",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 1114084
+  },
+  {
+    "filename": "illustrations/vendor/business-support.png",
+    "panel": "vendor",
+    "placement": "business support",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 872314
+  },
+  {
+    "filename": "illustrations/vendor/changes-requested.png",
+    "panel": "vendor",
+    "placement": "changes requested",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 820757
+  },
+  {
+    "filename": "illustrations/vendor/document-expiring.png",
+    "panel": "vendor",
+    "placement": "document expiring",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 863976
+  },
+  {
+    "filename": "illustrations/vendor/invitation-accepted.png",
+    "panel": "vendor",
+    "placement": "invitation accepted",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 907421
+  },
+  {
+    "filename": "illustrations/vendor/invite-driver.png",
+    "panel": "vendor",
+    "placement": "invite driver",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 473420
+  },
+  {
+    "filename": "illustrations/vendor/no-drivers.png",
+    "panel": "vendor",
+    "placement": "no drivers",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 919082
+  },
+  {
+    "filename": "illustrations/vendor/no-marketplace-trips.png",
+    "panel": "vendor",
+    "placement": "no marketplace trips",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 750243
+  },
+  {
+    "filename": "illustrations/vendor/no-transactions.png",
+    "panel": "vendor",
+    "placement": "no transactions",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 973915
+  },
+  {
+    "filename": "illustrations/vendor/no-vehicles.png",
+    "panel": "vendor",
+    "placement": "no vehicles",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 572793
+  },
+  {
+    "filename": "illustrations/vendor/settlement-completed.png",
+    "panel": "vendor",
+    "placement": "settlement completed",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 662764
+  },
+  {
+    "filename": "illustrations/vendor/settlement-pending.png",
+    "panel": "vendor",
+    "placement": "settlement pending",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 764664
+  },
+  {
+    "filename": "illustrations/vendor/vehicle-unavailable.png",
+    "panel": "vendor",
+    "placement": "vehicle unavailable",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 669080
+  },
+  {
+    "filename": "illustrations/vendor/welcome.png",
+    "panel": "vendor",
+    "placement": "welcome",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 1082844
+  },
+  {
+    "filename": "photography/airport-transfer.png",
+    "panel": "shared",
+    "placement": "airport transfer",
+    "format": "png",
+    "width": 1672,
+    "height": 941,
+    "transparency": false,
+    "bytes": 2059049
+  },
+  {
+    "filename": "photography/coastal-road.png",
+    "panel": "shared",
+    "placement": "coastal road",
+    "format": "png",
+    "width": 1672,
+    "height": 941,
+    "transparency": false,
+    "bytes": 2298018
+  },
+  {
+    "filename": "photography/exterior-detail.png",
+    "panel": "shared",
+    "placement": "exterior detail",
+    "format": "png",
+    "width": 1672,
+    "height": 941,
+    "transparency": false,
+    "bytes": 1992717
+  },
+  {
+    "filename": "photography/family-travel.png",
+    "panel": "shared",
+    "placement": "family travel",
+    "format": "png",
+    "width": 1672,
+    "height": 941,
+    "transparency": false,
+    "bytes": 2059939
+  },
+  {
+    "filename": "photography/hill-station.png",
+    "panel": "shared",
+    "placement": "hill station",
+    "format": "png",
+    "width": 1672,
+    "height": 941,
+    "transparency": false,
+    "bytes": 2595943
+  },
+  {
+    "filename": "photography/indian-road.png",
+    "panel": "shared",
+    "placement": "indian road",
+    "format": "png",
+    "width": 1672,
+    "height": 941,
+    "transparency": false,
+    "bytes": 2088065
+  },
+  {
+    "filename": "photography/parked-fleet.png",
+    "panel": "shared",
+    "placement": "parked fleet",
+    "format": "png",
+    "width": 1672,
+    "height": 941,
+    "transparency": false,
+    "bytes": 2288959
+  },
+  {
+    "filename": "photography/professional-driver.png",
+    "panel": "shared",
+    "placement": "professional driver",
+    "format": "png",
+    "width": 1672,
+    "height": 941,
+    "transparency": false,
+    "bytes": 2184620
+  },
+  {
+    "filename": "photography/urban-pickup.png",
+    "panel": "shared",
+    "placement": "urban pickup",
+    "format": "png",
+    "width": 1672,
+    "height": 941,
+    "transparency": false,
+    "bytes": 2222455
+  },
+  {
+    "filename": "photography/vehicle-interior.png",
+    "panel": "shared",
+    "placement": "vehicle interior",
+    "format": "png",
+    "width": 1672,
+    "height": 941,
+    "transparency": false,
+    "bytes": 2295136
+  },
+  {
+    "filename": "previews/icons.jpg",
+    "panel": "shared",
+    "placement": "icons",
+    "format": "jpg",
+    "width": 1280,
+    "height": 2100,
+    "transparency": false,
+    "bytes": 170769
+  },
+  {
+    "filename": "previews/illustrations-customer.jpg",
+    "panel": "shared",
+    "placement": "illustrations customer",
+    "format": "jpg",
+    "width": 1200,
+    "height": 1040,
+    "transparency": false,
+    "bytes": 115447
+  },
+  {
+    "filename": "previews/illustrations-driver.jpg",
+    "panel": "shared",
+    "placement": "illustrations driver",
+    "format": "jpg",
+    "width": 1200,
+    "height": 1040,
+    "transparency": false,
+    "bytes": 122737
+  },
+  {
+    "filename": "previews/illustrations-vendor.jpg",
+    "panel": "shared",
+    "placement": "illustrations vendor",
+    "format": "jpg",
+    "width": 1200,
+    "height": 1040,
+    "transparency": false,
+    "bytes": 116316
+  },
+  {
+    "filename": "previews/photography.jpg",
+    "panel": "shared",
+    "placement": "photography",
+    "format": "jpg",
+    "width": 960,
+    "height": 780,
+    "transparency": false,
+    "bytes": 79505
+  },
+  {
+    "filename": "previews/stickers.jpg",
+    "panel": "shared",
+    "placement": "stickers",
+    "format": "jpg",
+    "width": 1200,
+    "height": 780,
+    "transparency": false,
+    "bytes": 86191
+  },
+  {
+    "filename": "previews/vehicles.jpg",
+    "panel": "shared",
+    "placement": "vehicles",
+    "format": "jpg",
+    "width": 1200,
+    "height": 520,
+    "transparency": false,
+    "bytes": 52157
+  },
+  {
+    "filename": "README.md",
+    "panel": "shared",
+    "placement": "README",
+    "format": "md",
+    "width": "",
+    "height": "",
+    "transparency": "not applicable",
+    "bytes": 2622
+  },
+  {
+    "filename": "stickers/booking-confirmed.png",
+    "panel": "shared",
+    "placement": "booking confirmed",
+    "format": "png",
+    "width": 1536,
+    "height": 1024,
+    "transparency": true,
+    "bytes": 1142447
+  },
+  {
+    "filename": "stickers/fleet-ready.png",
+    "panel": "shared",
+    "placement": "fleet ready",
+    "format": "png",
+    "width": 1536,
+    "height": 1024,
+    "transparency": true,
+    "bytes": 1275226
+  },
+  {
+    "filename": "stickers/journey-completed.png",
+    "panel": "shared",
+    "placement": "journey completed",
+    "format": "png",
+    "width": 1312,
+    "height": 1199,
+    "transparency": true,
+    "bytes": 911523
+  },
+  {
+    "filename": "stickers/rating-star.png",
+    "panel": "shared",
+    "placement": "rating star",
+    "format": "png",
+    "width": 1263,
+    "height": 1245,
+    "transparency": true,
+    "bytes": 1273480
+  },
+  {
+    "filename": "stickers/ready-drive.png",
+    "panel": "shared",
+    "placement": "ready drive",
+    "format": "png",
+    "width": 1359,
+    "height": 1158,
+    "transparency": true,
+    "bytes": 1147068
+  },
+  {
+    "filename": "stickers/route-location.png",
+    "panel": "shared",
+    "placement": "route location",
+    "format": "png",
+    "width": 1536,
+    "height": 1024,
+    "transparency": true,
+    "bytes": 1309602
+  },
+  {
+    "filename": "stickers/safe-journey.png",
+    "panel": "shared",
+    "placement": "safe journey",
+    "format": "png",
+    "width": 1262,
+    "height": 1246,
+    "transparency": true,
+    "bytes": 1126569
+  },
+  {
+    "filename": "stickers/support-available.png",
+    "panel": "shared",
+    "placement": "support available",
+    "format": "png",
+    "width": 1254,
+    "height": 1254,
+    "transparency": true,
+    "bytes": 785514
+  },
+  {
+    "filename": "stickers/thank-you.png",
+    "panel": "shared",
+    "placement": "thank you",
+    "format": "png",
+    "width": 1312,
+    "height": 1199,
+    "transparency": true,
+    "bytes": 740766
+  },
+  {
+    "filename": "stickers/vehicle-checked.png",
+    "panel": "shared",
+    "placement": "vehicle checked",
+    "format": "png",
+    "width": 1312,
+    "height": 1199,
+    "transparency": true,
+    "bytes": 875258
+  },
+  {
+    "filename": "stickers/verified-partner.png",
+    "panel": "shared",
+    "placement": "verified partner",
+    "format": "png",
+    "width": 1274,
+    "height": 1234,
+    "transparency": true,
+    "bytes": 802285
+  },
+  {
+    "filename": "stickers/welcome-aboard.png",
+    "panel": "shared",
+    "placement": "welcome aboard",
+    "format": "png",
+    "width": 1312,
+    "height": 1199,
+    "transparency": true,
+    "bytes": 1074587
+  },
+  {
+    "filename": "vehicles/hatchback.png",
+    "panel": "shared",
+    "placement": "hatchback",
+    "format": "png",
+    "width": 1536,
+    "height": 1024,
+    "transparency": true,
+    "bytes": 1680336
+  },
+  {
+    "filename": "vehicles/minibus.png",
+    "panel": "shared",
+    "placement": "minibus",
+    "format": "png",
+    "width": 1536,
+    "height": 1024,
+    "transparency": true,
+    "bytes": 1727976
+  },
+  {
+    "filename": "vehicles/mpv.png",
+    "panel": "shared",
+    "placement": "mpv",
+    "format": "png",
+    "width": 1536,
+    "height": 1024,
+    "transparency": true,
+    "bytes": 1677501
+  },
+  {
+    "filename": "vehicles/passenger-van.png",
+    "panel": "shared",
+    "placement": "passenger van",
+    "format": "png",
+    "width": 1536,
+    "height": 1024,
+    "transparency": true,
+    "bytes": 1780439
+  },
+  {
+    "filename": "vehicles/premium-sedan.png",
+    "panel": "shared",
+    "placement": "premium sedan",
+    "format": "png",
+    "width": 1672,
+    "height": 941,
+    "transparency": true,
+    "bytes": 1361195
+  },
+  {
+    "filename": "vehicles/sedan.png",
+    "panel": "shared",
+    "placement": "sedan",
+    "format": "png",
+    "width": 1536,
+    "height": 1024,
+    "transparency": true,
+    "bytes": 1540108
+  },
+  {
+    "filename": "vehicles/suv.png",
+    "panel": "shared",
+    "placement": "suv",
+    "format": "png",
+    "width": 1536,
+    "height": 1024,
+    "transparency": true,
+    "bytes": 1779556
+  },
+  {
+    "filename": "vehicles/tourist-coach.png",
+    "panel": "shared",
+    "placement": "tourist coach",
+    "format": "png",
+    "width": 1672,
+    "height": 941,
+    "transparency": true,
+    "bytes": 1539720
+  }
+]

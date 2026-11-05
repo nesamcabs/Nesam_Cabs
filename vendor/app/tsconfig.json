@@ -1,0 +1,23 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["App.tsx", "index.ts", "app.config.ts", "src/**/*.ts", "src/**/*.tsx"],
+  "exclude": [
+    "src/screens/auth/VendorAuthScreen.tsx",
+    "src/screens/main/DashboardScreen.tsx",
+    "src/screens/main/DriversScreen.tsx",
+    "src/screens/main/FleetScreen.tsx",
+    "src/screens/main/MarketplaceScreen.tsx",
+    "src/screens/main/ProfileScreen.tsx",
+    "src/screens/main/TripAssignmentScreen.tsx",
+    "src/screens/main/WalletScreen.tsx",
+    "src/context/AuthContext.tsx",
+    "src/services/firebase.ts",
+    "src/services/vendorFirestoreService.ts"
+  ]
+}

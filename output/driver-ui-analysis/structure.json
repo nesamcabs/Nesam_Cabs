@@ -1,0 +1,963 @@
+{
+  "namedFunctions": [
+    {
+      "name": "persist",
+      "start": 432,
+      "end": 432,
+      "characters": 137,
+      "mentions": []
+    },
+    {
+      "name": "toast",
+      "start": 433,
+      "end": 433,
+      "characters": 200,
+      "mentions": []
+    },
+    {
+      "name": "availability",
+      "start": 434,
+      "end": 434,
+      "characters": 463,
+      "mentions": []
+    },
+    {
+      "name": "metrics",
+      "start": 435,
+      "end": 435,
+      "characters": 1071,
+      "mentions": [
+        "approvedBalance"
+      ]
+    },
+    {
+      "name": "routeStack",
+      "start": 436,
+      "end": 436,
+      "characters": 293,
+      "mentions": []
+    },
+    {
+      "name": "dutyCard",
+      "start": 437,
+      "end": 437,
+      "characters": 835,
+      "mentions": []
+    },
+    {
+      "name": "availableSection",
+      "start": 438,
+      "end": 445,
+      "characters": 1673,
+      "mentions": []
+    },
+    {
+      "name": "ledger",
+      "start": 446,
+      "end": 446,
+      "characters": 333,
+      "mentions": []
+    },
+    {
+      "name": "profilePage",
+      "start": 447,
+      "end": 447,
+      "characters": 2073,
+      "mentions": []
+    },
+    {
+      "name": "openDialog",
+      "start": 448,
+      "end": 448,
+      "characters": 506,
+      "mentions": [
+        "refreshIcons"
+      ]
+    },
+    {
+      "name": "openSupport",
+      "start": 449,
+      "end": 449,
+      "characters": 530,
+      "mentions": [
+        "openDialog"
+      ]
+    },
+    {
+      "name": "openPickup",
+      "start": 450,
+      "end": 450,
+      "characters": 667,
+      "mentions": [
+        "openDialog"
+      ]
+    },
+    {
+      "name": "copyAddress",
+      "start": 451,
+      "end": 451,
+      "characters": 747,
+      "mentions": [
+        "toast",
+        "openDialog"
+      ]
+    },
+    {
+      "name": "resetPreview",
+      "start": 452,
+      "end": 452,
+      "characters": 423,
+      "mentions": [
+        "openDialog"
+      ]
+    },
+    {
+      "name": "freshState",
+      "start": 457,
+      "end": 457,
+      "characters": 172,
+      "mentions": []
+    },
+    {
+      "name": "blankFlow",
+      "start": 458,
+      "end": 458,
+      "characters": 135,
+      "mentions": []
+    },
+    {
+      "name": "getFlow",
+      "start": 459,
+      "end": 459,
+      "characters": 238,
+      "mentions": [
+        "blankFlow"
+      ]
+    },
+    {
+      "name": "calculateTrip",
+      "start": 460,
+      "end": 469,
+      "characters": 1513,
+      "mentions": []
+    },
+    {
+      "name": "sanitizeFlow",
+      "start": 470,
+      "end": 487,
+      "characters": 1762,
+      "mentions": [
+        "blankFlow",
+        "calculateTrip"
+      ]
+    },
+    {
+      "name": "restoreState",
+      "start": 488,
+      "end": 497,
+      "characters": 968,
+      "mentions": [
+        "freshState",
+        "blankFlow",
+        "sanitizeFlow"
+      ]
+    },
+    {
+      "name": "dateText",
+      "start": 498,
+      "end": 498,
+      "characters": 166,
+      "mentions": []
+    },
+    {
+      "name": "closedRecords",
+      "start": 499,
+      "end": 499,
+      "characters": 370,
+      "mentions": [
+        "getFlow",
+        "calculateTrip",
+        "dateText"
+      ]
+    },
+    {
+      "name": "allCompleted",
+      "start": 500,
+      "end": 500,
+      "characters": 65,
+      "mentions": [
+        "closedRecords"
+      ]
+    },
+    {
+      "name": "pendingBase",
+      "start": 501,
+      "end": 501,
+      "characters": 79,
+      "mentions": [
+        "closedRecords"
+      ]
+    },
+    {
+      "name": "pendingCollections",
+      "start": 502,
+      "end": 502,
+      "characters": 110,
+      "mentions": [
+        "closedRecords"
+      ]
+    },
+    {
+      "name": "currentDuty",
+      "start": 503,
+      "end": 503,
+      "characters": 116,
+      "mentions": [
+        "getFlow"
+      ]
+    },
+    {
+      "name": "refreshIcons",
+      "start": 504,
+      "end": 504,
+      "characters": 98,
+      "mentions": []
+    },
+    {
+      "name": "updateNav",
+      "start": 505,
+      "end": 514,
+      "characters": 1878,
+      "mentions": [
+        "dateText"
+      ]
+    },
+    {
+      "name": "dutyDay",
+      "start": 515,
+      "end": 515,
+      "characters": 272,
+      "mentions": []
+    },
+    {
+      "name": "nextTrip",
+      "start": 516,
+      "end": 516,
+      "characters": 1090,
+      "mentions": [
+        "routeStack",
+        "getFlow",
+        "dutyDay",
+        "cancellationPending"
+      ]
+    },
+    {
+      "name": "homePage",
+      "start": 517,
+      "end": 517,
+      "characters": 810,
+      "mentions": [
+        "availableSection",
+        "getFlow",
+        "closedRecords",
+        "currentDuty",
+        "nextTrip",
+        "cancelledRecords"
+      ]
+    },
+    {
+      "name": "completedCard",
+      "start": 518,
+      "end": 518,
+      "characters": 704,
+      "mentions": []
+    },
+    {
+      "name": "cancelledCard",
+      "start": 519,
+      "end": 519,
+      "characters": 623,
+      "mentions": []
+    },
+    {
+      "name": "tripsPage",
+      "start": 520,
+      "end": 520,
+      "characters": 1302,
+      "mentions": [
+        "allCompleted",
+        "cancelledRecords"
+      ]
+    },
+    {
+      "name": "earningsPage",
+      "start": 521,
+      "end": 521,
+      "characters": 1913,
+      "mentions": [
+        "ledger",
+        "closedRecords",
+        "pendingBase"
+      ]
+    },
+    {
+      "name": "walletPage",
+      "start": 522,
+      "end": 522,
+      "characters": 1808,
+      "mentions": [
+        "ledger",
+        "closedRecords",
+        "pendingBase",
+        "pendingCollections",
+        "approvedBalance",
+        "cancellationLedger"
+      ]
+    },
+    {
+      "name": "openDuty",
+      "start": 523,
+      "end": 523,
+      "characters": 1482,
+      "mentions": [
+        "routeStack",
+        "openDialog",
+        "openTrip"
+      ]
+    },
+    {
+      "name": "acceptDuty",
+      "start": 524,
+      "end": 524,
+      "characters": 436,
+      "mentions": [
+        "persist",
+        "toast",
+        "getFlow",
+        "render"
+      ]
+    },
+    {
+      "name": "openNotifications",
+      "start": 525,
+      "end": 525,
+      "characters": 1040,
+      "mentions": [
+        "persist",
+        "openDialog",
+        "getFlow",
+        "closedRecords",
+        "currentDuty",
+        "updateNav",
+        "approvedBalance"
+      ]
+    },
+    {
+      "name": "render",
+      "start": 526,
+      "end": 526,
+      "characters": 645,
+      "mentions": [
+        "refreshIcons",
+        "updateNav",
+        "bindTripSliders",
+        "stopCamera"
+      ]
+    },
+    {
+      "name": "goPage",
+      "start": 527,
+      "end": 527,
+      "characters": 188,
+      "mentions": [
+        "render"
+      ]
+    },
+    {
+      "name": "openTrip",
+      "start": 528,
+      "end": 528,
+      "characters": 232,
+      "mentions": [
+        "persist",
+        "getFlow",
+        "render"
+      ]
+    },
+    {
+      "name": "stepTo",
+      "start": 529,
+      "end": 529,
+      "characters": 434,
+      "mentions": [
+        "persist",
+        "getFlow",
+        "render"
+      ]
+    },
+    {
+      "name": "swipeMarkup",
+      "start": 530,
+      "end": 530,
+      "characters": 425,
+      "mentions": []
+    },
+    {
+      "name": "navigateButton",
+      "start": 531,
+      "end": 531,
+      "characters": 265,
+      "mentions": []
+    },
+    {
+      "name": "customerAccess",
+      "start": 534,
+      "end": 534,
+      "characters": 279,
+      "mentions": [
+        "getFlow",
+        "isCancelled"
+      ]
+    },
+    {
+      "name": "customerDetails",
+      "start": 535,
+      "end": 542,
+      "characters": 2004,
+      "mentions": [
+        "getFlow",
+        "dateText",
+        "customerAccess",
+        "isCancelled"
+      ]
+    },
+    {
+      "name": "tripPage",
+      "start": 543,
+      "end": 555,
+      "characters": 3839,
+      "mentions": [
+        "getFlow",
+        "swipeMarkup",
+        "navigateButton",
+        "customerDetails",
+        "closingForm",
+        "reviewTrip",
+        "tripReceipt",
+        "startTripChecks",
+        "isCancelled",
+        "cancellationPending",
+        "tripHelpEntry",
+        "cancellationStatus",
+        "cancellationSummary"
+      ]
+    },
+    {
+      "name": "separateChargesNote",
+      "start": 556,
+      "end": 556,
+      "characters": 245,
+      "mentions": []
+    },
+    {
+      "name": "closingForm",
+      "start": 557,
+      "end": 557,
+      "characters": 1001,
+      "mentions": [
+        "separateChargesNote"
+      ]
+    },
+    {
+      "name": "cashMoney",
+      "start": 558,
+      "end": 558,
+      "characters": 177,
+      "mentions": []
+    },
+    {
+      "name": "collectionCard",
+      "start": 559,
+      "end": 559,
+      "characters": 497,
+      "mentions": [
+        "cashMoney"
+      ]
+    },
+    {
+      "name": "onlinePaymentBadge",
+      "start": 560,
+      "end": 560,
+      "characters": 397,
+      "mentions": []
+    },
+    {
+      "name": "reviewTrip",
+      "start": 561,
+      "end": 561,
+      "characters": 987,
+      "mentions": [
+        "calculateTrip",
+        "onlinePaymentBadge"
+      ]
+    },
+    {
+      "name": "tripReceipt",
+      "start": 562,
+      "end": 562,
+      "characters": 1069,
+      "mentions": [
+        "calculateTrip",
+        "separateChargesNote",
+        "cashMoney",
+        "collectionCard",
+        "onlinePaymentBadge"
+      ]
+    },
+    {
+      "name": "commitTripSwipe",
+      "start": 563,
+      "end": 563,
+      "characters": 480,
+      "mentions": [
+        "getFlow",
+        "stepTo",
+        "hasStartPhotos",
+        "startReady",
+        "isCancelled",
+        "cancellationPending"
+      ]
+    },
+    {
+      "name": "bindTripSliders",
+      "start": 564,
+      "end": 566,
+      "characters": 1115,
+      "mentions": [
+        "commitTripSwipe"
+      ]
+    },
+    {
+      "name": "photoRecord",
+      "start": 585,
+      "end": 585,
+      "characters": 97,
+      "mentions": []
+    },
+    {
+      "name": "hasStartPhotos",
+      "start": 586,
+      "end": 586,
+      "characters": 115,
+      "mentions": []
+    },
+    {
+      "name": "startReady",
+      "start": 587,
+      "end": 587,
+      "characters": 193,
+      "mentions": [
+        "getFlow",
+        "isCancelled",
+        "cancellationPending"
+      ]
+    },
+    {
+      "name": "stopCamera",
+      "start": 588,
+      "end": 588,
+      "characters": 259,
+      "mentions": []
+    },
+    {
+      "name": "startTripChecks",
+      "start": 589,
+      "end": 589,
+      "characters": 1681,
+      "mentions": [
+        "swipeMarkup",
+        "photoRecord",
+        "hasStartPhotos",
+        "startReady"
+      ]
+    },
+    {
+      "name": "cameraPage",
+      "start": 590,
+      "end": 590,
+      "characters": 2193,
+      "mentions": []
+    },
+    {
+      "name": "setCameraError",
+      "start": 591,
+      "end": 591,
+      "characters": 148,
+      "mentions": []
+    },
+    {
+      "name": "openLiveCamera",
+      "start": 592,
+      "end": 610,
+      "characters": 3025,
+      "mentions": [
+        "getFlow",
+        "render",
+        "photoRecord",
+        "startReady",
+        "stopCamera",
+        "setCameraError"
+      ]
+    },
+    {
+      "name": "captureLivePhoto",
+      "start": 611,
+      "end": 612,
+      "characters": 922,
+      "mentions": [
+        "render",
+        "stopCamera",
+        "setCameraError"
+      ]
+    },
+    {
+      "name": "useLivePhoto",
+      "start": 613,
+      "end": 613,
+      "characters": 454,
+      "mentions": [
+        "persist",
+        "getFlow",
+        "render",
+        "photoRecord",
+        "startReady",
+        "stopCamera",
+        "openLiveCamera"
+      ]
+    },
+    {
+      "name": "isCancelled",
+      "start": 618,
+      "end": 618,
+      "characters": 75,
+      "mentions": []
+    },
+    {
+      "name": "cancellationPending",
+      "start": 619,
+      "end": 619,
+      "characters": 82,
+      "mentions": []
+    },
+    {
+      "name": "cancellationQuote",
+      "start": 620,
+      "end": 626,
+      "characters": 562,
+      "mentions": []
+    },
+    {
+      "name": "cancellationReason",
+      "start": 627,
+      "end": 627,
+      "characters": 167,
+      "mentions": []
+    },
+    {
+      "name": "cancellationPolicy",
+      "start": 628,
+      "end": 628,
+      "characters": 538,
+      "mentions": []
+    },
+    {
+      "name": "openCancellationPolicy",
+      "start": 629,
+      "end": 629,
+      "characters": 374,
+      "mentions": [
+        "openDialog",
+        "cancellationPolicy"
+      ]
+    },
+    {
+      "name": "tripHelpEntry",
+      "start": 630,
+      "end": 634,
+      "characters": 503,
+      "mentions": [
+        "cancellationPending"
+      ]
+    },
+    {
+      "name": "openTripHelp",
+      "start": 635,
+      "end": 640,
+      "characters": 1887,
+      "mentions": [
+        "openDialog",
+        "getFlow",
+        "isCancelled",
+        "cancellationPending"
+      ]
+    },
+    {
+      "name": "openCancellationRequest",
+      "start": 641,
+      "end": 643,
+      "characters": 2049,
+      "mentions": [
+        "toast",
+        "openDialog",
+        "getFlow",
+        "openTrip",
+        "isCancelled",
+        "cancellationPending",
+        "cancellationQuote",
+        "cancellationReason",
+        "cancellationPolicy",
+        "openTripHelp"
+      ]
+    },
+    {
+      "name": "submitCancellation",
+      "start": 644,
+      "end": 647,
+      "characters": 1385,
+      "mentions": [
+        "persist",
+        "toast",
+        "getFlow",
+        "render",
+        "cancellationQuote"
+      ]
+    },
+    {
+      "name": "cancellationStatus",
+      "start": 648,
+      "end": 648,
+      "characters": 1145,
+      "mentions": [
+        "dateText",
+        "cancellationReason"
+      ]
+    },
+    {
+      "name": "cancelledRecords",
+      "start": 649,
+      "end": 649,
+      "characters": 150,
+      "mentions": [
+        "getFlow",
+        "isCancelled"
+      ]
+    },
+    {
+      "name": "cancellationSummary",
+      "start": 650,
+      "end": 650,
+      "characters": 946,
+      "mentions": []
+    },
+    {
+      "name": "penaltyTotal",
+      "start": 651,
+      "end": 651,
+      "characters": 187,
+      "mentions": []
+    },
+    {
+      "name": "approvedBalance",
+      "start": 652,
+      "end": 652,
+      "characters": 55,
+      "mentions": [
+        "penaltyTotal"
+      ]
+    },
+    {
+      "name": "cancellationLedger",
+      "start": 653,
+      "end": 653,
+      "characters": 826,
+      "mentions": []
+    },
+    {
+      "name": "applyAdminCancellationUpdate",
+      "start": 655,
+      "end": 655,
+      "characters": 763,
+      "mentions": [
+        "persist",
+        "render",
+        "stopCamera"
+      ]
+    }
+  ],
+  "syntaxDiagnostics": [],
+  "cssVariables": [
+    {
+      "name": "--red",
+      "value": "#D92535",
+      "line": 10
+    },
+    {
+      "name": "--red-dark",
+      "value": "#B81C2A",
+      "line": 10
+    },
+    {
+      "name": "--red-soft",
+      "value": "#FFF0F1",
+      "line": 10
+    },
+    {
+      "name": "--ink",
+      "value": "#191A20",
+      "line": 10
+    },
+    {
+      "name": "--muted",
+      "value": "#6E727E",
+      "line": 10
+    },
+    {
+      "name": "--line",
+      "value": "#E9EBEF",
+      "line": 10
+    },
+    {
+      "name": "--page",
+      "value": "#F6F7F9",
+      "line": 10
+    },
+    {
+      "name": "--green",
+      "value": "#167A50",
+      "line": 10
+    },
+    {
+      "name": "--green-soft",
+      "value": "#E9F7EF",
+      "line": 10
+    },
+    {
+      "name": "--amber",
+      "value": "#946000",
+      "line": 10
+    },
+    {
+      "name": "--amber-soft",
+      "value": "#FFF5DE",
+      "line": 10
+    },
+    {
+      "name": "--white",
+      "value": "#FFF",
+      "line": 10
+    },
+    {
+      "name": "--radius",
+      "value": "18px",
+      "line": 10
+    },
+    {
+      "name": "--shadow",
+      "value": "0 3px 16px rgba(24,27,36,.035)",
+      "line": 10
+    },
+    {
+      "name": "--nx-red",
+      "value": "#d92535",
+      "line": 25
+    },
+    {
+      "name": "--nx-red-soft",
+      "value": "#fff0f1",
+      "line": 25
+    },
+    {
+      "name": "--nx-ink",
+      "value": "#1c1d24",
+      "line": 25
+    },
+    {
+      "name": "--nx-muted",
+      "value": "#747c89",
+      "line": 25
+    },
+    {
+      "name": "--nx-line",
+      "value": "#e7eaf0",
+      "line": 25
+    },
+    {
+      "name": "--nx-bg",
+      "value": "#f6f7f9",
+      "line": 25
+    },
+    {
+      "name": "--nx-green",
+      "value": "#187c51",
+      "line": 25
+    },
+    {
+      "name": "--nx-green-soft",
+      "value": "#eaf7ef",
+      "line": 25
+    },
+    {
+      "name": "--nx-amber",
+      "value": "#946209",
+      "line": 25
+    },
+    {
+      "name": "--nx-amber-soft",
+      "value": "#fff4dc",
+      "line": 25
+    },
+    {
+      "name": "--page",
+      "value": "#f6f7f9",
+      "line": 241
+    },
+    {
+      "name": "--red",
+      "value": "#d82035",
+      "line": 241
+    },
+    {
+      "name": "--red-soft",
+      "value": "#fff0f2",
+      "line": 241
+    },
+    {
+      "name": "--ink",
+      "value": "#171b24",
+      "line": 241
+    },
+    {
+      "name": "--muted",
+      "value": "#6f7785",
+      "line": 241
+    },
+    {
+      "name": "--line",
+      "value": "#e7eaf0",
+      "line": 241
+    },
+    {
+      "name": "--shadow",
+      "value": "0 3px 14px #16203305",
+      "line": 241
+    },
+    {
+      "name": "--nesam-signature-red",
+      "value": "#e43d32",
+      "line": 346
+    }
+  ],
+  "declaredButNameAppearsOnce": [
+    "applyAdminCancellationUpdate"
+  ]
+}

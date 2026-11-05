@@ -1,0 +1,212 @@
+/* "Additional charges" card of the fare breakup. Flat, one accent colour (each site's --brand), no gradients. Kept compact. */
+.addl {
+  --addl-accent: var(--brand, var(--red, #c62828));
+  container-type: inline-size;
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid var(--line, #e2e6ec);
+  border-radius: 16px;
+  background: #fff;
+  color: var(--ink, #20252d);
+}
+.addl__bar {
+  display: block;
+  width: 32px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--addl-accent);
+}
+.addl__title {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--ink, #20252d);
+}
+.addl__sub {
+  margin: -6px 0 0;
+  font-size: 0.75rem;
+  color: var(--muted, #697587);
+}
+
+/* Extra KM and waiting: the rate is the first thing seen.
+   The tiles share three rows (label, rate, note), so the two rates line up even when one label wraps. */
+.addl__tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: auto auto 1fr;
+  column-gap: 8px;
+  row-gap: 0;
+}
+.addl__tile {
+  position: relative;
+  display: grid;
+  grid-row: span 3;
+  grid-template-rows: subgrid;
+  row-gap: 1px;
+  align-content: start;
+  padding: 7px 9px 7px;
+  border: 1px solid color-mix(in srgb, var(--addl-accent) 24%, #fff);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--addl-accent) 6%, #fff);
+}
+.addl__tile:only-child {
+  grid-column: 1 / -1;
+}
+.addl__tile-label {
+  padding-right: 18px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--ink, #20252d);
+}
+.addl__tile-icon {
+  position: absolute;
+  top: 7px;
+  right: 8px;
+  display: grid;
+  width: 15px;
+  height: 15px;
+  color: var(--ink, #20252d);
+}
+.addl__tile-icon svg,
+.addl__chip-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.addl__tile-value {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 1.0625rem;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--addl-accent);
+}
+.addl__tile-value small {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--ink, #20252d);
+}
+.addl__tile-sub {
+  min-height: 1px;
+  font-size: 0.6875rem;
+  line-height: 1.3;
+  color: var(--muted, #697587);
+}
+.addl__tile-sub:empty {
+  display: none;
+}
+
+/* Toll, parking, permit and the like: paid at actuals on the day. */
+.addl__group {
+  display: grid;
+  gap: 1px;
+  padding: 10px;
+  border-radius: 12px;
+  background: #f2f4f8;
+}
+.addl__group-title {
+  font-size: 0.8125rem;
+  font-weight: 800;
+  color: var(--ink, #20252d);
+}
+.addl__group-sub {
+  font-size: 0.6875rem;
+  color: var(--muted, #697587);
+}
+.addl__chips {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+/* An odd one out takes the full row, so no chip sits alone at half width. */
+.addl__chip:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+.addl__chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 38px;
+  padding: 6px 10px;
+  border: 1px solid var(--line, #dde3ec);
+  border-radius: 10px;
+  background: #fff;
+}
+.addl__chip-icon {
+  flex: none;
+  display: grid;
+  width: 17px;
+  height: 17px;
+  color: var(--ink, #20252d);
+}
+.addl__chip-text {
+  display: grid;
+  min-width: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--ink, #20252d);
+}
+.addl__chip-text small {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--muted, #697587);
+}
+
+/* Policy link: accent colour with an arrow, a rule under it, then the fine print. */
+.addl__policy-row {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line, #e2e6ec);
+}
+.addl__policy-row .policy-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 16px;
+  margin: 0;
+  font-size: 0; /* hides the " · " separators between links */
+  text-align: center;
+}
+.addl__policy-row a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--addl-accent);
+  text-decoration: none;
+}
+.addl__policy-row a:hover {
+  text-decoration: underline;
+}
+.addl__foot {
+  margin: 0;
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  color: var(--muted, #697587);
+}
+
+/* Wide enough for all three side by side: Toll, Parking, State tax / permit. */
+@container (min-width: 440px) {
+  .addl__chips {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .addl__chip:last-child:nth-child(odd) {
+    grid-column: auto;
+  }
+  .addl__tile-value {
+    font-size: 1.1875rem;
+  }
+}

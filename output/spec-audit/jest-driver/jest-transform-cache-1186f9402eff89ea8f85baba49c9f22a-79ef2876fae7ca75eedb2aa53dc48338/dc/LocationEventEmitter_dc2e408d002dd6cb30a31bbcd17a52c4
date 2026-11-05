@@ -1,0 +1,9 @@
+af0ff6a660ef60c2ace5ed6bc1125e94
+var _interopRequireDefault = require("@babel/runtime/helpers/interopRequireDefault").default;
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.LocationEventEmitter = void 0;
+var _ExpoLocation = _interopRequireDefault(require("./ExpoLocation"));
+var LocationEventEmitter = exports.LocationEventEmitter = _ExpoLocation.default;
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJfRXhwb0xvY2F0aW9uIiwiX2ludGVyb3BSZXF1aXJlRGVmYXVsdCIsInJlcXVpcmUiLCJMb2NhdGlvbkV2ZW50RW1pdHRlciIsImV4cG9ydHMiLCJFeHBvTG9jYXRpb24iXSwic291cmNlcyI6WyIuLi9zcmMvTG9jYXRpb25FdmVudEVtaXR0ZXIudHMiXSwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IEV4cG9Mb2NhdGlvbiBmcm9tICcuL0V4cG9Mb2NhdGlvbic7XG5cbmV4cG9ydCBjb25zdCBMb2NhdGlvbkV2ZW50RW1pdHRlciA9IEV4cG9Mb2NhdGlvbjtcbiJdLCJtYXBwaW5ncyI6Ijs7Ozs7QUFBQSxJQUFBQSxhQUFBLEdBQUFDLHNCQUFBLENBQUFDLE9BQUE7QUFFTyxJQUFNQyxvQkFBb0IsR0FBQUMsT0FBQSxDQUFBRCxvQkFBQSxHQUFHRSxxQkFBWSIsImlnbm9yZUxpc3QiOltdfQ==

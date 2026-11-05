@@ -1,0 +1,120 @@
+121:   @media(max-width:360px){.trip-flow{padding:8px 0}.trip-flow .nx-main{padding:17px 13px}.trip-flow .nx-panel{padding:16px}.trip-flow .nx-header{padding:16px 15px 14px}.trip-flow .nx-route-title{font-size:21px}.trip-flow .nx-swipe-label{font-size:11px;right:8px;left:56px}.trip-flow .nx-rate{gap:6px}}
+122:   @media(prefers-reduced-motion:reduce){.trip-flow *{transition:none!important}}
+123: 
+124: 
+125: .trip-flow{display:block;padding:0;margin:0 auto;max-width:650px;background:transparent;font-family:inherit}.trip-flow .wrap-value{white-space:normal;max-width:175px;overflow-wrap:anywhere}.trip-back{display:inline-flex;align-items:center;gap:5px;background:none;border:0;padding:4px 0 15px;color:var(--muted);font-size:12px;min-height:43px}.trip-back>.icon{transform:rotate(180deg);width:16px;height:16px}.mobile-page-heading{display:none}.trip-flow>.nx-panel .route-stack{padding:22px 0 16px}.trip-flow .nx-swipe input{touch-action:pan-y}.trip-flow .nx-heading{font-weight:750}.trip-flow .nx-row strong{overflow-wrap:anywhere}.trip-flow .nx-swipe .icon{display:block;fill:none;stroke:currentColor}.trip-flow .nx-swipe .nx-knob>.icon{width:25px;height:25px}.header-actions{gap:10px}
+126: @media(max-width:700px){.mobile-page-heading{display:block;font-size:22px;font-weight:750;letter-spacing:-.6px;margin-bottom:18px}.workspace{padding-top:17px}.trip-flow{max-width:none}.topbar .mobile-brand{display:flex}.preview-note{margin-bottom:17px}.trip-flow .nx-panel{padding:18px}.trip-flow .nx-otp-input{font-size:31px!important}.trip-flow .nx-row{font-size:12px}.trip-flow .nx-field input,.trip-flow .nx-field select{font-size:16px}}
+127: @media(max-width:360px){.trip-flow{padding:0}.trip-flow .nx-panel{padding:15px}.trip-flow .nx-swipe-label{font-size:11px}.trip-flow .nx-row{font-size:11px}.header-actions{gap:7px}.icon-button{min-width:37px;height:39px}.mobile-brand .brand-name{font-size:16px}.preview-note{font-size:8px}}
+128: @media print{.topbar,.preview-note,.trip-back,.trip-flow .nx-progress,.trip-flow .nx-actions,.mobile-page-heading{display:none!important}.workspace{padding:0!important}.trip-flow{max-width:none}.receipt-panel{border:0;padding:0;box-shadow:none}.app{display:block}.sidebar,.bottom-nav,.page-footer{display:none!important}}
+129: 
+130: 
+131: @media(max-width:700px){.bottom-nav .nav-button{font-size:11px}.page-subtitle,.section-heading p,.duty-info,.duty-meta,.duty-payout small,.payout-row small,.trip-facts,.pickup-date,.list-note,.badge,.profile-note,.ledger-item small,.document-row .badge{font-size:11px}.mobile-brand .brand-label{font-size:10px}.preview-note{font-size:10px}.preview-note strong,.preview-note button{font-size:9px}.duty-bottom .button{font-size:11px}.page-footer{font-size:9px}}
+132: .trip-flow .nx-close-panel{padding:22px}
+133: .trip-flow .nx-close-heading{display:flex;align-items:center;gap:13px;margin-bottom:13px}
+134: .trip-flow .nx-close-heading .nx-pin-box{margin:0;width:45px;height:45px;border-radius:14px}
+135: .trip-flow .nx-close-heading .nx-eyebrow{font-size:10px;letter-spacing:1.2px;margin-bottom:3px}
+136: .trip-flow .nx-close-heading .nx-heading{margin:0;font-size:19px}
+137: .trip-flow .nx-close-panel .nx-copy{font-size:12px;line-height:1.8}
+138: .trip-flow .nx-close-panel .nx-running{margin-top:24px;font-size:12px;font-weight:650}
+139: .trip-flow .nx-km-control{display:flex;align-items:center;gap:10px;border:1.5px solid #d8dfe9;border-radius:13px;background:#fff;margin-top:9px;padding:4px 16px;min-height:82px}
+140: .trip-flow .nx-km-control:focus-within{border-color:var(--nx-red)}
+141: .trip-flow .nx-km-control input{width:100%;min-width:0;padding:12px 0;border:0;background:transparent;font-size:36px;line-height:1.3;font-weight:750;letter-spacing:-1px;color:var(--nx-ink);appearance:textfield;-moz-appearance:textfield}
+142: .trip-flow .nx-km-control input::-webkit-inner-spin-button,.trip-flow .nx-km-control input::-webkit-outer-spin-button{appearance:none;-webkit-appearance:none;margin:0}
+143: .trip-flow .nx-km-control>span{font-size:16px;color:var(--nx-muted)}
+144: .trip-flow .nx-km-control input::placeholder{color:#b8bec9}
+145: .trip-flow .nx-close-panel #app-km-help{margin-top:8px}
+146: .trip-flow .nx-separate-note{display:flex;align-items:flex-start;gap:9px;margin-top:22px;padding-top:17px;border-top:1px solid var(--nx-line);color:var(--nx-muted)}
+147: .trip-flow .nx-separate-note>.icon{width:16px;height:16px;flex-shrink:0;margin-top:2px}
+148: .trip-flow .nx-separate-note p{font-size:11px;line-height:1.8;min-width:0}
+149: .trip-flow .nx-separate-note strong{display:block;color:var(--nx-ink);font-size:11px;font-weight:600}
+150: .trip-flow .nx-separate-note span{display:block;margin-top:3px}
+151: .trip-flow .nx-close-panel .nx-actions{margin-top:23px}
+152: .trip-flow .nx-close-panel .nx-button{min-height:49px;font-size:13px}
+153: .trip-flow .nx-collection-card{background:var(--nx-red-soft);border-radius:14px;padding:23px 18px;margin:20px 0 12px;text-align:center}
+154: .trip-flow .nx-collection-label{display:block;font-size:12px;font-weight:500;color:#96414c}
+155: .trip-flow .nx-collection-card>strong{display:block;color:var(--nx-red);font-size:43px;font-weight:780;letter-spacing:-1.7px;line-height:1.35;margin:6px 0 3px;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+156: .trip-flow .nx-collection-card>small{display:block;color:#96414c;font-size:11px}
+157: .trip-flow .nx-edit-km{background:transparent;border-color:transparent;color:var(--nx-muted)}
+158: .trip-flow .nx-settlement-note{display:flex;justify-content:center;gap:6px;margin-top:13px;font-size:10px;line-height:1.7;color:var(--nx-muted);text-align:center}
+159: .trip-flow .nx-settlement-note .icon{width:14px;height:14px;flex-shrink:0;margin-top:2px}
+160: @media(max-width:360px){.trip-flow .nx-close-panel{padding:17px}.trip-flow .nx-close-heading{gap:10px}.trip-flow .nx-close-heading .nx-heading{font-size:17px}.trip-flow .nx-collection-card>strong{font-size:38px}.trip-flow .nx-settlement-note{font-size:11px}}
+161: 
+162: .topbar .header-status{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:42px;padding:8px 9px;border:1px solid #d8eee2;border-radius:24px;background:#eef8f2;color:#147648;font-size:12px;font-weight:650;white-space:nowrap}
+163: .header-status .status-dot{width:6px;height:6px;flex-shrink:0;background:#147648}
+164: .header-status[aria-checked="false"]{background:#f0f1f3;border-color:#e2e4e8;color:#666d78}
+165: .header-status[aria-checked="false"] .status-dot{background:#818792}
+166: .header-toggle{display:block;position:relative;width:26px;height:16px;border-radius:20px;background:#168557;flex-shrink:0;margin-left:2px}
+167: .header-toggle:after{content:"";position:absolute;left:12px;top:3px;width:10px;height:10px;border-radius:50%;background:white;transition:left .18s}
+168: .header-status[aria-checked="false"] .header-toggle{background:#9ba1aa}
+169: .header-status[aria-checked="false"] .header-toggle:after{left:3px}
+170: .topbar{gap:10px;margin-bottom:20px;min-width:0}
+171: .topbar>div:first-child{min-width:0}
+172: .topbar .mobile-brand{display:flex;gap:7px;align-items:center}
+173: .topbar .home-title,.topbar .page-subtitle,.topbar .date-tag{display:none}
+174: .header-actions{gap:7px;flex-shrink:0}
+175: .header-actions .header-support{display:none}
+176: .trip-flow .nx-pickup-summary{display:flex;align-items:center;gap:9px;margin:18px 0;padding:12px 0;border-top:1px solid var(--nx-line);border-bottom:1px solid var(--nx-line)}
+177: .trip-flow .nx-pickup-summary>.icon{color:var(--nx-red);width:19px;height:19px;flex-shrink:0}
+178: .trip-flow .nx-pickup-summary small{display:block;font-size:11px;color:var(--nx-muted)}
+179: .trip-flow .nx-pickup-summary strong{display:block;font-size:12px;margin-top:3px;font-weight:600}
+180: .trip-flow .nx-photo-checks{display:grid;gap:13px}
+181: .trip-flow .nx-photo-check{display:flex;gap:10px;align-items:center;padding:14px 0;border-bottom:1px solid var(--nx-line)}
+182: .trip-flow .nx-photo-check:last-child{border-bottom:0}
+183: .trip-flow .nx-photo-thumb{height:49px;width:49px;flex-shrink:0;display:grid;place-items:center;border-radius:12px;background:var(--nx-bg);color:var(--nx-muted);overflow:hidden}
+184: .trip-flow .nx-photo-thumb .icon{width:22px;height:22px}
+185: .trip-flow .nx-photo-thumb img{width:100%;height:100%;object-fit:cover}
+186: .trip-flow .nx-photo-copy{flex:1;min-width:0}
+187: .trip-flow .nx-photo-copy small{display:block;font-size:10px;letter-spacing:.8px;color:var(--nx-muted);margin-bottom:4px}
+188: .trip-flow .nx-photo-copy strong{display:block;font-size:12px;font-weight:650;line-height:1.5}
+189: .trip-flow .nx-photo-copy p{font-size:11px;color:var(--nx-muted);line-height:1.6;margin-top:3px}
+190: .trip-flow .nx-photo-action{min-height:44px;border:0;background:transparent;padding:6px 0 6px 5px;font-size:11px;font-weight:650;color:var(--nx-red);flex-shrink:0;display:flex;gap:4px;align-items:center}
+191: .trip-flow .nx-photo-action .icon{width:14px;height:14px}
+192: .trip-flow .nx-photo-action:disabled{color:#a9aeb7}
+193: .trip-flow .is-captured .nx-photo-copy p{color:var(--nx-green)}
+194: .trip-flow .nx-camera-only{display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;color:var(--nx-muted);line-height:1.7;margin-top:18px;text-align:center}
+195: .trip-flow .nx-camera-only .icon{width:14px;height:14px;flex-shrink:0}
+196: .trip-flow .nx-camera-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px}
+197: .trip-flow .nx-live-badge{display:inline-flex;align-items:center;gap:6px;border-radius:7px;background:var(--nx-red-soft);padding:5px 8px;font-size:11px;color:var(--nx-red)}
+198: .trip-flow .nx-live-badge>span{width:5px;height:5px;border-radius:50%;background:currentColor}
+199: .trip-flow .nx-camera-frame{width:100%;aspect-ratio:4/5;background:#192025;border-radius:18px;position:relative;overflow:hidden;margin:19px 0 12px}
+200: .trip-flow .nx-camera-frame.is-car{aspect-ratio:4/3}
+201: .trip-flow .nx-camera-frame video,.trip-flow .nx-camera-result{display:block;width:100%;height:100%;object-fit:cover}
+202: .trip-flow .is-selfie video{transform:scaleX(-1)}
+203: .trip-flow .nx-camera-result{object-fit:contain;background:#192025}
+204: .trip-flow .nx-camera-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#a7b0b7;background:#192025;font-size:12px}
+205: .trip-flow .nx-camera-placeholder .icon{width:45px;height:45px}
+206: .trip-flow .nx-camera-guide{position:absolute;inset:12% 18%;border:2px solid #f6f7f9a8;border-radius:48%;pointer-events:none}
+207: .trip-flow .is-car .nx-camera-guide{inset:19% 8%;border-radius:12px}
+208: .trip-flow .nx-camera-message{font-size:11px;line-height:1.8;color:var(--nx-muted);text-align:center;min-height:36px}
+209: .trip-flow .nx-camera-page .nx-actions{margin-top:17px}
+210: .trip-flow .nx-collection-card.is-paid{background:var(--nx-green-soft)}
+211: .trip-flow .nx-collection-card.is-paid>strong{color:var(--nx-green)}
+212: .trip-flow .nx-collection-card.is-paid .nx-collection-label,.trip-flow .nx-collection-card.is-paid>small{color:#286b4c}
+213: .trip-flow .nx-payment-hint{font-size:11px;line-height:1.8;color:var(--nx-muted);margin-top:14px}
+214: @media(max-width:700px){.workspace{padding-top:14px}.topbar{margin-bottom:22px}.topbar .mobile-brand .real-logo{width:38px;height:38px}.topbar .mobile-brand .brand-name{font-size:16px;letter-spacing:1.3px}.topbar .mobile-brand .brand-label{font-size:9px;letter-spacing:1.8px;margin-top:3px}.topbar .icon-button{width:38px;min-width:38px;height:40px}.topbar .header-status{font-size:11px;min-height:40px;padding:7px 8px}.header-actions{gap:6px}.dashboard-grid .section-heading{margin-bottom:12px}}
+215: @media(max-width:360px){.trip-flow .nx-photo-check{gap:8px}.trip-flow .nx-photo-thumb{width:41px;height:45px}.trip-flow .nx-photo-copy strong{font-size:11px}.trip-flow .nx-photo-copy p{font-size:11px}.trip-flow .nx-photo-action{font-size:11px}.trip-flow .nx-camera-only{font-size:11px}.topbar .mobile-brand .real-logo{width:34px;height:36px}.topbar .header-status{padding:6px 7px;gap:5px}.header-status .status-dot{display:none}}
+216: 
+217: .trip-flow .nx-customer{margin-bottom:16px;padding:17px 18px}
+218: .trip-flow .nx-customer-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px}
+219: .trip-flow .nx-customer-heading h3{font-size:13px;font-weight:650;letter-spacing:-.1px;margin:0}
+220: .trip-flow .nx-customer-state{display:inline-flex;align-items:center;gap:4px;padding:4px 7px;border-radius:6px;background:var(--nx-bg);color:var(--nx-muted);font-size:10px}
+221: .trip-flow .nx-customer-state .icon{width:12px;height:12px}
+222: .trip-flow .nx-customer-state.is-open{background:var(--nx-green-soft);color:var(--nx-green)}
+223: .trip-flow .nx-customer-row{display:flex;align-items:center;gap:10px;min-width:0;padding:11px 0;border-bottom:1px solid var(--nx-line)}
+224: .trip-flow .nx-customer-row>div:nth-child(2){flex:1;min-width:0}
+225: .trip-flow .nx-customer-icon{width:31px;height:34px;display:grid;place-items:center;color:var(--nx-muted);flex-shrink:0}
+226: .trip-flow .nx-customer-icon .icon{width:18px;height:18px}
+227: .trip-flow .nx-customer-row span{display:block;font-size:11px;color:var(--nx-muted);margin-bottom:4px}
+228: .trip-flow .nx-customer-row strong{display:block;font-size:13px;font-weight:650;line-height:1.5;overflow-wrap:anywhere}
+229: .trip-flow .nx-customer-row .is-masked{letter-spacing:2px;color:#8e959f}
+230: .trip-flow .nx-call-customer{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:42px;padding:8px 11px;background:var(--nx-red-soft);color:var(--nx-red);font-size:11px;font-weight:650;border:0;border-radius:9px;text-decoration:none;flex-shrink:0}
+231: .trip-flow .nx-call-customer .icon{width:14px;height:14px}
+232: .trip-flow .nx-call-customer:disabled{background:var(--nx-bg);color:#9ba2ac}
+233: .trip-flow .nx-customer-note{font-size:10px;line-height:1.8;color:var(--nx-muted);margin-top:11px}
+234: .trip-flow .nx-customer-unlock{display:flex;align-items:flex-start;gap:8px;margin-top:12px;padding:10px 11px;border-radius:9px;background:var(--nx-bg);color:var(--nx-muted)}
+235: .trip-flow .nx-customer-unlock>.icon{width:15px;height:15px;flex-shrink:0;margin-top:2px}
+236: .trip-flow .nx-customer-unlock p{font-size:11px;line-height:1.7}
+237: .trip-flow .nx-customer-unlock strong{display:block;font-weight:500;color:var(--nx-ink)}
+238: .trip-flow .nx-customer-unlock span{display:block;margin-top:2px}
+239: @media(max-width:360px){.trip-flow .nx-customer{padding:15px}.trip-flow .nx-customer-row{gap:7px}.trip-flow .nx-customer-icon{width:25px}.trip-flow .nx-customer-row strong{font-size:12px}.trip-flow .nx-call-customer{padding:8px 9px}.trip-flow .nx-customer-note{font-size:11px}}
+240: 

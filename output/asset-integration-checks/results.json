@@ -1,0 +1,50 @@
+[
+  {
+    "panel": "customer",
+    "width": 1440,
+    "overflow": false,
+    "brokenImages": [],
+    "imageCount": 3,
+    "errors": []
+  },
+  {
+    "panel": "customer",
+    "width": 390,
+    "overflow": false,
+    "brokenImages": [],
+    "imageCount": 3,
+    "errors": []
+  },
+  {
+    "panel": "driver",
+    "width": 1440,
+    "overflow": false,
+    "brokenImages": [],
+    "imageCount": 2,
+    "errors": []
+  },
+  {
+    "panel": "driver",
+    "width": 390,
+    "overflow": false,
+    "brokenImages": [],
+    "imageCount": 1,
+    "errors": []
+  },
+  {
+    "panel": "vendor",
+    "width": 1440,
+    "overflow": false,
+    "brokenImages": [],
+    "imageCount": 2,
+    "errors": []
+  },
+  {
+    "panel": "vendor",
+    "width": 390,
+    "overflow": false,
+    "brokenImages": [],
+    "imageCount": 1,
+    "errors": []
+  }
+]

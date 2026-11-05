@@ -1,0 +1,503 @@
+/* NESAM Cabs home: a photo hero, an animated background and entrance / scroll animations.
+   Decoration only, and built so nothing can stay hidden:
+   - Motion runs only for visitors who have not asked for reduced motion.
+   - Scroll effects use the browser's scroll-driven animations (no script). A browser without them
+     shows every section normally, and phones (where cards are swipe rows) skip them.
+   - The photo hero is for tablets and wider; phones keep the compact, form-first home. */
+
+/* ── Page atmosphere ─────────────────────────────────────────────────────────────────────────────── */
+.home {
+  position: relative;
+  isolation: isolate;
+  overflow-x: clip;
+  background: linear-gradient(180deg, var(--paper) 0, #fff 640px);
+}
+/* Two soft colour orbs (blue and yellow, the theme colours) behind the hero. */
+.home::before,
+.home::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  border-radius: 50%;
+  filter: blur(64px);
+  pointer-events: none;
+}
+.home::before {
+  top: -140px;
+  right: -120px;
+  width: 520px;
+  height: 520px;
+  background: radial-gradient(circle, rgb(255 128 118 / 0.34), transparent 70%);
+}
+.home::after {
+  top: 300px;
+  left: -180px;
+  width: 440px;
+  height: 440px;
+  background: radial-gradient(circle, rgb(255 214 102 / 0.34), transparent 70%);
+}
+/* A faint map-dot grid across the top of the page, fading out as it goes down. */
+.home__wrap {
+  position: relative;
+}
+.home__wrap::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: -28px;
+  left: calc(50% - 50vw);
+  width: 100vw;
+  height: 868px;
+  background-image: radial-gradient(rgb(198 40 40 / 0.2) 1.3px, transparent 1.7px);
+  background-size: 28px 28px;
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, transparent 92%);
+  mask-image: linear-gradient(180deg, #000 0%, transparent 92%);
+  pointer-events: none;
+}
+
+/* ── Photo hero (tablet and wider) ───────────────────────────────────────────────────────────────── */
+/* The photo is the backdrop of the whole hero block: headline on top, the booking card floating over it. */
+@media (min-width: 768px) {
+  /* The hero runs edge to edge, straight under the header, and fills the first screen. */
+  .home__wrap {
+    padding-top: 0;
+  }
+  .home-hero {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    justify-content: center;
+    gap: clamp(14px, 1.8vw, 22px);
+    width: auto;
+    max-width: none;
+    min-height: calc(100vh - var(--nav-h));
+    min-height: calc(100svh - var(--nav-h));
+    margin-inline: calc(-1 * var(--gutter));
+    padding: clamp(20px, 2.6vw, 36px) var(--gutter) clamp(22px, 2.6vw, 34px);
+    border-radius: 0;
+  }
+  /* The headline and the card line up in one centred column. */
+  .hero-copy,
+  .bf {
+    width: 100%;
+    max-width: 1180px;
+    margin-inline: auto;
+  }
+  /* The photo. */
+  .home-hero::before {
+    content: '';
+    position: absolute;
+    inset: -6%;
+    z-index: -2;
+    background: url('/website-images/web/heroes/hero-family.webp') 62% 40% / cover no-repeat;
+  }
+  /* A pale wash over the photo, so the form and the dark headline read cleanly. */
+  .home-hero::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+      linear-gradient(180deg, rgb(255 245 243 / 0.9) 0%, rgb(255 245 243 / 0.74) 55%, rgb(255 245 243 / 0.55) 100%);
+  }
+  .hero-copy h1 {
+    position: relative;
+    z-index: 1;
+    color: var(--ink);
+    font-size: clamp(1.75rem, 1.2rem + 1.7vw, 2.6rem);
+    line-height: 1.12;
+  }
+  .hero-copy h1 .hero-accent {
+    color: var(--red);
+  }
+  /* The booking card floats over the photo. */
+  .bf {
+    position: relative;
+    z-index: 2;
+    border: 1px solid rgb(198 40 40 / 0.16);
+    padding: 14px 18px 12px;
+    border-radius: var(--r-lg);
+    box-shadow: 0 22px 50px -18px rgb(4 34 18 / 0.55), 0 4px 14px rgb(0 0 0 / 0.08);
+  }
+
+  /* A compact booking card: smaller bars, fields and gaps. */
+  .bf-services {
+    gap: 4px;
+    padding: 4px;
+  }
+  .bf-service {
+    min-height: 42px;
+    padding: 6px 12px;
+  }
+  .bf-journey {
+    margin-top: 10px;
+  }
+  .bf-journey.tabs .tab {
+    min-height: 34px;
+    padding: 5px 22px;
+  }
+  .bf-form {
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .bf-route {
+    gap: 10px;
+  }
+  .bf-field {
+    min-height: 52px;
+    padding: 6px 14px;
+  }
+  .bf-row {
+    gap: 12px;
+  }
+  .bf-label--out {
+    margin-bottom: 4px;
+    font-size: var(--fs-xs);
+  }
+  .bf-input,
+  .bf-time {
+    min-height: 44px;
+  }
+  .bf-submit {
+    min-height: 46px;
+    margin-top: 0;
+  }
+  .bf-trust {
+    font-size: 0.75rem;
+  }
+}
+
+/* The route that runs around the booking card, and its two pins. */
+.hero-route,
+.hero-pin {
+  display: none;
+}
+@media (min-width: 768px) {
+  .hero-route {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+  .hero-pin {
+    display: block;
+    position: absolute;
+    z-index: 0;
+    width: 18px;
+    height: 18px;
+    border: 4px solid var(--red);
+    border-radius: 50%;
+    background: #fff;
+    pointer-events: none;
+  }
+  .hero-pin--a {
+    top: 12%;
+    left: 64%;
+    margin: -9px 0 0 -9px;
+  }
+  .hero-pin--b {
+    bottom: 4.5%;
+    left: 4%;
+    margin: 0 0 -9px -9px;
+  }
+}
+.hero-route__line {
+  fill: none;
+  stroke: rgb(198 40 40 / 0.45);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 5 16;
+}
+.hero-route__comet {
+  fill: none;
+  stroke: var(--red);
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-dasharray: 11 89;
+  stroke-dashoffset: 0;
+  filter: drop-shadow(0 0 6px rgb(198 40 40 / 0.6));
+}
+
+/* ── Booking card ────────────────────────────────────────────────────────────────────────────────── */
+.bf {
+  transition: box-shadow var(--dur) var(--ease-out, cubic-bezier(0.2, 0.7, 0.2, 1)), border-color var(--dur) var(--ease-out, cubic-bezier(0.2, 0.7, 0.2, 1));
+}
+.bf:hover {
+  border-color: var(--red-line, var(--line-strong));
+  box-shadow: 0 24px 60px -14px rgb(198 40 40 / 0.28), 0 4px 18px rgb(0 0 0 / 0.05);
+}
+.bf-service .bf-service__icon {
+  transition: transform var(--dur) var(--ease);
+}
+.bf-service:hover .bf-service__icon {
+  transform: translateY(-2px) scale(1.12);
+}
+
+/* The main button: a blue gradient with a light sweep. */
+.bf-submit {
+  position: relative;
+  overflow: hidden;
+  background-image: linear-gradient(135deg, #d93a3a 0%, #c62828 55%, #9b1c1c 100%);
+  box-shadow: 0 12px 28px -8px rgb(198 40 40 / 0.55);
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), filter var(--dur) var(--ease);
+}
+.bf-submit::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.38) 50%, transparent 70%);
+  transform: translateX(-130%);
+  pointer-events: none;
+}
+.bf-submit:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.06);
+  box-shadow: 0 18px 34px -8px rgb(198 40 40 / 0.6);
+}
+.bf-submit:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* Sections sit as clean cards with a faint blue edge. */
+.band--paper {
+  border: 1px solid rgb(198 40 40 / 0.07);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* ── On load ──────────────────────────────────────────────────────────────────────────────────── */
+  .hero-copy h1 {
+    animation: pt-rise 0.75s var(--ease-out, cubic-bezier(0.2, 0.7, 0.2, 1)) backwards;
+  }
+  /* The accent line fades in, then a light slowly shimmers across it (gradient text only where supported). */
+  .hero-copy h1 .hero-accent {
+    animation: pt-fade 0.9s 0.2s var(--ease-out, cubic-bezier(0.2, 0.7, 0.2, 1)) backwards;
+  }
+  @supports ((-webkit-background-clip: text) or (background-clip: text)) {
+    .hero-copy h1 .hero-accent {
+      background-image: linear-gradient(90deg, #c62828 0%, #52e08f 40%, #c62828 80%);
+      background-size: 200% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: pt-fade 0.9s 0.2s var(--ease-out, cubic-bezier(0.2, 0.7, 0.2, 1)) backwards, pt-shimmer 7s linear 1.2s infinite;
+    }
+    /* On the photo the accent is yellow. */
+    @media (min-width: 768px) {
+      .hero-copy h1 .hero-accent {
+        background-image: linear-gradient(90deg, #9b1c1c 0%, #e0524f 40%, #9b1c1c 80%);
+      }
+    }
+  }
+  .bf {
+    animation: pt-rise 0.85s 0.18s var(--ease-out, cubic-bezier(0.2, 0.7, 0.2, 1)) backwards;
+  }
+  .main > .home,
+  .main > .page {
+    animation: pt-fade 0.4s var(--ease-out, cubic-bezier(0.2, 0.7, 0.2, 1)) backwards;
+  }
+
+  /* ── Always moving, gently ───────────────────────────────────────────────────────────────────── */
+  .home::before {
+    animation: pt-drift 14s ease-in-out infinite alternate;
+  }
+  .home::after {
+    animation: pt-drift 18s ease-in-out -6s infinite alternate-reverse;
+  }
+  .home__wrap::before {
+    animation: pt-grid 7s linear infinite;
+  }
+  @media (min-width: 768px) {
+    /* The photo slowly zooms and drifts. */
+    .home-hero::before {
+      animation: pt-kenburns 30s ease-in-out infinite alternate;
+    }
+  }
+  /* The route: a light travels from pickup to drop, the dashes flow, and the pins pulse in turn. */
+  .hero-route__line {
+    animation: pt-flow 1.8s linear infinite;
+  }
+  .hero-route__comet {
+    animation: pt-travel 7s cubic-bezier(0.45, 0.05, 0.4, 1) infinite;
+  }
+  .hero-pin {
+    animation: pt-pin 2.6s ease-out infinite;
+  }
+  .hero-pin--b {
+    animation-delay: 1.3s;
+  }
+
+  /* The sweep crosses the button every few seconds, and on hover. */
+  .bf-submit::after {
+    animation: pt-sheen 5s ease-in-out 2.4s infinite;
+  }
+  .bf-submit:hover:not(:disabled)::after {
+    animation: pt-sheen 1.1s ease-in-out;
+  }
+
+  /* Small illustrations bob gently. (The `translate` property composes with hover transforms.) */
+  .hx-strip img,
+  .hx-how__steps img {
+    animation: pt-bob 4.5s ease-in-out infinite;
+  }
+  .hx-strip li:nth-child(2) img,
+  .hx-how__steps li:nth-child(2) img {
+    animation-delay: -1.1s;
+  }
+  .hx-strip li:nth-child(3) img,
+  .hx-how__steps li:nth-child(3) img {
+    animation-delay: -2.2s;
+  }
+  .hx-strip li:nth-child(4) img {
+    animation-delay: -3.3s;
+  }
+  .floating-ai-launcher {
+    animation: pt-bob 3.6s ease-in-out infinite;
+  }
+}
+
+/* ── While scrolling (desktop, browsers with scroll-driven animations) ─────────────────────────────── */
+@media (prefers-reduced-motion: no-preference) and (min-width: 768px) {
+  @supports (animation-timeline: view()) {
+    .sec-heading,
+    .hx-strip li,
+    .hx-services > li,
+    .routes__grid > li,
+    .hx-photos > li,
+    .hx-fleet > li,
+    .hx-how__steps > li,
+    .hx-assure__list > li,
+    .hx-banners > *,
+    .review-card,
+    .catalog-item,
+    .faq__intro {
+      animation: pt-reveal linear backwards;
+      animation-timeline: view();
+      animation-range: entry 0% entry 38%;
+    }
+    /* A slight stagger across each row. */
+    .hx-services > li:nth-child(4n + 2),
+    .routes__grid > li:nth-child(4n + 2),
+    .hx-photos > li:nth-child(6n + 2),
+    .hx-fleet > li:nth-child(4n + 2),
+    .hx-strip li:nth-child(2) {
+      animation-range: entry 6% entry 44%;
+    }
+    .hx-services > li:nth-child(4n + 3),
+    .routes__grid > li:nth-child(4n + 3),
+    .hx-photos > li:nth-child(6n + 3),
+    .hx-fleet > li:nth-child(4n + 3),
+    .hx-strip li:nth-child(3) {
+      animation-range: entry 12% entry 50%;
+    }
+    .hx-services > li:nth-child(4n + 4),
+    .routes__grid > li:nth-child(4n + 4),
+    .hx-photos > li:nth-child(6n + 4),
+    .hx-fleet > li:nth-child(4n + 4),
+    .hx-strip li:nth-child(4) {
+      animation-range: entry 18% entry 56%;
+    }
+
+    /* A thin progress bar across the top of the page. */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0 0 auto 0;
+      z-index: calc(var(--z-header, 100) + 5);
+      height: 3px;
+      background: linear-gradient(90deg, #c62828, #ff7a6e, #ffd166);
+      transform-origin: 0 50%;
+      pointer-events: none;
+      animation: pt-progress linear both;
+      animation-timeline: scroll(root block);
+    }
+  }
+}
+
+/* ── Keyframes ────────────────────────────────────────────────────────────────────────────────────── */
+@keyframes pt-rise {
+  from {
+    opacity: 0;
+    transform: translateY(26px);
+  }
+}
+@keyframes pt-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes pt-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+@keyframes pt-drift {
+  to {
+    transform: translate(40px, 30px) scale(1.12);
+  }
+}
+@keyframes pt-grid {
+  to {
+    transform: translateY(28px);
+  }
+}
+@keyframes pt-kenburns {
+  from {
+    transform: scale(1) translate(0, 0);
+  }
+  to {
+    transform: scale(1.1) translate(-1.6%, -1.2%);
+  }
+}
+@keyframes pt-flow {
+  to {
+    stroke-dashoffset: -42;
+  }
+}
+@keyframes pt-travel {
+  from {
+    stroke-dashoffset: 11;
+  }
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+@keyframes pt-pin {
+  0% {
+    box-shadow: 0 0 0 0 rgb(198 40 40 / 0.75);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 22px rgb(198 40 40 / 0);
+  }
+}
+@keyframes pt-sheen {
+  0%,
+  60% {
+    transform: translateX(-130%);
+  }
+  100% {
+    transform: translateX(130%);
+  }
+}
+@keyframes pt-bob {
+  50% {
+    translate: 0 -5px;
+  }
+}
+@keyframes pt-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(34px) scale(0.97);
+  }
+}
+@keyframes pt-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}

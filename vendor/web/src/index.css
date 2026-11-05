@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --brand-red: #E21E26;
+    --brand-red-dark: #C9141B;
+    --brand-black: #111111;
+    --brand-charcoal: #1A1A1A;
+    --brand-gray-light: #F7F7F7;
+    --brand-border: #E5E5E5;
+    --brand-success: #20A464;
+    --brand-warning: #F59E0B;
+  }
+
+  body {
+    background-color: var(--brand-gray-light);
+    color: var(--brand-black);
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F1F1F1;
+}
+::-webkit-scrollbar-thumb {
+  background: #D1D5DB;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #E21E26;
+}
+
+/* ── Form & text readability ───────────────────────────────────────────────
+   Unlayered rules beat Tailwind's utility layer, so these lift the very small
+   sizes used across older screens. 16px inputs also stop mobile browsers from
+   zooming the page when a field is focused. */
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+select,
+textarea {
+  font-size: 16px;
+  line-height: 1.4;
+  color: #111111;
+}
+@media (min-width: 640px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+  select,
+  textarea {
+    font-size: 15px;
+  }
+}
+::placeholder {
+  color: #767676;
+  opacity: 1;
+}
+input:disabled,
+select:disabled,
+textarea:disabled {
+  color: #4a4a4a;
+  -webkit-text-fill-color: #4a4a4a;
+  background-color: #f1f1f1;
+  opacity: 1;
+}
+label > span.block {
+  font-size: 13px;
+  color: #222222;
+}
+.text-\[9px\] { font-size: 11px; }
+.text-\[10px\] { font-size: 12px; }
+.text-\[11px\] { font-size: 12.5px; }
+.text-xs { font-size: 13px; line-height: 1.4; }
+:focus-visible {
+  outline: 2px solid #E21B23;
+  outline-offset: 2px;
+}
+
+/* Autofill fixes across browsers */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus {
+  -webkit-text-fill-color: #111111;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+input:not(:focus):not([aria-invalid="true"]):not([data-invalid="true"]):invalid {
+  box-shadow: none;
+  outline: none;
+}

@@ -1,0 +1,37 @@
+f73a54f9322b056045af73b1cd87c1ef
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+Object.defineProperty(exports, "FlipType", {
+  enumerable: true,
+  get: function () {
+    return _ImageManipulator2.FlipType;
+  }
+});
+Object.defineProperty(exports, "ImageManipulator", {
+  enumerable: true,
+  get: function () {
+    return _ImageManipulator.ImageManipulator;
+  }
+});
+Object.defineProperty(exports, "SaveFormat", {
+  enumerable: true,
+  get: function () {
+    return _ImageManipulator2.SaveFormat;
+  }
+});
+Object.defineProperty(exports, "manipulateAsync", {
+  enumerable: true,
+  get: function () {
+    return _ImageManipulator.manipulateAsync;
+  }
+});
+Object.defineProperty(exports, "useImageManipulator", {
+  enumerable: true,
+  get: function () {
+    return _ImageManipulator.useImageManipulator;
+  }
+});
+var _ImageManipulator = require("./ImageManipulator");
+var _ImageManipulator2 = require("./ImageManipulator.types");
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJfSW1hZ2VNYW5pcHVsYXRvciIsInJlcXVpcmUiLCJfSW1hZ2VNYW5pcHVsYXRvcjIiXSwic291cmNlcyI6WyJpbmRleC50cyJdLCJzb3VyY2VzQ29udGVudCI6WyJleHBvcnQgeyBJbWFnZU1hbmlwdWxhdG9yLCBtYW5pcHVsYXRlQXN5bmMsIHVzZUltYWdlTWFuaXB1bGF0b3IgfSBmcm9tICcuL0ltYWdlTWFuaXB1bGF0b3InO1xuXG4vLyBTYXZlRm9ybWF0IGFuZCBGbGlwVHlwZSBhcmUgZW51bXNcbmV4cG9ydCB7IFNhdmVGb3JtYXQsIEZsaXBUeXBlIH0gZnJvbSAnLi9JbWFnZU1hbmlwdWxhdG9yLnR5cGVzJztcblxuZXhwb3J0IHR5cGUgeyBTYXZlT3B0aW9ucywgSW1hZ2VSZXN1bHQgfSBmcm9tICcuL0ltYWdlTWFuaXB1bGF0b3IudHlwZXMnO1xuXG4vLyBFeHBvcnQgdHlwZXMgdGhhdCBhcmUgZGVwcmVjYXRlZCBhcyBvZiBTREsgNTJcbmV4cG9ydCB0eXBlIHtcbiAgQWN0aW9uUmVzaXplLFxuICBBY3Rpb25Sb3RhdGUsXG4gIEFjdGlvbkZsaXAsXG4gIEFjdGlvbkNyb3AsXG4gIEFjdGlvbkV4dGVudCxcbiAgQWN0aW9uLFxufSBmcm9tICcuL0ltYWdlTWFuaXB1bGF0b3IudHlwZXMnO1xuXG5leHBvcnQgdHlwZSB7IEltYWdlUmVmIH0gZnJvbSAnLi9JbWFnZVJlZic7XG5leHBvcnQgdHlwZSB7IEltYWdlTWFuaXB1bGF0b3JDb250ZXh0IH0gZnJvbSAnLi9JbWFnZU1hbmlwdWxhdG9yQ29udGV4dCc7XG4iXSwibWFwcGluZ3MiOiI7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7OztBQUFBLElBQUFBLGlCQUFBLEdBQUFDLE9BQUE7QUFHQSxJQUFBQyxrQkFBQSxHQUFBRCxPQUFBIiwiaWdub3JlTGlzdCI6W119

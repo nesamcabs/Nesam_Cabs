@@ -1,0 +1,196 @@
+rules_version = '2';
+
+// Storage rules cross-check the caller against their Firestore profile doc
+// (id == uid) and the staff permission model in firestore.rules.
+//
+// Layout:
+//   drivers/{driverId}/kyc/{file}                   driver KYC documents
+//   drivers/{driverId}/vehicle/{file}               driver-owned vehicle documents
+//   drivers/{driverId}/trips/{bookingId}/{file}     pre-trip photos
+//   drivers/{driverId}/trips/{bookingId}/tolls/{f}  toll receipts
+//   vendors/{vendorId}/...                          vendor business + vehicle docs
+//   fleet/{vehicleId}/...                           NESAM-owned vehicle docs (admin)
+//   customers/{customerId}/...                      customer profile photo
+//
+// Evidence is write-once: uploads always go to a new object name, and only
+// staff can replace or delete an uploaded document or photo.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function uid() {
+      return request.auth.uid;
+    }
+    function fsDoc(coll, id) {
+      return /databases/(default)/documents/$(coll)/$(id);
+    }
+    function adminData() {
+      return firestore.get(fsDoc('admins', uid())).data;
+    }
+    function isAdmin() {
+      return isSignedIn()
+             && firestore.exists(fsDoc('admins', uid()))
+             && adminData().role == 'admin'
+             && adminData().status == 'active'
+             && adminData().get('accountStatus', 'Active') == 'Active';
+    }
+    // Same grant as firestore.rules can(p): Master (explicit, or a pre-roles record with no other
+    // access data), or a Staff ID / role-based account holding p. Unrecognised records get nothing.
+    function isMasterRecord(d) {
+      return d.get('staffRole', '') == 'super_admin'
+             || (d.get('staffRole', '') in ['', null]
+                 && !('permissions' in d) && !('staffAccess' in d) && !('dutyPermissions' in d) && !('roleName' in d));
+    }
+    function can(p) {
+      let role = adminData().get('staffRole', '');
+      return isAdmin()
+             && (isMasterRecord(adminData())
+                 || (role is string && role.matches('^[A-Za-z0-9_-]{2,40}$') && p in adminData().get('permissions', [])));
+    }
+    // Images or PDFs up to 10 MB. Deletes (request.resource == null) pass.
+    function validUpload() {
+      return request.resource == null || (
+               request.resource.size < 10 * 1024 * 1024
+               && (request.resource.contentType.matches('image/.*')
+                   || request.resource.contentType == 'application/pdf')
+             );
+    }
+    // A brand-new object (never an overwrite of an existing one).
+    function newObject() {
+      return resource == null;
+    }
+
+    // Vendor onboarding + business docs:
+    //   vendors/{uid}/onboarding/{category}/{ts}_{rand}_{name}
+    // The owner may add new files at any time but never overwrite one, and may
+    // delete only while the application is editable — so documents cannot be
+    // swapped while an admin is reviewing or after approval.
+    function vendorEditable(vendorId) {
+      return !firestore.exists(fsDoc('vendors', vendorId))
+             || firestore.get(fsDoc('vendors', vendorId)).data.status
+                  in ['INCOMPLETE', 'CHANGES_REQUESTED', 'REJECTED',
+                      'Pending', 'Needs Correction', 'Rejected'];
+    }
+    match /vendors/{vendorId}/{allPaths=**} {
+      allow read: if isAdmin() || (isSignedIn() && uid() == vendorId);
+      // Storage evaluates a content overwrite as 'create', so owners must
+      // target a path that does not exist yet (resource == null).
+      allow create: if (can('people') || can('fleet') || (isSignedIn() && uid() == vendorId && newObject()))
+                       && validUpload();
+      allow update: if (can('people') || can('fleet')) && validUpload();
+      allow delete: if can('people') || can('fleet') || (isSignedIn() && uid() == vendorId && vendorEditable(vendorId));
+    }
+
+    // Documents of NESAM-owned (non-vendor) vehicles, managed from the admin
+    // panel: fleet/{vehicleId}/{kind}-{ts}.{ext}.
+    match /fleet/{vehicleId}/{allPaths=**} {
+      allow read: if isAdmin();
+      allow write: if can('fleet') && validUpload();
+    }
+
+    // Bills and payment receipts attached to the Accounts registers.
+    match /accounts/{allPaths=**} {
+      allow read: if isAdmin();
+      allow create: if can('finance') && validUpload();
+      allow update, delete: if false;
+    }
+
+    // Greeting images on Communication notices (JPG / PNG / WebP up to 2 MB). Recipients open
+    // them through the download URL stored on the notification.
+    match /notices/{allPaths=**} {
+      allow read: if isSignedIn();
+      allow create: if can('engagement') && request.resource.size < 2 * 1024 * 1024
+                     && request.resource.contentType.matches('image/(jpeg|png|webp)');
+      allow update, delete: if false;
+    }
+
+    // Customer profile photos: customers/{uid}/profile/avatar-{ts}.jpg
+    match /customers/{customerId}/{allPaths=**} {
+      allow read: if isAdmin() || (isSignedIn() && uid() == customerId);
+      allow write: if (can('people') || (isSignedIn() && uid() == customerId)) && validUpload();
+    }
+
+    // ── Drivers ─────────────────────────────────────────────────────────────
+    function isDriverOwner(driverId) {
+      return isSignedIn() && uid() == driverId;
+    }
+    // The vendor a fleet driver works for.
+    function isDriversVendor(driverId) {
+      return isSignedIn()
+             && firestore.exists(fsDoc('drivers', driverId))
+             && firestore.get(fsDoc('drivers', driverId)).data.get('vendorId', '') == uid();
+    }
+
+    // Anything under a driver's folder: the driver, staff and the driver's
+    // vendor may view it. Writes are granted only by the folders below.
+    match /drivers/{driverId}/{allPaths=**} {
+      allow read: if isAdmin() || isDriverOwner(driverId) || isDriversVendor(driverId);
+    }
+
+    // KYC and driver-owned vehicle documents: new uploads only. A driver
+    // re-submitting documents uploads new files; approved evidence is never
+    // replaced in place.
+    match /drivers/{driverId}/kyc/{file=**} {
+      allow create: if (can('people') || (isDriverOwner(driverId) && newObject())) && validUpload();
+      allow update, delete: if can('people');
+    }
+    match /drivers/{driverId}/vehicle/{file=**} {
+      allow create: if (can('people') || (isDriverOwner(driverId) && newObject())) && validUpload();
+      allow update, delete: if can('people');
+    }
+
+    // Pre-trip photos and toll receipts belong to one booking and may be added
+    // only by its assigned driver while the trip is live.
+    function liveTripOf(driverId, bookingId) {
+      return firestore.exists(fsDoc('bookings', bookingId))
+             && firestore.get(fsDoc('bookings', bookingId)).data.get('assignedDriverId', '') == driverId
+             && firestore.get(fsDoc('bookings', bookingId)).data.status in ['Assigned', 'Ongoing'];
+    }
+    match /drivers/{driverId}/trips/{bookingId}/{file=**} {
+      allow read: if isAdmin() || isDriverOwner(driverId) || isDriversVendor(driverId)
+                  || (isSignedIn()
+                      && firestore.get(fsDoc('bookings', bookingId)).data.get('assignedVendorId', '') == uid());
+      // Vehicle verification photos have their own, stricter rule below.
+      allow create: if isDriverOwner(driverId) && newObject() && liveTripOf(driverId, bookingId) && validUpload()
+                       && !request.resource.name.matches('.*/verification/.*');
+      allow update, delete: if can('operations');
+    }
+
+    // Mandatory vehicle photos are taken live with the in-app camera inside a
+    // capture session the server issued: JPEG only, tagged as a camera capture
+    // for this session and slot, a brand-new object, while the trip is live.
+    // The submitCapturePhoto function re-checks everything (including the file
+    // itself) before a photo counts.
+    match /drivers/{driverId}/trips/{bookingId}/verification/{sessionId}/{slot} {
+      allow create: if isDriverOwner(driverId) && newObject() && liveTripOf(driverId, bookingId)
+                       && request.resource.contentType == 'image/jpeg'
+                       && request.resource.size > 10 * 1024 && request.resource.size < 8 * 1024 * 1024
+                       && slot.matches('(front|rear|interior)-[0-9]+\\.jpg')
+                       && request.resource.metadata.get('source', '') == 'camera_session'
+                       && request.resource.metadata.get('sessionId', '') == sessionId
+                       && slot.matches(request.resource.metadata.get('slot', 'none') + '-[0-9]+\\.jpg');
+      allow update, delete: if can('operations');
+    }
+
+    // Legacy toll receipt location: bookings/{bookingId}/tolls/{file}.
+    match /bookings/{bookingId}/{allPaths=**} {
+      allow read: if isAdmin() || (
+                     isSignedIn()
+                     && (firestore.get(fsDoc('bookings', bookingId)).data.get('assignedDriverId', '') == uid()
+                         || firestore.get(fsDoc('bookings', bookingId)).data.get('customerId', '') == uid())
+                   );
+      allow create: if (can('operations') || (
+                        isSignedIn() && newObject()
+                        && liveTripOf(uid(), bookingId)
+                      )) && validUpload();
+      allow update, delete: if can('operations');
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

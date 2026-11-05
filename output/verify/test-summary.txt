@@ -1,0 +1,4 @@
+admin workspaces exit 1
+one_way_car_rentals vitest exit 0
+people_taxi vitest exit 0
+user/web vitest exit 0

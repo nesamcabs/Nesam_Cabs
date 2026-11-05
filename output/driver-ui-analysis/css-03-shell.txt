@@ -1,0 +1,169 @@
+241: :root{--page:#f6f7f9;--red:#d82035;--red-soft:#fff0f2;--ink:#171b24;--muted:#6f7785;--line:#e7eaf0;--shadow:0 3px 14px #16203305}
+242: body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;letter-spacing:-.08px}
+243: .panel{border-color:var(--line);box-shadow:var(--shadow);border-radius:16px}
+244: .topbar{position:relative;background:#fff;padding:16px 20px;margin:-16px -20px 22px;border-bottom:1px solid var(--line);gap:10px}
+245: .brand-name,.topbar .mobile-brand .brand-name{font-family:Arial,"Helvetica Neue",sans-serif;font-size:19px;font-weight:750;letter-spacing:1px;line-height:1.05;color:var(--red)}
+246: .brand-label,.topbar .mobile-brand .brand-label{display:flex;align-items:center;gap:5px;font-size:9px;font-weight:600;letter-spacing:1.8px;color:#5d6675;margin-top:6px;line-height:1}
+247: .brand-label:before{content:"";display:inline-block;width:10px;height:2px;background:var(--red);border-radius:2px}
+248: .real-logo{mix-blend-mode:multiply}
+249: .topbar .mobile-brand{gap:8px}
+250: .topbar .mobile-brand .real-logo{width:38px;height:40px}
+251: .topbar .header-status{min-height:40px;font-size:11px;padding:7px 9px}
+252: .topbar .icon-button{width:38px;min-width:38px;height:40px;border-radius:12px}
+253: .topbar .header-actions{gap:7px}
+254: .workspace{padding-top:20px}
+255: .section-heading h2{font-size:16px;font-weight:700;letter-spacing:-.3px}
+256: .section-heading .text-button{font-size:11px}
+257: .dashboard-grid{gap:22px;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr)}
+258: .nx-compact-trip{border-top:2px solid var(--red);overflow:hidden}
+259: .nx-compact-trip .next-top{padding:17px 18px 0;align-items:flex-start;gap:12px}
+260: .nx-compact-trip .pickup-date{font-size:11px;font-weight:500;color:var(--muted);margin:0 0 6px;line-height:1.5}
+261: .nx-compact-trip .pickup-time{font-size:27px;font-weight:750;letter-spacing:-1px;line-height:1.2}
+262: .nx-compact-trip .badge{font-size:10px;padding:6px 8px;max-width:135px;line-height:1.5;white-space:normal;text-align:left}
+263: .nx-compact-trip .badge .icon{flex-shrink:0}
+264: .nx-compact-trip .route-stack{padding:18px 18px 13px}
+265: .nx-compact-trip .route-stop{min-height:56px;padding-left:0;gap:12px}
+266: .nx-compact-trip .route-stop:last-child{min-height:0}
+267: .nx-compact-trip .route-stop strong{font-size:16px;font-weight:700;line-height:1.45}
+268: .nx-compact-trip .route-stop p{font-size:11px;line-height:1.7;margin-top:2px;color:var(--muted)}
+269: .nx-compact-trip .route-stop:after{left:4px}
+270: .nx-compact-trip .trip-facts{margin:0 18px 14px;font-size:11px;gap:14px;flex-wrap:wrap}
+271: .nx-compact-trip .trip-facts .icon{width:14px;height:14px}
+272: .nx-compact-trip .next-bottom{padding:13px 18px 17px;background:#fff;border-top:1px solid var(--line)}
+273: .nx-card-payout{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:13px}
+274: .nx-card-payout small{display:block;font-size:11px;font-weight:600;color:#424b5a;line-height:1.5}
+275: .nx-card-payout span{display:block;font-size:10px;color:var(--muted);line-height:1.6;margin-top:2px}
+276: .nx-card-payout strong{font-size:24px;font-weight:750;letter-spacing:-.7px;white-space:nowrap}
+277: .nx-compact-trip .button{min-height:46px;border-radius:11px;font-size:12px;font-weight:650}
+278: .duties-list{gap:12px}
+279: .duty-card{padding:17px 18px;border-radius:15px}
+280: .duty-route{font-weight:700;font-size:15px;line-height:1.6}
+281: .duty-info{font-size:11px;line-height:1.8}
+282: .duty-meta{font-size:11px}
+283: .duty-bottom .button{font-size:11px;min-height:42px}
+284: .list-note{font-size:11px;line-height:1.8}
+285: .page-tabs{flex-wrap:wrap;gap:7px}
+286: .pill-button{font-size:11px;min-height:38px;padding:8px 11px}
+287: .trip-flow{max-width:540px}
+288: .trip-flow .nx-route-title{font-size:23px;font-weight:750;letter-spacing:-.65px}
+289: .trip-flow .nx-panel{box-shadow:var(--shadow)}
+290: .trip-flow .nx-progress{margin:18px 0}
+291: .trip-flow .nx-trip-help{display:flex;justify-content:center;align-items:center;gap:6px;background:none;border:0;min-height:44px;padding:8px 10px;color:var(--nx-muted);font-size:11px;margin:9px auto 0}
+292: .trip-flow .nx-trip-help .icon{width:14px;height:14px}
+293: .nx-policy{background:#f7f8fa;border:1px solid var(--line);border-radius:12px;padding:14px}
+294: .nx-policy-title{font-size:12px;font-weight:650;margin-bottom:7px;color:var(--ink)}
+295: .nx-policy>div:not(.nx-policy-title){display:flex;align-items:flex-start;justify-content:space-between;gap:13px;padding:9px 0;border-bottom:1px solid #e8ebf0;font-size:11px;line-height:1.8;color:#586272}
+296: .nx-policy>div>span{min-width:0}
+297: .nx-policy>div>strong{font-weight:700;color:var(--ink);white-space:nowrap}
+298: .nx-policy p{font-size:11px;line-height:1.8;color:var(--muted);margin:11px 0 0}
+299: .nx-policy-short{margin-top:17px;font-size:11px;color:var(--muted);line-height:1.8;padding-top:14px;border-top:1px solid var(--line)}
+300: .nx-policy-short button{display:inline;background:none;border:0;color:var(--red);padding:4px 0;font-size:11px;font-weight:600;min-height:34px}
+301: .nx-help-choice{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;padding:15px 0;background:none;border:0;border-bottom:1px solid var(--line);color:var(--ink);font-size:12px;font-weight:600;min-height:52px}
+302: .nx-help-choice>span{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+303: .nx-help-choice .icon{width:17px;height:17px;color:var(--muted);flex-shrink:0}
+304: .nx-help-choice small{display:block;width:100%;font-size:11px;color:var(--muted);font-weight:400;margin-left:25px;line-height:1.7}
+305: .nx-cancel-fee{padding:15px;background:#fff5e8;border-radius:12px;color:#795115}
+306: .nx-cancel-fee>div{display:flex;align-items:center;justify-content:space-between;gap:12px}
+307: .nx-cancel-fee span{font-size:12px;font-weight:500}
+308: .nx-cancel-fee strong{font-size:25px;letter-spacing:-.7px;font-weight:750;white-space:nowrap}
+309: .nx-cancel-fee p{font-size:11px;line-height:1.8;margin:7px 0 0}
+310: .nx-cancel-window{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);margin:11px 0 19px;line-height:1.8}
+311: .nx-cancel-window .icon{width:14px;height:14px;flex-shrink:0}
+312: .nx-cancel-field{display:block;font-size:12px;font-weight:600;color:var(--ink);margin-top:16px}
+313: .nx-cancel-field select,.nx-cancel-field textarea{display:block;width:100%;min-width:0;border:1px solid #d8dfe9;background:#fff;border-radius:10px;padding:11px 12px;font-family:inherit;font-size:16px;line-height:1.7;color:var(--ink);margin-top:7px;min-height:46px;font-weight:400}
+314: .nx-cancel-field textarea{resize:vertical;min-height:100px}
+315: .nx-cancel-explain{font-size:11px;line-height:1.8;color:var(--muted);margin:13px 0 16px}
+316: .nx-cancel-error{font-size:11px;color:var(--red);line-height:1.8;margin:9px 0}
+317: .nx-cancel-error:empty{display:none}
+318: .nx-cancel-policy{margin-top:18px}
+319: .nx-cancel-policy summary{font-size:11px;color:var(--muted);padding:8px 0;min-height:36px}
+320: .trip-flow .nx-request-status{margin-bottom:16px}
+321: .trip-flow .nx-request-status h3{font-size:16px;margin:16px 0 6px;font-weight:700;line-height:1.5}
+322: .trip-flow .nx-request-status>p{font-size:11px;line-height:1.8;color:var(--nx-muted)}
+323: .trip-flow .nx-request-status .nx-row strong{max-width:56%;white-space:normal;overflow-wrap:anywhere}
+324: .page-card .nx-profile-policy{margin-top:18px}
+325: @media(min-width:701px){.topbar{margin:0 0 24px;padding:0 0 20px;background:transparent}.topbar .mobile-brand{display:none}.topbar .home-title{display:block}.topbar .page-subtitle{display:block}.topbar .header-actions{gap:10px}.workspace{padding-top:29px}}
+326: @media(max-width:700px){.workspace{padding:15px 17px 98px}.topbar{margin:-15px -17px 20px;padding:14px 17px}.dashboard-grid{display:flex;gap:24px}.dashboard-grid>section{width:100%;min-width:0}.nx-compact-trip .next-top{padding:16px 17px 0}.nx-compact-trip .route-stack{padding:16px 17px 12px}.nx-compact-trip .trip-facts{margin:0 17px 13px}.nx-compact-trip .next-bottom{padding:13px 17px 16px}.nx-compact-trip .badge{font-size:10px}.trip-list{gap:15px}.duties-list{display:grid;grid-template-columns:1fr}.page-footer{font-size:9px;margin-top:25px}.trip-flow .nx-customer{padding:16px 17px}}
+327: @media(max-width:360px){.workspace{padding-left:13px;padding-right:13px}.topbar{margin-left:-13px;margin-right:-13px;padding-left:13px;padding-right:13px}.topbar .mobile-brand .real-logo{width:35px;height:38px}.topbar .mobile-brand .brand-name{font-size:17px;letter-spacing:.7px}.topbar .header-status{padding:7px 8px;gap:5px}.topbar .header-actions{gap:5px}.header-status .status-dot{display:none}.nx-compact-trip .badge{max-width:120px;font-size:10px}.nx-compact-trip .pickup-time{font-size:25px}.nx-compact-trip .trip-facts{gap:11px}.nx-card-payout span{font-size:11px}.section-heading h2{font-size:15px}.pill-button{padding:8px 9px}.trip-flow .nx-customer{padding:15px}}
+328: 
+329: .trip-flow .nx-trip-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+330: .trip-flow .nx-trip-toolbar .trip-back{margin:0;flex-shrink:0;min-height:44px}
+331: .trip-flow .nx-trip-help.nx-trip-help-top{margin:0;max-width:205px;border:1px solid var(--nx-line);border-radius:9px;padding:8px 10px;background:white;color:var(--nx-ink);text-align:left;font-size:11px;font-weight:600;line-height:1.45;gap:7px}
+332: .trip-flow .nx-trip-help-top .icon{flex-shrink:0;color:var(--nx-red);width:16px;height:16px}
+333: .trip-flow .nx-trip-help-top:focus-visible{outline:2px solid var(--nx-red);outline-offset:3px}
+334: .nx-help-intro{font-size:13px;line-height:1.7;color:var(--ink);margin:0 0 14px}
+335: .nx-help-choice.nx-request-choice{border:1px solid var(--line);border-radius:11px;background:var(--page);padding:14px 12px}
+336: .nx-request-choice>span>.icon{color:var(--red)}
+337: .nx-help-rules{padding-left:18px;margin:15px 0 5px;color:var(--muted);font-size:12px;line-height:1.75}
+338: .nx-help-rules li{margin:0 0 8px}
+339: .nx-office-call{min-height:46px}
+340: .nx-office-number{margin:0;color:var(--ink);font-size:13px;font-weight:600;text-align:center;letter-spacing:.3px}
+341: .nx-office-note{margin:0;color:var(--muted);font-size:11px;line-height:1.6;text-align:center}
+342: .nx-cancel-explain strong{display:block;color:var(--ink);font-weight:600;margin-bottom:5px}
+343: 
+344: @font-face{font-family:"NESAM Wordmark";font-style:normal;font-weight:900;font-display:swap;src:url([EMBEDDED font/woff; 2356 bytes; SHA256 9bcc97191297f8b56070ae4a75cf95d3e26d0169e9c9a8106ed96dd5daeb4fa7]) format("woff")}
+345: /* NESAM brand signature: original symbol, consistent wordmark, quiet product label. */
+346: .nesam-brand{--nesam-signature-red:#e43d32;display:flex;align-items:center;gap:10px;min-width:0;flex-shrink:0}
+347: .nesam-brand .nesam-symbol{position:relative;display:block;overflow:hidden;width:44px;height:44px;flex:0 0 44px;background:#fff}
+348: .nesam-brand .nesam-symbol .real-logo{position:absolute;display:block;left:-13.57%;top:-11.95%;width:127.45%;height:auto;max-width:none;min-width:0;object-fit:fill;mix-blend-mode:normal}
+349: .nesam-brand .nesam-brand-text{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;min-width:0;padding-top:1px}
+350: .nesam-brand .nesam-brand-text .brand-name,.topbar .mobile-brand.nesam-brand .brand-name{font-family:"NESAM Wordmark",Arial,sans-serif;font-size:24px;font-weight:900;font-style:normal;letter-spacing:1.5px;line-height:1;color:var(--nesam-signature-red);white-space:nowrap;text-rendering:geometricPrecision}
+351: .nesam-brand .nesam-brand-text .brand-label,.topbar .mobile-brand.nesam-brand .brand-label{display:block;padding:0 0 0 1px;margin:6px 0 0;font-family:Arial,"Helvetica Neue",sans-serif;font-size:9px;font-weight:700;letter-spacing:3.3px;line-height:1.1;color:#454b54;white-space:nowrap}
+352: .nesam-brand .brand-label:before{content:none;display:none}
+353: .sidebar .nesam-brand{gap:10px;margin:0 5px 40px}
+354: .topbar .mobile-brand.nesam-brand{gap:10px}
+355: @media(max-width:700px){.topbar{min-height:74px;padding-top:14px;padding-bottom:14px;gap:12px;background:#fff}.topbar>div:first-child{min-width:0}.topbar .header-actions{flex-shrink:0;gap:7px}.topbar .mobile-brand.nesam-brand .brand-name{font-size:23px;letter-spacing:1.35px}.topbar .mobile-brand.nesam-brand .brand-label{font-size:9px;letter-spacing:3px;margin-top:6px}}
+356: @media(max-width:360px){.topbar{min-height:69px;padding-top:12px;padding-bottom:12px;gap:8px}.topbar .mobile-brand.nesam-brand{gap:9px}.nesam-brand .nesam-symbol{width:40px;height:40px;flex-basis:40px}.topbar .mobile-brand.nesam-brand .brand-name{font-size:22px;letter-spacing:1.1px}.topbar .mobile-brand.nesam-brand .brand-label{letter-spacing:2.8px;margin-top:5px}.topbar .header-actions{gap:5px}}
+357: 
+358: </style>
+359: </head>
+360: <body>
+361:   <a class="skip-link" href="#main">Skip to dashboard</a>
+362:   <svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true"><defs>
+363:     <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></symbol>
+364:     <symbol id="i-trip" viewBox="0 0 24 24"><circle cx="6" cy="5" r="2"/><circle cx="18" cy="19" r="2"/><path d="M8 5h8a4 4 0 0 1 0 8H8a4 4 0 0 0 0 8h8"/></symbol>
+365:     <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18M7 16v-4m5 4V7m5 9v-6"/></symbol>
+366:     <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M20 8V5H5a2 2 0 0 0 0 4h16v11H5a2 2 0 0 1-2-2V7m18 5h-5v5h5"/><path d="M17 14.5h.1"/></symbol>
+367:     <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></symbol>
+368:     <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9m-8 12a2 2 0 0 0 4 0"/></symbol>
+369:     <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h16m-6-6 6 6-6 6"/></symbol>
+370:     <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+371:     <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18m-12 4h.1m3.9 0h.1"/></symbol>
+372:     <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+373:     <symbol id="i-pin" viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+374:     <symbol id="i-car" viewBox="0 0 24 24"><path d="m5 8 2-5h10l2 5m-16 9V9h18v8H3Zm2 0v3m14-3v3M6 13h2m8 0h2"/></symbol>
+375:     <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+376:     <symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6z"/><path d="m8 12 3 3 5-6"/></symbol>
+377:     <symbol id="i-help" viewBox="0 0 24 24"><path d="M4 14v-2a8 8 0 0 1 16 0v2m-1 6h-3m4-6v4a2 2 0 0 1-2 2"/><rect x="2" y="11" width="4" height="7" rx="2"/><rect x="18" y="11" width="4" height="7" rx="2"/></symbol>
+378:     <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+379:     <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14-5L3 9m0-5v5h5m-4 4a8 8 0 0 0 14 5l3-3m0 5v-5h-5"/></symbol>
+380:     <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3v9m-5-7a9 9 0 1 0 10 0"/></symbol>
+381:     <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v.1"/></symbol>
+382:     <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V3H3v13h5"/></symbol>
+383:     <symbol id="i-phone" viewBox="0 0 24 24"><path d="m7 3 3 5-3 3a15 15 0 0 0 6 6l3-3 5 3-1 4C9 23 1 15 3 4z"/></symbol>
+384:     <symbol id="i-document" viewBox="0 0 24 24"><path d="M14 3H5v18h14V8l-5-5v5h5M8 12h8m-8 4h6"/></symbol>
+385:     <symbol id="i-distance" viewBox="0 0 24 24"><path d="M3 5h18M3 19h18M6 5v14m12-14v14M6 9h4m4 6h4"/></symbol>
+386:   </defs></svg>
+387:   <div class="app">
+388:     <aside class="sidebar" aria-label="Main navigation">
+389:       <div class="brand nesam-brand" role="img" aria-label="NESAM Driver"><span class="nesam-symbol"><img class="real-logo" src="[EMBEDDED image/jpeg; 159691 bytes; SHA256 ca643004e6c133ffc75b7d6262a1f64e914519f6673cbb263fba959fc6791ab8]" alt="" width="2048" height="1987" decoding="async"></span><div class="nesam-brand-text"><div class="brand-name">NESAM</div><span class="brand-label">DRIVER</span></div></div>
+390:       <div class="nav-caption">YOUR WORKSPACE</div>
+391:       <nav class="sidebar-nav" aria-label="Desktop pages"></nav>
+392:       <div class="sidebar-bottom">
+393:         <div class="support-box"><svg class="icon" aria-hidden="true"><use href="#i-help"/></svg><strong>We’re here for you.</strong><p>Get help with your duties or payments.</p><button class="text-button" data-action="support">Contact NESAM <svg class="icon icon-sm" aria-hidden="true"><use href="#i-arrow"/></svg></button></div>
+394:         <div class="side-profile"><div class="avatar avatar-small" aria-hidden="true">SK</div><div class="side-copy"><strong>Suresh Kumar N</strong><small>Verified driver</small></div></div>
+395:       </div>
+396:     </aside>
+397:     <div class="workspace">
+398:       <header class="topbar">
+399:         <div><div class="mobile-brand nesam-brand" role="img" aria-label="NESAM Driver"><span class="nesam-symbol"><img class="real-logo" src="[EMBEDDED image/jpeg; 159691 bytes; SHA256 ca643004e6c133ffc75b7d6262a1f64e914519f6673cbb263fba959fc6791ab8]" alt="" width="2048" height="1987" decoding="async"></span><div class="nesam-brand-text"><div class="brand-name">NESAM</div><span class="brand-label">DRIVER</span></div></div><h1 id="page-title" class="home-title">Dashboard</h1><p class="page-subtitle" id="page-subtitle">Your day, in one place.</p></div>
+400:         <div class="header-actions"><button class="header-status" id="driver-availability" role="switch" aria-checked="true" aria-label="Online. Go offline" data-action="toggle-online"><span class="status-dot" aria-hidden="true"></span><span id="header-availability-label">Online</span><span class="header-toggle" aria-hidden="true"></span></button><span class="date-tag"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-calendar"/></svg>19 October 2026</span><button class="icon-button header-support" data-action="support" aria-label="Contact NESAM support"><svg class="icon" aria-hidden="true"><use href="#i-help"/></svg></button><button class="icon-button" data-action="notifications" aria-label="Notifications, 3 sample updates"><svg class="icon" aria-hidden="true"><use href="#i-bell"/></svg><span class="notification-dot" id="notification-dot" aria-hidden="true"></span></button></div>
+401:       </header>
+402:       <main id="main" tabindex="-1"></main>
+403:       <footer class="page-footer"><span><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg>NESAM TOURS &amp; TRAVELS PRIVATE LIMITED</span><span>Made for every mile.</span></footer>
+404:     </div>
+405:   </div>
+406:   <nav class="bottom-nav" aria-label="Mobile pages"></nav>
+407:   <dialog id="detail-dialog" aria-labelledby="dialog-title"></dialog>
+408:   <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+409:   <noscript><p style="padding:24px">Enable JavaScript to use this interactive dashboard preview.</p></noscript>

@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/tick",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/reconcile",
+      "schedule": "30 2 * * *"
+    },
+    {
+      "path": "/api/cron/alerts",
+      "schedule": "0 3 * * *"
+    }
+  ]
+}

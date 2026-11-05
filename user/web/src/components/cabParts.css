@@ -1,0 +1,131 @@
+/* Vehicle card parts shared by all three sites: coloured icons, fact rows and the fuel picker. Flat colours, no gradients. */
+.cabx-ico {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  border-radius: 8px;
+}
+.cabx-ico svg {
+  display: block;
+}
+
+.cabx-facts,
+.cabx-rows {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ink, #20252d);
+  font-size: 0.8125rem;
+  line-height: 1.3;
+}
+.cabx-facts li,
+.cabx-rows li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.cabx-rows {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 0.8125rem;
+}
+.cabx-rows li {
+  color: var(--ink, #20252d);
+}
+.cabx-rows li strong {
+  font-weight: 700;
+}
+
+/* Fuel picker */
+.cabx-fuel {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+.cabx-fuel__title {
+  color: var(--ink, #20252d);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.cabx-fuel__opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.cabx-fuel__opt {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 5px 12px 5px 6px;
+  border: 1px solid var(--line, #dde3ec);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink, #20252d);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cabx-fuel__opt input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.cabx-fuel__opt.is-on {
+  border-color: var(--brand, var(--red, #2f6df6));
+  background: color-mix(in srgb, var(--brand, var(--red, #2f6df6)) 7%, #fff);
+  box-shadow: inset 0 0 0 1px var(--brand, var(--red, #2f6df6));
+}
+.cabx-fuel__opt:focus-within {
+  outline: 2px solid color-mix(in srgb, var(--brand, var(--red, #2f6df6)) 45%, transparent);
+  outline-offset: 2px;
+}
+
+/* The same facts and rows built from spans (inside a label, where lists are not allowed). */
+.cabx-facts,
+.cabx-rows {
+  display: flex;
+}
+.cabx-facts > span,
+.cabx-rows > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  font-size: 0.8125rem;
+  line-height: 1.3;
+}
+.cabx-rows {
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+.cabx-facts {
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 6px;
+}
+.cab__details {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  margin-top: 10px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  background: none;
+  color: var(--brand, var(--red, #2f6df6));
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}

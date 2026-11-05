@@ -1,0 +1,652 @@
+{
+  "project": "demo-nesam",
+  "productionModified": false,
+  "scopeCells": [
+    {
+      "brand": "common",
+      "service": "One Way",
+      "class": "sedan",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2190 !== 2300\n"
+    },
+    {
+      "brand": "common",
+      "service": "One Way",
+      "class": "suv",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2286 !== 2400\n"
+    },
+    {
+      "brand": "common",
+      "service": "One Way",
+      "class": "innova",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2381 !== 2500\n"
+    },
+    {
+      "brand": "common",
+      "service": "One Way",
+      "class": "crysta",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2476 !== 2600\n"
+    },
+    {
+      "brand": "common",
+      "service": "Round Trip",
+      "class": "sedan",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2190 !== 2300\n"
+    },
+    {
+      "brand": "common",
+      "service": "Round Trip",
+      "class": "suv",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2286 !== 2400\n"
+    },
+    {
+      "brand": "common",
+      "service": "Round Trip",
+      "class": "innova",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2381 !== 2500\n"
+    },
+    {
+      "brand": "common",
+      "service": "Round Trip",
+      "class": "crysta",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2476 !== 2600\n"
+    },
+    {
+      "brand": "common",
+      "service": "Airport Taxi",
+      "class": "sedan",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2190 !== 2300\n"
+    },
+    {
+      "brand": "common",
+      "service": "Airport Taxi",
+      "class": "suv",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2286 !== 2400\n"
+    },
+    {
+      "brand": "common",
+      "service": "Airport Taxi",
+      "class": "innova",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2381 !== 2500\n"
+    },
+    {
+      "brand": "common",
+      "service": "Airport Taxi",
+      "class": "crysta",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2476 !== 2600\n"
+    },
+    {
+      "brand": "common",
+      "service": "Local Rental",
+      "class": "sedan",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2095 !== 2200\n"
+    },
+    {
+      "brand": "common",
+      "service": "Local Rental",
+      "class": "suv",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2190 !== 2300\n"
+    },
+    {
+      "brand": "common",
+      "service": "Local Rental",
+      "class": "innova",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2286 !== 2400\n"
+    },
+    {
+      "brand": "common",
+      "service": "Local Rental",
+      "class": "crysta",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2381 !== 2500\n"
+    },
+    {
+      "brand": "common",
+      "service": "Multicity",
+      "class": "sedan",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2190 !== 2300\n"
+    },
+    {
+      "brand": "common",
+      "service": "Multicity",
+      "class": "suv",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2286 !== 2400\n"
+    },
+    {
+      "brand": "common",
+      "service": "Multicity",
+      "class": "innova",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2381 !== 2500\n"
+    },
+    {
+      "brand": "common",
+      "service": "Multicity",
+      "class": "crysta",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2476 !== 2600\n"
+    },
+    {
+      "brand": "nesam",
+      "service": "One Way",
+      "class": "sedan",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2667 !== 2800\n"
+    },
+    {
+      "brand": "nesam",
+      "service": "One Way",
+      "class": "suv",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2762 !== 2900\n"
+    },
+    {
+      "brand": "nesam",
+      "service": "One Way",
+      "class": "innova",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2857 !== 3000\n"
+    },
+    {
+      "brand": "nesam",
+      "service": "One Way",
+      "class": "crysta",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2952 !== 3100\n"
+    },
+    {
+      "brand": "nesam",
+      "service": "Round Trip",
+      "class": "sedan",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2667 !== 2800\n"
+    },
+    {
+      "brand": "nesam",
+      "service": "Round Trip",
+      "class": "suv",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2762 !== 2900\n"
+    },
+    {
+      "brand": "nesam",
+      "service": "Round Trip",
+      "class": "innova",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2857 !== 3000\n"
+    },
+    {
+      "brand": "nesam",
+      "service": "Round Trip",
+      "class": "crysta",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2952 !== 3100\n"
+    },
+    {
+      "brand": "nesam",
+      "service": "Airport Taxi",
+      "class": "sedan",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2667 !== 2800\n"
+    },
+    {
+      "brand": "nesam",
+      "service": "Airport Taxi",
+      "class": "suv",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2762 !== 2900\n"
+    },
+    {
+      "brand": "nesam",
+      "service": "Airport Taxi",
+      "class": "innova",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2857 !== 3000\n"
+    },
+    {
+      "brand": "nesam",
+      "service": "Airport Taxi",
+      "class": "crysta",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2952 !== 3100\n"
+    },
+    {
+      "brand": "nesam",
+      "service": "Local Rental",
+      "class": "sedan",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2571 !== 2700\n"
+    },
+    {
+      "brand": "nesam",
+      "service": "Local Rental",
+      "class": "suv",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2667 !== 2800\n"
+    },
+    {
+      "brand": "nesam",
+      "service": "Local Rental",
+      "class": "innova",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2762 !== 2900\n"
+    },
+    {
+      "brand": "nesam",
+      "service": "Local Rental",
+      "class": "crysta",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2857 !== 3000\n"
+    },
+    {
+      "brand": "nesam",
+      "service": "Multicity",
+      "class": "sedan",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2667 !== 2800\n"
+    },
+    {
+      "brand": "nesam",
+      "service": "Multicity",
+      "class": "suv",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2762 !== 2900\n"
+    },
+    {
+      "brand": "nesam",
+      "service": "Multicity",
+      "class": "innova",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2857 !== 3000\n"
+    },
+    {
+      "brand": "nesam",
+      "service": "Multicity",
+      "class": "crysta",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n2952 !== 3100\n"
+    },
+    {
+      "brand": "people_taxi",
+      "service": "One Way",
+      "class": "sedan",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3143 !== 3300\n"
+    },
+    {
+      "brand": "people_taxi",
+      "service": "One Way",
+      "class": "suv",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3238 !== 3400\n"
+    },
+    {
+      "brand": "people_taxi",
+      "service": "One Way",
+      "class": "innova",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3333 !== 3500\n"
+    },
+    {
+      "brand": "people_taxi",
+      "service": "One Way",
+      "class": "crysta",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3429 !== 3600\n"
+    },
+    {
+      "brand": "people_taxi",
+      "service": "Round Trip",
+      "class": "sedan",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3143 !== 3300\n"
+    },
+    {
+      "brand": "people_taxi",
+      "service": "Round Trip",
+      "class": "suv",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3238 !== 3400\n"
+    },
+    {
+      "brand": "people_taxi",
+      "service": "Round Trip",
+      "class": "innova",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3333 !== 3500\n"
+    },
+    {
+      "brand": "people_taxi",
+      "service": "Round Trip",
+      "class": "crysta",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3429 !== 3600\n"
+    },
+    {
+      "brand": "people_taxi",
+      "service": "Airport Taxi",
+      "class": "sedan",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3143 !== 3300\n"
+    },
+    {
+      "brand": "people_taxi",
+      "service": "Airport Taxi",
+      "class": "suv",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3238 !== 3400\n"
+    },
+    {
+      "brand": "people_taxi",
+      "service": "Airport Taxi",
+      "class": "innova",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "customer fare follows edited rates\n\n365199 !== 365200\n"
+    },
+    {
+      "brand": "people_taxi",
+      "service": "Airport Taxi",
+      "class": "crysta",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3429 !== 3600\n"
+    },
+    {
+      "brand": "people_taxi",
+      "service": "Local Rental",
+      "class": "sedan",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3048 !== 3200\n"
+    },
+    {
+      "brand": "people_taxi",
+      "service": "Local Rental",
+      "class": "suv",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3143 !== 3300\n"
+    },
+    {
+      "brand": "people_taxi",
+      "service": "Local Rental",
+      "class": "innova",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3238 !== 3400\n"
+    },
+    {
+      "brand": "people_taxi",
+      "service": "Local Rental",
+      "class": "crysta",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3333 !== 3500\n"
+    },
+    {
+      "brand": "people_taxi",
+      "service": "Multicity",
+      "class": "sedan",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3143 !== 3300\n"
+    },
+    {
+      "brand": "people_taxi",
+      "service": "Multicity",
+      "class": "suv",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3238 !== 3400\n"
+    },
+    {
+      "brand": "people_taxi",
+      "service": "Multicity",
+      "class": "innova",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3333 !== 3500\n"
+    },
+    {
+      "brand": "people_taxi",
+      "service": "Multicity",
+      "class": "crysta",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3429 !== 3600\n"
+    },
+    {
+      "brand": "onewaycarrentals",
+      "service": "One Way",
+      "class": "sedan",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3619 !== 3800\n"
+    },
+    {
+      "brand": "onewaycarrentals",
+      "service": "One Way",
+      "class": "suv",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3714 !== 3900\n"
+    },
+    {
+      "brand": "onewaycarrentals",
+      "service": "One Way",
+      "class": "innova",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3809 !== 4000\n"
+    },
+    {
+      "brand": "onewaycarrentals",
+      "service": "One Way",
+      "class": "crysta",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3905 !== 4100\n"
+    },
+    {
+      "brand": "onewaycarrentals",
+      "service": "Round Trip",
+      "class": "sedan",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3619 !== 3800\n"
+    },
+    {
+      "brand": "onewaycarrentals",
+      "service": "Round Trip",
+      "class": "suv",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3714 !== 3900\n"
+    },
+    {
+      "brand": "onewaycarrentals",
+      "service": "Round Trip",
+      "class": "innova",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3809 !== 4000\n"
+    },
+    {
+      "brand": "onewaycarrentals",
+      "service": "Round Trip",
+      "class": "crysta",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3905 !== 4100\n"
+    },
+    {
+      "brand": "onewaycarrentals",
+      "service": "Airport Taxi",
+      "class": "sedan",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3619 !== 3800\n"
+    },
+    {
+      "brand": "onewaycarrentals",
+      "service": "Airport Taxi",
+      "class": "suv",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3714 !== 3900\n"
+    },
+    {
+      "brand": "onewaycarrentals",
+      "service": "Airport Taxi",
+      "class": "innova",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3809 !== 4000\n"
+    },
+    {
+      "brand": "onewaycarrentals",
+      "service": "Airport Taxi",
+      "class": "crysta",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3905 !== 4100\n"
+    },
+    {
+      "brand": "onewaycarrentals",
+      "service": "Local Rental",
+      "class": "sedan",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3524 !== 3700\n"
+    },
+    {
+      "brand": "onewaycarrentals",
+      "service": "Local Rental",
+      "class": "suv",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3619 !== 3800\n"
+    },
+    {
+      "brand": "onewaycarrentals",
+      "service": "Local Rental",
+      "class": "innova",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3714 !== 3900\n"
+    },
+    {
+      "brand": "onewaycarrentals",
+      "service": "Local Rental",
+      "class": "crysta",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3809 !== 4000\n"
+    },
+    {
+      "brand": "onewaycarrentals",
+      "service": "Multicity",
+      "class": "sedan",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3619 !== 3800\n"
+    },
+    {
+      "brand": "onewaycarrentals",
+      "service": "Multicity",
+      "class": "suv",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3714 !== 3900\n"
+    },
+    {
+      "brand": "onewaycarrentals",
+      "service": "Multicity",
+      "class": "innova",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3809 !== 4000\n"
+    },
+    {
+      "brand": "onewaycarrentals",
+      "service": "Multicity",
+      "class": "crysta",
+      "fieldChanges": [],
+      "passed": false,
+      "error": "extra KM price is snapshotted\n\n3905 !== 4100\n"
+    }
+  ],
+  "otherChecks": [],
+  "writes": 80,
+  "quotes": 80,
+  "bookings": 0,
+  "dispatches": 0,
+  "completedAt": "2026-11-04T07:34:35.440Z"
+}

@@ -1,0 +1,12 @@
+const fs=require('fs'),path=require('path'),http=require('http');
+const {chromium}=require('C:/Users/User/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const root=path.resolve(__dirname,'..');
+const out=path.join(__dirname,'asset-integration-checks');fs.mkdirSync(out,{recursive:true});
+const mime={'.html':'text/html','.js':'application/javascript','.css':'text/css','.json':'application/json','.png':'image/png','.webp':'image/webp','.svg':'image/svg+xml','.woff2':'font/woff2'};
+async function serve(dir){const server=http.createServer((req,res)=>{let name=decodeURIComponent(new URL(req.url,'http://localhost').pathname);let file=path.resolve(dir,'.'+name);if(!file.startsWith(dir+path.sep)&&file!==dir){res.writeHead(403).end();return;}if(!fs.existsSync(file)||fs.statSync(file).isDirectory())file=path.join(dir,'index.html');res.setHeader('Content-Type',mime[path.extname(file)]||'application/octet-stream');fs.createReadStream(file).pipe(res);});await new Promise(r=>server.listen(0,'127.0.0.1',r));return {server,url:'http://127.0.0.1:'+server.address().port};}
+(async()=>{const browser=await chromium.launch({channel:'chrome',headless:true});const results=[];
+try{for(const [name,rel] of [['customer','user/web/dist'],['driver','driver/dist'],['vendor','vendor/dist']].filter(([name])=>!process.argv[2]||name===process.argv[2])){
+const {server,url}=await serve(path.join(root,rel));try{for(const width of [1440,390]){const page=await browser.newPage({viewport:{width,height:900}});const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(url,{waitUntil:'networkidle'});await page.getByText(name==='customer'?'Book your ride':name==='driver'?'NESAM Driver':'NESAM Tours & Travels',{exact:true}).first().waitFor({timeout:20000});await page.screenshot({path:path.join(out,name+'-'+width+'.png'),fullPage:true});const state=await page.evaluate(()=>({overflow:document.documentElement.scrollWidth>innerWidth,brokenImages:[...document.querySelectorAll('img')].filter(i=>!i.complete||!i.naturalWidth).map(i=>i.src),imageCount:document.querySelectorAll('img').length}));results.push({panel:name,width,...state,errors});await page.close();}}finally{server.close();}}
+}finally{await browser.close();}
+fs.writeFileSync(path.join(out,'results.json'),JSON.stringify(results,null,2));console.log(JSON.stringify(results));if(results.some(r=>r.overflow||r.brokenImages.length||r.errors.length))process.exitCode=1;
+})().catch(e=>{console.error(e);process.exitCode=1});

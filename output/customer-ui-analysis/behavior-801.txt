@@ -1,0 +1,200 @@
+2359: });
+2360: 
+2361: // NESAM home navigation and route shortcuts. Existing booking logic is retained.
+2362: const nsOutstationTabs = ['oneway', 'round'];
+2363: let nsLastOutstation = nsOutstationTabs.includes(state.draft.service) ? state.draft.service : (nsOutstationTabs.includes(state.outstationTab) ? state.outstationTab : 'oneway');
+2364: let nsRoutesExpanded = false;
+2365: let nsAppDownloadOpen = false;
+2366: const nsNavigationItems = [
+2367:  ['airport', 'Airport', 'airport'],
+2368:  ['multi', 'Multicity', 'multicity'],
+2369:  ['outstation', 'Outstation', 'outstation'],
+2370:  ['rental', 'Local Rental', 'rental'],
+2371:  ['account', 'Account', 'account']
+2372: ];
+2373: const nsTravelGlyphs = Object.freeze({
+2374:  airport: ' ',
+2375:  multicity: ' ',
+2376:  outstation: ' ',
+2377:  rental: ' ',
+2378:  account: ' ',
+2379:  app: ' '
+2380: });
+2381: function nsTravelIcon(kind) {
+2382:  return ' ' + nsTravelGlyphs[kind] + ' ';
+2383: }
+2384: function nsNavigationButton(id, label, icon, selected, desktop) {
+2385:  const action = id === 'account' ? 'page' : id === 'outstation' ? 'outstation-open' : 'service';
+2386:  const data = id === 'account' ? ' data-page="account"' : id === 'outstation' ? '' : ' data-service="' + id + '"';
+2387:  return '<button type="button" class="' + (desktop ? 'nc-web-service-button' : 'nc-nav-item') + (selected ? ' active' : '') + '" data-action="' + action + '"' + data + (desktop ? ' aria-pressed="' + selected + '" aria-controls="nc-search-form"' : selected ? ' aria-current="page"' : '') + '> ' + nsTravelIcon(icon) + ' ' + esc(t(label)) + ' ';
+2388: }
+2389: bottomNavigation = function() {
+2390:  if (modal || !['home','account','trips','profile','payments','settings','about','addresses','help','notifications','lab'].includes(page)) return '';
+2391:  const selected = page !== 'home' ? 'account' : nsOutstationTabs.includes(state.draft.service) ? 'outstation' : state.draft.service;
+2392:  return ' ' + nsNavigationItems.map(function(item) { return nsNavigationButton(item[0], item[1], item[2], selected === item[0], false); }).join('') + ' ';
+2393: };
+2394: webServices = function() {
+2395:  const selected = nsOutstationTabs.includes(state.draft.service) ? 'outstation' : state.draft.service;
+2396:  return ' ' + nsNavigationItems.filter(function(item) { return item[0] !== 'account'; }).map(function(item) { return nsNavigationButton(item[0], item[1], item[2], selected === item[0], true); }).join('') + ' ';
+2397: };
+2398: 
+2399: const nsDestinations = [
+2400:  {city:'Trichy', art:'rockfort'},
+2401:  {city:'Madurai', art:'meenakshi'},
+2402:  {city:'Thanjavur', art:'brihadeeswarar'},
+2403:  {city:'Puducherry', art:'puducherry'},
+2404:  {city:'Coimbatore', art:'coimbatore'},
+2405:  {city:'Rameswaram', art:'pamban'}
+2406: ];
+2407: POPULAR_ROUTES.splice(0, POPULAR_ROUTES.length, ...nsDestinations.map(function(route) { return {pickup:'Chennai', drop:route.city, art:route.art}; }));
+2408: for (const cityName of ['Chennai','Trichy','Madurai','Thanjavur','Puducherry','Coimbatore','Rameswaram']) {
+2409:  if (!LOCATIONS.includes(cityName)) LOCATIONS.push(cityName);
+2410: }
+2411: // Illustrative routing fixtures for this local UX, not live road distances.
+2412: for (const fixture of [['Chennai','Thanjavur',350],['Chennai','Coimbatore',500],['Chennai','Rameswaram',560]]) {
+2413:  ROUTES[[fixture[0], fixture[1]].sort().join('|')] = fixture[2];
+2414: }
+2415: const nsRouteArt = {"brihadeeswarar":"[EMBEDDED image/webp: 1655396 bytes; SHA256 02dd38b666fca9d37553d11552176a91a1328c54d622682182b744f0ac33b6b5]","puducherry":"[EMBEDDED image/webp: 1789854 bytes; SHA256 e30787f39f1e2050a342b888dd3445790ab19051bb7e9d45a062edb82fdaa9c7]","coimbatore":"[EMBEDDED image/webp: 1682796 bytes; SHA256 ebeb59d478e9ae99a816c44d9869492298ec02a3cbf36e2523449a4dffe8bf13]","pamban":"[EMBEDDED image/webp: 1289344 bytes; SHA256 f913cb9d747da31658c2985d5654a94f70e4d3f9c37d670ff649fe4cc1064ebe]"};
+2416: function nsRestoredRouteArt(route) {
+2417:  const original = route.art === 'rockfort' || route.art === 'meenakshi';
+2418:  const src = original ? ROUTE_ART_URI : nsRouteArt[route.art];
+2419:  const art = original
+2420:  ? ' '
+2421:  : ' ';
+2422:  return ' ' + art + ' ';
+2423: }
+2424: routeShortcuts = function() {
+2425:  return ' ' + esc(t('Popular routes')) + ' ' + esc(t('A few favourites from Chennai.')) + ' <button type="button" class="nc-routes-toggle" data-action="popular-toggle" aria-controls="nc-popular-route-grid" aria-expanded="' + nsRoutesExpanded + '">' + esc(t(nsRoutesExpanded ? 'Show fewer routes' : 'View all routes')) + ico('arrow-right') + ' ' + POPULAR_ROUTES.map(function(route, index) {
+2426:  return '<button type="button" class="nc-route-shortcut nc-popular-route" data-action="route-shortcut" data-kind="popular" data-index="' + index + '" aria-label="' + esc(t('Plan trip') + ': Chennai to ' + route.drop) + '">' + nsRestoredRouteArt(route) + ' Chennai ' + ico('arrow-right') + ' ' + esc(route.drop) + ' ' + esc(t('Plan trip')) + ico('arrow-right') + ' ';
+2427:  }).join('') + ' ';
+2428: };
+2429: const nsHomeBefore = home;
+2430: webHomeHero = function() {
+2431:  return ' NESAM CABS &amp; CAR RENTALS ' + esc(t('Your next journey,')) + ' ' + esc(t('made simple.')) + ' ' + esc(t('From city escapes to airport runs, find your ride with NESAM.')) + ' ' + ico('shield-check') + esc(t('Clear fare details')) + ' ' + ico('headphones') + esc(t('Dedicated support')) + ' ' + esc(t('Category image. Assigned model may vary.')) + ' ';
+2432: };
+2433: home = function() {
+2434:  const holder = document.createElement('div');
+2435:  holder.innerHTML = nsHomeBefore();
+2436:  const tabs = holder.querySelector('.nc-mobile-trip-tabs');
+2437:  if (!nsOutstationTabs.includes(state.draft.service)) tabs?.remove();
+2438:  else {
+2439:  const services = holder.querySelector('.nc-web-services');
+2440:  if (tabs && services) services.insertAdjacentElement('afterend', tabs);
+2441:  }
+2442:  const booking = holder.querySelector('.nc-web-home-booking');
+2443:  if (booking) {
+2444:  const mobileTitle = serviceName(state.draft.service);
+2445:  booking.insertAdjacentHTML('afterbegin', ' ' + esc(mobileTitle) + ' ');
+2446:  const desktopTitle = booking.querySelector('.nc-web-form-title h2');
+2447:  if (desktopTitle) desktopTitle.textContent = mobileTitle;
+2448:  booking.querySelector('.nc-service-context')?.remove();
+2449:  const swap = booking.querySelector('[data-action="swap"]');
+2450:  if (swap) {
+2451:  swap.className = 'nc-swap-control';
+2452:  swap.setAttribute('aria-label', t('Swap pickup and drop'));
+2453:  swap.innerHTML = ico('arrow-up-down');
+2454:  const fields = booking.querySelector('.nc-fields');
+2455:  if (fields) {
+2456:  const group = document.createElement('div');
+2457:  group.className = 'nc-route-fields';
+2458:  fields.before(group);
+2459:  group.appendChild(fields);
+2460:  group.appendChild(swap);
+2461:  }
+2462:  booking.querySelector('.nc-route-tools')?.remove();
+2463:  }
+2464:  }
+2465:  return holder.innerHTML;
+2466: };
+2467: 
+2468: function nsAppDownloadPanel() {
+2469:  return ' <button type="button" class="nc-app-download-trigger" data-action="app-download" aria-haspopup="dialog" aria-expanded="' + nsAppDownloadOpen + '" aria-controls="nc-app-download-panel">' + nsTravelIcon('app') + ' ' + esc(t('Get the NESAM App')) + ' ' + ico('chevron-down') + ' ' + (nsAppDownloadOpen ? ' <button type="button" class="nc-app-panel-close" data-action="app-download-close" aria-label="' + esc(t('Close')) + '">' + ico('x') + ' ' + nsTravelIcon('app') + ' ' + esc(t('NESAM in your pocket')) + ' ' + esc(t('Bookings and trip updates, together.')) + ' Google Play ' + esc(t('Coming soon')) + ' App Store ' + esc(t('Coming soon')) + ' ' : '') + ' ';
+2470: }
+2471: const nsHeaderBefore = headerActions;
+2472: headerActions = function() {
+2473:  const holder = document.createElement('div');
+2474:  holder.innerHTML = nsHeaderBefore();
+2475:  holder.querySelector('.nc-header-actions')?.insertAdjacentHTML('afterbegin', nsAppDownloadPanel());
+2476:  return holder.innerHTML;
+2477: };
+2478: const nsHandleBefore = handleV2;
+2479: handleV2 = async function(action, data = {}) {
+2480:  if (action === 'app-download') { nsAppDownloadOpen = !nsAppDownloadOpen; return true; }
+2481:  if (action === 'app-download-close') { nsAppDownloadOpen = false; return true; }
+2482:  nsAppDownloadOpen = false;
+2483:  if (action === 'popular-toggle') { nsRoutesExpanded = !nsRoutesExpanded; return true; }
+2484:  if (action === 'outstation-open') {
+2485:  state.outstationTab = nsLastOutstation;
+2486:  return await nsHandleBefore('service', {service:nsLastOutstation});
+2487:  }
+2488:  if (action === 'route-shortcut' && data.kind === 'popular') {
+2489:  if (!nsOutstationTabs.includes(state.draft.service)) await nsHandleBefore('service', {service:nsLastOutstation});
+2490:  const result = await nsHandleBefore(action, data);
+2491:  nsLastOutstation = state.draft.service;
+2492:  state.outstationTab = nsLastOutstation;
+2493:  return result;
+2494:  }
+2495:  const result = await nsHandleBefore(action, data);
+2496:  if (action === 'service' && nsOutstationTabs.includes(data.service)) {
+2497:  nsLastOutstation = data.service;
+2498:  state.outstationTab = nsLastOutstation;
+2499:  }
+2500:  if (action === 'reset-confirm') { nsLastOutstation = 'oneway'; state.outstationTab = 'oneway'; nsRoutesExpanded = false; }
+2501:  return result;
+2502: };
+2503: root.addEventListener('keydown', function(event) {
+2504:  if (event.key === 'Escape' && nsAppDownloadOpen) { event.preventDefault(); act('app-download-close'); }
+2505: });
+2506: Object.assign(TA, {
+2507:  'Outstation':'வெளியூர்',
+2508:  'Services and account':'பயண வகைகள் மற்றும் கணக்கு',
+2509:  'Plan trip':'திட்டமிடு',
+2510:  'View all routes':'அனைத்து வழித்தடங்கள்',
+2511:  'Show fewer routes':'சில வழித்தடங்கள் மட்டும்',
+2512:  'Plan your next journey from Chennai.':'சென்னையிலிருந்து உங்கள் அடுத்த பயணத்தைத் திட்டமிடுங்கள்.',
+2513:  'Get the NESAM App':'NESAM செயலியைப் பெறுங்கள்',
+2514:  'NESAM in your pocket':'உங்கள் கையில் NESAM',
+2515:  'Bookings and trip updates, together.':'முன்பதிவும் பயணத் தகவல்களும் ஒரே இடத்தில்.',
+2516:  'Coming soon':'விரைவில்'
+2517:  ,'Book your next ride':'உங்கள் அடுத்த பயணத்தைப் பதிவு செய்யுங்கள்'
+2518:  ,'Swap pickup and drop':'புறப்படும் மற்றும் சேரும் இடங்களை மாற்று'
+2519:  ,'Category image. Assigned model may vary.':'வகைக்கான மாதிரிப் படம். ஒதுக்கப்படும் மாடல் மாறலாம்.'
+2520: });
+2521: 
+2522: 
+2523: // NESAM corporate homepage. Booking, payment and trip rules stay in the app core.
+2524: const nsContact = Object.freeze({
+2525:  company: 'NESAM TOURS & TRAVELS PRIVATE LIMITED',
+2526:  address: '77/B, Goundar Street, Koduvilarpatti, Theni-625534',
+2527:  phone: '90250 99990',
+2528:  tel: '+919025099990',
+2529:  info: 'Info@nesamcabs.com',
+2530:  support: 'support@nesamcabs.com'
+2531: });
+2532: 
+2533: // Publish only approved, attributed feedback. No sample names or ratings.
+2534: const nsPublishedReviews = [];
+2535: let nsSectionScroll = '';
+2536: let nsInfoFocus = false;
+2537: 
+2538: function nsSectionHeading(eyebrow, title, description) {
+2539:  return ' ' + esc(t(eyebrow)) + ' ' + esc(t(title)) + ' ' + (description ? ' ' + esc(t(description)) + ' ' : '') + ' ';
+2540: }
+2541: 
+2542: function nsWhySection() {
+2543:  const benefits = [
+2544:  ['receipt-text', 'Clear fares', 'Know your inclusions, applicable GST and extra rates before you book.'],
+2545:  ['map-pin', 'Doorstep pickup', 'Choose the pickup address that works for your journey.'],
+2546:  ['headphones', 'Trip support', 'A direct line to NESAM for booking and journey assistance.']
+2547:  ];
+2548:  return ' ' + esc(t('THE NESAM WAY')) + ' ' + esc(t('Travel with clarity.')) + ' ' + benefits.map(function(item) {
+2549:  return ' ' + ico(item[0]) + ' ' + esc(t(item[1])) + ' ' + esc(t(item[2])) + ' ';
+2550:  }).join('') + ' ';
+2551: }
+2552: 
+2553: function nsReviewsSection() {
+2554:  const reviews = nsPublishedReviews.filter(function(review) { return review.approved && review.name && review.text && review.sourceUrl; });
+2555:  const content = reviews.length
+2556:  ? ' ' + reviews.slice(0,3).map(function(review) {
+2557:  return ' ' + esc(review.text) + ' ' + esc(review.name) + ' ' + (review.route ? ' ' + esc(review.route) + ' ' : '') + ' ' + esc(t('Read original review')) + ico('arrow-up-right') + ' ';
+2558:  }).join('') + ' '

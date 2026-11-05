@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  <!-- Homepage: NESAM Cabs Online Outstation & Drop Taxi -->
+  <url>
+    <loc>https://www.nesamcabs.com/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://www.nesamcabs.com/website-images/web/heroes/hero-desktop.webp</image:loc>
+      <image:title>NESAM Cabs Outstation Taxi Service Tamil Nadu</image:title>
+      <image:caption>Outstation cabs, one-way drop taxis and intercity round trips across Tamil Nadu, Bangalore and Pondicherry with upfront fares</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://www.nesamcabs.com/brand/logo.png</image:loc>
+      <image:title>NESAM Cabs Official Logo</image:title>
+    </image:image>
+  </url>
+
+  <!-- Booking Engine Entrypoint -->
+  <url>
+    <loc>https://www.nesamcabs.com/book</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.95</priority>
+    <image:image>
+      <image:loc>https://www.nesamcabs.com/website-images/web/heroes/hero-family.webp</image:loc>
+      <image:title>Book Outstation Taxi with NESAM Cabs</image:title>
+      <image:caption>Plan and book intercity one-way and round-trip journeys with verified commercial drivers</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://www.nesamcabs.com/website-images/web/vehicles/sedan.webp</image:loc>
+      <image:title>NESAM AC Sedan Taxi Fleet</image:title>
+    </image:image>
+    <image:image>
+      <image:loc>https://www.nesamcabs.com/website-images/web/vehicles/suv.webp</image:loc>
+      <image:title>NESAM AC SUV Taxi Fleet</image:title>
+    </image:image>
+  </url>
+
+  <!-- Special Offers & Promo Codes -->
+  <url>
+    <loc>https://www.nesamcabs.com/offers</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.80</priority>
+    <image:image>
+      <image:loc>https://www.nesamcabs.com/website-images/web/backgrounds/offer-background.webp</image:loc>
+      <image:title>NESAM Cabs Promo Codes and Offers</image:title>
+    </image:image>
+  </url>
+
+  <!-- 24/7 Customer Support & Help Desk -->
+  <url>
+    <loc>https://www.nesamcabs.com/support</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.70</priority>
+    <image:image>
+      <image:loc>https://www.nesamcabs.com/website-images/web/photography/trust-support.webp</image:loc>
+      <image:title>NESAM Customer Care Support 24/7</image:title>
+    </image:image>
+  </url>
+
+  <!-- About NESAM Cabs -->
+  <url>
+    <loc>https://www.nesamcabs.com/about</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.40</priority>
+  </url>
+
+  <!-- Legal, Terms of Service & Privacy Policy -->
+  <url>
+    <loc>https://www.nesamcabs.com/legal</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.50</priority>
+  </url>
+
+  <!-- Travel Service: One-Way Drop Taxi -->
+  <url>
+    <loc>https://www.nesamcabs.com/services/one-way-drop-taxi</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.90</priority>
+    <image:image>
+      <image:loc>https://www.nesamcabs.com/website-images/web/photography/service-one-way.webp</image:loc>
+      <image:title>One Way Drop Taxi Across Tamil Nadu</image:title>
+      <image:caption>Pay only for one-way distance between cities with zero return fare charges</image:caption>
+    </image:image>
+  </url>
+
+  <!-- Travel Service: Outstation Round Trips -->
+  <url>
+    <loc>https://www.nesamcabs.com/services/outstation-round-trip</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.90</priority>
+    <image:image>
+      <image:loc>https://www.nesamcabs.com/website-images/web/photography/service-round-trip.webp</image:loc>
+      <image:title>Outstation Round Trip Car Rentals with Driver</image:title>
+      <image:caption>Multi-day outstation car rentals with dedicated driver and calendar day billing</image:caption>
+    </image:image>
+  </url>
+
+  <!-- Travel Service: Airport Transfers -->
+  <url>
+    <loc>https://www.nesamcabs.com/services/airport-taxi</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.90</priority>
+    <image:image>
+      <image:loc>https://www.nesamcabs.com/website-images/web/photography/service-airport.webp</image:loc>
+      <image:title>Airport Taxi Transfers in South India</image:title>
+      <image:caption>Guaranteed on-time pickups for Chennai (MAA), Bangalore (BLR), Coimbatore (CJB), Madurai (IXM), and Trichy (TRZ)</image:caption>
+    </image:image>
+  </url>
+
+  <!-- Travel Service: Local Hourly Rental -->
+  <url>
+    <loc>https://www.nesamcabs.com/services/local-rental</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+    <image:image>
+      <image:loc>https://www.nesamcabs.com/website-images/web/photography/service-corporate.webp</image:loc>
+      <image:title>Hourly Local Car Rental with Driver</image:title>
+      <image:caption>Vehicle and driver at your disposal by the hour within city limits</image:caption>
+    </image:image>
+  </url>
+
+  <!-- Travel Service: Pilgrimage Tours -->
+  <url>
+    <loc>https://www.nesamcabs.com/services/pilgrimage-tours</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+    <image:image>
+      <image:loc>https://www.nesamcabs.com/website-images/web/photography/service-pilgrimage.webp</image:loc>
+      <image:title>Tamil Nadu Temple Tours &amp; Pilgrimage Taxi Packages</image:title>
+      <image:caption>Sacred pilgrimage circuits to Rameshwaram, Tirupati Balaji, Madurai Meenakshi, and Navagraha temples</image:caption>
+    </image:image>
+  </url>
+
+  <!-- Popular Corridor: Chennai to Pondicherry Drop Taxi -->
+  <url>
+    <loc>https://www.nesamcabs.com/routes/chennai-to-pondicherry</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.88</priority>
+    <image:image>
+      <image:loc>https://www.nesamcabs.com/website-images/web/destinations/route-chennai-pondicherry.webp</image:loc>
+      <image:title>Chennai to Pondicherry One Way Drop Taxi</image:title>
+      <image:caption>150 km road journey, approx 3 hr 10 min along the scenic East Coast Road (ECR). Zero return fare.</image:caption>
+    </image:image>
+  </url>
+
+  <!-- Popular Corridor: Chennai to Bangalore Outstation Cab -->
+  <url>
+    <loc>https://www.nesamcabs.com/routes/chennai-to-bangalore</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.88</priority>
+    <image:image>
+      <image:loc>https://www.nesamcabs.com/website-images/web/destinations/route-chennai-bangalore.webp</image:loc>
+      <image:title>Chennai to Bangalore Outstation Cab</image:title>
+      <image:caption>345 km highway trip, approx 6 hr with verified commercial driver via NH-48.</image:caption>
+    </image:image>
+  </url>
+
+  <!-- Popular Corridor: Coimbatore to Ooty Cab -->
+  <url>
+    <loc>https://www.nesamcabs.com/routes/coimbatore-to-ooty</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.88</priority>
+    <image:image>
+      <image:loc>https://www.nesamcabs.com/website-images/web/destinations/route-coimbatore-ooty.webp</image:loc>
+      <image:title>Coimbatore to Ooty Hill Station Taxi</image:title>
+      <image:caption>88 km scenic ghat road journey, approx 2 hr 50 min with certified mountain drivers.</image:caption>
+    </image:image>
+  </url>
+
+  <!-- Popular Corridor: Madurai to Rameshwaram Pilgrimage Taxi -->
+  <url>
+    <loc>https://www.nesamcabs.com/routes/madurai-to-rameshwaram</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.88</priority>
+    <image:image>
+      <image:loc>https://www.nesamcabs.com/website-images/web/destinations/route-madurai-rameshwaram.webp</image:loc>
+      <image:title>Madurai to Rameshwaram Temple Tour Cab</image:title>
+      <image:caption>172 km road trip, approx 3 hr 30 min across Pamban Sea Bridge to Ramanathaswamy Temple &amp; Dhanushkodi.</image:caption>
+    </image:image>
+  </url>
+
+  <!-- Popular Corridor: Bangalore to Mysore Expressway Cab -->
+  <url>
+    <loc>https://www.nesamcabs.com/routes/bangalore-to-mysore</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+    <image:image>
+      <image:loc>https://www.nesamcabs.com/website-images/web/destinations/route-chennai-bangalore.webp</image:loc>
+      <image:title>Bangalore to Mysore 10-Lane Expressway Cab</image:title>
+      <image:caption>142 km expressway trip, approx 2 hr 30 min to Mysore Palace and Chamundi Hills.</image:caption>
+    </image:image>
+  </url>
+
+  <!-- Popular Corridor: Trichy to Thanjavur Heritage Taxi -->
+  <url>
+    <loc>https://www.nesamcabs.com/routes/trichy-to-thanjavur</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.82</priority>
+    <image:image>
+      <image:loc>https://www.nesamcabs.com/website-images/web/destinations/destination-thanjavur.webp</image:loc>
+      <image:title>Trichy to Thanjavur Big Temple Heritage Taxi</image:title>
+      <image:caption>58 km drive, approx 1 hr 10 min to UNESCO World Heritage Brihadisvara Temple.</image:caption>
+    </image:image>
+  </url>
+
+  <!-- Popular Corridor: Salem to Yercaud Hill Station Taxi -->
+  <url>
+    <loc>https://www.nesamcabs.com/routes/salem-to-yercaud</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.82</priority>
+    <image:image>
+      <image:loc>https://www.nesamcabs.com/website-images/web/destinations/destination-coimbatore.webp</image:loc>
+      <image:title>Salem to Yercaud 20 Hairpin Bends Hill Taxi</image:title>
+      <image:caption>32 km mountain drive, approx 1 hr to Yercaud Lake and Shevaroy Hills.</image:caption>
+    </image:image>
+  </url>
+
+  <!-- Popular Corridor: Chennai to Tirupati Balaji Cab -->
+  <url>
+    <loc>https://www.nesamcabs.com/routes/chennai-to-tirupati</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+    <image:image>
+      <image:loc>https://www.nesamcabs.com/website-images/web/destinations/destination-chennai.webp</image:loc>
+      <image:title>Chennai to Tirupati Balaji Pilgrimage Taxi</image:title>
+      <image:caption>138 km pilgrimage transit, approx 3 hr with Andhra Pradesh inter-state permit support.</image:caption>
+    </image:image>
+  </url>
+
+</urlset>

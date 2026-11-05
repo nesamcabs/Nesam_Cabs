@@ -1,0 +1,36 @@
+# ── Admin Web Portal (Vite + React + TypeScript) ─────────────────
+
+# Dependencies
+node_modules/
+.pnpm-store/
+pnpm-lock.yaml
+
+# Build outputs
+dist/
+dist-ssr/
+out/
+.vite/
+
+# Environment files (contain Firebase API keys — use .env.example instead)
+.env
+.env.*
+!.env.example
+env
+
+# IDE & OS
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Logs & caches
+*.log
+*.tmp
+.eslintcache
+.stylelintcache
+*.tsbuildinfo
+coverage/
+
+# mise
+.mise.local.toml

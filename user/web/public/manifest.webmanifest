@@ -1,0 +1,62 @@
+{
+  "name": "NESAM Cabs — Outstation Cabs & One Way Drop Taxi",
+  "short_name": "NESAM Cabs",
+  "description": "Book outstation cabs, one-way drop taxis & round trips across Tamil Nadu, Bangalore & Pondicherry with upfront pricing and verified commercial chauffeurs.",
+  "lang": "en-IN",
+  "dir": "ltr",
+  "start_url": "/book",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F6F5F3",
+  "theme_color": "#E31E24",
+  "categories": ["travel", "transportation", "lifestyle"],
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "64x64",
+      "type": "image/png"
+    },
+    {
+      "src": "/brand/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/brand/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Book a Ride",
+      "short_name": "Book",
+      "description": "Plan and book an outstation cab or drop taxi",
+      "url": "/book",
+      "icons": [{ "src": "/brand/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "View Offers",
+      "short_name": "Offers",
+      "description": "Check current coupon codes and discounts",
+      "url": "/offers",
+      "icons": [{ "src": "/brand/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "24/7 Support",
+      "short_name": "Support",
+      "description": "Get help or call customer support",
+      "url": "/support",
+      "icons": [{ "src": "/brand/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Chennai to Pondicherry Taxi",
+      "short_name": "Pondy Taxi",
+      "description": "Book one way drop taxi to Pondicherry",
+      "url": "/routes/chennai-to-pondicherry",
+      "icons": [{ "src": "/brand/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

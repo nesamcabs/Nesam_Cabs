@@ -1,0 +1,339 @@
+/* Phone and tablet layout. Loaded last, so it refines the rules in the other sheets.
+   - The booking form is the first thing on the page, right under a one-line headline; the trust
+     points follow it as a row of small chips.
+   - The photo sections come back below 1000px, and on phones every card list is one swipeable row
+     ("rail"): the next card peeks in at the edge, rows snap card by card, scrollbars stay hidden.
+   - Sections, headings and floating buttons are scaled to phone size; tap targets stay 44px+. */
+
+/* ── Below 1000px: the photo sections, in a single column ───────────────── */
+@media (max-width: 999.98px) {
+  .hx {
+    display: block;
+  }
+  /* The short "NESAM way" list already says what the photo strip says. */
+  .hx-strip {
+    display: none;
+  }
+  .hx-how,
+  .hx-assure {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+  .hx-how {
+    padding: 28px;
+  }
+  .hx-banners {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 767.98px) {
+  /* ── Hero: headline, form, then the trust chips ────────────────────────── */
+  .home__wrap {
+    padding-top: 14px;
+    padding-bottom: 28px;
+  }
+  .home-hero {
+    gap: 12px;
+  }
+  .hero-copy {
+    display: contents;
+  }
+  .hero-eyebrow,
+  .hero-copy__sub,
+  .hero-divider {
+    display: none;
+  }
+  .hero-copy h1 {
+    order: 0;
+    font-size: 1.0625rem;
+    font-weight: 700;
+    line-height: 1.4;
+    letter-spacing: -0.005em;
+  }
+  .hero-copy h1 .hero-accent {
+    font-weight: 700;
+  }
+  .hero-copy h1 br {
+    display: none;
+  }
+  .home-hero > .bf {
+    order: 1;
+  }
+  .hero-trust-simple {
+    order: 2;
+    flex-wrap: nowrap;
+    gap: 8px;
+    margin-inline: calc(-1 * var(--gutter));
+    padding: 0 var(--gutter);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .hero-trust-simple::-webkit-scrollbar {
+    display: none;
+  }
+  .hero-trust-simple span {
+    flex: none;
+    gap: 6px;
+    padding: 6px 12px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--surface);
+    font-size: 0.8125rem;
+    white-space: nowrap;
+  }
+
+  /* ── Booking form ──────────────────────────────────────────────────────── */
+  .bf-journey {
+    margin-top: 0;
+  }
+  .bf-form {
+    gap: 10px;
+    margin-top: 12px;
+    padding: 12px;
+  }
+  .bf-route .bf-field {
+    min-height: 56px;
+    padding-block: 6px;
+  }
+  .bf-trigger {
+    font-size: 0.9375rem;
+  }
+  /* Centred on the line between pickup and drop (first field is 56px tall). */
+  .bf-swap {
+    top: 40px;
+    width: 32px;
+    height: 32px;
+  }
+  .bf-row {
+    gap: 10px;
+  }
+  .bf-input,
+  .bf-time {
+    min-height: 44px;
+  }
+
+  /* ── Sections and headings ─────────────────────────────────────────────── */
+  .hx-sec,
+  .hx-how {
+    margin-top: 36px;
+  }
+  .routes,
+  .why {
+    margin-top: 28px;
+  }
+  .reviews,
+  .faq,
+  .get-app {
+    margin-top: 36px;
+  }
+  .why {
+    gap: 14px;
+    padding-top: 0;
+  }
+  .hx-head {
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .hx-head__action {
+    display: none;
+  }
+  .why__intro .display-h,
+  .sec-heading h2,
+  .routes__head .display-h,
+  .hx-how h2,
+  .faq__intro .display-h,
+  .get-app__copy .display-h {
+    font-size: 1.25rem;
+  }
+  .hx-head__text {
+    font-size: var(--fs-xs);
+  }
+
+  /* ── Rails ─────────────────────────────────────────────────────────────── */
+  .why__list,
+  .hx-services,
+  .hx-photos,
+  .hx-fleet,
+  .hx-how__steps,
+  .hx-assure__list,
+  .hx-banners,
+  .hx-more,
+  .reviews__grid,
+  .catalog-cards {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 12px;
+    margin-inline: calc(-1 * var(--gutter));
+    padding: 4px var(--gutter) 12px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: var(--gutter);
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .why__list::-webkit-scrollbar,
+  .hx-services::-webkit-scrollbar,
+  .hx-photos::-webkit-scrollbar,
+  .hx-fleet::-webkit-scrollbar,
+  .hx-how__steps::-webkit-scrollbar,
+  .hx-assure__list::-webkit-scrollbar,
+  .hx-banners::-webkit-scrollbar,
+  .hx-more::-webkit-scrollbar,
+  .reviews__grid::-webkit-scrollbar,
+  .catalog-cards::-webkit-scrollbar {
+    display: none;
+  }
+  .why__list > li,
+  .hx-services > li,
+  .hx-photos > li,
+  .hx-fleet > li,
+  .hx-how__steps > li,
+  .hx-assure__list > li,
+  .hx-banners > *,
+  .reviews__grid > *,
+  .catalog-cards > li {
+    flex: 0 0 min(78%, 300px);
+    min-width: 0;
+    scroll-snap-align: start;
+  }
+  .hx-service:hover,
+  .hx-photo:hover {
+    transform: none;
+  }
+
+  /* The NESAM way: three small cards */
+  .why__list > li {
+    flex-basis: min(74%, 260px);
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    background: var(--surface);
+  }
+
+  /* Services */
+  .hx-services > li {
+    flex-basis: min(66%, 250px);
+  }
+
+  /* Journeys and destinations */
+  .hx-photos--routes > li {
+    flex-basis: min(84%, 320px);
+  }
+  .hx-photo {
+    min-height: 180px;
+  }
+  .hx-photos--dest > li {
+    flex-basis: min(44%, 170px);
+  }
+  .hx-photo--dest {
+    min-height: 150px;
+  }
+  .hx-more {
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    scroll-snap-type: none;
+  }
+  .hx-more > * {
+    flex: 0 0 auto;
+  }
+
+  /* Fleet */
+  .hx-fleet > li {
+    flex-basis: min(60%, 230px);
+  }
+
+  /* How it works: the steps as cards; the large photo is left out */
+  .hx-how {
+    gap: 0;
+    padding: 20px 20px 8px;
+    border-radius: var(--r-lg);
+    overflow: hidden;
+  }
+  .hx-how__photo {
+    display: none;
+  }
+  /* The row runs to the card's edges, like the other rails run to the screen's. */
+  .hx-how__steps {
+    gap: 10px;
+    margin-inline: -20px;
+    padding-inline: 20px;
+    scroll-padding-inline: 20px;
+  }
+  .hx-how__steps > li {
+    flex-basis: min(74%, 270px);
+    grid-template-columns: 34px minmax(0, 1fr);
+    align-items: start;
+    padding: 14px;
+    border: 1px solid rgb(255 255 255 / 0.14);
+    border-radius: var(--r-md);
+  }
+  .hx-how__steps img {
+    display: none;
+  }
+
+  /* Assurance: the points as cards; the photo collage is left out */
+  .hx-assure__collage {
+    display: none;
+  }
+  .hx-assure__body {
+    gap: 14px;
+  }
+  .hx-assure__list > li {
+    flex-basis: min(74%, 270px);
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    background: var(--surface);
+  }
+
+  /* Offer and call banners */
+  .hx-banners > * {
+    flex-basis: min(86%, 340px);
+  }
+  .hx-banner {
+    min-height: 180px;
+    padding: 18px;
+  }
+
+  /* Reviews and catalog */
+  .reviews__grid > * {
+    flex-basis: min(84%, 320px);
+  }
+  .review-card,
+  .catalog-item {
+    padding: 16px;
+  }
+  .catalog-group {
+    margin-top: 16px;
+  }
+
+  /* ── Floating buttons: round, easy to tap, kept clear of the bar and of each other ───── */
+  .floating-call-btn,
+  .floating-ai-launcher {
+    width: 54px;
+    height: 54px;
+    right: 12px;
+  }
+  .floating-call-btn__icon svg {
+    width: 25px;
+    height: 25px;
+  }
+  .floating-ai-launcher__sparkle {
+    font-size: 22px;
+  }
+  .floating-call-btn {
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+  .floating-ai-launcher {
+    bottom: calc(138px + env(safe-area-inset-bottom, 0px));
+  }
+  .shell--flow .floating-call-btn {
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+  .shell--flow .floating-ai-launcher {
+    bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  }
+}

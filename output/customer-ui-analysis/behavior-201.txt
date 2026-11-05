@@ -1,0 +1,200 @@
+1759: 
+1760: let bookingPaymentMode='later';
+1761: let checkoutFromReview=false;
+1762: 
+1763: 
+1764: 
+1765: function home(){const d=state.draft,rental=carBy(d.car);return`
+1766:  ${[['oneway','One Way','arrow-right'],['round','Round Trip','repeat-2']].map(([id,label,icon])=>B('service',label,icon,'',`data-service="${id}" aria-pressed="${d.service===id}" aria-controls="nc-search-form"`)).join('')} 
+1767: ${!['oneway','round'].includes(d.service)?` ${ico(SERVICES.find(x=>x[0]===d.service)?.[2]||'car-front')} ${esc(serviceName(d.service))} `:''}
+1768: <form class="nc-booking-widget nc-simple-form" id="nc-search-form" novalidate>
+1769: ${d.service==='airport'?` ${['to','from'].map(x=>B('airport-direction',x==='to'?'To airport':'From airport','',d.airportDirection===x?'active':'',`data-direction="${x}" aria-pressed="${d.airportDirection===x}"`)).join('')} `:''}
+1770: ${d.service==='rental'?` ${esc(t('City'))} <select id="nc-rentalCity" class="nc-input" data-field="rentalCity">${['Chennai','Theni','Madurai','Trichy','Coimbatore','Bengaluru','Kochi'].map(c=>` ${c} `).join('')} `:''}
+1771:  ${d.service==='airport'&&d.airportDirection==='from'?fieldsLocation('airport','Airport',d.airport):fieldsLocation('pickup','Pickup location',d.pickup)}
+1772: ${d.service==='multi'?d.stops.map((s,n)=>fieldsLocation('stop:'+n,t('Stop')+' '+(n+1),s,'gray')).join(''):''}
+1773: ${d.service==='rental'?'':d.service==='airport'&&d.airportDirection==='to'?fieldsLocation('airport','Airport',d.airport,'red'):fieldsLocation('drop',d.service==='multi'?'Final drop':'Drop location',d.drop,'red')}
+1774:  
+1775: ${['oneway','round'].includes(d.service)?` ${B('swap','Swap route','arrow-up-down','nc-textbutton')} `:''}
+1776: ${d.service==='multi'?B('stop-add','Add stop','plus','nc-textbutton',d.stops.length>=4?'disabled':''):''}
+1777:  ${input('date','Pickup date',d.date,'date',`min="${istDate(state.now)}"`)} ${timeInput('time','Pickup time',d.time,d.date)} 
+1778: ${d.service==='round'?` ${input('returnDate','Return date',d.returnDate,'date',`min="${esc(d.date)}"`)} ${timeInput('returnTime','Return time',d.returnTime,d.returnDate)} `:''}
+1779: ${d.service==='rental'?` ${esc(t('Rental package'))} <select id="nc-rentalPackage" data-field="rentalPackage" class="nc-input"> ${rental.rentalHours} hrs / ${rental.rentalKm} km ${rental.rentalHours*2} hrs / ${rental.rentalKm*2} km `:''}
+1780: ${d.service==='airport'?` ${esc(t('Flight details (optional)'))} ${input('flight','Flight number',d.flight,'text','placeholder="e.g. 6E 1234" maxlength="15"')} `:''}
+1781: <button class="nc-primary" type="submit">${esc(t('Search Cabs'))}${ico('arrow-right')} ${ico('shield-check')}${esc(t('Clear fares. Dedicated support.'))} ${routeShortcuts()}`;}
+1782: 
+1783: function accountRow(destination,label,description,icon,count=0){return`<button type="button" class="nc-account-row" data-action="page" data-page="${destination}"> ${ico(icon)} ${esc(t(label))} ${esc(t(description))} ${count?` ${count} `:''}${ico('chevron-right')} `;}
+1784: function account(){const count=state.bookings.filter(b=>['confirmed','assigned','onway','arrived','ongoing'].includes(b.status)).length;return`${head('Account','Everything for your journey.')} ${esc((state.profile.name||'G').slice(0,1))} ${esc(state.profile.name)} ${state.signedIn?'+91 '+esc(state.profile.mobile):esc(t('Sign in to manage your bookings'))} ${!state.signedIn?` ${B('login','Sign in','user-round')} `:''} ${accountRow('trips','My Bookings','Upcoming, ongoing & past trips','tickets',count)}${accountRow('payments','Payments & Refunds','Transactions, balances & refunds','wallet')} ${accountRow('profile','My Profile','Personal details & contact information','user-round')}${accountRow('addresses','Saved addresses','Your regular pickup & drop places','map-pin')}${accountRow('help','Help & Support','Get help with your journey','headphones')} ${accountRow('notifications','Notifications & updates','Booking and payment updates','bell')}${accountRow('settings','Settings / About NESAM','Language, preferences & company details','info')} ${state.signedIn?B('logout','Sign out','log-out','nc-textbutton'):''} ${esc(t('Interactive UX prototype · Sample account'))} `;}
+1785: function getProfileDraft(){if(!profileDraft||profileDraft.account!==state.profile.mobile)profileDraft={account:state.profile.mobile,name:state.profile.name,email:state.profile.email||'',same:state.profile.whatsappSame===true,whatsapp:state.profile.whatsapp||''};return profileDraft;}
+1786: function profile(){const p=getProfileDraft();return`${head('My Profile','Keep your contact details up to date.','account')} ${state.signedIn?`${input('profileName','Name',p.name,'text','maxlength="60" autocomplete="name" data-profile="name"')} ${esc(t('Mobile number'))} ${B('mobile-change','Change','','nc-textbutton')} +91 <input id="nc-profileMobile" type="tel" value="${esc(state.profile.mobile)}" readonly aria-readonly="true" aria-describedby="nc-mobile-caption">${ico('lock-keyhole')} ${esc(t('Your sign-in number'))} <input id="nc-whatsappSame" type="checkbox" data-profile="same" ${p.same?'checked':''} aria-controls="nc-whatsapp-fields" aria-expanded="${!p.same}"> ${esc(t('This is also my WhatsApp number'))} ${esc(t('WhatsApp number (optional)'))} +91 <input id="nc-profileWhatsApp" type="tel" inputmode="numeric" autocomplete="tel-national" maxlength="10" data-profile="whatsapp" value="${esc(p.whatsapp)}" placeholder="${esc(t('Enter WhatsApp number'))}"> ${input('profileEmail','Email',p.email,'email','maxlength="100" autocomplete="email" data-profile="email"')} ${B('profile-save','Save changes','','nc-primary')} `:` ${esc(t('Sign in to manage your bookings'))} ${B('login','Sign in','user-round')} `} `;}
+1787: function payments(){
+1788:  const list=state.bookings;
+1789:  return`${head('Payments & Refunds','All your trip transactions, together.','account')}${list.length?list.map(b=>{const view=paymentView(b),due=balance(b);return` ${routeTitle(b.draft)} ${pill(view.label,view.kind)} ${esc(b.id)} ${esc(t('Paid'))} ${money(b.paid)} ${esc(t(b.status==='ongoing'?'Estimated balance':b.status==='completed'&&b.final?'Final amount payable':'Balance'))} ${money(due)} ${tripPaymentNote(b)}${b.refund?.amount?` ${esc(t(b.refund.status==='completed'?'Refund completed':'Refund initiated'))} ${money(b.refund.amount)} `:''}${paymentHistory(b)} ${B('open','View booking','arrow-right','nc-textbutton',`data-id="${esc(b.id)}"`)}${b.status==='completed'&&b.final&&due===0?B('receipt-for','View receipt','download','nc-textbutton',`data-id="${esc(b.id)}"`):canStartPayment(b)&&due>0&&!hasPendingPayment(b)?B('payment-for',b.status==='completed'?'Pay balance':'Pay now','credit-card','nc-textbutton',`data-id="${esc(b.id)}"`):''} `;}).join(''):` ${ico('wallet')} ${esc(t('No transactions yet'))} ${esc(t('Payments and refunds will appear here.'))} `}`;
+1790: }
+1791: function settings(){return`${head('Settings / About NESAM','','account')} ${esc(t('Language'))} ${B('language',state.lang==='en'?'English → தமிழ்':'தமிழ் → English','','nc-textbutton')} ${accountRow('about','About NESAM','Company information & support','info')} UX prototype tools Sample driver, payment and trip scenarios. ${B('page','Open test scenarios','flask-conical','nc-secondary','data-page="lab"')} `;}
+1792: function about(){return`${head('About NESAM','','settings')} NESAM TOURS &amp; TRAVELS PRIVATE LIMITED 77/B, Goundar Street, Koduvilarpatti, Theni – 625534 nesamtravels.com ${OFFICE} ${B('page','Help & Support','headphones','nc-secondary','data-page="help"')} Interactive UX prototype. Fares, accounts, payments and trip updates use sample data. `;}
+1793: function bottomNavigation(){if(modal||!['home','account','trips','profile','payments','settings','about','addresses','help','notifications','lab'].includes(page))return'';const accountActive=page!=='home';return` ${[['airport','Airport','plane'],['multi','Multicity','route'],['rental','Local Rental','clock-3']].map(([id,label,icon])=>B('service',label,icon,page==='home'&&state.draft.service===id?'active':'',`data-service="${id}" ${page==='home'&&state.draft.service===id?'aria-current="page"':''}`)).join('')}${B('page','Account','user-round',accountActive?'active':'',`data-page="account" ${accountActive?'aria-current="page"':''}`)} `;}
+1794: 
+1795: function bookingPayOptions(q){const advance=round2(q.total*.25);return` Choose payment ${[
+1796:  ['later','Book now, pay later','Pay at the end of your trip',0],
+1797:  ['advance','Pay 25% advance',money(round2(q.total-advance))+' after trip',advance],
+1798:  ['full','Pay 100% full amount','No fare balance',q.total]
+1799: ].map(([id,label,note,amount])=>` <input type="radio" name="nc-book-payment" value="${id}" ${bookingPaymentMode===id?'checked':''}> ${label} ${note} ${money(amount)} now `).join('')} `;}
+1800: 
+1801: 
+1802: function review(){const d=state.draft,q=quote(d),now=bookingPaymentMode==='advance'?round2(q.total*.25):q.total;return`${head('Review & book','','cars')}
+1803:  ${routeTitle(d)} ${fullDate(stamp(d.date,d.time))} IST ${esc(carBy(d.car).name)} · ${carBy(d.car).seats} ${esc(t('passengers'))} ${q.billedKm} km ${esc(t('included'))} ${esc(t('Total fare'))} ${esc(t('GST & service fee included'))} ${money(q.total)} ${B('fare-details','View fare details','','nc-textbutton',`data-car="${d.car}"`)} 
+1804:  ${esc(t('Booking contact'))} ${!d.someone?` ${esc(t('Passenger name'))} ${esc(state.signedIn?state.profile.name:t('Guest'))} ${esc(t('Mobile number'))} ${state.signedIn?'+91 '+esc(state.profile.mobile):esc(t('Verify at confirmation'))} ${esc(t('WhatsApp number'))} ${state.profile.whatsapp?'+91 '+esc(state.profile.whatsapp):esc(t('Not provided'))} `:''} <input type="checkbox" data-field="someone" ${d.someone?'checked':''}> ${esc(t('Book for someone else'))} 
+1805: ${d.someone?` ${input('passenger','Passenger name',d.passenger,'text','maxlength="60" autocomplete="name"')} ${input('mobile','Mobile number',d.mobile,'tel','inputmode="numeric" maxlength="10" autocomplete="tel-national"')} <input id="nc-passengerWhatsAppSame" type="checkbox" data-field="passengerWhatsAppSame" ${d.passengerWhatsAppSame?'checked':''}> ${esc(t('This is also their WhatsApp number'))} ${!d.passengerWhatsAppSame?input('passengerWhatsApp','WhatsApp number (optional)',d.passengerWhatsApp||'','tel','inputmode="numeric" maxlength="10"'):''} `:''}
+1806:  ${esc(t('Pickup landmark / instructions'))} ${esc(t('Trip instructions'))} <textarea class="nc-input" id="nc-notes" data-field="notes" maxlength="300" placeholder="${esc(t('Pickup landmark, luggage or accessibility needs'))}">${esc(d.notes)} 
+1807: ${bookingPayOptions(q)} ${esc(t('Toll, parking & state tax are extra, paid separately against receipts.'))} ${esc(t('Cancellation policy'))} ${policyMarkup(policyDefault(),stamp(d.date,d.time))} <input type="checkbox" data-field="terms" ${d.terms?'checked':''} ${fieldErrors.terms?'aria-invalid="true" aria-describedby="nc-error-terms"':''}> ${esc(t('I accept the fare, extra charges and cancellation policy.'))} ${fieldError('terms')}${B('confirm',bookingPaymentMode==='later'?'Book & Confirm':'Pay '+money(now)+' & Confirm','','nc-primary')}`;}
+1808: 
+1809: function paymentAmount(b){const due=balance(b);if(paymentChoice==='full'||['completed','cancelled'].includes(b.status))return due;return Math.min(due,Math.max(0,round2(b.fare.total*.25)-b.paid));}
+1810: 
+1811: const handleBeforeSimple=handleV2;
+1812: handleV2=async function(action,data={}){
+1813:  if(action==='search'||action==='reset-confirm')bookingPaymentMode='later';
+1814:  if(action==='booking-pay-mode'){if(['later','advance','full'].includes(data.mode))bookingPaymentMode=data.mode;return true;}
+1815:  if(action==='confirm'&&page==='review'){
+1816:  useLiveClock();const count=state.bookings.length;confirmBooking();
+1817:  if(state.bookings.length>count){const b=current();b.paymentPlan=bookingPaymentMode;if(bookingPaymentMode!=='later'){paymentChoice=bookingPaymentMode;page='payment';beginPayment();checkoutFromReview=true;}}
+1818:  return true;
+1819:  }
+1820:  if(['pay-success','pay-pending','pay-failed'].includes(action)&&checkoutFromReview){finishPayment(action==='pay-success'?'success':action==='pay-pending'?'pending':'failed');checkoutFromReview=false;page='confirmed';return true;}
+1821:  if(action==='close-modal'&&checkoutFromReview){modal=null;checkoutFromReview=false;page='confirmed';return true;}
+1822:  return handleBeforeSimple(action,data);
+1823: };
+1824: root.addEventListener('change',e=>{if(e.target.name==='nc-book-payment'){bookingPaymentMode=e.target.value;render();}});
+1825: 
+1826: const handleBeforeDashboard=handleV2;
+1827: let serviceDrafts={};
+1828: let profileDraft=null;
+1829: root.addEventListener('input',e=>{const key=e.target.dataset?.profile;if(!key||key==='same')return;const p=getProfileDraft();if(key==='whatsapp'){e.target.value=e.target.value.replace(/\D/g,'').slice(0,10);}p[key]=e.target.value;});
+1830: root.addEventListener('change',e=>{if(e.target.dataset?.profile!=='same')return;const p=getProfileDraft();p.same=e.target.checked;error='';render();root.querySelector('#nc-whatsappSame')?.focus({preventScroll:true});});
+1831: handleV2=async function(action,data={}){
+1832:  if(action==='profile-save'){
+1833:  if(!state.signedIn)throw Error('Sign in to update your profile.');
+1834:  const p=getProfileDraft(),name=p.name.trim(),email=p.email.trim(),whatsapp=p.same?state.profile.mobile:p.whatsapp.trim();
+1835:  if(!name)throw Error('Enter your name.');
+1836:  if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw Error('Enter a valid email address.');
+1837:  if(whatsapp&&!/^[6-9]\d{9}$/.test(whatsapp))throw Error('Enter a valid 10 digit WhatsApp number.');
+1838:  state.profile={...state.profile,name,email,whatsappSame:p.same,whatsapp};
+1839:  p.name=name;p.email=email;announce('Profile updated.');return true;
+1840:  }
+1841:  if(action==='dashboard-home'){page='home';modal=null;useLiveClock();if(!['oneway','round'].includes(state.draft.service)){await handleV2('service',{service:'oneway'});}return true;}
+1842:  if(action==='service'){
+1843:  const id=data.service;if(!SERVICES.some(x=>x[0]===id))return true;
+1844:  useLiveClock();const old=state.draft.service;
+1845:  if(old!==id){
+1846:  serviceDrafts[old]=clone(state.draft);
+1847:  state.draft=serviceDrafts[id]?clone(serviceDrafts[id]):{...clone(state.draft),service:id};
+1848:  if(id==='airport'&&!serviceDrafts[id]){state.draft.pickup='Chennai, Porur';state.draft.drop='Chennai, Porur';state.draft.airport='Chennai Airport, T1';}
+1849:  if(id==='rental'&&!serviceDrafts[id])state.draft.pickup=state.draft.rentalCity+', '+(state.draft.rentalCity==='Chennai'?'Porur':'City Centre');
+1850:  if(['oneway','round','multi'].includes(id)&&cityOf(state.draft.pickup)===cityOf(state.draft.drop))state.draft.drop=cityOf(state.draft.pickup)==='Trichy'?'Chennai, Porur':'Trichy, Central Bus Stand';
+1851:  if(stamp(state.draft.date,state.draft.time)<=state.now){state.draft.date=draftDefault().date;state.draft.time='18:00';}
+1852:  if(stamp(state.draft.returnDate,state.draft.returnTime)<=stamp(state.draft.date,state.draft.time)){state.draft.returnDate=istDate(stamp(state.draft.date,state.draft.time)+86400000);state.draft.returnTime=state.draft.time;}
+1853:  }
+1854:  state.draft.terms=false;searchQuote=null;page='home';modal=null;return true;
+1855:  }
+1856:  if(action==='reset-confirm'){serviceDrafts={};profileDraft=null;}
+1857:  return handleBeforeDashboard(action,data);
+1858: };
+1859: Object.assign(TA,{
+1860:  'Your sign-in number':'உள்நுழையப் பயன்படுத்தும் எண்','This is also my WhatsApp number':'இதுவே என் WhatsApp எண்','WhatsApp number (optional)':'WhatsApp எண் (விருப்பம்)','Enter WhatsApp number':'WhatsApp எண்ணை உள்ளிடவும்',
+1861:  'My Bookings':'என் முன்பதிவுகள்','Payments & Refunds':'பணம் மற்றும் பணத்திருப்பம்','My Profile':'என் சுயவிவரம்','Help & Support':'உதவி மற்றும் ஆதரவு','Settings / About NESAM':'அமைப்புகள் / NESAM பற்றி','About NESAM':'NESAM பற்றி','Trip type':'பயண வகை','Drop location':'இறங்கும் இடம்','Stop':'இடைநிறுத்தம்','Add a stop':'இடைநிறுத்தம் சேர்க்கவும்','View Trip':'பயணத்தைப் பார்க்கவும்','Your ongoing trip':'நடைபெறும் பயணம்','Booking Confirmed':'முன்பதிவு உறுதியானது','Driver Assigned':'ஓட்டுநர் ஒதுக்கப்பட்டார்','Driver Arrived':'ஓட்டுநர் வந்துவிட்டார்','Trip Started':'பயணம் தொடங்கியது','Clear fares. Dedicated support.':'தெளிவான கட்டணம். தனிப்பட்ட ஆதரவு.','We’re arranging your cab':'உங்கள் காரை ஏற்பாடு செய்கிறோம்','Driver details available':'ஓட்டுநர் விவரங்கள் உள்ளன','Everything for your journey.':'உங்கள் பயணத்திற்கான அனைத்தும்.','Upcoming, ongoing & past trips':'வரவிருக்கும், நடைபெறும் மற்றும் கடந்த பயணங்கள்','Transactions, balances & refunds':'பரிவர்த்தனைகள் மற்றும் பணத்திருப்பம்','Personal details & contact information':'தனிப்பட்ட மற்றும் தொடர்பு விவரங்கள்','Your regular pickup places':'உங்கள் வழக்கமான புறப்படும் இடங்கள்','Get help with your journey':'பயணத்திற்கான உதவி','Booking and payment updates':'முன்பதிவு மற்றும் பணப்பரிவர்த்தனை தகவல்கள்','Language, preferences & company details':'மொழி, விருப்பங்கள் மற்றும் நிறுவன விவரங்கள்','Company information & support':'நிறுவன விவரங்கள் மற்றும் உதவி','Sign in to manage your bookings':'முன்பதிவுகளை நிர்வகிக்க உள்நுழையவும்','All your trip transactions, together.':'அனைத்து பயணப் பரிவர்த்தனைகளும் ஒரே இடத்தில்.','Keep your contact details up to date.':'தொடர்பு விவரங்களைப் புதுப்பிக்கவும்.','No transactions yet':'இன்னும் பரிவர்த்தனைகள் இல்லை','Payments and refunds will appear here.':'பரிவர்த்தனைகள் இங்கே காண்பிக்கப்படும்.','Balance due':'செலுத்த வேண்டிய தொகை','Flight details (optional)':'விமான விவரங்கள் (விருப்பம்)','Flight number':'விமான எண்','Interactive UX prototype · Sample account':'செயல்விளக்க வடிவமைப்பு · மாதிரிக் கணக்கு'
+1862: });
+1863: 
+1864: function snapshotAccount(){if(!state.signedIn)return;state.accounts=state.accounts||{};state.accounts[state.profile.mobile]={profile:clone(state.profile),bookings:clone(state.bookings),notifications:clone(state.notifications),addresses:clone(state.addresses),recentLocations:clone(state.recentLocations||[]),recentSearches:clone(state.recentSearches||[]),tickets:clone(state.tickets)};}
+1865: function signOut(){snapshotAccount();state.signedIn=false;state.profile={name:'Guest',mobile:'',email:''};state.bookings=[];state.notifications=[];state.addresses=[];state.recentLocations=[];state.recentSearches=[];state.tickets=[];activeId=null;state.draft=draftDefault();searchQuote=null;page='home';}
+1866: function login(){const phone=loginPhone.trim();if(!/^[6-9]\d{9}$/.test(phone))throw Error('Enter a valid 10 digit mobile number.');if(!loginName.trim())throw Error('Enter your name to continue.');if(loginChallenge&&state.now-loginChallenge.sentAt<30000)throw Error('Wait 30 seconds before requesting another OTP.');loginChallenge={phone,code:'246810',expires:state.now+300000,tries:0,sentAt:state.now};modal='otp';}
+1867: function verifyLogin(){const code=root.querySelector('#nc-loginOTP')?.value||'';if(!loginChallenge||state.now>loginChallenge.expires)throw Error('OTP expired. Request a new OTP.');if(loginChallenge.tries>=5)throw Error('Too many attempts. Request a new OTP.');loginChallenge.tries++;if(code!==loginChallenge.code)throw Error('Incorrect OTP. Enter the 6 digit demo code.');const archived=state.accounts?.[loginChallenge.phone];state.profile=archived?.profile||{name:loginName.trim(),mobile:loginChallenge.phone,email:''};state.bookings=clone(archived?.bookings||[]);state.notifications=clone(archived?.notifications||[]);state.addresses=clone(archived?.addresses||[]);state.recentLocations=clone(archived?.recentLocations||[]);state.recentSearches=clone(archived?.recentSearches||[]);state.tickets=clone(archived?.tickets||[]);state.signedIn=true;activeId=state.bookings[0]?.id;loginChallenge=null;modal=null;if(pendingConfirm){pendingConfirm=false;page='review';announce('Signed in. Review your booking and tap Book & Confirm.');}else page='account';}
+1868: function newDemo(){const b=seedBooking();state.counter++;b.id='NSM-CB-261019-'+String(state.counter).padStart(4,'0');b.passenger=state.signedIn?state.profile.name:'Priya S';b.mobile=state.signedIn?state.profile.mobile:'9000000108';b.payments[0].id='PAY-DEMO-'+state.counter;state.bookings.unshift(b);activeId=b.id;return b;}
+1869: function scenario(kind){let b=current();
+1870:  if(['assign','wait','urgent','late'].includes(kind)){state.now=DEMO_NOW;b=newDemo();if(kind==='assign')assignDriver(b);if(kind==='wait')state.now=b.pickupAt-3600001;if(kind==='urgent')state.now=b.pickupAt-3600000;if(kind==='late'){state.now=b.pickupAt-1800000;assignDriver(b);}markUrgent();openBooking(b.id);return;}
+1871:  if(['close300','close310','rental'].includes(kind)){state.now=DEMO_NOW;b=newDemo();if(kind==='rental'){b.draft.service='rental';b.draft.pickup='Chennai, Porur';b.fare=quote(b.draft);}b.paid=b.fare.total;b.payments=[{id:'PAY-DEMO-FULL-'+b.id,amount:b.paid,status:'success',at:DEMO_NOW}];assignDriver(b);b.status='ongoing';state.now=b.pickupAt+5*3600000;b.events.push({label:'Trip started',at:b.pickupAt});completeTrip(b,kind==='rental'?b.fare.km+10:kind==='close310'?310:300,kind==='rental'?b.fare.hours+1:5);openBooking(b.id);return;}
+1872:  if(!b)throw Error('Select a booking first.');
+1873:  if(['onway','arrive','start'].includes(kind)){if(['cancelled','completed'].includes(b.status))throw Error('Choose an active booking or create a fresh assignment scenario.');if(!b.driver)assignDriver(b);const label=kind==='onway'?'Driver on the way':kind==='arrive'?'Driver arrived':'Trip started';b.status=kind==='onway'?'onway':kind==='arrive'?'arrived':'ongoing';if(!b.events.some(e=>e.label===label))b.events.push({label,at:state.now});openBooking(b.id);return;}
+1874:  if(kind==='pending'){if(b.status==='cancelled'||balance(b)===0)b=newDemo();paymentChoice='full';modal={type:'checkout',bookingId:b.id,amount:Math.min(1000,balance(b))};if(b.payments.some(p=>p.status==='pending'))throw Error('This booking already has a payment awaiting verification.');finishPayment('pending');openBooking(b.id);return;}
+1875:  if(kind==='resolve'){resolvePayment(b);openBooking(b.id);return;}
+1876:  if(kind==='company-cancel'){companyCancel(b);openBooking(b.id);return;}
+1877:  if(kind==='refund'){if(b.refund?.status!=='initiated')throw Error('Choose a booking with a refund in progress.');b.refund.status='completed';b.refund.completedAt=state.now;alertUser('Full refund completed: '+money(b.refund.amount),b.id);openBooking(b.id);return;}
+1878:  if(kind==='approve-request'){if(!b.request)throw Error('Submit a cancellation or change request from Booking details first.');if(b.request.type==='change'){announce('Office review recorded. The itinerary and fare stay unchanged until the customer accepts a revised quote.');page='booking';return;}if(b.payments.some(p=>p.status==='pending'))throw Error('Resolve payment verification before the cancellation refund.');b.status='cancelled';b.cancelReason='Customer cancellation · office approved · charge waived';b.refund={amount:b.paid,status:b.paid?'initiated':'not-needed',at:state.now};b.request=null;alertUser('Cancellation approved. Charge waived. '+(b.paid?'Full refund initiated.':''),b.id);openBooking(b.id);return;}
+1879:  if(kind==='decline-request'){if(!b.request)throw Error('No request is pending.');b.request=null;alertUser('Office could not approve the request. Your booking remains active. Contact NESAM.',b.id);openBooking(b.id);return;}
+1880: }
+1881: function submitRequest(){const b=current();if(!b||!['confirmed','assigned','onway','arrived'].includes(b.status))throw Error('Call NESAM for changes after the trip starts.');if(b.request)throw Error('A request is already with the office.');if(b.payments.some(x=>x.status==='pending'))throw Error('Payment is being verified. Contact NESAM before requesting cancellation.');const reason=root.querySelector('#nc-requestReason')?.value||'',note=root.querySelector('#nc-requestNote')?.value.trim()||'';if(!reason||!note)throw Error('Choose a reason and add a short explanation.');const type=modal==='cancel'?'cancel':'change';let q=null;if(type==='cancel'){if(!root.querySelector('#nc-cancelConsent')?.checked)throw Error('Please accept the cancellation charge and refund quote.');q=cancellationQuote(b);if(cancelPreview&&q.charge!==cancelPreview.charge){cancelPreview={bookingId:b.id,...q};throw Error('The cancellation window changed. Review the updated quote before submitting.');}q.at=state.now;}b.request={type,reason,note,at:state.now,status:'pending',chargeConsent:type==='cancel',quote:q};cancelPreview=null;modal=null;announce('Request sent. Your booking remains active until office approval.');page='booking';}
+1882: function receipt(){const b=current();if(!b||b.status!=='completed')throw Error('Receipt is available after trip closure.');const html='<!doctype html> NESAM Sample Receipt body{font:15px Arial;max-width:640px;margin:40px auto;padding:24px;color:#252b28}h1{color:#df342d}table{width:100%;border-collapse:collapse;margin:24px 0}td{padding:12px 0;border-bottom:1px solid #ddd}td:last-child{text-align:right}small{color:#666} NESAM NESAM TOURS &amp; TRAVELS PRIVATE LIMITED 77/B, Goundar Street, Koduvilarpatti, Theni – 625534 Office: '+OFFICE+' Sample Trip Receipt '+esc(b.id)+' '+esc(routePoints(b.draft).join(' → '))+' '+fullDate(b.pickupAt)+' Cab charges (5% GST included) '+money(b.fare.cab)+' Driver bata (5% GST included) '+money(b.fare.allowance)+' Service fee '+money(b.fare.serviceFee)+' GST on service fee (18%) '+money(b.fare.serviceTax)+' Original fare (all taxes included) '+money(b.fare.total)+' Additional distance / time '+money(b.final.extraBase)+' GST on extras '+money(b.final.extraTax)+' Total fare '+money(finalTotal(b))+' Paid '+money(b.paid)+' Balance payable '+money(balance(b))+' Toll, parking and state tax are paid separately against receipts and are excluded. UX sample only. This is not a tax invoice or proof of an actual payment. ';const blob=new Blob([html],{type:'text/html'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=b.id+'-sample-receipt.html';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);announce('Sample receipt downloaded. Open it in a browser to print.');}
+1883: async function act(action,data={}){error='';toast='';try{
+1884:  if(await handleV2(action,data)){}
+1885:  else if(action==='page'){page=data.page;modal=null;if(page==='trips')tab='Upcoming';if(page==='home')useLiveClock();if(page==='home'&&stamp(state.draft.date,state.draft.time)<=state.now){state.draft.date=new Date(state.now+86400000+19800000).toISOString().slice(0,10);state.draft.time='18:00';searchQuote=null;}}
+1886:  else if(action==='service'){state.draft.service=data.service;state.draft.terms=false;if(data.service==='airport'){state.draft.pickup='Chennai, Porur';state.draft.drop='Chennai, Porur';}if(data.service==='rental')state.draft.pickup=state.draft.rentalCity+', '+(state.draft.rentalCity==='Chennai'?'Porur':'City Centre');searchQuote=null;}
+1887:  else if(action==='airport-direction'){state.draft.airportDirection=data.direction;searchQuote=null;}
+1888:  else if(action==='swap'){[state.draft.pickup,state.draft.drop]=[state.draft.drop,state.draft.pickup];searchQuote=null;}
+1889:  else if(action==='stop-add'){if(state.draft.stops.length<4)state.draft.stops.push('');}
+1890:  else if(action==='stop-remove'){state.draft.stops.splice(Number(data.index),1);}
+1891:  else if(action==='stop-up'){const n=Number(data.index);if(n>0)[state.draft.stops[n],state.draft.stops[n-1]]=[state.draft.stops[n-1],state.draft.stops[n]];}
+1892:  else if(action==='popular'){state.draft=draftDefault();state.draft.pickup=LOCATIONS.find(x=>city(x)===data.from&&!/airport/i.test(x))||data.from;state.draft.drop=LOCATIONS.find(x=>city(x)===data.to&&!/airport/i.test(x))||data.to;page='home';announce('Route selected. Choose your pickup date and time.');}
+1893:  else if(action==='search')findDraft();
+1894:  else if(action==='edit'){page='home';searchQuote=null;}
+1895:  else if(action==='car'){state.draft.car=data.car;}
+1896:  else if(action==='review'){validate(state.draft);if(!searchQuote)throw Error('Search cabs first.');page='review';}
+1897:  else if(action==='confirm'){if(page==='review')confirmBooking();}
+1898:  else if(action==='open')openBooking(data.id);
+1899:  else if(action==='booking'){page='booking';modal=null;}
+1900:  else if(action==='tab')tab=data.tab;
+1901:  else if(action==='payment'){paymentChoice='advance';page='payment';}
+1902:  else if(action==='pay-choice')paymentChoice=data.choice;
+1903:  else if(action==='checkout')beginPayment();
+1904:  else if(action==='pay-success')finishPayment('success');
+1905:  else if(action==='pay-pending')finishPayment('pending');
+1906:  else if(action==='pay-failed')finishPayment('failed');
+1907:  else if(action==='location')modal='location';
+1908:  else if(['location-select','address-use'].includes(action)){const a=state.addresses[Number(data.index)];if(a){state.draft.pickup=a.address;modal=null;page='home';}}
+1909:  else if(action==='request-cancel'||action==='request-change'){const b=current();if(b?.request)throw Error('A request is already pending. Call NESAM for an update.');modal=action==='request-cancel'?'cancel':'change';}
+1910:  else if(action==='submit-request')submitRequest();
+1911:  else if(action==='share'){if(!current())throw Error('Open a booking first.');modal='share';}
+1912:  else if(action==='copy-share'){const value=shareText(current());if(navigator.clipboard?.writeText){try{await navigator.clipboard.writeText(value);announce('Trip details copied.');modal=null;}catch{announce('Select and copy the trip details shown below.');}}else announce('Select and copy the trip details shown below.');}
+1913:  else if(action==='call-driver'){if(current()?.driver)modal='driver-call';}
+1914:  else if(action==='receipt')receipt();
+1915:  else if(action==='star')rating=Number(data.rating);
+1916:  else if(action==='rating'){if(!rating)throw Error('Choose a star rating.');current().rating=rating;announce('Thank you for your feedback.');}
+1917:  else if(action==='ticket'){const topic=root.querySelector('#nc-ticketTopic')?.value,note=root.querySelector('#nc-ticketNote')?.value.trim();if(!note)throw Error('Enter your message.');state.tickets.unshift({id:'NSM-HELP-'+String(state.tickets.length+1).padStart(4,'0'),topic,note,status:'Sent to office',at:state.now});announce('Help request recorded in this demo.');}
+1918:  else if(action==='profile-save'){const name=root.querySelector('#nc-profileName')?.value.trim(),email=root.querySelector('#nc-profileEmail')?.value.trim();if(!name)throw Error('Enter your name.');if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw Error('Enter a valid email address.');state.profile.name=name;state.profile.email=email;announce('Profile updated.');}
+1919:  else if(action==='addresses')page='addresses';
+1920:  else if(action==='address-save'){const name=root.querySelector('#nc-addressName')?.value.trim(),address=root.querySelector('#nc-addressValue')?.value.trim();if(!name||!address)throw Error('Enter an address label and address.');state.addresses.push({name,address});announce('Address saved.');}
+1921:  else if(action==='address-delete')state.addresses.splice(Number(data.index),1);
+1922:  else if(action==='language')state.lang=state.lang==='en'?'ta':'en';
+1923:  else if(action==='notification'){const n=state.notifications.find(n=>n.id===data.id);if(n){n.read=true;if(n.bookingId)openBooking(n.bookingId);}}
+1924:  else if(action==='logout'){signOut();announce('Signed out. Your bookings are saved to your sample account.');}
+1925:  else if(action==='login'){loginPhone='';loginName='';modal='login';}
+1926:  else if(action==='send-otp'||action==='resend-otp')login();
+1927:  else if(action==='verify-otp')verifyLogin();
+1928:  else if(action==='close-modal'){modal=null;error='';if(pendingConfirm){pendingConfirm=false;page='review';}}
+1929:  else if(action==='demo-peak'){state.peakBlocked=!state.peakBlocked;announce(state.peakBlocked?'The sample slot is blocked. Search or confirmation will now reject it.':'Sample slot reopened.');}
+1930:  else if(action==='demo-clock'){useLiveClock();announce('Live IST clock restored. Past pickup times are blocked.');}
+1931:  else if(action==='demo-logout'){signOut();page='home';announce('Guest mode. Browse first; sign in at booking confirmation.');}
+1932:  else if(action==='reset')modal='reset';
+1933:  else if(action==='reset-confirm'){state=initial();state.bookings=[seedBooking()];activeId=state.bookings[0].id;page='home';modal=null;searchQuote=null;loginChallenge=null;pendingConfirm=false;announce('Sample data reset.');}
+1934:  else if(action.startsWith('demo-'))scenario(action.slice(5));
+1935:  }catch(e){error=e.message||'Please try again.';}render();}
+1936: root.addEventListener('click',e=>{const b=e.target.closest?.('[data-action]');if(!b||!root.contains(b)||b.disabled)return;e.preventDefault();act(b.dataset.action,{...b.dataset});});
+1937: root.addEventListener('submit',e=>{if(e.target.id==='nc-search-form'){e.preventDefault();act('search');}});
+1938: function trackInput(e){const el=e.target,key=el.dataset?.field;if(el.dataset?.stop!==undefined){state.draft.stops[Number(el.dataset.stop)]=el.value;return;}if(!key){if(el.id==='nc-requestReason')requestDraft.reason=el.value;if(el.id==='nc-requestNote')requestDraft.note=el.value;if(el.id==='nc-cancelConsent')requestDraft.consent=el.checked;return;}
+1939:  if(key==='loginPhone'){loginPhone=el.value.replace(/\D/g,'').slice(0,10);el.value=loginPhone;return;}if(key==='loginName'){loginName=el.value;return;}
+1940:  if(key==='labBooking'){activeId=el.value;return;}
+1941:  if(el.id==='nc-requestReason'){requestDraft.reason=el.value;return;}if(el.id==='nc-requestNote'){requestDraft.note=el.value;return;}if(el.id==='nc-cancelConsent'){requestDraft.consent=el.checked;return;}if(!(key in state.draft))return;state.draft[key]=el.type==='checkbox'?el.checked:el.value;if(key==='mobile'){state.draft.mobile=el.value.replace(/\D/g,'').slice(0,10);el.value=state.draft.mobile;}if(key!=='terms')state.draft.terms=false;
+1942:  persist();
+1943: }
+1944: root.addEventListener('input',trackInput);
+1945: root.addEventListener('change',e=>{if(e.target.dataset?.field==='service'){act('service',{service:e.target.value});return;}if(e.target.dataset?.timePart&&modal?.type==='time'){modal[e.target.dataset.timePart]=e.target.value;render();return;}trackInput(e);const k=e.target.dataset?.field;if(k==='rentalCity'){state.draft.pickup=state.draft.rentalCity+', City Centre';render();}else if(k==='someone'||k==='labBooking')render();else if(k==='date'||k==='returnDate'){searchQuote=null;error=stamp(state.draft[k],'23:59')<=state.now?'Choose today or a future date.':'';render();}});
+1946: root.addEventListener('keydown',e=>{if(e.key==='Escape'&&modal){e.preventDefault();modal=null;error='';render();}});
+1947: 
+1948: // Agreed booking and form UX. All external-service responses remain preview fixtures.
+1949: let fieldErrors={},locationQuery='',locationTarget='pickup',locationReturnPage='home',searchBusy=false,searchSerial=0,searchPreviewOutcome='normal',changeChallenge=null,changeNumber='',changeOTP='';
+1950: for(const c of CARS)c.name=c.name.replace(/\s*·\s*\d+\+1/,'');
+1951: const baseDraftDefault=draftDefault;
+1952: draftDefault=function(){return{...baseDraftDefault(),passengerWhatsAppSame:false,passengerWhatsApp:''};};
+1953: state.draft.passengerWhatsAppSame??=false;state.draft.passengerWhatsApp??='';
+1954: state.recentLocations=state.recentLocations||[];
+1955: const beforeUxInitial=initial;
+1956: initial=function(){const value=beforeUxInitial();value.recentLocations=[];return value;};
+1957: function fieldId(key){return key.replace(':','-');}
+1958: function fieldError(key){return fieldErrors[key]?` ${esc(t(fieldErrors[key]))} `:'';}

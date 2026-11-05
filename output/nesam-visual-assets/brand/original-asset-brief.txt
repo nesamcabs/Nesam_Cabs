@@ -1,0 +1,400 @@
+Act as a world-class brand designer, digital illustrator, icon designer, and senior UI/UX art director.
+
+Create a complete visual asset collection for the NESAM Tours & Travels customer, driver, and vendor web panels. Use the logo I upload with this prompt as the primary brand reference.
+
+Generate the actual assets using the image-generation and file-creation tools available in ChatGPT Work. Do not stop at describing ideas or writing prompts. Work through the collection in organized batches while maintaining one consistent visual language.
+
+If the logo is not attached, ask me to upload it before generating branded assets.
+
+## 1. Understand the brand
+
+First inspect the uploaded logo and identify:
+- Its dominant and supporting colors.
+- Its shapes, line character, visual weight, and brand personality.
+- Which elements can inspire illustrations, decorative patterns, and icon styling.
+- How it should appear on light and dark backgrounds.
+
+Preserve the supplied logo exactly. Do not redraw it, distort it, invent lettering, change its proportions, or generate approximate versions inside images.
+
+When exact logo placement is required, use the original file through a supported composition method. Otherwise, leave a clean placement area and provide the illustration separately.
+
+Build a premium, contemporary Indian travel brand that feels trustworthy, welcoming, efficient, and distinctive.
+
+## 2. Overall art direction
+
+Develop a cohesive visual identity suitable for polished desktop web applications.
+
+Use:
+- The uploaded logo’s actual colors as the brand palette.
+- Warm ivory or soft neutral backgrounds.
+- Deep charcoal for contrast.
+- Restrained brand-color highlights.
+- Semantic green, amber, and red only where their meaning is appropriate.
+- Clean silhouettes, controlled detail, generous negative space, and refined composition.
+
+For illustrations, use a consistent contemporary editorial vector-inspired style: clean geometric forms, gently rounded shapes, subtle texture or shading, and believable proportions.
+
+For photography, use realistic premium travel imagery with natural lighting and believable Indian environments.
+
+Avoid:
+- Generic clip-art collections.
+- Inconsistent illustration styles.
+- Excessive gradients, glossy plastic rendering, and exaggerated 3D.
+- Cartoonish people in serious financial or safety contexts.
+- Fake interface screenshots.
+- Generated text, watermarks, random logos, and invented brand marks.
+- Decorative details that interfere with UI text.
+
+Keep each asset useful inside a real interface.
+
+## 3. Shared icon system
+
+Create an original, consistent icon family for all three panels.
+
+Style:
+- A 24 × 24 logical grid.
+- Consistent approximately 1.75–2px stroke at that size.
+- Rounded line caps and joins.
+- Clear silhouettes with minimal internal detail.
+- Optically balanced shapes.
+- Readable at 20, 24, and 32px.
+- Neutral monochrome icons that the application can recolor.
+- Filled variants only where needed for active navigation states.
+
+Required shared icons:
+- Home/dashboard.
+- Search.
+- Notifications.
+- Profile/account.
+- Settings.
+- Help/support.
+- Chat/message.
+- Phone.
+- Email.
+- Calendar.
+- Clock.
+- Location pin.
+- Pickup.
+- Destination.
+- Route.
+- Navigation.
+- Current location.
+- Car.
+- Fleet.
+- Driver.
+- Passengers.
+- Booking.
+- Trip history.
+- Receipt/invoice.
+- Wallet.
+- Payment/card.
+- Bank transfer.
+- Earnings.
+- Offers/coupon.
+- Star/rating.
+- Saved place.
+- Document.
+- Document upload.
+- Camera.
+- Image/gallery.
+- Verified/shield.
+- Lock.
+- OTP/security.
+- Emergency/SOS.
+- Online.
+- Offline.
+- Filter.
+- Sort.
+- Refresh.
+- Download.
+- Share.
+- Edit.
+- Add.
+- Remove.
+- Close.
+- Check.
+- Warning.
+- Information.
+- Success.
+- Error.
+- More options.
+- Logout.
+- Chevron left, right, up, and down.
+- External link.
+- Expand/collapse.
+
+Additional customer icons:
+- One-way journey.
+- Round trip.
+- Local rental.
+- Outstation.
+- Tour package.
+- Luggage.
+- Air conditioning.
+- Vehicle seats.
+- Cancellation.
+- Favourite.
+- Trip tracking.
+
+Additional driver icons:
+- Duty status.
+- Available trip.
+- Accept trip.
+- Reached pickup.
+- Trip started.
+- Trip completed.
+- Boarding verification.
+- Vehicle inspection.
+- Front vehicle photo.
+- Rear vehicle photo.
+- Interior vehicle photo.
+- Toll.
+- Fuel.
+- Driving licence.
+- Vehicle registration.
+- Insurance.
+- Payout.
+
+Additional vendor icons:
+- Fleet overview.
+- Add vehicle.
+- Driver management.
+- Driver invitation.
+- Assign driver.
+- Vehicle availability.
+- Maintenance.
+- Document expiry.
+- Marketplace bid.
+- Commission.
+- Settlement.
+- Business profile.
+- Team.
+
+Do not generate a single raster sheet and present it as a usable icon library.
+
+Prefer individual genuine SVG files when vector-authoring tools are available. Use consistent viewBoxes and currentColor for monochrome SVGs. If only raster generation is available, provide transparent PNG assets and clearly state that they are raster; do not label traced or bitmap-wrapped files as native vector icons.
+
+Provide a contact sheet separately for reviewing the complete family.
+
+## 4. Customer panel illustration collection
+
+Create these illustrations:
+
+1. Welcome to NESAM — a welcoming travel scene with a clean vehicle and a subtle route motif.
+2. Phone verification — a phone with a shield/check motif, with no readable screen text.
+3. Profile setup — a friendly account/profile illustration.
+4. Book your next journey — a refined car and route composition.
+5. Choose your vehicle — a coordinated group of distinct vehicle silhouettes.
+6. Booking confirmed — a reserved vehicle and confirmation motif.
+7. Driver arriving — vehicle, pickup pin, and route composition.
+8. Journey in progress — a calm road-travel illustration.
+9. Trip completed — arrival and confirmation motif.
+10. No trips yet — a quiet travel scene encouraging a first booking.
+11. No saved places — location pins and a simplified map.
+12. No notifications — a restrained notification illustration.
+13. No payment history — receipt and wallet composition.
+14. No offers available — a neutral coupon illustration.
+15. Support — a warm assistance illustration.
+16. Offline — a gentle connectivity interruption illustration.
+17. Something went wrong — a clear, calm retry illustration.
+18. Account under review — a document-review illustration.
+
+Use transparent backgrounds for in-app illustrations. Avoid embedding buttons, headings, numbers, or instructions.
+
+## 5. Driver panel illustration collection
+
+Create:
+
+1. Driver welcome — a professional adult driver beside a vehicle.
+2. Driver registration — identity, licence, and vehicle-document composition.
+3. Documents submitted — a clear document-check motif.
+4. Approval pending — a respectful review illustration.
+5. Changes requested — document revision without negative or shaming imagery.
+6. Account suspended — a neutral account-hold illustration.
+7. Go online — a ready vehicle with a subtle availability motif.
+8. Offline dashboard — a parked vehicle in a calm composition.
+9. No available trips — a route and vehicle waiting illustration.
+10. New trip available — vehicle, route, and pickup motif.
+11. Reached pickup — vehicle at a clearly identifiable pickup point.
+12. Boarding verification — phone, shield, and passenger/vehicle motif.
+13. Vehicle photo verification — camera and vehicle inspection composition.
+14. Trip completed — arrival and completion motif.
+15. No earnings yet — understated earnings illustration.
+16. Payout requested — wallet and bank-transfer motif.
+17. Payout completed — confirmation and transfer motif.
+18. Safety/support — a reassuring assistance composition.
+
+Keep the driver experience professional and practical. Illustrations must not imply an action or approval has happened when it has not.
+
+## 6. Vendor panel illustration collection
+
+Create:
+
+1. Fleet partner welcome — a small coordinated fleet and professional business motif.
+2. Invitation accepted — invitation and business-account composition.
+3. Business onboarding — business profile and documents.
+4. Approval pending — business-document review.
+5. Changes requested — document update illustration.
+6. No vehicles yet — a fleet bay with a single vehicle outline/motif.
+7. Add your first vehicle — vehicle and add motif.
+8. No drivers yet — professional driver-team composition.
+9. Invite a driver — invitation and driver profile motif.
+10. No marketplace trips — fleet and route waiting illustration.
+11. Assign a trip — driver, vehicle, and route association.
+12. Vehicle unavailable — parked vehicle with a neutral status motif.
+13. Document expiring — document and calendar illustration.
+14. No transactions — financial-record illustration.
+15. Settlement pending — bank transfer in progress.
+16. Settlement completed — bank transfer confirmation.
+17. Business support — professional assistance illustration.
+18. Account hold — neutral business-account status illustration.
+
+Do not include invented financial figures, company names, licence details, or readable registration plates.
+
+## 7. Vehicle category assets
+
+Create a matched set of realistic vehicle cutouts for:
+- Compact hatchback.
+- Sedan.
+- Premium sedan.
+- SUV.
+- MPV.
+- Passenger van / tempo traveller.
+- Minibus.
+- Tourist coach.
+
+Requirements:
+- Consistent three-quarter front angle.
+- Consistent studio lighting and perspective.
+- Transparent background.
+- Vehicles centered with matching visual scale and margins.
+- Restrained neutral paint colors with optional subtle brand-color accents.
+- No manufacturer badges or fake NESAM logos.
+- No readable registration plates.
+- Believable wheels, windows, mirrors, and body geometry.
+- Separate files for every vehicle.
+
+Provide both a clean cutout and a version with a subtle isolated ground shadow where practical. Label these as illustrative category imagery, not a guarantee of the actual vehicle assigned.
+
+## 8. Photography collection
+
+Create a small, curated set of premium photorealistic images:
+
+- Welcoming Indian road travel.
+- Coastal road journey.
+- Green hill-station journey.
+- Urban pickup scene.
+- Airport-transfer scene.
+- Family travel with adult passengers.
+- Professional driver beside a clean vehicle.
+- Fleet vehicles parked neatly.
+- Vehicle exterior detail.
+- Comfortable vehicle interior.
+
+Use natural lighting, realistic faces and hands, believable vehicles, and uncluttered compositions.
+
+Do not imply that generated people are actual NESAM staff or customers. Do not represent generated locations as verified destinations or specific landmarks.
+
+For every hero/banner image, leave a generous low-detail area for text overlay. Keep text outside the generated image.
+
+## 9. Authentication and background assets
+
+Create:
+- Customer authentication hero artwork.
+- Driver authentication hero artwork.
+- Vendor authentication hero artwork.
+- A subtle brand-inspired route pattern.
+- A minimal location-pin pattern.
+- A quiet fleet/road motif.
+- A light decorative background.
+- A dark decorative background.
+
+Authentication artwork should work beside a login form in a desktop split layout. Keep the subject within a safe crop area and avoid busy details near the form boundary.
+
+Background patterns should have very low contrast and must not reduce readability. Make them seamless only if they can actually be verified as seamless.
+
+## 10. Stickers and small accents
+
+Create a restrained sticker/badge collection:
+- Booking confirmed.
+- Journey completed.
+- Verified partner.
+- Ready to drive.
+- Safe journey.
+- Welcome aboard.
+- Vehicle checked.
+- Fleet ready.
+- Support available.
+- Thank-you travel motif.
+- Rating/star accent.
+- Route/location accent.
+
+Prefer symbolic artwork without generated lettering. Any optional text must be composed separately with a real font.
+
+These are decorative assets, not functional status labels. The application must still display accurate text and accessible status information.
+
+Avoid promotional claims such as “100% safe,” “best price,” or “guaranteed earnings.”
+
+## 11. Export requirements
+
+Provide individual files with clear, consistent names.
+
+Suggested organization:
+
+nesam-visual-assets/
+  brand/
+  icons/shared/
+  icons/customer/
+  icons/driver/
+  icons/vendor/
+  illustrations/customer/
+  illustrations/driver/
+  illustrations/vendor/
+  vehicles/
+  photography/
+  backgrounds/
+  stickers/
+  previews/
+  asset-manifest/
+
+Preferred specifications:
+- UI icons: genuine SVG where available; transparent PNG previews.
+- In-app illustrations: transparent PNG, approximately 1024 × 1024.
+- Vehicle cutouts: transparent PNG, approximately 1600 × 1000.
+- Authentication artwork: approximately 1600 × 1800.
+- Hero photography: approximately 2400 × 1350.
+- Banners: approximately 2400 × 800.
+- Stickers: transparent PNG, approximately 512 × 512.
+- Patterns: SVG where available, otherwise high-quality PNG.
+
+If exact dimensions are unsupported, use the nearest supported size and document the actual output. Never claim a background is transparent unless the file has verified alpha transparency.
+
+Optimize web-ready copies when supported, preserving the original high-resolution files. Use WebP for opaque imagery where appropriate and formats with alpha support for transparent assets.
+
+## 12. Quality control
+
+Before delivery:
+- Check consistency of palette, perspective, stroke weight, lighting, and illustration style.
+- Inspect icons at small UI sizes.
+- Inspect transparent edges on both light and dark backgrounds.
+- Check generated vehicles and people for visible anatomical or structural errors.
+- Check hero crops and text-safe areas.
+- Remove accidental text, watermarks, and unwanted logos.
+- Check that empty-state imagery matches the intended meaning.
+- Ensure every listed asset is either delivered or explicitly recorded as outstanding.
+
+Generate a small representative batch first: shared icons, one illustration for each panel, one vehicle cutout, and one authentication artwork. Use it to establish consistency, then continue through the remaining collection.
+
+Do not force the entire collection into one generated image. Produce separate assets in manageable batches. If tool limits prevent completion in one run, save the completed assets and provide a precise continuation checklist.
+
+## 13. Final deliverables
+
+Deliver:
+1. The complete individual asset collection.
+2. A downloadable ZIP when supported.
+3. Contact sheets for icons, illustrations, vehicles, and stickers.
+4. A short brand-style guide with sampled colors and usage recommendations.
+5. An asset manifest listing filename, panel, intended placement, dimensions, format, and transparency.
+6. A clear list of any outstanding items or export limitations.
+
+The result should feel like one professionally art-directed visual system for NESAM, with customer, driver, and vendor assets tailored to their respective tasks.

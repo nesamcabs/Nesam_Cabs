@@ -1,0 +1,57 @@
+# ── Expo Mobile App (SDK 57 / React Native 0.86) ─────────────────
+
+# Dependencies
+node_modules/
+
+# Expo generated / cache
+.expo/
+.expo-shared/
+dist/
+web-build/
+expo-env.d.ts
+
+# Generated native folders (Expo CNG — re-created by `expo prebuild`)
+/android/
+/ios/
+
+# Native signing credentials
+*.jks
+*.keystore
+*.p8
+*.p12
+*.mobileprovision
+*.pem
+*.cer
+*.key
+!*.key.pub
+
+# Metro bundler
+.metro-health-check*
+
+# Kotlin/Java intermediate outputs
+.kotlin/
+*.orig.*
+
+# Logs & caches
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+*.tmp
+*.tsbuildinfo
+coverage/
+.eslintcache
+
+# Environment files
+.env
+.env.*
+!.env.example
+.env*.local
+
+# macOS
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/*
+!.vscode/extensions.json

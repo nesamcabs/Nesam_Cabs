@@ -1,0 +1,350 @@
+351: #nesam-customer-app .nc-picker-search>.nc-icon{position:absolute;left:13px;top:15px;color:#8c94a0;width:18px;height:18px}
+352: #nesam-customer-app .nc-picker-search input{padding-left:40px;font-size:14px;min-height:49px}
+353: #nesam-customer-app .nc-location-heading{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.9px;color:#8a929e;margin:20px 0 6px}
+354: #nesam-customer-app button.nc-place{display:flex;align-items:center;gap:11px;width:100%;min-height:68px;padding:12px 0;text-align:left;border-bottom:1px solid #f0f1f4}
+355: #nesam-customer-app .nc-place>.nc-icon{width:18px;height:18px;color:#858e9c}
+356: #nesam-customer-app .nc-place span{min-width:0;flex:1}
+357: #nesam-customer-app .nc-place strong{font-size:13px;font-weight:500;display:block;line-height:1.5;overflow-wrap:anywhere}
+358: #nesam-customer-app .nc-place small{font-size:10px;color:#969da8;display:block;margin-top:3px;line-height:1.5}
+359: #nesam-customer-app .nc-location-current{border:1px solid var(--nc-line);border-radius:12px;padding:0 13px}
+360: #nesam-customer-app .nc-location-current .nc-place{border:0;min-height:65px}
+361: #nesam-customer-app .nc-location-current .nc-place>.nc-icon{color:var(--nc-red)}
+362: #nesam-customer-app .nc-preview-caption{font-size:10px;color:#9ca2ac;text-align:center;line-height:1.6;padding-top:20px}
+363: #nesam-customer-app .nc-no-places{padding:28px 4px;font-size:12px;color:#88909d;line-height:1.8;text-align:center}
+364: #nesam-customer-app .nc-contact-summary{display:grid;gap:11px;margin:16px 0 5px}
+365: #nesam-customer-app .nc-contact-summary div{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;font-size:12px;line-height:1.6}
+366: #nesam-customer-app .nc-contact-summary dt{color:#8a919d;flex-shrink:0}
+367: #nesam-customer-app .nc-contact-summary dd{margin:0;font-size:13px;font-weight:500;text-align:right;overflow-wrap:anywhere}
+368: #nesam-customer-app .nc-label-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px}
+369: #nesam-customer-app .nc-label-row .nc-formlabel{margin:0}
+370: #nesam-customer-app .nc-label-row .nc-textbutton{padding:0;min-height:24px;font-size:11px}
+371: #nesam-customer-app .nc-confirm-clean{padding:22px 0 0;text-align:center}
+372: #nesam-customer-app .nc-confirm-check{width:70px;height:70px;background:#eff8f1;border:1px solid #dfeee4;border-radius:50%;color:#30794e;display:grid;place-items:center;margin:4px auto 22px}
+373: #nesam-customer-app .nc-confirm-check .nc-icon{width:31px;height:31px;stroke-width:1.9}
+374: #nesam-customer-app .nc-confirm-clean h1{font-size:27px;font-weight:600;letter-spacing:-.8px;line-height:1.25}
+375: #nesam-customer-app .nc-confirm-clean>p{font-size:12px;line-height:1.8;color:#868e99;margin:10px 0 25px}
+376: #nesam-customer-app .nc-confirm-summary{border:1px solid var(--nc-line);border-radius:16px;padding:21px 18px;text-align:left}
+377: #nesam-customer-app .nc-confirm-id{font-size:10px;color:#949ba6;letter-spacing:.15px;margin-bottom:14px}
+378: #nesam-customer-app .nc-confirm-id strong{display:block;font-weight:500;color:#5e6979;font-size:12px;margin-top:5px;overflow-wrap:anywhere}
+379: #nesam-customer-app .nc-confirm-route{font-size:19px;font-weight:500;letter-spacing:-.5px;line-height:1.5;margin-bottom:12px}
+380: #nesam-customer-app .nc-confirm-route .nc-icon{width:17px;color:#959eaa;margin:0 5px}
+381: #nesam-customer-app .nc-confirm-meta{display:flex;align-items:center;gap:8px;font-size:12px;color:#88929f;line-height:1.8;margin-top:8px}
+382: #nesam-customer-app .nc-confirm-meta .nc-icon{width:15px;height:15px}
+383: #nesam-customer-app .nc-search-state{padding:34px 0 10px;text-align:center}
+384: #nesam-customer-app .nc-search-state h1{font-size:23px;font-weight:600;letter-spacing:-.6px;margin-bottom:11px}
+385: #nesam-customer-app .nc-search-state>p{font-size:12px;line-height:1.8;color:#929aa6;margin:0 auto 24px;max-width:290px}
+386: #nesam-customer-app .nc-state-icon{width:66px;height:66px;display:grid;place-items:center;margin:9px auto 23px;border:1px solid #e8ecf1;border-radius:19px;background:#f8f9fb;color:#87919f}
+387: #nesam-customer-app .nc-state-icon .nc-icon{width:29px;height:29px;stroke-width:1.4}
+388: #nesam-customer-app .nc-search-state .nc-secondary{margin-top:10px}
+389: #nesam-customer-app .nc-search-state .nc-textbutton{margin-top:13px}
+390: #nesam-customer-app .nc-search-state .nc-primary{font-size:14px}
+391: #nesam-customer-app .nc-spinner{width:45px;height:45px;border:3px solid #f0f1f5;border-top-color:var(--nc-red);border-radius:50%;margin:30px auto 30px;animation:nc-spin .9s linear infinite}
+392: #nesam-customer-app .nc-search-route{border:1px solid var(--nc-line);border-radius:14px;padding:18px 13px;text-align:left;font-size:15px;font-weight:500;line-height:1.6}
+393: #nesam-customer-app .nc-search-route p{font-size:11px;font-weight:400;color:#949ba7;margin-top:7px}
+394: #nesam-customer-app .nc-search-route .nc-icon{width:14px;height:14px;color:#98a0aa;margin:0 5px}
+395: #nesam-customer-app .nc-otp-preview{font-size:11px;line-height:1.7;color:#959da8;margin:18px 0 0}
+396: #nesam-customer-app .nc-error[hidden]{display:none}
+397: @keyframes nc-spin{to{transform:rotate(360deg)}}
+398: @media(prefers-reduced-motion:reduce){#nesam-customer-app .nc-spinner{animation:none;border-color:#e1e4eb;border-top-color:var(--nc-red)}}
+399: @media(min-width:500px){#nesam-customer-app .nc-app{height:min(850px,calc(100dvh - 60px));min-height:0;overflow:hidden}}
+400: @media(max-width:359px){#nesam-customer-app .nc-flow-footer{padding-left:14px;padding-right:14px}#nesam-customer-app .nc-flow-footer .nc-secondary{font-size:13px}#nesam-customer-app .nc-contact-summary div{font-size:11px}#nesam-customer-app .nc-contact-summary dd{font-size:12px}#nesam-customer-app .nc-confirm-clean h1{font-size:25px}}
+401: 
+402: /* NESAM reviewed UX v8 */
+403: #nesam-customer-app .nc-top{padding:12px 20px;border-bottom:1px solid #f0f1f4}
+404: #nesam-customer-app button.nc-brand{gap:10px;min-height:40px}
+405: #nesam-customer-app .nc-brand>span:last-child{display:flex;flex-direction:column;align-items:flex-start}
+406: #nesam-customer-app .nc-logo{width:40px;height:40px}
+407: #nesam-customer-app .nc-wordmark{display:block;font-size:26px;line-height:28px;font-weight:800}
+408: #nesam-customer-app .nc-submark{font-size:10px;line-height:12px;margin-top:3px;letter-spacing:.2px}
+409: #nesam-customer-app .nc-top .nc-iconbutton{width:38px;height:38px;min-height:38px}
+410: #nesam-customer-app .nc-main{padding-top:14px}
+411: #nesam-customer-app .nc-booking-widget>.nc-trust{margin:12px 0 0;padding:0;font-size:10px;line-height:1.6}
+412: #nesam-customer-app .nc-route-shortcuts{margin:23px 0 4px}
+413: #nesam-customer-app .nc-route-shortcuts h2{font-size:14px;font-weight:600;letter-spacing:-.1px;margin:0 0 12px}
+414: #nesam-customer-app .nc-route-shortcut-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:11px}
+415: #nesam-customer-app button.nc-route-shortcut{display:block;min-width:0;min-height:98px;padding:14px;text-align:left;border:1px solid var(--nc-line);border-radius:14px;background:#fff}
+416: #nesam-customer-app .nc-route-from{display:block;color:#8c95a3;font-size:11px;font-weight:400;line-height:1.5;margin-bottom:7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+417: #nesam-customer-app .nc-route-to{display:flex;align-items:center;gap:7px;font-size:16px;font-weight:500;letter-spacing:-.3px;min-width:0;line-height:1.5}
+418: #nesam-customer-app .nc-route-to>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+419: #nesam-customer-app .nc-route-to .nc-icon{width:15px;height:15px;color:var(--nc-red);flex-shrink:0}
+420: #nesam-customer-app .nc-route-service{display:block;font-size:9px;color:#a0a7b2;line-height:1.5;margin-top:9px}
+421: #nesam-customer-app .nc-final-bill-note{font-size:11px;line-height:1.75;color:#8d96a3;padding:12px 13px;background:#f7f8fa;border:1px solid #eef0f3;border-radius:10px;margin:16px 0 0}
+422: #nesam-customer-app .nc-final-bill-note strong{display:block;color:#687689;font-weight:500;font-size:12px;margin-bottom:3px}
+423: #nesam-customer-app .nc-badge.neutral{background:#f1f4f7;color:#738092;font-weight:500}
+424: #nesam-customer-app .nc-payment-history{margin-top:18px}
+425: #nesam-customer-app .nc-payment-history summary{font-weight:500}
+426: #nesam-customer-app .nc-cab-footer{display:flex;flex-direction:column;gap:10px;padding-top:12px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px))}
+427: #nesam-customer-app .nc-cab-continue{display:flex;align-items:center;gap:15px}
+428: #nesam-customer-app .nc-cab-continue>div{min-width:90px;flex-shrink:0}
+429: #nesam-customer-app .nc-cab-continue small{display:block;font-size:10px;color:#8e97a4;margin-bottom:3px}
+430: #nesam-customer-app .nc-cab-continue strong{display:block;font-size:22px;font-weight:600;line-height:1.2;letter-spacing:-.6px;white-space:nowrap}
+431: #nesam-customer-app .nc-cab-continue .nc-primary{flex:1;width:auto;min-height:49px;font-size:14px}
+432: #nesam-customer-app .nc-back-home-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+433: #nesam-customer-app .nc-back-home-row .nc-secondary{min-height:36px;padding:7px 12px;border-color:#eff1f4;font-size:12px;border-radius:9px}
+434: #nesam-customer-app .nc-back-home-row .nc-icon{width:16px;height:16px}
+435: #nesam-customer-app .nc-wallet-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}
+436: #nesam-customer-app .nc-wallet-actions .nc-textbutton{display:flex;align-items:center;gap:6px;font-size:11px}
+437: #nesam-customer-app .nc-wallet-actions .nc-icon{width:14px;height:14px}
+438: @media(max-width:359px){#nesam-customer-app .nc-top{padding:12px 16px}#nesam-customer-app .nc-main{padding:14px 14px 18px}#nesam-customer-app .nc-submark{font-size:9px}#nesam-customer-app button.nc-route-shortcut{padding:12px;min-height:94px}#nesam-customer-app .nc-route-shortcut-grid{gap:8px}#nesam-customer-app .nc-route-to{font-size:14px}}
+439: 
+440: /* NESAM approved visual design v9 */
+441: 
+442: #nesam-customer-app .nc-route-shortcuts{margin-top:23px}
+443: #nesam-customer-app .nc-route-shortcuts h2{font-size:16px;font-weight:600;margin:0 0 4px;letter-spacing:-.3px}
+444: #nesam-customer-app .nc-shortcuts-caption{font-size:11px;color:#87909e;line-height:1.5;margin:0 0 13px}
+445: #nesam-customer-app .nc-route-shortcut-grid{gap:10px}
+446: #nesam-customer-app button.nc-route-shortcut{padding:0;min-height:0;overflow:hidden;border:1px solid #e5e8ee;border-radius:15px;background:#fff;box-shadow:0 2px 9px #18243302}
+447: #nesam-customer-app button.nc-route-shortcut:hover{border-color:#e8b9b9;background:#fffcfc}
+448: #nesam-customer-app .nc-route-art{display:block;height:106px;margin:6px 6px 0;border-radius:10px;position:relative;overflow:hidden;background-color:#fff5f2;}
+449: #nesam-customer-app .nc-route-art>img{position:absolute;display:block;max-width:none;width:200%;height:auto;left:0;top:50%;transform:translateY(-50%)}
+450: #nesam-customer-app .nc-route-art.is-madurai>img{left:-100%}
+451: #nesam-customer-app .nc-route-mapline{position:absolute;height:24px;bottom:0;left:0;width:100%;color:var(--nc-red);background:linear-gradient(0deg,#fff4f1ee,#fff4f100)}
+452: #nesam-customer-app .nc-route-card-content{display:flex;flex-direction:column;align-items:flex-start;padding:10px 12px 12px}
+453: #nesam-customer-app .nc-route-from{margin:0 0 1px;font-size:10px;color:#8a92a0;line-height:1.6}
+454: #nesam-customer-app .nc-route-to{display:block;font-size:16px;line-height:1.4;letter-spacing:-.25px;font-weight:500}
+455: #nesam-customer-app .nc-route-service{display:inline-block;margin:6px 0 0;padding:2px 7px;border-radius:20px;background:#f1f3f6;color:#778295;font-size:9px;line-height:1.5;font-weight:400}
+456: #nesam-customer-app .nc-use-route{display:flex;align-items:center;gap:7px;margin-top:10px;color:var(--nc-red);font-size:11px;font-weight:600;line-height:1.5}
+457: #nesam-customer-app .nc-use-route .nc-icon{width:15px;height:15px}
+458: #nesam-customer-app .nc-recent-list{grid-template-columns:minmax(0,1fr);gap:10px}
+459: #nesam-customer-app button.nc-recent-route{display:flex;align-items:center;gap:11px;padding:13px 12px;min-height:92px}
+460: #nesam-customer-app .nc-recent-icon{width:42px;height:42px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border-radius:50%;background:#fff0ef;color:var(--nc-red)}
+461: #nesam-customer-app .nc-recent-icon svg{width:29px;height:29px;stroke-width:1.7}
+462: #nesam-customer-app .nc-recent-copy{flex:1;min-width:0;display:block}
+463: #nesam-customer-app .nc-recent-title{display:flex;align-items:center;flex-wrap:wrap;gap:5px;font-size:14px;font-weight:500;line-height:1.5;letter-spacing:-.3px}
+464: #nesam-customer-app .nc-recent-title .nc-icon{width:12px;height:12px;color:#7c8796}
+465: #nesam-customer-app .nc-recent-areas{display:block;margin-top:3px;font-size:11px;line-height:1.6;color:#8a92a0;overflow-wrap:anywhere}
+466: #nesam-customer-app .nc-recent-route>.nc-icon{color:var(--nc-red);width:17px;height:17px;flex-shrink:0}
+467: #nesam-customer-app .nc-recent-route .nc-route-service{margin-top:6px}
+468: #nesam-customer-app .nc-car-option{border-radius:16px;margin-bottom:14px}
+469: #nesam-customer-app .nc-car-pick{padding:16px 16px 13px}
+470: #nesam-customer-app .nc-car-pick h3{font-size:18px;font-weight:600;letter-spacing:-.4px}
+471: #nesam-customer-app .nc-car-model{font-size:11px;line-height:1.5;color:#858f9e;margin-top:3px}
+472: #nesam-customer-app .nc-car-body{display:flex;flex-direction:column;align-items:stretch;gap:9px;margin-top:10px}
+473: #nesam-customer-app .nc-car-photo{width:100%;height:124px;display:flex;align-items:center;justify-content:center;align-self:stretch}
+474: #nesam-customer-app .nc-car-photo img{width:85%;max-width:260px;max-height:124px;height:auto;object-fit:contain}
+475: #nesam-customer-app .nc-car-facts{width:100%;min-width:0;flex:0 1 auto}
+476: #nesam-customer-app .nc-car-factsrow{display:flex;align-items:stretch;flex-wrap:wrap;gap:6px;margin:1px 0 10px;font-size:10px;font-weight:400}
+477: #nesam-customer-app .nc-car-factsrow .nc-feature-badge{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:34px;padding:7px 9px;border-radius:10px;line-height:1.4;white-space:normal}
+478: #nesam-customer-app .nc-feature-badge .nc-icon{width:18px;height:18px;stroke-width:1.7}
+479: #nesam-customer-app .nc-feature-seat{color:#465265;background:#f0f3f7}
+480: #nesam-customer-app .nc-feature-bags{color:#a8650e;background:#fff6e7}
+481: #nesam-customer-app .nc-feature-bags .nc-icon{color:#dc8a18}
+482: #nesam-customer-app .nc-feature-ac{color:#0969b9;background:#eaf5ff}
+483: #nesam-customer-app .nc-feature-ac .nc-icon{color:#0686df}
+484: #nesam-customer-app .nc-car-included{font-size:11px;line-height:1.6;color:#8a94a3}
+485: #nesam-customer-app .nc-card-rate{margin-top:13px;padding-top:12px;border-top:1px solid #eef0f4}
+486: #nesam-customer-app .nc-car-option-footer{background:#fff;padding:5px 16px;min-height:43px;border-top-color:#eef0f4}
+487: #nesam-customer-app .nc-car-option-footer .nc-textbutton{min-height:32px;font-size:11px}
+488: @media(max-width:359px){
+489:  #nesam-customer-app .nc-route-art{height:92px}
+490:  #nesam-customer-app .nc-route-card-content{padding:9px 10px 11px}
+491:  #nesam-customer-app .nc-route-shortcut-grid{gap:8px}
+492:  #nesam-customer-app .nc-route-to{font-size:15px}
+493:  #nesam-customer-app .nc-car-pick{padding:13px 12px 12px}
+494:  #nesam-customer-app .nc-car-factsrow{gap:5px;font-size:10px}
+495:  #nesam-customer-app .nc-car-factsrow .nc-feature-badge{padding:7px 7px;gap:4px}
+496:  #nesam-customer-app .nc-feature-badge .nc-icon{width:17px;height:17px}
+497:  #nesam-customer-app button.nc-recent-route{gap:9px;padding:12px 10px}
+498:  #nesam-customer-app .nc-recent-icon{width:36px;height:36px}
+499:  #nesam-customer-app .nc-recent-title{font-size:13px;gap:4px}
+500:  #nesam-customer-app .nc-recent-route>.nc-icon{width:15px;height:15px}
+501: }
+502: /* NESAM approved header and cancellation UX v10 */
+503: #nesam-customer-app .nc-top{gap:9px;padding:12px 16px;min-height:70px}
+504: #nesam-customer-app button.nc-brand{gap:8px;flex-shrink:1}
+505: #nesam-customer-app .nc-logo{width:38px;height:38px}
+506: #nesam-customer-app .nc-wordmark{font-family:Manrope,Inter,sans-serif;font-size:27px;font-weight:900;line-height:29px;letter-spacing:1px;-webkit-text-stroke:.35px currentColor;text-shadow:0 .4px 0 #9e1e1e}
+507: #nesam-customer-app .nc-submark{font-size:9px;letter-spacing:.05px;line-height:12px;margin-top:2px}
+508: #nesam-customer-app .nc-header-actions{display:flex;align-items:center;gap:3px;flex-shrink:0;margin-left:auto}
+509: #nesam-customer-app .nc-header-action{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;width:66px;min-height:46px;padding:2px 0;background:#fff;color:#7c8797;border-radius:10px;font-size:10px;font-weight:500;line-height:1.4;white-space:nowrap}
+510: #nesam-customer-app .nc-header-action>.nc-icon{width:21px;height:21px;color:#677588}
+511: #nesam-customer-app .nc-header-action:hover,#nesam-customer-app .nc-header-action[aria-current=page]{background:#fff5f4;color:var(--nc-red)}
+512: #nesam-customer-app .nc-header-count{position:absolute;top:0;right:17px;min-width:14px;height:14px;display:flex;align-items:center;justify-content:center;border:2px solid #fff;border-radius:12px;background:var(--nc-red);color:#fff;font-size:8px;font-weight:600;padding:0 2px;line-height:1}
+513: #nesam-customer-app .nc-support-hero{text-align:center;margin:18px 0 23px}
+514: #nesam-customer-app .nc-support-hero>.nc-state-icon{margin:0 auto 14px;width:58px;height:58px}
+515: #nesam-customer-app .nc-support-hero h2{font-size:24px;font-weight:600}
+516: #nesam-customer-app .nc-support-hero p{font-size:12px;line-height:1.7;color:#8a94a3;margin-top:7px}
+517: #nesam-customer-app .nc-support-option{display:flex;align-items:center;gap:12px;min-height:76px;padding:15px 14px;border:1px solid var(--nc-line);border-radius:14px;margin-top:11px;color:var(--nc-ink);width:100%;text-align:left;background:#fff}
+518: #nesam-customer-app .nc-support-option>span:first-child{width:36px;height:36px;display:grid;place-items:center;border-radius:11px;background:#fff0ef;color:var(--nc-red);flex-shrink:0}
+519: #nesam-customer-app .nc-support-option .nc-grow{min-width:0;flex:1}
+520: #nesam-customer-app .nc-support-option strong{display:block;font-size:14px;font-weight:500}
+521: #nesam-customer-app .nc-support-option small{display:block;font-size:11px;line-height:1.6;color:#8b95a3;margin-top:3px}
+522: #nesam-customer-app .nc-support-option.is-whatsapp>span:first-child{background:#eef8f1;color:#35855b}
+523: #nesam-customer-app .nc-notification-card{display:flex;align-items:flex-start;gap:11px;padding:16px 0;border-bottom:1px solid var(--nc-line);text-align:left;width:100%;min-width:0}
+524: #nesam-customer-app .nc-notification-card:last-child{border-bottom:0}
+525: #nesam-customer-app .nc-notification-card>.nc-icon{color:#a2aab5;width:19px;margin-top:3px}
+526: #nesam-customer-app .nc-notification-card.is-unread>.nc-icon{color:var(--nc-red)}
+527: #nesam-customer-app .nc-notification-card .nc-grow{min-width:0;flex:1}
+528: #nesam-customer-app .nc-notification-card strong{display:block;font-size:12px;font-weight:500;line-height:1.65;overflow-wrap:anywhere}
+529: #nesam-customer-app .nc-notification-card small{display:block;color:#98a0ad;margin-top:5px;font-size:10px}
+530: #nesam-customer-app .nc-notification-unread{width:6px;height:6px;flex-shrink:0;border-radius:50%;background:var(--nc-red);margin-top:8px}
+531: #nesam-customer-app .nc-address-entry{padding:15px 0;border-bottom:1px solid var(--nc-line)}
+532: #nesam-customer-app .nc-address-entry:last-child{border-bottom:0;padding-bottom:0}
+533: #nesam-customer-app .nc-address-entry:first-child{padding-top:0}
+534: #nesam-customer-app .nc-address-entry .nc-row{justify-content:flex-start;gap:10px}
+535: #nesam-customer-app .nc-address-entry strong{font-weight:500;font-size:14px}
+536: #nesam-customer-app .nc-address-entry p{font-size:12px;color:#8691a1;line-height:1.7;margin-top:4px;overflow-wrap:anywhere}
+537: #nesam-customer-app .nc-address-entry .nc-address-landmark{font-size:11px;color:#99a2ad}
+538: #nesam-customer-app .nc-address-actions{display:flex;align-items:center;gap:18px;margin-top:9px}
+539: #nesam-customer-app .nc-address-actions .nc-textbutton{font-size:11px;font-weight:500;min-height:36px}
+540: #nesam-customer-app .nc-address-actions .nc-delete{margin-left:auto;color:#949daa}
+541: #nesam-customer-app .nc-cancel-cutoff{padding:12px;border:1px solid #f0e4d3;border-radius:12px;background:#fffbf4;margin-top:13px}
+542: #nesam-customer-app .nc-cancel-cutoff p{font-size:11px;line-height:1.7;color:#9b845b;margin-bottom:9px}
+543: #nesam-customer-app .nc-cancel-cutoff .nc-secondary{font-size:13px;min-height:44px;background:#fff;border-color:#eddfcc}
+544: #nesam-customer-app .nc-dues-alert{padding:13px 14px;background:#fffbf4;border:1px solid #f0e1c9;border-radius:12px;margin:0 0 16px}
+545: #nesam-customer-app .nc-dues-alert strong{display:block;font-size:13px;font-weight:500;color:#9b6b26}
+546: #nesam-customer-app .nc-dues-alert p{font-size:11px;line-height:1.7;color:#a08c70;margin-top:4px}
+547: #nesam-customer-app .nc-dues-card{padding:16px;border:1px solid var(--nc-line);border-radius:15px;margin-top:14px;background:#fff}
+548: #nesam-customer-app .nc-dues-card .nc-dues-id{font-size:10px;color:#9aa3af;overflow-wrap:anywhere;margin-bottom:5px}
+549: #nesam-customer-app .nc-dues-card h3{font-size:15px;font-weight:500;line-height:1.6}
+550: #nesam-customer-app .nc-dues-card>p{font-size:11px;color:#8b95a3;line-height:1.7;margin-top:6px}
+551: #nesam-customer-app .nc-dues-card .nc-primary{margin-top:15px;font-size:14px}
+552: #nesam-customer-app .nc-refund-note{font-size:11px;line-height:1.7;color:#8c96a5;margin-top:10px}
+553: #nesam-customer-app .nc-cancel-quote{background:#f7f8fa}
+554: #nesam-customer-app .nc-cancel-summary h3{font-size:16px;font-weight:600}
+555: #nesam-customer-app .nc-cancel-summary .nc-badge{margin-bottom:8px}
+556: @media(max-width:359px){
+557:  #nesam-customer-app .nc-top{padding:12px;gap:6px}
+558:  #nesam-customer-app .nc-logo{width:33px;height:33px}
+559:  #nesam-customer-app .nc-wordmark{font-size:25px;line-height:28px;letter-spacing:.6px}
+560:  #nesam-customer-app .nc-submark{font-size:8px;line-height:11px}
+561:  #nesam-customer-app button.nc-brand{gap:6px}
+562:  #nesam-customer-app .nc-header-action{width:63px;font-size:9px}
+563:  #nesam-customer-app .nc-header-actions{gap:1px}
+564:  #nesam-customer-app .nc-address-actions{gap:12px}
+565: }
+566: 
+567: /* NESAM readability polish v11 */
+568: #nesam-customer-app{--nc-muted:#626e80}
+569: #nesam-customer-app .nc-top{padding-top:11px;padding-bottom:11px}
+570: #nesam-customer-app .nc-header-actions{gap:4px}
+571: #nesam-customer-app .nc-header-action{width:74px;min-height:48px;font-size:11px;color:#626e80}
+572: #nesam-customer-app .nc-header-action>.nc-icon{width:22px;height:22px;color:#626e80}
+573: #nesam-customer-app .nc-header-count{right:21px}
+574: #nesam-customer-app .nc-submark,
+575: #nesam-customer-app .nc-shortcuts-caption,
+576: #nesam-customer-app .nc-route-from,
+577: #nesam-customer-app .nc-route-service,
+578: #nesam-customer-app .nc-recent-areas,
+579: #nesam-customer-app .nc-car-model,
+580: #nesam-customer-app .nc-car-included,
+581: #nesam-customer-app .nc-car-option-footer,
+582: #nesam-customer-app .nc-profile-mobile-caption,
+583: #nesam-customer-app .nc-preview-caption,
+584: #nesam-customer-app .nc-current-caption,
+585: #nesam-customer-app .nc-refund-note,
+586: #nesam-customer-app .nc-support-hero p,
+587: #nesam-customer-app .nc-support-option small,
+588: #nesam-customer-app .nc-notification-card small,
+589: #nesam-customer-app .nc-address-entry p,
+590: #nesam-customer-app .nc-address-entry .nc-address-landmark,
+591: #nesam-customer-app .nc-dues-card .nc-dues-id,
+592: #nesam-customer-app .nc-dues-card>p{color:#626e80}
+593: #nesam-customer-app .nc-booking-widget>.nc-trust{color:#626e80}
+594: #nesam-customer-app .nc-cancel-cutoff p{color:#856020}
+595: #nesam-customer-app .nc-dues-alert p{color:#856020}
+596: @media(max-width:359px){
+597:  #nesam-customer-app .nc-top{padding-top:11px;padding-bottom:11px}
+598:  #nesam-customer-app .nc-header-actions{gap:3px}
+599:  #nesam-customer-app .nc-header-action{width:73px;font-size:10.5px}
+600:  #nesam-customer-app .nc-header-count{right:20px}
+601: }
+602: 
+603: /* NESAM animated booking ticket v13: 2.2 second confirmation */
+604: #nesam-customer-app .nc-ticket-confirm{padding:0 0 8px;text-align:center}
+605: #nesam-customer-app .nc-confirm-preferences{display:flex;justify-content:flex-end;min-height:30px;margin:0 0 1px}
+606: #nesam-customer-app .nc-confirm-sound{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border:1px solid #edf0f4;border-radius:20px;min-height:30px;color:#697689;background:#fff;font-size:10px;font-weight:500}
+607: #nesam-customer-app .nc-confirm-sound .nc-icon{width:14px;height:14px}
+608: #nesam-customer-app .nc-confirm-visual{display:block;width:250px;max-width:100%;height:104px;margin:2px auto 9px;overflow:visible}
+609: #nesam-customer-app .nc-confirm-cab{transform:translateX(110px)}
+610: #nesam-customer-app .nc-confirm-route{stroke-dasharray:1;stroke-dashoffset:0}
+611: #nesam-customer-app .nc-confirm-ripple{transform-origin:218px 57px;opacity:0}
+612: #nesam-customer-app .nc-confirm-seal{transform-origin:218px 57px}
+613: #nesam-customer-app .nc-confirm-tick{stroke-dasharray:32;stroke-dashoffset:0}
+614: #nesam-customer-app .nc-ticket-confirm h1{font-size:27px;font-weight:600;letter-spacing:-1px;line-height:1.25;margin:0}
+615: #nesam-customer-app .nc-confirm-copy{max-width:290px;margin:9px auto 23px;font-size:12px;color:#626e80;line-height:1.75}
+616: #nesam-customer-app .nc-travel-ticket{position:relative;border:1px solid #e2e6ed;border-radius:17px;background:#fff;text-align:left;box-shadow:0 8px 24px #28364b06;margin:0 1px}
+617: #nesam-customer-app .nc-ticket-strip{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#c62828;border-radius:16px 16px 0 0;padding:11px 17px;color:#fff;min-height:41px}
+618: #nesam-customer-app .nc-ticket-strip strong{font-family:Manrope,Inter,sans-serif;font-size:15px;font-weight:800;letter-spacing:1.5px;line-height:1}
+619: #nesam-customer-app .nc-ticket-strip span{font-size:10px;line-height:1.5;font-weight:400;opacity:.95}
+620: #nesam-customer-app .nc-ticket-body{padding:16px 17px 15px}
+621: #nesam-customer-app .nc-ticket-booking-id{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-bottom:15px}
+622: #nesam-customer-app .nc-ticket-booking-id span{font-size:10px;color:#737e8e;flex-shrink:0}
+623: #nesam-customer-app .nc-ticket-booking-id strong{font-size:11px;font-weight:500;color:#536177;overflow-wrap:anywhere;text-align:right;letter-spacing:.1px}
+624: #nesam-customer-app .nc-ticket-stops{list-style:none;padding:0;margin:0}
+625: #nesam-customer-app .nc-ticket-stops li{position:relative;padding-left:23px;padding-bottom:18px}
+626: #nesam-customer-app .nc-ticket-stops li:last-child{padding-bottom:0}
+627: #nesam-customer-app .nc-ticket-stops li:before{content:"";position:absolute;left:1px;top:6px;width:8px;height:8px;border:1.7px solid #8591a1;border-radius:50%;background:#fff;z-index:1}
+628: #nesam-customer-app .nc-ticket-stops li:last-child:before{border-color:var(--nc-red);border-radius:3px}
+629: #nesam-customer-app .nc-ticket-stops li:not(:last-child):after{content:"";position:absolute;left:5px;top:19px;bottom:3px;border-left:1px dashed #d4dbe5}
+630: #nesam-customer-app .nc-ticket-stops small{display:block;font-size:10px;font-weight:400;line-height:1.5;color:#737e8e;margin-bottom:4px}
+631: #nesam-customer-app .nc-ticket-stops strong{display:block;font-size:16px;font-weight:500;letter-spacing:-.35px;line-height:1.55;overflow-wrap:anywhere}
+632: #nesam-customer-app .nc-ticket-break{position:relative;margin:17px -17px;border-top:1px dashed #d8dee7;height:0}
+633: #nesam-customer-app .nc-ticket-break:before,#nesam-customer-app .nc-ticket-break:after{content:"";position:absolute;width:16px;height:16px;border:1px solid #e2e6ed;border-radius:50%;background:#fff;top:-9px}
+634: #nesam-customer-app .nc-ticket-break:before{left:-9px}
+635: #nesam-customer-app .nc-ticket-break:after{right:-9px}
+636: #nesam-customer-app .nc-ticket-dategrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+637: #nesam-customer-app .nc-ticket-detail{display:flex;gap:8px;align-items:flex-start;min-width:0}
+638: #nesam-customer-app .nc-ticket-detail>.nc-icon{width:17px;height:17px;margin-top:2px;color:#7f8da0}
+639: #nesam-customer-app .nc-ticket-detail small{display:block;font-size:10px;font-weight:400;color:#737e8e;line-height:1.5;margin-bottom:4px}
+640: #nesam-customer-app .nc-ticket-detail strong{display:block;font-size:13px;font-weight:500;line-height:1.6;overflow-wrap:anywhere}
+641: #nesam-customer-app .nc-ticket-car{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-top:16px;padding-top:14px;border-top:1px solid #eff1f5}
+642: #nesam-customer-app .nc-ticket-car .nc-ticket-detail strong{font-size:14px}
+643: #nesam-customer-app .nc-ticket-car .nc-ticket-detail small{margin:2px 0 0;font-size:10px}
+644: #nesam-customer-app .nc-ticket-service{display:inline-flex;align-items:center;min-height:27px;padding:4px 8px;border-radius:7px;background:#fff3f1;color:#b52929;font-size:10px;font-weight:500;line-height:1.5;max-width:100%}
+645: #nesam-customer-app .nc-ticket-return{display:flex;align-items:center;gap:8px;margin-top:13px;font-size:11px;line-height:1.65;color:#626e80}
+646: #nesam-customer-app .nc-ticket-return .nc-icon{width:15px;height:15px}
+647: #nesam-customer-app .nc-ticket-saved{display:flex;align-items:center;justify-content:center;gap:6px;margin:18px 0 0;font-size:10px;color:#626e80;line-height:1.6}
+648: #nesam-customer-app .nc-ticket-saved .nc-icon{width:14px;height:14px;color:#748397}
+649: #nesam-customer-app .nc-sound-setting p{font-size:11px;line-height:1.75;color:#626e80;margin-top:8px}
+650: #nesam-customer-app .nc-sound-setting h3{font-size:14px;font-weight:500}
+651: #nesam-customer-app .nc-sound-setting .nc-row{gap:12px}
+652: #nesam-customer-app .nc-sound-setting .nc-textbutton{font-weight:500}
+653: #nesam-customer-app .is-celebrating .nc-confirm-cab{animation:nc-confirm-drive 1.2s cubic-bezier(.2,.7,.3,1) both}
+654: #nesam-customer-app .is-celebrating .nc-confirm-route{animation:nc-confirm-route 1.2s cubic-bezier(.2,.7,.3,1) both}
+655: #nesam-customer-app .is-celebrating .nc-confirm-seal{animation:nc-confirm-seal .4s 1.2s cubic-bezier(.16,.8,.3,1) both}
+656: #nesam-customer-app .is-celebrating .nc-confirm-tick{animation:nc-confirm-draw .4s 1.2s ease-out both}
+657: #nesam-customer-app .is-celebrating .nc-confirm-ripple{animation:nc-confirm-ripple .75s 1.2s ease-out both}
+658: #nesam-customer-app .is-celebrating .nc-confirm-title{animation:nc-confirm-title .4s 1.2s ease-out both}
+659: #nesam-customer-app .is-celebrating .nc-confirm-copy{animation:nc-confirm-title .4s 1.3s ease-out both}
+660: #nesam-customer-app .is-celebrating .nc-travel-ticket{animation:nc-confirm-ticket .6s 1.6s cubic-bezier(.15,.7,.2,1) both}
+661: @keyframes nc-confirm-drive{0%{transform:translateX(0);opacity:.15}15%{opacity:1}100%{transform:translateX(110px);opacity:1}}
+662: @keyframes nc-confirm-route{0%{stroke-dashoffset:1;opacity:0}5%{opacity:1}100%{stroke-dashoffset:0;opacity:1}}
+663: @keyframes nc-confirm-seal{0%{transform:scale(.85);opacity:0}100%{transform:scale(1);opacity:1}}
+664: @keyframes nc-confirm-draw{from{stroke-dashoffset:32}to{stroke-dashoffset:0}}
+665: @keyframes nc-confirm-ripple{0%{transform:scale(.85);opacity:.55}100%{transform:scale(1.45);opacity:0}}
+666: @keyframes nc-confirm-title{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+667: @keyframes nc-confirm-ticket{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
+668: @media(max-width:359px){#nesam-customer-app .nc-ticket-confirm h1{font-size:25px}#nesam-customer-app .nc-ticket-body{padding:15px 14px}#nesam-customer-app .nc-ticket-break{margin-left:-14px;margin-right:-14px}#nesam-customer-app .nc-ticket-strip{padding-left:14px;padding-right:14px}#nesam-customer-app .nc-ticket-stops strong{font-size:15px}#nesam-customer-app .nc-ticket-dategrid{gap:7px}#nesam-customer-app .nc-ticket-detail{gap:6px}#nesam-customer-app .nc-ticket-detail strong{font-size:12px}}
+669: @media(prefers-reduced-motion:reduce){#nesam-customer-app .nc-ticket-confirm *,#nesam-customer-app .nc-ticket-confirm{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+670: 
+671: /* Compact cab cards with larger white vehicle photos. */
+672: #nesam-customer-app .nc-car-option{border-radius:16px;margin-bottom:12px}
+673: #nesam-customer-app .nc-car-option.is-selected{border-color:#c62828;box-shadow:0 0 0 .3px #c62828}
+674: #nesam-customer-app .nc-car-pick{position:relative;padding:13px 14px 11px}
+675: #nesam-customer-app .nc-car-top{display:grid;grid-template-columns:minmax(0,1fr) 148px;align-items:center;gap:10px;min-height:80px}
+676: #nesam-customer-app .nc-car-heading{display:block;min-width:0}
+677: #nesam-customer-app .nc-car-pick h3{font-size:18px;font-weight:600;line-height:1.3;letter-spacing:-.4px}
+678: #nesam-customer-app .nc-car-model{font-size:11px;line-height:1.5;color:#626e80;margin-top:4px;overflow-wrap:anywhere}
+679: #nesam-customer-app .nc-car-capacity{display:block;font-size:10px;line-height:1.5;color:#737e8e;margin-top:3px}
+680: #nesam-customer-app .nc-car-photo{width:130px;height:80px;min-width:0;display:flex;align-items:center;justify-content:center;align-self:center;justify-self:start;overflow:hidden;background:#fff}
+681: #nesam-customer-app .nc-car-photo img{display:block;width:130px;height:80px;max-width:none;max-height:none;object-fit:contain;flex-shrink:0}
+682: #nesam-customer-app .nc-car-photo.is-carens img{width:146px;height:auto}
+683: #nesam-customer-app .nc-car-photo.is-innova img{width:185px;height:auto;filter:brightness(1.045)}
+684: #nesam-customer-app .nc-car-option .nc-photo-choice{position:absolute;right:8px;top:8px;width:16px;height:16px;margin:0;background:#fff;border-color:#dce1e8}
+685: #nesam-customer-app .nc-car-option.is-selected .nc-photo-choice{border-width:1px;background:#c62828;border-color:#c62828;color:#fff}
+686: #nesam-customer-app .nc-car-option .nc-photo-choice .nc-icon{width:10px;height:10px}
+687: #nesam-customer-app .nc-car-option .nc-car-factsrow{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin:8px 0 5px;font-size:11px;font-weight:400}
+688: #nesam-customer-app .nc-car-option .nc-feature-badge{gap:4px;min-height:26px;padding:4px 7px;border-radius:7px;line-height:1.4;white-space:nowrap}
+689: #nesam-customer-app .nc-car-option .nc-feature-badge .nc-icon{width:15px;height:15px;flex-shrink:0}
+690: #nesam-customer-app .nc-car-included{display:block;font-size:11px;line-height:1.6;color:#626e80}
+691: #nesam-customer-app .nc-car-option .nc-card-rate{margin-top:9px;padding-top:9px;gap:10px;align-items:center}
+692: #nesam-customer-app .nc-car-option .nc-card-rate .nc-small{font-size:10px;line-height:1.5}
+693: #nesam-customer-app .nc-car-option .nc-card-rate .nc-price{font-size:22px;font-weight:700;letter-spacing:-.6px;line-height:1.3;white-space:nowrap}
+694: #nesam-customer-app .nc-car-option-footer{min-height:44px;padding:0 14px;font-size:10px;line-height:1.5;gap:6px}
+695: #nesam-customer-app .nc-car-option-footer .nc-textbutton{min-height:44px;padding-top:4px;padding-bottom:4px;font-size:11px}
+696: @media(max-width:359px){
+697:  #nesam-customer-app .nc-car-pick{padding:12px 12px 10px}
+698:  #nesam-customer-app .nc-car-top{grid-template-columns:minmax(0,1fr) 140px;gap:7px;min-height:75px}
+699:  #nesam-customer-app .nc-car-photo{width:120px;height:75px}
+700:  #nesam-customer-app .nc-car-photo img{width:120px;height:75px}

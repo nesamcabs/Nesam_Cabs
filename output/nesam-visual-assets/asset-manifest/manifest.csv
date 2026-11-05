@@ -1,0 +1,322 @@
+filename,panel,placement,format,width,height,transparency,bytes
+backgrounds/auth-customer.png,shared,auth customer,png,1024,1536,False,1686789
+backgrounds/auth-driver.png,shared,auth driver,png,1024,1536,False,1686347
+backgrounds/auth-vendor.png,shared,auth vendor,png,1024,1536,False,1667672
+backgrounds/dark-background.png,shared,dark background,png,1280,720,False,36318
+backgrounds/dark-background.svg,shared,dark background,svg,viewBox,viewBox,vector background,254
+backgrounds/fleet-road-pattern.png,shared,fleet road pattern,png,1280,1280,False,38096
+backgrounds/fleet-road-pattern.svg,shared,fleet road pattern,svg,viewBox,viewBox,vector background,272
+backgrounds/light-background.png,shared,light background,png,1280,720,False,35955
+backgrounds/light-background.svg,shared,light background,svg,viewBox,viewBox,vector background,254
+backgrounds/location-pin-pattern.png,shared,location pin pattern,png,1280,1280,False,47722
+backgrounds/location-pin-pattern.svg,shared,location pin pattern,svg,viewBox,viewBox,vector background,266
+backgrounds/route-pattern.png,shared,route pattern,png,1280,1280,False,43872
+backgrounds/route-pattern.svg,shared,route pattern,svg,viewBox,viewBox,vector background,233
+brand/generation-prompts-second-batch.json,shared,generation prompts second batch,json,,,not applicable,24620
+brand/original-asset-brief.txt,shared,original asset brief,txt,,,not applicable,15338
+brand/original-logo.png,shared,original logo,png,1024,1024,False,222459
+brand/style-guide.md,shared,style guide,md,,,not applicable,1823
+icons/customer/air-conditioning.png,customer,air conditioning,png,96,96,True,982
+icons/customer/air-conditioning.svg,customer,air conditioning,svg,24,24,True,231
+icons/customer/cancellation.png,customer,cancellation,png,96,96,True,519
+icons/customer/cancellation.svg,customer,cancellation,svg,24,24,True,198
+icons/customer/favourite.png,customer,favourite,png,96,96,True,1548
+icons/customer/favourite.svg,customer,favourite,svg,24,24,True,226
+icons/customer/local-rental.png,customer,local rental,png,96,96,True,2032
+icons/customer/local-rental.svg,customer,local rental,svg,24,24,True,220
+icons/customer/luggage.png,customer,luggage,png,96,96,True,996
+icons/customer/luggage.svg,customer,luggage,svg,24,24,True,267
+icons/customer/one-way.png,customer,one way,png,96,96,True,1324
+icons/customer/one-way.svg,customer,one way,svg,24,24,True,199
+icons/customer/outstation.png,customer,outstation,png,96,96,True,1367
+icons/customer/outstation.svg,customer,outstation,svg,24,24,True,276
+icons/customer/round-trip.png,customer,round trip,png,96,96,True,1620
+icons/customer/round-trip.svg,customer,round trip,svg,24,24,True,246
+icons/customer/tour-package.png,customer,tour package,png,96,96,True,863
+icons/customer/tour-package.svg,customer,tour package,svg,24,24,True,253
+icons/customer/trip-tracking.png,customer,trip tracking,png,96,96,True,1755
+icons/customer/trip-tracking.svg,customer,trip tracking,svg,24,24,True,270
+icons/customer/vehicle-seats.png,customer,vehicle seats,png,96,96,True,584
+icons/customer/vehicle-seats.svg,customer,vehicle seats,svg,24,24,True,219
+icons/driver/accept-trip.png,driver,accept trip,png,96,96,True,426
+icons/driver/accept-trip.svg,driver,accept trip,svg,24,24,True,193
+icons/driver/available-trip.png,driver,available trip,png,96,96,True,1367
+icons/driver/available-trip.svg,driver,available trip,svg,24,24,True,276
+icons/driver/boarding-verification.png,driver,boarding verification,png,96,96,True,1723
+icons/driver/boarding-verification.svg,driver,boarding verification,svg,24,24,True,240
+icons/driver/driving-licence.png,driver,driving licence,png,96,96,True,1263
+icons/driver/driving-licence.svg,driver,driving licence,svg,24,24,True,299
+icons/driver/duty-status.png,driver,duty status,png,96,96,True,1406
+icons/driver/duty-status.svg,driver,duty status,svg,24,24,True,272
+icons/driver/front-vehicle-photo.png,driver,front vehicle photo,png,96,96,True,741
+icons/driver/front-vehicle-photo.svg,driver,front vehicle photo,svg,24,24,True,246
+icons/driver/fuel.png,driver,fuel,png,96,96,True,1152
+icons/driver/fuel.svg,driver,fuel,svg,24,24,True,277
+icons/driver/insurance.png,driver,insurance,png,96,96,True,1723
+icons/driver/insurance.svg,driver,insurance,svg,24,24,True,240
+icons/driver/interior-vehicle-photo.png,driver,interior vehicle photo,png,96,96,True,1214
+icons/driver/interior-vehicle-photo.svg,driver,interior vehicle photo,svg,24,24,True,277
+icons/driver/payout.png,driver,payout,png,96,96,True,538
+icons/driver/payout.svg,driver,payout,svg,24,24,True,218
+icons/driver/reached-pickup.png,driver,reached pickup,png,96,96,True,2048
+icons/driver/reached-pickup.svg,driver,reached pickup,svg,24,24,True,281
+icons/driver/rear-vehicle-photo.png,driver,rear vehicle photo,png,96,96,True,747
+icons/driver/rear-vehicle-photo.svg,driver,rear vehicle photo,svg,24,24,True,245
+icons/driver/toll.png,driver,toll,png,96,96,True,675
+icons/driver/toll.svg,driver,toll,svg,24,24,True,229
+icons/driver/trip-completed.png,driver,trip completed,png,96,96,True,2085
+icons/driver/trip-completed.svg,driver,trip completed,svg,24,24,True,222
+icons/driver/trip-started.png,driver,trip started,png,96,96,True,1324
+icons/driver/trip-started.svg,driver,trip started,svg,24,24,True,199
+icons/driver/vehicle-inspection.png,driver,vehicle inspection,png,96,96,True,1144
+icons/driver/vehicle-inspection.svg,driver,vehicle inspection,svg,24,24,True,288
+icons/driver/vehicle-registration.png,driver,vehicle registration,png,96,96,True,620
+icons/driver/vehicle-registration.svg,driver,vehicle registration,svg,24,24,True,217
+icons/shared/add.png,shared,add,png,96,96,True,369
+icons/shared/add.svg,shared,add,svg,24,24,True,194
+icons/shared/bank-transfer.png,shared,bank transfer,png,96,96,True,858
+icons/shared/bank-transfer.svg,shared,bank transfer,svg,24,24,True,240
+icons/shared/booking.png,shared,booking,png,96,96,True,1188
+icons/shared/booking.svg,shared,booking,svg,24,24,True,296
+icons/shared/calendar.png,shared,calendar,png,96,96,True,995
+icons/shared/calendar.svg,shared,calendar,svg,24,24,True,270
+icons/shared/camera.png,shared,camera,png,96,96,True,1620
+icons/shared/camera.svg,shared,camera,svg,24,24,True,272
+icons/shared/car.png,shared,car,png,96,96,True,668
+icons/shared/car.svg,shared,car,svg,24,24,True,237
+icons/shared/chat.png,shared,chat,png,96,96,True,615
+icons/shared/chat.svg,shared,chat,svg,24,24,True,210
+icons/shared/check.png,shared,check,png,96,96,True,426
+icons/shared/check.svg,shared,check,svg,24,24,True,193
+icons/shared/chevron-down.png,shared,chevron down,png,96,96,True,419
+icons/shared/chevron-down.svg,shared,chevron down,svg,24,24,True,190
+icons/shared/chevron-left.png,shared,chevron left,png,96,96,True,394
+icons/shared/chevron-left.svg,shared,chevron left,svg,24,24,True,191
+icons/shared/chevron-right.png,shared,chevron right,png,96,96,True,394
+icons/shared/chevron-right.svg,shared,chevron right,svg,24,24,True,190
+icons/shared/chevron-up.png,shared,chevron up,png,96,96,True,418
+icons/shared/chevron-up.svg,shared,chevron up,svg,24,24,True,191
+icons/shared/clock.png,shared,clock,png,96,96,True,2032
+icons/shared/clock.svg,shared,clock,svg,24,24,True,220
+icons/shared/close.png,shared,close,png,96,96,True,519
+icons/shared/close.svg,shared,close,svg,24,24,True,198
+icons/shared/collapse.png,shared,collapse,png,96,96,True,450
+icons/shared/collapse.svg,shared,collapse,svg,24,24,True,215
+icons/shared/current-location.png,shared,current location,png,96,96,True,1755
+icons/shared/current-location.svg,shared,current location,svg,24,24,True,270
+icons/shared/destination.png,shared,destination,png,96,96,True,552
+icons/shared/destination.svg,shared,destination,svg,24,24,True,199
+icons/shared/document-upload.png,shared,document upload,png,96,96,True,707
+icons/shared/document-upload.svg,shared,document upload,svg,24,24,True,223
+icons/shared/document.png,shared,document,png,96,96,True,620
+icons/shared/document.svg,shared,document,svg,24,24,True,217
+icons/shared/download.png,shared,download,png,96,96,True,628
+icons/shared/download.svg,shared,download,svg,24,24,True,212
+icons/shared/driver.png,shared,driver,png,96,96,True,1607
+icons/shared/driver.svg,shared,driver,svg,24,24,True,253
+icons/shared/earnings.png,shared,earnings,png,96,96,True,2183
+icons/shared/earnings.svg,shared,earnings,svg,24,24,True,243
+icons/shared/edit.png,shared,edit,png,96,96,True,1020
+icons/shared/edit.svg,shared,edit,svg,24,24,True,211
+icons/shared/email.png,shared,email,png,96,96,True,1119
+icons/shared/email.svg,shared,email,svg,24,24,True,239
+icons/shared/emergency.png,shared,emergency,png,96,96,True,1520
+icons/shared/emergency.svg,shared,emergency,svg,24,24,True,243
+icons/shared/error.png,shared,error,png,96,96,True,2128
+icons/shared/error.svg,shared,error,svg,24,24,True,227
+icons/shared/expand.png,shared,expand,png,96,96,True,448
+icons/shared/expand.svg,shared,expand,svg,24,24,True,216
+icons/shared/external-link.png,shared,external link,png,96,96,True,633
+icons/shared/external-link.svg,shared,external link,svg,24,24,True,214
+icons/shared/filter.png,shared,filter,png,96,96,True,765
+icons/shared/filter.svg,shared,filter,svg,24,24,True,201
+icons/shared/fleet.png,shared,fleet,png,96,96,True,863
+icons/shared/fleet.svg,shared,fleet,svg,24,24,True,253
+icons/shared/gallery.png,shared,gallery,png,96,96,True,1214
+icons/shared/gallery.svg,shared,gallery,svg,24,24,True,277
+icons/shared/help.png,shared,help,png,96,96,True,2423
+icons/shared/help.svg,shared,help,svg,24,24,True,249
+icons/shared/home.png,shared,home,png,96,96,True,935
+icons/shared/home.svg,shared,home,svg,24,24,True,218
+icons/shared/information.png,shared,information,png,96,96,True,1982
+icons/shared/information.svg,shared,information,svg,24,24,True,225
+icons/shared/location-pin.png,shared,location pin,png,96,96,True,2123
+icons/shared/location-pin.svg,shared,location pin,svg,24,24,True,255
+icons/shared/lock.png,shared,lock,png,96,96,True,1249
+icons/shared/lock.svg,shared,lock,svg,24,24,True,259
+icons/shared/logout.png,shared,logout,png,96,96,True,575
+icons/shared/logout.svg,shared,logout,svg,24,24,True,211
+icons/shared/more-options.png,shared,more options,png,96,96,True,376
+icons/shared/more-options.svg,shared,more options,svg,24,24,True,258
+icons/shared/navigation.png,shared,navigation,png,96,96,True,1324
+icons/shared/navigation.svg,shared,navigation,svg,24,24,True,199
+icons/shared/notifications.png,shared,notifications,png,96,96,True,1063
+icons/shared/notifications.svg,shared,notifications,svg,24,24,True,226
+icons/shared/offers.png,shared,offers,png,96,96,True,813
+icons/shared/offers.svg,shared,offers,svg,24,24,True,243
+icons/shared/offline.png,shared,offline,png,96,96,True,1503
+icons/shared/offline.svg,shared,offline,svg,24,24,True,294
+icons/shared/online.png,shared,online,png,96,96,True,1406
+icons/shared/online.svg,shared,online,svg,24,24,True,272
+icons/shared/otp-security.png,shared,otp security,png,96,96,True,1249
+icons/shared/otp-security.svg,shared,otp security,svg,24,24,True,259
+icons/shared/passengers.png,shared,passengers,png,96,96,True,1802
+icons/shared/passengers.svg,shared,passengers,svg,24,24,True,273
+icons/shared/payment-card.png,shared,payment card,png,96,96,True,825
+icons/shared/payment-card.svg,shared,payment card,svg,24,24,True,242
+icons/shared/phone.png,shared,phone,png,96,96,True,1663
+icons/shared/phone.svg,shared,phone,svg,24,24,True,236
+icons/shared/pickup.png,shared,pickup,png,96,96,True,2048
+icons/shared/pickup.svg,shared,pickup,svg,24,24,True,281
+icons/shared/profile.png,shared,profile,png,96,96,True,1565
+icons/shared/profile.svg,shared,profile,svg,24,24,True,233
+icons/shared/rating.png,shared,rating,png,96,96,True,1754
+icons/shared/rating.svg,shared,rating,svg,24,24,True,247
+icons/shared/receipt.png,shared,receipt,png,96,96,True,833
+icons/shared/receipt.svg,shared,receipt,svg,24,24,True,237
+icons/shared/refresh.png,shared,refresh,png,96,96,True,1620
+icons/shared/refresh.svg,shared,refresh,svg,24,24,True,246
+icons/shared/remove.png,shared,remove,png,96,96,True,201
+icons/shared/remove.svg,shared,remove,svg,24,24,True,186
+icons/shared/route.png,shared,route,png,96,96,True,1367
+icons/shared/route.svg,shared,route,svg,24,24,True,276
+icons/shared/saved-place.png,shared,saved place,png,96,96,True,710
+icons/shared/saved-place.svg,shared,saved place,svg,24,24,True,198
+icons/shared/search.png,shared,search,png,96,96,True,1576
+icons/shared/search.svg,shared,search,svg,24,24,True,219
+icons/shared/settings.png,shared,settings,png,96,96,True,1645
+icons/shared/settings.svg,shared,settings,svg,24,24,True,305
+icons/shared/share.png,shared,share,png,96,96,True,1335
+icons/shared/share.svg,shared,share,svg,24,24,True,287
+icons/shared/sort.png,shared,sort,png,96,96,True,611
+icons/shared/sort.svg,shared,sort,svg,24,24,True,221
+icons/shared/success.png,shared,success,png,96,96,True,2085
+icons/shared/success.svg,shared,success,svg,24,24,True,222
+icons/shared/support.png,shared,support,png,96,96,True,1285
+icons/shared/support.svg,shared,support,svg,24,24,True,246
+icons/shared/trip-history.png,shared,trip history,png,96,96,True,2032
+icons/shared/trip-history.svg,shared,trip history,svg,24,24,True,220
+icons/shared/verified.png,shared,verified,png,96,96,True,1723
+icons/shared/verified.svg,shared,verified,svg,24,24,True,240
+icons/shared/wallet.png,shared,wallet,png,96,96,True,989
+icons/shared/wallet.svg,shared,wallet,svg,24,24,True,285
+icons/shared/warning.png,shared,warning,png,96,96,True,1025
+icons/shared/warning.svg,shared,warning,svg,24,24,True,208
+icons/vendor/add-vehicle.png,vendor,add vehicle,png,96,96,True,758
+icons/vendor/add-vehicle.svg,vendor,add vehicle,svg,24,24,True,267
+icons/vendor/assign-driver.png,vendor,assign driver,png,96,96,True,1670
+icons/vendor/assign-driver.svg,vendor,assign driver,svg,24,24,True,266
+icons/vendor/business-profile.png,vendor,business profile,png,96,96,True,620
+icons/vendor/business-profile.svg,vendor,business profile,svg,24,24,True,217
+icons/vendor/commission.png,vendor,commission,png,96,96,True,1123
+icons/vendor/commission.svg,vendor,commission,svg,24,24,True,249
+icons/vendor/document-expiry.png,vendor,document expiry,png,96,96,True,1380
+icons/vendor/document-expiry.svg,vendor,document expiry,svg,24,24,True,272
+icons/vendor/driver-invitation.png,vendor,driver invitation,png,96,96,True,1192
+icons/vendor/driver-invitation.svg,vendor,driver invitation,svg,24,24,True,265
+icons/vendor/driver-management.png,vendor,driver management,png,96,96,True,1802
+icons/vendor/driver-management.svg,vendor,driver management,svg,24,24,True,273
+icons/vendor/fleet-overview.png,vendor,fleet overview,png,96,96,True,863
+icons/vendor/fleet-overview.svg,vendor,fleet overview,svg,24,24,True,253
+icons/vendor/maintenance.png,vendor,maintenance,png,96,96,True,1366
+icons/vendor/maintenance.svg,vendor,maintenance,svg,24,24,True,238
+icons/vendor/marketplace-bid.png,vendor,marketplace bid,png,96,96,True,674
+icons/vendor/marketplace-bid.svg,vendor,marketplace bid,svg,24,24,True,222
+icons/vendor/settlement.png,vendor,settlement,png,96,96,True,538
+icons/vendor/settlement.svg,vendor,settlement,svg,24,24,True,218
+icons/vendor/team.png,vendor,team,png,96,96,True,1802
+icons/vendor/team.svg,vendor,team,svg,24,24,True,273
+icons/vendor/vehicle-availability.png,vendor,vehicle availability,png,96,96,True,1406
+icons/vendor/vehicle-availability.svg,vendor,vehicle availability,svg,24,24,True,272
+illustrations/customer/account-review.png,customer,account review,png,1254,1254,True,888437
+illustrations/customer/book-journey.png,customer,book journey,png,1254,1254,True,791551
+illustrations/customer/booking-confirmed.png,customer,booking confirmed,png,1254,1254,True,819167
+illustrations/customer/choose-vehicle.png,customer,choose vehicle,png,1254,1254,True,684678
+illustrations/customer/driver-arriving.png,customer,driver arriving,png,1254,1254,True,681372
+illustrations/customer/error.png,customer,error,png,1254,1254,True,706624
+illustrations/customer/journey-progress.png,customer,journey progress,png,1254,1254,True,1213040
+illustrations/customer/no-notifications.png,customer,no notifications,png,1254,1254,True,529361
+illustrations/customer/no-offers.png,customer,no offers,png,1254,1254,True,765663
+illustrations/customer/no-payments.png,customer,no payments,png,1254,1254,True,784452
+illustrations/customer/no-saved-places.png,customer,no saved places,png,1254,1254,True,648081
+illustrations/customer/no-trips.png,customer,no trips,png,1254,1254,True,950930
+illustrations/customer/offline.png,customer,offline,png,1254,1254,True,690819
+illustrations/customer/phone-verification.png,customer,phone verification,png,1254,1254,True,834059
+illustrations/customer/profile-setup.png,customer,profile setup,png,1254,1254,True,833638
+illustrations/customer/support.png,customer,support,png,1254,1254,True,1113639
+illustrations/customer/trip-completed.png,customer,trip completed,png,1254,1254,True,825165
+illustrations/customer/welcome.png,customer,welcome,png,1254,1254,True,819816
+illustrations/driver/account-suspended.png,driver,account suspended,png,1254,1254,True,770401
+illustrations/driver/approval-pending.png,driver,approval pending,png,1254,1254,True,1009714
+illustrations/driver/boarding-verification.png,driver,boarding verification,png,1254,1254,True,810167
+illustrations/driver/changes-requested.png,driver,changes requested,png,1254,1254,True,721110
+illustrations/driver/documents-submitted.png,driver,documents submitted,png,1254,1254,True,703258
+illustrations/driver/go-online.png,driver,go online,png,1254,1254,True,849058
+illustrations/driver/new-trip.png,driver,new trip,png,1254,1254,True,899643
+illustrations/driver/no-available-trips.png,driver,no available trips,png,1254,1254,True,862738
+illustrations/driver/no-earnings.png,driver,no earnings,png,1254,1254,True,936336
+illustrations/driver/offline-dashboard.png,driver,offline dashboard,png,1254,1254,True,811963
+illustrations/driver/payout-completed.png,driver,payout completed,png,1254,1254,True,591200
+illustrations/driver/payout-requested.png,driver,payout requested,png,1254,1254,True,834029
+illustrations/driver/reached-pickup.png,driver,reached pickup,png,1254,1254,True,669981
+illustrations/driver/registration.png,driver,registration,png,1254,1254,True,1450865
+illustrations/driver/safety-support.png,driver,safety support,png,1254,1254,True,1172820
+illustrations/driver/trip-completed.png,driver,trip completed,png,1254,1254,True,994092
+illustrations/driver/vehicle-photo-verification.png,driver,vehicle photo verification,png,1254,1254,True,1311565
+illustrations/driver/welcome.png,driver,welcome,png,1254,1254,True,990211
+illustrations/vendor/account-hold.png,vendor,account hold,png,1254,1254,True,625827
+illustrations/vendor/add-vehicle.png,vendor,add vehicle,png,1254,1254,True,729371
+illustrations/vendor/approval-pending.png,vendor,approval pending,png,1254,1254,True,929510
+illustrations/vendor/assign-trip.png,vendor,assign trip,png,1254,1254,True,1068912
+illustrations/vendor/business-onboarding.png,vendor,business onboarding,png,1254,1254,True,1114084
+illustrations/vendor/business-support.png,vendor,business support,png,1254,1254,True,872314
+illustrations/vendor/changes-requested.png,vendor,changes requested,png,1254,1254,True,820757
+illustrations/vendor/document-expiring.png,vendor,document expiring,png,1254,1254,True,863976
+illustrations/vendor/invitation-accepted.png,vendor,invitation accepted,png,1254,1254,True,907421
+illustrations/vendor/invite-driver.png,vendor,invite driver,png,1254,1254,True,473420
+illustrations/vendor/no-drivers.png,vendor,no drivers,png,1254,1254,True,919082
+illustrations/vendor/no-marketplace-trips.png,vendor,no marketplace trips,png,1254,1254,True,750243
+illustrations/vendor/no-transactions.png,vendor,no transactions,png,1254,1254,True,973915
+illustrations/vendor/no-vehicles.png,vendor,no vehicles,png,1254,1254,True,572793
+illustrations/vendor/settlement-completed.png,vendor,settlement completed,png,1254,1254,True,662764
+illustrations/vendor/settlement-pending.png,vendor,settlement pending,png,1254,1254,True,764664
+illustrations/vendor/vehicle-unavailable.png,vendor,vehicle unavailable,png,1254,1254,True,669080
+illustrations/vendor/welcome.png,vendor,welcome,png,1254,1254,True,1082844
+photography/airport-transfer.png,shared,airport transfer,png,1672,941,False,2059049
+photography/coastal-road.png,shared,coastal road,png,1672,941,False,2298018
+photography/exterior-detail.png,shared,exterior detail,png,1672,941,False,1992717
+photography/family-travel.png,shared,family travel,png,1672,941,False,2059939
+photography/hill-station.png,shared,hill station,png,1672,941,False,2595943
+photography/indian-road.png,shared,indian road,png,1672,941,False,2088065
+photography/parked-fleet.png,shared,parked fleet,png,1672,941,False,2288959
+photography/professional-driver.png,shared,professional driver,png,1672,941,False,2184620
+photography/urban-pickup.png,shared,urban pickup,png,1672,941,False,2222455
+photography/vehicle-interior.png,shared,vehicle interior,png,1672,941,False,2295136
+previews/icons.jpg,shared,icons,jpg,1280,2100,False,170769
+previews/illustrations-customer.jpg,shared,illustrations customer,jpg,1200,1040,False,115447
+previews/illustrations-driver.jpg,shared,illustrations driver,jpg,1200,1040,False,122737
+previews/illustrations-vendor.jpg,shared,illustrations vendor,jpg,1200,1040,False,116316
+previews/photography.jpg,shared,photography,jpg,960,780,False,79505
+previews/stickers.jpg,shared,stickers,jpg,1200,780,False,86191
+previews/vehicles.jpg,shared,vehicles,jpg,1200,520,False,52157
+README.md,shared,README,md,,,not applicable,2622
+stickers/booking-confirmed.png,shared,booking confirmed,png,1536,1024,True,1142447
+stickers/fleet-ready.png,shared,fleet ready,png,1536,1024,True,1275226
+stickers/journey-completed.png,shared,journey completed,png,1312,1199,True,911523
+stickers/rating-star.png,shared,rating star,png,1263,1245,True,1273480
+stickers/ready-drive.png,shared,ready drive,png,1359,1158,True,1147068
+stickers/route-location.png,shared,route location,png,1536,1024,True,1309602
+stickers/safe-journey.png,shared,safe journey,png,1262,1246,True,1126569
+stickers/support-available.png,shared,support available,png,1254,1254,True,785514
+stickers/thank-you.png,shared,thank you,png,1312,1199,True,740766
+stickers/vehicle-checked.png,shared,vehicle checked,png,1312,1199,True,875258
+stickers/verified-partner.png,shared,verified partner,png,1274,1234,True,802285
+stickers/welcome-aboard.png,shared,welcome aboard,png,1312,1199,True,1074587
+vehicles/hatchback.png,shared,hatchback,png,1536,1024,True,1680336
+vehicles/minibus.png,shared,minibus,png,1536,1024,True,1727976
+vehicles/mpv.png,shared,mpv,png,1536,1024,True,1677501
+vehicles/passenger-van.png,shared,passenger van,png,1536,1024,True,1780439
+vehicles/premium-sedan.png,shared,premium sedan,png,1672,941,True,1361195
+vehicles/sedan.png,shared,sedan,png,1536,1024,True,1540108
+vehicles/suv.png,shared,suv,png,1536,1024,True,1779556
+vehicles/tourist-coach.png,shared,tourist coach,png,1672,941,True,1539720

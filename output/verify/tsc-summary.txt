@@ -1,0 +1,9 @@
+driver/web exit 0
+driver/app exit 0
+vendor/app exit 0
+user/app exit 0
+vendor/web exit 0
+one_way_car_rentals exit 0
+people_taxi exit 0
+user/web exit 0
+admin exit 0

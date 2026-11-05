@@ -1,0 +1,35 @@
+360b8d3a53f88765ec2e3d1331da7638
+var _interopRequireDefault = require("@babel/runtime/helpers/interopRequireDefault").default;
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.FetchError = void 0;
+var _classCallCheck2 = _interopRequireDefault(require("@babel/runtime/helpers/classCallCheck"));
+var _createClass2 = _interopRequireDefault(require("@babel/runtime/helpers/createClass"));
+var _callSuper2 = _interopRequireDefault(require("@babel/runtime/helpers/callSuper"));
+var _inherits2 = _interopRequireDefault(require("@babel/runtime/helpers/inherits"));
+var _wrapNativeSuper2 = _interopRequireDefault(require("@babel/runtime/helpers/wrapNativeSuper"));
+var FetchError = exports.FetchError = function (_Error) {
+  function FetchError(message) {
+    var _this;
+    var _ref = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {},
+      cause = _ref.cause,
+      stack = _ref.stack;
+    (0, _classCallCheck2.default)(this, FetchError);
+    _this = (0, _callSuper2.default)(this, FetchError, [`fetch failed: ${message}`]);
+    _this.cause = cause;
+    _this.stack = stack;
+    return _this;
+  }
+  (0, _inherits2.default)(FetchError, _Error);
+  return (0, _createClass2.default)(FetchError, null, [{
+    key: "createFromError",
+    value: function createFromError(error) {
+      return new FetchError(error.message, {
+        cause: error.cause,
+        stack: error.stack
+      });
+    }
+  }]);
+}((0, _wrapNativeSuper2.default)(Error));
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJGZXRjaEVycm9yIiwiZXhwb3J0cyIsIl9FcnJvciIsIm1lc3NhZ2UiLCJfdGhpcyIsIl9yZWYiLCJhcmd1bWVudHMiLCJsZW5ndGgiLCJ1bmRlZmluZWQiLCJjYXVzZSIsInN0YWNrIiwiX2NsYXNzQ2FsbENoZWNrMiIsImRlZmF1bHQiLCJfY2FsbFN1cGVyMiIsIl9pbmhlcml0czIiLCJfY3JlYXRlQ2xhc3MyIiwia2V5IiwidmFsdWUiLCJjcmVhdGVGcm9tRXJyb3IiLCJlcnJvciIsIl93cmFwTmF0aXZlU3VwZXIyIiwiRXJyb3IiXSwic291cmNlcyI6WyJGZXRjaEVycm9ycy50cyJdLCJzb3VyY2VzQ29udGVudCI6WyJleHBvcnQgY2xhc3MgRmV0Y2hFcnJvciBleHRlbmRzIEVycm9yIHtcbiAgY29uc3RydWN0b3IobWVzc2FnZTogc3RyaW5nLCB7IGNhdXNlLCBzdGFjayB9OiB7IGNhdXNlPzogdW5rbm93bjsgc3RhY2s/OiBzdHJpbmcgfSA9IHt9KSB7XG4gICAgc3VwZXIoYGZldGNoIGZhaWxlZDogJHttZXNzYWdlfWApO1xuICAgIHRoaXMuY2F1c2UgPSBjYXVzZTtcbiAgICB0aGlzLnN0YWNrID0gc3RhY2s7XG4gIH1cblxuICBzdGF0aWMgY3JlYXRlRnJvbUVycm9yKGVycm9yOiBFcnJvcik6IEZldGNoRXJyb3Ige1xuICAgIHJldHVybiBuZXcgRmV0Y2hFcnJvcihlcnJvci5tZXNzYWdlLCB7IGNhdXNlOiBlcnJvci5jYXVzZSwgc3RhY2s6IGVycm9yLnN0YWNrIH0pO1xuICB9XG59XG4iXSwibWFwcGluZ3MiOiI7Ozs7Ozs7Ozs7SUFBYUEsVUFBVSxHQUFBQyxPQUFBLENBQUFELFVBQUEsYUFBQUUsTUFBQTtFQUNyQixTQUFBRixXQUFZRyxPQUFlLEVBQThEO0lBQUEsSUFBQUMsS0FBQTtJQUFBLElBQUFDLElBQUEsR0FBQUMsU0FBQSxDQUFBQyxNQUFBLFFBQUFELFNBQUEsUUFBQUUsU0FBQSxHQUFBRixTQUFBLE1BQUosQ0FBQyxDQUFDO01BQXhERyxLQUFLLEdBQUFKLElBQUEsQ0FBTEksS0FBSztNQUFFQyxLQUFLLEdBQUFMLElBQUEsQ0FBTEssS0FBSztJQUFBLElBQUFDLGdCQUFBLENBQUFDLE9BQUEsUUFBQVosVUFBQTtJQUN6Q0ksS0FBQSxPQUFBUyxXQUFBLENBQUFELE9BQUEsUUFBQVosVUFBQSxHQUFNLGlCQUFpQkcsT0FBTyxFQUFFO0lBQ2hDQyxLQUFBLENBQUtLLEtBQUssR0FBR0EsS0FBSztJQUNsQkwsS0FBQSxDQUFLTSxLQUFLLEdBQUdBLEtBQUs7SUFBQyxPQUFBTixLQUFBO0VBQ3JCO0VBQUMsSUFBQVUsVUFBQSxDQUFBRixPQUFBLEVBQUFaLFVBQUEsRUFBQUUsTUFBQTtFQUFBLFdBQUFhLGFBQUEsQ0FBQUgsT0FBQSxFQUFBWixVQUFBO0lBQUFnQixHQUFBO0lBQUFDLEtBQUEsRUFFRCxTQUFPQyxlQUFlQSxDQUFDQyxLQUFZLEVBQWM7TUFDL0MsT0FBTyxJQUFJbkIsVUFBVSxDQUFDbUIsS0FBSyxDQUFDaEIsT0FBTyxFQUFFO1FBQUVNLEtBQUssRUFBRVUsS0FBSyxDQUFDVixLQUFLO1FBQUVDLEtBQUssRUFBRVMsS0FBSyxDQUFDVDtNQUFNLENBQUMsQ0FBQztJQUNsRjtFQUFDO0FBQUEsTUFBQVUsaUJBQUEsQ0FBQVIsT0FBQSxFQVQ2QlMsS0FBSyIsImlnbm9yZUxpc3QiOltdfQ==

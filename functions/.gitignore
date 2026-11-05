@@ -1,0 +1,27 @@
+# ── Firebase Cloud Functions (TypeScript) ────────────────────────
+
+# Build output
+lib/
+
+# Dependencies
+node_modules/
+
+# Environment & secrets (use .env.example as template)
+.env
+.env.*
+!.env.example
+.runtimeconfig.json
+
+# Firebase emulator state
+firebase-debug.log
+firebase-debug.*.log
+.firebase/
+
+# Logs & caches
+*.log
+*.tmp
+*.tsbuildinfo
+coverage/
+.eslintcache
+.vercel
+.env*

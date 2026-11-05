@@ -1,0 +1,135 @@
+[
+  {
+    "file": "embedded-1.woff",
+    "bytes": 2356,
+    "note": "Font family declarations are recorded from CSS; internal font names not inspected."
+  },
+  {
+    "file": "embedded-2.woff",
+    "bytes": 2356,
+    "note": "Font family declarations are recorded from CSS; internal font names not inspected."
+  },
+  {
+    "file": "embedded-3.woff",
+    "bytes": 15988,
+    "note": "Font family declarations are recorded from CSS; internal font names not inspected."
+  },
+  {
+    "file": "embedded-4.woff",
+    "bytes": 15988,
+    "note": "Font family declarations are recorded from CSS; internal font names not inspected."
+  },
+  {
+    "file": "embedded-5.woff",
+    "bytes": 21568,
+    "note": "Font family declarations are recorded from CSS; internal font names not inspected."
+  },
+  {
+    "file": "embedded-6.woff",
+    "bytes": 22016,
+    "note": "Font family declarations are recorded from CSS; internal font names not inspected."
+  },
+  {
+    "file": "embedded-7.woff",
+    "bytes": 22068,
+    "note": "Font family declarations are recorded from CSS; internal font names not inspected."
+  },
+  {
+    "file": "embedded-8.woff",
+    "bytes": 22116,
+    "note": "Font family declarations are recorded from CSS; internal font names not inspected."
+  },
+  {
+    "file": "embedded-9.woff",
+    "bytes": 22148,
+    "note": "Font family declarations are recorded from CSS; internal font names not inspected."
+  },
+  {
+    "file": "embedded-10.jpeg",
+    "size": [
+      2048,
+      1987
+    ],
+    "mode": "RGB"
+  },
+  {
+    "file": "embedded-11.webp",
+    "size": [
+      360,
+      220
+    ],
+    "mode": "RGB"
+  },
+  {
+    "file": "embedded-12.webp",
+    "size": [
+      360,
+      220
+    ],
+    "mode": "RGB"
+  },
+  {
+    "file": "embedded-13.jpeg",
+    "size": [
+      820,
+      393
+    ],
+    "mode": "RGB"
+  },
+  {
+    "file": "embedded-14.webp",
+    "size": [
+      360,
+      220
+    ],
+    "mode": "RGB"
+  },
+  {
+    "file": "embedded-15.png",
+    "size": [
+      1774,
+      887
+    ],
+    "mode": "RGBA"
+  },
+  {
+    "file": "embedded-16.png",
+    "size": [
+      1774,
+      887
+    ],
+    "mode": "RGB"
+  },
+  {
+    "file": "embedded-17.webp",
+    "size": [
+      1774,
+      887
+    ],
+    "mode": "RGB"
+  },
+  {
+    "file": "embedded-18.webp",
+    "size": [
+      1774,
+      887
+    ],
+    "mode": "RGB"
+  },
+  {
+    "file": "embedded-19.webp",
+    "size": [
+      1774,
+      887
+    ],
+    "mode": "RGB"
+  },
+  {
+    "file": "embedded-20.webp",
+    "size": [
+      1774,
+      887
+    ],
+    "mode": "RGB"
+  }
+]

@@ -1,0 +1,152 @@
+/* Service & Fare Settings layout adapted from Master Admin Ux.html (final 11.x overrides).
+   Scoped to this page and its dialogs; prototype scripts and fixture data are not imported. */
+.fare-reference .u27-location-bar { display:grid;grid-template-columns:1.15fr 1fr 1fr 1.05fr;gap:20px;padding:21px 23px;border:1px solid #e0e6ee;border-radius:10px;background:#fff;margin:0 0 12px }
+.fare-reference .u27-location-bar>div>h2 { font:700 14px Manrope,Inter,sans-serif;margin:7px 0;color:#2d3b50 }
+.fare-reference .u27-location-bar>div>p { font-size:11px;line-height:1.6;color:#778398;margin:0 }
+.fare-reference .u27-location-bar>label { display:flex;flex-direction:column;gap:9px;justify-content:center;min-width:0 }
+.fare-reference .u27-location-bar>label>span { font-size:11px;font-weight:600;color:#59677d }
+.fare-reference .u27-location-bar select { border:1px solid #dce3ec;background:#fbfcfd;border-radius:7px;min-height:41px;padding:8px 10px;font:12px Inter,Arial,sans-serif;color:#34435a;width:100% }
+.fare-reference .u27-location-bar select:disabled { opacity:.5 }
+.fare-reference .u27-context { display:flex;justify-content:space-between;align-items:center;gap:20px;padding:5px 4px 16px;color:#60718a }
+.fare-reference .u27-context>span { display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:#44536a }
+.fare-reference .u27-context svg { width:15px;height:15px }
+.fare-reference .u27-context>small { font-size:10px;color:#7d8aa0 }
+.fare-reference .u27-main-tabs { display:grid;grid-template-columns:repeat(3,1fr);background:#fff;border:1px solid #e1e7ef;border-radius:9px 9px 0 0;padding:0 13px;gap:16px;position:sticky;top:0;z-index:8 }
+.fare-reference .u27-main-tabs>button { display:flex;align-items:center;justify-content:center;gap:9px;height:54px;border:0;border-bottom:3px solid transparent;background:white;color:#6a778b;font:600 13px Inter,sans-serif;cursor:pointer }
+.fare-reference .u27-main-tabs>button>svg { width:17px;height:17px }
+.fare-reference .u27-main-tabs>button[aria-selected=true] { color:#bc2029;border-color:#bc2029 }
+.fare-reference .u27-settings-surface { padding:24px;background:#fff;border:1px solid #e1e7ef;border-top:0;border-radius:0 0 10px 10px;min-height:235px }
+.fare-reference .u27-settings-surface .sc-section-head { margin-bottom:18px }
+.fare-reference .u27-settings-surface h2 { font-size:17px }
+.fare-reference .u27-tamil { font-family:"Nirmala UI","Latha",Inter,sans-serif!important;font-size:12px!important;line-height:1.8!important;color:#758298!important }
+.fare-reference .u27-inline-filters { display:flex;gap:10px;margin-bottom:18px }
+.fare-reference .u27-inline-filters input,
+.fare-reference .u27-inline-filters select { min-height:35px;font:11px Inter,sans-serif;border:1px solid #dfe5ed;border-radius:6px;padding:7px 10px;background:#fff;color:#60708a }
+.fare-reference .u27-inline-filters input { width:300px }
+.fare-reference .u27-settings-surface .ds-table th { font-size:10px;letter-spacing:.04em;background:#fafbfc;color:#7a879b;padding:12px }
+.fare-reference .u27-settings-surface .ds-table td { padding:13px 12px;font-size:12px;line-height:1.6 }
+.fare-reference .u27-settings-surface .ds-table td>strong { display:block;font-size:12px;color:#344159 }
+.fare-reference .u27-settings-surface .ds-table td small { font-size:10px;color:#7a879c;display:block;margin-top:4px }
+.fare-reference .u27-empty-setting { padding:24px;text-align:center;color:#6b7990;display:flex;align-items:center;flex-direction:column;gap:12px }
+.fare-reference .u27-empty-setting>svg { width:27px;height:27px;color:#a3afbf }
+.fare-reference .u27-empty-setting>strong { font-size:14px;color:#46546b }
+.fare-reference .u27-empty-setting>p { font-size:11px;line-height:1.7;max-width:470px;margin:0 }
+.fare-reference .u27-empty-setting>.ds-btn { margin-top:6px }
+.fare-reference .u27-fare-key { display:flex;gap:36px;border:1px solid #e4e9ef;border-radius:7px;padding:14px 16px;margin-bottom:19px;background:#fafbfc }
+.fare-reference .u27-fare-key>span { display:flex;flex-direction:column;gap:5px;font-size:10px;color:#7c899c }
+.fare-reference .u27-fare-key strong { font-size:12px;color:#40516a }
+.fare-reference .u27-setting-location { display:flex;align-items:center;gap:12px;background:#f5f7fa;border:1px solid #e3e8f0;border-radius:9px;padding:16px 18px;margin-bottom:22px }
+.fare-reference .u27-setting-location>svg { width:21px;height:21px;color:#b9212a }
+.fare-reference .u27-setting-location strong { display:block;font-size:14px }
+.fare-reference .u27-setting-location small { font-size:11px;color:#758197;display:block;margin-top:6px }
+.fare-reference .u27-choice-list { display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:22px }
+.fare-reference .u27-choice-list>label { display:flex;align-items:flex-start;gap:9px;border:1px solid #dfe5ee;border-radius:8px;padding:14px;cursor:pointer;background:#fff }
+.fare-reference .u27-choice-list>label.selected { background:#fff7f7;border-color:#dba0a4 }
+.fare-reference .u27-choice-list input { accent-color:#ba202a;margin-top:2px }
+.fare-reference .u27-choice-list strong { display:block;font-size:12px;margin-bottom:7px }
+.fare-reference .u27-choice-list small { font-size:10px;line-height:1.6;color:#77839a;display:block }
+.fare-reference .u27-cab-choices { display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:0 0 12px }
+.fare-reference .u27-cab-choices>label { display:flex;align-items:center;justify-content:center;gap:9px;padding:17px 10px;border:1px solid #e0e6ef;border-radius:8px;background:#fff;cursor:pointer }
+.fare-reference .u27-cab-choices>label:has(input:checked) { border-color:#d79ca2;background:#fff7f7;color:#ae242d }
+.fare-reference .u27-cab-choices input { accent-color:#ba202a }
+.fare-reference .u27-cab-choices svg { height:20px;width:20px }
+.fare-reference .u27-cab-choices strong { font-size:12px }
+.fare-reference .u27-price-columns { display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:8px }
+.fare-reference .u27-price-columns>section { background:#fcfcfd;border:1px solid #e0e6ed;border-radius:9px;padding:17px }
+.fare-reference .u27-price-columns h3 { font-size:14px;margin:0 0 7px }
+.fare-reference .u27-price-columns p { font-size:10px;color:#8290a5;margin:0 0 18px }
+.fare-reference .u27-price-columns .sc-grid { grid-template-columns:1fr 1fr;gap:10px }
+.fare-reference .u27-normal { min-height:60px;display:flex;align-items:center;color:#8190a5;font-size:11px }
+.fare-reference .u27-form-section { border-top:1px solid #e3e8ef;border-bottom:1px solid #e3e8ef;padding:20px 0 7px;margin:22px 0 }
+.fare-reference .u27-form-section h3 { display:flex;align-items:center;gap:8px;font-size:13px;margin:0 0 7px }
+.fare-reference .u27-form-section h3 svg { width:16px;height:16px }
+.fare-reference .u27-form-section>p { font-size:11px;color:#7b879b;margin:0 0 17px }
+.fare-reference .u27-more-options { border:1px solid #e2e7ee;border-radius:8px;padding:13px 15px;margin-bottom:21px }
+.fare-reference .u27-more-options>summary { font-size:11px;font-weight:600;color:#5b6c84;cursor:pointer }
+.fare-reference .u27-more-options[open]>summary { margin-bottom:18px }
+.fare-reference .u28-overview { border:1px solid #e1e6ee;background:#fff;border-radius:9px;margin:0 0 18px;overflow:hidden }
+.fare-reference .u28-overview>header { display:flex;align-items:center;justify-content:space-between;gap:15px;padding:11px 17px;border-bottom:1px solid #edf0f5;background:#fcfcfd }
+.fare-reference .u28-overview>header>strong { display:flex;align-items:center;gap:7px;font-size:12px;color:#34435a }
+.fare-reference .u28-overview>header svg { width:14px;height:14px;color:#bd2029 }
+.fare-reference .u28-overview>header>span { font-size:10px;color:#7b879b }
+.fare-reference .u28-overview-values { display:grid;grid-template-columns:1fr 1.25fr .9fr auto;gap:18px;align-items:center;padding:15px 17px 12px }
+.fare-reference .u28-overview-values>div { display:flex;flex-direction:column;gap:6px;min-width:0 }
+.fare-reference .u28-overview-values>div>span { font-size:10px;font-weight:500;color:#7b879b }
+.fare-reference .u28-overview-values strong { font-size:13px;line-height:1.4;color:#35445b }
+.fare-reference .u28-overview-values small { font-size:10px;color:#8590a2;line-height:1.5 }
+.fare-reference .u28-overview-values>.ds-btn { min-height:32px;font-size:11px }
+.fare-reference .u28-overview>p { margin:0;padding:0 17px 12px;font-size:10px;color:#8190a4;line-height:1.6 }
+.fare-reference .u28-origin { display:inline-flex;max-width:100%;font-size:9px!important;font-weight:500;line-height:1.5;padding:3px 7px;background:#f2f5f9;color:#6f7e94;border-radius:4px;margin-top:7px;white-space:normal }
+.fare-reference .u28-origin.inherited { background:#fff6e8;color:#9d6825 }
+.fare-reference .u27-main-tabs { grid-template-columns:repeat(4,minmax(0,1fr));gap:0;padding:0 12px;top:0;z-index:12;border-radius:10px 10px 0 0 }
+.fare-reference .u27-main-tabs>button { height:52px;min-width:0;font:600 14px/1.3 Inter,Arial,sans-serif;border-bottom-width:3px;gap:9px;padding:0 12px;white-space:nowrap }
+.fare-reference .u27-main-tabs>button[aria-selected=true] { color:#bd2029;border-bottom-color:#bd2029;background:#fffafa }
+.fare-reference .u27-main-tabs>button:focus-visible { outline:3px solid #bd202930;outline-offset:-5px;border-radius:5px }
+.fare-reference .u27-settings-surface { padding:22px;border-radius:0 0 10px 10px;min-height:220px }
+.fare-reference .u27-location-bar { gap:18px;margin-bottom:12px;padding:18px 20px }
+.fare-reference .u27-context { padding-bottom:12px }
+.fare-reference .u28-overview { margin-bottom:16px }
+.fare-reference .u28-overview-values { gap:14px }
+.fare-reference .u11-more-heading { display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 0 19px }
+.fare-reference .u11-more-heading h2 { font:800 20px/1.3 Manrope,Inter,sans-serif;margin:0 0 7px;color:#243248 }
+.fare-reference .u11-more-heading p { margin:0;font:13px/1.5 Inter,sans-serif;color:#6c788a }
+.fare-reference .u11-scope-note { font:11px/1.5 Inter,sans-serif;color:#758194;border:1px solid #e4e8ef;background:#fafbfc;padding:6px 10px;border-radius:6px;white-space:nowrap }
+.fare-reference .u11-tools-grid { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px }
+.fare-reference .u11-tool { display:flex;align-items:flex-start;gap:13px;background:#fff;border:1px solid #e1e6ed;border-radius:9px;padding:18px 15px;text-align:left;cursor:pointer;color:#27354a;min-width:0;min-height:133px;transition:border-color .15s,background .15s }
+.fare-reference .u11-tool:hover { border-color:#d68e94;background:#fffafa }
+.fare-reference .u11-tool:focus-visible { outline:3px solid #bd202930;outline-offset:2px }
+.fare-reference .u11-tool:disabled { opacity:.55;cursor:not-allowed }
+.fare-reference .u11-tool-icon { display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;flex:0 0 36px;background:#fff1f2;border:1px solid #f6dfe1;border-radius:8px;color:#bd2029 }
+.fare-reference .u11-tool-icon svg { width:19px;height:19px }
+.fare-reference .u11-tool-copy { display:flex;flex:1;min-width:0;flex-direction:column;gap:7px }
+.fare-reference .u11-tool-name { font:700 14px/1.4 Inter,sans-serif;color:#263247 }
+.fare-reference .u11-tool-description { font:12px/1.6 Inter,sans-serif;color:#68768a;min-height:37px }
+.fare-reference .u11-tool-scope { font:600 10px/1.4 Inter,sans-serif;letter-spacing:.02em;color:#748195 }
+.fare-reference .u11-tool>svg { width:15px;height:15px;color:#9aa5b6;margin-top:10px;flex:0 0 15px }
+.fare-reference .u11-settings-foot { display:flex;align-items:flex-start;gap:8px;font:12px/1.6 Inter,sans-serif;color:#6a788b;margin-top:18px;padding-top:15px;border-top:1px solid #e9edf2 }
+.fare-reference .u11-settings-foot svg { height:16px;width:16px;flex:none;margin-top:1px }
+.fare-reference .u11-back-bar { display:flex;gap:12px;align-items:center;margin:0 0 3px;font:11px/1.5 Inter,sans-serif;color:#7b8798 }
+.fare-reference .u11-back-bar .ds-btn { padding-left:0;color:#a91e29 }
+
+.fare-reference .u27-location-bar .ds-filterbar {display:contents}
+.fare-reference .u27-location-bar .ds-field {margin:0;min-width:0}
+.fare-reference .u27-location-bar {grid-template-columns:minmax(230px,1.25fr) minmax(180px,1fr) minmax(150px,.8fr) minmax(150px,.8fr)}
+.fare-reference .fare-location-note {grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:11px;color:#718096}
+.fare-reference .u27-location-bar>.ds-error,.fare-reference .u27-location-bar>[role=status] {grid-column:1/-1}
+.fare-reference .u27-main-tabs {position:relative;top:auto;display:grid;overflow-x:auto}
+.fare-reference .u27-main-tabs>button {display:flex;align-items:center;justify-content:center;cursor:pointer}
+.fare-reference .u27-main-tabs>button svg {width:18px;height:18px;flex:none}
+.fare-reference .u27-settings-surface .ds-data-table {margin-top:0}
+.fare-reference .u27-settings-surface .ds-actions {white-space:nowrap}
+.fare-reference .u28-overview-values>div {min-width:0;overflow-wrap:anywhere}
+.fare-reference .u28-overview-values {grid-template-columns:repeat(3,minmax(0,1fr)) auto}
+.fare-reference .u27-inline-filters input {max-width:100%}
+.fare-reference .u11-tool {font-family:Inter,Arial,sans-serif}
+.fare-reference .u11-tool-scope {overflow-wrap:anywhere}
+@media(max-width:1150px) {
+ .fare-reference .u27-location-bar {grid-template-columns:repeat(3,minmax(0,1fr))}
+ .fare-reference .u27-location-bar>div:first-child {grid-column:1/-1}
+ .fare-reference .u11-tools-grid {grid-template-columns:repeat(2,minmax(0,1fr))}
+ .fare-reference .u28-overview-values {grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:700px) {
+ .fare-reference .u27-location-bar {grid-template-columns:1fr;padding:16px}
+ .fare-reference .u27-main-tabs {grid-template-columns:repeat(4,minmax(160px,1fr));padding:0}
+ .fare-reference .u11-tools-grid,.fare-reference .u28-overview-values {grid-template-columns:1fr}
+ .fare-reference .u27-context {flex-direction:column;align-items:flex-start;gap:8px}
+ .fare-reference .u27-settings-surface {padding:16px}
+ .fare-reference .sc-section-head,.fare-reference .u11-more-heading {flex-direction:column;align-items:flex-start}
+ .fare-reference .u27-inline-filters {flex-wrap:wrap}
+ .fare-reference .u27-inline-filters input {width:100%}
+ .fare-reference .u27-choice-list,.fare-reference .u27-cab-choices,.fare-reference .u27-price-columns {grid-template-columns:1fr}
+}
+
+/* Reference section header, with the existing admin controls. */
+.fare-reference .sc-section-head {display:flex;justify-content:space-between;align-items:center;gap:18px;margin:0 0 18px}
+.fare-reference .sc-section-head h2 {font:800 17px/1.5 Manrope,Inter,sans-serif;margin:0 0 5px;color:#202838}
+.fare-reference .sc-section-head p {font-size:12px;line-height:1.6;margin:0;color:#596579}
+.fare-reference .u27-location-bar .ds-field {display:flex;flex-direction:column;gap:9px;justify-content:center}
+.fare-reference .u27-settings-surface .ds-table {table-layout:auto;min-width:850px}
+.fare-reference .u27-price-columns>p {grid-column:1/-1}
+.fare-reference .u27-setting-location small {line-height:1.7}
+@media(max-width:700px) {.fare-reference .sc-section-head {flex-direction:column;align-items:flex-start}}

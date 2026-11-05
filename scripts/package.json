@@ -1,0 +1,12 @@
+{
+  "name": "nesam-scripts",
+  "private": true,
+  "type": "module",
+  "description": "One-off operational scripts (run locally, never deployed).",
+  "scripts": {
+    "set-admin": "node set-admin-claim.mjs"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.6.0"
+  }
+}

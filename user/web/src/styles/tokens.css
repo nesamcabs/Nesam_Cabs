@@ -1,0 +1,165 @@
+/*
+  NESAM customer site — design tokens (from the final cascade of the customer UX reference).
+  Inter for everything, Manrope ("Nesam UI") for section headings, the NESAM wordmark face for the brand.
+  Restrained red for action and active states; slate text; white surfaces; pale borders.
+*/
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../assets/fonts/inter-400.woff') format('woff');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('../assets/fonts/inter-500.woff') format('woff');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('../assets/fonts/inter-600.woff') format('woff');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../assets/fonts/inter-700.woff') format('woff');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url('../assets/fonts/inter-800.woff') format('woff');
+}
+@font-face {
+  font-family: 'Nesam UI';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('../assets/fonts/manrope-800.woff') format('woff');
+}
+@font-face {
+  font-family: 'Nesam Brand';
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url('../assets/fonts/nesam-wordmark.woff') format('woff');
+}
+
+:root {
+  color-scheme: light;
+
+  /* Brand */
+  --red: #c62828;
+  --red-hover: #b02121;
+  --red-press: #9b1c1c;
+  --red-ink: #b9232b; /* red text on white (AA) */
+  --red-soft: #fff1ee;
+  --red-wash: #fff5f2; /* landmark artwork paper */
+  --red-line: #e6d4d2;
+  --red-ring: rgb(198 40 40 / 0.22);
+
+  /* Slate */
+  --ink: #20252d;
+  --heading: #222b36;
+  --text: #28313e;
+  --body: #3d4653;
+  --muted: #697587;
+  --soft: #7a8493;
+  --faint: #9aa1ab;
+  --line: #e2e6ec;
+  --line-soft: #eceff3;
+  --line-strong: #d3d9e1;
+  --surface: #ffffff;
+  --page: #f5f6f8;
+  --sunken: #f5f6f8;
+  --chip: #f1f3f6;
+
+  /* Footer */
+  --navy: #19212c;
+  --navy-text: #b9c2ce;
+  --navy-muted: #9da9b9;
+
+  /* Semantic */
+  --green: #2a7555;
+  --green-strong: #1d6b48;
+  --green-soft: #eef7f2;
+  --green-line: #cfe6da;
+  --amber: #a8650e;
+  --amber-icon: #dc8a18;
+  --amber-soft: #fff6e7;
+  --amber-line: #f2dcb4;
+  --blue: #2563c9;
+  --blue-soft: #edf3ff;
+  --blue-line: #cbdcf7;
+  --danger: #b42318;
+  --danger-soft: #fef1f0;
+  --danger-line: #f2cbc7;
+
+  /* Type */
+  --font: 'Inter', 'Noto Sans Tamil', 'Latha', 'Nirmala UI', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-head: 'Nesam UI', 'Manrope', 'Inter', 'Noto Sans Tamil', 'Segoe UI', sans-serif;
+  --font-brand: 'Nesam Brand', 'Nesam UI', 'Inter', Arial, sans-serif;
+
+  /* Type scale: nothing below 12px */
+  --fs-2xs: 0.75rem; /* 12 — badges, fine print */
+  --fs-xs: 0.8125rem; /* 13 — captions, secondary lines */
+  --fs-sm: 0.875rem; /* 14 — controls, list text */
+  --fs-body: 0.9375rem; /* 15 — body copy */
+  --fs-md: 1.0625rem; /* 17 — card titles */
+  --fs-lg: 1.25rem; /* 20 — section headings */
+  --fs-xl: 1.5rem; /* 24 */
+  --fs-h1: clamp(1.5rem, 1.25rem + 1.1vw, 1.875rem);
+
+  /* Shape */
+  --r-xs: 6px;
+  --r-btn: 10px;
+  --r-field: 10px;
+  --r-card: 12px;
+  --r-panel: 14px;
+  --r-lg: 14px;
+  --r-xl: 20px;
+  --r-pill: 999px;
+
+  /* Elevation (kept very light, as in the reference) */
+  --shadow-1: 0 1px 2px rgb(34 52 74 / 0.05);
+  --shadow-2: 0 4px 16px rgb(34 52 74 / 0.06);
+  --shadow-3: 0 18px 50px rgb(34 52 74 / 0.12);
+  --shadow-pop: 0 24px 70px rgb(20 28 40 / 0.22);
+
+  /* Layout: desktop content is intentionally centred at 1216px including padding. */
+  --max: 100%;
+  --gutter: clamp(14px, 2.8vw, 64px);
+  --header-h: 72px;
+  --nav-h: 68px; /* phone bottom navigation */
+  --tap: 44px;
+  --control-h: 48px; /* inputs and primary buttons */
+
+  --ring: 0 0 0 3px var(--red-ring);
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur: 160ms;
+}
+
+@media (max-width: 999.98px) {
+  :root {
+    --header-h: 60px;
+    --gutter: 24px;
+  }
+}
+@media (max-width: 599.98px) {
+  :root {
+    --gutter: 20px;
+  }
+}
+@media (max-width: 359.98px) {
+  :root {
+    --gutter: 14px;
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "plugins": [
+    "@react-native-community/datetimepicker",
+    "expo-build-properties",
+    "expo-splash-screen"
+  ]
+}

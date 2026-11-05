@@ -1,0 +1,152 @@
+2559:  : ' ' + ico('message-circle') + ' ' + esc(t('Your journey. Your words.')) + ' ' + esc(t('Travelled with NESAM? We would love to hear about your experience.')) + ' ' + esc(t('Customer reviews will appear here once published.')) + ' ' + esc(t('Share feedback')) + ico('arrow-up-right') + ' ';
+2560:  return ' ' + esc(t('FROM OUR TRAVELLERS')) + ' ' + esc(t('Customer reviews')) + ' ' + content + ' ';
+2561: }
+2562: 
+2563: function nsFaqSection() {
+2564:  const faqs = [
+2565:  ['What does my fare include?', 'Your quote itemises cab charges, driver bata, service fee and applicable GST. Included kilometres and extra kilometre or hour rates are shown before you confirm.'],
+2566:  ['Are toll, parking and state tax included?', 'Toll, parking and state tax are extra. Pay these separately against receipts; they are not added to your app fare.'],
+2567:  ['Can I book now and pay later?', 'Yes. Choose Pay later, pay a 25% advance, or pay the full amount when booking. Your booking shows the amount paid and the remaining balance.'],
+2568:  ['When will I get my driver details?', 'Details appear as soon as a verified driver and car are assigned. NESAM aims to share them at least 1 hour before pickup. If they are delayed, contact the office for an update.'],
+2569:  ['How do cancellations and refunds work?', 'More than 1 hour before pickup, open My Bookings to cancel in the app. Within 1 hour of pickup, call the office. Any applicable charge and refund are shown before cancellation is confirmed.']
+2570:  ];
+2571:  return ' ' + esc(t('GOOD TO KNOW')) + ' ' + esc(t('A little help, before you go.')) + ' ' + esc(t('The details that make planning easier.')) + ' <button type="button" class="ns-inline-link" data-action="support-open">' + esc(t('Talk to NESAM')) + ico('arrow-up-right') + ' ' + faqs.map(function(item, index) {
+2572:  return ' ' + esc(t(item[0])) + ' ' + ico('plus') + ' ' + esc(t(item[1])) + ' ' + (index===4 ? '<button type="button" class="ns-inline-link" data-action="site-info" data-info="cancellation">' + esc(t('Read cancellation policy')) + ico('arrow-up-right') + ' ' : '') + ' ';
+2573:  }).join('') + ' ';
+2574: }
+2575: 
+2576: function nsAppSection() {
+2577:  return ' ' + esc(t('THE NESAM APP')) + ' ' + esc(t('Every trip. One place.')) + ' ' + esc(t('Your bookings, driver details and trip updates, together.')) + ' ' + esc(t('FOR ANDROID')) + ' Google Play ' + esc(t('Coming soon')) + ' ' + esc(t('FOR IPHONE')) + ' App Store ' + esc(t('Coming soon')) + ' ';
+2578: }
+2579: 
+2580: function nsFooterButton(action, label, extra) {
+2581:  return '<button type="button" data-action="' + action + '"' + (extra || '') + '>' + esc(t(label)) + ' ';
+2582: }
+2583: 
+2584: function nsCorporateFooter(extraClass) {
+2585:  const services = [['oneway','One Way'],['round','Round Trip'],['airport','Airport Transfers'],['multi','Multicity'],['rental','Local Rental']];
+2586:  const mapUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(nsContact.address);
+2587:  return ' NESAM ' + esc(t('Cabs & Car Rentals')) + ' ' + esc(nsContact.address) + ' ' + esc(nsContact.phone) + ' ' + esc(nsContact.info) + ' ' + esc(nsContact.support) + ' ' + esc(t('Get directions')) + ico('arrow-up-right') + ' ' + esc(t('Our services')) + ' ' + services.map(function(item) { return nsFooterButton('site-service',item[1],' data-service="' + item[0] + '"'); }).join('') + ' ' + esc(t('Bookings & help')) + ' ' + nsFooterButton('page','My Bookings',' data-page="trips"') + nsFooterButton('page','Payments',' data-page="payments"') + nsFooterButton('support-open','Help & Support') + nsFooterButton('site-section','Frequently asked questions',' data-target="ns-faq"') + ' ' + esc(t('Company')) + ' ' + nsFooterButton('site-info','About NESAM',' data-info="about"') + nsFooterButton('site-info','Cancellation & Refunds',' data-info="cancellation"') + nsFooterButton('site-info','Terms & Conditions',' data-info="terms"') + nsFooterButton('site-info','Privacy',' data-info="privacy"') + ' © 2026 ' + esc(nsContact.company) + ' ' + esc(t('Pay later')) + ' · ' + esc(t('25% advance')) + ' · ' + esc(t('Pay in full')) + ' ';
+2588: }
+2589: 
+2590: const nsCorporateHomeBefore = home;
+2591: home = function() {
+2592:  const holder = document.createElement('div');
+2593:  holder.innerHTML = nsCorporateHomeBefore();
+2594:  holder.querySelector('.nc-web-promises')?.remove();
+2595:  holder.querySelector('.nc-web-home')?.insertAdjacentHTML('beforeend', nsWhySection() + nsReviewsSection() + nsFaqSection() + nsAppSection() + nsCorporateFooter('ns-mobile-footer'));
+2596:  return holder.innerHTML;
+2597: };
+2598: webFooter = function() {
+2599:  return modal ? '' : nsCorporateFooter('ns-desktop-footer');
+2600: };
+2601: 
+2602: function nsInfoContent(kind) {
+2603:  if (kind === 'cancellation') return policyMarkup(policyDefault());
+2604:  if (kind === 'terms') return ' ' + esc(t('Review your service, route, pickup date and time, cab category, fare and payment choice before you confirm.')) + ' ' + esc(t('Your fare')) + ' ' + esc(t('The booking summary shows included kilometres, applicable GST and extra rates. Toll, parking and state tax are paid separately against receipts.')) + ' ' + esc(t('Your journey')) + ' ' + esc(t('Car images represent a category; the assigned model may vary within that category. Driver details appear when a verified driver and vehicle are assigned.')) + ' ' + esc(t('Changes or cancellations')) + ' ' + esc(t('Use My Bookings for available options. Contact NESAM for urgent changes or changes after the trip has started.')) + ' <button type="button" class="ns-inline-link" data-action="site-info" data-info="cancellation">' + esc(t('Read cancellation and refund policy')) + ico('arrow-up-right') + ' ';
+2605:  if (kind === 'privacy') return ' ' + esc(t('Your name, contact details and journey information help NESAM coordinate your booking and pickup. Relevant trip information is shared with your assigned driver.')) + ' ' + esc(t('Your account details')) + ' ' + esc(t('Review your profile and saved addresses in Account. Contact NESAM for help with corrections, account deletion or questions about your personal information.')) + ' ' + esc(t('Privacy enquiries')) + ' ' + esc(nsContact.info) + ' ';
+2606:  return ' ' + esc(nsContact.company) + ' ' + esc(t('One way journeys, round trips, airport transfers, multicity travel and local rentals, with booking and journey support from NESAM.')) + ' ' + esc(t('Our office')) + ' ' + esc(nsContact.address) + ' ' + esc(nsContact.phone) + ' ' + esc(nsContact.info) + ' ' + esc(nsContact.support) + ' ';
+2607: }
+2608: const nsInfoTitles = {about:'About NESAM',cancellation:'Cancellation & Refunds',terms:'Terms & Conditions',privacy:'Privacy'};
+2609: const nsCorporateModalBefore = v2Modal;
+2610: v2Modal = function() {
+2611:  if (modal?.type !== 'site-info') return nsCorporateModalBefore();
+2612:  const title = nsInfoTitles[modal.info] || nsInfoTitles.about;
+2613:  return ' ' + esc(t(title)) + ' ' + B('close-modal','Close','x','nc-back','aria-label="Close"') + ' ' + nsInfoContent(modal.info) + ' ';
+2614: };
+2615: about = function() {
+2616:  return head('About NESAM','','account') + ' ' + nsInfoContent('about') + ' ';
+2617: };
+2618: 
+2619: const nsCorporateHandleBefore = handleV2;
+2620: handleV2 = async function(action, data = {}) {
+2621:  if (action === 'site-service') {
+2622:  const result = await nsCorporateHandleBefore('service', {service:data.service});
+2623:  webScrollToForm = true;
+2624:  return result;
+2625:  }
+2626:  if (action === 'site-info') {
+2627:  modal = {type:'site-info',info:Object.hasOwn(nsInfoTitles,data.info) ? data.info : 'about'};
+2628:  nsInfoFocus = true;
+2629:  return true;
+2630:  }
+2631:  if (action === 'site-section') {
+2632:  page = 'home'; modal = null;
+2633:  nsSectionScroll = data.target === 'ns-faq' ? 'ns-faq' : '';
+2634:  return true;
+2635:  }
+2636:  return nsCorporateHandleBefore(action,data);
+2637: };
+2638: const nsCorporateRenderBefore = render;
+2639: render = function() {
+2640:  nsCorporateRenderBefore();
+2641:  if (nsSectionScroll) {
+2642:  const target = root.querySelector('#' + nsSectionScroll);
+2643:  nsSectionScroll = '';
+2644:  requestAnimationFrame(function() { target?.scrollIntoView({block:'start',behavior:'auto'}); });
+2645:  }
+2646:  if (nsInfoFocus) {
+2647:  nsInfoFocus = false;
+2648:  root.querySelector('#ns-info-title')?.focus({preventScroll:true});
+2649:  }
+2650: };
+2651: root.addEventListener('keydown',function(event) {
+2652:  if (event.key === 'Escape' && modal?.type === 'site-info') {
+2653:  event.preventDefault(); act('close-modal');
+2654:  }
+2655: });
+2656: 
+2657: Object.assign(TA,{
+2658:  'Our services':'எங்கள் சேவைகள்',
+2659:  'Bookings & help':'முன்பதிவு மற்றும் உதவி',
+2660:  'Company':'நிறுவனம்',
+2661:  'Customer reviews':'வாடிக்கையாளர் கருத்துகள்',
+2662:  'Your journey. Your words.':'உங்கள் பயணம். உங்கள் கருத்து.',
+2663:  'Share feedback':'கருத்தைப் பகிருங்கள்',
+2664:  'Customer reviews will appear here once published.':'வெளியிடப்பட்டதும் வாடிக்கையாளர் கருத்துகள் இங்கே தெரியும்.',
+2665:  'Frequently asked questions':'அடிக்கடி கேட்கப்படும் கேள்விகள்',
+2666:  'Every trip. One place.':'அனைத்துப் பயணங்களும் ஒரே இடத்தில்.',
+2667:  'Travel with clarity.':'தெளிவுடன் பயணியுங்கள்.',
+2668:  'Clear fares':'தெளிவான கட்டணம்',
+2669:  'Doorstep pickup':'நீங்கள் இருக்கும் இடத்திலிருந்து பயணம்',
+2670:  'Trip support':'பயண உதவி',
+2671:  'Talk to NESAM':'NESAM-ஐ தொடர்புகொள்ளுங்கள்',
+2672:  'Get directions':'வழியைக் காணுங்கள்',
+2673:  'Pay later':'பிறகு செலுத்தலாம்',
+2674:  '25% advance':'25% முன்பணம்',
+2675:  'Pay in full':'முழுத் தொகை செலுத்தலாம்'
+2676: });
+2677: 
+2678: // Customer progress has the five agreed milestones. Older stored "onway"
+2679: // records remain at Driver Assigned until a real arrival update is recorded.
+2680: const nsCustomerMilestones = [
+2681:  ['Booking Confirmed','Booking confirmed'],
+2682:  ['Driver Assigned','Driver assigned'],
+2683:  ['Driver Arrived','Driver arrived'],
+2684:  ['Trip Started','Trip started'],
+2685:  ['Trip Completed','Trip completed']
+2686: ];
+2687: for (const milestone of nsCustomerMilestones) TA[milestone[0]] = TA[milestone[1]] || milestone[0];
+2688: progress = function(b) {
+2689:  const currentStep = b.status==='completed' ? 4 : b.status==='ongoing' ? 3 : b.status==='arrived' ? 2 : b.driver ? 1 : 0;
+2690:  return ' ' + esc(t('Trip progress')) + ' ' + nsCustomerMilestones.map(function(step,index) {
+2691:  const event = b.events.find(function(item) { return item.label.toLowerCase()===step[1].toLowerCase(); });
+2692:  const when = event ? fullDate(event.at) : index===1 && !b.driver ? esc(driverStatus(b).label) : '—';
+2693:  return ' ' + ico(index<=currentStep?'check':'minus') + ' ' + esc(t(step[0])) + ' ' + when + ' ';
+2694:  }).join('') + ' ';
+2695: };
+2696: const nsCustomerStatusBefore = statusLabel;
+2697: statusLabel = function(b) {
+2698:  return b.status==='onway' ? 'Driver assigned' : nsCustomerStatusBefore(b);
+2699: };
+2700: const nsCustomerDriverPanelBefore = driverPanel;
+2701: driverPanel = function(b) {
+2702:  return nsCustomerDriverPanelBefore(b.status==='onway' ? {...b,status:'assigned'} : b);
+2703: };
+2704: 
+2705: 
+2706: // Exposed only on this local preview root to support deterministic UX checks.
+2707: root.__nesamTest={get state(){return state;},get page(){return page;},get modal(){return modal;},get error(){return error;},get active(){return current();},act,quote,validate,confirmationStats,confirmationSoundEnabled,cancellationQuote,approveCancellation,canDirectCancel,verifiedArrival,unsettledCancellations,duesTotal,officeRecordCash,officeWaiveFee,finalizeCancellation,policyFor,timeModal,openTime,policyDefault,useLiveClock,driverStatus,finalTotal,balance,stamp,clock,routeKm,completeTrip,assignDriver,companyCancel,resolvePayment,render,setClock(ms){state.now=ms;markUrgent();},setDraft(d){state.draft={...state.draft,...d};},setModal(m){modal=m;},select(id){activeId=id;},trackInput};
+2708: render();
+2709: 
+2710: })(); 
