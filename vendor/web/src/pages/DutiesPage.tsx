@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { GoogleMapPreview } from '../../../../user/web/src/components/GoogleMapPreview';
+import { GoogleMapPreview } from '../components/GoogleMapPreview';
 import type { BidProposal, FleetDriver, FleetVehicle, OpenTrip, VendorTrip } from '../types';
 import { canDispatch, isCompleted, isLive, isUpcoming, usePartner } from '../state/Partner';
 import { dispatchableDriver, dispatchableVehicle } from '../services/vendorMappers';
