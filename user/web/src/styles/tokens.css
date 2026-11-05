@@ -1,165 +1,161 @@
 /*
-  NESAM customer site — design tokens (from the final cascade of the customer UX reference).
-  Inter for everything, Manrope ("Nesam UI") for section headings, the NESAM wordmark face for the brand.
-  Restrained red for action and active states; slate text; white surfaces; pale borders.
+  NESAM Cabs — design tokens (the single source of truth).
+  Identity: an "executive" corporate look. Charcoal and warm ivory surfaces, a deep crimson for action, thin gold
+  rules, Poppins type and sharp, precise corners. Every colour, size and radius used by the other stylesheets comes
+  from here; screens never hard-code them.
 */
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url('../assets/fonts/inter-400.woff') format('woff');
-}
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url('../assets/fonts/inter-500.woff') format('woff');
-}
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url('../assets/fonts/inter-600.woff') format('woff');
-}
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url('../assets/fonts/inter-700.woff') format('woff');
-}
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 800;
-  font-display: swap;
-  src: url('../assets/fonts/inter-800.woff') format('woff');
-}
-@font-face {
-  font-family: 'Nesam UI';
-  font-style: normal;
-  font-weight: 400 800;
-  font-display: swap;
-  src: url('../assets/fonts/manrope-800.woff') format('woff');
-}
-@font-face {
-  font-family: 'Nesam Brand';
-  font-style: normal;
-  font-weight: 900;
-  font-display: swap;
-  src: url('../assets/fonts/nesam-wordmark.woff') format('woff');
-}
-
 :root {
   color-scheme: light;
 
-  /* Brand */
-  --red: #c62828;
-  --red-hover: #b02121;
-  --red-press: #9b1c1c;
-  --red-ink: #b9232b; /* red text on white (AA) */
-  --red-soft: #fff1ee;
-  --red-wash: #fff5f2; /* landmark artwork paper */
-  --red-line: #e6d4d2;
-  --red-ring: rgb(198 40 40 / 0.22);
+  /* Brand — deep crimson */
+  --brand: #a31621;
+  --brand-hover: #8b111b;
+  --brand-press: #760e17;
+  --brand-soft: #fbeff0;
+  --brand-tint: #f3d9db;
+  --brand-line: #e8cdd0;
+  --brand-ink: #9b1a24; /* crimson text on light surfaces (AA) */
+  --brand-bright: #ff8a92; /* crimson on dark surfaces */
+  --brand-gradient: linear-gradient(135deg, #b81c28 0%, #a31621 55%, #760e17 100%);
 
-  /* Slate */
-  --ink: #20252d;
-  --heading: #222b36;
-  --text: #28313e;
-  --body: #3d4653;
-  --muted: #697587;
-  --soft: #7a8493;
-  --faint: #9aa1ab;
-  --line: #e2e6ec;
-  --line-soft: #eceff3;
-  --line-strong: #d3d9e1;
+  /* Highlight — gold: rules, ratings, the call button */
+  --sun: #b08d57;
+  --sun-hover: #9a7a48;
+  --sun-soft: #f4ecdc;
+  --sun-line: #e3d3b4;
+  --sun-ink: #5a431a;
+
+  /* Card washes (kept quiet: warm ivory) */
+  --mint-soft: #f4f1ec;
+  --rose-soft: #fbf3f3;
+  --lilac-soft: #f4f1ec;
+
+  /* Names used by older markup */
+  --red: var(--brand);
+  --red-hover: var(--brand-hover);
+  --red-press: var(--brand-press);
+  --red-soft: var(--brand-soft);
+  --red-tint: var(--brand-tint);
+  --red-line: var(--brand-line);
+  --red-ink: var(--brand-ink);
+  --gold-line: var(--sun-line);
+
+  /* Danger (cancellations and errors only) */
+  --danger: #b42318;
+  --danger-soft: #fef1f0;
+  --danger-tint: #fbe0dd;
+  --danger-line: #f2cbc7;
+  --danger-ink: #b42318;
+
+  /* Ink + charcoal neutrals */
+  --ink: #14171c;
+  --ink-2: #1d2128;
+  --ink-3: #2a2f38;
+  --text: #22262d;
+  --muted: #66615a;
+  --faint: #9a958c;
+  --on-dark: #f4f1ec;
+  --on-dark-muted: #c4bfb6;
+
+  /* Surfaces */
+  --paper: #f7f5f2; /* page background */
   --surface: #ffffff;
-  --page: #f5f6f8;
-  --sunken: #f5f6f8;
-  --chip: #f1f3f6;
+  --sunken: #f3f0ec;
+  --line: #e8e3dc;
+  --line-strong: #d9d2c8;
 
-  /* Footer */
-  --navy: #19212c;
-  --navy-text: #b9c2ce;
-  --navy-muted: #9da9b9;
+  --gold: #b08d57;
+  --gold-soft: #f4ecdc;
 
   /* Semantic */
   --green: #2a7555;
-  --green-strong: #1d6b48;
   --green-soft: #eef7f2;
   --green-line: #cfe6da;
   --amber: #a8650e;
-  --amber-icon: #dc8a18;
   --amber-soft: #fff6e7;
   --amber-line: #f2dcb4;
   --blue: #2563c9;
   --blue-soft: #edf3ff;
   --blue-line: #cbdcf7;
-  --danger: #b42318;
-  --danger-soft: #fef1f0;
-  --danger-line: #f2cbc7;
 
-  /* Type */
-  --font: 'Inter', 'Noto Sans Tamil', 'Latha', 'Nirmala UI', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --font-head: 'Nesam UI', 'Manrope', 'Inter', 'Noto Sans Tamil', 'Segoe UI', sans-serif;
-  --font-brand: 'Nesam Brand', 'Nesam UI', 'Inter', Arial, sans-serif;
+  /* Type — Poppins throughout */
+  --font: 'Poppins', 'Noto Sans Tamil', 'Latha', 'Nirmala UI', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: var(--font);
+  --font-head: var(--font);
+  --font-brand: var(--font);
+  --fs-2xs: 0.6875rem;
+  --fs-xs: 0.78125rem;
+  --fs-sm: 0.875rem;
+  --fs-body: 1rem;
+  --fs-md: 1.0625rem;
+  --fs-lg: 1.1875rem;
+  --fs-xl: 1.3125rem;
+  --fs-2xl: 1.625rem;
+  --fs-3xl: clamp(1.625rem, 1.2rem + 1.1vw, 2.125rem);
+  --fs-h1: clamp(1.75rem, 1.3rem + 1.5vw, 2.5rem);
+  --fs-h2: clamp(1.75rem, 1.2rem + 1.7vw, 2.75rem);
+  --fs-display: clamp(2.5rem, 1.2rem + 3.6vw, 4.5rem);
+  --lh-tight: 1.12;
+  --lh-snug: 1.3;
+  --lh-body: 1.6;
 
-  /* Type scale: nothing below 12px */
-  --fs-2xs: 0.75rem; /* 12 — badges, fine print */
-  --fs-xs: 0.8125rem; /* 13 — captions, secondary lines */
-  --fs-sm: 0.875rem; /* 14 — controls, list text */
-  --fs-body: 0.9375rem; /* 15 — body copy */
-  --fs-md: 1.0625rem; /* 17 — card titles */
-  --fs-lg: 1.25rem; /* 20 — section headings */
-  --fs-xl: 1.5rem; /* 24 */
-  --fs-h1: clamp(1.5rem, 1.25rem + 1.1vw, 1.875rem);
+  /* Space (4pt) */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+  --s-12: 48px;
+  --s-16: 64px;
+  --s-20: 80px;
+  --section: clamp(40px, 2rem + 3vw, 88px);
 
-  /* Shape */
-  --r-xs: 6px;
-  --r-btn: 10px;
-  --r-field: 10px;
-  --r-card: 12px;
-  --r-panel: 14px;
-  --r-lg: 14px;
-  --r-xl: 20px;
+  /* Shape — sharp and precise */
+  --r-xs: 3px;
+  --r-sm: 4px;
+  --r-md: 5px;
+  --r-lg: 6px;
+  --r-xl: 8px;
   --r-pill: 999px;
+  --r-card: var(--r-lg);
+  --r-btn: var(--r-sm);
+  --r-ctl: var(--r-sm); /* buttons, tabs, header links: sharp corners in this brand */
 
-  /* Elevation (kept very light, as in the reference) */
-  --shadow-1: 0 1px 2px rgb(34 52 74 / 0.05);
-  --shadow-2: 0 4px 16px rgb(34 52 74 / 0.06);
-  --shadow-3: 0 18px 50px rgb(34 52 74 / 0.12);
-  --shadow-pop: 0 24px 70px rgb(20 28 40 / 0.22);
+  /* Elevation — very light */
+  --shadow-1: 0 1px 2px rgb(20 23 28 / 0.06);
+  --shadow-2: 0 6px 20px -6px rgb(20 23 28 / 0.12);
+  --shadow-3: 0 24px 60px -20px rgb(20 23 28 / 0.28);
+  --shadow-4: 0 30px 80px rgb(20 23 28 / 0.32);
 
-  /* Layout: desktop content is intentionally centred at 1216px including padding. */
-  --max: 100%;
+  /* Layout */
   --gutter: clamp(14px, 2.8vw, 64px);
-  --header-h: 72px;
-  --nav-h: 68px; /* phone bottom navigation */
-  --tap: 44px;
-  --control-h: 48px; /* inputs and primary buttons */
+  --max: 100%;
+  --measure: 760px;
+  --nav-h: 76px;
+  --tabbar-h: 68px;
+  --tabbar-gap: 0px;
+  --tap: 48px;
+  --dock-h: 0px;
+  --tabbar-occupied: calc(var(--tabbar-h) + var(--tabbar-gap) + env(safe-area-inset-bottom, 0px));
+  --field-h: 52px;
+  --field-line: #b9b1a5;
+  --inset: #f3f0ec;
 
-  --ring: 0 0 0 3px var(--red-ring);
+  --ring: 0 0 0 3px rgb(163 22 33 / 0.2);
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
   --dur: 160ms;
+
+  /* Brand channels for rgb() tints used across the stylesheets */
+  --brand-rgb: 163 22 33;
+  --sun-rgb: 176 141 87;
 }
 
-@media (max-width: 999.98px) {
+@media (max-width: 899.98px) {
   :root {
-    --header-h: 60px;
-    --gutter: 24px;
-  }
-}
-@media (max-width: 599.98px) {
-  :root {
-    --gutter: 20px;
-  }
-}
-@media (max-width: 359.98px) {
-  :root {
-    --gutter: 14px;
+    --nav-h: 60px;
   }
 }

@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useCustomerData } from '@/state/CustomerData';
+import { useCustomerData } from '@core/context/CustomerData';
 import { updateCustomerProfile } from '@core/services/userService';
 import { formatPhone, isValidEmail, isValidIndianMobile, isValidName, localMobile } from '@core/utils/format';
 import { describeError } from '@core/utils/retry';
-import { Button, Dialog, Notice, PageHead, TextField } from '@/components/ui';
-import { AccountLayout, SignInPrompt } from '@/components/AccountLayout';
+import { Button, Dialog, EmptyState, Notice, PageHead, TextField } from '@/components/ui';
 import { Icon } from '@/components/Icon';
+import { useAuth } from '@/state/Auth';
 import { useSeo } from '@/lib/seo';
 import { useToasts } from '@/state/Toasts';
 
@@ -16,6 +16,7 @@ export function EditProfilePage() {
   useSeo({ title: 'Edit Profile', noindex: true });
   const navigate = useNavigate();
   const { profile } = useCustomerData();
+  const { openLoginModal } = useAuth();
   const { push } = useToasts();
   const [name, setName] = useState(profile?.name || '');
   const [email, setEmail] = useState(profile?.email || '');
@@ -26,12 +27,31 @@ export function EditProfilePage() {
   const [touched, setTouched] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
 
+  if (!profile) {
+    return (
+      <div className="page">
+        <div className="card card--center">
+          <EmptyState
+            art="welcome"
+            title="Sign in to edit your profile"
+            action={
+              <Button variant="primary" onClick={() => openLoginModal({ title: 'Sign in to edit profile' })}>
+                Sign in
+              </Button>
+            }
+          >
+            Sign in with your mobile number to update your personal details and emergency contact.
+          </EmptyState>
+        </div>
+      </div>
+    );
+  }
+
   const dirty =
-    !!profile &&
-    (name.trim() !== profile.name ||
-      email.trim().toLowerCase() !== profile.email ||
-      emergency !== localMobile(profile.emergencyContact) ||
-      language !== (profile.language || 'English'));
+    name.trim() !== profile.name ||
+    email.trim().toLowerCase() !== profile.email ||
+    emergency !== localMobile(profile.emergencyContact) ||
+    language !== (profile.language || 'English');
 
   // Closing the tab with unsaved edits asks first.
   useEffect(() => {
@@ -42,17 +62,6 @@ export function EditProfilePage() {
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
   }, [dirty]);
-
-  if (!profile) {
-    return (
-      <AccountLayout>
-        <PageHead backTo="/account" title="My Profile">
-          Personal details and contact information.
-        </PageHead>
-        <SignInPrompt title="Sign in to edit your profile" text="Sign in with your mobile number to update your personal details and emergency contact." />
-      </AccountLayout>
-    );
-  }
 
   const errors = {
     name: !isValidName(name) ? 'Enter your full name (letters and spaces, 2–60 characters).' : '',
@@ -79,19 +88,20 @@ export function EditProfilePage() {
   const leave = () => (dirty ? setConfirmLeave(true) : navigate('/account'));
 
   return (
-    <AccountLayout>
+    <>
       <PageHead
-        title="My Profile"
+        eyebrow="Account"
+        title="Edit profile"
         back={
-          <button type="button" className="back-btn" aria-label="Back to account" onClick={leave}>
-            <Icon name="arrow-left" size={17} />
+          <button type="button" className="back-link" onClick={leave}>
+            <Icon name="arrow-left" size={18} /> Account
           </button>
         }
       >
-        Personal details and contact information.
+        Keep your details current so drivers and receipts reach you.
       </PageHead>
 
-      <div className="split">
+      <div className="page split">
         <form
           className="card form-card"
           noValidate
@@ -100,7 +110,7 @@ export function EditProfilePage() {
             void save();
           }}
         >
-          <TextField label="Mobile number (sign-in)" value={formatPhone(profile.phone)} readOnly hint="Your sign-in number can’t be changed here. Contact support to change it." />
+          <TextField label="Mobile number" value={formatPhone(profile.phone)} readOnly hint="Your sign-in number can’t be changed here. Contact support to change it." />
           <TextField label="Full name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" error={touched ? errors.name : ''} />
           <TextField
             label={
@@ -153,6 +163,7 @@ export function EditProfilePage() {
 
         <aside className="split__aside">
           <div className="aside-card">
+            <img src="/art/profile-setup.webp" alt="" width={220} height={220} />
             <h2>Why we ask</h2>
             <ul className="aside-card__list">
               <li>
@@ -187,6 +198,6 @@ export function EditProfilePage() {
           <p className="muted">Your edits have not been saved.</p>
         </Dialog>
       ) : null}
-    </AccountLayout>
+    </>
   );
 }

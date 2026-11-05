@@ -1,38 +1,81 @@
-// The four booking services shown in the navigation, and how they map onto the trip types the
-// booking server supports. Multicity is shown (it is part of the service line-up) but the booking
-// server has no multi-stop trip type, so it is booked by phone and never submitted online.
+// Service taxonomy for NESAM Cabs: Outstation, Airport Taxi, Local Rental, Multicity, Local Taxi.
 import type { TripType } from '@core/types';
 
-export type ServiceId = 'airport' | 'multicity' | 'outstation' | 'rental';
+export type ServiceId = 'outstation' | 'airport' | 'rental' | 'multicity' | 'local';
 
-export const SERVICES: { id: ServiceId; label: string; icon: string }[] = [
-  { id: 'airport', label: 'Airport', icon: 'travel-airport' },
-  { id: 'multicity', label: 'Multicity', icon: 'travel-multicity' },
-  { id: 'outstation', label: 'Outstation', icon: 'travel-outstation' },
-  { id: 'rental', label: 'Local Rental', icon: 'travel-rental' },
-];
+export interface ServiceMeta {
+  id: ServiceId;
+  label: string;
+  tagline: string;
+  tripType: TripType | null;
+  online: boolean;
+  icon: string;
+}
+
+export const SERVICES: readonly ServiceMeta[] = [
+  {
+    id: 'outstation',
+    label: 'Outstation',
+    tagline: 'One-way drops & round trips at fixed rates',
+    tripType: 'One Way',
+    online: true,
+    icon: 'outstation',
+  },
+  {
+    id: 'airport',
+    label: 'Airport Taxi',
+    tagline: 'Pickup & drop at all South India airports',
+    tripType: 'Airport Taxi',
+    online: true,
+    icon: 'jet',
+  },
+  {
+    id: 'rental',
+    label: 'Rental',
+    tagline: 'Hourly city disposal packages with driver',
+    tripType: 'Local Rental',
+    online: true,
+    icon: 'car-clock',
+  },
+  {
+    id: 'multicity',
+    label: 'Multicity',
+    tagline: 'Custom multi-stop itineraries & tour packages',
+    tripType: null,
+    online: true,
+    icon: 'multicity-route',
+  },
+  {
+    // Pickup and drop inside one city: the server prices it from that city's Local Pickup & Drop fare.
+    id: 'local',
+    label: 'Local Taxi',
+    tagline: 'City pickup & drop within your city',
+    tripType: 'One Way',
+    online: true,
+    icon: 'taxi-route',
+  },
+] as const;
 
 export const SERVICE_TITLE: Record<ServiceId, string> = {
-  airport: 'Airport Transfer',
-  multicity: 'Multicity',
-  outstation: 'Outstation',
-  rental: 'Local Rental',
+  outstation: 'Outstation Cabs',
+  airport: 'Airport Taxi',
+  rental: 'Local City Rental',
+  multicity: 'Multicity Tour & Itinerary',
+  local: 'Local Taxi',
 };
 
-/** True when the booking server can price and accept this service online. */
-export const isOnlineService = (s: ServiceId) => s !== 'multicity';
+export const parseService = (raw: string | null): ServiceId | null => {
+  if (raw === 'outstation' || raw === 'airport' || raw === 'rental' || raw === 'multicity' || raw === 'local') return raw;
+  if (raw === 'one-way' || raw === 'round-trip') return 'outstation';
+  return null;
+};
 
-export function serviceOfTrip(t: TripType): ServiceId {
+export const serviceOfTrip = (t: TripType | null | undefined): ServiceId => {
   if (t === 'Airport Taxi') return 'airport';
   if (t === 'Local Rental') return 'rental';
   return 'outstation';
-}
+};
 
-export function parseService(v: string | null): ServiceId | null {
-  return v === 'airport' || v === 'multicity' || v === 'outstation' || v === 'rental' ? v : null;
-}
-
-/** The customer-facing name of a trip type. */
 export function tripTypeLabel(t: TripType | string): string {
   switch (t) {
     case 'Round Trip':
@@ -48,4 +91,4 @@ export function tripTypeLabel(t: TripType | string): string {
   }
 }
 
-export const serviceHref = (s: ServiceId, trip?: 'one-way' | 'round-trip') => `/book?service=${s}${trip ? `&trip=${trip}` : ''}`;
+export const serviceHref = (s: ServiceId) => `/book?service=${s}`;

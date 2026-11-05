@@ -106,7 +106,7 @@ export function GoogleRouteMap({ pickup, drop, driver, userLocation, path, baseP
   return <div className={`route-map ${className}`} role="region" aria-label={label}>
     <div ref={host} className="route-map__canvas" />
     {pinMode ? <div className="route-map__pin" style={pinStyle} aria-hidden="true"><span className={`map-drop map-drop--${pinMode}`} /><span className="map-drop__shadow" /></div> : null}
-    <button type="button" className="route-map__recenter" onClick={() => setFitTick((n) => n + 1)} aria-label="Recentre map"><Icon name="current-location" size={20} /></button>
+    <button type="button" className="route-map__recenter" onClick={() => setFitTick((n) => n + 1)} aria-label="Recentre map"><Icon name="navigation" size={20} /></button>
   </div>;
 }
 

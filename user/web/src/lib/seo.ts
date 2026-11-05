@@ -18,6 +18,8 @@ export interface SeoProps {
   noindex?: boolean;
   /** Optional custom OpenGraph image URL */
   ogImage?: string;
+  /** Alt text for the share image (defaults to the page title) */
+  ogImageAlt?: string;
   /** Optional Breadcrumb hierarchy for automatic BreadcrumbList JSON-LD */
   breadcrumbs?: BreadcrumbItem[];
   /** Optional custom Schema.org JSON-LD object or array of objects */
@@ -133,6 +135,7 @@ export function updateSeo({
   canonical,
   noindex,
   ogImage,
+  ogImageAlt,
   breadcrumbs,
   schema,
 }: SeoProps): void {
@@ -186,11 +189,13 @@ export function updateSeo({
   setMetaTag('property', 'og:description', fullDescription);
   setMetaTag('property', 'og:url', canonicalUrl);
   setMetaTag('property', 'og:image', image);
+  setMetaTag('property', 'og:image:alt', ogImageAlt || fullTitle);
 
   // Twitter Cards
   setMetaTag('name', 'twitter:title', fullTitle);
   setMetaTag('name', 'twitter:description', fullDescription);
   setMetaTag('name', 'twitter:image', image);
+  setMetaTag('name', 'twitter:image:alt', ogImageAlt || fullTitle);
 
   // Dynamic Schema.org injection
   const schemaList: object[] = [];
@@ -235,6 +240,7 @@ export function useSeo(props: SeoProps): void {
     props.canonical,
     props.noindex,
     props.ogImage,
+    props.ogImageAlt,
     JSON.stringify(props.breadcrumbs),
     JSON.stringify(props.schema),
   ]);

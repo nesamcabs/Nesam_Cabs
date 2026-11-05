@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import type { ConfirmationResult } from 'firebase/auth';
 import { isValidIndianMobile, formatPhone, isValidEmail, isValidName } from '@core/utils/format';
 import { registerCustomerProfile } from '@core/services/userService';
@@ -12,6 +13,20 @@ import { useOnline } from '@/lib/hooks';
 
 const RESEND_SECONDS = 30;
 const OTP_LENGTH = 6;
+
+const agreement = (
+  <p className="login-modal__agree">
+    By continuing you agree to NESAM Cabs’s{' '}
+    <Link to="/legal#terms" target="_blank" rel="noopener">
+      Terms &amp; Conditions<span className="sr-only"> (opens in a new tab)</span>
+    </Link>{' '}
+    and{' '}
+    <Link to="/legal#privacy" target="_blank" rel="noopener">
+      Privacy &amp; Location Policy<span className="sr-only"> (opens in a new tab)</span>
+    </Link>
+    .
+  </p>
+);
 
 function OtpInput({
   value,
@@ -167,6 +182,7 @@ export function LoginModal() {
       <Dialog title="Almost there" onClose={closeLoginModal}>
         <div className="login-modal">
           <div className="login-modal__head">
+            <img className="login-modal__art" src="/art/profile-setup.webp" alt="" width={80} height={80} />
             <p className="login-modal__sub">
               Tell us who’s travelling. Your number {formatPhone(state.user.phoneNumber ?? '')} is verified.
             </p>
@@ -204,6 +220,7 @@ export function LoginModal() {
             <Button type="submit" size="lg" block loading={savingProfile} disabled={!name.trim()}>
               {savingProfile ? 'Saving…' : 'Save and continue booking'}
             </Button>
+            {agreement}
           </form>
         </div>
       </Dialog>
@@ -228,7 +245,7 @@ export function LoginModal() {
     );
   }
 
-  const dialogTitle = step === 'phone' ? loginModalOptions?.title || 'Continue with mobile' : 'Enter the code';
+  const dialogTitle = loginModalOptions?.title || (step === 'phone' ? 'Sign in to book' : 'Enter the code');
 
   return (
     <Dialog title={dialogTitle} onClose={closeLoginModal}>
@@ -236,8 +253,9 @@ export function LoginModal() {
         {step === 'phone' ? (
           <>
             <div className="login-modal__head">
+              <img className="login-modal__art" src="/art/welcome.webp" alt="" width={80} height={80} />
               <p className="login-modal__sub">
-                {loginModalOptions?.subtitle || 'Sign in to keep your bookings in one place.'}
+                {loginModalOptions?.subtitle || 'Enter your mobile number to sign in or create your NESAM Cabs account.'}
               </p>
             </div>
             <form
@@ -258,16 +276,19 @@ export function LoginModal() {
                 inputMode="numeric"
                 autoComplete="tel-national"
                 placeholder="98765 43210"
+                hint="We’ll text you a one-time verification code."
               />
               {error ? <Notice tone="error">{error}</Notice> : null}
-              <Button type="submit" size="lg" block loading={sending} disabled={mobile.length < 10} trailing="arrow-right">
+              <Button type="submit" size="lg" block loading={sending} disabled={mobile.length < 10}>
                 {sending ? 'Sending code…' : 'Continue'}
               </Button>
+              {agreement}
             </form>
           </>
         ) : (
           <>
             <div className="login-modal__head">
+              <img className="login-modal__art" src="/art/phone-verification.webp" alt="" width={80} height={80} />
               <p className="login-modal__sub">
                 We sent a 6-digit code to +91 {mobile.slice(0, 5)} {mobile.slice(5)}.
               </p>
@@ -290,8 +311,8 @@ export function LoginModal() {
                 invalid={!!error}
               />
               {error ? <Notice tone="error">{error}</Notice> : null}
-              <Button type="submit" size="lg" block loading={verifying} disabled={otp.length !== OTP_LENGTH} icon="shield-check">
-                {verifying ? 'Verifying…' : 'Verify OTP'}
+              <Button type="submit" size="lg" block loading={verifying} disabled={otp.length !== OTP_LENGTH}>
+                {verifying ? 'Verifying…' : 'Verify and continue'}
               </Button>
               <div className="login-modal__links">
                 <button

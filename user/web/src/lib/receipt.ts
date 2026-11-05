@@ -7,6 +7,8 @@ import { payableAmount } from './tripMoney';
 
 const money = (n: number) => `${n < 0 ? '−' : ''}₹${Math.abs(Math.round(n * 100) / 100).toLocaleString('en-IN', Number.isInteger(Math.round(Math.abs(n) * 100) / 100) ? { maximumFractionDigits: 0 } : { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+const policyUrl = (id: string) => `${window.location.origin}/legal#${id}`;
+
 /** Receipt HTML — every interpolated value is escaped. */
 export function receiptHtml(trip: TripRecord, customerName: string): string {
   const f = trip.fareBreakdown;
@@ -33,7 +35,7 @@ export function receiptHtml(trip: TripRecord, customerName: string): string {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Receipt ${escapeHtml(trip.bookingId)}</title>
 <style>
 body{font-family:'Poppins',system-ui,-apple-system,Helvetica,Arial,sans-serif;margin:32px;color:#111;max-width:640px}
-h1{font-size:20px;margin:0;color:#E31E24}.muted{color:#666;font-size:12px}
+h1{font-size:20px;margin:0;color:#c62828}.muted{color:#666;font-size:12px}
 .box{border:1px solid #e5e5e5;border-radius:8px;padding:12px;margin:14px 0;font-size:13px;line-height:1.6}
 table{width:100%;border-collapse:collapse;font-size:13px}td{padding:6px 0;border-bottom:1px solid #eee}.r{text-align:right}
 .paid{margin-top:8px}.total td{font-weight:700;font-size:15px;border-top:2px solid #111;border-bottom:none}
@@ -47,7 +49,8 @@ ${trip.driver ? `<b>Driver:</b> ${escapeHtml(trip.driver.name)} · ${escapeHtml(
 <b>Payment:</b> ${escapeHtml(trip.paymentMethod)} (${escapeHtml(trip.paymentStatus)})</div>
 <table>${rows}<tr class="total"><td>Total</td><td class="r">${escapeHtml(money(payableAmount(trip)))}</td></tr></table>
 ${paidRows}${extrasBox}
-<p class="muted">${gstNote} Upfront fare based on ${escapeHtml(formatDistance(trip.distanceKm))} / ${escapeHtml(formatDuration(trip.durationMin))} estimated. Thank you for riding with NESAM.</p>
+<p class="muted">${gstNote} Upfront fare based on ${escapeHtml(formatDistance(trip.distanceKm))} / ${escapeHtml(formatDuration(trip.durationMin))} estimated. Thank you for riding with NESAM Cabs.</p>
+<p class="muted">Fare &amp; Payment Policy: ${escapeHtml(policyUrl('payment'))} · Refund Policy: ${escapeHtml(policyUrl('refund'))}</p>
 </body></html>`;
 }
 

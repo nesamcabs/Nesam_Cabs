@@ -9,6 +9,7 @@ import { Button, Dialog, Notice, TextArea } from '@/components/ui';
 import { Icon } from '@/components/Icon';
 import { buildTripShareText, shareText } from '@/lib/share';
 import { useToasts } from '@/state/Toasts';
+import { PolicyLinks } from '@/pages/PolicySections';
 
 /** Cancel with a reason and the live fee quote (the fee depends on elapsed time, so it ticks). */
 export function CancelDialog({ trip, onClose }: { trip: TripRecord; onClose: () => void }) {
@@ -75,6 +76,7 @@ export function CancelDialog({ trip, onClose }: { trip: TripRecord; onClose: () 
             {quote.fee ? <strong>Cancellation fee: ₹{quote.fee}. </strong> : null}
             {quote.explanation}
           </Notice>
+          <PolicyLinks ids={['cancellation', 'refund']} newTab />
           <fieldset className="reasons">
             <legend>Why are you cancelling?</legend>
             {CANCEL_REASONS.map((r) => (
@@ -110,14 +112,14 @@ export function SafetyDialog({ trip, profile, location, onClose }: { trip: TripR
       setState('sent');
     } catch (e) {
       setState('failed');
-      setError(`${describeError(e, 'The alert could not be sent.')} Call ${EMERGENCY_NUMBER} or NESAM support now.`);
+      setError(`${describeError(e, 'The alert could not be sent.')} Call ${EMERGENCY_NUMBER} or NESAM Cabs support now.`);
     } finally {
       setAlerting(false);
     }
   };
 
   const share = async () => {
-    const result = await shareText(`NESAM ride ${trip.bookingId}`, buildTripShareText(trip, location));
+    const result = await shareText(`NESAM Cabs ride ${trip.bookingId}`, buildTripShareText(trip, location));
     if (result === 'copied') push({ title: 'Trip details copied', message: 'Paste them into a message to share.', tone: 'success' });
   };
 
@@ -130,7 +132,7 @@ export function SafetyDialog({ trip, profile, location, onClose }: { trip: TripR
           <Icon name="emergency" /> Call emergency ({EMERGENCY_NUMBER})
         </a>
         <a className="btn btn--secondary btn--block" href={`tel:${SUPPORT_PHONE}`}>
-          <Icon name="phone" /> Call NESAM support ({SUPPORT_PHONE_DISPLAY})
+          <Icon name="phone" /> Call NESAM Cabs support ({SUPPORT_PHONE_DISPLAY})
         </a>
         {emergencyLocal ? (
           <a className="btn btn--secondary btn--block" href={sms}>
@@ -141,9 +143,9 @@ export function SafetyDialog({ trip, profile, location, onClose }: { trip: TripR
           Share trip details
         </Button>
         <div className="sos">
-          <h3>Alert the NESAM safety team</h3>
-          <p className="muted small">Sends your booking, driver, vehicle and location to NESAM operations.</p>
-          {state === 'sent' ? <Notice tone="success">Alert sent. The NESAM team has your trip and location.</Notice> : null}
+          <h3>Alert the NESAM Cabs safety team</h3>
+          <p className="muted small">Sends your booking, driver, vehicle and location to NESAM Cabs operations.</p>
+          {state === 'sent' ? <Notice tone="success">Alert sent. The NESAM Cabs team has your trip and location.</Notice> : null}
           {error ? <Notice tone="error">{error}</Notice> : null}
           <Button variant="dark" block loading={alerting} onClick={() => void sendAlert()}>
             {state === 'sent' ? 'Send again' : 'Send SOS alert'}
@@ -154,6 +156,7 @@ export function SafetyDialog({ trip, profile, location, onClose }: { trip: TripR
             Your ride: {trip.driver.name} · {trip.driver.vehicleNumber || trip.categoryName} · Booking {trip.bookingId}
           </p>
         ) : null}
+        <PolicyLinks ids={['safety']} newTab />
       </div>
     </Dialog>
   );

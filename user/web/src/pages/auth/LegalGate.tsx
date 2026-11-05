@@ -1,11 +1,13 @@
 // Stops the app until the signed-in rider has accepted the current published terms,
 // privacy policy and consents for customers (a new version asks again). If nothing is
 // published, or the status can't be read, it lets them through (same as the app).
+// The check runs in the background: the app shows meanwhile, so it never holds up the first screen.
 import { useEffect, useState, type ReactNode } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/platform/firebase';
 import { ActionError, callFunction } from '@core/services/callables';
-import { Button, Checkbox, Notice, PageHead, PageLoader } from '@/components/ui';
+import { Button, Checkbox, Notice, PageHead } from '@/components/ui';
 import { Icon } from '@/components/Icon';
 
 interface RequiredDoc {
@@ -16,20 +18,19 @@ interface RequiredDoc {
   checkboxText: string;
 }
 
-export function LegalGate({ children, enabled = true }: { children: ReactNode; enabled?: boolean }) {
-  const [state, setState] = useState<'loading' | 'ok' | 'needed'>(enabled ? 'loading' : 'ok');
-  // Signing in on a page that is already showing keeps that page while the check runs.
-  const [shownBefore] = useState(!enabled);
+export function LegalGate({ active, children }: { active: boolean; children: ReactNode }) {
+  const [state, setState] = useState<'loading' | 'ok' | 'needed'>('loading');
   const [missing, setMissing] = useState<RequiredDoc[]>([]);
   const [bodies, setBodies] = useState<Record<string, string>>({});
   const [open, setOpen] = useState('');
   const [checked, setChecked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const { pathname } = useLocation();
 
   useEffect(() => {
-    if (!enabled) {
-      setState('ok');
+    if (!active) {
+      setState('loading');
       return undefined;
     }
     let alive = true;
@@ -52,10 +53,11 @@ export function LegalGate({ children, enabled = true }: { children: ReactNode; e
     return () => {
       alive = false;
     };
-  }, [enabled]);
+  }, [active]);
 
-  if (state === 'loading') return shownBefore ? <>{children}</> : <PageLoader label="Checking terms…" />;
-  if (state === 'ok') return <>{children}</>;
+  // Signed out, still checking or nothing to accept: the app as usual. The public policy page
+  // asks for nothing, so it stays readable before accepting.
+  if (!active || state !== 'needed' || pathname === '/legal') return <>{children}</>;
 
   const text = missing.find((m) => m.checkboxText)?.checkboxText || 'I agree to the Terms & Conditions and Privacy Policy.';
   const accept = async () => {
@@ -78,12 +80,12 @@ export function LegalGate({ children, enabled = true }: { children: ReactNode; e
   };
 
   return (
-    <main id="main" tabIndex={-1} className="gate-page">
-      <div className="wrap gate">
-        <PageHead eyebrow="Before you continue" title="Review and accept to continue">
-          These documents are new or have changed since you last accepted.
-        </PageHead>
-        <div className="stack">
+    <main id="main" tabIndex={-1}>
+      <PageHead eyebrow="Before you continue" title="Please review and accept to continue">
+        These documents are new or have changed since you last accepted. You can also read our <Link to="/legal">customer policies</Link>.
+      </PageHead>
+      <div className="page">
+        <div className="stack gate">
           {missing.map((m) => (
             <section key={m.key} className="card legal-doc">
               <button type="button" className="legal-doc__head" aria-expanded={open === m.key} onClick={() => setOpen(open === m.key ? '' : m.key)}>

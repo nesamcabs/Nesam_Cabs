@@ -59,42 +59,45 @@ export function createFreshRecaptchaVerifier(): RecaptchaVerifier {
   return activeVerifier;
 }
 
-export async function sendOtpToPhone(phoneE164: string): Promise<ConfirmationResult> {
-  const verifier = createFreshRecaptchaVerifier();
-  try {
-    return await signInWithPhoneNumber(auth, phoneE164, verifier);
-  } catch (error) {
-    resetRecaptchaVerifier();
-    const err = error as {
-      code?: string;
-      message?: string;
-      customData?: {
-        serverResponse?: {
-          error?: {
-            message?: string;
-            code?: number;
-          };
-        };
-      };
-    };
-    // One readable line (the code and the server's reason), so the cause shows without opening the object.
-    console.error(`[Firebase Phone Auth Error] ${err?.code ?? 'unknown'} · ${err?.customData?.serverResponse?.error?.message ?? err?.message ?? ''} · ${typeof location !== 'undefined' ? location.host : ''}`, error);
-    throw error;
-  }
-}
-
-export async function confirmOtpCode(confirmation: ConfirmationResult, code: string): Promise<User> {
-  return (await confirmation.confirm(code)).user;
-}
-
-export const subscribeToAuthUser = (cb: (user: User | null) => void) => onAuthStateChanged(auth, cb);
-export const signOutUser = () => firebaseSignOut(auth);
-
 type PhoneAuthError = {
   code?: string;
   message?: string;
   customData?: { serverResponse?: { error?: { message?: string } } };
 };
+
+/** Developer diagnostics only: the error code and server reason. Never the phone number, code or tokens. */
+function logPhoneAuthError(stage: 'send' | 'confirm', error: unknown): void {
+  const err = error as PhoneAuthError;
+  console.error('[Firebase Phone Auth]', stage, {
+    code: err?.code,
+    serverMessage: err?.customData?.serverResponse?.error?.message,
+    host: typeof location !== 'undefined' ? location.hostname : undefined,
+  });
+}
+
+export async function sendOtpToPhone(phoneE164: string): Promise<ConfirmationResult> {
+  const verifier = createFreshRecaptchaVerifier();
+  try {
+    return await signInWithPhoneNumber(auth, phoneE164, verifier);
+  } catch (error) {
+    // A verifier that has been used or has failed cannot be reused: the retry builds a fresh one.
+    resetRecaptchaVerifier();
+    logPhoneAuthError('send', error);
+    throw error;
+  }
+}
+
+export async function confirmOtpCode(confirmation: ConfirmationResult, code: string): Promise<User> {
+  try {
+    return (await confirmation.confirm(code)).user;
+  } catch (error) {
+    logPhoneAuthError('confirm', error);
+    throw error;
+  }
+}
+
+export const subscribeToAuthUser = (cb: (user: User | null) => void) => onAuthStateChanged(auth, cb);
+export const signOutUser = () => firebaseSignOut(auth);
 
 /** Customer-facing message for a Firebase phone-auth failure (setup details stay in the developer log). */
 export function describePhoneAuthError(error: unknown): string {
@@ -106,7 +109,7 @@ export function describePhoneAuthError(error: unknown): string {
   if (has('ALREADY BEEN RENDERED')) return 'Security check refreshed. Please tap Continue again.';
 
   if (code === 'auth/unauthorized-domain' || has('SITE_MISMATCH')) {
-    return 'Sign-in isn’t available from this web address. Please use the official NESAM website.';
+    return 'Sign-in isn’t available from this web address. Please use the official NESAM Cabs website.';
   }
 
   if (

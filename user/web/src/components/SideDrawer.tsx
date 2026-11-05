@@ -4,6 +4,7 @@ import { useEffect, useRef, type KeyboardEvent, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { COMPANY_LEGAL_NAME, SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY } from '@core/config/constants';
 import { Icon } from './Icon';
+import { ALL_ROUTES } from '@/pages/routes/routesData';
 interface MenuLink {
   to: string;
   label: string;
@@ -11,10 +12,11 @@ interface MenuLink {
 
 /** The everyday links, as plain rows with an icon. */
 const QUICK: { to: string; label: string; icon: string }[] = [
-  { to: '/book', label: 'Book a cab', icon: 'car' },
-  { to: '/trips', label: 'My bookings', icon: 'trip-history' },
+  { to: '/book', label: 'Book a ride', icon: 'car' },
+  { to: '/trips', label: 'My trips', icon: 'trip-history' },
+  { to: '/account', label: 'Account', icon: 'profile' },
   { to: '/offers', label: 'Offers', icon: 'offers' },
-  { to: '/support', label: 'Help & support', icon: 'support' },
+  { to: '/support', label: 'Help & support', icon: 'help' },
 ];
 
 const GROUPS: { title: string; links: MenuLink[] }[] = [
@@ -31,23 +33,17 @@ const GROUPS: { title: string; links: MenuLink[] }[] = [
   },
   {
     title: 'Popular routes',
-    links: [
-      { to: '/routes/chennai-to-pondicherry', label: 'Chennai to Pondicherry' },
-      { to: '/routes/chennai-to-bangalore', label: 'Chennai to Bangalore' },
-      { to: '/routes/coimbatore-to-ooty', label: 'Coimbatore to Ooty' },
-      { to: '/routes/madurai-to-rameshwaram', label: 'Madurai to Rameshwaram' },
-      { to: '/routes/bangalore-to-mysore', label: 'Bangalore to Mysore' },
-    ],
+    links: ALL_ROUTES.map((r) => ({ to: `/routes/${r.slug}`, label: `${r.origin} to ${r.destination}` })),
   },
   {
-    title: 'Company',
+    title: 'Policies',
     links: [
-      { to: '/about', label: 'About NESAM' },
-      { to: '/support?topic=cancellation', label: 'Cancellation & refunds' },
-      { to: '/legal#terms', label: 'Terms & conditions' },
+      { to: '/about', label: 'About NESAM Cabs' },
+      { to: '/legal#terms', label: 'Terms & Conditions' },
       { to: '/legal#privacy', label: 'Privacy & location' },
       { to: '/legal#cancellation', label: 'Cancellation policy' },
       { to: '/legal#refund', label: 'Refund policy' },
+      { to: '/legal#payment', label: 'Fare & payment policy' },
       { to: '/legal#deletion', label: 'Account & data deletion' },
     ],
   },

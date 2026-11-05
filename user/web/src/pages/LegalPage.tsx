@@ -8,9 +8,9 @@ import { db } from '@/platform/firebase';
 import { callFunction } from '@core/services/callables';
 import { SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY } from '@core/config/constants';
 import { Badge, Button, Notice, PageHead, PageLoader } from '@/components/ui';
-import { AccountLayout } from '@/components/AccountLayout';
 import { Icon } from '@/components/Icon';
 import { useSeo } from '@/lib/seo';
+import { LEGAL_SEO } from '@/seo/pages';
 import { useAuth } from '@/state/Auth';
 import { PolicySections } from './PolicySections';
 
@@ -23,16 +23,12 @@ interface DocRow {
 }
 
 export function LegalPage() {
-  useSeo({
-    title: 'Terms of Service & Customer Privacy Policy',
-    description: 'Read the official terms and conditions, customer privacy policy, fare transparency rules and cancellation guidelines for NESAM Cabs.',
-    canonical: '/legal',
-  });
+  useSeo(LEGAL_SEO);
   const [rows, setRows] = useState<DocRow[] | null>(null);
   const [error, setError] = useState('');
   const [open, setOpen] = useState('');
   const [attempt, setAttempt] = useState(0);
-  // Published agreement versions and acceptance belong to an account; a signed-out visitor reads the public policies only.
+  // Published versions and acceptance belong to an account; a signed-out visitor reads the policies only.
   const { state: auth } = useAuth();
   const signedIn = auth.status !== 'signed-out' && auth.status !== 'loading';
 
@@ -59,12 +55,20 @@ export function LegalPage() {
   }, [attempt, signedIn]);
 
   return (
-    <AccountLayout>
-      <PageHead backTo="/account" title="Terms & privacy">
-        The agreements and policies that apply when you travel with NESAM.
+    <>
+      <PageHead
+        eyebrow="Account"
+        title="Terms, privacy and policies"
+        back={
+          <Link to="/account" className="back-link">
+            <Icon name="arrow-left" size={18} /> Account
+          </Link>
+        }
+      >
+        The agreements and policies that apply when you ride with NESAM Cabs.
       </PageHead>
 
-      <div className="split">
+      <div className="page split">
         <div className="stack">
           <PolicySections />
           {error ? (
@@ -81,7 +85,6 @@ export function LegalPage() {
           ) : null}
           {!signedIn ? <Notice>Sign in to see the agreement versions published for your account and whether you have accepted them.</Notice> : null}
           {signedIn && rows === null && !error ? <PageLoader label="Loading documents…" /> : null}
-
           {rows?.map((r) => (
             <section key={r.key} className="card legal-doc">
               <button type="button" className="legal-doc__head" aria-expanded={open === r.key} onClick={() => setOpen(open === r.key ? '' : r.key)}>
@@ -101,17 +104,15 @@ export function LegalPage() {
 
         <aside className="split__aside">
           <div className="aside-card">
+            <img src="/art/support.webp" alt="" width={220} height={220} />
             <h2>Questions about these terms?</h2>
             <p className="muted">Our team can walk you through cancellation, payment and privacy terms.</p>
             <a className="btn btn--secondary btn--block" href={`tel:${SUPPORT_PHONE}`}>
-              <Icon name="phone" size={17} /> Call {SUPPORT_PHONE_DISPLAY}
+              <Icon name="phone" /> Call {SUPPORT_PHONE_DISPLAY}
             </a>
-            <Link className="btn btn--text" to="/about">
-              About NESAM <Icon name="arrow-right" size={14} />
-            </Link>
           </div>
         </aside>
       </div>
-    </AccountLayout>
+    </>
   );
 }

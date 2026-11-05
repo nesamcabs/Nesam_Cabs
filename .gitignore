@@ -40,6 +40,10 @@ web-build/
 expo-env.d.ts
 **/expo-env.d.ts
 
+# Android native C++ / Gradle intermediates (can exceed Windows MAX_PATH)
+**/.cxx/
+**/.gradle/
+
 # Generated native project folders (Expo Continuous Native Generation — CNG)
 # Never edit these by hand; they are re-created by `expo prebuild`
 **/android/
@@ -177,10 +181,26 @@ coverage/
 # Test result logs (keep test source; ignore heavy output files)
 tests/firestore-rules/latest-results.log
 output/jest-*/
+output/**/jest-*/
+output/**/haste-map-*
+output/**/jest-transform-cache-*/
 output/wiring-*.json
 output/admin-audit/
 output/admin-control-summary.json
 structure.txt
+
+# Firebase emulator / CLI local state
+.firebase/
+**/.firebase/
+firebase-debug.log
+**/firebase-debug.log
+firestore-debug.log
+**/firestore-debug.log
+ui-debug.log
+
+# Vercel CLI local link (contains org/project ids)
+.vercel/
+**/.vercel/
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 11. Large Binary / Archive Files (use Git LFS or Releases instead)
@@ -191,6 +211,19 @@ structure.txt
 *.tar.gz
 *.7z
 *.gz
+
+# Audio / video recordings kept in docs/ (GitHub rejects >100 MB files).
+# Scoped to docs/ on purpose: app sounds in */assets/sounds/*.wav must stay tracked.
+docs/**/*.wav
+docs/**/*.mp3
+docs/**/*.m4a
+docs/**/*.aac
+docs/**/*.flac
+docs/**/*.ogg
+docs/**/*.mp4
+docs/**/*.mov
+docs/**/*.avi
+docs/**/*.mkv
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 12. Miscellaneous Tool Caches

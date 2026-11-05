@@ -70,12 +70,10 @@ export function TimePicker({
   notBefore,
 }: {
   title?: string;
-  /** yyyy-mm-dd the time applies to (for the lead-time check). */
   date: string;
   value: string;
   onConfirm: (hhmm: string) => void;
   onClose: () => void;
-  /** pickup: the booking server's lead-time rules; after: must be after `notBefore`. */
   validate?: 'pickup' | 'after';
   notBefore?: Date | null;
 }) {

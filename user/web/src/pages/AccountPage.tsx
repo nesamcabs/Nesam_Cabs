@@ -1,24 +1,47 @@
-import { useRef, useState } from 'react';
-import { useCustomerData } from '@/state/CustomerData';
+import { useRef, useState, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
+import { useCustomerData } from '@core/context/CustomerData';
 import { updateCustomerProfile } from '@core/services/userService';
-import { isActiveStatus } from '@core/services/rideService';
-import { SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY } from '@core/config/constants';
+import { COMPANY_LEGAL_NAME, SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY } from '@core/config/constants';
 import { formatINR, formatPhone } from '@core/utils/format';
 import { describeError } from '@core/utils/retry';
 import { callFunction } from '@core/services/callables';
-import { Avatar, Button, Dialog, ListRow, Notice, PageHead } from '@/components/ui';
+import { Avatar, Button, Dialog, EmptyState, LinkButton, Notice, PageHead } from '@/components/ui';
 import { Icon } from '@/components/Icon';
-import { AccountLayout, SignInPrompt } from '@/components/AccountLayout';
 import { PhotoError, uploadProfilePhoto } from '@/lib/avatarUpload';
 import { useSeo } from '@/lib/seo';
 import { useAuth } from '@/state/Auth';
-import { useInbox } from '@/state/Inbox';
+
+function Row({ icon, label, value, to, href }: { icon: string; label: string; value?: ReactNode; to?: string; href?: string }) {
+  const inner = (
+    <>
+      <span className="setting__icon">
+        <Icon name={icon} size={20} />
+      </span>
+      <span className="setting__label">{label}</span>
+      {value ? <span className="setting__value truncate">{value}</span> : null}
+      {to || href ? <Icon name="chevron-right" size={18} /> : null}
+    </>
+  );
+  if (to)
+    return (
+      <Link className="setting" to={to}>
+        {inner}
+      </Link>
+    );
+  if (href)
+    return (
+      <a className="setting" href={href}>
+        {inner}
+      </a>
+    );
+  return <div className="setting">{inner}</div>;
+}
 
 export function AccountPage() {
   useSeo({ title: 'My Account', noindex: true });
-  const { profile, trips } = useCustomerData();
-  const { signOut } = useAuth();
-  const { unreadCount } = useInbox();
+  const { profile } = useCustomerData();
+  const { signOut, openLoginModal } = useAuth();
   const file = useRef<HTMLInputElement>(null);
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState('');
@@ -27,38 +50,6 @@ export function AccountPage() {
   const [deleting, setDeleting] = useState(false);
   const [deleteResult, setDeleteResult] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
 
-  if (!profile) {
-    return (
-      <AccountLayout>
-        <PageHead backTo="/book" title="Account">
-          Everything for your journey.
-        </PageHead>
-        <SignInPrompt title="Sign in to your account" text="Sign in with your mobile number to see your bookings, payments, saved addresses and notifications." />
-        <div className="card card--list acct-list">
-          <ListRow icon="support" title="Help & Support" text="Get help with your journey" to="/support" />
-          <ListRow icon="offers" title="Offers" text="Current promo codes" to="/offers" />
-          <ListRow icon="document" title="Terms & privacy" text="Customer terms and privacy policy" to="/legal" />
-          <ListRow icon="information" title="About NESAM" text="Company details" to="/about" />
-        </div>
-      </AccountLayout>
-    );
-  }
-
-  const onFile = async (f: File | undefined) => {
-    if (!f) return;
-    setError('');
-    setProgress(0);
-    try {
-      const url = await uploadProfilePhoto(profile.uid, f, setProgress);
-      await updateCustomerProfile(profile.uid, { photoUrl: url });
-    } catch (e) {
-      setError(e instanceof PhotoError ? e.message : describeError(e, 'We couldn’t update your photo.'));
-    } finally {
-      setProgress(null);
-      if (file.current) file.current.value = '';
-    }
-  };
-  const active = trips.filter((t) => isActiveStatus(t.status)).length;
   const requestDeletion = async () => {
     if (deleting) return;
     setDeleting(true);
@@ -77,49 +68,147 @@ export function AccountPage() {
     }
   };
 
-  return (
-    <AccountLayout>
-      <PageHead backTo="/book" title="Account">
-        Everything for your journey.
-      </PageHead>
-      {error ? <Notice tone="error">{error}</Notice> : null}
-
-      <section className="card acct-hero">
-        <button type="button" className="acct-hero__photo" onClick={() => file.current?.click()} disabled={progress != null} aria-label="Change profile photo">
-          <Avatar name={profile.name} photoUrl={profile.photoUrl} size={52} />
-          <span className="acct-hero__cam">
-            <Icon name={progress != null ? 'document-upload' : 'camera'} size={12} />
-          </span>
-        </button>
-        <input ref={file} type="file" accept="image/*" hidden onChange={(e) => void onFile(e.target.files?.[0])} />
-        <div className="acct-hero__text">
-          <h2>{profile.name}</h2>
-          <p className="num">{formatPhone(profile.phone)}</p>
-          {progress != null ? <p className="small muted">Uploading photo… {progress}%</p> : null}
+  if (!profile) {
+    return (
+      <>
+        <PageHead eyebrow="Your NESAM Cabs account" title="Account">
+          Your details, saved places, payments and help.
+        </PageHead>
+        <div className="page">
+          <div className="card card--center">
+            <EmptyState
+              art="welcome"
+              title="Sign in to your account"
+              action={
+                <Button variant="primary" onClick={() => openLoginModal({ title: 'Sign in to account' })}>
+                  Sign in
+                </Button>
+              }
+            >
+              Sign in to manage your profile, saved addresses and payment options.
+            </EmptyState>
+          </div>
+          <div className="card card--list" style={{ marginTop: 16 }}>
+            <Row icon="info" label="About NESAM Cabs" to="/about" />
+                <Row icon="document" label="Terms, privacy & customer policies" to="/legal" />
+          </div>
         </div>
-      </section>
+      </>
+    );
+  }
 
-      <div className="card card--list acct-list">
-        <ListRow icon="booking" title="My Bookings" text="Upcoming, ongoing & past trips" to="/trips" trailing={active ? <em className="count count--soft">{active}</em> : undefined} />
-        <ListRow icon="wallet" title="Payments & Refunds" text={`Trip payments, refunds · credits ${formatINR(profile.walletBalance)}`} to="/account/payments" />
+  const onFile = async (f: File | undefined) => {
+    if (!f) return;
+    setError('');
+    setProgress(0);
+    try {
+      const url = await uploadProfilePhoto(profile.uid, f, setProgress);
+      await updateCustomerProfile(profile.uid, { photoUrl: url });
+    } catch (e) {
+      setError(e instanceof PhotoError ? e.message : describeError(e, 'We couldn’t update your photo.'));
+    } finally {
+      setProgress(null);
+      if (file.current) file.current.value = '';
+    }
+  };
+
+  return (
+    <>
+      <PageHead eyebrow="Your NESAM Cabs account" title="Account">
+        Your details, saved places, payments and help.
+      </PageHead>
+      <div className="page">
+        {error ? <Notice tone="error">{error}</Notice> : null}
+
+        <div className="account">
+          <aside className="account__side">
+            <section className="card profile-card">
+              <button type="button" className="profile-card__photo" onClick={() => file.current?.click()} disabled={progress != null} aria-label="Change profile photo">
+                <Avatar name={profile.name} photoUrl={profile.photoUrl} size={104} />
+                <span className="profile-card__cam">
+                  <Icon name={progress != null ? 'document-upload' : 'camera'} size={16} />
+                </span>
+              </button>
+              <input ref={file} type="file" accept="image/*" hidden onChange={(e) => void onFile(e.target.files?.[0])} />
+              <h2>{profile.name}</h2>
+              <p className="muted">{formatPhone(profile.phone)}</p>
+              {profile.email ? <p className="muted small truncate">{profile.email}</p> : null}
+              {progress != null ? <p className="small muted">Uploading photo… {progress}%</p> : null}
+              <LinkButton block variant="secondary" to="/account/edit" icon="edit">
+                Edit profile
+              </LinkButton>
+            </section>
+
+            <Link className="credit-card" to="/account/payments">
+              <Icon name="wallet" size={30} />
+              <span className="credit-card__text">
+                <small>Refund credits</small>
+                <strong className="num">{formatINR(profile.walletBalance)}</strong>
+              </span>
+              <Icon name="chevron-right" size={20} />
+            </Link>
+          </aside>
+
+          <div className="account__groups">
+            <section className="group" aria-labelledby="g-profile">
+              <h2 id="g-profile" className="eyebrow">
+                Profile &amp; places
+              </h2>
+              <div className="card card--list">
+                <Row icon="saved-place" label="Saved places" to="/account/places" />
+                <Row icon="emergency" label="Emergency contact" value={profile.emergencyContact || 'Not set'} to="/account/edit" />
+                <Row icon="help" label="Language" value={profile.language || 'English'} to="/account/edit" />
+              </div>
+            </section>
+            <section className="group" aria-labelledby="g-pay">
+              <h2 id="g-pay" className="eyebrow">
+                Payments &amp; offers
+              </h2>
+              <div className="card card--list">
+                <Row icon="receipt" label="Payments and refunds" to="/account/payments" />
+                <Row icon="offers" label="Offers" to="/offers" />
+                <Row icon="trip-history" label="My trips" to="/trips" />
+              </div>
+            </section>
+            <section className="group" aria-labelledby="g-help">
+              <h2 id="g-help" className="eyebrow">
+                Help
+              </h2>
+              <div className="card card--list">
+                <Row icon="support" label="Help and support tickets" to="/support" />
+                <Row icon="phone" label="Call NESAM Cabs" value={SUPPORT_PHONE_DISPLAY} href={`tel:${SUPPORT_PHONE}`} />
+                <Row icon="info" label="About NESAM Cabs" to="/about" />
+                <Row icon="document" label="Terms, privacy & customer policies" to="/legal" />
+              </div>
+            </section>
+            <section className="group" aria-label="Session">
+              <h2 className="eyebrow">Session</h2>
+              <div className="card account__logout">
+                <div>
+                  <strong>Log out of this browser</strong>
+                  <p className="muted small">{COMPANY_LEGAL_NAME}</p>
+                </div>
+                <Button variant="danger" icon="logout" onClick={() => setConfirm(true)}>
+                  Log out
+                </Button>
+              </div>
+            </section>
+            <section className="group" aria-label="Delete account">
+              <h2 className="eyebrow">Privacy</h2>
+              <div className="card account__logout">
+                <div>
+                  <strong>Delete my account</strong>
+                  <p className="muted small">Ask us to erase your account and personal data.</p>
+                </div>
+                <Button variant="secondary" onClick={() => setDeleteAsk(true)}>
+                  Request deletion
+                </Button>
+              </div>
+              {deleteResult ? <Notice tone={deleteResult.tone}>{deleteResult.text}</Notice> : null}
+            </section>
+          </div>
+        </div>
       </div>
-      <div className="card card--list acct-list">
-        <ListRow icon="profile" title="My Profile" text="Personal details, WhatsApp, emergency contact & language" to="/account/edit" />
-        <ListRow icon="saved-place" title="Saved addresses" text="Your regular pickup & drop places" to="/account/places" />
-        <ListRow icon="support" title="Help & Support" text="Get help with your journey" to="/support" />
-      </div>
-      <div className="card card--list acct-list">
-        <ListRow icon="notifications" title="Notifications & updates" text="Booking and payment updates" to="/notifications" trailing={unreadCount ? <em className="count count--soft">{unreadCount}</em> : undefined} />
-        <ListRow icon="offers" title="Offers" text="Current promo codes" to="/offers" />
-        <ListRow icon="information" title="Terms, privacy & about NESAM" text="Policies you accepted and company details" to="/legal" />
-        <ListRow icon="phone" title="Call NESAM" text={SUPPORT_PHONE_DISPLAY} href={`tel:${SUPPORT_PHONE}`} />
-        <ListRow icon="information" title="About NESAM" text="Company details" to="/about" />
-        <ListRow icon="trash-2" title="Delete my account" text="Ask NESAM to erase your account and personal data" onClick={() => setDeleteAsk(true)} />
-      </div>
-      {deleteResult ? <Notice tone={deleteResult.tone}>{deleteResult.text}</Notice> : null}
-      <button type="button" className="signout" onClick={() => setConfirm(true)}>
-        <Icon name="logout" size={16} /> Sign out
-      </button>
 
       {deleteAsk ? (
         <Dialog
@@ -144,20 +233,20 @@ export function AccountPage() {
 
       {confirm ? (
         <Dialog
-          title="Sign out of NESAM?"
+          title="Log out of NESAM Cabs?"
           onClose={() => setConfirm(false)}
           footer={
             <>
               <Button variant="secondary" onClick={() => setConfirm(false)}>
                 Stay signed in
               </Button>
-              <Button onClick={() => void signOut().catch(() => setError('We couldn’t sign you out. Please try again.'))}>Sign out</Button>
+              <Button onClick={() => void signOut().catch(() => setError('We couldn’t log you out. Please try again.'))}>Log out</Button>
             </>
           }
         >
           <p className="muted">You’ll need to verify your mobile number again to sign back in.</p>
         </Dialog>
       ) : null}
-    </AccountLayout>
+    </>
   );
 }

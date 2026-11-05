@@ -1,131 +1,91 @@
-// After "Submit booking request": a ticket for the booking that was just created. The headline follows
-// the booking's real status — a new request is awaiting NESAM's review and is not called confirmed
-// until NESAM approves it. Safe to reload: everything is read from the booking itself.
+// Confirmation page after a booking request is saved.
+// Shows the journey art, a printable ticket card with trip id, route, schedule and live status.
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import type { TripRecord } from '@core/types';
-import { subscribeToBooking } from '@core/services/rideService';
+import { useCustomerData } from '@/state/customer';
 import { formatDate, formatTime } from '@core/utils/format';
-import { describeError } from '@core/utils/retry';
-import { Button, Notice, PageLoader } from '@/components/ui';
+import { Button, PageLoader } from '@/components/ui';
 import { Icon } from '@/components/Icon';
-import { useSeo } from '@/lib/seo';
 import { useBooking } from '@/state/Booking';
-import { tripTypeLabel } from '@/lib/services';
+import type { TripRecord, TripType } from '@core/types';
 import { BookingConfirmedOverlay } from '@/components/BookingConfirmedOverlay';
 import './done.css';
 
-function headline(t: TripRecord): { title: string; text: string; tone: 'pending' | 'ok' | 'bad' } {
-  if (t.status === 'Rejected') return { title: 'Booking not accepted', text: 'NESAM could not accept this booking request. Nothing has been charged.', tone: 'bad' };
-  if (t.status === 'Cancelled') return { title: 'Booking cancelled', text: 'This booking has been cancelled.', tone: 'bad' };
-  if (t.status === 'Pending') return { title: 'Booking confirmed', text: 'Your booking is confirmed. We will share the driver details before pickup.', tone: 'pending' };
-  return { title: 'Booking Confirmed', text: 'Your trip is confirmed. We will arrange your cab.', tone: 'ok' };
-}
+const BRAND_LOGO = { src: '/nesam/logo.webp', alt: 'NESAM Cabs' };
 
 function JourneyArt({ done }: { done: boolean }) {
   return (
     <div className={`journey-art ${done ? 'is-done' : ''}`} aria-hidden="true">
-      <span className="journey-art__track">
+      <div className="journey-art__track">
         <span className="journey-art__start" />
         <span className="journey-art__line" />
         <span className="journey-art__car">
-          <Icon name="car" size={30} />
+          <Icon name="car" size={26} />
         </span>
-      </span>
-      <span className="journey-art__badge">
-        <Icon name={done ? 'check' : 'clock'} size={26} />
-      </span>
+      </div>
+      <div className="journey-art__badge">
+        <Icon name={done ? 'check' : 'clock'} size={28} />
+      </div>
     </div>
   );
 }
 
+const tripTypeLabel = (t: TripType): string => {
+  if (t === 'One Way') return 'One Way Drop';
+  if (t === 'Round Trip') return 'Round Trip';
+  if (t === 'Local Rental') return 'Local Rental';
+  return 'Airport Taxi';
+};
+
+const headline = (t: TripRecord): { title: string; text: string; tone: 'pending' | 'ok' | 'bad' } => {
+  if (t.status === 'Cancelled' || t.status === 'Rejected') {
+    return {
+      title: 'Booking request cancelled',
+      text: t.cancelReason || 'This booking has been cancelled.',
+      tone: 'bad',
+    };
+  }
+  if (t.status === 'Approved' || t.status === 'Assigned') {
+    return {
+      title: 'Your ride is confirmed',
+      text: 'Our driver will arrive at your pickup location on time.',
+      tone: 'ok',
+    };
+  }
+  return {
+    title: 'Booking confirmed',
+    text: 'Your booking is confirmed. We will share the driver details before pickup.',
+    tone: 'pending',
+  };
+};
+
+const bookingRef = (t: TripRecord) => t.bookingId || `#${t.id.slice(-6).toUpperCase()}`;
+
 export function DonePage() {
-  useSeo({ title: 'Booking request received', noindex: true });
-  const { id = '' } = useParams();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [trip, setTrip] = useState<TripRecord | null>(null);
-  const [pending, setPending] = useState(false);
-  const [missing, setMissing] = useState(false);
-  const [error, setError] = useState('');
-  const [attempt, setAttempt] = useState(0);
   const location = useLocation();
+  const { trips } = useCustomerData();
+  const trip = trips.find((t) => t.id === id);
   const { reset } = useBooking();
-  // Shown once, right after booking; a reload or a later visit goes straight to the page.
-  const [celebrate, setCelebrate] = useState(() => (location.state as { fresh?: boolean } | null)?.fresh === true);
+  const [booked, setBooked] = useState(() => (location.state as { confirmed?: boolean } | null)?.confirmed === true);
 
-  // Arriving straight from "Submit booking request": the draft has done its job.
+  // The flag is consumed: reloading or coming back to this page never shows the celebration again. Arriving straight
+  // from "Confirm booking", the draft has done its job and is cleared here.
   useEffect(() => {
-    if ((location.state as { fresh?: boolean } | null)?.fresh) {
+    if (booked) {
       reset();
-      navigate(location.pathname, { replace: true, state: null }); // used once: a reload does not celebrate again
+      navigate(location.pathname, { replace: true, state: null });
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- once, on arrival
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    setError('');
-    return subscribeToBooking(
-      id,
-      (s) => {
-        setPending(s.pending);
-        if (s.trip) {
-          setTrip(s.trip);
-          setMissing(false);
-        } else if (!s.fromCache) setMissing(true);
-      },
-      (e) => setError(describeError(e, 'We couldn’t load your booking.')),
-    );
-  }, [id, attempt]);
-
-  if (error && !trip) {
-    return (
-      <div className="flow-page">
-        <div className="wrap flow-page__wrap done-state">
-          <Notice
-            tone="error"
-            action={
-              <Button size="sm" variant="secondary" onClick={() => setAttempt((n) => n + 1)}>
-                Try again
-              </Button>
-            }
-          >
-            {error} Your request may still have been received — check My Bookings.
-          </Notice>
-          <Link className="btn btn--secondary" to="/trips">
-            Open My Bookings
-          </Link>
-        </div>
-      </div>
-    );
-  }
-  if (missing) {
-    return (
-      <div className="flow-page">
-        <div className="wrap flow-page__wrap done-state">
-          <Notice tone="warning">We can’t find this booking. If you just submitted it, the request was not accepted and nothing was charged — please try again or call support.</Notice>
-          <Link className="btn btn--primary" to="/book">
-            Back to booking
-          </Link>
-        </div>
-      </div>
-    );
-  }
-  if (!trip) return <PageLoader label="Loading your booking…" />;
+  if (!trip) return <PageLoader label="Loading your booking details…" />;
 
   const h = headline(trip);
   const at = trip.scheduledAt;
+
   return (
     <div className="flow-page flow-page--done">
-      {celebrate && h.tone !== 'bad' ? (
-        <BookingConfirmedOverlay
-          logo={{ src: '/nesam/logo.webp', alt: 'NESAM Cabs' }}
-          code={trip.bookingId || trip.id}
-          message="We will share the driver details before pickup."
-          primaryLabel="View booking"
-          onPrimary={() => navigate(`/trips/${trip.id}`)}
-          secondaryLabel="Done"
-          onClose={() => setCelebrate(false)}
-        />
-      ) : null}
       <div className="wrap flow-page__wrap">
         <div className="dn">
           <section className={`dn-hero dn-hero--${h.tone}`}>
@@ -151,7 +111,7 @@ export function DonePage() {
               </div>
             ) : null}
             <h1>{h.title}</h1>
-            <p className="dn-hero__text">{pending ? 'Sending your request…' : h.text}</p>
+            <p className="dn-hero__text">{h.text}</p>
             <p className="dn-hero__saved">
               <Icon name="shield-check" size={14} /> Your trip is saved in My Bookings
             </p>
@@ -159,10 +119,10 @@ export function DonePage() {
 
           <section className="dn-ticket" aria-label="Trip summary">
             <header className="dn-ticket__head">
-              <span className="dn-ticket__brand">NESAM</span>
+              <span className="dn-ticket__brand">NESAM CABS</span>
               <span className="dn-ticket__id">
                 <small>Booking ID</small>
-                <strong className="num">{trip.bookingId}</strong>
+                <strong className="num">{bookingRef(trip)}</strong>
               </span>
             </header>
             <ol className="dn-trip">
@@ -195,14 +155,14 @@ export function DonePage() {
                 <span>
                   <strong>{trip.categoryName}</strong>
                   <small>
-                    {tripTypeLabel(trip.tripType)} · {trip.paymentMethod === 'UPI' ? 'Pay your driver by UPI' : 'Pay your driver in cash'}
+                    {tripTypeLabel(trip.tripType)} · {trip.paymentMethod === 'UPI' ? 'Pay driver by UPI' : 'Pay driver in cash'}
                   </small>
                 </span>
               </div>
             </div>
             <p className={`dn-status dn-status--${h.tone}`}>
-              <Icon name={h.tone === 'ok' ? 'success' : h.tone === 'bad' ? 'warning' : 'clock'} size={15} /> Status:{' '}
-              {h.tone === 'pending' ? 'Awaiting NESAM review' : h.title}
+              <Icon name={h.tone === 'ok' ? 'check' : h.tone === 'bad' ? 'circle-xmark' : 'clock'} size={15} /> Status:{' '}
+              {h.tone === 'pending' ? 'Awaiting Dispatch Review' : h.title}
             </p>
           </section>
         </div>
@@ -215,6 +175,18 @@ export function DonePage() {
           <Icon name="arrow-right" size={15} /> View Booking
         </Link>
       </div>
+      {booked && h.tone !== 'bad' ? (
+        <BookingConfirmedOverlay
+          logo={BRAND_LOGO}
+          code={bookingRef(trip)}
+          message="We will share the driver details before pickup."
+          primaryLabel="View booking"
+          onPrimary={() => navigate(`/trips/${trip.id}`)}
+          secondaryLabel="Done"
+          onClose={() => setBooked(false)}
+        />
+      ) : null}
     </div>
   );
 }
+export default DonePage;

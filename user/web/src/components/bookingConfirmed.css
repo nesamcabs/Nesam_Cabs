@@ -1,7 +1,7 @@
 /* "Booking confirmed": a full-screen celebration. The screen is the site's own accent colour (each site's --brand);
    white and a few bright confetti colours sit on top. Everything is visible without motion; the animation is added below. */
 .bcx {
-  --bcx-accent: var(--brand, var(--red, #1665e8));
+  --bcx-accent: var(--brand, var(--red, #c62828));
   position: fixed;
   inset: 0;
   z-index: 1000;
@@ -79,7 +79,7 @@
   display: grid;
   place-items: center;
   padding: 10px 20px;
-  border-radius: 18px;
+  border-radius: 6px;
   background: #fff;
   box-shadow: 0 10px 30px rgb(0 0 0 / 0.18);
 }
@@ -254,7 +254,7 @@
 .bcx__btn {
   min-height: 54px;
   border: 2px solid transparent;
-  border-radius: 16px;
+  border-radius: 6px;
   font: inherit;
   font-size: 1.0625rem;
   font-weight: 700;

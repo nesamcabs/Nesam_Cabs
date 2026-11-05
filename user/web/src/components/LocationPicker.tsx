@@ -10,26 +10,29 @@ import { Icon } from './Icon';
 import { RouteMap } from './RouteMap';
 import { useDeviceLocation } from '@/lib/hooks';
 import { LOCATION_HELP } from '@/lib/schedule';
+import { PolicyLinks } from '@/pages/PolicySections';
 
 const TYPE_ICON: Record<string, string> = {
   home: 'home',
   work: 'briefcase',
   airport: 'plane',
   recent: 'clock',
-  current: 'current-location',
+  current: 'navigation',
 };
 
 export interface PickerConfig {
   title: string;
-  /** Show "use current location" (pickup-like fields only). */
   allowCurrent?: boolean;
-  /** Restrict choices (e.g. airports only). Returns a reason when a place is not allowed. */
   check?: (p: GeoPlace) => string;
-  /** Popular choices shown before typing (cities, airports). */
   popular: GeoPlace[];
   popularLabel?: string;
   near?: LatLng | null;
   pinMode?: 'pickup' | 'drop';
+  // Airport-only pickers: search shows just the places this accepts (plus matching `popular` entries).
+  resultFilter?: (p: GeoPlace) => boolean;
+  subtitle?: string;
+  placeholder?: string;
+  emptyText?: string;
 }
 
 function Row({ icon, title, subtitle, onClick, busy, disabled }: { icon: string; title: string; subtitle?: string; onClick: () => void; busy?: boolean; disabled?: boolean }) {
@@ -52,12 +55,14 @@ export function LocationPicker({
   saved,
   recent,
   onSelect,
+  onPick,
   onClose,
 }: {
   config: PickerConfig;
   saved: LocationItem[];
   recent: GeoPlace[];
-  onSelect: (p: GeoPlace) => void;
+  onSelect?: (p: GeoPlace) => void;
+  onPick?: (p: GeoPlace) => void;
   onClose: () => void;
 }) {
   const [query, setQuery] = useState('');
@@ -69,12 +74,19 @@ export function LocationPicker({
   const q = query.trim();
   const searching = q.length >= 3 && results.q !== q;
 
+  const emit = onSelect ?? onPick ?? (() => {});
+
   useEffect(() => {
     if (q.length < 3) return undefined;
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
       searchPlaces(q, config.near ?? null, controller.signal)
-        .then((r) => !controller.signal.aborted && setResults({ q, list: r, error: r.length ? '' : 'No places found. Try a landmark, area or city name.' }))
+        .then((raw) => {
+          if (controller.signal.aborted) return;
+          const r = config.resultFilter ? raw.filter(config.resultFilter) : raw;
+          const own = config.resultFilter ? config.popular.some((p) => `${p.name} ${p.address}`.toLowerCase().includes(q.toLowerCase())) : false;
+          setResults({ q, list: r, error: r.length || own ? '' : config.emptyText ?? 'No places found. Try a landmark, area or city name.' });
+        })
         .catch(() => !controller.signal.aborted && setResults({ q, list: [], error: isOnline() ? 'Search is temporarily unavailable. Please try again.' : 'You’re offline — search needs a connection.' }));
     }, 320);
     return () => {
@@ -91,7 +103,7 @@ export function LocationPicker({
       setReject(why);
       return;
     }
-    onSelect(place);
+    emit(place);
   };
 
   const useCurrent = async () => {
@@ -116,9 +128,13 @@ export function LocationPicker({
 
   if (mapMode) return <PinDialog title={config.title} mode={config.pinMode ?? 'pickup'} onBack={() => setMapMode(false)} onConfirm={choose} />;
 
-  const list = results.q === q ? results.list : [];
+  const found = results.q === q ? results.list : [];
+  // Airport-only pickers list the curated airports that match first, then any other airports the search found.
+  const list = config.resultFilter
+    ? [...config.popular.filter((p) => `${p.name} ${p.address}`.toLowerCase().includes(filterLower)), ...found.filter((p) => !config.popular.some((c) => c.name.toLowerCase() === p.name.toLowerCase()))]
+    : found;
   return (
-    <Dialog title={config.title} subtitle="Search a city, area or landmark." onClose={onClose} variant="page" className="picker">
+    <Dialog title={config.title} subtitle={config.subtitle ?? 'Search a city, area or landmark.'} onClose={onClose} variant="page" className="picker">
       <div className="picker__search">
         <Icon name="search" size={18} />
         <label className="sr-only" htmlFor="picker-q">
@@ -129,7 +145,7 @@ export function LocationPicker({
           data-autofocus
           type="search"
           value={query}
-          placeholder="City, area or landmark"
+          placeholder={config.placeholder ?? 'City, area or landmark'}
           autoComplete="off"
           spellCheck={false}
           enterKeyHint="search"
@@ -161,9 +177,9 @@ export function LocationPicker({
           ) : null}
           {config.allowCurrent ? (
             <button type="button" className="pick-opt pick-opt--here" onClick={() => void useCurrent()} disabled={currentBusy || locating}>
-              <span className="pick-opt__icon">{currentBusy || locating ? <Spinner /> : <Icon name="current-location" size={22} />}</span>
+              <span className="pick-opt__icon">{currentBusy || locating ? <Spinner /> : <Icon name="navigation" size={22} />}</span>
               <span className="pick-opt__text">
-                <strong>{currentBusy || locating ? 'Finding your location…' : 'Use current location'}</strong>
+                <strong>{currentBusy || locating ? 'Finding your location…' : 'Use your current location'}</strong>
                 {locationNote ? <small>{locationNote}</small> : <small>Uses your device location, with your permission</small>}
               </span>
               <Icon name="chevron-right" size={16} className="pick-opt__chev" />
@@ -185,24 +201,24 @@ export function LocationPicker({
             ) : (
               <ul>
                 {list.map((p) => (
-                  <Row key={p.id} icon={p.type === 'airport' ? 'plane' : 'location-pin'} title={p.name} subtitle={p.address !== p.name ? p.address : undefined} onClick={() => choose(p)} />
+                  <Row key={p.id} icon={p.type === 'airport' ? 'plane' : 'map-pin'} title={p.name} subtitle={p.address !== p.name ? p.address : undefined} onClick={() => choose(p)} />
                 ))}
               </ul>
             )}
           </>
         ) : (
           <>
-            {saved.length && !q ? (
+            {saved.length && !q && !config.resultFilter ? (
               <>
                 <p className="picker__head">Saved addresses</p>
                 <ul>
                   {saved.map((p) => (
-                    <Row key={p.id} icon={TYPE_ICON[p.type] ?? 'saved-place'} title={p.name} subtitle={p.address} onClick={() => choose(p)} />
+                    <Row key={p.id} icon={TYPE_ICON[p.type] ?? 'star'} title={p.name} subtitle={p.address} onClick={() => choose(p)} />
                   ))}
                 </ul>
               </>
             ) : null}
-            {recent.length && !q ? (
+            {recent.length && !q && !config.resultFilter ? (
               <>
                 <p className="picker__head">Recent</p>
                 <ul>
@@ -217,7 +233,7 @@ export function LocationPicker({
                 <p className="picker__head">{config.popularLabel ?? 'Popular locations'}</p>
                 <ul>
                   {popular.map((p) => (
-                    <Row key={p.id} icon={p.type === 'airport' ? 'plane' : 'location-pin'} title={p.name} subtitle={p.address} onClick={() => choose(p)} />
+                    <Row key={p.id} icon={p.type === 'airport' ? 'plane' : 'map-pin'} title={p.name} subtitle={p.address} onClick={() => choose(p)} />
                   ))}
                 </ul>
               </>
@@ -285,7 +301,7 @@ function PinDialog({ title, mode, onBack, onConfirm }: { title: string; mode: 'p
     >
       <RouteMap className="pinmap" label="Choose a place on the map" pinMode={mode} userLocation={position} onCenterChange={setCenter} />
       <div className="pin-card" aria-live="polite">
-        <Icon name="location-pin" size={20} />
+        <Icon name="map-pin" size={20} />
         <div>
           <strong>{place?.name ?? 'Move the map…'}</strong>
           <small className="muted">{busy ? 'Finding address…' : place && place.address !== place.name ? place.address : ''}</small>
@@ -294,3 +310,4 @@ function PinDialog({ title, mode, onBack, onConfirm }: { title: string; mode: 'p
     </Dialog>
   );
 }
+export default LocationPicker;

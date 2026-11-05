@@ -1,126 +1,98 @@
-/* Booking form tidy-up.
-   1. An empty box shows only its label: no "Choose …" hint inside it.
-   2. The One Way / Round Trip (and To / From airport) switch is a compact pill control. */
+/* Booking form tidy-up: an empty box shows only its label, with no hint text inside it. */
 
-/* ── 1. Empty boxes: the label is the prompt ─────────────────────────────────────────────────────── */
-.bf-field:has(.bf-trigger.is-empty) .bf-label {
-  color: var(--muted);
-  font-size: var(--fs-body);
-  font-weight: 600;
+/* The box itself is the button: it covers the whole card, so it stays easy to click with no text in it. */
+.jd-route-card,
+.jd-field-box {
+  position: relative;
 }
-/* With no text inside, the whole box stays clickable (the trigger covers it) and keeps a sensible height. */
-.bf-trigger.is-empty {
-  min-height: 0;
+.jd-route-card .jd-value,
+.jd-field-box .jd-value {
+  min-height: 24px;
 }
-.bf-stop-trigger {
-  align-self: stretch;
-  min-height: 40px;
+.jd-route-card .jd-value::after,
+.jd-field-box .jd-value::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.jd-route-card .jd-value:focus-visible,
+.jd-field-box .jd-value:focus-visible {
+  outline: none;
 }
 
-/* ── 2. Journey switch ───────────────────────────────────────────────────────────────────────────── */
-.bf-journey.tabs {
-  display: inline-grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(max-content, 1fr);
-  width: fit-content;
-  max-width: 100%;
-  gap: 4px;
-  padding: 4px;
-  border: 0;
-  border-radius: var(--r-lg);
-  background: var(--sunken);
-}
-.bf-journey.tabs .tab {
-  min-height: 40px;
-  padding: 8px 26px;
-  border-radius: var(--r-field);
-  color: var(--muted);
-  font-size: var(--fs-sm);
-  font-weight: 700;
-  transition: background var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
-}
-.bf-journey.tabs .tab:hover {
+/* With nothing chosen yet, the label is the prompt, so it reads a little larger. */
+.jd-route-card:has(.jd-value.is-empty) .jd-label,
+.jd-field-box:has(.jd-value.is-empty) .jd-field-box__label {
   color: var(--ink);
+  font-size: 0.875rem;
 }
-.bf-journey.tabs .tab.is-active,
-.bf-journey.tabs .tab[aria-selected='true'] {
-  background: var(--red);
-  color: #fff;
-  box-shadow: 0 6px 14px -6px rgb(198 40 40 / 0.6);
-}
-.bf-journey.tabs .tab.is-active::after,
-.bf-journey.tabs .tab[aria-selected='true']::after {
-  display: none;
+.jd-route-card:has(.jd-value.is-empty),
+.jd-field-box:has(.jd-value.is-empty) {
+  align-content: center;
+  min-height: 64px;
 }
 
-/* On phones the two choices share the full width. */
-@media (max-width: 767.98px) {
-  .bf-journey.tabs {
-    display: grid;
-    grid-auto-columns: minmax(0, 1fr);
-    width: 100%;
-  }
-  .bf-journey.tabs .tab {
-    padding-inline: 12px;
-  }
+/* Sign-in popup: the terms sentence is plain centred text with the two links inline. */
+.login-modal__agree {
+  display: block;
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  line-height: 1.7;
+  text-align: center;
+  text-wrap: balance;
+}
+.login-modal__agree a {
+  font-weight: 600;
+  white-space: nowrap;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
-/* A row with a single field (Local Rental's package) takes the full width, so its text never gets cut off. */
-.bf-row.bf-row--single {
-  grid-template-columns: minmax(0, 1fr);
+/* Multicity: the small remove button on a chosen city sits above the box's click area. */
+.jd-field-box__head {
+  position: relative;
 }
-.bf-row.bf-row--single .bf-input {
-  width: 100%;
-  text-overflow: ellipsis;
-}
-
-/* Multicity: a city between pickup and drop, and its remove button (above the box's click area). */
-.bf-pin--stop {
-  width: 8px;
-  height: 8px;
-  margin: 2px;
-  border-color: var(--red);
-  background: var(--red);
-}
-.bf-stop-remove {
+.jd-stop-remove {
   position: relative;
   z-index: 2;
   display: grid;
-  flex: none;
   place-items: center;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
+  margin-left: auto;
   border: 0;
   border-radius: 50%;
   background: transparent;
   color: var(--muted);
   cursor: pointer;
 }
-.bf-stop-remove:hover {
+.jd-stop-remove:hover {
   background: var(--danger-soft);
   color: var(--danger);
 }
 
 /* Bottom bar: Outstation, the main service, is the raised filled button in the middle. */
-@media (max-width: 999.98px) {
-  .bottom-nav__item--main {
+@media (max-width: 899.98px) {
+  .tabbar__link--main {
     font-weight: 700;
   }
-  .bottom-nav__item--main .bottom-nav__symbol {
-    width: 50px;
-    height: 50px;
-    margin-top: -26px;
+  .tabbar__link--main .tabbar__icon {
+    width: 58px;
+    height: 58px;
+    margin-top: -32px;
     border: 4px solid #fff;
     border-radius: 50%;
-    background: var(--red);
+    background: var(--brand-gradient);
     color: #fff;
-    box-shadow: 0 8px 18px -6px rgb(198 40 40 / 0.7);
+    box-shadow: 0 0 0 5px rgb(var(--brand-rgb) / 0.14), 0 10px 22px -6px rgb(var(--brand-rgb) / 0.75);
     transition: transform var(--dur) var(--ease);
   }
-  .bottom-nav__item--main:active .bottom-nav__symbol {
+  .tabbar__link--main:active .tabbar__icon {
     transform: scale(0.94);
   }
-  .bottom-nav__item--main.is-active::before {
+  .tabbar__link--main.is-active::before {
     display: none;
   }
 }
@@ -197,9 +169,6 @@
 }
 @media (min-width: 768px) and (max-width: 999.98px) {
   .floating-ai-launcher {
-    bottom: calc(72px + env(safe-area-inset-bottom, 0px) + 84px);
-  }
-  .shell--flow .floating-ai-launcher {
-    bottom: calc(20px + env(safe-area-inset-bottom, 0px) + 78px);
+    bottom: calc(var(--dock-h, 0px) + env(safe-area-inset-bottom, 0px) + 96px);
   }
 }

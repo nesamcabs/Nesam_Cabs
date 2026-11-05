@@ -5,7 +5,7 @@ import './bookingConfirmed.css';
 // The full-screen "Booking confirmed" moment shown right after a booking is made. The whole screen turns the site's
 // accent colour, the brand logo drops in on a white badge, a white disc pops with a tick that draws itself and bursts
 // into sparkles, confetti rains, the headline rises word by word, a cab drives in along the road and the booking ID and
-// the next steps settle into place. Shared by NESAM, One Way Car Rentals and People Taxi (each passes its own logo;
+// the next steps settle into place. Shared by NESAM, One Way Car Rentals and NESAM Cabs (each passes its own logo;
 // the colour comes from the site's own accent), so it imports nothing from any site.
 
 const FALLING = 44;

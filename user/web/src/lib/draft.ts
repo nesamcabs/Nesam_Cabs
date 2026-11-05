@@ -122,9 +122,11 @@ export function loadDraft(): BookingDraft {
 
 export function saveDraft(d: BookingDraft): void {
   try {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ...d, scheduledAt: d.scheduledAt?.toISOString() ?? null, tripEndAt: d.tripEndAt?.toISOString() ?? null }));
+    sessionStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ ...d, scheduledAt: d.scheduledAt?.toISOString() ?? null, tripEndAt: d.tripEndAt?.toISOString() ?? null }),
+    );
   } catch {
     /* storage unavailable (private mode): the draft just lives in memory */
   }
 }
-

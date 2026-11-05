@@ -72,7 +72,7 @@ export const ALL_ROUTES: RouteCorridorDetail[] = [
       'Travel smoothly from Chennai to Pondicherry along the picturesque East Coast Road (ECR). Enjoy upfront fares, zero return fare on one-way drops, and verified commercial drivers.',
     overview: [
       'The Chennai to Pondicherry corridor is one of the most scenic coastal highway road trips in South India. Stretching approximately 150 km via the East Coast Road (ECR), you travel past the Bay of Bengal shoreline, historic temples, and quiet fishing hamlets.',
-      'With NESAM Cabs one-way drop taxi service, you only pay for the 150 km one-way journey. Unlike traditional car rentals that charge return fares for empty return journeys, NESAM ensures you save up to 40% to 50% on intercity cab travel.',
+      'With NESAM Cabs one-way drop taxi service, you only pay for the 150 km one-way journey. Unlike traditional car rentals that charge return fares for empty return journeys, NESAM Cabs ensures you save up to 40% to 50% on intercity cab travel.',
       'Our drivers are certified commercial drivers familiar with the ECR route, coastal weather, and local sightseeing spots. Whether travelling for a weekend getaway, corporate meeting, or family holiday, choose from AC Sedans (Dzire/Etios), comfortable 6/7-seater SUVs (Ertiga), or executive Innova Crysta cabs.',
     ],
     keyStops: [
@@ -106,7 +106,7 @@ export const ALL_ROUTES: RouteCorridorDetail[] = [
       },
       {
         q: 'Do I have to pay return fare for a one-way trip to Pondicherry?',
-        a: 'No. With NESAM one-way drop taxi, you strictly pay for the one-way distance between Chennai and Pondicherry with zero return fare charges.',
+        a: 'No. With NESAM Cabs one-way drop taxi, you strictly pay for the one-way distance between Chennai and Pondicherry with zero return fare charges.',
       },
       {
         q: 'Can the driver pick me up directly from Chennai Airport (MAA)?',
@@ -202,7 +202,7 @@ export const ALL_ROUTES: RouteCorridorDetail[] = [
       'Ascend into the Queen of Hill Stations with experienced ghat-road drivers. Clean AC cars, breathtaking mountain views through Mettupalayam and Coonoor, and guaranteed safety.',
     overview: [
       'The journey from Coimbatore to Ooty (Udhagamandalam) ascends from the Kongu plains into the misty Nilgiri hills. Over 88 km, you navigate the famous Nilgiri ghat road featuring 14 hairpin bends, lush emerald tea plantations, and cool mountain air.',
-      'Ghat roads require special hill-driving expertise. Every NESAM driver assigned to Nilgiri trips has verified experience on mountain routes, ensuring your family travels safely without motion sickness or stress.',
+      'Ghat roads require special hill-driving expertise. Every NESAM Cabs driver assigned to Nilgiri trips has verified experience on mountain routes, ensuring your family travels safely without motion sickness or stress.',
       'Whether landing at Coimbatore Airport (CJB) or arriving at Coimbatore Junction railway station, your driver greets you on time and provides comfortable door-to-door transit to your Ooty resort or homestay.',
     ],
     keyStops: [
@@ -265,7 +265,7 @@ export const ALL_ROUTES: RouteCorridorDetail[] = [
       'Sacred pilgrimage and architectural wonder in one unforgettable journey. Travel across the Pamban Sea Bridge to Sri Ramanathaswamy Temple and Dhanushkodi with verified drivers.',
     overview: [
       'The pilgrimage corridor from Madurai to Rameshwaram connects the sacred city of Goddess Meenakshi to one of the twelve divine Jyotirlinga shrines of Lord Shiva on Pamban Island.',
-      'Covering 172 km along NH-87, the highlight of the drive is traversing the iconic Pamban Sea Bridge, where ocean waters lap on both sides of the road. NESAM drivers are familiar with temple darshan timings, sacred theertham bath rituals, and Dhanushkodi beach regulations.',
+      'Covering 172 km along NH-87, the highlight of the drive is traversing the iconic Pamban Sea Bridge, where ocean waters lap on both sides of the road. NESAM Cabs drivers are familiar with temple darshan timings, sacred theertham bath rituals, and Dhanushkodi beach regulations.',
       'Pickups are available directly from Madurai Airport (IXM), Madurai Meenakshi Temple hotels, and Madurai Junction railway station.',
     ],
     keyStops: [

@@ -8,7 +8,7 @@
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-  scroll-padding-top: calc(var(--header-h) + 16px);
+  scroll-padding-top: calc(var(--nav-h) + 20px);
 }
 
 html,
@@ -19,13 +19,14 @@ body,
 
 body {
   margin: 0;
-  background: var(--page);
+  background: var(--paper);
   color: var(--text);
   font-family: var(--font);
   font-size: var(--fs-body);
-  line-height: 1.55;
+  line-height: var(--lh-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   overflow-x: clip;
 }
 
@@ -36,12 +37,8 @@ h4,
 p,
 figure,
 dl,
-dd,
-address {
+dd {
   margin: 0;
-}
-address {
-  font-style: normal;
 }
 
 h1,
@@ -49,20 +46,24 @@ h2,
 h3,
 h4 {
   color: var(--ink);
-  font-weight: 700;
-  line-height: 1.25;
-  letter-spacing: -0.01em;
+  line-height: var(--lh-tight);
+  letter-spacing: -0.015em;
   text-wrap: balance;
+  overflow-wrap: break-word;
 }
+
 h1 {
   font-size: var(--fs-h1);
-  letter-spacing: -0.02em;
+  font-weight: 900;
+  letter-spacing: -0.025em;
 }
 h2 {
-  font-size: var(--fs-lg);
+  font-size: var(--fs-xl);
+  font-weight: 800;
 }
 h3 {
   font-size: var(--fs-md);
+  font-weight: 800;
 }
 
 p {
@@ -70,7 +71,7 @@ p {
 }
 
 a {
-  color: var(--red-ink);
+  color: var(--brand);
   text-decoration: none;
   text-underline-offset: 3px;
 }
@@ -84,14 +85,10 @@ select,
 textarea {
   font: inherit;
   color: inherit;
-  letter-spacing: inherit;
 }
 
 button {
   cursor: pointer;
-}
-button:disabled {
-  cursor: not-allowed;
 }
 
 img,
@@ -115,17 +112,14 @@ fieldset {
 }
 
 :focus-visible {
-  outline: 2px solid var(--red);
+  outline: 3px solid var(--brand-bright);
   outline-offset: 2px;
+  border-radius: 6px;
 }
 
 ::selection {
-  background: #fde2df;
-}
-
-:lang(ta),
-.tamil {
-  line-height: 1.65;
+  background: var(--sun);
+  color: var(--ink);
 }
 
 .icon {
@@ -148,7 +142,7 @@ fieldset {
   color: var(--muted);
 }
 .small {
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
 }
 
 .sr-only {
@@ -171,23 +165,24 @@ fieldset {
 
 .stack {
   display: grid;
-  gap: 14px;
+  gap: var(--s-4);
 }
 
+/* Section label: a soft pill */
 .eyebrow {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  width: fit-content;
   margin: 0;
-  font-size: var(--fs-2xs);
-  font-weight: 600;
-  letter-spacing: 0.12em;
+  padding: 5px 14px;
+  border-radius: var(--r-pill);
+  background: var(--brand-soft);
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #a1272b;
-}
-.eyebrow--muted {
-  color: var(--muted);
-  font-weight: 500;
+  color: var(--brand-ink);
 }
 
 .skip-link {
@@ -197,16 +192,16 @@ fieldset {
   z-index: 1000;
   background: var(--ink);
   color: #fff;
-  padding: 10px 16px;
-  border-radius: var(--r-field);
-  transition: top var(--dur) var(--ease);
+  padding: 10px 18px;
+  border-radius: var(--r-pill);
+  transition: top var(--dur) var(--ease-out);
 }
 .skip-link:focus {
   top: 12px;
   text-decoration: none;
 }
 
-/* The centred desktop content column (1216px including its padding). */
+/* Content width: a fluid gutter, capped on very large screens. */
 .wrap {
   width: 100%;
   max-width: var(--max);
@@ -216,8 +211,8 @@ fieldset {
 
 @media (prefers-reduced-motion: reduce) {
   *,
-  *::before,
-  *::after {
+*::before,
+*::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;

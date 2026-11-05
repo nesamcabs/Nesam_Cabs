@@ -22,7 +22,8 @@ import { loadDraft, saveDraft, type BookingDraft } from '@/lib/draft';
 import { useServerQuotes, type ServerQuoteState } from '@core/hooks/useServerQuotes';
 import type { ServerCategoryQuote } from '@core/services/quoteService';
 import { scheduleProblem } from '@core/utils/bookingRules';
-import { useCustomerData } from '@/state/CustomerData';
+import { useCustomerData } from '@core/context/CustomerData';
+import { useAuth } from '@/state/Auth';
 
 export type { BookingDraft };
 
@@ -54,8 +55,7 @@ export function useBooking(): BookingValue {
   return v;
 }
 
-export const routeKeyOf = (pickup: GeoPlace | null, drop: GeoPlace | null, stops: GeoPlace[] = []) =>
-  pickup && drop ? [pickup, ...stops, drop].map((p) => `${p.lat},${p.lng}`).join('>') : '';
+export const routeKeyOf = (pickup: GeoPlace | null, drop: GeoPlace | null, stops: GeoPlace[] = []) => pickup && drop ? [pickup, ...stops, drop].map((p) => `${p.lat},${p.lng}`).join('>') : '';
 
 export function BookingProvider({ children }: { children: ReactNode }) {
   const [draft, setDraft] = useState<BookingDraft>(loadDraft);
@@ -68,38 +68,24 @@ export function BookingProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => saveDraft(draft), [draft]);
 
-  const categoriesRef = useRef<RideCategory[]>([]);
-  // Categories, adjustment and coupons are readable only when signed in, so they are subscribed
-  // again when the rider signs in or out (a guest sees the published default categories).
-  const { profile } = useCustomerData();
-  const uid = profile?.uid ?? '';
   useEffect(
     () =>
       subscribeToRideCategories((cats, status) => {
-        const previous = categoriesRef.current;
-        categoriesRef.current = cats;
         setCategories(cats);
         setCategoryStatus(status);
-        // Keep the rider's choice while it is still bookable. When the list is replaced (a guest sees the
-        // default list until signing in) the same category is found again by name; otherwise pre-select one.
-        setDraft((d) => {
-          if (cats.some((c) => c.id === d.categoryId)) return d;
-          const key = (n: string) => n.toLowerCase().replace(/[^a-z0-9]/g, '');
-          const name = previous.find((c) => c.id === d.categoryId)?.name;
-          const same = name ? cats.find((c) => key(c.name) === key(name)) : undefined;
-          return { ...d, categoryId: same?.id ?? cats[Math.min(1, cats.length - 1)]?.id ?? '' };
-        });
+        // Keep the rider's choice while it is still bookable; otherwise pre-select one.
+        setDraft((d) => (cats.some((c) => c.id === d.categoryId) ? d : { ...d, categoryId: cats[Math.min(1, cats.length - 1)]?.id ?? '' }));
       }),
-    [uid],
+    [],
   );
-  useEffect(() => subscribeToFareAdjustment(setAdjustment), [uid]);
-  useEffect(() => subscribeToCoupons(setCoupons), [uid]);
+  useEffect(() => subscribeToFareAdjustment(setAdjustment), []);
+  useEffect(() => subscribeToCoupons(setCoupons), []);
 
   const update = useCallback<BookingValue['update']>(
     (patch) => setDraft((d) => ({ ...d, ...(typeof patch === 'function' ? patch(d) : patch) })),
     [],
   );
-  const reset = useCallback(() => setDraft((d) => ({ ...d, drop: null, stops: [], scheduledAt: null, tripEndAt: null, tripType: 'One Way', multicity: false, promoCode: '', notes: '', forOther: false, passengerName: '', passengerMobile: '', flight: '' })), []);
+  const reset = useCallback(() => setDraft((d) => ({ ...d, drop: null, stops: [], scheduledAt: null, tripEndAt: null, tripType: 'One Way', multicity: false, promoCode: '', notes: '' })), []);
   // A repeat booking always needs a fresh future pickup: the old schedule is never carried over.
   const startFrom = useCallback<BookingValue['startFrom']>((pickup, drop) => setDraft((d) => ({ ...d, pickup, drop, stops: [], scheduledAt: null, tripEndAt: null, multicity: false, promoCode: '' })), []);
 
@@ -171,13 +157,17 @@ export function BookingProvider({ children }: { children: ReactNode }) {
       brand: 'nesam',
     };
   }, [draft]);
+  // The booking server only quotes for a signed-in, active rider. Until the account is ready no
+  // request is made (and no earlier answer is kept); becoming ready starts a fresh quote for the
+  // current draft even when the trip itself has not changed.
+  const { state: auth } = useAuth();
   // Anything the admin changes that prices a trip (vehicle fares, the price adjustment, coupons) arrives
   // live; its fingerprint makes the quote ask the server again, so new prices show within seconds.
   const pricingStamp = useMemo(
     () => JSON.stringify([categories.map((c) => [c.id, c.displayOrder, c.fare]), adjustment, coupons.map((c) => [c.code, c.discountValue, c.validUntil])]),
     [categories, adjustment, coupons],
   );
-  const serverQuote = useServerQuotes(quoteRequest, true, pricingStamp);
+  const serverQuote = useServerQuotes(quoteRequest, auth.status === 'ready', pricingStamp);
 
   const value = useMemo<BookingValue>(
     () => ({ draft, update, reset, startFrom, route, routeStatus, retryRoute, categories, categoryStatus, adjustment, coupons, serverQuote }),

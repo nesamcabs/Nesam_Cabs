@@ -12,7 +12,7 @@ import {
   SUPPORT_PHONE_DISPLAY,
 } from '@core/config/constants';
 
-const BRAND = 'NESAM';
+const BRAND = 'NESAM Cabs';
 
 export type PolicyId = 'terms' | 'privacy' | 'cancellation' | 'refund' | 'payment' | 'safety' | 'deletion';
 
@@ -97,14 +97,6 @@ const POLICIES: { id: PolicyId; paragraphs: string[] }[] = [
     paragraphs: [
       'Check driver and vehicle details before boarding, wear seat belts and stay within passenger and luggage capacity. Do not carry prohibited items. Children should travel with a responsible adult and legally required restraints. Confirm accessibility needs or special luggage with support before booking.',
       'For immediate danger call 112; booking support is not an emergency response service. During a trip, the Safety centre lets you call for help, share your trip and alert the operations team. For delays, lost belongings, complaints, refunds or privacy requests, contact support with your booking ID, date and relevant receipts. Ask for a complaint reference and expected response date.',
-    ],
-  },
-  {
-    id: 'deletion',
-    paragraphs: [
-      'You can ask us to delete your account and personal data at any time. Signed in: open Account and choose Delete my account (in the mobile app: Account → Settings → Delete my account). Not able to sign in: email support@nesamcabs.com or call the number below from the mobile number on the account, and quote that number.',
-      'We verify the request, settle anything still open (live bookings, unpaid amounts, refunds) and then delete or anonymise your profile, saved places and contact details. Records we must keep by law or to resolve a dispute, such as bookings, invoices, payment and tax records, are retained for the period the law requires and are not used for marketing.',
-      'Nothing is deleted the moment you tap the button: the request is recorded, our team confirms by phone or email, and you can ask support to withdraw it before it is processed. Once processed, an account cannot be restored.',
     ],
   },
   {

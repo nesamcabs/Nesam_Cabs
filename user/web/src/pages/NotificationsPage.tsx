@@ -6,7 +6,6 @@ import { CATEGORIES, CATEGORY_LABEL, toneOf } from '@core/utils/notificationMode
 import type { NotificationCategory, PartnerNotification } from '@core/types/notifications';
 import { describeError } from '@core/utils/retry';
 import { Button, EmptyState, LinkButton, Notice, PageHead } from '@/components/ui';
-import { AccountLayout, SignInPrompt } from '@/components/AccountLayout';
 import { Icon } from '@/components/Icon';
 import { pathForPage, useInbox } from '@/state/Inbox';
 import { useAuth } from '@/state/Auth';
@@ -26,27 +25,40 @@ const ICON: Record<NotificationCategory, string> = {
 export function NotificationsPage() {
   useSeo({ title: 'Notifications', noindex: true });
   const navigate = useNavigate();
-  const { state } = useAuth();
+  const { state, openLoginModal } = useAuth();
   const { notifications, loaded } = useInbox();
   const [filter, setFilter] = useState<Filter>('all');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const unread = useMemo(() => notifications.filter((n) => !n.read), [notifications]);
+  if (state.status !== 'ready') {
+    return (
+      <>
+        <PageHead title="Notifications" />
+        <div className="page">
+          <div className="card card--center">
+            <EmptyState
+              art="welcome"
+              title="Sign in to view notifications"
+              action={
+                <Button variant="primary" onClick={() => openLoginModal({ title: 'Sign in to view notifications' })}>
+                  Sign in
+                </Button>
+              }
+            >
+            </EmptyState>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  const unread = notifications.filter((n) => !n.read);
   const present = CATEGORIES.filter((c) => notifications.some((n) => n.category === c));
   const shown = useMemo(
     () => (filter === 'all' ? notifications : filter === 'unread' ? unread : notifications.filter((n) => n.category === filter)),
     [notifications, unread, filter],
   );
-
-  if (state.status !== 'ready') {
-    return (
-      <AccountLayout>
-        <PageHead backTo="/account" title="Notifications" />
-        <SignInPrompt title="Sign in to view notifications" text="Sign in with your mobile number to view updates about your bookings." />
-      </AccountLayout>
-    );
-  }
 
   const filters: { id: Filter; label: string; count: number }[] = [
     { id: 'all', label: 'All', count: notifications.length },
@@ -74,20 +86,19 @@ export function NotificationsPage() {
   };
 
   return (
-    <AccountLayout>
+    <>
       <PageHead
-        backTo="/account"
         title="Notifications"
         actions={
           unread.length > 0 ? (
-            <Button variant="ghost" size="sm" icon="check-check" loading={busy} onClick={() => void markAll()}>
+            <Button size="sm" variant="ghost" icon="check" loading={busy} onClick={() => void markAll()}>
               Mark all as read
             </Button>
           ) : undefined
         }
       />
 
-      <div className="notif-page">
+      <div className="page">
         {error ? <Notice tone="error">{error}</Notice> : null}
 
         {!loaded ? (
@@ -99,11 +110,11 @@ export function NotificationsPage() {
         ) : notifications.length === 0 ? (
           <div className="card card--center">
             <EmptyState
-              icon="notifications"
+              art="no-notifications"
               title="You’re all caught up"
               action={
-                <LinkButton variant="primary" to="/book" icon="add">
-                  Book a cab
+                <LinkButton variant="primary" to="/book" icon="car">
+                  Book a ride
                 </LinkButton>
               }
             >
@@ -138,7 +149,7 @@ export function NotificationsPage() {
                     <li key={n.id}>
                       <button type="button" className={`notif ${n.read ? '' : 'is-unread'}`} onClick={() => open(n)}>
                         <span className={`notif__icon tone-${toneOf(n)}`}>
-                          <Icon name={ICON[n.category]} size={18} />
+                          <Icon name={ICON[n.category]} size={22} />
                         </span>
                         <span className="notif__body">
                           <span className="notif__head">
@@ -160,6 +171,6 @@ export function NotificationsPage() {
           </div>
         )}
       </div>
-    </AccountLayout>
+    </>
   );
 }

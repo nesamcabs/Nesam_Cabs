@@ -3,13 +3,24 @@
 :root {
   --fs-xs: 0.75rem;
   --fs-sm: 0.8125rem;
-  --fs-body: 0.875rem;
+  --fs-body: 0.9375rem;
   --fs-md: 1rem;
-  --fs-lg: 1.125rem;
-  --fs-xl: 1.25rem;
-  --fs-h1: clamp(1.25rem, 1.1rem + 0.7vw, 1.5rem);
+  --fs-lg: 1.0625rem;
+  --fs-xl: 1.1875rem;
+  --fs-2xl: 1.375rem;
+  --fs-3xl: clamp(1.375rem, 1.1rem + 1vw, 1.75rem);
+  --fs-h1: clamp(1.25rem, 1.1rem + 0.8vw, 1.625rem);
+  --fs-h2: clamp(1.375rem, 1.15rem + 1vw, 1.875rem);
+  --fs-display: clamp(1.75rem, 1.2rem + 1.8vw, 2.5rem);
+  --section: clamp(28px, 1.25rem + 2.2vw, 56px);
   --tap: 44px;
-  --control-h: 44px;
+  --field-h: 46px;
+  /* Less bubbly, more corporate corners. */
+  --r-xs: 3px;
+  --r-sm: 4px;
+  --r-md: 5px;
+  --r-lg: 6px;
+  --r-xl: 8px;
 }
 
 /* ── Page header: a small back button, a modest title, a slim progress bar ──────────────────────────── */
@@ -27,7 +38,7 @@
 .back-btn {
   width: 36px;
   height: 36px;
-  border-radius: 10px;
+  border-radius: 6px;
 }
 .page-head > .back-btn {
   margin-top: 0;
@@ -70,7 +81,7 @@
 .notif__icon {
   width: 34px;
   height: 34px;
-  border-radius: 10px;
+  border-radius: 6px;
 }
 .notif__head strong {
   font-size: var(--fs-body);
@@ -87,9 +98,13 @@
 }
 
 /* ── Mobile layouts have no footer: the bottom bar and the account menu carry the links ──────────────── */
-@media (max-width: 999.98px) {
+@media (max-width: 899.98px) {
   .footer {
     display: none;
+  }
+  /* With no footer to carry the clearance, the page itself leaves room so its last item scrolls fully above the floating tab bar. */
+  .shell--dock .main {
+    padding-bottom: calc(var(--tabbar-occupied) + 16px);
   }
 }
 
@@ -172,32 +187,45 @@
   white-space: nowrap;
 }
 
-/* Multicity: after the chosen cities, one plain "Add city" button (no empty extra box). */
-.bf-add-city {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  width: 100%;
-  min-height: 44px;
-  padding: 8px 14px;
-  border: 1px dashed var(--red-line);
-  border-radius: var(--r-field);
-  background: transparent;
-  color: var(--red-ink);
-  font: inherit;
-  font-size: var(--fs-sm, 0.875rem);
-  font-weight: 600;
-  cursor: pointer;
-  transition: background var(--dur, 0.15s) var(--ease, ease);
+
+/* Home hero: the logo sits centred above the headline; once it scrolls out of view the header shows it instead. */
+.hero-logo {
+  display: none;
 }
-.bf-add-city:hover,
-.bf-add-city:focus-visible {
-  background: var(--red-soft);
+@media (min-width: 768px) {
+  .hero-copy {
+    align-items: center;
+    text-align: center;
+  }
+  .hero-logo {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: center;
+    margin: 0 auto 14px;
+  }
+  .hero-logo img {
+    width: auto;
+    height: clamp(48px, 4.4vw, 62px);
+  }
+  .topbar .brand {
+    transition: opacity 0.35s ease, transform 0.35s ease, visibility 0.35s;
+  }
+  html[data-hero-logo='in'] .topbar .brand {
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-6px);
+  }
 }
-.bf-add-city.is-invalid {
-  border-color: var(--danger, #c62828);
-  color: var(--danger, #c62828);
+@media (min-width: 768px) and (prefers-reduced-motion: no-preference) {
+  .hero-logo {
+    animation: pt-rise 0.7s var(--ease-out, cubic-bezier(0.2, 0.7, 0.2, 1)) backwards;
+  }
+}
+
+/* Booking form control height, used by the shared form styles. */
+:root {
+  --control-h: 48px;
 }
 
 /* AI chat on phones: the floating call and AI buttons are round, with the icon centred; the chat opens as a
@@ -251,7 +279,7 @@
     height: min(540px, calc(var(--vvh, 100dvh) - 24px));
     max-height: calc(var(--vvh, 100dvh) - 24px);
     border: 1px solid var(--line, #e2e8f0);
-    border-radius: 16px;
+    border-radius: 6px;
     box-shadow: 0 18px 44px rgb(15 23 42 / 0.28), 0 4px 12px rgb(15 23 42 / 0.1);
   }
   .ai-chat-input {
@@ -269,7 +297,7 @@
 .menu-btn {
   display: none;
 }
-@media (max-width: 999.98px) {
+@media (max-width: 899.98px) {
   .menu-btn {
     display: grid;
     flex: none;
@@ -360,7 +388,7 @@
   text-decoration: none;
 }
 .drawer__quick a .icon {
-  color: var(--red);
+  color: var(--brand);
 }
 .drawer__quick a:hover,
 .drawer__links a:hover {
@@ -416,7 +444,7 @@
   gap: 8px;
   min-height: 46px;
   border-radius: var(--r-md);
-  background: var(--red);
+  background: var(--brand);
   color: #fff;
   font-weight: 700;
   text-decoration: none;
@@ -450,7 +478,7 @@
 .bf-journey.tabs .tab.is-active,
 .bf-journey.tabs .tab[aria-selected='true'] {
   background: var(--surface, #fff);
-  color: var(--red-ink);
+  color: var(--brand-ink);
   box-shadow: 0 1px 3px rgb(15 23 42 / 0.14);
 }
 .bf-field .bf-addr {
@@ -480,14 +508,34 @@
   }
 }
 
-/* Phone home: the booking form, then services, routes, fleet, how it works, reviews and FAQs.
-   Offers, destinations, safety, the app promo and the catalogue stay in the side menu. */
+/* Swap button: a clear round button with the up/down arrows, centred between pickup and drop on phones. */
+.bf-swap {
+  border-color: var(--brand-line);
+  color: var(--brand);
+}
+.bf-swap:disabled {
+  opacity: 0.75;
+}
 @media (max-width: 767.98px) {
-  .home .hx-strip,
-  .home [aria-labelledby='hx-destinations'],
-  .home [aria-labelledby='hx-safe'],
-  .home .hx-banners,
-  .home .get-app,
+  .bf-swap {
+    top: 50%;
+    right: 44px;
+    width: 34px;
+    height: 34px;
+    transform: translateY(-50%);
+  }
+  .bf-swap:hover:not(:disabled) {
+    transform: translateY(-50%);
+  }
+}
+
+/* Phone home: the booking form, then services, routes, fleet, how it works, reviews and FAQs.
+   Offers, destinations, safety and the catalogue stay in the side menu. */
+@media (max-width: 767.98px) {
+  .home .band--strip,
+  .home .band--dest,
+  .home #sec-safe-band,
+  .home .band[aria-label='Offers and help'],
   .home .catalog-band {
     display: none;
   }

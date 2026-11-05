@@ -1,0 +1,225 @@
+/* NESAM Cabs — "Executive" identity. Loaded last.
+   Charcoal and warm ivory, a deep crimson for action, thin gold rules, Poppins throughout and sharp, precise corners.
+   Layout, behaviour and wording are shared with the other customer sites (see theme.css); this file only restates this
+   brand's look. */
+
+body {
+  background: var(--paper);
+}
+
+/* ── Headlines: Poppins with a thin gold rule ────────────────────────────────────────────────────── */
+h1,
+h2,
+.display-h,
+.hx-head h2,
+.sec-heading h2 {
+  font-family: var(--font-head);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.hx-head h2::after,
+.sec-heading h2::after,
+.routes__head .display-h::after,
+.why__intro .display-h::after,
+.faq__intro .display-h::after {
+  width: 40px;
+  height: 2px;
+  margin-top: 10px;
+  border-radius: 0;
+  background: var(--gold);
+}
+
+/* ── Header: a flat white bar over a hairline gold rule ──────────────────────────────────────────── */
+.topbar {
+  padding: 0 var(--gutter);
+  border-bottom: 1px solid var(--line);
+  background: #fff;
+  box-shadow: 0 1px 0 var(--gold-line);
+  backdrop-filter: none;
+  pointer-events: auto;
+}
+.topbar__inner {
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+@media (max-width: 899.98px) {
+  .topbar {
+    padding-top: 0;
+  }
+  .topbar__inner {
+    height: 100%;
+    padding: 0;
+  }
+}
+.topnav__link.is-active {
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+}
+.topnav__link {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+/* ── Buttons: solid crimson, sharp corners ───────────────────────────────────────────────────────── */
+.btn {
+  border-radius: var(--r-btn);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.btn--primary {
+  border-color: var(--brand);
+  background: var(--brand);
+  box-shadow: none;
+}
+.btn--primary:hover:not(:disabled) {
+  border-color: var(--brand-hover);
+  background: var(--brand-hover);
+  filter: none;
+}
+.btn--secondary {
+  border-color: var(--line-strong);
+  background: #fff;
+  color: var(--ink);
+}
+
+/* ── Hero (tablet and wider): dark and cinematic ─────────────────────────────────────────────────── */
+@media (min-width: 768px) {
+  .home-hero::after {
+    background: rgb(14 16 20 / 0.5);
+  }
+  .hero-route,
+  .hero-pin {
+    display: none;
+  }
+  .hero-copy h1 .hero-accent,
+  .hero-copy h1 .hero-accent:not(#x) {
+    background: none;
+    background-image: none;
+    color: var(--brand);
+    -webkit-text-fill-color: var(--brand);
+    animation: none;
+  }
+  /* The booking card: white, square-edged, with a thin gold rule along the top. */
+  .bf {
+    border: 0;
+    border-top: 3px solid var(--gold);
+    border-radius: var(--r-lg);
+    box-shadow: 0 2px 6px rgb(0 0 0 / 0.2), 0 24px 48px -24px rgb(0 0 0 / 0.5);
+  }
+}
+
+/* ── Booking form: underlined service tabs, outlined fields ──────────────────────────────────────── */
+.bf-services {
+  border-radius: var(--r-md);
+}
+.bf-service {
+  border-radius: var(--r-md);
+  letter-spacing: 0.01em;
+}
+.bf-service.is-active,
+.bf-service.is-active:hover {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: #fff;
+  box-shadow: none;
+}
+.bf-journey.tabs,
+.bf-journey.tabs .tab {
+  border-radius: var(--r-btn);
+}
+.bf-submit,
+.bf-add-city {
+  border-radius: var(--r-btn);
+}
+.bf-submit {
+  min-height: 52px;
+  background: var(--brand);
+  background-image: none;
+  box-shadow: none;
+  letter-spacing: 0.03em;
+}
+.bf-submit:hover:not(:disabled) {
+  background: var(--brand-hover);
+}
+
+/* ── Cards: flat ivory and white with a hairline edge ────────────────────────────────────────────── */
+.strip__item:nth-child(n),
+.assure__list li:nth-child(n) {
+  background: #fff;
+  border: 1px solid var(--line);
+}
+.svc:nth-child(n),
+.vehicle:nth-child(n) {
+  --wash: #fff;
+}
+.svc,
+.vehicle,
+.strip__item,
+.assure__list li {
+  box-shadow: none;
+}
+
+/* ── Footer: charcoal over a gold rule ───────────────────────────────────────────────────────────── */
+.footer {
+  border-top: 3px solid var(--gold);
+  background: var(--ink);
+  color: #a9aeb7;
+}
+.footer h2 {
+  color: #fff;
+  font-family: var(--font-head);
+  font-weight: 600;
+}
+.footer a {
+  color: #cfd3da;
+}
+.footer a:hover {
+  color: #e9cf9d;
+}
+
+/* ── Phone bar, assistant, side menu ─────────────────────────────────────────────────────────────── */
+.tabbar,
+.bottom-nav {
+  border-top: 1px solid var(--line);
+  background: #fff;
+}
+.floating-ai-launcher--nesam {
+  border-color: rgb(176 141 87 / 0.7);
+  background: var(--ink);
+  box-shadow: 0 2px 8px rgb(15 23 42 / 0.28);
+}
+.ai-chat-window--nesam .ai-chat-head {
+  border-bottom: 2px solid var(--gold);
+  background: var(--ink);
+}
+.ai-chat-window--nesam .chat-bubble--user .chat-bubble__content {
+  background: var(--ink);
+  color: #fff;
+}
+.drawer__call,
+.drawer__quick a {
+  border-radius: var(--r-btn);
+  letter-spacing: 0.02em;
+}
+.drawer__call {
+  background: var(--ink);
+}
+.drawer__head {
+  border-bottom-color: var(--gold-line);
+}
+
+/* ── Icons: fine, crisp lines ────────────────────────────────────────────────────────────────────── */
+.icon svg {
+  stroke-width: 1.6;
+}
+
+/* ── Elevation ───────────────────────────────────────────────────────────────────────────────────── */
+:root {
+  --shadow-1: 0 1px 2px rgb(20 23 28 / 0.06);
+  --shadow-2: 0 6px 20px -6px rgb(20 23 28 / 0.12);
+}

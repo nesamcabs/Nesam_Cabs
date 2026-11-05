@@ -5,7 +5,7 @@
   max-width: none;
 }
 .dn {
-  --dn-accent: var(--brand, var(--red, #1665e8));
+  --dn-accent: var(--brand, var(--red, #c62828));
   --dn-ink: var(--ink, #14213d);
   display: grid;
   gap: 12px;
@@ -22,7 +22,7 @@
   gap: 8px;
   padding: 18px 14px 16px;
   overflow: hidden;
-  border-radius: 24px;
+  border-radius: 8px;
   background:
     radial-gradient(120% 90% at 85% -10%, rgb(255 255 255 / 0.22), transparent 55%),
     linear-gradient(140deg, color-mix(in srgb, var(--dn-accent) 88%, #fff) 0%, var(--dn-accent) 45%, color-mix(in srgb, var(--dn-accent) 70%, #050b24) 100%);
@@ -157,7 +157,7 @@
   gap: 12px;
   padding: 14px;
   border: 1px solid color-mix(in srgb, var(--dn-accent) 14%, #e4e9f2);
-  border-radius: 22px;
+  border-radius: 8px;
   background: #fff;
   box-shadow: 0 10px 28px rgb(20 33 61 / 0.08);
 }
@@ -253,7 +253,7 @@
   gap: 10px;
   min-width: 0;
   padding: 10px 12px;
-  border-radius: 14px;
+  border-radius: 6px;
   background: color-mix(in srgb, var(--dn-accent) 6%, #f6f8fc);
 }
 .dn-fact--wide {
@@ -285,7 +285,7 @@
   gap: 8px;
   margin: 0;
   padding: 9px 12px;
-  border-radius: 12px;
+  border-radius: 6px;
   background: #fff5d6;
   color: #7a5200;
   font-size: 0.8125rem;

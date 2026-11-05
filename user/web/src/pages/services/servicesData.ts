@@ -51,7 +51,7 @@ export const ALL_SERVICES: ServiceDetail[] = [
     ],
     faqs: [
       {
-        q: 'How does NESAM one-way drop taxi work in Tamil Nadu?',
+        q: 'How does NESAM Cabs one-way drop taxi work in Tamil Nadu?',
         a: 'You enter your pickup and drop city. We calculate the exact highway route distance and display the all-inclusive fare. You pay strictly for that one-way distance with zero return fare charges.',
       },
       {
@@ -84,7 +84,7 @@ export const ALL_SERVICES: ServiceDetail[] = [
       { title: 'All-Inclusive Quotes', text: 'See your complete minimum km package and daily allowance before you confirm.' },
     ],
     overview: [
-      'Whether planning a long-weekend getaway to Ooty or Kodaikanal, a family darshan tour across South Indian temples, or a business trip covering multiple industrial towns, NESAM Outstation Round Trips provide the comfort of your own car with the relaxation of a professional driver.',
+      'Whether planning a long-weekend getaway to Ooty or Kodaikanal, a family darshan tour across South Indian temples, or a business trip covering multiple industrial towns, NESAM Cabs Outstation Round Trips provide the comfort of your own car with the relaxation of a professional driver.',
       'Our round trips are billed by calendar day with fair daily minimum kilometre allowances (250 km/day for Sedans & SUVs, 300 km/day for Innova Crysta). Any extra kilometres travelled are charged at low standard per-km rates with zero surcharge.',
     ],
     pricingRules: [
@@ -166,7 +166,7 @@ export const ALL_SERVICES: ServiceDetail[] = [
       { title: 'Transparent Extra KM/Hr', text: 'Low standard per-km and per-minute rates if you exceed package limits.' },
     ],
     overview: [
-      'When your day involves multiple stops across the city — such as doctor visits, corporate client meetings, wedding shopping, or family functions — hailing multiple one-off cabs is frustrating and exhausting. NESAM Local Hourly Rentals give you a dedicated car and driver throughout your itinerary.',
+      'When your day involves multiple stops across the city — such as doctor visits, corporate client meetings, wedding shopping, or family functions — hailing multiple one-off cabs is frustrating and exhausting. NESAM Cabs Local Hourly Rentals give you a dedicated car and driver throughout your itinerary.',
       'Your driver waits patiently at each destination and navigates city traffic while you focus on your day in air-conditioned comfort.',
     ],
     pricingRules: [

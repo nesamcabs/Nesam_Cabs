@@ -1,4 +1,4 @@
-// Multicity tour form for NESAM: pickup, any number of cities along the way, the final drop, and the departure and
+// Multicity tour form for NESAM Cabs: pickup, any number of cities along the way, the final drop, and the departure and
 // return schedule. "Let's Go" turns it into a booking draft (a Round Trip through those cities, priced from the Multicity
 // rates) and opens the normal flow: cabs with their fares, review, then Confirm booking.
 import { useEffect, useMemo, useState } from 'react';
@@ -7,8 +7,11 @@ import { useNavigate } from 'react-router-dom';
 import type { GeoPlace } from '@core/types';
 import { scheduleProblem } from '@core/utils/bookingRules';
 import { newId } from '@core/services/callables';
-import { useCustomerData } from '@/state/CustomerData';
+import { useCustomerData } from '@/state/customer';
+import { useAuth } from '@/state/Auth';
 import { useBooking } from '@/state/Booking';
+import { setPendingReturn } from '@/lib/pendingReturn';
+import { saveDraft } from '@/lib/draft';
 import { loadMulticityDraft, multicityInstant, validMulticityDate, validMulticityPlace, type MulticityDraft } from '@core/utils/multicityDraft';
 import { useOnline } from '@/lib/hooks';
 import { combineDateTime, latestPickup, toDateInput } from '@/lib/schedule';
@@ -48,6 +51,7 @@ const dayHint = (iso: string): string => {
 };
 
 export function MulticityForm() {
+  const { state: auth, openLoginModal } = useAuth();
   const { savedPlaces, trips } = useCustomerData();
   const { online } = useOnline();
   const navigate = useNavigate();
@@ -84,8 +88,6 @@ export function MulticityForm() {
     const instant = multicityInstant(state.date, state.time);
     return instant ? new Date(instant) : null;
   }, [state.date, state.time]);
-
-  const tourEnd = useMemo(() => (state.endDate && state.endTime ? combineDateTime(state.endDate, state.endTime) : null), [state.endDate, state.endTime]);
 
   // Only chosen cities are shown; "Add city" opens the picker for the next one.
   const cities = useMemo(() => state.stops.filter((s) => s.place), [state.stops]);
@@ -185,8 +187,8 @@ export function MulticityForm() {
       }
     }
 
-    if (!validMulticityDate(state.date)) err.date = 'Select a valid departure date.';
-    if (!scheduled) err.time = 'Select a valid departure date and time.';
+    if (!validMulticityDate(state.date)) err.date = 'Select a valid pickup date.';
+    if (!scheduled) err.time = 'Select a valid pickup date and time.';
 
     if (scheduled) {
       const prob = scheduleProblem(scheduled);
@@ -194,10 +196,6 @@ export function MulticityForm() {
     }
 
     if (filledStops.some((stop) => !validMulticityPlace(stop.place))) err.stops = 'Choose a valid location for every city.';
-
-    if (!state.endDate) err.endDate = 'Choose the return date.';
-    else if (!state.endTime) err.endTime = 'Choose the return time.';
-    else if (scheduled && tourEnd && tourEnd.getTime() <= scheduled.getTime()) err.endTime = 'The return must be after the departure.';
 
     if (!online) {
       err.form = 'You are currently offline. Please check your internet connection.';
@@ -209,7 +207,7 @@ export function MulticityForm() {
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validate() || !scheduled || !tourEnd) return;
+    if (!validate() || !scheduled) return;
     // The tour becomes the booking draft: a Round Trip through these cities, priced from the Multicity rates.
     const filledStops = state.stops.filter((s) => s.place !== null).map((s) => ({ ...s.place!, id: s.place!.id }));
     const next = {
@@ -220,10 +218,21 @@ export function MulticityForm() {
       tripType: 'Round Trip' as const,
       multicity: true,
       scheduledAt: scheduled,
-      tripEndAt: tourEnd,
+      // No return date is asked: the tour is quoted from the pickup instant.
+      tripEndAt: scheduled,
       promoCode: '',
     };
     update(next);
+    if (auth.status !== 'ready') {
+      // Persist before opening sign-in; the booking resumes at the cab list once the rider is signed in.
+      saveDraft(next);
+      setPendingReturn('/book/ride');
+      openLoginModal({
+        title: 'Sign in to see cabs and fares',
+        subtitle: 'Verify your mobile number to continue with your tour.',
+      });
+      return;
+    }
     navigate('/book/ride');
   };
 
@@ -279,7 +288,7 @@ export function MulticityForm() {
               {stop.place?.address && stop.place.address !== stop.place.name ? <small className="bf-addr">{stop.place.address}</small> : null}
             </div>
             <button type="button" className="bf-stop-remove" aria-label={`Remove stop ${index + 1}`} onClick={() => removeStop(stop.id)}>
-              <Icon name="trash-2" size={16} />
+              <Icon name="trash" size={16} />
             </button>
           </div>
         ))}
@@ -326,7 +335,7 @@ export function MulticityForm() {
         <div className="bf-row">
           <div className="bf-cell">
             <label className="bf-label bf-label--out" htmlFor="mc-date">
-              Departure date
+              Pickup date
             </label>
             <div className="bf-datewrap">
               <input
@@ -349,7 +358,7 @@ export function MulticityForm() {
 
           <div className="bf-cell">
             <span className="bf-label bf-label--out" id="mc-time-label">
-              Departure time
+              Pickup time
             </span>
             <button
               id="mc-time-btn"
@@ -359,50 +368,9 @@ export function MulticityForm() {
               onClick={() => setTimeFor('pickup')}
             >
               <span id="mc-time-val">{state.time ? formatTime12(state.time) : ''}</span>
-              <Icon name="clock-3" size={16} />
+              <ClockIcon size={26} />
             </button>
             {errors.time ? <p className="bf-error">{errors.time}</p> : null}
-          </div>
-        </div>
-        <div className="bf-row">
-          <div className="bf-cell">
-            <label className="bf-label bf-label--out" htmlFor="mc-end-date">
-              Return date
-            </label>
-            <div className="bf-datewrap">
-              <input
-                id="mc-end-date"
-                type="date"
-                className="input bf-input"
-                min={state.date || todayStr}
-                max={toDateInput(latestPickup(Date.now() + 30 * 86400000))}
-                value={state.endDate}
-                onChange={(e) => {
-                  setState((s) => ({ ...s, endDate: e.target.value }));
-                  setErrors((x) => ({ ...x, endDate: '', endTime: '' }));
-                }}
-                required
-              />
-              {state.endDate ? <span className="bf-chip">{dayHint(state.endDate)}</span> : null}
-            </div>
-            {errors.endDate ? <p className="bf-error">{errors.endDate}</p> : null}
-          </div>
-
-          <div className="bf-cell">
-            <span className="bf-label bf-label--out" id="mc-end-time-label">
-              Return time
-            </span>
-            <button
-              id="mc-end-time-btn"
-              type="button"
-              className={`bf-time ${state.endTime ? '' : 'is-empty'}`}
-              aria-labelledby="mc-end-time-label mc-end-time-val"
-              onClick={() => setTimeFor('return')}
-            >
-              <span id="mc-end-time-val">{state.endTime ? formatTime12(state.endTime) : ''}</span>
-              <Icon name="clock-3" size={16} />
-            </button>
-            {errors.endTime ? <p className="bf-error">{errors.endTime}</p> : null}
           </div>
         </div>
       </div>
@@ -440,20 +408,15 @@ export function MulticityForm() {
       {/* ── Time Picker Modal ── */}
       {timeFor ? (
         <TimePicker
-          title={timeFor === 'pickup' ? 'Departure time' : 'Return time'}
-          date={timeFor === 'pickup' ? state.date : state.endDate}
-          value={timeFor === 'pickup' ? state.time : state.endTime}
-          validate={timeFor === 'pickup' ? 'pickup' : 'after'}
-          notBefore={timeFor === 'return' ? scheduled : null}
+          title="Pickup time"
+          date={state.date}
+          value={state.time}
+          validate="pickup"
+          notBefore={null}
           onClose={() => setTimeFor(null)}
           onConfirm={(t) => {
-            if (timeFor === 'pickup') {
-              setState((s) => ({ ...s, time: t }));
-              setErrors((x) => ({ ...x, time: '' }));
-            } else {
-              setState((s) => ({ ...s, endTime: t }));
-              setErrors((x) => ({ ...x, endTime: '' }));
-            }
+            setState((s) => ({ ...s, time: t }));
+            setErrors((x) => ({ ...x, time: '' }));
             setTimeFor(null);
           }}
         />

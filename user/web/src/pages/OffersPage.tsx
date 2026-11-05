@@ -3,19 +3,15 @@ import type { Coupon } from '@core/types';
 import { isCouponLive, subscribeToCoupons } from '@core/services/pricingService';
 import { formatINR } from '@core/utils/format';
 import { Button, EmptyState, LinkButton, PageHead } from '@/components/ui';
-import { AccountLayout } from '@/components/AccountLayout';
 import { Icon } from '@/components/Icon';
 import { copyToClipboard } from '@/lib/share';
 import { useSeo } from '@/lib/seo';
+import { OFFERS_SEO } from '@/seo/pages';
 import { useBooking } from '@/state/Booking';
 import { useNavigate } from 'react-router-dom';
 
 export function OffersPage() {
-  useSeo({
-    title: 'Offers, Coupons & Promo Codes',
-    description: 'Save on your next outstation cab or drop taxi booking with NESAM Cabs promo codes, festive discounts and new user coupons.',
-    canonical: '/offers',
-  });
+  useSeo(OFFERS_SEO);
   const navigate = useNavigate();
   const { update } = useBooking();
   const [coupons, setCoupons] = useState<Coupon[] | null>(null);
@@ -31,11 +27,11 @@ export function OffersPage() {
   const live = useMemo(() => (coupons ?? []).filter((c) => isCouponLive(c)), [coupons]);
 
   return (
-    <AccountLayout>
-      <PageHead backTo="/account" title="Offers">
-        Promo codes for your next booking. The booking server checks every code against your trip.
+    <>
+      <PageHead eyebrow="Savings" title="Offers">
+        Promo codes you can use on your next booking. Codes are checked against your trip at checkout.
       </PageHead>
-      <div>
+      <div className="page">
         {coupons === null ? (
           <div className="offer-grid">
             {[0, 1, 2].map((i) => (
@@ -45,11 +41,11 @@ export function OffersPage() {
         ) : live.length === 0 ? (
           <div className="card card--center">
             <EmptyState
-              icon="offers"
+              art="no-offers"
               title="No offers right now"
               action={
-                <LinkButton variant="primary" to="/book" icon="add">
-                  Book a cab
+                <LinkButton variant="primary" to="/book">
+                  Book a ride
                 </LinkButton>
               }
             >
@@ -88,19 +84,19 @@ export function OffersPage() {
                 </div>
                 <Button
                   block
-                  variant="primary"
+                  variant="dark"
                   onClick={() => {
                     update({ promoCode: c.code });
                     navigate('/book');
                   }}
                 >
-                  <Icon name="car" size={17} /> Use on a booking
+                  <Icon name="car" /> Use on a ride
                 </Button>
               </li>
             ))}
           </ul>
         )}
       </div>
-    </AccountLayout>
+    </>
   );
 }

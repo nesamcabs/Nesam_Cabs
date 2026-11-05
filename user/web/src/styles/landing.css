@@ -1,0 +1,320 @@
+/* Route and service landing pages (SEO pages). Same NESAM Cabs language as the home: a rounded blue hero,
+   pastel tiles, a soft fare table and round accordions. */
+
+.lp-crumbs {
+  padding-top: 4px;
+  padding-bottom: 8px;
+}
+.lp-crumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--muted);
+}
+.lp-crumbs a {
+  color: var(--muted);
+}
+.lp-crumbs a:hover {
+  color: var(--brand);
+}
+.lp-crumbs li[aria-current='page'] {
+  color: var(--ink);
+}
+
+.lp-hero {
+  position: relative;
+  width: calc(100% - var(--gutter) * 2);
+  max-width: calc(var(--max) - var(--gutter) * 2);
+  margin: 4px auto 0;
+  border-radius: var(--r-xl);
+  background:
+    radial-gradient(circle at 95% 10%, rgb(var(--sun-rgb) / 0.95) 0 52px, transparent 53px),
+    radial-gradient(60% 90% at 100% 100%, rgb(var(--brand-rgb) / 0.5), transparent 70%),
+    var(--brand-gradient);
+  color: var(--on-dark);
+  /* Contains the decorative circle that extends past the card's edge. */
+  overflow: hidden;
+}
+.lp-hero::after {
+  content: '';
+  position: absolute;
+  right: -90px;
+  bottom: -150px;
+  width: 540px;
+  height: 540px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.07);
+  pointer-events: none;
+}
+.lp-hero__inner {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: start;
+  gap: 18px;
+  padding: clamp(28px, 4vw, 72px) clamp(22px, 4vw, 80px);
+}
+.lp-hero__inner > * {
+  max-width: 960px;
+}
+@media (min-width: 1200px) {
+  .lp-hero__inner:has(.lp-facts) {
+    grid-template-columns: minmax(0, 1fr) 360px;
+    column-gap: clamp(32px, 6vw, 120px);
+    align-items: start;
+  }
+  .lp-hero__inner:has(.lp-facts) > * {
+    grid-column: 1;
+  }
+  .lp-hero__inner:has(.lp-facts) > .lp-facts {
+    grid-column: 2;
+    grid-row: 1 / span 5;
+    flex-direction: column;
+    align-self: center;
+    width: 100%;
+  }
+  .lp-hero__inner:has(.lp-facts) .lp-facts li {
+    padding: 18px 24px 18px 20px;
+    border-radius: 10px;
+  }
+}
+.lp-hero h1 {
+  color: #fff;
+  font-size: clamp(2rem, 1.3rem + 2.6vw, 3.5rem);
+  font-weight: 900;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+.lp-hero__lead {
+  color: var(--on-dark-muted);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  max-width: 64ch;
+}
+.lp-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.lp-facts li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px 10px 16px;
+  border-radius: var(--r-pill);
+  background: rgb(255 255 255 / 0.16);
+  backdrop-filter: blur(6px);
+}
+.lp-facts .icon {
+  color: var(--sun);
+}
+.lp-facts small {
+  display: block;
+  color: var(--on-dark-muted);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+.lp-facts strong {
+  color: #fff;
+  font-weight: 900;
+}
+.lp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.lp-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: #fff;
+  box-shadow: var(--shadow-2);
+}
+.lp-table {
+  width: 100%;
+  min-width: 780px;
+  border-collapse: collapse;
+  text-align: left;
+}
+.lp-table th {
+  padding: 16px 20px;
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+  font-size: var(--fs-sm);
+  font-weight: 900;
+  white-space: nowrap;
+}
+.lp-table td {
+  padding: 16px 20px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-weight: 600;
+}
+.lp-table__cat {
+  color: var(--ink) !important;
+  font-weight: 900 !important;
+}
+.lp-table__fare {
+  color: var(--brand) !important;
+  font-size: var(--fs-lg);
+  font-weight: 900 !important;
+}
+.lp-table__end {
+  text-align: right !important;
+}
+.lp-note {
+  margin-top: 14px;
+}
+
+.lp-prose {
+  max-width: 840px;
+  margin-inline: auto;
+  color: var(--text);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  line-height: 1.8;
+}
+.lp-prose p + p {
+  margin-top: 16px;
+}
+.lp-stops {
+  margin-top: 44px;
+}
+.lp-stops h3 {
+  margin-bottom: 22px;
+  text-align: center;
+  font-size: var(--fs-2xl);
+  font-weight: 900;
+}
+
+.lp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 20px;
+}
+.lp-tile {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 24px;
+  border-radius: var(--r-lg);
+  background: var(--brand-soft);
+  transition: transform 320ms var(--ease);
+}
+.lp-tile:nth-child(4n + 2) {
+  background: var(--sun-soft);
+}
+.lp-tile:nth-child(4n + 3) {
+  background: var(--mint-soft);
+}
+.lp-tile:nth-child(4n + 4) {
+  background: var(--rose-soft);
+}
+.lp-tile:hover {
+  transform: translateY(-5px);
+}
+.lp-tile strong,
+.lp-tile h3 {
+  color: var(--ink);
+  font-size: var(--fs-lg);
+  font-weight: 900;
+}
+.lp-tile p {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  line-height: 1.55;
+}
+
+.lp-link-card {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  height: 100%;
+  padding: 22px 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: #fff;
+  box-shadow: var(--shadow-1);
+  color: inherit;
+  transition: transform 320ms var(--ease), box-shadow 320ms var(--ease-out);
+}
+.lp-link-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-3);
+  text-decoration: none;
+}
+.lp-link-card strong {
+  color: var(--ink);
+  font-size: var(--fs-lg);
+  font-weight: 900;
+}
+.lp-link-card span {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.lp-link-card em {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  color: var(--brand);
+  font-style: normal;
+  font-weight: 800;
+}
+
+.lp-faq {
+  max-width: 840px;
+  margin-inline: auto;
+}
+.lp-rules {
+  max-width: 840px;
+  margin: 40px auto 0;
+  padding: 28px;
+  border-radius: var(--r-lg);
+  background: var(--sun-soft);
+}
+.lp-rules h3 {
+  margin-bottom: 12px;
+  font-size: var(--fs-xl);
+  font-weight: 900;
+}
+.lp-rules li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 24px;
+  padding: 12px 0;
+  border-top: 2px dotted var(--sun);
+}
+.lp-rules strong {
+  color: var(--ink);
+  font-weight: 900;
+}
+.lp-rules span {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.lp-missing {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  padding-block: 72px;
+  text-align: center;
+}
+
+@media (max-width: 759.98px) {
+  .lp-hero {
+    border-radius: var(--r-lg);
+  }
+  .lp-actions .btn {
+    width: 100%;
+  }
+}

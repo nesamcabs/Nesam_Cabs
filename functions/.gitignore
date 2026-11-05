@@ -15,7 +15,11 @@ node_modules/
 # Firebase emulator state
 firebase-debug.log
 firebase-debug.*.log
+firestore-debug.log
 .firebase/
+
+# Vercel CLI local link
+.vercel/
 
 # Logs & caches
 *.log
@@ -23,5 +27,3 @@ firebase-debug.*.log
 *.tsbuildinfo
 coverage/
 .eslintcache
-.vercel
-.env*
