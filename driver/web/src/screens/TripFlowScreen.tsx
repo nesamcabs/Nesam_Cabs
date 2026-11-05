@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { GoogleMapPreview } from '../../../../user/web/src/components/GoogleMapPreview';
+import { GoogleMapPreview } from '../components/GoogleMapPreview';
 import { CancellationStatus } from '../components/nx/Cancellation';
 import { acknowledgeAssignment, type DriverCancellation } from '../services/partnerRequests';
 import type { TollReceipt, TripDetails } from '../types';
