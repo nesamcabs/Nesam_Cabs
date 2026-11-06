@@ -22,6 +22,8 @@ export function supportsTrip(service: Record<string, any>, tripType: string): bo
     'Outstation Cab': ['One Way', 'Round Trip'],
     'Airport Taxi': ['Airport Taxi'],
     'Local Rental': ['Local Rental'],
+    // A pickup and drop inside one city is booked as a One Way trip; the service only names it (it never gates availability).
+    'Local Pickup & Drop': ['One Way'],
     // The Multicity service is booked as a tour (a Round Trip through its cities); it never serves an ordinary trip.
     Multicity: ['Multicity'],
   };
@@ -105,6 +107,7 @@ export function matchAuthoritativeService(
       if (isRoundTrip && s.serviceType === 'Outstation Cab') return 100;
       if (!isRoundTrip && !isAirport && !isRental) {
         if (isOutst && s.serviceType === 'Outstation Cab') return 100;
+        if (!isOutst && s.serviceType === 'Local Pickup & Drop') return 110;
         if (!isOutst && s.serviceType === 'One Way Taxi') return 100;
         if (s.serviceType === 'One Way Taxi') return 80;
         if (s.serviceType === 'Outstation Cab') return 70;

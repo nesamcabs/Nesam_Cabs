@@ -1237,3 +1237,12 @@
   outline: 2px solid #ffffff;
   outline-offset: 1px;
 }
+
+/* The Profile slot of the phone bottom bar is a button when signed out: draw it like the other tabs. */
+button.tabbar__link--button {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
+}

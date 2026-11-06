@@ -15,7 +15,7 @@ import { agreedPayoutOf, assignmentDeadline } from "../domain/officeStage";
 import { bookingPickupDate, isoDateIST } from "../utils/time";
 import LiveTrips from "./LiveTrips";
 
-const TRIP_TABS = ["Unassigned", "Assigned", "Deadline missed", "On trip", "Completed"] as const;
+const TRIP_TABS = ["Assigned", "Unassigned", "On trip", "Completed", "Cancelled", "Deadline missed"] as const;
 type TripTab = (typeof TRIP_TABS)[number];
 
 /** Reference Trips: partner, driver and vehicle tracked independently, by assignment state. */
@@ -35,6 +35,8 @@ export default function Trips({ onOpenBooking, initialTab }: { onOpenBooking: (i
   const tabOf = (b: Booking): TripTab | null => {
     if (b.status === "Completed") return "Completed";
     if (b.status === "Ongoing") return "On trip";
+    // A cancelled booking is a trip only once a partner or driver had been given it.
+    if (b.status === "Cancelled") return b.assignedVendorId || b.assignedDriverId ? "Cancelled" : null;
     if (!["Approved", "Confirmed", "Assigned"].includes(b.status)) return null;
     if (b.assignedDriverId) return "Assigned";
     if (!b.assignedVendorId) return null; // still with the office: Bookings → To publish / Published
@@ -65,7 +67,7 @@ export default function Trips({ onOpenBooking, initialTab }: { onOpenBooking: (i
         if (date === "Date range") return (!from || day >= from) && (!to || day <= to);
         return true;
       })
-      .sort((a, b) => (tab === "Completed" ? t(b) - t(a) : t(a) - t(b)));
+      .sort((a, b) => (tab === "Completed" || tab === "Cancelled" ? t(b) - t(a) : t(a) - t(b)));
   }, [all, tab, date, from, to, now, ops.warningHours]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const paging = usePaging(rows, [tab, date, from, to]);
@@ -115,7 +117,7 @@ export default function Trips({ onOpenBooking, initialTab }: { onOpenBooking: (i
                 <tr className="ds-row-stripe" data-tone={tab === "Deadline missed" ? "red" : tab === "Unassigned" ? "amber" : tab === "On trip" ? "blue" : tab === "Assigned" ? "green" : undefined}>
                   <td><DateCell b={b} /></td><td><RouteCell b={b} /></td><td><TripTypeCell b={b} /></td><td><VehicleCell b={b} data={data} /></td>
                   <td><PayoutCell b={b} stage="Accepted" /></td><td><AcceptedByCell b={b} data={data} /></td>
-                  <td>{tab === "On trip" ? <Badge tone="blue">On trip</Badge> : tab === "Completed" ? <Badge tone="green">Completed</Badge> : <AssignmentCell b={b} data={data} deadlineHours={ops.warningHours} now={now} />}</td>
+                  <td>{tab === "On trip" ? <Badge tone="blue">On trip</Badge> : tab === "Completed" ? <Badge tone="green">Completed</Badge> : tab === "Cancelled" ? <Badge tone="red">Cancelled</Badge> : <AssignmentCell b={b} data={data} deadlineHours={ops.warningHours} now={now} />}</td>
                   <td className="ds-actions">{actions(b)}</td>
                 </tr>
                 {expanded === b.id && <tr className="ds-expand-row"><td colSpan={8}><BookingExpand b={b} data={data} onOpen={() => onOpenBooking(b.id)} /></td></tr>}

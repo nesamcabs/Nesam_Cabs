@@ -21,6 +21,7 @@ const CITIES: MainCity[] = [
   { id: 'trichy', name: 'Trichy', address: 'Tiruchirappalli, Tamil Nadu', lat: 10.7905, lng: 78.7047, aka: ['tiruchirappalli', 'tiruchirapalli', 'tiruchi', 'tiruchy'] },
   { id: 'salem', name: 'Salem', address: 'Salem, Tamil Nadu', lat: 11.6643, lng: 78.146 },
   { id: 'erode', name: 'Erode', address: 'Erode, Tamil Nadu', lat: 11.341, lng: 77.7172 },
+  { id: 'sathyamangalam', name: 'Sathyamangalam', address: 'Sathyamangalam, Tamil Nadu', lat: 11.5053, lng: 77.2384, aka: ['sathy', 'satyamangalam'] },
   { id: 'tiruppur', name: 'Tiruppur', address: 'Tiruppur, Tamil Nadu', lat: 11.1085, lng: 77.3411, aka: ['tirupur'] },
   { id: 'vellore', name: 'Vellore', address: 'Vellore, Tamil Nadu', lat: 12.9165, lng: 79.1325 },
   { id: 'thanjavur', name: 'Thanjavur', address: 'Thanjavur, Tamil Nadu', lat: 10.787, lng: 79.1378, aka: ['tanjore'] },

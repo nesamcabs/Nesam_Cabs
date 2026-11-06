@@ -28,6 +28,8 @@ export interface ManualBookingForm {
   serviceId: string;
   pickup: PickedPoint | null;
   drop: PickedPoint | null;
+  /** Round trips: intermediate stops, in order. */
+  stops?: PickedPoint[];
   /** Door number / landmark added to the pickup address. */
   pickupAddress: string;
   dropAddress: string;
@@ -221,6 +223,7 @@ const bookingRequest = (f: ManualBookingForm, requestId: string) => ({
   serviceId: f.serviceId,
   pickupPoint: f.pickup ? pointPayload(f.pickup) : null,
   dropPoint: f.drop ? pointPayload(f.drop) : null,
+  stops: f.tripType === "Round Trip" ? (f.stops ?? []).map(pointPayload) : [],
   pickupAddress: f.pickupAddress.trim(),
   dropAddress: f.dropAddress.trim(),
   categoryId: f.categoryId,
@@ -252,6 +255,9 @@ export interface FareQuote {
   /** Present when the quote was priced with a coupon the server accepted. */
   couponCode?: string;
   couponDiscount?: number;
+  /** The real road distance and time of the journey (round trips count out and back). */
+  roadKm?: number;
+  roadMinutes?: number;
 }
 /** @deprecated use FareQuote */
 export type AdminQuote = FareQuote;

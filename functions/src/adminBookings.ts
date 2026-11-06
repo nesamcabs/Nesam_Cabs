@@ -275,7 +275,12 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
     if (input.quoteOnly === true) {
       // The partner rate block is payout data: only for staff holding the payout right.
       const quotePricing = canSeePayouts(admin) ? priced.pricing : { ...priced.pricing, partner: null, ...(priced.pricing.extraCharges ? { extraCharges: { ...priced.pricing.extraCharges, partner: {} } } : {}) };
-      return { quote: calculated, breakup, service, categoryName: category.name, commissionConfigured: true, adjustmentApplied: calculated.globalAdjustment, pricing: quotePricing, ...(couponCode ? { couponCode, couponDiscount } : {}) };
+      // Road distance and time are the real journey (a round trip drives out and back). The quote's distanceKm is the billed KM,
+      // which can be higher because of the daily minimum KM, so the office screen shows roadKm for the journey.
+      const roundTrip = tripType === 'Round Trip';
+      const roadKm = Math.round(route.distanceKm * (roundTrip ? 2 : 1) * 10) / 10;
+      const roadMinutes = Math.round(route.durationMin * (roundTrip ? 2 : 1));
+      return { quote: calculated, breakup, service, categoryName: category.name, commissionConfigured: true, adjustmentApplied: calculated.globalAdjustment, pricing: quotePricing, roadKm, roadMinutes, ...(couponCode ? { couponCode, couponDiscount } : {}) };
     }
     if (!Number.isFinite(input.expectedFare) || input.expectedFare !== calculated.total) {
       throw new HttpsError('failed-precondition', `The calculated fare is ₹${calculated.total}. Review it and submit again.`, { fare: calculated });

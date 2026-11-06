@@ -1,0 +1,59 @@
+/* The few parts of the customer booking form that the admin draws differently: the location search list and the in-field buttons.
+   Colours and type come from the platform theme in customerForm.css. */
+.cf .cf-place { position: relative; display: grid; gap: 6px; min-width: 0; }
+.cf .cf-trigger { width: 100%; min-width: 0; padding: 1px 0; border: 0; background: none; outline: none; color: var(--ink); font-size: var(--fs-body); font-weight: 600; line-height: 1.35; text-overflow: ellipsis; }
+.cf .cf-clear { flex: none; display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--faint); }
+.cf .cf-clear:hover { background: var(--sunken); color: var(--ink); }
+.cf .cf-list { position: absolute; z-index: 40; top: calc(100% + 4px); left: 0; right: 0; max-height: 300px; margin: 0; padding: 6px; overflow: auto; list-style: none; border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--surface); box-shadow: var(--shadow-2); }
+.cf .cf-opt { display: grid; gap: 1px; padding: 10px 12px; border-radius: var(--r-sm); cursor: pointer; }
+.cf .cf-opt strong { color: var(--ink); font-size: var(--fs-sm); font-weight: 600; }
+.cf .cf-opt small { color: var(--muted); font-size: var(--fs-xs); line-height: 1.4; }
+.cf .cf-opt:hover, .cf .cf-opt[aria-selected='true'] { background: var(--brand-soft); }
+.cf .bf-time svg { flex: none; color: var(--muted); }
+.cf .bf-services { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.cf .cf-chooser { display: grid; gap: 14px; margin-bottom: 16px; }
+.cf .cf-chooser .tabs { max-width: none; }
+.cf .cf-customer { display: grid; gap: 10px; }
+.cf .cf-chip { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; padding: 8px 14px; border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--sunken); color: var(--ink); font-weight: 600; }
+.cf .cf-chip small { display: block; color: var(--muted); font-size: var(--fs-xs); font-weight: 400; }
+.cf .cf-page { min-height: 0; }
+
+/* ── New booking: the platform / customer block, kept small and plain ── */
+.cf .cf-chooser { display: grid; gap: 8px; margin-bottom: 14px; }
+.cf .cf-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.cf .cf-line > .cf-place, .cf .cf-line > .cf-chip, .cf .cf-line > .cf-sm { flex: 1 1 200px; min-width: 0; }
+.cf .cf-chooser .tabs { flex: 0 1 auto; width: auto; max-width: 100%; padding: 3px; gap: 3px; }
+.cf .cf-chooser .tabs .tab { min-height: 34px; padding: 0 14px; font-size: var(--fs-sm); font-weight: 600; }
+.cf .cf-sm { min-height: 40px; padding-top: 0; padding-bottom: 0; font-size: var(--fs-sm); font-weight: 500; }
+.cf .cf-chip { min-height: 40px; padding: 4px 6px 4px 12px; font-size: var(--fs-sm); }
+.cf .cf-chip .btn { min-height: 30px; padding: 0 12px; font-size: var(--fs-xs); }
+.cf .cf-chooser .bf-hint { margin: 0; }
+/* The dropdown arrow follows the platform colour. */
+.cf--nesam .select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a31621' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); }
+.cf--people_taxi .select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231665e8' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); }
+.cf--onewaycarrentals .select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230d8a45' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); }
+
+/* ── New booking layout: platform and customer on the left, the booking card on the right, as the sites' hero is laid out ── */
+.cf-split { display: grid; grid-template-columns: minmax(250px, 320px) minmax(0, 1fr); gap: 24px; align-items: start; }
+.cf-split > .bf { max-width: none; margin: 0; }
+.cf-side { position: sticky; top: 92px; display: grid; gap: 12px; padding: 18px; border: 1px solid var(--line-strong); border-radius: var(--r-xl); background: var(--surface); box-shadow: 0 12px 36px -8px rgb(var(--brand-rgb) / 0.12), 0 4px 18px rgb(0 0 0 / 0.04); font-family: var(--font); }
+.cf-side__title { color: var(--ink); font-size: var(--fs-lg); font-weight: 800; line-height: 1.2; margin: 0; }
+.cf-side__group { display: grid; gap: 6px; }
+.cf-pick { display: flex; align-items: center; gap: 10px; min-height: 42px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--surface); color: var(--ink); font: inherit; font-size: var(--fs-sm); font-weight: 600; text-align: left; cursor: pointer; transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease); }
+.cf-pick::before { content: ""; flex: none; width: 14px; height: 14px; border: 2px solid var(--muted); border-radius: 50%; }
+.cf-pick:hover { border-color: var(--muted); }
+.cf-pick.is-on { border-color: var(--brand); background: var(--brand-soft); color: var(--brand-ink); }
+.cf-pick.is-on::before { border-color: var(--brand); background: radial-gradient(circle, var(--brand) 38%, transparent 42%); }
+.cf-side .tabs { width: 100%; }
+.cf-side .tabs .tab { flex: 1; min-height: 34px; font-size: var(--fs-sm); font-weight: 600; }
+.cf-side .cf-sm, .cf-side .cf-place, .cf-side .cf-chip { width: 100%; }
+@media (max-width: 900px) {
+  .cf-split { grid-template-columns: minmax(0, 1fr); }
+  .cf-side { position: static; }
+}
+
+/* ── Choose and Review: the few admin-only extras inside the customer layout ── */
+.cf .cf-nophoto { display: grid; place-items: center; width: 100%; height: 100%; min-height: 64px; color: var(--faint); background: var(--sunken); border-radius: var(--r-md); }
+.cf .cf-extras { display: grid; gap: 8px; margin: 12px 0; }
+.cf .cf-gap { margin-top: 8px; }
+.cf .cf-extras .cf-sm { min-height: 40px; }

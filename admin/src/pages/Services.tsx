@@ -431,7 +431,8 @@ export default function Services() {
                 <option value="Airport Taxi">Airport Taxi</option>
                 <option value="Outstation Cab">Outstation Cab</option>
                 <option value="One Way Taxi">One Way Taxi</option>
-                <option value="Local Rental">Local Rental</option>
+                <option value="Local Rental">Hourly Rental</option>
+                <option value="Local Pickup & Drop">Pickup & Drop</option>
                 <option value="Corporate Travel">Corporate Travel</option>
                 <option value="Recurring Transport">Recurring Transport</option>
               </select>
@@ -677,7 +678,8 @@ export default function Services() {
                           <option value="Airport Taxi">Airport Taxi</option>
                           <option value="Outstation Cab">Outstation Cab</option>
                           <option value="One Way Taxi">One Way Taxi</option>
-                          <option value="Local Rental">Local Rental</option>
+                          <option value="Local Rental">Hourly Rental</option>
+                          <option value="Local Pickup & Drop">Pickup & Drop</option>
                           <option value="Corporate Travel">Corporate Travel</option>
                           <option value="Recurring Transport">Recurring Transport</option>
                         </select>

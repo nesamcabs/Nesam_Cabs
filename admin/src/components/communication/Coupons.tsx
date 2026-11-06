@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { serviceLabel } from "../../services/tariffService";
 import { isCampaignCoupon } from "../../domain/couponWorkspace";
 import type { MasterLocation, VehicleCategory } from "../../types";
 import { subscribeCoupons, subscribeLocations, subscribeVehicleCategories } from "../../services/adminFirestoreService";
@@ -164,7 +165,7 @@ function CouponSheet({ editing, coupons, cats, cities, onClose, onDone }: { edit
         </div>
         <Step n="02" t="Eligibility & area" />
         <div className="ds-form-grid">
-          <fieldset className="grid gap-2"><legend className="text-[11px] font-medium text-muted mb-1">Services</legend>{COUPON_SERVICES.map((s) => <label key={s} className="ds-check"><input type="checkbox" checked={d.services.includes(s)} onChange={() => toggle("services", s)} />{s}</label>)}</fieldset>
+          <fieldset className="grid gap-2"><legend className="text-[11px] font-medium text-muted mb-1">Services</legend>{COUPON_SERVICES.map((s) => <label key={s} className="ds-check"><input type="checkbox" checked={d.services.includes(s)} onChange={() => toggle("services", s)} />{serviceLabel(s)}</label>)}</fieldset>
           <fieldset className="grid gap-2 content-start"><legend className="text-[11px] font-medium text-muted mb-1">Vehicle categories</legend>{cats.map((c) => <label key={c.id} className="ds-check"><input type="checkbox" checked={d.categories.includes(c.id)} onChange={() => toggle("categories", c.id)} />{c.name}</label>)}{!cats.length && <small className="text-[11px] text-muted">No active vehicle categories. The coupon applies to every category.</small>}</fieldset>
         </div>
         <div className="ds-form-grid">

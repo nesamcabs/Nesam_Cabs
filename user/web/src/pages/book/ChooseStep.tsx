@@ -323,7 +323,7 @@ export function ChooseStep() {
         nextDisabled={!canContinue}
         total={quote?.total}
         hideFare
-        onBack={() => navigate('/book')}
+        onBack={() => navigate(tripType === 'Local Rental' ? '/local-rentals?mode=hourly' : '/book')}
         backLabel="Back to trip details"
         onHome={() => navigate('/')}
       />

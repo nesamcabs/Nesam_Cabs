@@ -10,12 +10,14 @@ import { markEnquiryConverted, isMulticityEnquiry, MULTICITY_CONVERSION_MESSAGE,
 import { useCan, useStaffFlag } from "../components/AccessContext";
 import { Toast, useToast } from "../components/Feedback";
 import MapLocationPicker from "../components/MapLocationPicker";
-import { Badge, Button, Icon, PageHeader } from "../components/ui";
+import { Button, Icon, PageHeader } from "../components/ui";
 import { FareBreakupCard } from "../components/booking/Enquiries";
 import {
-  EstimateList, ExtrasFields, SaveEnquiryDialog, TripFields, breakupLines, emptyTrip, estimateAll, estimateFacts, extrasNote, gstEntryOf, refPickupLabel,
+  SaveEnquiryDialog, breakupLines, emptyTrip, estimateAll, estimateFacts, extrasNote, gstEntryOf, refPickupLabel,
   tripServiceLabel, tripToForm, useQuickData, validateTrip, type CategoryEstimate, type QuickTrip,
 } from "../components/booking/QuickFare";
+import CustomerTripForm from "../components/booking/CustomerTripForm";
+import CustomerChooseStep from "../components/booking/CustomerChooseStep";
 import { rupee } from "../domain/officeStage";
 import { isoDateIST } from "../utils/time";
 
@@ -26,8 +28,16 @@ export interface NewBookingDraft {
   enquiry?: Enquiry;
 }
 
-type Step = "trip" | "estimate" | "customer" | "review";
+/** Same three steps as the customer apps: Plan the trip, Choose the vehicle, Review & confirm. */
+type Step = "trip" | "estimate" | "review";
 type Source = "Phone" | "WhatsApp" | "Office" | "App";
+
+/** The platform the booking is created for: it decides the pricing and where the booking shows up. */
+const PLATFORMS: { id: ManualBookingForm["channel"]; label: string }[] = [
+  { id: "nesam", label: "Nesam Cabs" },
+  { id: "onewaycarrentals", label: "One Way Car Rentals" },
+  { id: "people_taxi", label: "People Taxi" },
+];
 
 interface CustomerForm {
   phone: string;
@@ -80,7 +90,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
   const [trip, setTrip] = useState<QuickTrip>(() => draft?.trip ?? (draft?.enquiry ? tripFromEnquiry(draft.enquiry) : emptyTrip()));
   const [estimates, setEstimates] = useState<CategoryEstimate[] | null>(draft?.estimates ?? null);
   const [selected, setSelected] = useState(draft?.categoryId ?? draft?.enquiry?.categoryId ?? "");
-  const [step, setStep] = useState<Step>(draft?.estimates ? "customer" : "trip");
+  const [step, setStep] = useState<Step>(draft?.estimates ? "review" : "trip");
   const [billedTo, setBilledTo] = useState<"Company pays" | "Passenger pays">("Company pays");
   const [c, setC] = useState<CustomerForm>(() => ({
     ...EMPTY_CUSTOMER,
@@ -91,7 +101,11 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [fareOpen, setFareOpen] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  // Who the booking is for: someone already in the customer list, or a new customer.
+  const [customerMode, setCustomerMode] = useState<"existing" | "new">(draft?.enquiry ? "new" : "existing");
+  const [customerQuery, setCustomerQuery] = useState("");
   // Review step
   const [discountOpen, setDiscountOpen] = useState(false);
   const [discountType, setDiscountType] = useState<ManualBookingForm["discountType"]>("none");
@@ -124,17 +138,17 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
   // A converted enquiry re-prices the saved route as soon as the categories load.
   useEffect(() => {
     if (draft?.enquiry && !isMulticityEnquiry(draft.enquiry) && !estimates && data.categories.length && trip.pickup && trip.drop && !validateTrip(trip)) {
-      estimateAll(trip, data.categories).then((list) => {
+      estimateAll(trip, data.categories, c.channel).then((list) => {
         setEstimates(list);
         if (!list.some((x) => x.category.id === selected && x.quote)) setSelected(list.find((x) => x.quote)?.category.id ?? "");
-        setStep("customer");
+        setStep("review");
       });
     }
   }, [data.categories]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const set = (p: Partial<QuickTrip>) => {
     setTrip((t) => ({ ...t, ...p }));
-    if (p.pickup !== undefined || p.drop !== undefined || p.date || p.time || p.serviceId !== undefined || p.endDate !== undefined) setEstimates(null);
+    if (p.pickup !== undefined || p.drop !== undefined || p.date || p.time || p.serviceId !== undefined || p.endDate !== undefined || p.endTime !== undefined || p.stops !== undefined || p.airportDirection !== undefined) setEstimates(null);
   };
   const chosen = estimates?.find((x) => x.category.id === selected && x.quote) ?? null;
   const q = chosen?.quote ?? null;
@@ -152,14 +166,24 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
     if (!match && c.customerId) setC((v) => ({ ...v, customerId: "" }));
   }, [match]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The customer is chosen on the Plan step, before any estimate.
+  const planCustomerError = (): string | null => {
+    if (customerMode === "existing" && !c.customerId) return "Choose the customer, or switch to New customer.";
+    if (c.name.trim().length < 2) return "Enter the customer name.";
+    if (!normalizePhone(c.phone)) return "Enter a 10-digit mobile number.";
+    return null;
+  };
+
   const getEstimate = async (e?: FormEvent) => {
     e?.preventDefault();
     if (draft?.enquiry && isMulticityEnquiry(draft.enquiry)) return setError(MULTICITY_CONVERSION_MESSAGE);
+    const who = planCustomerError();
+    if (who) return setError(who);
     const why = validateTrip(trip);
     if (why) return setError(why);
     setBusy(true);
     setError(null);
-    const list = await estimateAll(trip, data.categories);
+    const list = await estimateAll(trip, data.categories, c.channel);
     setEstimates(list);
     const keep = list.find((x) => x.category.id === selected && x.quote) ?? list.find((x) => x.quote);
     setSelected(keep?.category.id ?? "");
@@ -241,6 +265,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
     if (draft?.enquiry && isMulticityEnquiry(draft.enquiry)) return setError(MULTICITY_CONVERSION_MESSAGE);
     if (!accepted) return setError("Confirm the customer’s acceptance before booking.");
     if (!chosen || !q) return setError("Choose a vehicle category.");
+    if (!validateCustomer()) return;
     setBusy(true);
     setError(null);
     const form = bookingForm();
@@ -272,11 +297,11 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
     <FareBreakupCard vehicle={chosen.category.name} lines={breakupLines(q)} total={q.quote.total} gstRate={q.quote.gstRate ?? 0} gstAmount={q.quote.gst} extraKm={estimateFacts.extraKmRateOf(q)} payout={canSeePayout ? estimateFacts.partnerPayoutOf(q) : null} priceEntered={gstEntryOf(q)} />
   );
   const errorLine = error && <div className="ds-error" role="alert" style={{ marginBottom: 14 }}><Icon name="circle-alert" />{error}</div>;
-  const wizard = (on: 2 | 3) => (
+  const wizard = (on: 1 | 2 | 3) => (
     <div className="ds-wizard-steps" aria-label="Booking steps">
-      <span data-done="true"><b><Icon name="check" size={12} /></b>Trip</span>
-      <span data-on={on === 2 ? "true" : undefined} data-done={on > 2 ? "true" : undefined}><b>{on > 2 ? <Icon name="check" size={12} /> : 2}</b>Customer</span>
-      <span data-on={on === 3 ? "true" : undefined}><b>3</b>Review</span>
+      {(["Plan", "Choose", "Review"] as const).map((label, i) => (
+        <span key={label} data-on={on === i + 1 ? "true" : undefined} data-done={on > i + 1 ? "true" : undefined}><b>{on > i + 1 ? <Icon name="check" size={12} /> : i + 1}</b>{label}</span>
+      ))}
     </div>
   );
 
@@ -284,66 +309,117 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
     return <div className="ds-page-body"><PageHeader title="Multicity enquiry" subtitle={draft.enquiry.code} actions={<Button onClick={onCancel}>Back to enquiries</Button>} /><p role="alert">{MULTICITY_CONVERSION_MESSAGE}</p></div>;
   }
 
-  // ── 01 Trip ──
+  // ── 1 Plan: platform, customer and the trip, drawn as the selected platform's own booking form ──
   if (step === "trip") {
+    const query = customerQuery.trim().toLowerCase();
+    const digits = query.replace(/\D/g, "");
+    const found = query.length >= 2
+      ? customers.filter((x) => x.name?.toLowerCase().includes(query) || (digits.length >= 3 && x.phone?.replace(/\D/g, "").includes(digits))).slice(0, 6)
+      : [];
+    const clearCustomer = () => setC((v) => ({ ...v, customerId: "", name: "", phone: "", email: "" }));
+    const chooseMode = (m: "existing" | "new") => {
+      if (m === customerMode) return;
+      setCustomerMode(m);
+      setCustomerQuery("");
+      clearCustomer();
+    };
+    const pickCustomer = (x: Customer) => {
+      setC((v) => ({ ...v, customerId: x.id, name: x.name, phone: (x.phone || "").replace(/\D/g, "").slice(-10), email: x.email || "" }));
+      setCustomerQuery("");
+      setError(null);
+    };
+    const side = (
+      <aside className="cf-side" aria-label="Platform and customer">
+        <h2 className="cf-side__title">{PLATFORMS.find((p) => p.id === c.channel)?.label}</h2>
+        <div className="cf-side__group" role="radiogroup" aria-label="Platform">
+          {PLATFORMS.map((p) => (
+            <button key={p.id} type="button" role="radio" aria-checked={c.channel === p.id} className={`cf-pick ${c.channel === p.id ? "is-on" : ""}`} onClick={() => { setC((v) => ({ ...v, channel: p.id })); setEstimates(null); }}>{p.label}</button>
+          ))}
+        </div>
+        <div className="tabs tabs--boxed" role="tablist" aria-label="Customer">
+          <button type="button" role="tab" aria-selected={customerMode === "existing"} className={`tab ${customerMode === "existing" ? "is-active" : ""}`} onClick={() => chooseMode("existing")}><span>Existing</span></button>
+          <button type="button" role="tab" aria-selected={customerMode === "new"} className={`tab ${customerMode === "new" ? "is-active" : ""}`} onClick={() => chooseMode("new")}><span>New</span></button>
+        </div>
+        {customerMode === "existing" ? (
+          c.customerId ? (
+            <div className="cf-chip">
+              <span>{c.name} · {c.phone}</span>
+              <button type="button" className="btn btn--secondary btn--sm" onClick={clearCustomer}>Change</button>
+            </div>
+          ) : (
+            <div className="cf-place">
+              <input className="input bf-input cf-sm" aria-label="Search customer" placeholder="Search by name or mobile" autoComplete="off" value={customerQuery} onChange={(e) => setCustomerQuery(e.target.value)} />
+              {found.length > 0 && (
+                <ul role="listbox" className="cf-list">
+                  {found.map((x) => (
+                    <li key={x.id} role="option" aria-selected={false} className="cf-opt" onClick={() => pickCustomer(x)}>
+                      <strong>{x.name}</strong>
+                      <small>{x.phone}</small>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {query.length >= 2 && found.length === 0 && <p className="bf-hint">No customer found. Choose New.</p>}
+            </div>
+          )
+        ) : (
+          <>
+            <input className="input bf-input cf-sm" aria-label="Customer name" placeholder="Customer name" maxLength={80} value={c.name} onChange={(e) => setC({ ...c, name: e.target.value })} />
+            <input className="input bf-input cf-sm" aria-label="Mobile number" placeholder="Mobile number" inputMode="tel" value={c.phone} onChange={(e) => setC({ ...c, phone: e.target.value })} />
+            {match && <p className="bf-hint">Already a customer: {match.name}. The booking uses that account.</p>}
+          </>
+        )}
+        {business && (
+          <select className="input select bf-input cf-sm" aria-label="Billing" value={billedTo} onChange={(e) => setBilledTo(e.target.value as typeof billedTo)}><option>Company pays</option><option>Passenger pays</option></select>
+        )}
+      </aside>
+    );
     return (
       <div className="ds-page-body">
         <Toast toast={toast} />
-        <PageHeader eyebrow="NESAM OPERATIONS" title="Quick fare" subtitle="Route first. Give the estimate before collecting customer details." actions={<Button variant="ghost" icon="arrow-left" onClick={onCancel}>Back to bookings</Button>} />
-        <form onSubmit={getEstimate} noValidate className="ds-panel ds-panel-pad" style={{ maxWidth: 1040 }}>
-          {errorLine}
-          <div className="flex flex-wrap items-center gap-3 mb-5 text-[12px]">
-            <label className="flex items-center gap-2 text-muted">Booking for
-              <select className="ds-select" value={trip.businessId} onChange={(e) => set({ businessId: e.target.value })}>
-                <option value="">Direct customer</option>
-                {data.business.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </select>
-            </label>
-            {business ? (
-              <label className="flex items-center gap-2 text-muted">Billing
-                <select className="ds-select" value={billedTo} onChange={(e) => setBilledTo(e.target.value as typeof billedTo)}><option>Company pays</option><option>Passenger pays</option></select>
-              </label>
-            ) : null}
-            <span className="text-[11px] text-info">{business ? "Contract rate first · passenger details follow" : "Existing direct-customer pricing and booking flow"}</span>
-          </div>
-          <h2 className="ds-step-title"><span className="ds-step-num">01</span>Trip details</h2>
-          <TripFields trip={trip} set={set} data={data} idPrefix="nb" />
-          <p className="text-[11px] text-faint mt-4">Confirm the road distance with the customer. All pickup times are IST.</p>
-          <div className="flex flex-wrap items-center justify-between gap-3 mt-5 pt-4 border-t border-line">
-            <span className="text-[11px] text-faint">Customer name / mobile comes after the estimate.</span>
-            <Button variant="primary" icon="calculator" type="submit" loading={busy}>Get estimate</Button>
-          </div>
-        </form>
+        <PageHeader eyebrow="NESAM OPERATIONS" title="New booking" actions={<Button variant="ghost" icon="arrow-left" onClick={onCancel}>Back to bookings</Button>} />
+        {wizard(1)}
+        <div className={`cf cf--${c.channel} cf-split`}>
+          {side}
+          <CustomerTripForm
+            trip={trip}
+            set={set}
+            data={data}
+            error={error}
+            onSubmit={getEstimate}
+            action={<button type="submit" className="btn btn--primary btn--lg btn--block bf-submit" disabled={busy}>{busy ? "Calculating…" : "Get estimate"}</button>}
+          />
+        </div>
       </div>
     );
   }
 
-  // ── 02 Fare estimate ──
+  // The fare breakup of one vehicle, shown in the Fare details sheet.
+  const breakupFor = (e: CategoryEstimate) => e.quote && (
+    <FareBreakupCard vehicle={e.category.name} lines={breakupLines(e.quote)} total={e.quote.quote.total} gstRate={e.quote.quote.gstRate ?? 0} gstAmount={e.quote.quote.gst} extraKm={estimateFacts.extraKmRateOf(e.quote)} payout={canSeePayout ? estimateFacts.partnerPayoutOf(e.quote) : null} priceEntered={gstEntryOf(e.quote)} />
+  );
+
+  // ── 2 Choose the vehicle: the customer sites' vehicle list and Trip Summary card ──
   if (step === "estimate" && estimates) {
     return (
       <div className="ds-page-body">
         <Toast toast={toast} />
-        <PageHeader eyebrow="NESAM OPERATIONS" title="Fare estimate" subtitle={`${trip.pickup?.name || trip.pickupText} → ${trip.drop?.name || trip.dropText} · ${refPickupLabel(trip)}`} actions={<Button icon="pencil" onClick={() => setStep("trip")}>Edit trip</Button>} />
+        <PageHeader eyebrow="NESAM OPERATIONS" title="New booking" />
+        {wizard(2)}
         {errorLine}
-        <h2 className="ds-step-title"><span className="ds-step-num">02</span>Choose vehicle category</h2>
-        <div className="flex flex-wrap items-center gap-3 mb-3 text-[12px] text-muted">
-          {/* GST included / excluded comes from the brand GST policy or the package / route fare saved in Service & Fare Settings. */}
-          <span>GST {Math.round((q?.quote.gstRate ?? 0) * 10000) / 100}% · {q ? (gstEntryOf(q) === "Including GST" ? "Configured fare already includes GST" : "GST added on top of the configured fare") + " · " : ""}All totals below include GST.</span>
-        </div>
-        <EstimateList estimates={estimates} selected={selected} onSelect={setSelected} priceEntered={trip.priceEntered} />
-        <section className="ds-panel ds-panel-pad mt-5">
-          <h2 className="ds-step-title"><span className="ds-step-num">03</span>Extras &amp; terms</h2>
-          <ExtrasFields trip={trip} set={set} />
-          <p className="text-[11px] text-muted mt-2">Waiting {rupee(waitingRate)} / hour · 0 min allowance.</p>
-          <details className="ds-disclosure">
-            <summary>Fare inclusions &amp; cancellation terms</summary>
-            <p className="text-[12px] text-body leading-relaxed">Toll, parking and state tax are extra at actuals. Waiting, hill and carrier charges follow the saved estimate and verified usage. Direct cancellation until one hour before pickup; later cancellation through the office. A verified arrival cancellation may carry ₹300.</p>
-          </details>
-        </section>
-        <div className="flex flex-wrap items-center gap-2 mt-4">
-          <Button variant="primary" icon="circle-check" disabled={!chosen} onClick={() => { setError(null); setStep("customer"); }}>Proceed to booking</Button>
-          <Button icon="phone-forwarded" disabled={!chosen} onClick={() => setSaving(true)}>Save for follow-up</Button>
-          <span className="text-[11px] text-muted ml-auto">Advance payment is optional.</span>
+        <div className={`cf cf--${c.channel}`}>
+          <CustomerChooseStep
+            trip={trip}
+            set={set}
+            estimates={estimates}
+            selected={selected}
+            onSelect={setSelected}
+            renderBreakup={(e) => breakupFor(e)}
+            onContinue={() => { setError(null); setStep("review"); }}
+            onEdit={() => setStep("trip")}
+            onSave={() => setSaving(true)}
+            canSeePayout={canSeePayout}
+          />
         </div>
         {saving && chosen && (
           <SaveEnquiryDialog trip={trip} estimate={chosen} serviceName={service?.name || tripServiceLabel(trip)} onClose={() => setSaving(false)} onSaved={(e) => { setSaving(false); onEnquirySaved(e); }} />
@@ -352,155 +428,224 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
     );
   }
 
-  // ── 02 Customer & pickup details ──
-  if (step === "customer" || !estimates) {
-    return (
-      <div className="ds-page-body">
-        <Toast toast={toast} />
-        <PageHeader eyebrow="NESAM OPERATIONS" title="New booking" subtitle="Phone, WhatsApp and office bookings in the same system." />
-        {wizard(2)}
-        <div className="ds-wizard">
-          <form className="ds-panel ds-panel-pad" noValidate onSubmit={(e) => { e.preventDefault(); if (validateCustomer()) setStep("review"); }}>
-            {errorLine}
-            {!estimates && <p className="ds-note mb-4">Pricing the saved route…</p>}
-            <h2 className="ds-step-title"><span className="ds-step-num">02</span>Customer &amp; pickup details</h2>
-            <p className="text-[12px] text-muted -mt-2 mb-4">Use the mobile number to find an existing customer.</p>
-            <div className="ds-form-grid">
-              <label className="ds-field"><span>Booking contact mobile *</span><input className="ds-input" inputMode="tel" value={c.phone} aria-invalid={!!errors.phone} onChange={(e) => setC({ ...c, phone: e.target.value })} />{err("phone")}{match && <span className="text-[11px] text-ok">Existing customer · {match.name}</span>}</label>
-              <label className="ds-field"><span>Booking contact name *</span><input className="ds-input" maxLength={80} value={c.name} aria-invalid={!!errors.name} onChange={(e) => setC({ ...c, name: e.target.value })} />{err("name")}</label>
-              <label className="ds-check" data-span="2"><input type="checkbox" checked={c.whatsappSame} onChange={(e) => setC({ ...c, whatsappSame: e.target.checked })} />WhatsApp number is the same as mobile</label>
-              {!c.whatsappSame && (
-                <div className="ds-field" data-span="2">
-                  <span>WhatsApp number</span>
-                  <div className="flex gap-2">
-                    <select className="ds-select" value={c.waCode} onChange={(e) => setC({ ...c, waCode: e.target.value })}>{COUNTRY_CODES.map((x) => <option key={x}>{x}</option>)}</select>
-                    <input className="ds-input flex-1" inputMode="tel" value={c.waNumber} onChange={(e) => setC({ ...c, waNumber: e.target.value })} />
-                  </div>
-                  {err("waNumber")}
-                </div>
-              )}
-              <label className="ds-field" data-span="2"><span>Email · optional</span><input className="ds-input" type="email" value={c.email} onChange={(e) => setC({ ...c, email: e.target.value })} />{err("email")}</label>
-              <div className="ds-field" data-span="2">
-                <span>Enquiry / booking source</span>
-                <div className="ds-seg" style={{ "--ds-seg": 4 } as React.CSSProperties}>
-                  {(["Phone", "WhatsApp", "Office", "App"] as const).map((s) => <button key={s} type="button" aria-pressed={c.source === s} onClick={() => setC({ ...c, source: s })}>{s}</button>)}
-                </div>
-              </div>
-              <label className="ds-field" data-span="2">
-                <span>Website / portal</span>
-                <select className="ds-select" value={c.channel} onChange={(e) => setC({ ...c, channel: e.target.value as CustomerForm["channel"] })}>
-                  <option value="nesam">Nesam Travels</option><option value="onewaycarrentals">One Way Car Rentals</option><option value="people_taxi">People Taxi</option>
-                </select>
-              </label>
-              <label className="ds-check" data-span="2"><input type="checkbox" checked={c.someoneElse} onChange={(e) => setC({ ...c, someoneElse: e.target.checked })} />Booking for someone else</label>
-              {c.someoneElse && (
-                <>
-                  <h3 className="text-[13px] font-bold text-ink" data-span="2">Passenger contact</h3>
-                  <label className="ds-field"><span>Passenger name *</span><input className="ds-input" value={c.paxName} onChange={(e) => setC({ ...c, paxName: e.target.value })} />{err("paxName")}</label>
-                  <label className="ds-field"><span>Passenger mobile *</span><input className="ds-input" inputMode="tel" value={c.paxPhone} onChange={(e) => setC({ ...c, paxPhone: e.target.value })} />{err("paxPhone")}</label>
-                  <label className="ds-field" data-span="2"><span>Passenger WhatsApp · optional</span><input className="ds-input" inputMode="tel" value={c.paxWhatsapp} onChange={(e) => setC({ ...c, paxWhatsapp: e.target.value })} /></label>
-                </>
-              )}
-            </div>
-            <h3 className="text-[14px] font-bold text-ink mt-6">Pickup &amp; drop meeting points</h3>
-            <p className="text-[12px] text-muted mb-3">Required before confirming the booking.</p>
-            <div className="ds-form-grid">
-              <label className="ds-field"><span>Pickup address / meeting point *</span><input className="ds-input" maxLength={200} value={c.pickupAddress} onChange={(e) => setC({ ...c, pickupAddress: e.target.value })} />{err("pickupAddress")}</label>
-              <label className="ds-field"><span>Drop address / meeting point *</span><input className="ds-input" maxLength={200} value={c.dropAddress} onChange={(e) => setC({ ...c, dropAddress: e.target.value })} />{err("dropAddress")}</label>
-            </div>
-            <details className="ds-disclosure">
-              <summary>Location confirmation</summary>
-              <p className="text-[12px] text-muted mb-3">Confirm the exact address or meeting point with the customer. Drag the pin to the exact spot when it differs from the saved location.</p>
-              <div className="grid gap-4 lg:grid-cols-2">
-                <MapLocationPicker label={trip.pickup?.name || trip.pickupText || "Pickup"} tone="pickup" value={trip.pickup} onChange={(p) => set({ pickup: p })} />
-                <MapLocationPicker label={trip.drop?.name || trip.dropText || "Drop"} tone="drop" value={trip.drop} startNear={trip.pickup} onChange={(p) => set({ drop: p })} />
-              </div>
-              {!estimates && <Button className="mt-3" icon="calculator" onClick={() => getEstimate()}>Re-calculate estimate</Button>}
-            </details>
-            <div className="flex justify-between gap-3 mt-6 pt-4 border-t border-line">
-              <Button icon="arrow-left" onClick={() => setStep(estimates ? "estimate" : "trip")}>Back</Button>
-              <Button variant="primary" icon="arrow-right" type="submit" disabled={!estimates || !chosen}>Review</Button>
-            </div>
-          </form>
-          <aside>{breakupCard}</aside>
-        </div>
-      </div>
-    );
-  }
-
-  // ── 03 Review & confirm ──
-  const at = refPickupLabel(trip);
+  // ── 3 Review & confirm: passenger and contact, meeting points, payment and terms, as on the customer sites ──
   const payout = q ? estimateFacts.partnerPayoutOf(q) : null;
+  const platform = PLATFORMS.find((p) => p.id === c.channel);
+  const cfErr = (k: keyof CustomerForm) => errors[k] ? <p className="field__error" role="alert">{errors[k]}</p> : null;
+  const pickupName = trip.pickup?.name || trip.pickupText;
+  const dropName = trip.tripType === "Local Rental" ? "Within City Disposal" : trip.drop?.name || trip.dropText;
   return (
     <div className="ds-page-body">
       <Toast toast={toast} />
-      <PageHeader eyebrow="NESAM OPERATIONS" title="New booking" subtitle="Phone, WhatsApp and office bookings in the same system." />
+      <PageHeader eyebrow="NESAM OPERATIONS" title="New booking" />
       {wizard(3)}
-      <div className="ds-wizard">
-        <form className="ds-panel ds-panel-pad" noValidate onSubmit={confirm}>
-          {errorLine}
-          <h2 className="ds-step-title"><span className="ds-step-num">03</span>Review &amp; confirm</h2>
-          <p className="text-[12px] text-muted -mt-2 mb-4">Confirm the booking with or without an advance.</p>
-          <div className="ds-sheet-card">
-            <div className="flex gap-2 mb-2"><Badge tone="red">{trip.tripType === "Airport Taxi" ? "Airport" : trip.tripType}</Badge><Badge>{chosen?.category.name}</Badge>{business && <Badge tone="blue">{business.name} · {billedTo}</Badge>}</div>
-            <strong>{trip.pickup?.name || trip.pickupText} → {trip.drop?.name || trip.dropText}</strong>
-            <small>{at}</small>
-            <dl className="ds-facts mt-3" data-cols={1}>
-              <div><dt>Booked by</dt><dd>{c.name} · {c.phone}</dd></div>
-              <div><dt>Passenger</dt><dd>{c.someoneElse ? `${c.paxName} · ${c.paxPhone}` : `${c.name} · ${c.phone}`}</dd></div>
-              <div><dt>WhatsApp</dt><dd>{c.whatsappSame ? c.phone : `${c.waCode} ${c.waNumber}`}</dd></div>
-            </dl>
-          </div>
-          <details className="ds-panel ds-panel-pad mb-4" open={discountOpen} onToggle={(e) => setDiscountOpen((e.target as HTMLDetailsElement).open)}>
-            <summary className="cursor-pointer text-[12px] font-semibold text-body"><Icon name="badge-indian-rupee" size={14} /> Discount / special fare</summary>
-            {canDiscount ? (
-              <div className="ds-form-grid mt-3">
-                <label className="ds-field"><span>Discount</span><select className="ds-select" value={discountType} onChange={(e) => setDiscountType(e.target.value as typeof discountType)}><option value="none">No discount</option><option value="percentage">Percentage</option><option value="fixed">Fixed ₹</option></select></label>
-                {discountType !== "none" && <label className="ds-field"><span>{discountType === "percentage" ? "Percent" : "Amount ₹"}</span><input className="ds-input" inputMode="decimal" value={discountValue} onChange={(e) => setDiscountValue(e.target.value)} /></label>}
-                {discountType !== "none" && <label className="ds-field" data-span="2"><span>Reason</span><input className="ds-input" maxLength={200} value={discountReason} onChange={(e) => setDiscountReason(e.target.value)} /></label>}
-                {canOverride && (
-                  <>
-                    <label className="ds-check" data-span="2"><input type="checkbox" checked={overrideOn} onChange={(e) => setOverrideOn(e.target.checked)} />Special fare (finance override)</label>
-                    {overrideOn && <label className="ds-field"><span>Special fare ₹</span><input className="ds-input" inputMode="numeric" value={overrideFare} onChange={(e) => setOverrideFare(e.target.value.replace(/\D/g, ""))} /></label>}
-                    {overrideOn && <label className="ds-field"><span>Reason (10+ characters)</span><input className="ds-input" maxLength={300} value={overrideReason} onChange={(e) => setOverrideReason(e.target.value)} /></label>}
-                  </>
-                )}
+      <div className={`cf cf--${c.channel}`}>
+        <form className="flow-page flow-page--review" noValidate onSubmit={confirm}>
+          <div className="wrap flow-page__wrap">
+            {error ? <p className="bf-error bf-error--form" role="alert">{error}</p> : null}
+            {!estimates && <p className="bf-hint">Pricing the saved route…</p>}
+            <div className="review">
+              <div className="review__main">
+                <section className="trip-sum trip-sum--compact" aria-label="Trip summary">
+                  <div className="trip-sum__body">
+                    <p className="route-title"><span>{pickupName}</span><Icon name="arrow-right" size={14} /><span>{trip.tripType === "Round Trip" ? pickupName : dropName}</span></p>
+                    <p className="trip-sum__meta">
+                      <span><span className="badge badge--blue">{trip.tripType === "Airport Taxi" ? "Airport" : trip.tripType}</span></span>
+                      {chosen && <span><span className="badge badge--neutral">{chosen.category.name}</span></span>}
+                      {platform && <span><span className="badge badge--brand">{platform.label}</span></span>}
+                      {business && <span><span className="badge badge--blue">{business.name} · {billedTo}</span></span>}
+                      <span className="trip-sum__when">{refPickupLabel(trip)}</span>
+                    </p>
+                  </div>
+                </section>
+
+                <section className="card" aria-labelledby="rv-who-head">
+                  <h2 id="rv-who-head">Passenger &amp; Contact Details</h2>
+                  <div className="rv-grid">
+                    <div className={`field ${errors.name ? "is-invalid" : ""}`}>
+                      <label className="field__label" htmlFor="rv-name">Contact name</label>
+                      <input id="rv-name" className="input" maxLength={80} value={c.name} onChange={(e) => setC({ ...c, name: e.target.value })} />
+                      {cfErr("name")}
+                    </div>
+                    <div className={`field ${errors.phone ? "is-invalid" : ""}`}>
+                      <label className="field__label" htmlFor="rv-phone">Mobile number</label>
+                      <input id="rv-phone" className="input" inputMode="tel" value={c.phone} onChange={(e) => setC({ ...c, phone: e.target.value })} />
+                      {cfErr("phone")}
+                      {match && <p className="field__hint">Existing customer · {match.name}</p>}
+                    </div>
+                    <div className={`field ${errors.email ? "is-invalid" : ""}`}>
+                      <label className="field__label" htmlFor="rv-email">Email Address<span className="field__opt">Optional</span></label>
+                      <input id="rv-email" className="input" type="email" placeholder="name@example.com" value={c.email} onChange={(e) => setC({ ...c, email: e.target.value })} />
+                      {cfErr("email")}
+                    </div>
+                    <div className="field">
+                      <span className="field__label">Booking source</span>
+                      <div className="tabs tabs--boxed" role="tablist" aria-label="Booking source">
+                        {(["Phone", "WhatsApp", "Office", "App"] as const).map((s) => (
+                          <button key={s} type="button" role="tab" aria-selected={c.source === s} className={`tab ${c.source === s ? "is-active" : ""}`} onClick={() => setC({ ...c, source: s })}><span>{s}</span></button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rv-fold">
+                    <label className="check"><input type="checkbox" className="check__input" checked={c.whatsappSame} onChange={(e) => setC({ ...c, whatsappSame: e.target.checked })} /><span className="check__label"><strong>WhatsApp number is the same as mobile</strong></span></label>
+                    {!c.whatsappSame && (
+                      <div className={`field ${errors.waNumber ? "is-invalid" : ""}`} style={{ marginTop: 10 }}>
+                        <label className="field__label" htmlFor="rv-wa">WhatsApp number</label>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <select className="input select" style={{ width: 110, flex: "none" }} aria-label="Country code" value={c.waCode} onChange={(e) => setC({ ...c, waCode: e.target.value })}>{COUNTRY_CODES.map((x) => <option key={x}>{x}</option>)}</select>
+                          <input id="rv-wa" className="input" inputMode="tel" value={c.waNumber} onChange={(e) => setC({ ...c, waNumber: e.target.value })} />
+                        </div>
+                        {cfErr("waNumber")}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rv-fold">
+                    <label className="check"><input type="checkbox" className="check__input" checked={c.someoneElse} onChange={(e) => setC({ ...c, someoneElse: e.target.checked })} /><span className="check__label"><strong>Booking this ride for someone else?</strong></span></label>
+                    {c.someoneElse && (
+                      <div className="rv-grid" style={{ marginTop: 10 }}>
+                        <div className={`field ${errors.paxName ? "is-invalid" : ""}`}>
+                          <label className="field__label" htmlFor="rv-pax">Passenger Name</label>
+                          <input id="rv-pax" className="input" placeholder="Full name" value={c.paxName} onChange={(e) => setC({ ...c, paxName: e.target.value })} />
+                          {cfErr("paxName")}
+                        </div>
+                        <div className={`field ${errors.paxPhone ? "is-invalid" : ""}`}>
+                          <label className="field__label" htmlFor="rv-paxphone">Passenger 10-digit Mobile</label>
+                          <input id="rv-paxphone" className="input" inputMode="tel" placeholder="9876543210" value={c.paxPhone} onChange={(e) => setC({ ...c, paxPhone: e.target.value })} />
+                          {cfErr("paxPhone")}
+                        </div>
+                        <div className="field">
+                          <label className="field__label" htmlFor="rv-paxwa">Passenger WhatsApp<span className="field__opt">Optional</span></label>
+                          <input id="rv-paxwa" className="input" inputMode="tel" value={c.paxWhatsapp} onChange={(e) => setC({ ...c, paxWhatsapp: e.target.value })} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </section>
+
+                <section className="card" aria-labelledby="rv-where-head">
+                  <h2 id="rv-where-head">Pickup &amp; Drop Points</h2>
+                  <div className="rv-grid">
+                    <div className={`field ${errors.pickupAddress ? "is-invalid" : ""}`}>
+                      <label className="field__label" htmlFor="rv-pickup">Pickup address / meeting point</label>
+                      <input id="rv-pickup" className="input" maxLength={200} value={c.pickupAddress} onChange={(e) => setC({ ...c, pickupAddress: e.target.value })} />
+                      {cfErr("pickupAddress")}
+                    </div>
+                    <div className={`field ${errors.dropAddress ? "is-invalid" : ""}`}>
+                      <label className="field__label" htmlFor="rv-drop">Drop address / meeting point</label>
+                      <input id="rv-drop" className="input" maxLength={200} value={c.dropAddress} onChange={(e) => setC({ ...c, dropAddress: e.target.value })} />
+                      {cfErr("dropAddress")}
+                    </div>
+                  </div>
+                  <details className="rv-fold">
+                    <summary>Confirm on map</summary>
+                    <div className="grid gap-4 lg:grid-cols-2 mt-3">
+                      <MapLocationPicker label={trip.pickup?.name || trip.pickupText || "Pickup"} tone="pickup" value={trip.pickup} onChange={(p) => set({ pickup: p })} />
+                      <MapLocationPicker label={trip.drop?.name || trip.dropText || "Drop"} tone="drop" value={trip.drop} startNear={trip.pickup} onChange={(p) => set({ drop: p })} />
+                    </div>
+                    {!estimates && <button type="button" className="btn btn--secondary btn--sm cf-gap" onClick={() => void getEstimate()}>Re-calculate estimate</button>}
+                  </details>
+                  <div className="field" style={{ marginTop: 12 }}>
+                    <label className="field__label" htmlFor="rv-notes">Office notes<span className="field__opt">Optional</span></label>
+                    <input id="rv-notes" className="input" maxLength={300} value={notes} onChange={(e) => setNotes(e.target.value)} />
+                  </div>
+                </section>
+
+                <section className="card rv-policy rv-policy--page">
+                  <label className="check"><input type="checkbox" className="check__input" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} /><span className="check__label"><strong>I accept the fare, extra charges and cancellation policy.</strong></span></label>
+                </section>
               </div>
-            ) : <p className="text-[12px] text-muted mt-2">Discounts and special fares need pricing or finance access.</p>}
-          </details>
-          <section className="ds-panel ds-panel-pad mb-4">
-            <h3 className="text-[14px] font-bold text-ink mb-2">Advance payment</h3>
-            <label className="ds-check"><input type="checkbox" checked={advanceOn} onChange={(e) => setAdvanceOn(e.target.checked)} />Customer has already paid an advance</label>
-            {advanceOn ? (
-              <div className="ds-form-grid mt-3">
-                <label className="ds-field"><span>Amount ₹</span><input className="ds-input" inputMode="decimal" value={advance.amount} onChange={(e) => setAdvance({ ...advance, amount: e.target.value })} /></label>
-                <label className="ds-field"><span>Method</span><select className="ds-select" value={advance.method} onChange={(e) => setAdvance({ ...advance, method: e.target.value })}>{PAYMENT_METHODS.map((m) => <option key={m}>{m}</option>)}</select></label>
-                {advance.method !== "Cash" && <label className="ds-field" data-span="2"><span>{advance.method === "UPI" ? "UPI transaction reference" : "Transfer reference"}</span><input className="ds-input" value={advance.reference} onChange={(e) => setAdvance({ ...advance, reference: e.target.value })} /></label>}
-              </div>
-            ) : <p className="text-[11px] text-faint mt-3">No advance recorded. The booking can still be confirmed.</p>}
-            <label className="ds-field mt-3" style={{ maxWidth: 260 }}><span>Balance payment method</span><select className="ds-select" value={payMethod} onChange={(e) => setPayMethod(e.target.value)}>{PAYMENT_METHODS.map((m) => <option key={m}>{m}</option>)}</select></label>
-          </section>
-          <label className="ds-field mb-4"><span>Office notes · optional</span><input className="ds-input" maxLength={300} value={notes} onChange={(e) => setNotes(e.target.value)} /></label>
-          <div className="ds-panel ds-panel-pad mb-4">
-            <label className="ds-check"><input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} />Customer agreed to the fare, included usage and cancellation terms.</label>
-            <p className="text-[10px] text-faint mt-2 ml-6">Direct cancellation is available until one hour before pickup. Later cancellations go through the office. A verified driver-arrival cancellation may carry a ₹300 charge.</p>
-          </div>
-          {canApplyCoupon && <div className="mb-4 p-4 rounded-lg" style={{ border: "1px dashed #efb4b8", background: "#fffafa" }}>
-            <div className="flex justify-between items-center mb-2"><strong className="text-[13px] text-ink flex items-center gap-2"><Icon name="ticket-percent" size={15} />Apply coupon</strong><span className="text-[10px] text-faint">One coupon per booking</span></div>
-            <div className="flex gap-2">
-              <input className="ds-input flex-1" placeholder="ENTER COUPON CODE" value={coupon} onChange={(e) => { setCoupon(e.target.value.toUpperCase()); setAppliedCoupon(null); setCouponMsg(null); }} />
-              <Button icon="check" loading={checkingCoupon} onClick={() => void applyCoupon()}>Apply</Button>
+
+              <aside className="review__sticky">
+                <section className="card" aria-labelledby="rv-pay-head">
+                  <h2 id="rv-pay-head">Payment Method</h2>
+                  <div className="pay-opts" role="radiogroup" aria-label="Balance payment method">
+                    {PAYMENT_METHODS.map((m) => (
+                      <label key={m} className={`pay-opt ${payMethod === m ? "is-selected" : ""}`}>
+                        <input type="radio" name="pay" value={m} checked={payMethod === m} onChange={() => setPayMethod(m)} />
+                        <div className="pay-opt__text"><strong>{m}</strong><small>Balance payment</small></div>
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="rv-fold">
+                    <label className="check"><input type="checkbox" className="check__input" checked={advanceOn} onChange={(e) => setAdvanceOn(e.target.checked)} /><span className="check__label"><strong>Customer has paid an advance</strong></span></label>
+                    {advanceOn && (
+                      <div className="rv-grid" style={{ marginTop: 10 }}>
+                        <div className="field"><label className="field__label" htmlFor="rv-adv">Amount ₹</label><input id="rv-adv" className="input" inputMode="decimal" value={advance.amount} onChange={(e) => setAdvance({ ...advance, amount: e.target.value })} /></div>
+                        <div className="field"><label className="field__label" htmlFor="rv-advm">Method</label><select id="rv-advm" className="input select" value={advance.method} onChange={(e) => setAdvance({ ...advance, method: e.target.value })}>{PAYMENT_METHODS.map((m) => <option key={m}>{m}</option>)}</select></div>
+                        {advance.method !== "Cash" && <div className="field"><label className="field__label" htmlFor="rv-advr">{advance.method === "UPI" ? "UPI transaction reference" : "Transfer reference"}</label><input id="rv-advr" className="input" value={advance.reference} onChange={(e) => setAdvance({ ...advance, reference: e.target.value })} /></div>}
+                      </div>
+                    )}
+                  </div>
+
+                  <details className="rv-fold" open={discountOpen} onToggle={(e) => setDiscountOpen((e.target as HTMLDetailsElement).open)}>
+                    <summary>Discount / special fare</summary>
+                    {canDiscount ? (
+                      <div className="rv-grid" style={{ marginTop: 10 }}>
+                        <div className="field"><label className="field__label" htmlFor="rv-dt">Discount</label><select id="rv-dt" className="input select" value={discountType} onChange={(e) => setDiscountType(e.target.value as typeof discountType)}><option value="none">No discount</option><option value="percentage">Percentage</option><option value="fixed">Fixed ₹</option></select></div>
+                        {discountType !== "none" && <div className="field"><label className="field__label" htmlFor="rv-dv">{discountType === "percentage" ? "Percent" : "Amount ₹"}</label><input id="rv-dv" className="input" inputMode="decimal" value={discountValue} onChange={(e) => setDiscountValue(e.target.value)} /></div>}
+                        {discountType !== "none" && <div className="field"><label className="field__label" htmlFor="rv-dr">Reason</label><input id="rv-dr" className="input" maxLength={200} value={discountReason} onChange={(e) => setDiscountReason(e.target.value)} /></div>}
+                        {canOverride && (
+                          <>
+                            <label className="check"><input type="checkbox" className="check__input" checked={overrideOn} onChange={(e) => setOverrideOn(e.target.checked)} /><span className="check__label"><strong>Special fare (finance override)</strong></span></label>
+                            {overrideOn && <div className="field"><label className="field__label" htmlFor="rv-of">Special fare ₹</label><input id="rv-of" className="input" inputMode="numeric" value={overrideFare} onChange={(e) => setOverrideFare(e.target.value.replace(/\D/g, ""))} /></div>}
+                            {overrideOn && <div className="field"><label className="field__label" htmlFor="rv-or">Reason (10+ characters)</label><input id="rv-or" className="input" maxLength={300} value={overrideReason} onChange={(e) => setOverrideReason(e.target.value)} /></div>}
+                          </>
+                        )}
+                      </div>
+                    ) : <p className="field__hint">Discounts and special fares need pricing or finance access.</p>}
+                  </details>
+
+                  {canApplyCoupon && (
+                    <div className="rv-pay-promo">
+                      <div className="promo">
+                        <div className="promo-form" style={{ display: "flex", gap: 8 }}>
+                          <input className="input" placeholder="Coupon code" aria-label="Coupon code" value={coupon} onChange={(e) => { setCoupon(e.target.value.toUpperCase()); setAppliedCoupon(null); setCouponMsg(null); }} />
+                          <button type="button" className="btn btn--secondary" disabled={checkingCoupon} onClick={() => void applyCoupon()}>{checkingCoupon ? "…" : "Apply"}</button>
+                        </div>
+                        {couponMsg && <p className={couponMsg.ok ? "field__hint" : "field__error"}>{couponMsg.text}</p>}
+                      </div>
+                    </div>
+                  )}
+                </section>
+
+                <div className="card sel-card sel-card--sum">
+                  <div className="sel-card__total">
+                    <span className="rv-total-label">
+                      Total Payable
+                      <button type="button" className="rv-info-btn" onClick={() => setFareOpen(true)} aria-label="Fare details" title="Fare details"><Icon name="info" size={18} /></button>
+                    </span>
+                    <strong className="num">{q ? rupee(q.quote.total) : "—"}</strong>
+                  </div>
+                  <ul className="rv-sum__notes">
+                    <li>Includes base fare, driver bata &amp; discounts</li>
+                    <li>Toll, State Tax &amp; Parking extra (as per actuals)</li>
+                    {canSeePayout && <li>Partner payout {rupee(payout)}</li>}
+                  </ul>
+                  <div className="rv-act">
+                    <button type="submit" className="btn btn--primary btn--lg btn--block" disabled={busy}>{busy ? "Booking…" : "Confirm & Book Ride"} {busy ? null : <Icon name="check" size={18} />}</button>
+                    <button type="button" className="btn btn--text cf-gap" disabled={busy} onClick={() => setStep(estimates ? "estimate" : "trip")}>Back to vehicles</button>
+                  </div>
+                </div>
+              </aside>
             </div>
-            {couponMsg && <p className={`text-[11px] mt-2 ${couponMsg.ok ? "text-ok" : "text-bad"}`}>{couponMsg.text}</p>}
-            <p className="text-[10px] text-muted mt-2">Customer mobile is checked here; Quick Fare remains contact-free.</p>
-            {canSeePayout && <p className="text-[10px] text-muted mt-1">Partner payout {rupee(payout)} · Actual expenses remain separate.</p>}
-          </div>}
-          <div className="flex justify-between gap-3 pt-4 border-t border-line">
-            <Button icon="arrow-left" onClick={() => setStep("customer")} disabled={busy}>Back</Button>
-            <Button variant="primary" icon="circle-check" type="submit" loading={busy}>Confirm booking</Button>
           </div>
         </form>
-        <aside>{breakupCard}</aside>
+
+        {fareOpen && chosen && (
+          <div className="overlay overlay--dialog" onMouseDown={(e) => e.target === e.currentTarget && setFareOpen(false)} onKeyDown={(e) => e.key === "Escape" && setFareOpen(false)}>
+            <div className="dialog dialog--dialog dialog--wide" role="dialog" aria-modal="true" aria-label="Fare details">
+              <div className="dialog__head">
+                <div><h2>Fare Breakup &amp; Exclusions</h2></div>
+                <button type="button" className="btn btn--ghost btn--sm" aria-label="Close" onClick={() => setFareOpen(false)}><Icon name="x" size={18} /></button>
+              </div>
+              <div className="dialog__body">{breakupFor(chosen)}</div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

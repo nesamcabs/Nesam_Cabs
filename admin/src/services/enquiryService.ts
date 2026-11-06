@@ -33,6 +33,8 @@ export interface Enquiry {
   pickup: string;
   drop: string;
   stops?: EnquiryStop[];
+  /** Round-trip stops. Kept apart from `stops`, which marks a Multicity itinerary. */
+  roundStops?: EnquiryStop[];
   itinerary?: EnquiryStop[];
   tripEndAt?: Timestamp | null;
   submissionId?: string;

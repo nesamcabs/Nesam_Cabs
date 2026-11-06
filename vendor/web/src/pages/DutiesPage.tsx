@@ -197,7 +197,7 @@ export const DutiesPage: React.FC = () => {
               <option value="Round Trip">Round Trip</option>
               <option value="Airport">Airport</option>
               <option value="Multicity">Multicity</option>
-              <option value="Local Rental">Local Rental</option>
+              <option value="Local Rental">Hourly Rental</option>
             </select>
           </label>
         </div>

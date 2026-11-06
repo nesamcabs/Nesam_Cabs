@@ -93,11 +93,7 @@ export function validateCategory(
     if (!Number.isFinite(value) || value < 0) errors[`fare.${key}`] = "Must be zero or more.";
     else if (value > max) errors[`fare.${key}`] = `Must not exceed ${max.toLocaleString("en-IN")}.`;
   }
-  // The booking backend skips categories without a per-km rate
-  // (functions/src/domain/pricing.ts mapCategory), so they could never be booked.
-  if (!errors["fare.perKmRate"] && !(form.fare.perKmRate > 0)) {
-    errors["fare.perKmRate"] = "Per-km rate is required — customers cannot book a category without it.";
-  }
+  // Fares are no longer entered on this form (pricing lives in Common price), so a per-km rate is not required here.
   if (!errors["fare.minimumFare"] && form.fare.minimumFare > 0 && form.fare.minimumFare < form.fare.baseFare) {
     errors["fare.minimumFare"] = "Minimum fare cannot be lower than the base fare.";
   }

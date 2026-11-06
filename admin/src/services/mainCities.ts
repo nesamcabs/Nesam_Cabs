@@ -30,6 +30,7 @@ const CITIES: MainCity[] = [
   { id: 'trichy', name: 'Trichy', address: 'Tiruchirappalli, Tamil Nadu', lat: 10.7905, lng: 78.7047, aka: ['tiruchirappalli', 'tiruchirapalli', 'tiruchi', 'tiruchy'] },
   { id: 'salem', name: 'Salem', address: 'Salem, Tamil Nadu', lat: 11.6643, lng: 78.146 },
   { id: 'erode', name: 'Erode', address: 'Erode, Tamil Nadu', lat: 11.341, lng: 77.7172 },
+  { id: 'sathyamangalam', name: 'Sathyamangalam', address: 'Sathyamangalam, Tamil Nadu', lat: 11.5053, lng: 77.2384, aka: ['sathy', 'satyamangalam'] },
   { id: 'tiruppur', name: 'Tiruppur', address: 'Tiruppur, Tamil Nadu', lat: 11.1085, lng: 77.3411, aka: ['tirupur'] },
   { id: 'vellore', name: 'Vellore', address: 'Vellore, Tamil Nadu', lat: 12.9165, lng: 79.1325 },
   { id: 'thanjavur', name: 'Thanjavur', address: 'Thanjavur, Tamil Nadu', lat: 10.787, lng: 79.1378, aka: ['tanjore'] },
@@ -98,4 +99,20 @@ export function matchMainCities(query: string, limit = 2): GeoPlace[] {
     .sort((a, b) => Number(b.exact) - Number(a.exact) || a.c.name.length - b.c.name.length)
     .slice(0, limit)
     .map(({ c }): GeoPlace => ({ id: `city-${c.id}`, name: c.name, address: c.address, type: 'other', lat: c.lat, lng: c.lng }));
+}
+
+/**
+ * The main city closest to a point, with the straight-line distance in km. Several villages share one name
+ * ("Sathyamangalam" is a town near Erode and a village near Trichy); this tells such places apart in the
+ * suggestion list. `exceptName` skips the city that carries the place's own name.
+ */
+export function nearestMainCity(lat: number, lng: number, exceptName = ''): { name: string; km: number } | null {
+  const skip = norm(exceptName.split(',')[0] ?? '');
+  let best: { name: string; km: number } | null = null;
+  for (const c of CITIES) {
+    if (skip && norm(c.name) === skip) continue;
+    const km = Math.hypot((c.lat - lat) * 111.2, (c.lng - lng) * 111.2 * Math.cos((lat * Math.PI) / 180));
+    if (!best || km < best.km) best = { name: c.name, km };
+  }
+  return best;
 }

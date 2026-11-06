@@ -550,7 +550,7 @@ export function mapBooking(id: string, data: DocumentData): TripDetails {
     drop: readLocation(data, 'drop', 'Drop location'),
     distanceKm: parseAmount(data.distanceKm),
     vehicleType: str(data.categoryName || data.vehicleCategory || data.vehicle),
-    serviceType: str(data.service),
+    serviceType: str(data.service).replace(/^rental$/i, 'Hourly Rental').replace(/^local$/i, 'Pickup & Drop'),
     fareAmount: fare,
     driverEarnings: payout,
     payoutRecorded,

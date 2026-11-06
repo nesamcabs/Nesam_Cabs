@@ -8,7 +8,7 @@ import { day, dayTime, isoDay, rupees, time } from '../format';
 import { docKind, driverDocState, stageOf, vehicleDocState } from '../derive';
 import { useWorkspace } from '../Workspace';
 
-const TRIP_TYPES = ['All', 'One Way', 'Round Trip', 'Multicity', 'Local Rental'];
+const TRIP_TYPES = ['All', 'One Way', 'Round Trip', 'Multicity', 'Hourly Rental', 'Pickup & Drop'];
 const OPEN_BID = (b: BidProposal) => b.status === 'Pending Review';
 
 /** When a vendor accepting now would have to confirm the driver and vehicle (same rule as the server). */

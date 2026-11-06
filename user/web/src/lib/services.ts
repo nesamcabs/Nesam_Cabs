@@ -1,7 +1,7 @@
 // Service taxonomy for NESAM Cabs: Outstation, Airport Taxi, Local Rental, Multicity, Local Taxi.
 import type { TripType } from '@core/types';
 
-export type ServiceId = 'outstation' | 'airport' | 'rental' | 'multicity' | 'local';
+export type ServiceId = 'outstation' | 'airport' | 'rental' | 'multicity' | 'local' | 'pickup';
 
 export interface ServiceMeta {
   id: ServiceId;
@@ -31,8 +31,8 @@ export const SERVICES: readonly ServiceMeta[] = [
   },
   {
     id: 'rental',
-    label: 'Rental',
-    tagline: 'Hourly city disposal packages with driver',
+    label: 'Hourly Rental',
+    tagline: 'Pick a city and hours, with a driver at your disposal',
     tripType: 'Local Rental',
     online: true,
     icon: 'car-clock',
@@ -54,18 +54,31 @@ export const SERVICES: readonly ServiceMeta[] = [
     online: true,
     icon: 'taxi-route',
   },
+  {
+    // Scheduled pickup and drop inside one city: a normal booking (date, time, vehicles, fares), priced from that city's
+    // Local Pickup & Drop fare. Together with the hourly rental it is the "Local Rentals" button of the booking form.
+    id: 'pickup',
+    label: 'Pickup & Drop',
+    tagline: 'Book a city pickup and drop for a date and time',
+    tripType: 'One Way',
+    online: true,
+    icon: 'taxi-route',
+  },
 ] as const;
 
 export const SERVICE_TITLE: Record<ServiceId, string> = {
   outstation: 'Outstation Cabs',
   airport: 'Airport Taxi',
-  rental: 'Local City Rental',
+  rental: 'Hourly Rental',
   multicity: 'Multicity Tour & Itinerary',
   local: 'Local Taxi',
+  pickup: 'Pickup & Drop',
 };
 
 export const parseService = (raw: string | null): ServiceId | null => {
-  if (raw === 'outstation' || raw === 'airport' || raw === 'rental' || raw === 'multicity' || raw === 'local') return raw;
+  if (raw === 'outstation' || raw === 'airport' || raw === 'rental' || raw === 'multicity' || raw === 'local' || raw === 'pickup') return raw;
+  if (raw === 'local-rentals' || raw === 'hourly-rental') return 'rental';
+  if (raw === 'pickup-drop') return 'pickup';
   if (raw === 'one-way' || raw === 'round-trip') return 'outstation';
   return null;
 };
@@ -85,10 +98,15 @@ export function tripTypeLabel(t: TripType | string): string {
     case 'Airport Taxi':
       return 'Airport';
     case 'Local Rental':
-      return 'Local Rental';
+      return 'Hourly Rental';
     default:
       return 'One Way';
   }
 }
 
-export const serviceHref = (s: ServiceId) => `/book?service=${s}`;
+/** Local Rentals open as a full-screen map; every other service opens the booking form. */
+export const serviceHref = (s: ServiceId) => (s === 'rental' ? '/local-rentals?mode=hourly' : s === 'pickup' ? '/local-rentals?mode=pickup' : `/book?service=${s}`);
+
+/** The booking form's "Local Rentals" button covers both the hourly rental and the scheduled pickup & drop. */
+export const LOCAL_RENTALS_LABEL = 'Local Rentals';
+export const isLocalRentals = (s: ServiceId) => s === 'rental' || s === 'pickup';

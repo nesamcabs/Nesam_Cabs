@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { serviceLabel } from "../services/tariffService";
 import { collection, deleteDoc, doc, onSnapshot, runTransaction, serverTimestamp, setDoc } from "firebase/firestore";
 import type { Booking, Invoice } from "../types";
 import { subscribeBookings, subscribeInvoices, subscribeSettings, subscribeToDocument } from "../services/adminFirestoreService";
@@ -378,7 +379,7 @@ export function TaxPolicyDialog({ policy, onClose, onSaved }: { policy: TaxPolic
           const r = p.services[s];
           return (
             <tr key={s}>
-              <td>{s}</td>
+              <td>{serviceLabel(s)}</td>
               <td><select className="ds-select" disabled={busy} value={r.classification} onChange={(e) => edit({ ...p, services: { ...p.services, [s]: { ...r, classification: e.target.value as TaxPolicy["services"][string]["classification"] } } })}><option>Passenger transportation</option><option>Vehicle rental</option></select></td>
               <td><input className="ds-input" disabled={busy} style={{ width: 110 }} value={r.sac} onChange={(e) => edit({ ...p, services: { ...p.services, [s]: { ...r, sac: e.target.value.replace(/\D/g, "").slice(0, 8) } } })} /></td>
               <td><Badge tone={p.approved && !dirty ? "green" : "amber"}>{p.approved && !dirty ? "Approved" : "Pending"}</Badge></td>

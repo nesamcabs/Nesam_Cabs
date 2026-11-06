@@ -67,8 +67,10 @@ export function tripTypeOf(b: Pick<Booking, "service" | "serviceType" | "tripTyp
 }
 
 /** The trip-type tabs on Bookings. */
-export const TRIP_TABS = ["All trips", "One Way", "Round Trip", "Local Rental", "Multicity", "Airport Taxi"] as const;
+export const TRIP_TABS = ["All trips", "One Way", "Round Trip", "Local Rental", "Pickup & Drop", "Multicity", "Airport Taxi"] as const;
 export type TripTab = (typeof TRIP_TABS)[number];
+/** What the office sees on a tab or trip type: the stored "Local Rental" is the Hourly Rental of the customer sites. */
+export const displayTripType = (t: string): string => (t === "Local Rental" ? "Hourly Rental" : t === "Local Pickup & Drop" ? "Pickup & Drop" : t);
 
 /** Which trip-type tab a booking belongs to. A Multicity tour is stored as a Round Trip tagged Multicity, so that is checked first. */
 export function tripTabOf(b: Pick<Booking, "service" | "serviceType" | "tripType">): Exclude<TripTab, "All trips"> {
@@ -77,6 +79,8 @@ export function tripTabOf(b: Pick<Booking, "service" | "serviceType" | "tripType
   if (has(/multi/i, ...s)) return "Multicity";
   if (has(/round/i, ...s)) return "Round Trip";
   if (has(/rental|hour/i, ...s)) return "Local Rental";
+  // A pickup and drop inside one city is stored as a One Way trip named "Local".
+  if (has(/pickup\s*&|local/i, ...s)) return "Pickup & Drop";
   return "One Way";
 }
 

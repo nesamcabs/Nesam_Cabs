@@ -13,7 +13,7 @@ import Enquiries from "../components/booking/Enquiries";
 import { effectiveStatus, subscribeEnquiries, type Enquiry } from "../services/enquiryService";
 import { paymentOf } from "../domain/bookingFlow";
 import {
-  OFFICE_STAGES, TRIP_TABS, agreedPayoutOf, assignmentDeadline, bookingTabOf, customerGroups, fareOf, matchesTripType, officeStageOf, officeStatusLabel, refDate, refTime, tripTabOf, type OfficeStage, type TripTab,
+  OFFICE_STAGES, TRIP_TABS, displayTripType, agreedPayoutOf, assignmentDeadline, bookingTabOf, customerGroups, fareOf, matchesTripType, officeStageOf, officeStatusLabel, refDate, refTime, tripTabOf, type OfficeStage, type TripTab,
 } from "../domain/officeStage";
 import { useCan } from "../components/AccessContext";
 import { Badge, Button, DataTable, EmptyState, Icon, PageHeader, TableSkeleton, toneForStatus } from "../components/ui";
@@ -116,7 +116,7 @@ export default function Bookings({ onSelectBooking, initialTab, onNewBooking, on
   }, [inStage, f, sort, tripTab, groups, now, ops.warningHours]);
 
   const tripCounts = useMemo(() => {
-    const c: Record<TripTab, number> = { "All trips": inStage.length, "One Way": 0, "Round Trip": 0, "Local Rental": 0, Multicity: 0, "Airport Taxi": 0 };
+    const c: Record<TripTab, number> = { "All trips": inStage.length, "One Way": 0, "Round Trip": 0, "Local Rental": 0, "Pickup & Drop": 0, Multicity: 0, "Airport Taxi": 0 };
     for (const b of inStage) c[tripTabOf(b)]++;
     return c;
   }, [inStage]);
@@ -257,7 +257,7 @@ export default function Bookings({ onSelectBooking, initialTab, onNewBooking, on
 
       <StageBar
         label="Trip type"
-        tabs={TRIP_TABS.map((t) => ({ id: t, label: t, count: tripCounts[t] }))}
+        tabs={TRIP_TABS.map((t) => ({ id: t, label: displayTripType(t), count: tripCounts[t] }))}
         value={tripTab}
         onChange={(t) => { setTripTab(t); setExpanded(null); }}
       />

@@ -8,6 +8,7 @@ import {
 } from "../../services/adminBookingService";
 import { ActionError } from "../../services/callables";
 import { mainCityPlaces, placeDetail, placeLabel, searchPlaces, type LatLng, type PlaceResult } from "../../services/geoService";
+import { nearestMainCity } from "../../services/mainCities";
 import { saveEnquiry, type Enquiry } from "../../services/enquiryService";
 import MapLocationPicker, { type PickedPoint } from "../MapLocationPicker";
 import { Modal } from "../Feedback";
@@ -25,10 +26,14 @@ export interface QuickTrip {
   tripType: ManualBookingForm["tripType"] | "Local Rental" | "Airport Taxi";
   /** A Multicity trip: priced and booked as a Round Trip, but chosen and named as Multicity. */
   multicity?: boolean;
+  /** A pickup and drop inside one city: a One Way trip priced from that city's Local Pickup & Drop fare. */
+  local?: boolean;
   pickupText: string;
   dropText: string;
   pickup: PickedPoint | null;
   drop: PickedPoint | null;
+  /** Round trips: intermediate stops, in order. A stop with no point yet is not priced. */
+  stops?: { text: string; point: PickedPoint | null }[];
   date: string;
   time: string;
   endDate: string;
@@ -43,7 +48,7 @@ export interface QuickTrip {
 }
 
 export const emptyTrip = (): QuickTrip => ({
-  businessId: "", serviceId: "", tripType: "One Way", pickupText: "", dropText: "", pickup: null, drop: null,
+  businessId: "", serviceId: "", tripType: "One Way", pickupText: "", dropText: "", pickup: null, drop: null, stops: [],
   date: isoDateIST(new Date(Date.now() + 86400000)), time: "08:00", endDate: "", endTime: "20:00", airportDirection: "to",
   hill: false, carrier: false, waitingMin: "0", priceEntered: "Excluding GST",
 });
@@ -59,6 +64,10 @@ export const tripPickupAt = (t: QuickTrip) => (t.date && t.time ? `${t.date}T${t
 // A Multicity quote has no return date: it is priced for the pickup day.
 export const tripEndAt = (t: QuickTrip) => (t.tripType !== "Round Trip" ? "" : t.multicity && t.date ? `${t.date}T23:59` : t.endDate ? `${t.endDate}T${t.endTime || "20:00"}` : "");
 
+/** The chosen stops of a round trip (not a Multicity tour), in order. */
+export const roundStopPoints = (t: QuickTrip): PickedPoint[] =>
+  t.tripType === "Round Trip" && !t.multicity ? (t.stops ?? []).flatMap((s) => (s.point ? [s.point] : [])) : [];
+
 /** The booking-form view of a trip (customer fields left empty for a quote). */
 export function tripToForm(t: QuickTrip, categoryId: string, base: ManualBookingForm = emptyManualBooking()): ManualBookingForm {
   return {
@@ -66,6 +75,7 @@ export function tripToForm(t: QuickTrip, categoryId: string, base: ManualBooking
     serviceId: t.serviceId,
     pickup: t.pickup,
     drop: t.drop,
+    stops: roundStopPoints(t),
     categoryId,
     tripType: t.tripType,
     pickupAt: tripPickupAt(t),
@@ -99,17 +109,18 @@ export type QuickData = ReturnType<typeof useQuickData>;
 const locLabel = (l: MasterLocation) => [l.name, l.area && l.area !== l.name ? l.area : "", l.city && l.city !== l.name ? l.city : ""].filter(Boolean).join(", ");
 
 /** The built-in services: the platform's trip types, offered before any configured service. */
-export const TRIP_SERVICES: { key: string; tripType: QuickTrip["tripType"]; label: string; multicity?: boolean }[] = [
+export const TRIP_SERVICES: { key: string; tripType: QuickTrip["tripType"]; label: string; multicity?: boolean; local?: boolean }[] = [
   { key: "One Way", tripType: "One Way", label: "Outstation · One Way" },
   { key: "Round Trip", tripType: "Round Trip", label: "Outstation · Round Trip" },
   // Multicity is priced from the Round Trip rates (the tariff inherits them), so it uses that trip type.
   { key: "Multicity", tripType: "Round Trip", label: "Multicity", multicity: true },
-  { key: "Local Rental", tripType: "Local Rental", label: "Local Rental" },
+  { key: "Local Rental", tripType: "Local Rental", label: "Hourly Rental" },
+  { key: "Pickup & Drop", tripType: "One Way", label: "Pickup & Drop", local: true },
   { key: "Airport Taxi", tripType: "Airport Taxi", label: "Airport Transfer" },
 ];
-const TRIP_OPTION = "trip:";
-export const tripServiceLabel = (t: Pick<QuickTrip, "tripType" | "multicity">) => TRIP_SERVICES.find((x) => x.tripType === t.tripType && !!x.multicity === !!t.multicity)?.label ?? TRIP_SERVICES[0].label;
-const tripOptionKey = (t: Pick<QuickTrip, "tripType" | "multicity">) => (t.multicity ? "Multicity" : t.tripType);
+export const TRIP_OPTION = "trip:";
+export const tripServiceLabel = (t: Pick<QuickTrip, "tripType" | "multicity" | "local">) => TRIP_SERVICES.find((x) => x.tripType === t.tripType && !!x.multicity === !!t.multicity && !!x.local === !!t.local)?.label ?? TRIP_SERVICES[0].label;
+export const tripOptionKey = (t: Pick<QuickTrip, "tripType" | "multicity" | "local">) => (t.multicity ? "Multicity" : t.local && t.tripType === "One Way" ? "Pickup & Drop" : t.tripType);
 
 /** Local rentals are priced to a city-disposal point beside the pickup, as the customer apps book them. */
 const DISPOSAL_ID = "place-local-disposal";
@@ -119,16 +130,16 @@ const disposalFor = (p: PickedPoint): PickedPoint => ({
 });
 
 /** A new pickup; a local rental's drop follows it. */
-const withPickup = (t: QuickTrip, pickup: PickedPoint | null, pickupText: string): Partial<QuickTrip> =>
+export const withPickup = (t: QuickTrip, pickup: PickedPoint | null, pickupText: string): Partial<QuickTrip> =>
   t.tripType === "Local Rental" ? { pickup, pickupText, drop: pickup ? disposalFor(pickup) : null, dropText: pickup ? DISPOSAL_NAME : "" } : { pickup, pickupText };
 
 /** A new trip type. Only what it cannot use is cleared: the city-disposal drop outside a local rental. */
-function withTripType(t: QuickTrip, tripType: QuickTrip["tripType"]): Partial<QuickTrip> {
+export function withTripType(t: QuickTrip, tripType: QuickTrip["tripType"]): Partial<QuickTrip> {
   if (tripType === "Local Rental") return { tripType, ...withPickup({ ...t, tripType }, t.pickup, t.pickupText) };
   return t.drop?.placeId === DISPOSAL_ID ? { tripType, drop: null, dropText: "" } : { tripType };
 }
 
-const airportSide = (t: QuickTrip): "pickup" | "drop" => (t.airportDirection === "from" ? "pickup" : "drop");
+export const airportSide = (t: QuickTrip): "pickup" | "drop" => (t.airportDirection === "from" ? "pickup" : "drop");
 
 /** Trip type implied by a service name (One Way / Round Trip / Local Rental / Airport). */
 export function tripTypeForService(s?: TravelService): QuickTrip["tripType"] {
@@ -139,13 +150,18 @@ export function tripTypeForService(s?: TravelService): QuickTrip["tripType"] {
   return "One Way";
 }
 
+/** Straight-line km between two points. */
+const straightKm = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) => Math.hypot((a.lat - b.lat) * 111.2, (a.lng - b.lng) * 111.2 * Math.cos((a.lat * Math.PI) / 180));
+
 export function validateTrip(t: QuickTrip): string | null {
   if (!t.pickup) return "Select the locations and calculate the route, or record an authorised manual distance with a reason.";
   if (!t.drop) return "Select the locations and calculate the route, or record an authorised manual distance with a reason.";
+  if (t.local && t.tripType === "One Way" && straightKm(t.pickup, t.drop) > 40) return "Pickup & Drop is for trips inside one city. For a longer trip choose Outstation.";
   if (!t.date || !t.time) return "Choose the pickup date and time.";
   const at = tripPickupDate(t);
   if (!at || at.getTime() < Date.now() + 30 * 60000) return "Pickup must be at least 30 minutes from now.";
   if (t.tripType === "Round Trip" && !t.multicity && !t.endDate) return "Choose when the trip ends.";
+  if (t.tripType === "Round Trip" && !t.multicity && (t.stops ?? []).some((s) => !s.point)) return "Choose each stop on the map, or remove it.";
   if (t.tripType === "Airport Taxi" && t[airportSide(t)]?.type !== "airport") return `Choose the airport as the ${airportSide(t)} for this transfer.`;
   return null;
 }
@@ -209,7 +225,7 @@ const placeFromResult = (r: PlaceResult): PickedPoint => ({ lat: r.lat, lng: r.l
  * Pickup / drop search: saved locations plus address suggestions from the map search. Only a
  * chosen suggestion sets the point (address + coordinates); typed text alone never prices a trip.
  */
-function PlaceField({ label, placeholder, text, value, saved, near, airport, onChange }: {
+export function PlaceField({ label, placeholder, text, value, saved, near, airport, onChange, variant, pin: pinKind, onRemove }: {
   label: string;
   placeholder: string;
   text: string;
@@ -218,6 +234,10 @@ function PlaceField({ label, placeholder, text, value, saved, near, airport, onC
   near: LatLng | null;
   airport?: boolean;
   onChange: (text: string, point: PickedPoint | null) => void;
+  /** "cf": drawn as the customer sites draw a location field (label above the value, a pin dot, a remove button for stops). */
+  variant?: "cf";
+  pin?: "pickup" | "drop" | "stop";
+  onRemove?: () => void;
 }) {
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -265,11 +285,26 @@ function PlaceField({ label, placeholder, text, value, saved, near, airport, onC
     const locs = saved.filter((l) => (!airport || l.type === "Airport") && (!lower || locLabel(l).toLowerCase().includes(lower))).slice(0, 5);
     const results = [...(airport ? [] : mainCityPlaces(q)), ...(foundQuery === q ? found : [])].filter(r => !airport || r.type === "airport");
     const remoteOption = (r: PlaceResult): PlaceOption => ({ key: r.id, label: placeLabel(r), detail: placeDetail(r), point: () => placeFromResult(r) });
-    return [
+    const built: PlaceOption[] = [
       ...results.filter(r => r.kind === "city").map(remoteOption),
       ...locs.map((l) => ({ key: `loc-${l.id}`, label: l.type === "City" ? [l.name, l.state].filter(Boolean).join(", ") : l.name, detail: l.type === "City" ? "" : [l.city, l.state].filter(Boolean).join(", "), point: () => pointFromLocation(l) })),
       ...results.filter(r => r.kind !== "city").map(remoteOption),
-    ].filter((option, index, all) => all.findIndex(other => other.key === option.key || other.label.toLowerCase() === option.label.toLowerCase() && other.detail.toLowerCase() === option.detail.toLowerCase()) === index).slice(0, 3);
+    ];
+    const apart = (a: PickedPoint, b: PickedPoint) => Math.hypot((a.lat - b.lat) * 111.2, (a.lng - b.lng) * 111.2 * Math.cos((a.lat * Math.PI) / 180));
+    // The same name at the same spot is one place. The same name somewhere else is a different place and stays, so the
+    // right one can be chosen (a village near Trichy must not hide the town of the same name near Erode).
+    const kept: { o: PlaceOption; p: PickedPoint }[] = [];
+    for (const o of built) {
+      const p = o.point();
+      const twin = kept.some((k) => k.o.key === o.key || (k.o.label.toLowerCase() === o.label.toLowerCase() && k.o.detail.toLowerCase() === o.detail.toLowerCase() && apart(k.p, p) < 5));
+      if (!twin) kept.push({ o, p });
+    }
+    // Places that share a name are told apart by the main city they are nearest to.
+    return kept.slice(0, 5).map(({ o, p }, _i, all) => {
+      const shared = all.filter((x) => x.o.label.toLowerCase() === o.label.toLowerCase()).length > 1;
+      const near = shared ? nearestMainCity(p.lat, p.lng, o.label) : null;
+      return near ? { ...o, detail: [o.detail, `Near ${near.name} · ${Math.round(near.km)} km`].filter(Boolean).join(" · ") } : o;
+    });
   }, [q, saved, found, foundQuery, airport]);
 
   const shown = open && !value && options.length > 0;
@@ -309,9 +344,56 @@ function PlaceField({ label, placeholder, text, value, saved, near, airport, onC
           : q
             ? "Choose a suggestion to set the location."
             : "";
+  if (variant === "cf") {
+    return (
+      <div className="cf-place">
+        <div className="bf-field">
+          <span className={`bf-pin bf-pin--${pinKind ?? "pickup"}`} aria-hidden="true" />
+          <div className="bf-field__main">
+            <label className="bf-label" htmlFor={`${id}-input`}>{label}</label>
+            <input
+              id={`${id}-input`}
+              className="cf-trigger"
+              role="combobox"
+              aria-expanded={shown}
+              aria-controls={`${id}-list`}
+              aria-autocomplete="list"
+              aria-activedescendant={shown && active >= 0 && active < options.length ? `${id}-opt-${active}` : undefined}
+              autoComplete="off"
+              value={text}
+              onChange={(e) => {
+                onChange(e.target.value, null);
+                setOpen(true);
+                setActive(-1);
+              }}
+              onFocus={() => setOpen(true)}
+              onBlur={() => setOpen(false)}
+              onKeyDown={onKey}
+            />
+            {value && value.address && value.address !== value.name && value.placeId !== DISPOSAL_ID ? <small className="bf-addr">{value.address}</small> : null}
+          </div>
+          {text ? (
+            <button type="button" className="cf-clear" aria-label={`Clear ${label.toLowerCase()}`} onClick={() => onChange("", null)}><Icon name="x" size={16} /></button>
+          ) : null}
+          {onRemove ? <button type="button" className="bf-stop-remove" aria-label={`Delete ${label.toLowerCase()}`} title={`Delete ${label.toLowerCase()}`} onClick={onRemove}><Icon name="trash-2" size={17} /></button> : null}
+        </div>
+        {shown && (
+          <ul id={`${id}-list`} role="listbox" className="cf-list">
+            {options.map((o, i) => (
+              <li key={o.key} id={`${id}-opt-${i}`} role="option" aria-selected={i === active} className="cf-opt" onMouseDown={(e) => e.preventDefault()} onClick={() => pick(o)}>
+                <strong>{o.label}</strong>
+                {o.detail && <small>{o.detail}</small>}
+              </li>
+            ))}
+          </ul>
+        )}
+        {hint ? <p className={failed ? "bf-error" : "bf-hint"} role={failed ? "alert" : undefined}>{hint}</p> : null}
+      </div>
+    );
+  }
   return (
     <div className="ds-field">
-      <label htmlFor={`${id}-input`}>{label}</label>
+      <label htmlFor={`${id}-input`} className="sr-only">{label}</label>
       <div className="ds-combo">
         <input
           id={`${id}-input`}
@@ -365,13 +447,13 @@ export function TripFields({ trip, set, data, compact, idPrefix, action, allowed
   return (
     <>
       <div className={compact ? "ds-quick-grid" : "ds-form-grid"}>
-        <label className="ds-field" data-span={compact ? undefined : "2"}>
-          <span>Service</span>
+        <label className="ds-field ds-inbox" data-span={compact ? undefined : "2"}>
+          <span className="ds-inbox__name">Service</span>
           <select className="ds-select" value={trip.serviceId || `${TRIP_OPTION}${tripOptionKey(trip)}`} onChange={(e) => {
             const v = e.target.value;
             const builtIn = v.startsWith(TRIP_OPTION) ? TRIP_SERVICES.find((x) => x.key === v.slice(TRIP_OPTION.length)) : undefined;
-            if (builtIn) set({ serviceId: "", multicity: !!builtIn.multicity, ...withTripType(trip, builtIn.tripType) });
-            else set({ serviceId: v, multicity: false, ...withTripType(trip, tripTypeForService(data.services.find((x) => x.id === v))) });
+            if (builtIn) set({ serviceId: "", multicity: !!builtIn.multicity, local: !!builtIn.local, ...withTripType(trip, builtIn.tripType) });
+            else set({ serviceId: v, multicity: false, local: false, ...withTripType(trip, tripTypeForService(data.services.find((x) => x.id === v))) });
           }}>
             {TRIP_SERVICES.filter(x => !allowedTripTypes || allowedTripTypes.includes(x.tripType)).map((x) => <option key={x.key} value={`${TRIP_OPTION}${x.key}`}>{x.label}</option>)}
             {data.services.filter(s => !allowedTripTypes || allowedTripTypes.includes(tripTypeForService(s))).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -388,7 +470,7 @@ export function TripFields({ trip, set, data, compact, idPrefix, action, allowed
         </label>
         <PlaceField
           label={compact ? "Pickup" : "Pickup location *"}
-          placeholder={airportAt === "pickup" ? "Airport" : "City / area / address"}
+          placeholder={airportAt === "pickup" ? "Airport" : "Pickup"}
           text={trip.pickupText}
           value={trip.pickup}
           saved={data.pickups}
@@ -399,7 +481,7 @@ export function TripFields({ trip, set, data, compact, idPrefix, action, allowed
         {!rental && (
           <PlaceField
             label={compact ? "Drop" : "Drop location *"}
-            placeholder={airportAt === "drop" ? "Airport" : "City / area / address"}
+            placeholder={airportAt === "drop" ? "Airport" : "Drop"}
             text={trip.dropText}
             value={trip.drop}
             saved={data.drops}
@@ -408,41 +490,40 @@ export function TripFields({ trip, set, data, compact, idPrefix, action, allowed
             onChange={(text, p) => pickPoint("drop", p, text)}
           />
         )}
-        <label className="ds-field">
-          <span>{compact ? "Pickup date" : "Pickup date *"}</span>
+        <label className="ds-field ds-inbox" onClick={(e) => { const input = e.currentTarget.querySelector("input"); try { input?.showPicker(); } catch { /* the browser opens the picker from the input itself */ } }}>
+          <span className="ds-inbox__name">Pickup date</span>
           <input className="ds-input" type="date" min={today} value={trip.date} onChange={(e) => set({ date: e.target.value })} />
-          <span className="flex gap-3 text-[10px]">
-            <button type="button" className="ds-link" style={{ fontSize: 10 }} onClick={() => set({ date: today })}>Today</button>
-            <button type="button" className="ds-link" style={{ fontSize: 10 }} onClick={() => set({ date: tomorrow })}>Tomorrow</button>
-          </span>
         </label>
         <div className="ds-field">
-          <label htmlFor={`${idPrefix}-time`}>{compact ? "Time · IST" : "Pickup time * · IST"}</label>
+          <label htmlFor={`${idPrefix}-time`} className="sr-only">Pickup time</label>
           <TimeSelect id={`${idPrefix}-time`} label="Pickup time" value={trip.time} onChange={(time) => set({ time })} />
         </div>
         {trip.tripType === "Round Trip" && !trip.multicity && (
           <>
-            <label className="ds-field"><span>Return date *</span><input className="ds-input" type="date" min={trip.date || today} value={trip.endDate} onChange={(e) => set({ endDate: e.target.value })} /></label>
+            <label className="ds-field ds-inbox"><span className="ds-inbox__name">Return date</span><input className="ds-input" type="date" min={trip.date || today} value={trip.endDate} onChange={(e) => set({ endDate: e.target.value })} /></label>
             <div className="ds-field">
-              <label htmlFor={`${idPrefix}-end-time`}>Return time · IST</label>
+              <label htmlFor={`${idPrefix}-end-time`} className="sr-only">Return time</label>
               <TimeSelect id={`${idPrefix}-end-time`} label="Return time" value={trip.endTime || "20:00"} onChange={(endTime) => set({ endTime })} />
             </div>
           </>
         )}
+        {trip.tripType === "Round Trip" && !trip.multicity && (trip.stops ?? []).map((s, i) => (
+          <PlaceField key={i} label={`Stop ${i + 1}`} placeholder={`Stop ${i + 1}`} text={s.text} value={s.point} saved={data.drops} near={trip.pickup} airport={false}
+            onChange={(text, p) => set({ stops: (trip.stops ?? []).map((x, n) => (n === i ? { text, point: p } : x)) })} />
+        ))}
         {action && <div className="ds-quick-action">{action}</div>}
       </div>
-      <div className="ds-route-note">
-        <span className="ds-dot" aria-hidden="true" />
-        <div>
-          <strong>{trip.pickup && trip.drop ? `${trip.pickup.name || trip.pickupText} → ${rental ? "Within city limits" : trip.drop.name || trip.dropText}` : rental ? "Choose the pickup" : "Choose pickup & drop"}</strong>
-          <small>{trip.pickup && trip.drop ? "Road distance is calculated with the estimate." : `Search an address or choose from ${data.pickups.length} saved locations`}</small>
-        </div>
-        <small>{service?.name ?? tripServiceLabel(trip)}</small>
-      </div>
       <div className="flex flex-wrap items-center gap-4 mt-3 text-[11px] text-faint">
-        <span className="flex items-center gap-1.5"><Icon name="map-pin" size={13} />Location boundaries</span>
         <button type="button" className="ds-link" style={{ fontSize: 11 }} onClick={() => setPin("pickup")}>Pickup pin{trip.pickup?.confirmed ? " ✓" : ""}</button>
         {!rental && <button type="button" className="ds-link" style={{ fontSize: 11 }} onClick={() => setPin("drop")}>Drop pin{trip.drop?.confirmed ? " ✓" : ""}</button>}
+        {trip.tripType === "Round Trip" && !trip.multicity && (
+          <>
+            <button type="button" className="ds-link" style={{ fontSize: 11 }} disabled={(trip.stops ?? []).length >= 8} onClick={() => set({ stops: [...(trip.stops ?? []), { text: "", point: null }] })}>Add stop</button>
+            {(trip.stops ?? []).map((_, i) => (
+              <button key={i} type="button" className="ds-link" style={{ fontSize: 11 }} onClick={() => set({ stops: (trip.stops ?? []).filter((_, n) => n !== i) })}>Remove stop {i + 1}</button>
+            ))}
+          </>
+        )}
       </div>
       {pin && (
         <Modal title="Verify location pin" onClose={() => setPin(null)} size="lg" footer={<Button variant="primary" onClick={() => setPin(null)}>Use verified pin</Button>}>
@@ -556,6 +637,7 @@ export function SaveEnquiryDialog({ trip, estimate, serviceName, onClose, onSave
         pickup: trip.pickup?.address || trip.pickupText,
         drop: trip.drop?.address || trip.dropText,
         pickupPoint: trip.pickup, dropPoint: trip.drop,
+        roundStops: roundStopPoints(trip).map((p, i) => ({ id: p.placeId ?? `stop-${i + 1}`, name: p.name || p.address, address: p.address, lat: p.lat, lng: p.lng })),
         pickupAt: at ? Timestamp.fromDate(at) : null,
         serviceId: trip.serviceId, service: serviceName, tripType: trip.tripType === "Airport Taxi" ? "Airport" : trip.tripType,
         categoryId: estimate.category.id, vehicle: estimate.category.name,
@@ -600,7 +682,7 @@ export function SaveEnquiryDialog({ trip, estimate, serviceName, onClose, onSave
 
 // ── Dashboard card ────────────────────────────────────────────────────────
 
-export function QuickFareCard({ onProceed, onSaved }: { onProceed: (trip: QuickTrip, categoryId: string, estimates: CategoryEstimate[]) => void; onSaved: (e: Enquiry) => void }) {
+export function QuickFareCard({ onSaved }: { onSaved: (e: Enquiry) => void }) {
   const data = useQuickData();
   const [trip, setTrip] = useState<QuickTrip>(emptyTrip);
   const [estimates, setEstimates] = useState<CategoryEstimate[] | null>(null);
@@ -613,7 +695,7 @@ export function QuickFareCard({ onProceed, onSaved }: { onProceed: (trip: QuickT
   const latest = useRef(trip);
   latest.current = trip;
   const set = (p: Partial<QuickTrip>) => setTrip((t) => ({ ...t, ...p }));
-  const sig = JSON.stringify([trip.serviceId, trip.tripType, trip.pickup?.lat, trip.pickup?.lng, trip.drop?.lat, trip.drop?.lng, trip.date, trip.time, trip.endDate, trip.endTime]);
+  const sig = JSON.stringify([trip.serviceId, trip.tripType, trip.pickup?.lat, trip.pickup?.lng, trip.drop?.lat, trip.drop?.lng, trip.date, trip.time, trip.endDate, trip.endTime, roundStopPoints(trip).map((p) => [p.lat, p.lng])]);
   const stale = estimates !== null && key.current !== sig;
   const invalid = validateTrip(trip);
 
@@ -676,16 +758,14 @@ export function QuickFareCard({ onProceed, onSaved }: { onProceed: (trip: QuickT
           <div className="mt-4">
             {first && (
               <div className="flex flex-wrap gap-6 mb-3 text-[12px]">
-                <span><strong className="text-ink text-[15px]">{Math.round(first.quote.distanceKm)} km</strong><br /><small className="text-faint">Road distance</small></span>
-                <span><strong className="text-ink text-[15px]">{Math.floor(first.quote.durationMin / 60)}h {Math.round(first.quote.durationMin % 60)}m</strong><br /><small className="text-faint">Estimated travel time</small></span>
+                <span><strong className="text-ink text-[15px]">{Math.round(first.roadKm ?? first.quote.distanceKm)} km</strong><br /><small className="text-faint">Road distance</small></span>
+                <span><strong className="text-ink text-[15px]">{Math.floor((first.roadMinutes ?? first.quote.durationMin) / 60)}h {Math.round((first.roadMinutes ?? first.quote.durationMin) % 60)}m</strong><br /><small className="text-faint">Estimated travel time</small></span>
               </div>
             )}
             <h3 className="text-[13px] font-bold text-ink mb-2">Estimated fares {chosen ? `· ${rupee(chosen.quote!.quote.total)} selected · ${chosen.category.name}` : ""}</h3>
             <EstimateList estimates={estimates} selected={selected} onSelect={setSelected} priceEntered={trip.priceEntered} />
             <div className="flex flex-wrap items-center gap-2 mt-4">
-              <Button variant="primary" icon="circle-check" disabled={!chosen} onClick={() => onProceed(trip, selected, estimates)}>Proceed to booking</Button>
               <Button icon="phone-forwarded" disabled={!chosen} onClick={() => setSaving(true)}>Save for follow-up</Button>
-              <span className="text-[11px] text-faint ml-auto">Name / mobile are requested after the estimate.</span>
             </div>
           </div>
         )}

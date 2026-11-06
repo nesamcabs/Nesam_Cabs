@@ -41,6 +41,10 @@ export const BRAND_LABELS: Record<BrandId, string> = {
 
 /** Services with their own rates in the fare workspace. */
 export const WORKSPACE_SERVICES = ["One Way", "Round Trip", "Airport Taxi", "Local Rental", "Multicity"] as const;
+/** What the office sees for a service key. The stored key "Local Rental" is the Hourly Rental of the customer sites. */
+/** The "Pickup & Drop" choice of the Service list: city-wise fares, not a rate card of its own (see Pricing). */
+export const PICKUP_DROP = "Pickup & Drop";
+export const serviceLabel = (service: string): string => (service === "Local Rental" ? "Hourly Rental" : service === "Local Pickup & Drop" ? PICKUP_DROP : service);
 export type WorkspaceService = (typeof WORKSPACE_SERVICES)[number];
 export type FareWorkspaceScope = { brand: BrandId | "common"; service: WorkspaceService };
 

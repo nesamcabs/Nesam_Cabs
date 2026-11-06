@@ -186,7 +186,7 @@ function RouteEditor({ rule, fareScope, locations, categories, services, canEdit
     { label: "One Way", types: ["One Way Taxi", "Outstation Cab"], words: /one.?way/i },
     { label: "Round Trip", types: ["Outstation Cab"], words: /round.?trip/i },
     { label: "Multicity", types: ["Multicity"], words: /multi.?city/i },
-    { label: "Local Rental", types: ["Local Rental"], words: /rental/i },
+    { label: "Hourly Rental", types: ["Local Rental"], words: /rental/i },
     { label: "Airport Taxi", types: ["Airport Taxi"], words: /airport/i },
   ].map((c) => {
     const found = c.types.map((t) => activeServices.find((s) => s.serviceType === t)).find(Boolean) ?? activeServices.find((s) => c.words.test(s.name));

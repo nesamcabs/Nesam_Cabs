@@ -44,11 +44,11 @@ const TOP_NAV = [NAV[0], NAV[1], { to: '/offers', label: 'Offers', short: 'Offer
 
 /** Active booking flow pages where the phone bottom tab bar steps aside for the sticky FlowBar. */
 const FLOW = [/^\/book\/(ride|confirm|done\/[^/]+)$/, /^\/ride\//, /^\/local-taxi\/ride\//, /^\/trips\/[^/]+$/];
-const IMMERSIVE = [/^\/ride\//, /^\/trips\/[^/]+$/];
+const IMMERSIVE = [/^\/ride\//, /^\/local-rentals(\/|$)/, /^\/trips\/[^/]+$/];
 
 /** Phone bottom bar: the five services, each opening the booking form on that service. Outstation, the main
     service, is raised and filled in the middle. */
-const BAR_ORDER: ServiceId[] = ['airport', 'multicity', 'outstation', 'rental', 'local'];
+const BAR_ORDER: ServiceId[] = ['airport', 'multicity', 'outstation', 'rental'];
 const barServices = () => BAR_ORDER.flatMap((id) => SERVICES.find((s) => s.id === id) ?? []);
 
 function BottomNav() {
@@ -63,14 +63,43 @@ function BottomNav() {
   return (
     <nav className="tabbar" aria-label="Services">
       {barServices().map((s) => (
-        <Link key={s.id} to={s.id === 'local' ? '/local-taxi' : serviceHref(s.id)} className={`tabbar__link ${s.id === 'outstation' ? 'tabbar__link--main' : ''} ${current === s.id ? 'is-active' : ''}`} aria-current={current === s.id ? 'page' : undefined}>
+        <Link key={s.id} to={s.id === 'local' ? '/local-taxi' : serviceHref(s.id)} className={`tabbar__link ${s.id === 'outstation' ? 'tabbar__link--main' : ''} ${current === s.id || (s.id === 'rental' && current === 'pickup') ? 'is-active' : ''}`} aria-current={current === s.id || (s.id === 'rental' && current === 'pickup') ? 'page' : undefined}>
           <span className="tabbar__icon">
             <Icon name={s.icon} size={s.id === 'outstation' ? 30 : s.id === 'multicity' ? 28 : s.id === 'airport' ? 26 : 22} />
           </span>
-          <span className="tabbar__label">{s.label}</span>
+          <span className="tabbar__label">{s.id === 'rental' ? 'Local Rentals' : s.label}</span>
         </Link>
       ))}
+      <ProfileTab />
     </nav>
+  );
+}
+
+/** The fifth slot of the phone bottom bar: the account page when signed in, the sign-in sheet otherwise. */
+function ProfileTab() {
+  const { profile } = useCustomerData();
+  const { openLoginModal } = useAuth();
+  const location = useLocation();
+  const on = /^\/account(\/|$)/.test(location.pathname);
+  const inner = (
+    <>
+      <span className="tabbar__icon">
+        <Icon name="profile" size={22} />
+      </span>
+      <span className="tabbar__label">Profile</span>
+    </>
+  );
+  if (profile) {
+    return (
+      <Link to="/account" className={`tabbar__link ${on ? 'is-active' : ''}`} aria-current={on ? 'page' : undefined}>
+        {inner}
+      </Link>
+    );
+  }
+  return (
+    <button type="button" className="tabbar__link tabbar__link--button" onClick={() => openLoginModal({ title: 'Sign in to NESAM Cabs' })}>
+      {inner}
+    </button>
   );
 }
 
@@ -347,6 +376,7 @@ export function Shell() {
   useEffect(() => setMenuOpen(false), [location.pathname]);
   const isFlow = FLOW.some((re) => re.test(location.pathname));
   const isImmersive = IMMERSIVE.some((re) => re.test(location.pathname));
+  const onMapPage = /^\/local-rentals(\/|$)/.test(location.pathname);
 
   useEffect(() => {
     window.scrollTo({ top: 0 });
@@ -458,8 +488,9 @@ export function Shell() {
 
       {!isFlow ? <BottomNav /> : null}
       <SideDrawer open={menuOpen} onClose={() => setMenuOpen(false)} brand={<Brand />} />
-      <FloatingCallButton />
-      <AiChatbot />
+      {/* The Local Rentals map keeps the header and the bottom bar; its sheet needs the corner free. */}
+      {onMapPage ? null : <FloatingCallButton />}
+      {onMapPage ? null : <AiChatbot />}
     </div>
   );
 }

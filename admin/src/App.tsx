@@ -243,7 +243,6 @@ function AdminShell({ session }: { session: AdminSession }) {
       case "quick-fare":
         return (
           <QuickFare
-            onProceed={(trip, categoryId, estimates) => openNewBooking({ trip, categoryId, estimates })}
             onSaved={() => { showToast("Enquiry saved. The fare and terms are retained."); navigate("bookings", "Enquiries"); }}
           />
         );

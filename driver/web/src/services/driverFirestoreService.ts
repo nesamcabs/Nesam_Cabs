@@ -523,7 +523,7 @@ function mapBooking(id: string, data: Record<string, any>): TripDetails {
     drop: readLocation(data, 'drop'),
     distanceKm: parseAmount(data.distanceKm),
     vehicleType: str(data.categoryName || data.vehicleCategory || data.vehicle),
-    serviceType: str(data.service),
+    serviceType: str(data.service).replace(/^rental$/i, 'Hourly Rental').replace(/^local$/i, 'Pickup & Drop'),
     fareAmount: fare,
     driverEarnings: payout,
     payoutFinalized: finalized,

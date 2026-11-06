@@ -150,13 +150,15 @@ export function mapOpenTrip(id: string, d: Data): OpenTrip {
   };
 }
 
-/** "One Way", "Round Trip", "Local Rental", "Multicity", "Airport" from what the booking stored. */
+/** "One Way", "Round Trip", "Hourly Rental", "Pickup & Drop", "Multicity", "Airport" from what the booking stored. */
 export function tripTypeOf(d: Data): string {
   const raw = `${str(d.tripType)} ${str(d.service)} ${str(d.bookingType)}`.toLowerCase();
   if (/round/.test(raw)) return 'Round Trip';
-  if (/rental|local|hour/.test(raw)) return 'Local Rental';
+  if (/rental|hour/.test(raw)) return 'Hourly Rental';
   if (/multi/.test(raw)) return 'Multicity';
   if (/airport/.test(raw)) return 'Airport';
+  // A pickup and drop inside one city is stored as a One Way trip named "Local".
+  if (/local|pickup\s*&/.test(raw)) return 'Pickup & Drop';
   if (/one|drop|outstation/.test(raw)) return 'One Way';
   return str(d.tripType) || str(d.service);
 }

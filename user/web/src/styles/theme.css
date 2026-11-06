@@ -388,82 +388,86 @@ html[data-hero-logo='in'] .topbar .brand {
   background: rgb(255 255 255 / 0.22);
 }
 
-/* ── Side menu: a bottom sheet with rounded top corners, pill shortcuts and soft cards ───────────── */
+/* ── Side menu: a clean panel from the left ─────────────────────────────────────────────────────── */
 .drawer {
-  align-items: flex-end;
+  align-items: stretch;
+}
+.drawer__backdrop {
+  background: rgb(15 23 42 / 0.5);
+  backdrop-filter: blur(2px);
 }
 .drawer__panel {
-  width: 100%;
-  height: auto;
-  max-height: 88dvh;
-  border-radius: 10px 10px 0 0;
-  box-shadow: 0 -12px 40px rgb(15 23 42 / 0.25);
+  width: min(86vw, 360px);
+  height: 100%;
+  max-height: none;
+  border-radius: 0;
+  box-shadow: 14px 0 44px rgb(15 23 42 / 0.28);
 }
 .drawer__panel::before {
-  content: '';
-  flex: none;
-  align-self: center;
-  width: 44px;
-  height: 5px;
-  margin-top: 10px;
-  border-radius: 999px;
-  background: var(--line-strong);
+  display: none;
 }
 .drawer__head {
-  padding: 8px 14px 4px 20px;
-  border-bottom: 0;
+  padding: 14px 12px 14px 20px;
+  border-bottom: 1px solid var(--line);
 }
 .drawer__quick {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 6px 16px 12px;
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px 8px;
 }
 .drawer__quick a {
-  min-height: 46px;
-  padding: 0 18px 0 8px;
-  border-radius: var(--r-ctl);
-  background: var(--brand-soft);
-  color: var(--brand-ink);
-  font-weight: 800;
+  min-height: 48px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: none;
+  color: var(--ink);
+  font-weight: 600;
 }
 .drawer__quick a .icon {
   box-sizing: content-box;
-  padding: 6px;
-  border-radius: 50%;
-  background: #fff;
+  padding: 7px;
+  border-radius: 10px;
+  background: var(--brand-soft);
   color: var(--brand);
 }
-.drawer__group {
-  margin: 0 16px 8px;
-  border-top: 0;
-  border-radius: 7px;
+.drawer__quick a:hover {
   background: var(--sunken);
+}
+.drawer__group {
+  margin: 0 12px;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
 }
 .drawer__group summary {
   min-height: 52px;
-  padding: 0 18px;
+  padding: 0 8px;
   color: var(--ink);
   font-size: 0.9375rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0;
   text-transform: none;
 }
 .drawer__links {
-  padding: 0 8px 10px;
+  padding: 0 0 10px 8px;
+}
+.drawer__links a {
+  padding: 9px 12px;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+.drawer__links a:hover {
+  background: var(--sunken);
+  color: var(--ink);
 }
 .drawer__foot {
-  border-top: 0;
+  padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--line);
+  background: var(--sunken);
 }
-@media (prefers-reduced-motion: no-preference) {
-  .drawer__panel {
-    animation-name: drawer-up;
-  }
-}
-@keyframes drawer-up {
-  from {
-    translate: 0 100%;
-  }
+.drawer__call {
+  border-radius: 12px;
 }
 
 /* Header on wide screens: while the hero shows the logo, the header leaves its own out and "Book a ride"
@@ -501,20 +505,6 @@ html[data-hero-logo='in'] .topbar .brand {
   }
 }
 
-/* Side menu shortcuts: a tidy 2 × 2 grid of equal pills. */
-.drawer__quick {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-.drawer__quick a {
-  justify-content: flex-start;
-  gap: 8px;
-  min-width: 0;
-  padding: 0 10px 0 6px;
-  font-size: 0.875rem;
-  white-space: nowrap;
-}
 .drawer__quick a .icon {
   flex: none;
 }

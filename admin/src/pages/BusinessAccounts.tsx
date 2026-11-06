@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { serviceLabel } from "../services/tariffService";
 import type { Booking, MasterLocation, TravelService, VehicleCategory } from "../types";
 import {
   BUSINESS_STATUSES, BUSINESS_TYPES, createBusiness, createCredential, recordBusinessPayment, revokeCredential, saveContractRates, subscribeBusinessAccounts,
@@ -379,7 +380,7 @@ function RateForm({ a, onClose, onSaved }: { a: BusinessAccount; onClose: () => 
         {error && <div className="ds-error" role="alert" data-span="2">{error}</div>}
         <label className="ds-field"><span>Pickup zone</span><select className="ds-select" value={r.pickupZone} onChange={(e) => set({ pickupZone: e.target.value })}><option value="">Choose zone</option>{zones.map((z) => <option key={z}>{z}</option>)}</select></label>
         <label className="ds-field"><span>Drop zone</span><select className="ds-select" value={r.dropZone} onChange={(e) => set({ dropZone: e.target.value })}><option value="">Choose zone</option>{zones.map((z) => <option key={z}>{z}</option>)}</select></label>
-        <label className="ds-field"><span>Service</span><select className="ds-select" value={r.service} onChange={(e) => set({ service: e.target.value })}>{["One Way", "Round Trip", "Airport", "Multicity", "Local Rental", "Local Pickup & Drop", ...services.map((s) => s.name)].filter((v, i, x) => x.indexOf(v) === i).map((s) => <option key={s}>{s}</option>)}</select></label>
+        <label className="ds-field"><span>Service</span><select className="ds-select" value={r.service} onChange={(e) => set({ service: e.target.value })}>{["One Way", "Round Trip", "Airport", "Multicity", "Local Rental", "Local Pickup & Drop", ...services.map((s) => s.name)].filter((v, i, x) => x.indexOf(v) === i).map((s) => <option key={s} value={s}>{serviceLabel(s)}</option>)}</select></label>
         <label className="ds-field"><span>Car category</span><select className="ds-select" value={r.category} onChange={(e) => set({ category: e.target.value })}><option value="">Choose category</option>{cats.map((c) => <option key={c.id}>{c.name}</option>)}</select></label>
         <label className="ds-field"><span>Contract type</span><select className="ds-select" value={r.contractType} onChange={(e) => set({ contractType: e.target.value as ContractRate["contractType"] })}><option>Fixed fare</option><option>Per km</option></select></label>
         <label className="ds-field"><span>Price entered</span><select className="ds-select" value={r.priceEntered} onChange={(e) => set({ priceEntered: e.target.value as ContractRate["priceEntered"] })}><option>Including GST</option><option>Excluding GST</option></select></label>

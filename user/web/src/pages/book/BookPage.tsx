@@ -1,6 +1,6 @@
 import { ReviewsSection, CatalogSection } from '@/components/PublicContentSections';
 import { useCallback, useEffect, useRef } from 'react';
-import { Link, Navigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import type { TripType } from '@core/types';
 import { useCustomerData } from '@core/context/CustomerData';
 import { useAuth } from '@/state/Auth';
@@ -86,6 +86,13 @@ function Home() {
   const [params, setParams] = useSearchParams();
   const rawService = params.get('service');
   const tripParam = params.get('trip');
+  const navigate = useNavigate();
+
+  // Local Rentals open as a full-screen map with a sheet from the bottom, not as the inline form.
+  useEffect(() => {
+    const s = parseService(rawService);
+    if (s === 'rental' || s === 'pickup') navigate(`/local-rentals?mode=${s === 'pickup' ? 'pickup' : 'hourly'}`, { replace: true });
+  }, [rawService, navigate]);
 
   // Parse service, mapping legacy 'one-way' / 'round-trip' to 'outstation'
   const service: ServiceId = parseService(rawService) ?? serviceOfTrip(draft.tripType);
@@ -105,7 +112,7 @@ function Home() {
     const wanted: TripType =
       service === 'airport'
         ? 'Airport Taxi'
-        : service === 'local'
+        : service === 'local' || service === 'pickup'
           ? 'One Way'
           : service === 'rental'
           ? 'Local Rental'
@@ -122,13 +129,17 @@ function Home() {
 
   const onService = useCallback(
     (s: ServiceId) => {
+      if (s === 'rental' || s === 'pickup') {
+        navigate(`/local-rentals?mode=${s === 'pickup' ? 'pickup' : 'hourly'}`);
+        return;
+      }
       if (s === 'outstation') {
         setParams({ service: 'outstation', trip: outstationTrip === 'Round Trip' ? 'round-trip' : 'one-way' }, { replace: true });
       } else {
         setParams({ service: s }, { replace: true });
       }
     },
-    [setParams, outstationTrip],
+    [setParams, outstationTrip, navigate],
   );
 
   const onOutstationTrip = useCallback(

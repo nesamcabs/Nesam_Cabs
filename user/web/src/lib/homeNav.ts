@@ -7,7 +7,7 @@
 export const isHomePath = (path: string) => path === '/' || path === '/book';
 
 /** Pages anyone can read, shown straight away while a returning rider's account is still loading. */
-export const isPublicPath = (path: string) => isHomePath(path) || path === '/legal' || /^\/(routes|services)\/[^/]+$/.test(path);
+export const isPublicPath = (path: string) => isHomePath(path) || path === '/legal' || path === '/local-rentals' || /^\/(routes|services)\/[^/]+$/.test(path);
 
 let installed = false;
 

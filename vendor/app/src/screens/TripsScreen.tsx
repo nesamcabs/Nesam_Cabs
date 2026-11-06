@@ -11,11 +11,11 @@ import { acceptOfferedRate, submitCounterBid, withdrawBid } from '../services/ve
 import type { MarketTrip, VendorBid } from '../types/operations';
 import { colors, space } from '../theme';
 
-const TYPES = ['All', 'One Way', 'Round Trip', 'Multicity', 'Local Rental'];
+const TYPES = ['All', 'One Way', 'Round Trip', 'Multicity', 'Hourly Rental', 'Pickup & Drop'];
 const isoDay = (ms: number) => (ms ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(ms)) : 'later');
 const typeOf = (t: MarketTrip) => {
   const raw = `${t.tripType} ${t.service}`.toLowerCase();
-  return /round/.test(raw) ? 'Round Trip' : /rental|local|hour/.test(raw) ? 'Local Rental' : /multi/.test(raw) ? 'Multicity' : /airport/.test(raw) ? 'Airport' : /one|drop|outstation/.test(raw) ? 'One Way' : t.tripType || t.service;
+  return /round/.test(raw) ? 'Round Trip' : /rental|hour/.test(raw) ? 'Hourly Rental' : /multi/.test(raw) ? 'Multicity' : /airport/.test(raw) ? 'Airport' : /local|pickup\s*&/.test(raw) ? 'Pickup & Drop' : /one|drop|outstation/.test(raw) ? 'One Way' : t.tripType || t.service;
 };
 
 function assignByIfAcceptedNow(t: MarketTrip, windowH: number, beforeH: number): Date {

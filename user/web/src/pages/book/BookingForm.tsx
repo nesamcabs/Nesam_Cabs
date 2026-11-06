@@ -20,11 +20,11 @@ import { saveDraft, RENTAL_PACKAGE_HOURS } from '@/lib/draft';
 import { useDeviceLocation, useOnline } from '@/lib/hooks';
 import { ClockIcon, SwapIcon } from '@/components/CabParts';
 import { combineDateTime, latestPickup, toDateInput, toTimeInput } from '@/lib/schedule';
-import { SERVICES, SERVICE_TITLE, type ServiceId } from '@/lib/services';
+import { LOCAL_RENTALS_LABEL, SERVICES, SERVICE_TITLE, isLocalRentals, type ServiceId } from '@/lib/services';
 import { AIRPORTS, QUICK_CITIES, isAirportPlace } from './content';
 import { MulticityForm } from './MulticityForm';
 
-type Field = 'pickup' | 'drop' | 'stops' | 'date' | 'time' | 'retDate' | 'retTime' | 'form';
+type Field = 'pickup' | 'drop' | 'stops' | 'hours' | 'date' | 'time' | 'retDate' | 'retTime' | 'form';
 type Errors = Partial<Record<Field, string>>;
 export type AirportDirection = 'to' | 'from';
 
@@ -164,6 +164,8 @@ export function BookingForm({
     if (!online) e.form = 'You’re offline. Reconnect to see fares.';
     if (!pickup) e.pickup = service === 'airport' && airportField === 'pickup' ? 'Choose the airport.' : 'Choose your pickup location.';
     if (service !== 'rental' && !drop) e.drop = service === 'airport' && airportField === 'drop' ? 'Choose the airport.' : 'Choose your drop location.';
+    if (service === 'rental' && !draft.rentalHours) e.hours = 'Select the rental hours.';
+    if (service === 'pickup' && pickup && drop && haversineKm(pickup, drop) > 40) e.drop = 'Pickup & Drop is for trips inside one city. For a longer trip choose Outstation.';
     if (service === 'airport') {
       const ap = airportField === 'pickup' ? pickup : drop;
       if (ap && !isAirportPlace(ap)) e[airportField] = 'Choose an airport for this transfer.';
@@ -196,7 +198,7 @@ export function BookingForm({
     if (service === 'rental' && pickup && (!drop || drop.id !== 'place-local-disposal')) update({ drop: disposalFor(pickup) });
     const e = validate();
     setErrors(e);
-    const first = (['pickup', 'stops', 'drop', 'date', 'time', 'retDate', 'retTime'] as Field[]).find((f) => e[f]);
+    const first = (['pickup', 'stops', 'drop', 'hours', 'date', 'time', 'retDate', 'retTime'] as Field[]).find((f) => e[f]);
     if (first) {
       refs.current[first]?.focus();
       refs.current[first]?.scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -277,15 +279,35 @@ export function BookingForm({
       </div>
 
       <div className="bf-services" role="group" aria-label="Services">
-        {SERVICES.map((s) => (
-          <button key={s.id} type="button" className={`bf-service ${service === s.id ? 'is-active' : ''}`} aria-pressed={service === s.id} aria-controls="bf-form" onClick={() => onService(s.id)}>
-            <span className="bf-service__icon">
-              <Icon name={s.icon} size={s.id === 'multicity' ? 27 : s.id === 'airport' ? 25 : 22} />
-            </span>
-            <span>{s.label}</span>
-          </button>
-        ))}
+        {SERVICES.filter((s) => s.id !== 'local' && s.id !== 'pickup').map((s) => {
+          // The rental slot is the "Local Rentals" button: it holds both the hourly rental and the pickup & drop.
+          const grouped = s.id === 'rental';
+          const active = grouped ? isLocalRentals(service) : service === s.id;
+          return (
+            <button key={s.id} type="button" className={`bf-service ${active ? 'is-active' : ''}`} aria-pressed={active} aria-controls="bf-form" onClick={() => (grouped && isLocalRentals(service) ? undefined : onService(s.id))}>
+              <span className="bf-service__icon">
+                <Icon name={s.icon} size={s.id === 'multicity' ? 27 : s.id === 'airport' ? 25 : 22} />
+              </span>
+              <span>{grouped ? LOCAL_RENTALS_LABEL : s.label}</span>
+            </button>
+          );
+        })}
       </div>
+
+      {isLocalRentals(service) ? (
+        <Tabs
+          className="bf-journey bf-journey--local"
+          active={service}
+          onChange={(v) => {
+            onService(v as ServiceId);
+            setErrors({});
+          }}
+          items={[
+            { id: 'rental', label: 'Hourly Rental' },
+            { id: 'pickup', label: 'Pickup & Drop' },
+          ]}
+        />
+      ) : null}
 
       {service === 'outstation' ? (
         <Tabs
@@ -330,7 +352,7 @@ export function BookingForm({
               {fieldErr('pickup')}
               {service === 'rental' ? <p className="bf-hint">Pick your city, then search an address or drop the pin where the cab and driver should meet you.</p> : null}
             </div>
-            {(service === 'outstation' && outstationTrip !== 'Round Trip') || service === 'local' ? (
+            {(service === 'outstation' && outstationTrip !== 'Round Trip') || service === 'local' || service === 'pickup' ? (
               <button
                 type="button"
                 className="bf-swap"
@@ -368,6 +390,7 @@ export function BookingForm({
                 {locationField('drop', service === 'airport' && direction === 'to' ? 'Drop airport' : 'Drop location')}
                 {fieldErr('drop')}
                 {service === 'local' ? <p className="bf-hint">Local Taxi is for a pickup and drop inside the same city.</p> : null}
+                {service === 'pickup' ? <p className="bf-hint">Pickup & Drop is for a trip inside one city. Choose both places on the map, then the date and time.</p> : null}
               </div>
             ) : null}
           </div>
@@ -375,11 +398,12 @@ export function BookingForm({
             <>
           <div className="bf-row bf-row--single">
             <div className="bf-cell">
-              <label className="bf-label bf-label--out" htmlFor="bf-rental-hours">Rental package</label>
+              <label className="bf-label bf-label--out" htmlFor="bf-rental-hours">Rental hours</label>
               <select id="bf-rental-hours" className="input bf-input" value={draft.rentalHours ?? ''} onChange={(e) => update({ rentalHours: e.target.value ? Number(e.target.value) : null })}>
-                <option value="">Any package</option>
+                <option value="">Select hours</option>
                 {RENTAL_PACKAGE_HOURS.map((h) => <option key={h} value={h}>{h} hours</option>)}
               </select>
+              {fieldErr('hours')}
             </div>
           </div>
             </>

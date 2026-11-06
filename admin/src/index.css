@@ -458,7 +458,7 @@ button.ds-kpi:hover { border-color: #d68e94; background: #fffafa; }
   position: relative; isolation: isolate; width: 100%; max-width: 100%; min-width: 0;
   overflow: auto; max-height: calc(100dvh - 330px);
   border: 1px solid #e2e7ee; border-radius: 8px; background: #fff;
-  scrollbar-width: thin; scrollbar-color: #b8c2d0 #f4f6f9; overscroll-behavior: contain;
+  scrollbar-width: thin; scrollbar-color: #b8c2d0 #f4f6f9; overscroll-behavior: auto;
 }
 .ds-table-host:focus-visible { outline: 2px solid rgb(193 35 44 / 0.4); outline-offset: -2px; }
 .ds-table-host[data-fit='content'] { max-height: none; }
@@ -727,7 +727,17 @@ details.ds-disclosure > summary { cursor: pointer; font-size: 12px; font-weight:
 .ds-quick-row { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
 .ds-quick-row > .ds-quick-grid { flex: 1; min-width: 0; }
 .ds-quick-grid { display: grid; grid-template-columns: minmax(170px, 1.1fr) minmax(170px, 1.4fr) minmax(170px, 1.4fr) minmax(130px, .9fr) minmax(110px, .8fr); gap: 12px; align-items: start; }
-.ds-quick-grid .ds-input, .ds-quick-grid .ds-select { width: 100%; min-height: 40px; }
+.ds-quick-grid .ds-input, .ds-quick-grid .ds-select { width: 100%; min-height: 48px; }
+/* A field whose name sits inside the box: the name is small on top, the value below it. */
+.ds-inbox { position: relative; }
+.ds-inbox__name { position: absolute; left: 12px; top: 6px; z-index: 1; font-size: 10px; line-height: 1; font-weight: 500; color: var(--color-muted); pointer-events: none; }
+.ds-inbox > .ds-input, .ds-inbox > .ds-select { padding-top: 17px; }
+.ds-inbox__name { user-select: none; }
+/* Date boxes show the selected date as normal text; focusing the box does not paint a blue highlight over the segments. */
+.ds-inbox > .ds-input[type='date']::-webkit-datetime-edit-day-field:focus,
+.ds-inbox > .ds-input[type='date']::-webkit-datetime-edit-month-field:focus,
+.ds-inbox > .ds-input[type='date']::-webkit-datetime-edit-year-field:focus { background: transparent; outline: none; }
+.ds-inbox > .ds-input[type='date']::selection { background: transparent; }
 .ds-quick-go { margin-top: 21px; min-height: 40px !important; }
 .ds-quick-row > .ds-route-note, .ds-quick-row > div:not(.ds-quick-grid) { flex-basis: 100%; }
 .ds-route-note { display: flex; align-items: center; gap: 14px; margin-top: 16px; padding: 16px 18px; border: 1px solid #dbe5f2; border-radius: 8px; background: #f3f7fc; font-size: 12px; }
@@ -814,7 +824,7 @@ details.ds-disclosure > summary { cursor: pointer; font-size: 12px; font-weight:
 .ds-combo .ds-input { width: 100%; padding-right: 30px; }
 .ds-combo-clear { position: absolute; top: 50%; right: 6px; display: grid; place-items: center; width: 22px; height: 22px; border: 0; border-radius: 6px; background: none; color: var(--color-faint); cursor: pointer; transform: translateY(-50%); }
 .ds-combo-clear:hover, .ds-combo-clear:focus-visible { background: var(--color-brand-soft); color: var(--color-brand-ink); }
-.ds-combo-list { position: absolute; top: calc(100% + 4px); left: 0; z-index: 60; width: 100%; max-height: min(240px, 40vh); margin: 0; padding: 4px; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; list-style: none; border: 1px solid var(--color-line); border-radius: 8px; background: #fff; box-shadow: var(--shadow-md); }
+.ds-combo-list { position: absolute; top: calc(100% + 4px); left: 0; z-index: 60; width: 100%; max-height: min(240px, 40vh); margin: 0; padding: 4px; overflow-y: auto; overflow-x: hidden; overscroll-behavior: auto; list-style: none; border: 1px solid var(--color-line); border-radius: 8px; background: #fff; box-shadow: var(--shadow-md); }
 .ds-combo-opt { display: grid; gap: 1px; padding: 7px 10px; border-radius: 6px; cursor: pointer; }
 .ds-combo-opt[aria-selected='true'], .ds-combo-opt:hover { background: var(--color-brand-soft); }
 .ds-combo-opt strong { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 600; color: var(--color-ink); }
@@ -909,6 +919,13 @@ details.ds-disclosure > summary { cursor: pointer; font-size: 12px; font-weight:
   display: grid;
   gap: 2px;
 }
+/* "Applies to": brand, service, fuel and vehicle as stacked dropdowns at the top of the side menu. */
+.fs-nav__scope { gap: 8px; padding-bottom: 14px; border-bottom: 1px solid var(--color-line-soft, #eef1f5); }
+.fs-nav__field { display: grid; gap: 4px; padding: 0 4px; }
+.fs-nav__field > span { color: var(--color-muted); font-size: 11px; font-weight: 600; }
+.fs-nav__field > .ds-select { width: 100%; min-height: 38px; }
+.fs-nav__field > small { color: var(--color-faint, #8793a5); font-size: 11px; line-height: 1.4; }
+.fs-scope__note--solo { padding-top: 0; margin-bottom: 14px; border-top: 0; }
 .fs-nav__title {
   padding: 4px 10px;
   color: var(--color-faint, #8793a5);

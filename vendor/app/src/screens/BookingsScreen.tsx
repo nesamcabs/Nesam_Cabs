@@ -21,7 +21,7 @@ export function stageOf(b: VendorBooking): Stage {
 }
 const canChange = (b: VendorBooking) => ['Accepted', 'Upcoming'].includes(stageOf(b)) && (!b.tripSubStatus || b.tripSubStatus === 'Not Started');
 const BADGE: Record<Stage, [Tone, string]> = { Accepted: ['amber', 'Accepted'], Upcoming: ['neutral', 'Driver assigned'], 'On Trip': ['red', 'Trip in progress'], Completed: ['green', 'Completed'], Cancelled: ['neutral', 'Cancelled'] };
-const SERVICES = ['All', 'One Way', 'Round Trip', 'Airport', 'Multicity', 'Local Rental'];
+const SERVICES = ['All', 'One Way', 'Round Trip', 'Airport', 'Multicity', 'Hourly Rental', 'Pickup & Drop'];
 
 export function BookingsScreen() {
   const navigation = useNavigation();

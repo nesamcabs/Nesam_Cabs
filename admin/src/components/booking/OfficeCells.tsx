@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import type { Booking, MarketplaceTrip } from "../../types";
 import type { OfficeData } from "../../hooks/useOfficeData";
 import {
-  GROUP_TONE, agreedPayoutOf, bookingSourceLabel, fareOf, placeParts, refDate, refDateTime, refTime, remainingLabel, rupee,
+  GROUP_TONE, agreedPayoutOf, bookingSourceLabel, displayTripType, fareOf, placeParts, refDate, refDateTime, refTime, remainingLabel, rupee,
   serviceFamilyOf, suggestedPayoutOf, tripTypeOf, type CustomerGroup,
 } from "../../domain/officeStage";
 import { bookingPickupDate, toDate } from "../../utils/time";
@@ -41,7 +41,7 @@ export function RouteCell({ b }: { b: Booking }) {
 export function TripTypeCell({ b }: { b: Booking }) {
   return (
     <>
-      <strong>{tripTypeOf(b)}</strong>
+      <strong>{displayTripType(tripTypeOf(b))}</strong>
       <small>{serviceFamilyOf(b)}</small>
     </>
   );

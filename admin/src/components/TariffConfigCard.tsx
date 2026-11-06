@@ -251,7 +251,7 @@ export default function TariffConfigCard({ onDirtyChange, onBusyChange }: { onDi
     <section className="space-y-5" aria-labelledby="tariff-h">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h2 id="tariff-h" className="text-[16px] font-bold text-ink">Base rates &amp; partner payout</h2>
+          <h2 id="tariff-h" className="text-[16px] font-bold text-ink">Common price &amp; partner payout</h2>
           <p className="text-sm text-muted">Customer and normal-partner rates by vehicle category. Saved as a new tariff version; confirmed bookings keep the fare they were quoted.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

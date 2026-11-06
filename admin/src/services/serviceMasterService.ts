@@ -22,6 +22,7 @@ export const SERVICE_TYPES = [
   "Outstation Cab",
   "One Way Taxi",
   "Local Rental",
+  "Local Pickup & Drop",
   "Multicity",
   "Corporate Travel",
   "Recurring Transport",

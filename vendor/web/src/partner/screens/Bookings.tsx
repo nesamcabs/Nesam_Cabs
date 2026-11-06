@@ -10,7 +10,7 @@ import { CANCEL_REASONS, quoteCancellation, requestCancellation } from '../servi
 import { StatementSheet } from './Money';
 import { useWorkspace } from '../Workspace';
 
-const SERVICES = ['All', 'One Way', 'Round Trip', 'Airport', 'Multicity', 'Local Rental'];
+const SERVICES = ['All', 'One Way', 'Round Trip', 'Airport', 'Multicity', 'Hourly Rental', 'Pickup & Drop'];
 const TABS: BookingStage[] = ['Accepted', 'Upcoming', 'On Trip', 'Completed'];
 const STAGE_BADGE: Record<BookingStage, ['neutral' | 'green' | 'amber' | 'red', string]> = {
   Accepted: ['amber', 'Accepted'], Upcoming: ['neutral', 'Driver assigned'], 'On Trip': ['red', 'Trip in progress'], Completed: ['green', 'Completed'], Cancelled: ['neutral', 'Cancelled'],

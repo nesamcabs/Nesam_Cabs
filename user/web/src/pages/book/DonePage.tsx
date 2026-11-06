@@ -33,7 +33,7 @@ function JourneyArt({ done }: { done: boolean }) {
 const tripTypeLabel = (t: TripType): string => {
   if (t === 'One Way') return 'One Way Drop';
   if (t === 'Round Trip') return 'Round Trip';
-  if (t === 'Local Rental') return 'Local Rental';
+  if (t === 'Local Rental') return 'Hourly Rental';
   return 'Airport Taxi';
 };
 
