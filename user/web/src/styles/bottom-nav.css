@@ -1,0 +1,70 @@
+/* Floating service tabs: the current destination rises in the brand color. */
+@media (max-width: 899.98px) {
+  :root { --tabbar-h: 92px; --tabbar-gap: 16px; }
+  .tabbar {
+    left: 16px;
+    right: 16px;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    width: calc(100% - 32px);
+    max-width: 590px;
+    margin-inline: auto;
+    height: 92px;
+    padding: 8px 4px 10px;
+    border: 1px solid #e3e5ed;
+    border-radius: 32px;
+    background: #fff;
+    box-shadow: 0 5px 15px rgb(28 43 76 / 0.09);
+    overflow: visible;
+  }
+  .tabbar__link {
+    align-content: end;
+    gap: 4px;
+    color: #101827;
+    font-size: clamp(10px, 2.8vw, 14px);
+    font-weight: 700;
+    line-height: 20px;
+  }
+  .tabbar__link.is-active { color: var(--brand); }
+  .tabbar__link.is-active::before { display: none; }
+  .tabbar__icon {
+    width: 48px;
+    height: 48px;
+    margin: 0;
+    isolation: isolate;
+    transition: transform 280ms cubic-bezier(.2,.8,.2,1);
+  }
+  .tabbar__img {
+    width: 48px;
+    height: 48px;
+    position: relative;
+    z-index: 1;
+  }
+  .tabbar__icon::before {
+    display: block;
+    content: '';
+    position: absolute;
+    inset: -10px;
+    box-sizing: border-box;
+    border: 5px solid #fff;
+    border-radius: 50%;
+    background: radial-gradient(circle at 32% 20%, color-mix(in srgb, var(--brand) 65%, white), var(--brand) 60%, var(--brand-hover));
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 12%, white), 0 4px 0 color-mix(in srgb, var(--brand) 30%, white), 0 7px 16px color-mix(in srgb, var(--brand) 22%, transparent);
+    opacity: 0;
+    transform: scale(.65);
+    transition: opacity 220ms ease, transform 280ms cubic-bezier(.2,.8,.2,1);
+    z-index: 0;
+  }
+  .tabbar__link.is-active .tabbar__icon { transform: translateY(-18px); }
+  .tabbar__link.is-active .tabbar__icon::before { opacity: 1; transform: scale(1); }
+  .tabbar__link.is-active .tabbar__img { animation: tabbar-selected-pop 350ms ease-out; }
+  .tabbar__link:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; border-radius: 12px; }
+}
+@keyframes tabbar-selected-pop {
+  from { transform: scale(.85); }
+  65% { transform: scale(1.08); }
+  to { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tabbar__icon, .tabbar__icon::before { transition: none; }
+  .tabbar__link.is-active .tabbar__img { animation: none; }
+}

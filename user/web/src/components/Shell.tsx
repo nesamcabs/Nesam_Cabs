@@ -52,7 +52,7 @@ const TOP_NAV = [NAV[0], NAV[1], { to: '/offers', label: 'Offers', short: 'Offer
 const FLOW = [/^\/book\/(ride|confirm|done\/[^/]+)$/, /^\/ride\//, /^\/local-taxi\/ride\//, /^\/trips\/[^/]+$/];
 const IMMERSIVE = [/^\/ride\//, /^\/local-rentals(\/|$)/, /^\/trips\/[^/]+$/];
 
-/** Phone bottom bar: four booking services and Profile, with Local raised in the middle. */
+/** Phone bottom bar: the selected service rises in its brand color. */
 const BAR_ORDER: ServiceId[] = ['outstation', 'multicity', 'rental', 'airport'];
 const barServices = () => BAR_ORDER.flatMap((id) => SERVICES.find((s) => s.id === id) ?? []);
 
@@ -75,7 +75,7 @@ function BottomNav() {
   return (
     <nav className="tabbar" aria-label="Services">
       {barServices().map((s) => (
-        <Link key={s.id} to={s.id === 'local' ? '/local-taxi' : serviceHref(s.id)} className={`tabbar__link ${s.id === 'rental' ? 'tabbar__link--main' : ''} ${current === s.id || (s.id === 'rental' && current === 'pickup') ? 'is-active' : ''}`} aria-current={current === s.id || (s.id === 'rental' && current === 'pickup') ? 'page' : undefined}>
+        <Link key={s.id} to={s.id === 'local' ? '/local-taxi' : serviceHref(s.id)} className={`tabbar__link ${current === s.id || (s.id === 'rental' && current === 'pickup') ? 'is-active' : ''}`} aria-current={current === s.id || (s.id === 'rental' && current === 'pickup') ? 'page' : undefined}>
           <span className="tabbar__icon">
             <img className="tabbar__img" src={NAV_ICON[s.id]} alt="" width={s.id === 'outstation' ? 46 : 44} height={s.id === 'outstation' ? 46 : 44} draggable={false} />
           </span>
