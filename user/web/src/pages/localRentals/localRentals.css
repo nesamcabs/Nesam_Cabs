@@ -517,3 +517,18 @@
 /* Google Maps: the map ends at the sheet, so Google's logo and terms are never covered. */
 .lr__map--google { bottom: var(--lr-sheet, 240px); background: var(--paper, #eef1f6); }
 .lr__map--google .gm-style { font-family: inherit; }
+
+/* ── Desktop: the booking form's service buttons and a back button at the top left; the map runs to the bottom ── */
+.lr-top__row { display: none; }
+@media (min-width: 900px) {
+  .lr-top { flex-direction: column; align-items: flex-start; gap: 10px; right: auto; }
+  .lr-top__row { display: flex; align-items: center; gap: 10px; }
+  .lr-svc { display: flex; gap: 4px; padding: 5px; border-radius: 16px; background: var(--brand, #1665e8); box-shadow: 0 6px 18px rgb(15 23 42 / 0.2); }
+  .lr-svc button { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border: 0; border-radius: 12px; background: transparent; color: #fff; font: inherit; font-size: 0.875rem; font-weight: 700; white-space: nowrap; cursor: pointer; transition: background 160ms ease, color 160ms ease; }
+  .lr-svc button:hover:not(.is-active) { background: var(--brand-hover, rgb(255 255 255 / 0.16)); }
+  .lr-svc button.is-active { background: #fff; color: var(--brand-ink, var(--brand, #1665e8)); box-shadow: 0 2px 8px rgb(0 0 0 / 0.18); }
+  .lr-seg { width: 440px; max-width: none; flex: none; }
+  .lr-find { top: 132px; }
+  .lr__map--google { bottom: 0; }
+  .lr-pin { top: 50%; }
+}

@@ -22,6 +22,7 @@ import { useDeviceLocation, useOnline } from '@/lib/hooks';
 import { combineDateTime, latestPickup, toDateInput, toTimeInput } from '@/lib/schedule';
 import { useSeo } from '@/lib/seo';
 import { QUICK_CITIES } from '@/pages/book/content';
+import { SERVICES, serviceHref } from '@/lib/services';
 import './localRentals.css';
 
 type Mode = 'hourly' | 'pickup';
@@ -163,7 +164,7 @@ function loadGoogleMaps(): Promise<any> {
   return window.__nesamGoogleMapsPromise;
 }
 
-function GooglePinMap({ picking, target, pins, onPick, onFail }: { picking: boolean; target: Target | null; pins: Pin[]; onPick: (ll: LatLng) => void; onFail: () => void }) {
+function GooglePinMap({ picking, target, pins, sheetH, onPick, onFail }: { picking: boolean; target: Target | null; pins: Pin[]; sheetH: number; onPick: (ll: LatLng) => void; onFail: () => void }) {
   const host = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
   const overlays = useRef<any[]>([]);
@@ -171,8 +172,8 @@ function GooglePinMap({ picking, target, pins, onPick, onFail }: { picking: bool
   const placed = useRef(false); // set once the first position has been applied: Google's first idle event is not the rider moving the pin
   const gesture = useRef(false); // true only after the rider dragged or pinched: Google's own resizes and recentring must never count as moving the pin
   const quietUntil = useRef(0); // zoom changes we make ourselves are not gestures
-  const live = useRef({ picking, onPick, onFail });
-  live.current = { picking, onPick, onFail };
+  const live = useRef({ picking, onPick, onFail, sheetH });
+  live.current = { picking, onPick, onFail, sheetH };
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -255,10 +256,11 @@ function GooglePinMap({ picking, target, pins, onPick, onFail }: { picking: bool
       m.setCenter(last.current);
       m.setZoom(15);
     } else {
-      m.fitBounds(bounds, { top: 100, right: 48, bottom: 40, left: 48 });
+      // On a phone the map ends at the sheet; on desktop it runs under the floating sheet, so keep the trip clear of it.
+      m.fitBounds(bounds, { top: 100, right: 48, bottom: window.innerWidth >= 900 ? live.current.sheetH + 30 : 40, left: window.innerWidth >= 900 ? 420 : 48 });
       maps.event.addListenerOnce(m, 'idle', () => { if (m.getZoom() > 15) m.setZoom(15); });
     }
-  }, [pins.map((p) => `${p.kind}:${p.place.lat},${p.place.lng},${p.place.name}`).join('|'), picking, ready]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pins.map((p) => `${p.kind}:${p.place.lat},${p.place.lng},${p.place.name}`).join('|'), picking, ready, window.innerWidth >= 900 ? sheetH : 0]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <div ref={host} className="lr__map lr__map--google" role="application" aria-label="Map. Drag it to place the pin on your location." />;
 }
@@ -267,7 +269,7 @@ function GooglePinMap({ picking, target, pins, onPick, onFail }: { picking: bool
 function PinMap(props: { picking: boolean; target: Target | null; pins: Pin[]; sheetH: number; onPick: (ll: LatLng) => void }) {
   const [provider, setProvider] = useState<'google' | 'leaflet'>(GOOGLE_KEY ? 'google' : 'leaflet');
   return provider === 'google'
-    ? <GooglePinMap picking={props.picking} target={props.target} pins={props.pins} onPick={props.onPick} onFail={() => setProvider('leaflet')} />
+    ? <GooglePinMap picking={props.picking} target={props.target} pins={props.pins} sheetH={props.sheetH} onPick={props.onPick} onFail={() => setProvider('leaflet')} />
     : <LeafletPinMap {...props} />;
 }
 
@@ -491,6 +493,20 @@ export function LocalRentalsPage() {
       <PinMap picking={picking} target={target} pins={pins} sheetH={sheetH} onPick={onPick} />
 
       <header className="lr-top">
+        <div className="lr-top__row">
+          <button type="button" className="lr-round" aria-label="Back" onClick={back}><Icon name="arrow-left" size={22} /></button>
+          <nav className="lr-svc" aria-label="Services">
+            {SERVICES.filter((x) => x.id !== 'local' && x.id !== 'pickup').map((x) => {
+              const here = x.id === 'rental';
+              return (
+                <button key={x.id} type="button" className={here ? 'is-active' : ''} aria-current={here ? 'page' : undefined} onClick={() => { if (!here) navigate(serviceHref(x.id)); }}>
+                  <Icon name={x.icon} size={20} />
+                  <span>{here ? 'Local Rentals' : x.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
         <div className="lr-seg" role="tablist" aria-label="Local Rentals" data-mode={mode}>
           <span className="lr-seg__thumb" aria-hidden="true" />
           <button type="button" role="tab" aria-selected={mode === 'hourly'} onClick={() => switchMode('hourly')}>Hourly Rental</button>
