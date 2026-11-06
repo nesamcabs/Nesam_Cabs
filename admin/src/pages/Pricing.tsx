@@ -119,7 +119,6 @@ export default function Pricing({ onNavigate, restore, onRestored, onOpenFareRul
   const pricingAccess = useCan("pricing");
   const settingsEdit = useCanDo("Settings", "edit");
   const canEdit = pricingAccess && settingsEdit;
-  const canTest = useCan("operations");
   const canViewBusiness = useCanDo("Business accounts", "view");
   const contentAccess = useCan("content");
   const settingsView = useCanDo("Settings", "view");
@@ -293,12 +292,11 @@ export default function Pricing({ onNavigate, restore, onRestored, onOpenFareRul
       { key: "rules", label: "All rules & schedules", hint: "Every rule in one list", icon: "calendar-clock", on: inlineKind === "all", go: () => setSheet({ kind: "all" }) },
     ] },
     { title: "Vehicles", items: [
-      { key: "cabs", label: "Cab types", hint: "Which cabs customers see, and the vehicle list", icon: "car-front", on: !inlineKind && tab === "Cab types", go: () => changeTab("Cab types") },
+      { key: "cabs", label: "Customer cab rules", hint: "Which cabs customers see", icon: "car-front", on: !inlineKind && tab === "Cab types" && cabSection === "Customer cab rules", go: () => { setCabSection("Customer cab rules"); changeTab("Cab types"); } },
+      { key: "categories", label: "Vehicle categories", hint: "The vehicle list: names, seats and photos", icon: "car", on: !inlineKind && tab === "Cab types" && cabSection === "Vehicle categories", go: () => { setCabSection("Vehicle categories"); changeTab("Cab types"); } },
     ] },
     { title: "Tools", items: [
       { key: "history", label: "Change history", hint: "Who changed which rule, and when", icon: "history", on: inlineKind === "history", go: () => setSheet({ kind: "history" }) },
-      { key: "test", label: "Test fare", hint: "Try a trip and see the fare it gets", icon: "calculator", opens: true, go: () => setSheet({ kind: "test" }),
-        disabledReason: !canTest ? "Fare preview needs operations access." : fareScope.brand === "common" ? "Choose a customer brand to preview its effective fare." : fareScope.service === "Multicity" ? "Multicity is quoted through the travel desk enquiry flow." : undefined },
     ] },
   ];
   // The vehicle row lists the active vehicle categories. Each one has its own rate class (Sedan, SUV 6+1, SUV 7+1, Innova, Innova Crysta);
@@ -372,11 +370,6 @@ export default function Pricing({ onNavigate, restore, onRestored, onOpenFareRul
       )}
     </div>
   ) : null;
-  const scopeBar = showScope ? (
-    <p className="fs-scope__note fs-scope__note--solo"><Icon name="info" size={14} />{pickupDrop ? "Pickup & Drop fares are set city by city and shared across brands. Rules, GST and display price follow One Way." : fareScope.brand === "common"
-      ? "Shared prices: every brand starts from these. A brand can set its own on top."
-      : `${BRAND_LABELS[fareScope.brand]} uses its own price where one is set, and the shared price everywhere else.`} Bookings already confirmed keep their fare.</p>
-  ) : null;
   const pageTitle = inlineKind ? null : tab === "Brand & service fares"
     ? (pickupDrop ? { h: "Pickup & Drop", p: "Fares for a pickup and drop inside one city, set city by city." } : { h: "Common price", p: "What customers pay per km, what partners earn, and the CNG option. Change one section at a time." })
     : tab === "GST calculation" ? { h: "GST & tax", p: "How GST is worked out and shown on fares." } : null;
@@ -405,7 +398,6 @@ export default function Pricing({ onNavigate, restore, onRestored, onOpenFareRul
         </nav>
         <div className="fs-main">
       {pageTitle && <header className="fs-title"><h2>{pageTitle.h}</h2><p>{pageTitle.p}</p></header>}
-      {scopeBar}
       {!inlineKind && tab === "Brand & service fares" && !pickupDrop && <DisplayMarkupCard scope={fareScope} />}
       {!inlineKind && tab !== "Service areas" && <>
       {tab !== "Brand & service fares" && tab !== "GST calculation" && <>
@@ -417,7 +409,6 @@ export default function Pricing({ onNavigate, restore, onRestored, onOpenFareRul
               <div><span>Booking controls</span><strong>{availabilityValues.length > 1 ? "Varies by rule" : availabilityValues[0] || "Available by default"}</strong><small>{activeOf("availability").length ? activeOf("availability").length + " active controls" : "No active availability restriction"}</small></div>
               <div><span>Configured cabs</span><strong>{cabSets.length > 1 ? "Varies by zone / service" : cabSets[0] || "All active cab types"}</strong><small>{activeOf("categories").length ? activeOf("categories").length + " active category rules" : "Uses default enabled categories"}</small></div>
               <div><span>Pricing rules</span><strong>{activeOf("pricing").length} active</strong><small>{scoped.filter(r => r.kind === "pricing" && phaseOf(r, now) === "Scheduled").length} scheduled</small></div>
-              <Button icon="search" disabledReason={!canTest ? "Fare preview needs operations access." : fareScope.brand === "common" ? "Choose a customer brand to test its fare." : fareScope.service === "Multicity" ? "Multicity is quoted through the travel desk." : undefined} onClick={() => setSheet({ kind: "test" })}>Test fare</Button>
             </div>
             <p>Exact availability and fare depend on the route, cab type and pickup time.</p>
           </>}
@@ -432,7 +423,6 @@ export default function Pricing({ onNavigate, restore, onRestored, onOpenFareRul
       </div>}
       {isRuleTab && <section className="u27-settings-surface" id="fare-settings-panel">
         <>
-          {tab === "Cab types" && <StageBar label="Cab types" tabs={[{ id: "Customer cab rules" as const, label: "Customer cab rules" }, { id: "Vehicle categories" as const, label: "Vehicle categories" }]} value={cabSection} onChange={setCabSection} />}
           {tab === "Cab types" && cabSection === "Vehicle categories" ? <>
             <p className="ds-note my-4">Shared vehicle catalog — location filters do not apply. Brand prices are managed in Common price.</p>
             {fareScope.brand === "common" ? <VehicleCategoriesPage embedded /> : <Button onClick={() => changeScope({ ...fareScope, brand: "common" })}>Open shared vehicle catalog</Button>}
@@ -464,9 +454,8 @@ export default function Pricing({ onNavigate, restore, onRestored, onOpenFareRul
 
       {sheet?.kind === "new" && <RuleSheet kind={sheet.ruleKind} fareScope={fareScope} sel={sel} locations={locationRows} categories={catNames} services={services} rules={rules.filter(inFareScope)} onClose={() => setSheet(null)} onDone={(t) => { setSheet(null); show(t); }} />}
       {sheet?.kind === "edit" && <RuleSheet kind={sheet.rule.kind} rule={sheet.rule} fareScope={fareScope} sel={sel} locations={locationRows} categories={catNames} services={services} rules={rules} onClose={() => setSheet(null)} onDone={(t) => { setSheet(null); show(t); }} />}
-      {sheet?.kind === "preview" && <PreviewSheet rule={sheet.rule} canTest={canTest} onTest={() => setSheet({ kind: "test" })} onClose={() => setSheet(null)} />}
+      {sheet?.kind === "preview" && <PreviewSheet rule={sheet.rule} onClose={() => setSheet(null)} />}
       {sheet?.kind === "status" && <StatusSheet rule={sheet.rule} to={sheet.to!} onClose={() => setSheet(null)} onDone={(t) => { setSheet(null); show(t); }} />}
-      {sheet?.kind === "test" && <TestFareSheet fareScope={fareScope} onClose={() => setSheet(null)} />}
     </div>
   );
 }
@@ -615,9 +604,9 @@ function RuleSheet({ kind, rule, fareScope, sel, locations, categories, services
   );
 }
 
-function PreviewSheet({ rule, canTest, onTest, onClose }: { rule: ServiceRule; canTest: boolean; onTest: () => void; onClose: () => void }) {
+function PreviewSheet({ rule, onClose }: { rule: ServiceRule; onClose: () => void }) {
   return (
-    <Modal title="Rule preview" onClose={onClose} footer={<Button icon="calculator" disabledReason={canTest ? undefined : "Test fare needs operations access."} onClick={onTest}>Test search</Button>}>
+    <Modal title="Rule preview" onClose={onClose}>
       <dl className="ds-facts" data-cols={2}>
         {([["Rule", rule.name], ["Location", [rule.scope.area, rule.scope.city, rule.scope.state].filter(Boolean).join(", ") || "All locations"], ["Service / categories", `${rule.service || "All"} · ${rule.categories?.join(" · ") || "All"}`], ["State", phaseOf(rule)], ["Priority", String(rule.priority)], ["Customer / payout", rule.kind === "pricing" ? `${adjText(rule.customer)} / ${adjText(rule.partner)}` : "Not applicable"], ["Reason", rule.reason]] as const).map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}
       </dl>
@@ -680,42 +669,3 @@ function LimitsSheet({ locationFilter, loaded, loadError, rules, canEdit, canEdi
   );
 }
 
-function TestFareSheet({ onClose, fareScope }: { onClose: () => void; fareScope: FareWorkspaceScope }) {
-  const data = useQuickData();
-  const [trip, setTrip] = useState<QuickTrip>(() => ({ ...emptyTrip(), tripType: fareScope.service === "Multicity" ? "One Way" : fareScope.service }));
-  const [res, setRes] = useState<CategoryEstimate[] | null>(null);
-  const [sel, setSel] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const run = async (e: FormEvent) => {
-    e.preventDefault();
-    const why = validateTrip(trip);
-    if (why) return setError(why);
-    setBusy(true);
-    setError(null);
-    setRes(null);
-    try {
-      const list = await estimateAll(trip, data.categories, fareScope.brand === "common" ? undefined : fareScope.brand);
-      setRes(list);
-      setSel(list.find((x) => x.quote)?.category.id ?? "");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "The fare test failed. Please try again.");
-    } finally { setBusy(false); }
-  };
-  const okCount = useMemo(() => res?.filter((r) => r.quote).length ?? 0, [res]);
-  return (
-    <Modal title={`Fare preview · ${fareScope.brand === "common" ? "Common" : BRAND_LABELS[fareScope.brand]} → ${fareScope.service}`} onClose={onClose} busy={busy} wide footNote="Uses the same rules as customer and office estimates." footer={<Button variant="primary" type="submit" form="test-fare" loading={busy}>Run test search</Button>}>
-      <form id="test-fare" onSubmit={run} noValidate>
-        {error && <div className="ds-error" role="alert"><Icon name="circle-alert" />{error}</div>}
-        <p className="text-[12px] text-muted mb-3">Prices the trip with the same availability, cab type, schedule, fare rule and fare limit checks that customer and office bookings use. No booking or payment is created.</p>
-        <TripFields allowedTripTypes={[fareScope.service === "Multicity" ? "One Way" : fareScope.service]} trip={trip} set={(p) => setTrip((t) => ({ ...t, ...p }))} data={{ ...data, services: data.services.filter(service => !/multi/i.test(service.name + " " + service.serviceType)) }} idPrefix="test-fare" />
-      </form>
-      {res && (
-        <div className="mt-4">
-          <p className="text-[12px] text-muted mb-2">{okCount} of {res.length} cab types available for this search. Hidden or paused types show the rule message.</p>
-          <EstimateList estimates={res} selected={sel} onSelect={setSel} priceEntered="Excluding GST" />
-        </div>
-      )}
-    </Modal>
-  );
-}

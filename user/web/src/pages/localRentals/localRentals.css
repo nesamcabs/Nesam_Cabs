@@ -513,3 +513,7 @@
 .lr-pair:not(.lr-pair--two) { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.3fr) minmax(0, 1fr); }
 .lr-date { min-width: 0; box-sizing: border-box; padding-right: 6px; }
 .lr-date::-webkit-datetime-edit { padding: 0; }
+
+/* Google Maps: the map ends at the sheet, so Google's logo and terms are never covered. */
+.lr__map--google { bottom: var(--lr-sheet, 240px); background: var(--paper, #eef1f6); }
+.lr__map--google .gm-style { font-family: inherit; }

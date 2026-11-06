@@ -73,11 +73,12 @@ function tag(kind: 'from' | 'to', text: string): HTMLElement {
 interface Pin { place: GeoPlace; kind: 'from' | 'to' }
 interface Target extends LatLng { zoom?: number; n: number }
 
-function PinMap({ picking, target, pins, sheetH, onPick }: { picking: boolean; target: Target | null; pins: Pin[]; sheetH: number; onPick: (ll: LatLng) => void }) {
+function LeafletPinMap({ picking, target, pins, sheetH, onPick }: { picking: boolean; target: Target | null; pins: Pin[]; sheetH: number; onPick: (ll: LatLng) => void }) {
   const host = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
   const layer = useRef<L.LayerGroup | null>(null);
   const programmatic = useRef(false);
+  const gesture = useRef(false); // true only after the rider dragged or pinched: a resize of the map must never count as moving the pin
   const live = useRef({ picking, sheetH, onPick });
   live.current = { picking, sheetH, onPick };
 
@@ -88,10 +89,13 @@ function PinMap({ picking, target, pins, sheetH, onPick }: { picking: boolean; t
     L.tileLayer(TILE_URL, { attribution: ATTRIBUTION, maxZoom: 19 }).addTo(m);
     layer.current = L.layerGroup().addTo(m);
     map.current = m;
+    m.on('dragstart', () => { gesture.current = true; });
+    m.on('zoomstart', () => { if (!programmatic.current) gesture.current = true; });
     m.on('movestart', () => el.classList.add('is-moving'));
     m.on('moveend', () => {
       el.classList.remove('is-moving');
-      if (programmatic.current || !live.current.picking) return;
+      if (programmatic.current || !live.current.picking || !gesture.current) return;
+      gesture.current = false;
       // The pin is drawn above the sheet, so the place is read at the pin's own point, not at the middle of the map.
       const size = m.getSize();
       const at = m.containerPointToLatLng(L.point(size.x / 2, Math.max(70, (size.y - live.current.sheetH) / 2)));
@@ -136,6 +140,135 @@ function PinMap({ picking, target, pins, sheetH, onPick }: { picking: boolean; t
   }, [pins.map((p) => `${p.kind}:${p.place.lat},${p.place.lng},${p.place.name}`).join('|'), picking, sheetH]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <div ref={host} className="lr__map" role="application" aria-label="Map. Drag it to place the pin on your location." />;
+}
+
+// ── Google Maps (the map the sites use everywhere else) ─────────────────────────────────────────────────────────────────────
+// The map ends at the top of the sheet, so Google's own logo and terms stay visible and the pin is simply the middle of the map.
+declare global { interface Window { google?: any; __nesamGoogleMapsPromise?: Promise<any>; gm_authFailure?: () => void } }
+const GOOGLE_KEY = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined)?.trim() ?? '';
+
+/** Same loader (and same shared promise) as the route map, so the script is only ever added once. */
+function loadGoogleMaps(): Promise<any> {
+  if (window.google?.maps) return Promise.resolve(window.google.maps);
+  if (window.__nesamGoogleMapsPromise) return window.__nesamGoogleMapsPromise;
+  window.__nesamGoogleMapsPromise = new Promise((resolve, reject) => {
+    const callback = `__nesamMapsReady_${Date.now()}`;
+    (window as any)[callback] = () => { delete (window as any)[callback]; resolve(window.google.maps); };
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(GOOGLE_KEY)}&v=weekly&callback=${callback}`;
+    script.async = true;
+    script.onerror = () => { delete (window as any)[callback]; window.__nesamGoogleMapsPromise = undefined; reject(new Error('Google Maps failed to load')); };
+    document.head.appendChild(script);
+  });
+  return window.__nesamGoogleMapsPromise;
+}
+
+function GooglePinMap({ picking, target, pins, onPick, onFail }: { picking: boolean; target: Target | null; pins: Pin[]; onPick: (ll: LatLng) => void; onFail: () => void }) {
+  const host = useRef<HTMLDivElement>(null);
+  const map = useRef<any>(null);
+  const overlays = useRef<any[]>([]);
+  const last = useRef<LatLng | null>(null);
+  const placed = useRef(false); // set once the first position has been applied: Google's first idle event is not the rider moving the pin
+  const gesture = useRef(false); // true only after the rider dragged or pinched: Google's own resizes and recentring must never count as moving the pin
+  const quietUntil = useRef(0); // zoom changes we make ourselves are not gestures
+  const live = useRef({ picking, onPick, onFail });
+  live.current = { picking, onPick, onFail };
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    // A rejected key (referrer, billing) is reported by Google through this hook rather than by the script failing to load.
+    window.gm_authFailure = () => { if (alive) live.current.onFail(); };
+    loadGoogleMaps()
+      .then((maps) => {
+        if (!alive || !host.current) return;
+        const el = host.current;
+        const m = new maps.Map(el, { center: { lat: STATE_VIEW.lat, lng: STATE_VIEW.lng }, zoom: STATE_VIEW.zoom, disableDefaultUI: true, clickableIcons: false, gestureHandling: 'greedy', keyboardShortcuts: false });
+        map.current = m;
+        m.addListener('dragstart', () => { gesture.current = true; el.classList.add('is-moving'); });
+        m.addListener('zoom_changed', () => { if (Date.now() > quietUntil.current) { gesture.current = true; el.classList.add('is-moving'); } });
+        m.addListener('idle', () => {
+          el.classList.remove('is-moving');
+          if (!live.current.picking || !placed.current || !gesture.current) return;
+          gesture.current = false;
+          const c = m.getCenter();
+          const ll = { lat: c.lat(), lng: c.lng() };
+          last.current = ll;
+          live.current.onPick(ll);
+        });
+        setReady(true);
+      })
+      .catch(() => { if (alive) live.current.onFail(); });
+    return () => {
+      alive = false;
+      overlays.current.forEach((o) => o.setMap?.(null));
+      overlays.current = [];
+      map.current = null;
+    };
+  }, []);
+
+  // Move to a place (a search result, the device location, a city chip).
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !ready || !target) return;
+    last.current = { lat: target.lat, lng: target.lng };
+    placed.current = true;
+    gesture.current = false;
+    quietUntil.current = Date.now() + 1200;
+    m.setCenter({ lat: target.lat, lng: target.lng });
+    m.setZoom(target.zoom ?? 16);
+  }, [target?.n, ready]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Draw the chosen places, and fit the trip into the map.
+  useEffect(() => {
+    const m = map.current;
+    const maps = window.google?.maps;
+    if (!m || !maps || !ready) return;
+    overlays.current.forEach((o) => o.setMap(null));
+    overlays.current = [];
+    const add = (o: any) => { overlays.current.push(o); return o; };
+    const bounds = new maps.LatLngBounds();
+    for (const p of pins) {
+      const pos = { lat: p.place.lat, lng: p.place.lng };
+      bounds.extend(pos);
+      add(new maps.Marker({ map: m, position: pos, clickable: false, zIndex: 5, icon: { path: maps.SymbolPath.CIRCLE, scale: 7, fillColor: p.kind === 'from' ? '#16a34a' : '#dc2626', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 3 } }));
+      // The name tag is a small HTML overlay (built from DOM nodes) placed at the point.
+      const div = tag(p.kind, p.place.name);
+      div.style.position = 'absolute';
+      const ov = new maps.OverlayView();
+      ov.onAdd = () => ov.getPanes().overlayMouseTarget.appendChild(div);
+      ov.draw = () => {
+        const pt = ov.getProjection()?.fromLatLngToDivPixel(new maps.LatLng(pos.lat, pos.lng));
+        if (pt) { div.style.left = `${pt.x}px`; div.style.top = `${pt.y + (p.kind === 'from' ? -46 : 12)}px`; }
+      };
+      ov.onRemove = () => div.remove();
+      ov.setMap(m);
+      add(ov);
+    }
+    if (pins.length === 2) {
+      add(new maps.Polyline({ map: m, path: pins.map((p) => ({ lat: p.place.lat, lng: p.place.lng })), strokeOpacity: 0, icons: [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: 0.85, strokeColor: '#0f172a', scale: 3 }, offset: '0', repeat: '12px' }] }));
+    }
+    if (picking || !pins.length) return;
+    quietUntil.current = Date.now() + 1200;
+    if (pins.length === 1) {
+      last.current = { lat: pins[0]!.place.lat, lng: pins[0]!.place.lng };
+      m.setCenter(last.current);
+      m.setZoom(15);
+    } else {
+      m.fitBounds(bounds, { top: 100, right: 48, bottom: 40, left: 48 });
+      maps.event.addListenerOnce(m, 'idle', () => { if (m.getZoom() > 15) m.setZoom(15); });
+    }
+  }, [pins.map((p) => `${p.kind}:${p.place.lat},${p.place.lng},${p.place.name}`).join('|'), picking, ready]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return <div ref={host} className="lr__map lr__map--google" role="application" aria-label="Map. Drag it to place the pin on your location." />;
+}
+
+/** Google Maps with the sites' key. If Google cannot load, or rejects the key, the same page keeps working on the open map. */
+function PinMap(props: { picking: boolean; target: Target | null; pins: Pin[]; sheetH: number; onPick: (ll: LatLng) => void }) {
+  const [provider, setProvider] = useState<'google' | 'leaflet'>(GOOGLE_KEY ? 'google' : 'leaflet');
+  return provider === 'google'
+    ? <GooglePinMap picking={props.picking} target={props.target} pins={props.pins} onPick={props.onPick} onFail={() => setProvider('leaflet')} />
+    : <LeafletPinMap {...props} />;
 }
 
 // ── The page ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -191,7 +324,7 @@ export function LocalRentalsPage() {
         .catch(() => { if (fresh()) { setCand(pinPlace(ll)); setResolving(false); } });
     }, 300);
     // On a slow connection the rider is not kept waiting: the pin's coordinates stand in, and the address replaces them if it arrives.
-    const giveUp = window.setTimeout(() => { if (fresh()) { setCand((c) => (c && c.lat === ll.lat && c.lng === ll.lng ? c : pinPlace(ll))); setResolving(false); } }, 2500);
+    const giveUp = window.setTimeout(() => { if (fresh()) { setCand((c) => (c && c.lat === ll.lat && c.lng === ll.lng ? c : pinPlace(ll))); setResolving(false); } }, 3500);
     return () => { window.clearTimeout(ask); window.clearTimeout(giveUp); };
   }, []);
 

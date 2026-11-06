@@ -2954,3 +2954,9 @@ html[data-hero-logo='in'] .ride-chip {
   text-decoration: line-through;
   text-decoration-thickness: 1.5px;
 }
+
+/* The services bar has four buttons (Outstation, Airport Taxi, Local Rentals, Multicity): they share the whole width. */
+.bf .bf-services,
+.home-hero > .bf .bf-services {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
