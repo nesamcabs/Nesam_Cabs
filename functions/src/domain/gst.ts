@@ -51,8 +51,15 @@ export function withFareGst(source: import('./types').FareBreakdown, tax: GstSna
   fare.taxableAmount = net(source.taxableAmount);
   fare.discount = round(fare.subtotal - fare.taxableAmount);
   fare.gstRate = tax.rate;
-  fare.gst = Math.round(Math.round(fare.taxableAmount * 100) * tax.rate) / 100;
-  fare.total = round(fare.taxableAmount + fare.gst);
+  if (included) {
+    // GST inside the price: the total stays exactly the amount worked out from the rates, and GST is what remains above
+    // the taxable value. Re-adding a separately rounded GST could leave the total a paisa short (₹3,651.99 for ₹3,652).
+    fare.total = round(source.total);
+    fare.gst = round(fare.total - fare.taxableAmount);
+  } else {
+    fare.gst = Math.round(Math.round(fare.taxableAmount * 100) * tax.rate) / 100;
+    fare.total = round(fare.taxableAmount + fare.gst);
+  }
   if (fare.globalAdjustment) fare.globalAdjustment = { ...fare.globalAdjustment, amount: net(fare.globalAdjustment.amount) };
   if (fare.discountDetail) fare.discountDetail = { ...fare.discountDetail, amount: fare.discount,
     value: fare.discountDetail.type === 'coupon' ? fare.discount : included && fare.discountDetail.type === 'fixed' ? net(fare.discountDetail.value) : fare.discountDetail.value };

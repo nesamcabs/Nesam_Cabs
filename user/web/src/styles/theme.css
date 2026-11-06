@@ -318,16 +318,15 @@ html[data-hero-logo='in'] .topbar .brand {
   margin-inline: auto;
 }
 
-/* Phone bar: a floating pill instead of a full-width strip. */
+/* Phone bar: full width, flush with the bottom edge. */
 @media (max-width: 899.98px) {
   .tabbar {
-    right: 12px;
-    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-    left: 12px;
-    border: 1px solid var(--line);
-    border-radius: var(--r-ctl);
+    right: 0;
+    bottom: 0;
+    left: 0;
+    border-radius: 0;
     background: #fff;
-    box-shadow: 0 6px 18px rgb(15 23 42 / 0.16);
+    box-shadow: none;
   }
 }
 

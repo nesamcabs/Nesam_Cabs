@@ -54,7 +54,7 @@ const IMMERSIVE = [/^\/ride\//, /^\/local-rentals(\/|$)/, /^\/trips\/[^/]+$/];
 
 /** Phone bottom bar: the five services, each opening the booking form on that service. Outstation, the main
     service, is raised and filled in the middle. */
-const BAR_ORDER: ServiceId[] = ['airport', 'multicity', 'outstation', 'rental'];
+const BAR_ORDER: ServiceId[] = ['outstation', 'multicity', 'rental', 'airport'];
 const barServices = () => BAR_ORDER.flatMap((id) => SERVICES.find((s) => s.id === id) ?? []);
 
 /** The bottom bar's short names. */
@@ -78,7 +78,7 @@ function BottomNav() {
       {barServices().map((s) => (
         <Link key={s.id} to={s.id === 'local' ? '/local-taxi' : serviceHref(s.id)} className={`tabbar__link ${s.id === 'outstation' ? 'tabbar__link--main' : ''} ${current === s.id || (s.id === 'rental' && current === 'pickup') ? 'is-active' : ''}`} aria-current={current === s.id || (s.id === 'rental' && current === 'pickup') ? 'page' : undefined}>
           <span className="tabbar__icon">
-            <img className="tabbar__img" src={NAV_ICON[s.id]} alt="" width={s.id === 'outstation' ? 50 : 54} height={s.id === 'outstation' ? 50 : 54} draggable={false} />
+            <img className="tabbar__img" src={NAV_ICON[s.id]} alt="" width={s.id === 'outstation' ? 46 : 44} height={s.id === 'outstation' ? 46 : 44} draggable={false} />
           </span>
           <span className="tabbar__label">{SHORT_LABEL[s.id] ?? s.label}</span>
         </Link>
@@ -97,7 +97,7 @@ function ProfileTab({ picked, onPick }: { picked: boolean; onPick: () => void })
   const inner = (
     <>
       <span className="tabbar__icon">
-        <img className="tabbar__img" src={profileIcon} alt="" width={54} height={54} draggable={false} />
+        <img className="tabbar__img" src={profileIcon} alt="" width={44} height={44} draggable={false} />
       </span>
       <span className="tabbar__label">Profile</span>
     </>

@@ -23,6 +23,7 @@ import { combineDateTime, latestPickup, toDateInput, toTimeInput } from '@/lib/s
 import { LOCAL_RENTALS_LABEL, SERVICES, SERVICE_TITLE, isLocalRentals, type ServiceId } from '@/lib/services';
 import { AIRPORTS, QUICK_CITIES, isAirportPlace } from './content';
 import { MulticityForm } from './MulticityForm';
+import { ServiceIcon } from '@/components/ServiceIcon';
 
 type Field = 'pickup' | 'drop' | 'stops' | 'hours' | 'date' | 'time' | 'retDate' | 'retTime' | 'form';
 type Errors = Partial<Record<Field, string>>;
@@ -289,7 +290,7 @@ export function BookingForm({
           return (
             <button key={s.id} type="button" className={`bf-service ${active ? 'is-active' : ''}`} aria-pressed={active} aria-controls="bf-form" onClick={() => (grouped && isLocalRentals(service) ? undefined : onService(s.id))}>
               <span className="bf-service__icon">
-                <Icon name={s.icon} size={s.id === 'multicity' ? 27 : s.id === 'airport' ? 25 : 22} />
+                <ServiceIcon id={s.id} size={30} />
               </span>
               <span>{grouped ? LOCAL_RENTALS_LABEL : s.label}</span>
             </button>

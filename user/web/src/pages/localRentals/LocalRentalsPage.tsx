@@ -547,6 +547,7 @@ export function LocalRentalsPage() {
             <span className="lr-grip" aria-hidden="true" />
             <p className="lr-step">Step {stepNo} of {steps}</p>
             <h2>{stage === 'drop' ? 'Where should we drop you?' : mode === 'hourly' ? 'Where should the car meet you?' : 'Where should we pick you up?'}</h2>
+            <div className="lr-row">
             <div className={`lr-addr ${resolving ? 'is-busy' : ''}`}>
               <span className={`lr-dot lr-dot--${stage === 'drop' ? 'to' : 'from'}`} aria-hidden="true" />
               <div>
@@ -562,10 +563,11 @@ export function LocalRentalsPage() {
                 )}
               </div>
             </div>
-            {farApart ? <p className="lr-warn" role="alert">Pickup &amp; Drop is for trips inside one city. For a longer trip choose Outstation.</p> : null}
             <button type="button" className="lr-cta" disabled={!place || resolving || farApart} onClick={confirmStage}>
               {resolving ? 'Finding address…' : stage === 'drop' ? 'Confirm drop' : 'Confirm pickup'}
             </button>
+            </div>
+            {farApart ? <p className="lr-warn" role="alert">Pickup &amp; Drop is for trips inside one city. For a longer trip choose Outstation.</p> : null}
             {stage === 'drop' ? <button type="button" className="lr-link" onClick={() => enter('pickup')}>Change pickup</button> : null}
           </section>
         ) : (

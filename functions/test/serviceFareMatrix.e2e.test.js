@@ -65,7 +65,8 @@ function check(service, data, q) {
   assert.equal(q.pricing.gstInFare, true, 'default GST treatment is included');
   assert.equal(Math.round(q.fare.total * 100), Math.round(pre * 100), 'customer fare follows edited rates');
   assert.equal(q.pricing.partner.basePaise, Math.round(payout * 100), 'partner entitlement follows edited rates');
-  assert.equal(q.pricing.extraKmRatePaise, (service === 'Local Rental' ? data.rentalPackages[12].extraKmRate : data.extraKmRate) * 100, 'extra KM price is snapshotted');
+  // GST is inside the price by default, so the entered rate is kept in gstInclusiveBase and the snapshot holds its taxable part.
+  assert.equal(q.pricing.gstInclusiveBase?.extraKmRatePaise ?? q.pricing.extraKmRatePaise, (service === 'Local Rental' ? data.rentalPackages[12].extraKmRate : data.extraKmRate) * 100, 'extra KM price is snapshotted');
   const extras = q.pricing.extraCharges;
   assert.ok(extras, 'scoped extra charges must reach this service');
   for (const [key, expected] of Object.entries({ waitingPerHourPaise: data.waitingPerHour, hillPaise: data.hillCharge, carrierPaise: data.carrierCharge })) assert.equal(extras.customer[key], expected * 100, 'customer extra ' + key);
