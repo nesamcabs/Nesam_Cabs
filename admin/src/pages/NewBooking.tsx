@@ -472,6 +472,19 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                       <input id="rv-phone" className="input" inputMode="tel" value={c.phone} onChange={(e) => setC({ ...c, phone: e.target.value })} />
                       {cfErr("phone")}
                       {match && <p className="field__hint">Existing customer · {match.name}</p>}
+                      <div className="rv-fold">
+                        <label className="check"><input type="checkbox" className="check__input" checked={c.whatsappSame} onChange={(e) => setC({ ...c, whatsappSame: e.target.checked })} /><span className="check__label"><strong>Is this also your WhatsApp number?</strong></span></label>
+                        {!c.whatsappSame && (
+                          <div className={`field ${errors.waNumber ? "is-invalid" : ""}`} style={{ marginTop: 10 }}>
+                            <label className="field__label" htmlFor="rv-wa">WhatsApp number</label>
+                            <div style={{ display: "flex", gap: 8 }}>
+                              <select className="input select" style={{ width: 110, flex: "none" }} aria-label="Country code" value={c.waCode} onChange={(e) => setC({ ...c, waCode: e.target.value })}>{COUNTRY_CODES.map((x) => <option key={x}>{x}</option>)}</select>
+                              <input id="rv-wa" className="input" inputMode="tel" value={c.waNumber} onChange={(e) => setC({ ...c, waNumber: e.target.value })} />
+                            </div>
+                            {cfErr("waNumber")}
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div className={`field ${errors.email ? "is-invalid" : ""}`}>
                       <label className="field__label" htmlFor="rv-email">Email Address<span className="field__opt">Optional</span></label>
@@ -486,20 +499,6 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                         ))}
                       </div>
                     </div>
-                  </div>
-
-                  <div className="rv-fold">
-                    <label className="check"><input type="checkbox" className="check__input" checked={c.whatsappSame} onChange={(e) => setC({ ...c, whatsappSame: e.target.checked })} /><span className="check__label"><strong>WhatsApp number is the same as mobile</strong></span></label>
-                    {!c.whatsappSame && (
-                      <div className={`field ${errors.waNumber ? "is-invalid" : ""}`} style={{ marginTop: 10 }}>
-                        <label className="field__label" htmlFor="rv-wa">WhatsApp number</label>
-                        <div style={{ display: "flex", gap: 8 }}>
-                          <select className="input select" style={{ width: 110, flex: "none" }} aria-label="Country code" value={c.waCode} onChange={(e) => setC({ ...c, waCode: e.target.value })}>{COUNTRY_CODES.map((x) => <option key={x}>{x}</option>)}</select>
-                          <input id="rv-wa" className="input" inputMode="tel" value={c.waNumber} onChange={(e) => setC({ ...c, waNumber: e.target.value })} />
-                        </div>
-                        {cfErr("waNumber")}
-                      </div>
-                    )}
                   </div>
 
                   <div className="rv-fold">

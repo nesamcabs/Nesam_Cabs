@@ -19,6 +19,8 @@ import './styles/localtaxi.css';
 import './styles/theme.css';
 import './styles/brand.css';
 import './styles/bottom-nav.css';
+import './styles/desktop-controls.css';
+import './styles/scroll-header.css';
 import { App } from './App';
 import { installStaleVersionReload, installVersionCheck } from './components/RouteErrorBoundary';
 

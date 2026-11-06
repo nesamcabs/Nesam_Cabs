@@ -23,6 +23,7 @@ import { combineDateTime, latestPickup, toDateInput, toTimeInput } from '@/lib/s
 import { useSeo } from '@/lib/seo';
 import { QUICK_CITIES } from '@/pages/book/content';
 import { SERVICES, serviceHref } from '@/lib/services';
+import { loadGoogleMaps, hasGoogleMapsWebKey, onGoogleMapsFailure } from '@/lib/googleMaps';
 import './localRentals.css';
 
 type Mode = 'hourly' | 'pickup';
@@ -81,7 +82,7 @@ function LeafletPinMap({ picking, target, pins, sheetH, onPick }: { picking: boo
   const programmatic = useRef(false);
   const gesture = useRef(false); // true only after the rider dragged or pinched: a resize of the map must never count as moving the pin
   const live = useRef({ picking, sheetH, onPick });
-  live.current = { picking, sheetH, onPick };
+  live.current = { picking, sheetH: window.innerWidth >= 900 ? sheetH : 0, onPick };
 
   useEffect(() => {
     const el = host.current;
@@ -140,29 +141,11 @@ function LeafletPinMap({ picking, target, pins, sheetH, onPick }: { picking: boo
     programmatic.current = false;
   }, [pins.map((p) => `${p.kind}:${p.place.lat},${p.place.lng},${p.place.name}`).join('|'), picking, sheetH]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return <div ref={host} className="lr__map" role="application" aria-label="Map. Drag it to place the pin on your location." />;
+  return <div ref={host} className="lr__map lr__map--google" role="application" aria-label="Map. Drag it to place the pin on your location." />;
 }
 
 // ── Google Maps (the map the sites use everywhere else) ─────────────────────────────────────────────────────────────────────
 // The map ends at the top of the sheet, so Google's own logo and terms stay visible and the pin is simply the middle of the map.
-declare global { interface Window { google?: any; __nesamGoogleMapsPromise?: Promise<any>; gm_authFailure?: () => void } }
-const GOOGLE_KEY = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined)?.trim() ?? '';
-
-/** Same loader (and same shared promise) as the route map, so the script is only ever added once. */
-function loadGoogleMaps(): Promise<any> {
-  if (window.google?.maps) return Promise.resolve(window.google.maps);
-  if (window.__nesamGoogleMapsPromise) return window.__nesamGoogleMapsPromise;
-  window.__nesamGoogleMapsPromise = new Promise((resolve, reject) => {
-    const callback = `__nesamMapsReady_${Date.now()}`;
-    (window as any)[callback] = () => { delete (window as any)[callback]; resolve(window.google.maps); };
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(GOOGLE_KEY)}&v=weekly&callback=${callback}`;
-    script.async = true;
-    script.onerror = () => { delete (window as any)[callback]; window.__nesamGoogleMapsPromise = undefined; reject(new Error('Google Maps failed to load')); };
-    document.head.appendChild(script);
-  });
-  return window.__nesamGoogleMapsPromise;
-}
 
 function GooglePinMap({ picking, target, pins, sheetH, onPick, onFail }: { picking: boolean; target: Target | null; pins: Pin[]; sheetH: number; onPick: (ll: LatLng) => void; onFail: () => void }) {
   const host = useRef<HTMLDivElement>(null);
@@ -179,7 +162,7 @@ function GooglePinMap({ picking, target, pins, sheetH, onPick, onFail }: { picki
   useEffect(() => {
     let alive = true;
     // A rejected key (referrer, billing) is reported by Google through this hook rather than by the script failing to load.
-    window.gm_authFailure = () => { if (alive) live.current.onFail(); };
+    const stopFailureListener = onGoogleMapsFailure(() => { if (alive) live.current.onFail(); });
     loadGoogleMaps()
       .then((maps) => {
         if (!alive || !host.current) return;
@@ -202,8 +185,10 @@ function GooglePinMap({ picking, target, pins, sheetH, onPick, onFail }: { picki
       .catch(() => { if (alive) live.current.onFail(); });
     return () => {
       alive = false;
+      stopFailureListener();
       overlays.current.forEach((o) => o.setMap?.(null));
       overlays.current = [];
+      if (map.current) window.google?.maps?.event?.clearInstanceListeners(map.current);
       map.current = null;
     };
   }, []);
@@ -267,7 +252,7 @@ function GooglePinMap({ picking, target, pins, sheetH, onPick, onFail }: { picki
 
 /** Google Maps with the sites' key. If Google cannot load, or rejects the key, the same page keeps working on the open map. */
 function PinMap(props: { picking: boolean; target: Target | null; pins: Pin[]; sheetH: number; onPick: (ll: LatLng) => void }) {
-  const [provider, setProvider] = useState<'google' | 'leaflet'>(GOOGLE_KEY ? 'google' : 'leaflet');
+  const [provider, setProvider] = useState<'google' | 'leaflet'>(hasGoogleMapsWebKey ? 'google' : 'leaflet');
   return provider === 'google'
     ? <GooglePinMap picking={props.picking} target={props.target} pins={props.pins} sheetH={props.sheetH} onPick={props.onPick} onFail={() => setProvider('leaflet')} />
     : <LeafletPinMap {...props} />;

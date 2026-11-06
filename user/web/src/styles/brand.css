@@ -1,5 +1,5 @@
 /* NESAM Cabs — "Executive" identity. Loaded last.
-   Charcoal and warm ivory, a deep crimson for action, thin gold rules, Poppins throughout and sharp, precise corners.
+   Charcoal and warm ivory, bright logo red for action, thin gold rules, Poppins throughout and sharp, precise corners.
    Layout, behaviour and wording are shared with the other customer sites (see theme.css); this file only restates this
    brand's look. */
 
@@ -65,7 +65,7 @@ h2,
   letter-spacing: 0.01em;
 }
 
-/* ── Buttons: solid crimson, sharp corners ───────────────────────────────────────────────────────── */
+/* ── Buttons: solid logo red, sharp corners ───────────────────────────────────────────────────────── */
 .btn {
   border-radius: var(--r-btn);
   font-weight: 600;

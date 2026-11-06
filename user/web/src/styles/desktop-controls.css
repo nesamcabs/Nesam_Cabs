@@ -1,0 +1,103 @@
+/* Desktop booking controls share one scale across all customer brands. */
+@media (min-width: 900px) {
+  .bf .bf-services, .home-hero > .bf .bf-services {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    padding: 6px;
+    border-radius: var(--r-lg);
+    background: var(--brand-soft);
+    align-items: stretch;
+  }
+  .bf .bf-services .bf-service, .home-hero > .bf .bf-services .bf-service {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    min-height: 96px;
+    padding: 10px 4px;
+    gap: 7px;
+    border: 1px solid transparent;
+    border-radius: var(--r-md);
+    background: transparent;
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: 0;
+    box-shadow: none;
+  }
+  .bf .bf-services .bf-service > span:not(.bf-service__icon) {
+    display: block;
+    max-width: 100%;
+    white-space: normal;
+    text-align: center;
+  }
+  .bf .bf-services .bf-service__icon, .home-hero > .bf .bf-services .bf-service__icon {
+    display: grid;
+    place-items: center;
+    flex: 0 0 44px;
+    width: 48px;
+    height: 44px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .bf .bf-services .bf-service__icon img {
+    display: block;
+    width: 44px;
+    height: 44px;
+    max-width: none;
+    object-fit: contain;
+  }
+  .bf .bf-services .bf-service:hover:not(.is-active) {
+    background: var(--surface);
+    color: var(--brand-ink);
+  }
+  .bf .bf-services .bf-service.is-active,
+  .bf .bf-services .bf-service.is-active:hover {
+    background: var(--brand);
+    border-color: var(--brand);
+    color: #fff;
+    box-shadow: 0 3px 8px color-mix(in srgb, var(--brand) 16%, transparent);
+  }
+  .bf .bf-services .bf-service.is-active .bf-service__icon { background: transparent; }
+  .bf .bf-services .bf-service:focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+  }
+  .bf .bf-form .bf-row { align-items: start; gap: 12px; }
+  .bf .bf-form .bf-row > .bf-cell { min-width: 0; }
+  .bf .bf-datewrap .bf-input,
+  .bf .bf-form .bf-row .bf-time {
+    height: 56px;
+    min-height: 56px;
+    width: 100%;
+    padding-inline: 14px 44px;
+    font-size: 16px;
+    letter-spacing: 0;
+    text-align: left;
+  }
+  .bf .bf-datewrap::after,
+  .bf .bf-form .bf-row .bf-time svg {
+    width: 22px;
+    height: 22px;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+  .bf .bf-chip { right: 12px; top: -9px; font-size: 10px; line-height: 16px; padding: 1px 7px; }
+  .bf .bf-form .bf-route .bf-swap {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+  }
+  .bf .bf-form .bf-route .bf-swap svg { width: 20px; height: 20px; }
+  .bf .bf-route__cell .bf-place svg { flex-shrink: 0; }
+}

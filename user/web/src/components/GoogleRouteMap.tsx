@@ -5,24 +5,8 @@ import { isValidLatLng } from '@core/utils/geo';
 import { Icon } from './Icon';
 import type { MapPadding } from './RouteMap';
 
-declare global { interface Window { google?: any; __nesamGoogleMapsPromise?: Promise<any>; } }
-
-const apiKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined)?.trim() ?? '';
-
-function loadGoogleMaps(): Promise<any> {
-  if (window.google?.maps) return Promise.resolve(window.google.maps);
-  if (window.__nesamGoogleMapsPromise) return window.__nesamGoogleMapsPromise;
-  window.__nesamGoogleMapsPromise = new Promise((resolve, reject) => {
-    const callback = `__nesamMapsReady_${Date.now()}`;
-    (window as any)[callback] = () => { delete (window as any)[callback]; resolve(window.google.maps); };
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly&callback=${callback}`;
-    script.async = true;
-    script.onerror = () => { delete (window as any)[callback]; reject(new Error('Google Maps failed to load')); };
-    document.head.appendChild(script);
-  });
-  return window.__nesamGoogleMapsPromise;
-}
+import { loadGoogleMaps, onGoogleMapsFailure } from '@/lib/googleMaps';
+export { loadGoogleMaps, hasGoogleMapsWebKey } from '@/lib/googleMaps';
 
 interface Props {
   pickup?: (LatLng & { name?: string }) | null;
@@ -57,6 +41,7 @@ export function GoogleRouteMap({ pickup, drop, driver, userLocation, path, baseP
 
   useEffect(() => {
     let alive = true;
+    const stopFailureListener = onGoogleMapsFailure(() => { if (alive) onLoadError(); });
     loadGoogleMaps().then((maps) => {
       if (!alive || !host.current) return;
       mapRef.current = new maps.Map(host.current, { center: DEFAULT_CENTER, zoom: 12, mapTypeControl: false, streetViewControl: false, fullscreenControl: false, clickableIcons: false, gestureHandling: 'greedy' });
@@ -66,8 +51,8 @@ export function GoogleRouteMap({ pickup, drop, driver, userLocation, path, baseP
         centerCb.current({ lat: c.lat(), lng: c.lng() });
       });
       setReady(true);
-    }).catch(onLoadError);
-    return () => { alive = false; overlays.current.forEach((o) => o.setMap?.(null)); overlays.current = []; mapRef.current = null; };
+    }).catch(() => { if (alive) onLoadError(); });
+    return () => { alive = false; stopFailureListener(); overlays.current.forEach((o) => o.setMap?.(null)); overlays.current = []; if (mapRef.current) window.google?.maps?.event?.clearInstanceListeners(mapRef.current); mapRef.current = null; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -109,5 +94,3 @@ export function GoogleRouteMap({ pickup, drop, driver, userLocation, path, baseP
     <button type="button" className="route-map__recenter" onClick={() => setFitTick((n) => n + 1)} aria-label="Recentre map"><Icon name="navigation" size={20} /></button>
   </div>;
 }
-
-export const hasGoogleMapsWebKey = apiKey.length > 0;

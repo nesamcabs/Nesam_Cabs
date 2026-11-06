@@ -389,6 +389,17 @@ export function Shell() {
   const isFlow = FLOW.some((re) => re.test(location.pathname));
   const isImmersive = IMMERSIVE.some((re) => re.test(location.pathname));
   const onMapPage = /^\/local-rentals(\/|$)/.test(location.pathname);
+  const isLanding = location.pathname === '/' || location.pathname === '/book';
+  const [hasScrolled, setHasScrolled] = useState(false);
+  const headerHidden = isLanding && !hasScrolled;
+
+  useEffect(() => {
+    const updateHeader = () => setHasScrolled(window.scrollY > 48);
+    updateHeader();
+    window.addEventListener('scroll', updateHeader, { passive: true });
+    return () => window.removeEventListener('scroll', updateHeader);
+  }, [location.pathname]);
+
 
   useEffect(() => {
     window.scrollTo({ top: 0 });
@@ -396,7 +407,7 @@ export function Shell() {
   }, [location.pathname]);
 
   return (
-    <div className={`shell ${isImmersive ? 'shell--immersive' : ''} ${isFlow ? '' : 'shell--dock'}`}>
+    <div className={`shell ${isLanding ? 'shell--scroll-header' : ''} ${isImmersive ? 'shell--immersive' : ''} ${isFlow ? '' : 'shell--dock'}`}>
       <a
         className="skip-link"
         href="#main"
@@ -417,7 +428,7 @@ export function Shell() {
         </div>
       ) : null}
 
-      <header className="topbar">
+      <header className={`topbar ${headerHidden ? 'topbar--hidden' : ''}`} inert={headerHidden} aria-hidden={headerHidden || undefined}>
         <div className="topbar__inner">
           <button type="button" className="menu-btn" aria-label="Open menu" aria-haspopup="dialog" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}>
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true" focusable="false">

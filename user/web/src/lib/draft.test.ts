@@ -54,6 +54,13 @@ describe('booking draft persistence', () => {
     expect(d.payment).toBe('Cash');
   });
 
+  it('keeps a separate WhatsApp contact across reloads and restores the same-number choice', () => {
+    saveDraft({ ...EMPTY_DRAFT, waSame: false, waCode: '+44', waNumber: '7700900123' });
+    expect(loadDraft()).toMatchObject({ waSame: false, waCode: '+44', waNumber: '7700900123' });
+    saveDraft({ ...loadDraft(), waSame: true });
+    expect(loadDraft().waSame).toBe(true);
+  });
+
   it('survives corrupt storage', () => {
     sessionStorage.setItem('nesam.booking.v1', '{not json');
     expect(loadDraft()).toEqual(EMPTY_DRAFT);

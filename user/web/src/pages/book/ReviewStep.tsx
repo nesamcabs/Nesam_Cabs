@@ -43,6 +43,7 @@ export function ReviewStep() {
     tripEndAt,
     payment,
     notes,
+    waSame,
     waCode,
     waNumber,
     email,
@@ -51,7 +52,6 @@ export function ReviewStep() {
     passengerMobile,
     flight,
   } = draft;
-  const waSame = true; // trip updates go to the same mobile number
   const category = q.category;
 
   const hadProfile = useRef(!!profile);
@@ -208,12 +208,48 @@ export function ReviewStep() {
               <h2 id="rv-who-head">Passenger &amp; Contact Details</h2>
 
               <div className="rv-grid">
-                <TextField
-                  label="Mobile number"
-                  value={profile?.phone ? formatPhone(profile.phone) : 'Sign in on booking'}
-                  readOnly
-                  disabled
-                />
+                <div>
+                  <TextField
+                    label="Mobile number"
+                    value={profile?.phone ? formatPhone(profile.phone) : 'Sign in on booking'}
+                    readOnly
+                    disabled
+                  />
+                  <div style={{ marginTop: 12 }}>
+                    <Checkbox
+                      label="Is this also your WhatsApp number?"
+                      checked={waSame}
+                      onChange={(checked) => update({ waSame: checked })}
+                    />
+                  </div>
+                  {!waSame ? (
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '88px minmax(0, 1fr)', gap: 10 }}>
+                        <TextField
+                          label="Country code"
+                          type="tel"
+                          autoComplete="tel-country-code"
+                          placeholder="+91"
+                          value={waCode}
+                          maxLength={4}
+                          required
+                          onChange={(e) => update({ waCode: e.target.value.replace(/[^\d+]/g, '') })}
+                        />
+                        <TextField
+                          label="WhatsApp number"
+                          type="tel"
+                          autoComplete="tel-national"
+                          placeholder="Enter WhatsApp number"
+                          value={waNumber}
+                          error={waError}
+                          required
+                          onChange={(e) => update({ waNumber: e.target.value })}
+                        />
+                      </div>
+                      <PolicyLinks lead="Use another person's WhatsApp number only with their permission." ids={['privacy']} newTab />
+                    </div>
+                  ) : null}
+                </div>
                 <TextField
                   label="Email Address"
                   type="email"

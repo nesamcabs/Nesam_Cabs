@@ -1,22 +1,22 @@
 /*
   NESAM Cabs — design tokens (the single source of truth).
-  Identity: an "executive" corporate look. Charcoal and warm ivory surfaces, a deep crimson for action, thin gold
+  Identity: an "executive" corporate look. Charcoal and warm ivory surfaces, a bright logo red for action, thin gold
   rules, Poppins type and sharp, precise corners. Every colour, size and radius used by the other stylesheets comes
   from here; screens never hard-code them.
 */
 :root {
   color-scheme: light;
 
-  /* Brand — deep crimson */
-  --brand: #a31621;
-  --brand-hover: #8b111b;
-  --brand-press: #760e17;
-  --brand-soft: #fbeff0;
-  --brand-tint: #f3d9db;
-  --brand-line: #e8cdd0;
-  --brand-ink: #9b1a24; /* crimson text on light surfaces (AA) */
-  --brand-bright: #ff8a92; /* crimson on dark surfaces */
-  --brand-gradient: linear-gradient(135deg, #b81c28 0%, #a31621 55%, #760e17 100%);
+  /* Brand — bright logo red */
+  --brand: #e31e24;
+  --brand-hover: #d71920;
+  --brand-press: #c8171d;
+  --brand-soft: #fff1f1;
+  --brand-tint: #ffdddd;
+  --brand-line: #ffc5c7;
+  --brand-ink: #cf171e; /* stronger red for text on light surfaces */
+  --brand-bright: #ff666b; /* bright red on dark surfaces */
+  --brand-gradient: linear-gradient(135deg, #ff3b40 0%, #e31e24 60%, #d71920 100%);
 
   /* Highlight — gold: rules, ratings, the call button */
   --sun: #b08d57;
@@ -144,13 +144,13 @@
   --field-line: #b9b1a5;
   --inset: #f3f0ec;
 
-  --ring: 0 0 0 3px rgb(163 22 33 / 0.2);
+  --ring: 0 0 0 3px rgb(227 30 36 / 0.2);
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
   --dur: 160ms;
 
   /* Brand channels for rgb() tints used across the stylesheets */
-  --brand-rgb: 163 22 33;
+  --brand-rgb: 227 30 36;
   --sun-rgb: 176 141 87;
 }
 

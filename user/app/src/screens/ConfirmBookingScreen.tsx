@@ -241,6 +241,17 @@ export function ConfirmBookingScreen() {
           <Text style={styles.cardTitle}>Booking contact</Text>
           <Line label="Passenger name" value={profile.name} />
           <Line label="Mobile number" value={formatPhone(profile.phone)} />
+          <Checkbox checked={waSame} onChange={setWaSame} label="Is this also your WhatsApp number?" />
+          {!waSame ? (
+            <View style={styles.waRow}>
+              <View style={{ width: 84 }}>
+                <TextField label="Code" value={waCode} onChangeText={(v) => setWaCode(v.replace(/[^\d+]/g, '').slice(0, 4))} keyboardType="phone-pad" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <TextField label="WhatsApp number" value={waNumber} onChangeText={setWaNumber} keyboardType="phone-pad" placeholder="WhatsApp number" error={waError || undefined} />
+              </View>
+            </View>
+          ) : null}
           <Line label="WhatsApp number" value={waSame ? formatPhone(profile.phone) : waNumber ? `${waCode} ${waNumber}` : 'Not provided'} />
 
           <View style={styles.checks}>
@@ -259,17 +270,6 @@ export function ConfirmBookingScreen() {
                 error={guestName || guestMobile ? guestError || undefined : undefined}
                 hint="Shared with NESAM and your driver in the booking notes."
               />
-            </View>
-          ) : null}
-          <Checkbox checked={!waSame} onChange={(v) => setWaSame(!v)} label="Send WhatsApp updates to a different number" />
-          {!waSame ? (
-            <View style={styles.waRow}>
-              <View style={{ width: 84 }}>
-                <TextField label="Code" value={waCode} onChangeText={(v) => setWaCode(v.replace(/[^\d+]/g, '').slice(0, 4))} keyboardType="phone-pad" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <TextField label="WhatsApp number" value={waNumber} onChangeText={setWaNumber} keyboardType="phone-pad" placeholder="WhatsApp number" error={waError || undefined} />
-              </View>
             </View>
           ) : null}
           <View style={styles.rule} />
