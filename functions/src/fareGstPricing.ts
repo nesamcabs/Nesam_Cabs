@@ -32,9 +32,17 @@ export function fareGstForScope(i: { tariff: PriceInput['tariff']; brand?: strin
  * Fare GST settings (included or excluded, per state) always wins over this. Only for tariff pricing; the old category
  * engine used while no tariff is saved keeps its own arithmetic.
  */
+const DEFAULT_GST = new WeakSet<GstSnapshot>();
 function defaultFareGst(tariff: PriceInput['tariff']): GstSnapshot | null {
   if (!tariff) return null;
-  return { rate: tariff.gstRate > 0 ? tariff.gstRate : 0.05, mode: 'included', classification: 'passenger', supplierState: '', boardingState: '', placeOfSupply: '', split: 'Pending verification' };
+  const snapshot: GstSnapshot = { rate: tariff.gstRate > 0 ? tariff.gstRate : 0.05, mode: 'included', classification: 'passenger', supplierState: '', boardingState: '', placeOfSupply: '', split: 'Pending verification' };
+  DEFAULT_GST.add(snapshot);
+  return snapshot;
+}
+
+/** True when no Fare GST rule was saved for the trip, so the tariff's default (GST included) is in use. */
+export function isDefaultFareGst(tax: GstSnapshot): boolean {
+  return DEFAULT_GST.has(tax);
 }
 
 /** Calculate the entered amounts once, then extract included tax. Never change partner payouts. */

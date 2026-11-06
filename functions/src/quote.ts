@@ -1,5 +1,5 @@
 import { fareBoardingState, recipientAddressState, recipientGstState } from './fareGstContext';
-import { applyFareGst, fareGstFor, fareGstForScope, gstPricingInput } from './fareGstPricing';
+import { applyFareGst, fareGstFor, fareGstForScope, gstPricingInput, isDefaultFareGst } from './fareGstPricing';
 import { fareServiceKey } from './fareScope';
 // One pricing path for every booking source: customer app/web, Admin manual booking, the
 // quote preview and the final invoice all go through priceBooking(). The confirmed tariff
@@ -199,7 +199,15 @@ export function priceBooking(i: PriceInput): PriceResult {
   }
   const tax = fareGstFor(i);
   const raw = priceBookingCore(tax ? gstPricingInput(i, tax, tariffClassOf(i.category)) : i);
-  const explicitMode = i.businessContract?.rule.gstMode ?? i.fixedRoutes?.find(rule => rule.id === raw.pricing.fixedRouteId)?.gstMode;
+  // A rental package keeps its own "GST included / GST added" setting (shown on the admin's Local fares) unless a Fare
+  // GST rule is saved for the service, which always wins. Without this a package entered as ₹1,500 + GST was charged ₹1,500.
+  const rentalMode = (() => {
+    if (!tax || !isDefaultFareGst(tax) || raw.pricing.model !== 'rental_package' || !i.tariff) return undefined;
+    const klass = tariffClassOf(i.category), hours = raw.pricing.rentalHours;
+    if (!klass || hours == null) return undefined;
+    return scopedTariffForBrand(i.tariff, i.brand, i.tripType, klass).rentalPackages?.[klass]?.packages?.[String(hours)]?.gstMode;
+  })();
+  const explicitMode = i.businessContract?.rule.gstMode ?? i.fixedRoutes?.find(rule => rule.id === raw.pricing.fixedRouteId)?.gstMode ?? rentalMode;
   const r = tax ? applyFareGst(raw, explicitMode ? { ...tax, mode: explicitMode } : tax) : raw;
   if (tax) r.pricing.brandScoped = !!(i.brand && i.tariff?.brandOverrides?.[i.brand]);
   if (tax) {

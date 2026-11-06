@@ -57,12 +57,13 @@ function amounts(service, data, q) {
   if (service === 'One Way') return [Math.max(80, data.minKm) * data.customerRate + data.customerBata, Math.max(80, data.minKm) * data.partnerRate + data.partnerBata];
   if (service === 'Round Trip' || service === 'Multicity') return [Math.max(q.fare.distanceKm, data.minKmPerDay) * data.customerRate + data.customerBata, Math.max(q.fare.distanceKm, data.minKmPerDay) * data.partnerRate + data.partnerBata];
   if (service === 'Airport Taxi') return [data.customerBase + Math.max(0, 80 - data.minKm) * data.extraKmRate, data.partnerBase + Math.max(0, 80 - data.minKm) * data.partnerRate];
-  return [data.rentalPackages[12].customerFare, data.rentalPackages[12].partnerPayout];
+  // Rental packages saved without a GST setting are "GST added" (excluded): 5% is added to the package price.
+  return [data.rentalPackages[12].customerFare * 1.05, data.rentalPackages[12].partnerPayout];
 }
 function check(service, data, q) {
   const [pre, payout] = amounts(service, data, q);
   // With no GST rule saved, the tariff's 5% GST is INCLUDED in the fare: the amount worked out from the edited rates is the total payable.
-  assert.equal(q.pricing.gstInFare, true, 'default GST treatment is included');
+  assert.equal(q.pricing.gstInFare, service !== 'Local Rental', 'default GST treatment: included, except rental packages that add GST');
   assert.equal(Math.round(q.fare.total * 100), Math.round(pre * 100), 'customer fare follows edited rates');
   assert.equal(q.pricing.partner.basePaise, Math.round(payout * 100), 'partner entitlement follows edited rates');
   // GST is inside the price by default, so the entered rate is kept in gstInclusiveBase and the snapshot holds its taxable part.

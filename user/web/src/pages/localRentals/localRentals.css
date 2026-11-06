@@ -412,7 +412,7 @@
 @media (max-width: 899.98px) {
   /* The floating tab bar sits over the bottom of the map; the sheet rests just above it, as a card with the same side margins. */
   .lr { --lr-max: calc(100dvh - var(--nav-h, 72px) - var(--tabbar-occupied, 80px) - 80px); }
-  .lr-dock { padding: 0 12px calc(var(--tabbar-h, 64px) + env(safe-area-inset-bottom, 0px)); }
+  .lr-dock { padding: 0 12px var(--tabbar-occupied, 76px); }
   .lr-sheet { border-radius: 24px; box-shadow: 0 10px 34px rgb(15 23 42 / 0.26); padding-bottom: 18px; }
   .lr-locate { right: 16px; }
 }
@@ -536,4 +536,8 @@
 /* The place and its confirm button share one small horizontal row. */
 .lr-row { display: flex; align-items: center; gap: 10px; }
 .lr-row > .lr-addr { flex: 1; min-width: 0; }
-.lr-row > .lr-cta { width: auto; flex: 0 0 auto; margin: 0; padding: 10px 14px; font-size: 0.875rem; white-space: nowrap; }
+.lr-row { align-items: stretch; margin: 12px 0 16px; }
+.lr-row > .lr-addr { border-radius: 16px; }
+.lr-row > .lr-addr, .lr-row > .lr-cta { min-height: 64px; box-sizing: border-box; margin: 0; }
+.lr-row > .lr-addr { display: flex; align-items: center; }
+.lr-row > .lr-cta { width: auto; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; padding: 0 18px; font-size: 0.9375rem; white-space: nowrap; border-radius: 16px; }

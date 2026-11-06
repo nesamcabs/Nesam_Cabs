@@ -318,15 +318,16 @@ html[data-hero-logo='in'] .topbar .brand {
   margin-inline: auto;
 }
 
-/* Phone bar: full width, flush with the bottom edge. */
+/* Phone bar: a floating, rounded bar just above the bottom edge. */
 @media (max-width: 899.98px) {
   .tabbar {
-    right: 0;
-    bottom: 0;
-    left: 0;
-    border-radius: 0;
-    background: #fff;
-    box-shadow: none;
+    right: 12px;
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    left: 12px;
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    background: rgb(255 255 255 / 0.97);
+    box-shadow: 0 10px 28px rgb(15 23 42 / 0.18);
   }
 }
 
