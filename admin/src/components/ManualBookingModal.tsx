@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { addDaysISO, ROUND_TRIP_MAX_DAYS } from "../utils/time";
 import { categoryTitle } from "../domain/categoryLabel";
 import type { Customer, FareRule, MasterLocation, TravelService, VehicleCategory } from "../types";
 import { Modal } from "./Feedback";
@@ -52,6 +53,7 @@ interface Props {
  */
 export default function ManualBookingModal({ customers, services, locations, categories, fareRules, onClose, onCreated }: Props) {
   const [form, setForm] = useState<ManualBookingForm>(emptyManualBooking);
+  const [days, setDays] = useState(1);
   const canOverride = useCan("finance");
   const canDiscount = useCan("finance") || useCan("pricing");
   const [errors, setErrors] = useState<Partial<Record<ManualBookingField, string>>>({});
@@ -119,6 +121,13 @@ export default function ManualBookingModal({ customers, services, locations, cat
     setErrors((e) => ({ ...e, [k]: undefined }));
     setError(null);
   };
+
+  // Round trip: the return is the last of the chosen days, at the pickup time.
+  useEffect(() => {
+    if (form.tripType !== "Round Trip" || !form.pickupAt) return;
+    const end = `${addDaysISO(form.pickupAt.slice(0, 10), days - 1)}T${form.pickupAt.slice(11, 16)}`;
+    if (end !== form.tripEndAt) set("tripEndAt", end);
+  }, [form.pickupAt, form.tripType, days]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pickCustomer = (id: string) => {
     const c = customers.find((x) => x.id === id);
@@ -242,8 +251,10 @@ export default function ManualBookingModal({ customers, services, locations, cat
               <DateTime12Input value={form.pickupAt} onChange={(v) => set("pickupAt", v)} hasError={!!pickupError} min={new Date().toISOString().slice(0, 10)} />
             </Field>
             {form.tripType === "Round Trip" && (
-              <Field label="Return date & time" required hint="Billed by Indian calendar date from pickup to return, with a daily minimum km and bata." error={errors.tripEndAt}>
-                <DateTime12Input value={form.tripEndAt} onChange={(v) => set("tripEndAt", v)} hasError={!!errors.tripEndAt} min={(form.pickupAt || new Date().toISOString()).slice(0, 10)} />
+              <Field label="Number of days" required hint={`Trip ends ${form.pickupAt ? addDaysISO(form.pickupAt.slice(0, 10), days - 1) : "on the last day"}, at the pickup time.`} error={errors.tripEndAt}>
+                <select value={days} onChange={(e) => setDays(Number(e.target.value))} className={inputCls}>
+                  {Array.from({ length: ROUND_TRIP_MAX_DAYS }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n} {n === 1 ? "day" : "days"}</option>)}
+                </select>
               </Field>
             )}
           </div>

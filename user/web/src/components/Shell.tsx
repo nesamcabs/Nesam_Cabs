@@ -38,6 +38,12 @@ const NAV = [
   { to: '/notifications', label: 'Notifications', short: 'Alerts', icon: 'notifications' },
 ] as const;
 
+import airportIcon from '@/assets/nav/airport-taxi.png';
+import multicityIcon from '@/assets/nav/multicity.png';
+import outstationIcon from '@/assets/nav/outstation.png';
+import rentalIcon from '@/assets/nav/local-rentals.png';
+import profileIcon from '@/assets/nav/profile.png';
+
 /** Desktop header links. Account lives in the profile menu there. On phones the bottom bar holds the four
     services, and the header holds Notifications. Account and My trips are in the side menu. */
 const TOP_NAV = [NAV[0], NAV[1], { to: '/offers', label: 'Offers', short: 'Offers', icon: 'offers' }, NAV[2]] as const;
@@ -51,32 +57,39 @@ const IMMERSIVE = [/^\/ride\//, /^\/local-rentals(\/|$)/, /^\/trips\/[^/]+$/];
 const BAR_ORDER: ServiceId[] = ['airport', 'multicity', 'outstation', 'rental'];
 const barServices = () => BAR_ORDER.flatMap((id) => SERVICES.find((s) => s.id === id) ?? []);
 
+/** The bottom bar's short names. */
+const SHORT_LABEL: Partial<Record<ServiceId, string>> = { airport: 'Airport', multicity: 'Multicity', outstation: 'Outstation', rental: 'Local' };
+const NAV_ICON: Partial<Record<ServiceId, string>> = { airport: airportIcon, multicity: multicityIcon, outstation: outstationIcon, rental: rentalIcon };
+
 function BottomNav() {
   const location = useLocation();
   const [params] = useSearchParams();
   const { draft } = useBooking();
+  const [profilePicked, setProfilePicked] = useState(false);
+  useEffect(() => setProfilePicked(false), [location.pathname, params.toString()]); // any navigation moves the selection
   const onHome = location.pathname === '/book' || location.pathname === '/';
   // Local Taxi has its own pages (/local-taxi…): keep its tab lit there instead of leaving the bar looking like Outstation.
   const onLocal = /^\/local-taxi(\/|$)/.test(location.pathname);
-  const current: ServiceId | null = onLocal ? 'local' : onHome ? (parseService(params.get('service')) ?? serviceOfTrip(draft.tripType)) : null;
+  const onRentals = /^\/local-rentals(\/|$)/.test(location.pathname);
+  const current: ServiceId | null = profilePicked ? null : onLocal ? 'local' : onRentals ? (params.get('mode') === 'pickup' ? 'pickup' : 'rental') : onHome ? (parseService(params.get('service')) ?? serviceOfTrip(draft.tripType)) : null;
 
   return (
     <nav className="tabbar" aria-label="Services">
       {barServices().map((s) => (
         <Link key={s.id} to={s.id === 'local' ? '/local-taxi' : serviceHref(s.id)} className={`tabbar__link ${s.id === 'outstation' ? 'tabbar__link--main' : ''} ${current === s.id || (s.id === 'rental' && current === 'pickup') ? 'is-active' : ''}`} aria-current={current === s.id || (s.id === 'rental' && current === 'pickup') ? 'page' : undefined}>
           <span className="tabbar__icon">
-            <Icon name={s.icon} size={s.id === 'outstation' ? 30 : s.id === 'multicity' ? 28 : s.id === 'airport' ? 26 : 22} />
+            <img className="tabbar__img" src={NAV_ICON[s.id]} alt="" width={s.id === 'outstation' ? 50 : 54} height={s.id === 'outstation' ? 50 : 54} draggable={false} />
           </span>
-          <span className="tabbar__label">{s.id === 'rental' ? 'Local Rentals' : s.label}</span>
+          <span className="tabbar__label">{SHORT_LABEL[s.id] ?? s.label}</span>
         </Link>
       ))}
-      <ProfileTab />
+      <ProfileTab picked={profilePicked} onPick={() => setProfilePicked(true)} />
     </nav>
   );
 }
 
 /** The fifth slot of the phone bottom bar: the account page when signed in, the sign-in sheet otherwise. */
-function ProfileTab() {
+function ProfileTab({ picked, onPick }: { picked: boolean; onPick: () => void }) {
   const { profile } = useCustomerData();
   const { openLoginModal } = useAuth();
   const location = useLocation();
@@ -84,20 +97,20 @@ function ProfileTab() {
   const inner = (
     <>
       <span className="tabbar__icon">
-        <Icon name="profile" size={22} />
+        <img className="tabbar__img" src={profileIcon} alt="" width={54} height={54} draggable={false} />
       </span>
       <span className="tabbar__label">Profile</span>
     </>
   );
   if (profile) {
     return (
-      <Link to="/account" className={`tabbar__link ${on ? 'is-active' : ''}`} aria-current={on ? 'page' : undefined}>
+      <Link to="/account" onClick={onPick} className={`tabbar__link ${on || picked ? 'is-active' : ''}`} aria-current={on ? 'page' : undefined}>
         {inner}
       </Link>
     );
   }
   return (
-    <button type="button" className="tabbar__link tabbar__link--button" onClick={() => openLoginModal({ title: 'Sign in to NESAM Cabs' })}>
+    <button type="button" className={`tabbar__link tabbar__link--button ${picked ? 'is-active' : ''}`} onClick={() => { onPick(); openLoginModal({ title: 'Sign in to NESAM Cabs' }); }}>
       {inner}
     </button>
   );

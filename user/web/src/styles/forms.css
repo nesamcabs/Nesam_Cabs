@@ -76,17 +76,9 @@
 /* Bottom bar: Outstation, the main service, is the raised filled button in the middle. */
 @media (max-width: 899.98px) {
   .tabbar__link--main {
-    font-weight: 700;
+    font-weight: 800;
   }
   .tabbar__link--main .tabbar__icon {
-    width: 58px;
-    height: 58px;
-    margin-top: -32px;
-    border: 4px solid #fff;
-    border-radius: 50%;
-    background: var(--brand-gradient);
-    color: #fff;
-    box-shadow: 0 0 0 5px rgb(var(--brand-rgb) / 0.14), 0 10px 22px -6px rgb(var(--brand-rgb) / 0.75);
     transition: transform var(--dur) var(--ease);
   }
   .tabbar__link--main:active .tabbar__icon {

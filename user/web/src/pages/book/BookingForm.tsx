@@ -51,6 +51,14 @@ const dayHint = (iso: string): string => {
   return diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow' : d.toLocaleDateString('en-IN', { weekday: 'long' });
 };
 
+/** Round trips are booked for up to this many days (the server's roundTrip.maxDays). */
+const RT_MAX_DAYS = 30;
+/** The calendar date `n` days after a YYYY-MM-DD date (plain calendar arithmetic). */
+const addDaysISO = (iso: string, n: number): string => {
+  const [y, m, d] = iso.split('-').map(Number);
+  return toDateInput(new Date(y!, m! - 1, d! + n));
+};
+
 export function BookingForm({
   service,
   onService,
@@ -73,7 +81,7 @@ export function BookingForm({
 
   const [picker, setPicker] = useState<'pickup' | 'drop' | null>(null);
   const [stopPicker, setStopPicker] = useState<number | 'new' | null>(null);
-  const [timeFor, setTimeFor] = useState<'pickup' | 'return' | null>(null);
+  const [timeFor, setTimeFor] = useState<'pickup' | null>(null);
   const [errors, setErrors] = useState<Errors>({});
   const [direction, setDirection] = useState<AirportDirection>(() => directionOf(pickup, drop));
   const refs = useRef<Partial<Record<Field, HTMLElement | null>>>({});
@@ -107,15 +115,16 @@ export function BookingForm({
     const d = combineDateTime(date, time);
     if ((d?.getTime() ?? null) !== (scheduledAt?.getTime() ?? null)) update({ scheduledAt: d });
   }, [date, time]); // eslint-disable-line react-hooks/exhaustive-deps
-  // Round trip: the return (when the trip ends) is a second date and time. It is the trip end the fare is counted to,
-  // so it must come after the pickup. A saved end equal to the pickup is an old default, not a choice: start empty.
-  const hasOwnEnd = !!tripEndAt && !!scheduledAt && tripEndAt.getTime() > scheduledAt.getTime();
-  const [depDate, setDepDate] = useState(() => (hasOwnEnd && tripEndAt ? toDateInput(tripEndAt) : ''));
-  const [depTime, setDepTime] = useState(() => (hasOwnEnd && tripEndAt ? toTimeInput(tripEndAt) : ''));
+  // Round trip: the customer chooses how many days the trip lasts. It ends on the last day, at the pickup time.
+  const [days, setDays] = useState<number>(() => {
+    if (!tripEndAt || !scheduledAt) return 1;
+    const n = Math.round((Date.parse(toDateInput(tripEndAt)) - Date.parse(toDateInput(scheduledAt))) / 86400000) + 1;
+    return n >= 1 && n <= RT_MAX_DAYS ? n : 1;
+  });
   useEffect(() => {
-    const d = isRound ? combineDateTime(depDate, depTime) : null;
-    if ((d?.getTime() ?? null) !== (tripEndAt?.getTime() ?? null)) update({ tripEndAt: d });
-  }, [depDate, depTime, isRound]); // eslint-disable-line react-hooks/exhaustive-deps
+    const end = isRound && date && time ? combineDateTime(addDaysISO(date, days - 1), time) : null;
+    if ((end?.getTime() ?? null) !== (tripEndAt?.getTime() ?? null)) update({ tripEndAt: end });
+  }, [date, time, days, isRound]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const recent = useMemo(() => {
     const seen = new Set<string>();
@@ -175,13 +184,7 @@ export function BookingForm({
       const points = [pickup, ...draft.stops, drop].filter((p): p is GeoPlace => p !== null);
       if (points.some((p, index) => index > 0 && haversineKm(points[index - 1]!, p) < 0.2)) e.stops = 'Consecutive itinerary locations cannot be the same.';
     }
-    if (isRound) {
-      const back = combineDateTime(depDate, depTime);
-      if (!depDate) e.retDate = 'Choose a return date (when your trip ends).';
-      else if (!depTime) e.retTime = 'Choose a return time (when your trip ends).';
-      else if (!back || (scheduledAt && back.getTime() <= scheduledAt.getTime())) e.retTime = 'The trip end must be after the pickup.';
-      else if (back.getTime() - Date.now() > (latestPickup().getTime() - Date.now()) + 7 * 86400000) e.retDate = 'Choose an earlier return date.';
-    }
+    if (isRound && (!days || days < 1 || days > RT_MAX_DAYS)) e.retDate = `Choose 1 to ${RT_MAX_DAYS} days.`;
     const at = combineDateTime(date, time);
     // Local Taxi is on demand: it has no pickup date or time to check.
     if (service === 'local') return e;
@@ -410,7 +413,7 @@ export function BookingForm({
           ) : null}
 
           {service !== 'local' ? (
-          <div className="bf-row">
+          <div className={isRound ? 'bf-row bf-row--trio' : 'bf-row'}>
             <div className="bf-cell">
               <label className="bf-label bf-label--out" htmlFor="bf-date">
                 Pickup date
@@ -457,59 +460,34 @@ export function BookingForm({
               </button>
               {fieldErr('time')}
             </div>
+            {isRound ? (
+              <div className="bf-cell">
+                <label className="bf-label bf-label--out" htmlFor="bf-days">
+                  Days
+                </label>
+                <select
+                  id="bf-days"
+                  className="bf-days__input"
+                  value={days}
+                  aria-invalid={!!errors.retDate || undefined}
+                  onChange={(e) => {
+                    setDays(Number(e.target.value));
+                    setErrors((x) => ({ ...x, retDate: '' }));
+                  }}
+                >
+                  {Array.from({ length: RT_MAX_DAYS }, (_, i) => i + 1).map((n) => (
+                    <option key={n} value={n}>
+                      {n} {n === 1 ? 'day' : 'days'}
+                    </option>
+                  ))}
+                </select>
+                <span className="bf-days__end">{date ? `Ends ${dayHint(addDaysISO(date, days - 1))}` : 'Pick a date'}</span>
+                {fieldErr('retDate')}
+              </div>
+            ) : null}
           </div>
           ) : null}
 
-          {isRound ? (
-            <div className="bf-row">
-              <div className="bf-cell">
-                <label className="bf-label bf-label--out" htmlFor="bf-dep-date">
-                  Return date
-                </label>
-                <div className="bf-datewrap">
-                  <input
-                    ref={(el) => {
-                      refs.current.retDate = el;
-                    }}
-                    id="bf-dep-date"
-                    className="input bf-input"
-                    type="date"
-                    value={depDate}
-                    min={date || toDateInput(new Date())}
-                    aria-invalid={!!errors.retDate || undefined}
-                    aria-describedby={errors.retDate ? 'bf-retDate-err' : undefined}
-                    onChange={(e) => {
-                      setDepDate(e.target.value);
-                      setErrors((x) => ({ ...x, retDate: '', retTime: '' }));
-                    }}
-                  />
-                  {depDate ? <span className="bf-chip">{dayHint(depDate)}</span> : null}
-                </div>
-                {fieldErr('retDate')}
-              </div>
-              <div className="bf-cell">
-                <span className="bf-label bf-label--out" id="bf-dep-time-label">
-                  Return time
-                </span>
-                <button
-                  ref={(el) => {
-                    refs.current.retTime = el;
-                  }}
-                  type="button"
-                  className={`bf-time ${depTime ? '' : 'is-empty'}`}
-                  aria-labelledby="bf-dep-time-label bf-dep-time-value"
-                  aria-invalid={!!errors.retTime || undefined}
-                  aria-describedby={errors.retTime ? 'bf-retTime-err' : undefined}
-                  onClick={() => setTimeFor('return')}
-                >
-                  <span id="bf-dep-time-value">{depTime ? formatTime12(depTime) : ''}</span>
-                  <ClockIcon size={26} />
-                </button>
-                {fieldErr('retTime')}
-              </div>
-            </div>
-          ) : null}
-          {isRound ? <p className="bf-hint">Return date and time is when your round trip ends.</p> : null}
 
           {errors.form ? (
             <p className="bf-error bf-error--form" role="alert">
@@ -537,20 +515,15 @@ export function BookingForm({
       {stopPicker !== null ? <LocationPicker config={{ title: stopPicker === 'new' ? 'Add itinerary stop' : `Edit stop ${stopPicker + 1}`, allowCurrent: true, popular: QUICK_CITIES, popularLabel: 'Popular locations', near: pickup ?? position, pinMode: 'drop' }} saved={savedPlaces} recent={recent} onClose={() => setStopPicker(null)} onSelect={(place) => { update((d) => ({ stops: stopPicker === 'new' ? [...d.stops, place] : d.stops.map((stop, index) => index === stopPicker ? place : stop) })); setErrors((e) => ({ ...e, stops: '', form: '' })); setStopPicker(null); }} /> : null}
       {timeFor ? (
         <TimePicker
-          title={timeFor === 'return' ? 'Return time' : 'Pickup time'}
-          date={timeFor === 'return' ? depDate : date}
-          value={timeFor === 'return' ? depTime : time}
-          validate={timeFor === 'return' ? 'after' : 'pickup'}
-          notBefore={timeFor === 'return' ? scheduledAt : null}
+          title="Pickup time"
+          date={date}
+          value={time}
+          validate="pickup"
+          notBefore={null}
           onClose={() => setTimeFor(null)}
           onConfirm={(t) => {
-            if (timeFor === 'return') {
-              setDepTime(t);
-              setErrors((x) => ({ ...x, retTime: '' }));
-            } else {
-              setTime(t);
-              setErrors((x) => ({ ...x, time: '' }));
-            }
+            setTime(t);
+            setErrors((x) => ({ ...x, time: '' }));
             setTimeFor(null);
           }}
         />

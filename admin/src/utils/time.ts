@@ -104,3 +104,11 @@ export function relativeFromNow(d: Date, now = new Date()): string {
   const text = abs >= 1440 ? `${Math.round(abs / 1440)} d` : abs >= 60 ? `${Math.floor(abs / 60)} h${abs % 60 ? ` ${abs % 60} min` : ""}` : `${abs} min`;
   return mins >= 0 ? `in ${text}` : `${text} ago`;
 }
+
+/** Round trips are booked for up to this many days (the server's roundTrip.maxDays). */
+export const ROUND_TRIP_MAX_DAYS = 30;
+/** The calendar date `n` days after a YYYY-MM-DD date (plain calendar arithmetic, no time-zone shift). */
+export const addDaysISO = (iso: string, n: number): string => {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(Date.UTC(y!, m! - 1, d! + n)).toISOString().slice(0, 10);
+};

@@ -90,7 +90,7 @@ export function ChooseStep() {
                     <Badge variant="blue">{tripTypeLabel(draft.multicity ? 'Multicity' : tripType)}</Badge>
                   </span>
                   {scheduledAt ? <span className="trip-sum__when">{formatDate(scheduledAt)}, {formatTime(scheduledAt)}</span> : null}
-                  {route && tripType !== 'Local Rental' ? <span>{formatDistance(route.totalDistanceKm ?? route.distanceKm)} · about {formatDuration(route.totalDurationMin ?? route.durationMin)}</span> : null}
+                  {route && tripType !== 'Local Rental' ? <span>{formatDistance(q.trip?.distanceKm ?? route.totalDistanceKm ?? route.distanceKm)} · about {formatDuration(q.trip?.durationMin ?? route.totalDurationMin ?? route.durationMin)}</span> : null}
                 </p>
               </div>
             </section>

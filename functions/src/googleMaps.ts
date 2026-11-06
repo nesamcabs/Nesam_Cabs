@@ -3,7 +3,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { PUBLIC_CALLABLE_ORIGINS } from './corsOrigins';
 import { rateLimited } from './http/util';
 import { requestIp } from './security';
-import { inIndia, text } from './shared';
+import { googleRouteRequest, inIndia, text } from './shared';
 
 type Point = { lat: number; lng: number };
 
@@ -67,10 +67,18 @@ export const reverseGoogleGeocode = onCall({ timeoutSeconds: 30, cors: PUBLIC_CA
   const p = point(request.data, 'map');
   const params = new URLSearchParams({ latlng: `${p.lat},${p.lng}`, key: key(), language: 'en', region: 'in' });
   const data = await googleFetch(`https://maps.googleapis.com/maps/api/geocode/json?${params}`, { method: 'GET' });
-  const hit = Array.isArray(data.results) ? data.results[0] : null;
+  const results: any[] = Array.isArray(data.results) ? data.results : [];
+  // A plus code ("7JW4+8Q Chennai") is not an address a driver can read; use the first real address.
+  const hit = results.find((r) => !(Array.isArray(r.types) && r.types.includes('plus_code'))) ?? results[0] ?? null;
   if (!hit) throw new HttpsError('not-found', 'No address was found for this location.');
-  const first = hit.address_components?.find((c: any) => c.types?.some((t: string) => ['point_of_interest', 'premise', 'locality', 'administrative_area_level_2'].includes(t)));
-  const name = text(first?.long_name, 150) || text(hit.formatted_address, 150) || 'Pinned location';
+  const components: any[] = Array.isArray(hit.address_components) ? hit.address_components : [];
+  const part = (...types: string[]) => text(components.find((c) => Array.isArray(c.types) && c.types.some((t: string) => types.includes(t)))?.long_name, 150);
+  // Most specific name a rider recognises: a landmark or building, then the neighbourhood, the street, then the town.
+  const name = part('point_of_interest', 'establishment', 'premise', 'airport', 'transit_station')
+    || part('neighborhood', 'sublocality_level_1', 'sublocality_level_2', 'sublocality')
+    || part('route')
+    || part('locality', 'administrative_area_level_3', 'administrative_area_level_2')
+    || text(hit.formatted_address, 150) || 'Pinned location';
   return { place: { id: `google-${text(hit.place_id, 180) || `${p.lat},${p.lng}`}`, name, address: text(hit.formatted_address, 300) || name, lat: p.lat, lng: p.lng, type: placeType(hit.types) } };
 });
 
@@ -114,15 +122,8 @@ export const getGoogleRoute = onCall({ timeoutSeconds: 30, cors: PUBLIC_CALLABLE
           'X-Goog-Api-Key': key(),
           'X-Goog-FieldMask': 'routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline',
         },
-        body: JSON.stringify({
-          origin: { location: { latLng: { latitude: origin.lat, longitude: origin.lng } } },
-          destination: { location: { latLng: { latitude: destination.lat, longitude: destination.lng } } },
-          travelMode: 'DRIVE',
-          routingPreference: 'TRAFFIC_UNAWARE',
-          polylineQuality: 'OVERVIEW',
-          languageCode: 'en-IN',
-          units: 'METRIC',
-        }),
+        // Same request as pricing (shared.ts googleRouteRequest), plus the line to draw.
+        body: JSON.stringify({ ...googleRouteRequest(origin, destination), polylineQuality: 'OVERVIEW' }),
         signal: controller.signal,
       });
       if (response.ok) {

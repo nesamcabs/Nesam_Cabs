@@ -35,7 +35,7 @@ import { ROUTE_ART } from '../assets/images';
 import { useRideFocus } from '../navigation/MainNavigator';
 
 type Field = 'pickup' | 'drop';
-type TimeTarget = 'pickup' | 'return' | null;
+type TimeTarget = 'pickup' | null;
 
 const SERVICE_TITLE: Record<HomeService, string> = {
   airport: 'Airport Transfers',
@@ -58,6 +58,14 @@ const POPULAR: { city: string; art: keyof typeof ROUTE_ART; place: GeoPlace }[] 
 
 const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const formatDay = (d: Date) => d.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+/** Round trips are booked for up to this many days (the server's roundTrip.maxDays). */
+const RT_MAX_DAYS = SCHEDULE_MAX_DAYS;
+/** A round trip ends on the last of its days, at the pickup time (the server counts calendar days). */
+const tripEndFor = (pickup: Date, days: number): Date => {
+  const end = new Date(pickup);
+  end.setDate(end.getDate() + days - 1);
+  return end;
+};
 
 export function BookScreen() {
   const navigation = useNavigation();
@@ -71,9 +79,13 @@ export function BookScreen() {
   const [timeTarget, setTimeTarget] = useState<TimeTarget>(null);
   // A date picked before its time is kept here; once a time is chosen the draft's instant is the truth.
   const [pendingPickupDay, setPendingPickupDay] = useState<Date | null>(null);
-  const [pendingReturnDay, setPendingReturnDay] = useState<Date | null>(null);
   const pickupDay = scheduledAt ? dayStart(scheduledAt) : pendingPickupDay;
-  const returnDay = tripEndAt ? dayStart(tripEndAt) : pendingReturnDay;
+  // Round trip: how many days the trip lasts. It ends on the last day, at the pickup time.
+  const [days, setDays] = useState<number>(() => {
+    if (!tripEndAt || !scheduledAt) return 1;
+    const n = Math.round((dayStart(tripEndAt).getTime() - dayStart(scheduledAt).getTime()) / 86400000) + 1;
+    return n >= 1 && n <= RT_MAX_DAYS ? n : 1;
+  });
   const [problem, setProblem] = useState('');
   const [fieldError, setFieldError] = useState<Partial<Record<'pickup' | 'drop' | 'date' | 'time' | 'return', string>>>({});
   const scroller = useRef<RNScrollView>(null);
@@ -82,6 +94,15 @@ export function BookScreen() {
   const isRental = service === 'rental';
   const isMulti = service === 'multicity';
   const isRound = service === 'outstation' && tripType === 'Round Trip';
+
+  useEffect(() => {
+    if (!isRound || !scheduledAt) {
+      if (tripEndAt) update({ tripEndAt: null });
+      return;
+    }
+    const end = tripEndFor(scheduledAt, days);
+    if (!tripEndAt || tripEndAt.getTime() !== end.getTime()) update({ tripEndAt: end });
+  }, [scheduledAt, days, isRound]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fill the pickup from GPS once, unless the customer already chose one.
   const pickupFromGps = useRef(false);
@@ -150,9 +171,9 @@ export function BookScreen() {
   const airportField: Field = isAirport ? (airportDirection === 'to' ? 'drop' : 'pickup') : 'pickup';
 
   // ── Scheduling ──────────────────────────────────────────────────────────────
-  const openDate = (target: 'pickup' | 'return') => {
-    const current = (target === 'return' ? returnDay : pickupDay) ?? dayStart(new Date());
-    const min = target === 'return' && pickupDay ? pickupDay : dayStart(new Date());
+  const openDate = () => {
+    const current = pickupDay ?? dayStart(new Date());
+    const min = dayStart(new Date());
     const max = new Date(Date.now() + SCHEDULE_MAX_DAYS * 86400000);
     try {
       DateTimePickerAndroid.open({
@@ -163,32 +184,15 @@ export function BookScreen() {
         onChange: (event, date) => {
           if (event.type !== 'set' || !date) return;
           const chosen = dayStart(date);
-          if (target === 'pickup') {
-            setPendingPickupDay(chosen);
-            if (scheduledAt) {
-              const adjusted = new Date(chosen);
-              adjusted.setHours(scheduledAt.getHours(), scheduledAt.getMinutes(), 0, 0);
-              update({ scheduledAt: adjusted });
-            }
-            if (returnDay && returnDay < chosen) {
-              setPendingReturnDay(chosen);
-              if (tripEndAt) {
-                const adjustedReturn = new Date(chosen);
-                adjustedReturn.setHours(tripEndAt.getHours(), tripEndAt.getMinutes(), 0, 0);
-                update({ tripEndAt: adjustedReturn });
-              }
-            }
-          } else {
-            setPendingReturnDay(chosen);
-            if (tripEndAt) {
-              const adjusted = new Date(chosen);
-              adjusted.setHours(tripEndAt.getHours(), tripEndAt.getMinutes(), 0, 0);
-              update({ tripEndAt: adjusted });
-            }
+          setPendingPickupDay(chosen);
+          if (scheduledAt) {
+            const adjusted = new Date(chosen);
+            adjusted.setHours(scheduledAt.getHours(), scheduledAt.getMinutes(), 0, 0);
+            update({ scheduledAt: adjusted });
           }
-          setFieldError((e) => ({ ...e, date: '', return: '' }));
+          setFieldError((e) => ({ ...e, date: '' }));
           // Move directly to time selection.
-          setTimeTarget(target);
+          setTimeTarget('pickup');
         },
       });
     } catch {
@@ -196,17 +200,9 @@ export function BookScreen() {
     }
   };
 
-  const openTime = (target: 'pickup' | 'return') => {
-    if (target === 'pickup' && !pickupDay) return openDate('pickup');
-    if (target === 'return' && !returnDay) return openDate('return');
-    setTimeTarget(target);
-  };
-
-  const returnProblem = (at: Date) => {
-    if (!scheduledAt) return 'Choose the pickup date and time first.';
-    if (at.getTime() <= scheduledAt.getTime()) return 'The return must be after the pickup time.';
-    if (at.getTime() - Date.now() > (SCHEDULE_MAX_DAYS + 7) * 86400000) return 'Choose an earlier return date.';
-    return '';
+  const openTime = () => {
+    if (!pickupDay) return openDate();
+    setTimeTarget('pickup');
   };
 
   // ── Search ──────────────────────────────────────────────────────────────────
@@ -225,10 +221,7 @@ export function BookScreen() {
     if (!pickupDay) errs.date = 'Choose the pickup date.';
     const sched = scheduleProblem(scheduledAt);
     if (pickupDay && sched) errs.time = sched;
-    if (isRound) {
-      if (!tripEndAt) errs.return = 'Choose your return date and time.';
-      else if (returnProblem(tripEndAt)) errs.return = returnProblem(tripEndAt);
-    }
+    if (isRound && (days < 1 || days > RT_MAX_DAYS)) errs.return = `Choose 1 to ${RT_MAX_DAYS} days.`;
     setFieldError(errs);
     const first = Object.values(errs).find(Boolean);
     if (!online) {
@@ -280,20 +273,15 @@ export function BookScreen() {
       {timeTarget ? (
         <TimePickerSheet
           visible
-          title={timeTarget === 'return' ? 'Return time' : 'Pickup time'}
-          day={(timeTarget === 'return' ? returnDay : pickupDay) ?? dayStart(new Date())}
-          value={timeTarget === 'return' ? tripEndAt : scheduledAt}
-          problemOf={timeTarget === 'return' ? returnProblem : (at) => scheduleProblem(at)}
+          title="Pickup time"
+          day={pickupDay ?? dayStart(new Date())}
+          value={scheduledAt}
+          problemOf={(at) => scheduleProblem(at)}
           onClose={() => setTimeTarget(null)}
           onConfirm={(at) => {
-            if (timeTarget === 'return') {
-              update({ tripEndAt: at });
-              setPendingReturnDay(null);
-            } else {
-              update((d) => ({ scheduledAt: at, tripEndAt: d.tripEndAt && d.tripEndAt <= at ? null : d.tripEndAt }));
-              setPendingPickupDay(null);
-            }
-            setFieldError((e) => ({ ...e, time: '', return: '' }));
+            update({ scheduledAt: at });
+            setPendingPickupDay(null);
+            setFieldError((e) => ({ ...e, time: '' }));
             setTimeTarget(null);
           }}
         />
@@ -401,7 +389,7 @@ export function BookScreen() {
                   placeholder="Select date"
                   icon="calendar-days"
                   error={fieldError.date}
-                  onPress={() => openDate('pickup')}
+                  onPress={() => openDate()}
                 />
                 <PickerBox
                   label="Pickup time"
@@ -409,28 +397,29 @@ export function BookScreen() {
                   placeholder="Select time"
                   icon="chevron-down"
                   error={fieldError.time}
-                  onPress={() => openTime('pickup')}
+                  onPress={() => openTime()}
                 />
               </View>
 
               {isRound ? (
                 <View style={styles.formRow}>
-                  <PickerBox
-                    label="Return date"
-                    value={returnDay ? formatDay(returnDay) : ''}
-                    placeholder="Select date"
-                    icon="calendar-days"
-                    error={fieldError.return && !returnDay ? fieldError.return : ''}
-                    onPress={() => openDate('return')}
-                  />
-                  <PickerBox
-                    label="Return time"
-                    value={tripEndAt ? formatTime(tripEndAt).replace(/^0/, '') : ''}
-                    placeholder="Select time"
-                    icon="chevron-down"
-                    error={fieldError.return && returnDay ? fieldError.return : ''}
-                    onPress={() => openTime('return')}
-                  />
+                  <View style={styles.dayBox}>
+                    <Text style={styles.formLabel}>Number of days</Text>
+                    <View style={styles.stepper}>
+                      <Pressable accessibilityRole="button" accessibilityLabel="One day fewer" disabled={days <= 1} onPress={() => setDays((n) => Math.max(1, n - 1))} style={[styles.stepBtn, days <= 1 && styles.stepBtnOff]}>
+                        <Text style={styles.stepText}>−</Text>
+                      </Pressable>
+                      <Text style={styles.stepValue}>{days} {days === 1 ? 'day' : 'days'}</Text>
+                      <Pressable accessibilityRole="button" accessibilityLabel="One day more" disabled={days >= RT_MAX_DAYS} onPress={() => setDays((n) => Math.min(RT_MAX_DAYS, n + 1))} style={[styles.stepBtn, days >= RT_MAX_DAYS && styles.stepBtnOff]}>
+                        <Text style={styles.stepText}>+</Text>
+                      </Pressable>
+                    </View>
+                    {fieldError.return ? <Text style={styles.fieldError}>{fieldError.return}</Text> : null}
+                  </View>
+                  <View style={styles.dayBox}>
+                    <Text style={styles.formLabel}>Trip ends</Text>
+                    <Text style={styles.fieldValue}>{scheduledAt ? formatDay(tripEndFor(scheduledAt, days)) : 'Choose a pickup date'}</Text>
+                  </View>
                 </View>
               ) : null}
 
@@ -671,6 +660,12 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   formRow: { flexDirection: 'row', gap: 11, marginTop: 14 },
+  dayBox: { flex: 1 },
+  stepper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 46, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 6, backgroundColor: '#FAFBFC' },
+  stepBtn: { width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
+  stepBtnOff: { opacity: 0.35 },
+  stepText: { fontFamily: fonts.medium, fontSize: 20, color: '#FFFFFF' },
+  stepValue: { fontFamily: fonts.medium, fontSize: 15, color: colors.value },
   pickerBox: {
     minHeight: 46,
     borderWidth: 1,

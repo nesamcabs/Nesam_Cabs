@@ -33,6 +33,8 @@ export interface ServerCategoryQuote {
 
 export interface ServerQuoteResponse {
   route: { distanceKm: number; durationMin: number };
+  /** The whole journey the fare is based on (a round trip: out through its stops and back). */
+  trip?: { distanceKm: number; durationMin: number };
   service: string;
   quotes: ServerCategoryQuote[];
 }

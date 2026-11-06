@@ -148,7 +148,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
 
   const set = (p: Partial<QuickTrip>) => {
     setTrip((t) => ({ ...t, ...p }));
-    if (p.pickup !== undefined || p.drop !== undefined || p.date || p.time || p.serviceId !== undefined || p.endDate !== undefined || p.endTime !== undefined || p.stops !== undefined || p.airportDirection !== undefined) setEstimates(null);
+    if (p.pickup !== undefined || p.drop !== undefined || p.date || p.time || p.serviceId !== undefined || p.days !== undefined || p.stops !== undefined || p.airportDirection !== undefined) setEstimates(null);
   };
   const chosen = estimates?.find((x) => x.category.id === selected && x.quote) ?? null;
   const q = chosen?.quote ?? null;

@@ -25,6 +25,7 @@ import { gstComponents } from './domain/gst';
 import { multicityBookingAmounts } from './domain/multicitySnapshot';
 import { FareBreakdown, GeoPlace, RideCategory, RouteInfo, TripType } from './domain/types';
 import { requirePermission, text, requireAction } from './shared';
+import { distanceKm as straightKm } from './domain/verification';
 import { assertCatalogAvailable, matchAuthoritativeService, ServiceMasterDoc } from './onlineCatalog';
 import { loadCommissionPolicy } from './commission';
 import { COMMISSION_NOT_CONFIGURED, resolveCommission } from './domain/finance';
@@ -55,27 +56,80 @@ export function tariffClassOf(category: { tariffClass?: unknown; dutyClass?: unk
   return duty === 'sedan' ? 'sedan' : duty === 'crysta' ? 'crysta' : duty === 'innova' ? 'innova' : duty === 'suv7' ? 'suv7' : 'suv';
 }
 
+/** An active City record from the location master, with its centre point (when saved). */
+interface CityRecord { id: string; names: string[]; state: string; lat: number | null; lng: number | null }
+
+// The active Cities change rarely; one read serves every quote on this instance for a few minutes.
+const CITY_TTL_MS = 5 * 60 * 1000;
+let cityCache: { at: number; cities: CityRecord[] } | null = null;
+const norm = (v: unknown) => (typeof v === 'string' ? v : '').toLowerCase().replace(/[0-9]/g, ' ').replace(/[^a-z\s]/g, ' ').replace(/\s+/g, ' ').trim();
+
+async function activeCities(): Promise<CityRecord[]> {
+  if (cityCache && Date.now() - cityCache.at < CITY_TTL_MS) return cityCache.cities;
+  const snap = await db.collection('locations').where('type', '==', 'City').where('status', '==', 'Active').get();
+  const cities = snap.docs.map((d) => {
+    const l = d.data();
+    const names = [...new Set([norm(l.name), norm(l.city), norm(l.normalizedName)].filter(Boolean))];
+    return { id: d.id, names, state: norm(l.state), lat: Number.isFinite(l.lat) ? l.lat as number : null, lng: Number.isFinite(l.lng) ? l.lng as number : null };
+  });
+  cityCache = { at: Date.now(), cities };
+  return cities;
+}
+
+/** How far a place may be from a City's centre and still count as that City when its address names the City. */
+const NAMED_CITY_MAX_KM = 60;
+/** How far a place may be from the nearest City's centre when its address names no City. */
+const NEAREST_CITY_MAX_KM = 30;
+
 /**
- * The canonical City record (`locations` id) a master-location place belongs to: the place itself when it
- * is a City, else the City found by walking `parentLocationId`, else the one active City with the same
- * state and city name. null for a map pin or anything that cannot be resolved to exactly one City.
+ * The City of a place that is not in the location master (a Google search result or a map pin): the active City
+ * named in its address (", Chennai, Tamil Nadu 600017") and within NAMED_CITY_MAX_KM of that City's centre, else
+ * the nearest City centre within NEAREST_CITY_MAX_KM. null when neither applies.
+ */
+async function cityByPlace(place: GeoPlace): Promise<string | null> {
+  if (!Number.isFinite(place.lat) || !Number.isFinite(place.lng)) return null;
+  const cities = await activeCities();
+  if (!cities.length) return null;
+  const away = (c: CityRecord) => (c.lat === null || c.lng === null ? null : straightKm(place, { lat: c.lat, lng: c.lng }));
+  const parts = new Set(String(place.address ?? '').split(',').map(norm).filter(Boolean));
+  const stateHint = [...parts].find((x) => cities.some((c) => c.state && c.state === x)) ?? '';
+  const named = cities
+    .filter((c) => c.names.some((n) => parts.has(n)) && (!stateHint || !c.state || c.state === stateHint))
+    .map((c) => ({ c, km: away(c) }))
+    .filter((x) => x.km === null || x.km <= NAMED_CITY_MAX_KM)
+    .sort((a, b) => (a.km ?? Infinity) - (b.km ?? Infinity));
+  if (named.length) return named[0]!.c.id;
+  const nearest = cities
+    .map((c) => ({ c, km: away(c) }))
+    .filter((x): x is { c: CityRecord; km: number } => x.km !== null && x.km <= NEAREST_CITY_MAX_KM)
+    .sort((a, b) => a.km - b.km);
+  return nearest.length ? nearest[0]!.c.id : null;
+}
+
+/**
+ * The canonical City record (`locations` id) a place belongs to: for a master location, the place itself when it is
+ * a City, else the City found by walking `parentLocationId`, else the one active City with the same state and city
+ * name. A Google place or a map pin (or a master location that cannot be resolved) is matched by cityByPlace.
  */
 async function cityIdOf(place: GeoPlace): Promise<string | null> {
-  if (!place.id || place.id === 'pin') return null;
-  let id = place.id;
-  for (let hop = 0; hop < 4; hop++) {
-    const snap = await db.doc(`locations/${id}`).get();
-    const l = snap.data();
-    if (!snap.exists || !l) return null;
-    if (l.type === 'City') return snap.id;
-    if (typeof l.parentLocationId !== 'string' || !l.parentLocationId) break;
-    id = l.parentLocationId;
+  if (place.id && place.id !== 'pin' && !place.id.startsWith('google-')) {
+    let id = place.id;
+    for (let hop = 0; hop < 4; hop++) {
+      const snap = await db.doc(`locations/${id}`).get();
+      const l = snap.data();
+      if (!snap.exists || !l) break;
+      if (l.type === 'City') return snap.id;
+      if (typeof l.parentLocationId !== 'string' || !l.parentLocationId) break;
+      id = l.parentLocationId;
+    }
+    const { city, state } = place as GeoPlace & { city?: string; state?: string };
+    if (city) {
+      const cities = await db.collection('locations').where('type', '==', 'City').where('status', '==', 'Active').where('city', '==', city).get();
+      const same = cities.docs.filter((d) => !state || !d.data().state || d.data().state === state);
+      if (same.length === 1) return same[0]!.id;
+    }
   }
-  const { city, state } = place as GeoPlace & { city?: string; state?: string };
-  if (!city) return null;
-  const cities = await db.collection('locations').where('type', '==', 'City').where('status', '==', 'Active').where('city', '==', city).get();
-  const same = cities.docs.filter((d) => !state || !d.data().state || d.data().state === state);
-  return same.length === 1 ? same[0].id : null;
+  return cityByPlace(place);
 }
 
 /** The City both places belong to, for Local Pickup & Drop pricing; null when they differ or cannot be resolved. */
@@ -249,7 +303,9 @@ function priceBookingCore(i: PriceInput): PriceResult {
       throw e;
     }
   }
-  if (effectiveTariff && klass && i.localCityId && i.tripType === 'One Way' && service === 'Local' && localFareFor(effectiveTariff, i.localCityId, klass)) {
+  // A One Way trip inside one City (within the outstation threshold) takes that City's fare, even when one end is the
+  // city's airport: the rider chose Pickup & Drop, and Airport Taxi is priced as its own service (tripType 'Airport Taxi').
+  if (effectiveTariff && klass && i.localCityId && i.tripType === 'One Way' && !outstation && localFareFor(effectiveTariff, i.localCityId, klass)) {
     const tariff = effectiveTariff, cityId = i.localCityId;
     const q = withDiscounts((discount) => quoteLocalPickupDrop({ config: tariff, tariffClass: klass, tripType: 'One Way', cityId, discount, ...timing, ...adjust }));
     return { fare: q.fare, pricing: { ...q.pricing, brand: i.brand, brandScoped: !!(i.brand && i.tariff?.brandOverrides?.[i.brand]) }, service, outstation, breakup: buildTariffFareBreakup(i.category, q.fare, false, q.pricing), usesCommissionPolicy: false };
@@ -429,7 +485,8 @@ export async function customerFareContext(tripType: TripType, pickup: GeoPlace, 
   const masters = pickup.id !== 'pin' && drop.id !== 'pin';
   const [fixedRoutes, localCityId] = await Promise.all([
     tripType === 'One Way' && masters ? loadFixedRoutes() : Promise.resolve([]),
-    tripType === 'One Way' && !isOutstation(distanceKm) && masters ? sharedCityId(pickup, drop) : Promise.resolve(null),
+    // Any place can be in a City (a master location, a Google search result or a map pin): see cityIdOf.
+    tripType === 'One Way' && !isOutstation(distanceKm) ? sharedCityId(pickup, drop) : Promise.resolve(null),
   ]);
   return { fixedRoutes, localCityId };
 }
@@ -568,8 +625,13 @@ export const quoteBooking = onCall({ timeoutSeconds: 60, cors: PUBLIC_CALLABLE_O
         return { categoryId: c.id, ok: false as const, error: e instanceof HttpsError ? e.message : 'This category cannot be priced right now.' };
       }
     });
+  // The whole journey the fare is based on: a round trip drives out through its stops and back (pricing doubles
+  // pricingRoute); a one-way or Multicity trip is the itinerary itself. Customer screens show this distance.
+  const tripFactor = !multicity && tripType === 'Round Trip' ? 2 : 1;
+  const tripRoute = !multicity && tripType === 'Round Trip' ? pricingRoute : route;
   return {
     route: { distanceKm: Math.round(route.distanceKm * 10) / 10, durationMin: Math.round(route.durationMin) },
+    trip: { distanceKm: Math.round(tripRoute.distanceKm * tripFactor * 10) / 10, durationMin: Math.round(tripRoute.durationMin * tripFactor) },
     service: quotes.find((q) => q.ok)?.service ?? '',
     /** Limited service here: the office confirms the booking before it is accepted. */
     limitedAvailability: rules.availability === 'Limited',

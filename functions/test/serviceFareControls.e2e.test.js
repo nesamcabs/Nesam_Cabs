@@ -69,9 +69,9 @@ for(const brand of brands)for(const service of services)test(`${brand}/${service
 
 test('public Multicity cannot silently quote a One Way fare; nonstaff cannot change rates; stale saves refused',async()=>{
   const q=await call('control-customer','quoteBooking',{brand:'nesam',tripType:'Multicity',pickup,drop,scheduledAt});
-  assert.equal(q.ok,false);assert.match(q.message,/Multicity/i);
+  assert.equal(q.ok,false);assert.match(q.message,/Multicity|at least one city/i);
   const booking=await call('control-customer','createBooking',{requestId:rid('invalid_direct_tour'),brand:'nesam',tripType:'Multicity',paymentMethod:'UPI'});
-  assert.equal(booking.ok,false);assert.match(booking.message,/Multicity/i);
+  assert.equal(booking.ok,false);assert.match(booking.message,/Multicity|at least one city/i);
   const version=(await db.doc('business_config/tariff_v2').get()).data().version;
   const i={section:'brandOverride',brand:'nesam',service:'One Way',class:'sedan',expectedVersion:version,reason:'Synthetic guarded write',data:{customerRate:30}};
   assert.equal((await call('control-customer','saveTariffSection',i)).ok,false);
@@ -129,7 +129,7 @@ test('shared city fare editor and rental package controls reach saved calculatio
   const tariff=await loadTariffConfig(), category=mapCategory('control-sedan',(await db.doc('vehicle_categories/control-sedan').get()).data());
   for(const brand of brands){
     const p=priceBooking({tariff,category,boardingState:'33',route:{distanceKm:8,durationMin:20,polyline:[]},tripType:'One Way',pickup,drop,pickupAt:new Date(scheduledAt),localCityId:pickup.id,brand});
-    assert.equal(p.fare.total,210);assert.equal(p.pricing.partner.basePaise,12000);assert.equal(p.pricing.extraKmRatePaise,2700);
+    assert.equal(p.fare.total,200); // no GST rule saved: the 5% tariff GST is included in the fare (fareGstPricing defaultFareGst)assert.equal(p.pricing.partner.basePaise,12000);assert.equal(p.pricing.extraKmRatePaise,2700);
   }
   await save('rentalMinimum',{}, {class:'sedan',minHours:6});
   const pkg={customerFare:1500,partnerPayout:900,includedKm:60,extraKmRate:25,extraHourRate:180,gstMode:'excluded',enabled:true};
@@ -209,3 +209,20 @@ test('shared engine toggle preserves saved scopes and category availability is g
 
 
 
+
+test('Local Pickup & Drop city fares apply to Google places and map pins, not only master locations',async()=>{
+  const {sharedCityId,customerFareContext}=require('../lib/quote');
+  // A Google search result inside the city: its address names the City.
+  const google={id:'google-ChIJsynthetic',name:'Synthetic Street',address:'12 Synthetic Street, Controls Theni, 33 625531, India',lat:10.0300,lng:77.4900,type:'other'};
+  // A map pin about 4 km from the City centre whose address does not name the City.
+  const pin={id:'pin',name:'Pinned location',address:'10.03500, 77.50000',lat:10.0350,lng:77.5000,type:'other'};
+  // A pin 45 km away, naming no City: it must not be treated as inside the City.
+  const far={id:'pin',name:'Far pin',address:'Somewhere',lat:10.4100,lng:77.4768,type:'other'};
+  assert.equal(await sharedCityId(google,pin),pickup.id);
+  assert.equal(await sharedCityId(pin,google),pickup.id);
+  assert.equal(await sharedCityId(google,far),null);
+  const ctx=await customerFareContext('One Way',google,pin,6);
+  assert.equal(ctx.localCityId,pickup.id);
+  // Outstation distances never use a city fare.
+  assert.equal((await customerFareContext('One Way',google,pin,60)).localCityId,null);
+});

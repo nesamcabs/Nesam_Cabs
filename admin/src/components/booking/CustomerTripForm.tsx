@@ -7,7 +7,7 @@ import "../../styles/customerFonts";
 import "../../styles/customerForm.css";
 import "../../styles/customerFormAdmin.css";
 import { Icon, type IconName } from "../ui";
-import { isoDateIST } from "../../utils/time";
+import { addDaysISO, isoDateIST, ROUND_TRIP_MAX_DAYS } from "../../utils/time";
 import {
   PlaceField, TRIP_OPTION, TRIP_SERVICES, airportSide, tripOptionKey, tripTypeForService, withPickup, withTripType,
   type QuickData, type QuickTrip,
@@ -119,7 +119,7 @@ export default function CustomerTripForm({ trip, set, data, top, action, error, 
   onSubmit: (e: FormEvent) => void;
   allowedTripTypes?: QuickTrip["tripType"][];
 }) {
-  const [timeFor, setTimeFor] = useState<"pickup" | "return" | null>(null);
+  const [timeFor, setTimeFor] = useState<"pickup" | null>(null);
   const today = isoDateIST(new Date());
   const rental = trip.tripType === "Local Rental";
   const airportAt = trip.tripType === "Airport Taxi" ? airportSide(trip) : null;
@@ -215,18 +215,14 @@ export default function CustomerTripForm({ trip, set, data, top, action, error, 
         {round ? (
           <div className="bf-row">
             <div className="bf-cell">
-              <label className="bf-label bf-label--out" htmlFor="nb-end-date">Return date</label>
-              <div className="bf-datewrap">
-                <input id="nb-end-date" className="input bf-input" type="date" value={trip.endDate} min={trip.date || today} onChange={(e) => set({ endDate: e.target.value })} />
-                {trip.endDate ? <span className="bf-chip">{dayHint(trip.endDate)}</span> : null}
-              </div>
+              <label className="bf-label bf-label--out" htmlFor="nb-days">Number of days</label>
+              <select id="nb-days" className="input bf-input" value={trip.days} onChange={(e) => set({ days: Number(e.target.value) })}>
+                {Array.from({ length: ROUND_TRIP_MAX_DAYS }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n} {n === 1 ? "day" : "days"}</option>)}
+              </select>
             </div>
             <div className="bf-cell">
-              <span className="bf-label bf-label--out" id="nb-end-time-label">Return time</span>
-              <button type="button" className={`bf-time ${trip.endTime ? "" : "is-empty"}`} aria-labelledby="nb-end-time-label nb-end-time-value" onClick={() => setTimeFor("return")}>
-                <span id="nb-end-time-value">{trip.endTime ? formatTime12(trip.endTime) : ""}</span>
-                <Icon name="clock" size={26} />
-              </button>
+              <span className="bf-label bf-label--out">Trip ends</span>
+              <span className="bf-chip">{trip.date ? dayHint(addDaysISO(trip.date, trip.days - 1)) : "Choose a pickup date"}</span>
             </div>
           </div>
         ) : null}
@@ -237,10 +233,10 @@ export default function CustomerTripForm({ trip, set, data, top, action, error, 
 
       {timeFor ? (
         <TimeSheet
-          title={timeFor === "return" ? "Return time" : "Pickup time"}
-          value={timeFor === "return" ? trip.endTime : trip.time}
+          title="Pickup time"
+          value={trip.time}
           onClose={() => setTimeFor(null)}
-          onConfirm={(t) => { set(timeFor === "return" ? { endTime: t } : { time: t }); setTimeFor(null); }}
+          onConfirm={(t) => { set({ time: t }); setTimeFor(null); }}
         />
       ) : null}
     </section>

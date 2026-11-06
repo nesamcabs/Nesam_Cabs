@@ -64,10 +64,10 @@ export function adminDiscountOf(v: unknown): AdminDiscountInput | null {
 }
 
 /** A pin dropped on the map: coordinates and the address reverse-geocoded by the admin's browser. */
-export function pinPlace(v: unknown, role: 'pickup' | 'drop'): GeoPlace | null {
+export function pinPlace(v: unknown, role: 'pickup' | 'drop' | 'stop'): GeoPlace | null {
   if (v == null) return null;
   const p = v as Record<string, unknown>;
-  const label = role === 'pickup' ? 'Pickup' : 'Drop';
+  const label = role === 'pickup' ? 'Pickup' : role === 'stop' ? 'Stop' : 'Drop';
   if (!inIndia(p.lat, p.lng)) throw new HttpsError('invalid-argument', `${label} location must be a point in India.`);
   const address = text(p.address, 300);
   if (address.length < 3) throw new HttpsError('invalid-argument', `Add the ${role} address for the selected map point.`);

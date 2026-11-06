@@ -804,8 +804,9 @@ details.ds-disclosure > summary { cursor: pointer; font-size: 12px; font-weight:
 @media (max-width: 1180px) { .ds-queue-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 640px) { .ds-queue-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ds-ack-strip, .ds-gst-strip { flex-wrap: wrap; } }
 .ds-quick-grid { grid-template-columns: minmax(170px, 1.1fr) minmax(160px, 1.3fr) minmax(160px, 1.3fr) minmax(130px, .9fr) minmax(110px, .8fr) auto; }
-.ds-quick-action { padding-top: 21px; }
-.ds-quick-action .ds-btn { min-height: 40px; }
+/* The estimate button sits in the fields' row, bottom-aligned with the inputs and as tall as them. */
+.ds-quick-action { align-self: end; }
+.ds-quick-action .ds-btn { min-height: 48px; white-space: nowrap; }
 .ds-time { display: flex; align-items: center; gap: 4px; max-width: 230px; color: var(--color-muted); font-weight: 600; }
 .ds-time .ds-select { flex: 1 1 0; min-width: 0; padding-inline: 8px; font-variant-numeric: tabular-nums; }
 /* Date + 12-hour time on one row; the time wraps under the date when the field is narrow. */
@@ -817,13 +818,19 @@ details.ds-disclosure > summary { cursor: pointer; font-size: 12px; font-weight:
 .ds-combo { position: relative; }
 .ds-combo .ds-input { width: 100%; padding-right: 30px; }
 .ds-combo-clear { position: absolute; top: 50%; right: 6px; display: grid; place-items: center; width: 22px; height: 22px; border: 0; border-radius: 6px; background: none; color: var(--color-faint); cursor: pointer; transform: translateY(-50%); }
+/* Pin button inside a place box (left of the clear button when the box has text). */
+.ds-combo-pin { position: absolute; top: 50%; right: 6px; display: grid; place-items: center; width: 22px; height: 22px; border: 0; border-radius: 6px; background: none; color: var(--color-brand-accent); cursor: pointer; transform: translateY(-50%); }
+.ds-combo-pin.has-clear { right: 30px; }
+.ds-combo-pin.is-pinned { color: var(--color-ok, #15803d); }
+.ds-combo-pin:hover, .ds-combo-pin:focus-visible { background: var(--color-brand-soft); }
+.ds-combo:has(.ds-combo-pin) .ds-input { padding-right: 58px; }
 .ds-combo-clear:hover, .ds-combo-clear:focus-visible { background: var(--color-brand-soft); color: var(--color-brand-ink); }
 .ds-combo-list { position: absolute; top: calc(100% + 4px); left: 0; z-index: 60; width: 100%; max-height: min(240px, 40vh); margin: 0; padding: 4px; overflow-y: auto; overflow-x: hidden; overscroll-behavior: auto; list-style: none; border: 1px solid var(--color-line); border-radius: 8px; background: #fff; box-shadow: var(--shadow-md); }
 .ds-combo-opt { display: grid; gap: 1px; padding: 7px 10px; border-radius: 6px; cursor: pointer; }
 .ds-combo-opt[aria-selected='true'], .ds-combo-opt:hover { background: var(--color-brand-soft); }
 .ds-combo-opt strong { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 600; color: var(--color-ink); }
 .ds-combo-opt small { overflow: hidden; font-size: 11px; color: var(--color-muted); text-overflow: ellipsis; white-space: nowrap; }
-@media (max-width: 1180px) { .ds-quick-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ds-quick-action { padding-top: 0; } }
+@media (max-width: 1180px) { .ds-quick-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 640px) { .ds-quick-grid { grid-template-columns: 1fr; } }
 
 /* ══ Booking details ══ */

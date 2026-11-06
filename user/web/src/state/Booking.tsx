@@ -201,6 +201,8 @@ export interface BookingQuote {
   entries: Map<string, ServerCategoryQuote>;
   /** Why a category cannot be priced for this trip, by category id. */
   unavailable: Map<string, string>;
+  /** The journey distance and time the server priced (null until it answers). */
+  trip: { distanceKm: number; durationMin: number } | null;
   /** Chargeable calendar days of a round trip. */
   days: number | null;
   retryQuote: () => void;
@@ -267,6 +269,7 @@ export function useBookingQuote(): BookingQuote {
       quoteError: serverQuote.status === 'error' ? serverQuote.error : '',
       breakup: (cngChoice ? cngChoice.breakup : chosen?.breakup) ?? null,
       entries: byId, unavailable, days, retryQuote: serverQuote.retry,
+      trip: server?.trip ?? null,
     };
   }, [categories, categoryId, route, tripType, pickupTime, adjustment, coupons, trips, promoCode, pickup, drop, serverQuote, draft.fuelType]);
 }

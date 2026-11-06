@@ -24,14 +24,52 @@ const ROUTE_CACHE_MAX = 800;
 const routeCache = new Map<string, { at: number; info: RouteInfo }>();
 const routeKey = (a: GeoPlace, b: GeoPlace) => [a.lat, a.lng, b.lat, b.lng].map((n) => n.toFixed(4)).join(',');
 
+// The same route is also kept in Firestore (route_cache), shared by every server instance. A quote and the booking
+// made from it may run on different instances; reading the stored route means both price exactly the same distance,
+// and a page that refreshes its fares every few seconds does not call Google again each time.
+const ROUTE_STORE = 'route_cache';
+const STORED_TTL_MS: Record<RouteProvider, number> = { google: 30 * 24 * 60 * 60 * 1000, osrm: 12 * 60 * 60 * 1000 };
+type RouteProvider = 'google' | 'osrm';
+
+const remember = (key: string, info: RouteInfo) => {
+  if (routeCache.size >= ROUTE_CACHE_MAX) routeCache.delete(routeCache.keys().next().value as string);
+  routeCache.set(key, { at: Date.now(), info });
+};
+
+async function storedRoute(key: string): Promise<RouteInfo | null> {
+  try {
+    const d = (await db.collection(ROUTE_STORE).doc(key).get()).data();
+    if (!d || !(d.distanceKm > 0) || !(d.durationMin > 0) || typeof d.atMs !== 'number') return null;
+    const provider: RouteProvider = d.provider === 'google' ? 'google' : 'osrm';
+    if (Date.now() - d.atMs > STORED_TTL_MS[provider]) return null;
+    return { distanceKm: d.distanceKm, durationMin: d.durationMin, estimated: false, path: [] };
+  } catch (error) {
+    console.warn('[routing] route cache read failed', error instanceof Error ? error.message : error);
+    return null;
+  }
+}
+
+async function storeRoute(key: string, info: RouteInfo, provider: RouteProvider): Promise<void> {
+  try {
+    await db.collection(ROUTE_STORE).doc(key).set({ distanceKm: info.distanceKm, durationMin: info.durationMin, provider, atMs: Date.now() });
+  } catch (error) {
+    console.warn('[routing] route cache write failed', error instanceof Error ? error.message : error);
+  }
+}
+
 export async function routeFor(a: GeoPlace, b: GeoPlace): Promise<RouteInfo> {
   const key = routeKey(a, b);
   const hit = routeCache.get(key);
   if (hit && Date.now() - hit.at < ROUTE_TTL_MS) return hit.info;
-  const info = await lookUpRoute(a, b);
-  if (!info.estimated) {
-    if (routeCache.size >= ROUTE_CACHE_MAX) routeCache.delete(routeCache.keys().next().value as string);
-    routeCache.set(key, { at: Date.now(), info });
+  const stored = await storedRoute(key);
+  if (stored) {
+    remember(key, stored);
+    return stored;
+  }
+  const { info, provider } = await lookUpRoute(a, b);
+  if (!info.estimated && provider) {
+    remember(key, info);
+    await storeRoute(key, info, provider);
   }
   return info;
 }
@@ -83,10 +121,24 @@ export async function roundTripPricingRoute(route: RouteInfo, tripType: string, 
   };
 }
 
-async function lookUpRoute(a: GeoPlace, b: GeoPlace): Promise<RouteInfo> {
+/** Request body shared by pricing and the map (getGoogleRoute), so both measure the same road. */
+export function googleRouteRequest(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+  return {
+    origin: { location: { latLng: { latitude: a.lat, longitude: a.lng } } },
+    destination: { location: { latLng: { latitude: b.lat, longitude: b.lng } } },
+    travelMode: 'DRIVE',
+    // Prices must not move with live traffic; ferries are not a road a cab can take.
+    routingPreference: 'TRAFFIC_UNAWARE',
+    routeModifiers: { avoidFerries: true },
+    languageCode: 'en-IN',
+    units: 'METRIC',
+  };
+}
+
+async function lookUpRoute(a: GeoPlace, b: GeoPlace): Promise<{ info: RouteInfo; provider: RouteProvider | null }> {
   // Never accept distance or duration from the caller.
   if (Math.abs(a.lat - b.lat) < 0.0001 && Math.abs(a.lng - b.lng) < 0.0001) {
-    return { distanceKm: 1, durationMin: 15, estimated: true, path: [] };
+    return { info: { distanceKm: 1, durationMin: 15, estimated: true, path: [] }, provider: null };
   }
   const googleKey = (process.env.GOOGLE_MAPS_SERVER_API_KEY ?? '').trim();
   if (googleKey) {
@@ -94,15 +146,15 @@ async function lookUpRoute(a: GeoPlace, b: GeoPlace): Promise<RouteInfo> {
       const response = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': googleKey, 'X-Goog-FieldMask': 'routes.distanceMeters,routes.duration' },
-        body: JSON.stringify({ origin: { location: { latLng: { latitude: a.lat, longitude: a.lng } } }, destination: { location: { latLng: { latitude: b.lat, longitude: b.lng } } }, travelMode: 'DRIVE', routingPreference: 'TRAFFIC_UNAWARE', languageCode: 'en-IN', units: 'METRIC' }),
+        body: JSON.stringify(googleRouteRequest(a, b)),
         signal: AbortSignal.timeout(10000),
       });
       const data = response.ok ? await response.json() as any : null;
       const route = data?.routes?.[0];
-      if (route && Number.isFinite(route.distanceMeters)) {
-        return { distanceKm: Math.max(0.1, route.distanceMeters / 1000), durationMin: Math.max(1, Number(String(route.duration ?? '0s').replace('s', '')) / 60), estimated: false, path: [] };
+      if (route && Number.isFinite(route.distanceMeters) && route.distanceMeters > 0) {
+        return { info: { distanceKm: Math.max(0.1, route.distanceMeters / 1000), durationMin: Math.max(1, Number(String(route.duration ?? '0s').replace('s', '')) / 60), estimated: false, path: [] }, provider: 'google' };
       }
-      console.warn('[routing] Google Routes unavailable; using OSRM fallback', { status: response.status });
+      console.warn('[routing] Google Routes unavailable; using OSRM fallback', { status: response.status, error: data?.error?.status ?? null });
     } catch (error) {
       console.warn('[routing] Google Routes failed; using OSRM fallback', error instanceof Error ? error.message : error);
     }
@@ -114,7 +166,7 @@ async function lookUpRoute(a: GeoPlace, b: GeoPlace): Promise<RouteInfo> {
     const result = await response.json() as any;
     const r = result.code === 'Ok' && result.routes?.[0];
     if (!r || !Number.isFinite(r.distance) || !Number.isFinite(r.duration)) throw new Error('invalid route');
-    return { distanceKm: Math.max(0.1, r.distance / 1000), durationMin: Math.max(1, r.duration / 60), estimated: false, path: [] };
+    return { info: { distanceKm: Math.max(0.1, r.distance / 1000), durationMin: Math.max(1, r.duration / 60), estimated: false, path: [] }, provider: 'osrm' };
   } catch {
     throw new HttpsError('unavailable', 'Route pricing is temporarily unavailable. Please try again.');
   }

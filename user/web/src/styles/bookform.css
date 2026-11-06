@@ -1117,3 +1117,25 @@
   font-size: var(--fs-sm);
   white-space: nowrap;
 }
+
+/* Round trip: the number of days and the day the trip ends, on one compact line. */
+.bf-days { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; margin-top: 10px; }
+.bf-days__select { display: inline-flex; align-items: center; gap: 8px; }
+.bf-days__label { font-size: 12px; font-weight: 600; color: #6b7280; white-space: nowrap; }
+.bf-days__input { height: 34px; min-height: 0; width: auto; padding: 0 30px 0 10px; font-size: 13px; font-weight: 600; border-radius: 8px; }
+.bf-days__end { font-size: 12px; font-weight: 600; color: #374151; white-space: nowrap; }
+
+/* Round trip: pickup date, pickup time and the number of days share one row. */
+.bf-row.bf-row--trio { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 0.95fr); }
+.bf-row--trio .bf-days__input { width: 100%; }
+.bf-row--trio .bf-days__end { display: block; margin-top: 4px; font-size: 11px; }
+
+/* Round trip: pickup date, pickup time and number of days stay on ONE row, on every screen size; the fields are compact. */
+.bf-row.bf-row--trio { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 0.9fr) !important; gap: 6px; align-items: start; }
+.bf-row--trio .bf-cell { min-width: 0; }
+.bf-row--trio .bf-label, .bf-row--trio .bf-label--out { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bf-row--trio .bf-input, .bf-row--trio .bf-time, .bf-row--trio .bf-days__input { min-height: 40px; height: 40px; font-size: 13px; padding-left: 8px; padding-right: 8px; }
+.bf-row--trio .bf-time { gap: 4px; }
+.bf-row--trio .bf-chip { font-size: 9px; padding: 1px 5px; }
+.bf-row--trio .bf-days__input { padding-right: 20px; }
+.bf-row--trio .bf-days__end { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

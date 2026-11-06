@@ -14,7 +14,7 @@ import MapLocationPicker, { type PickedPoint } from "../MapLocationPicker";
 import { Modal } from "../Feedback";
 import { Button, Icon } from "../ui";
 import { FareBreakupCard } from "./Enquiries";
-import { isoDateIST } from "../../utils/time";
+import { addDaysISO, isoDateIST, ROUND_TRIP_MAX_DAYS } from "../../utils/time";
 import TimeSelect12 from "../TimeSelect12";
 import { refDateTime, rupee } from "../../domain/officeStage";
 import { subscribeBusinessAccounts, type BusinessAccount } from "../../services/businessService";
@@ -36,8 +36,8 @@ export interface QuickTrip {
   stops?: { text: string; point: PickedPoint | null }[];
   date: string;
   time: string;
-  endDate: string;
-  endTime: string;
+  /** Round trips: how many days the trip lasts. It ends on the last day, at the pickup time. */
+  days: number;
   /** Airport transfers: whether the airport is the drop ("to") or the pickup ("from"). */
   airportDirection: "to" | "from";
   /** Extras & terms the office records with the booking. */
@@ -49,7 +49,7 @@ export interface QuickTrip {
 
 export const emptyTrip = (): QuickTrip => ({
   businessId: "", serviceId: "", tripType: "One Way", pickupText: "", dropText: "", pickup: null, drop: null, stops: [],
-  date: isoDateIST(new Date(Date.now() + 86400000)), time: "08:00", endDate: "", endTime: "20:00", airportDirection: "to",
+  date: isoDateIST(new Date(Date.now() + 86400000)), time: "08:00", days: 1, airportDirection: "to",
   hill: false, carrier: false, waitingMin: "0", priceEntered: "Excluding GST",
 });
 
@@ -62,7 +62,7 @@ export interface CategoryEstimate {
 /** Local "YYYY-MM-DDTHH:mm" India time → the value the booking form expects. */
 export const tripPickupAt = (t: QuickTrip) => (t.date && t.time ? `${t.date}T${t.time}` : "");
 // A Multicity quote has no return date: it is priced for the pickup day.
-export const tripEndAt = (t: QuickTrip) => (t.tripType !== "Round Trip" ? "" : t.multicity && t.date ? `${t.date}T23:59` : t.endDate ? `${t.endDate}T${t.endTime || "20:00"}` : "");
+export const tripEndAt = (t: QuickTrip) => (t.tripType !== "Round Trip" ? "" : t.multicity && t.date ? `${t.date}T23:59` : t.date && t.time ? `${addDaysISO(t.date, Math.max(1, t.days) - 1)}T${t.time}` : "");
 
 /** The chosen stops of a round trip (not a Multicity tour), in order. */
 export const roundStopPoints = (t: QuickTrip): PickedPoint[] =>
@@ -160,7 +160,7 @@ export function validateTrip(t: QuickTrip): string | null {
   if (!t.date || !t.time) return "Choose the pickup date and time.";
   const at = tripPickupDate(t);
   if (!at || at.getTime() < Date.now() + 30 * 60000) return "Pickup must be at least 30 minutes from now.";
-  if (t.tripType === "Round Trip" && !t.multicity && !t.endDate) return "Choose when the trip ends.";
+  if (t.tripType === "Round Trip" && !t.multicity && (!(t.days >= 1) || t.days > ROUND_TRIP_MAX_DAYS)) return `Choose 1 to ${ROUND_TRIP_MAX_DAYS} days.`;
   if (t.tripType === "Round Trip" && !t.multicity && (t.stops ?? []).some((s) => !s.point)) return "Choose each stop on the map, or remove it.";
   if (t.tripType === "Airport Taxi" && t[airportSide(t)]?.type !== "airport") return `Choose the airport as the ${airportSide(t)} for this transfer.`;
   return null;
@@ -225,7 +225,7 @@ const placeFromResult = (r: PlaceResult): PickedPoint => ({ lat: r.lat, lng: r.l
  * Pickup / drop search: saved locations plus address suggestions from the map search. Only a
  * chosen suggestion sets the point (address + coordinates); typed text alone never prices a trip.
  */
-export function PlaceField({ label, placeholder, text, value, saved, near, airport, onChange, variant, pin: pinKind, onRemove }: {
+export function PlaceField({ label, placeholder, text, value, saved, near, airport, onChange, variant, pin: pinKind, onRemove, onPin, pinned }: {
   label: string;
   placeholder: string;
   text: string;
@@ -238,6 +238,9 @@ export function PlaceField({ label, placeholder, text, value, saved, near, airpo
   variant?: "cf";
   pin?: "pickup" | "drop" | "stop";
   onRemove?: () => void;
+  /** Opens the pin check for this place: a small location button inside the box. */
+  onPin?: () => void;
+  pinned?: boolean;
 }) {
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -415,6 +418,11 @@ export function PlaceField({ label, placeholder, text, value, saved, near, airpo
           onBlur={() => setOpen(false)}
           onKeyDown={onKey}
         />
+        {onPin && (
+          <button type="button" className={`ds-combo-pin ${text ? "has-clear" : ""} ${pinned ? "is-pinned" : ""}`} aria-label={`${label.replace(/\s*\*$/, "")} pin${pinned ? " (verified)" : ""}`} title={`${label.replace(/\s*\*$/, "")} pin`} onClick={onPin}>
+            <Icon name={pinned ? "map-pin-check" : "map-pin"} size={14} />
+          </button>
+        )}
         {text && (
           <button type="button" className="ds-combo-clear" aria-label={`Clear ${label.replace(/\s*\*$/, "").toLowerCase()}`} onClick={() => onChange("", null)}>
             <Icon name="x" size={13} />
@@ -477,6 +485,8 @@ export function TripFields({ trip, set, data, compact, idPrefix, action, allowed
           near={null}
           airport={airportAt === "pickup"}
           onChange={(text, p) => pickPoint("pickup", p, text)}
+          onPin={() => setPin("pickup")}
+          pinned={!!trip.pickup?.confirmed}
         />
         {!rental && (
           <PlaceField
@@ -488,6 +498,8 @@ export function TripFields({ trip, set, data, compact, idPrefix, action, allowed
             near={trip.pickup}
             airport={airportAt === "drop"}
             onChange={(text, p) => pickPoint("drop", p, text)}
+            onPin={() => setPin("drop")}
+            pinned={!!trip.drop?.confirmed}
           />
         )}
         <label className="ds-field ds-inbox" onClick={(e) => { const input = e.currentTarget.querySelector("input"); try { input?.showPicker(); } catch { /* the browser opens the picker from the input itself */ } }}>
@@ -499,13 +511,11 @@ export function TripFields({ trip, set, data, compact, idPrefix, action, allowed
           <TimeSelect id={`${idPrefix}-time`} label="Pickup time" value={trip.time} onChange={(time) => set({ time })} />
         </div>
         {trip.tripType === "Round Trip" && !trip.multicity && (
-          <>
-            <label className="ds-field ds-inbox"><span className="ds-inbox__name">Return date</span><input className="ds-input" type="date" min={trip.date || today} value={trip.endDate} onChange={(e) => set({ endDate: e.target.value })} /></label>
-            <div className="ds-field">
-              <label htmlFor={`${idPrefix}-end-time`} className="sr-only">Return time</label>
-              <TimeSelect id={`${idPrefix}-end-time`} label="Return time" value={trip.endTime || "20:00"} onChange={(endTime) => set({ endTime })} />
-            </div>
-          </>
+          <label className="ds-field ds-inbox"><span className="ds-inbox__name">Number of days</span>
+            <select className="ds-select" value={trip.days} onChange={(e) => set({ days: Number(e.target.value) })}>
+              {Array.from({ length: ROUND_TRIP_MAX_DAYS }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n} {n === 1 ? "day" : "days"}</option>)}
+            </select>
+          </label>
         )}
         {trip.tripType === "Round Trip" && !trip.multicity && (trip.stops ?? []).map((s, i) => (
           <PlaceField key={i} label={`Stop ${i + 1}`} placeholder={`Stop ${i + 1}`} text={s.text} value={s.point} saved={data.drops} near={trip.pickup} airport={false}
@@ -514,8 +524,6 @@ export function TripFields({ trip, set, data, compact, idPrefix, action, allowed
         {action && <div className="ds-quick-action">{action}</div>}
       </div>
       <div className="flex flex-wrap items-center gap-4 mt-3 text-[11px] text-faint">
-        <button type="button" className="ds-link" style={{ fontSize: 11 }} onClick={() => setPin("pickup")}>Pickup pin{trip.pickup?.confirmed ? " ✓" : ""}</button>
-        {!rental && <button type="button" className="ds-link" style={{ fontSize: 11 }} onClick={() => setPin("drop")}>Drop pin{trip.drop?.confirmed ? " ✓" : ""}</button>}
         {trip.tripType === "Round Trip" && !trip.multicity && (
           <>
             <button type="button" className="ds-link" style={{ fontSize: 11 }} disabled={(trip.stops ?? []).length >= 8} onClick={() => set({ stops: [...(trip.stops ?? []), { text: "", point: null }] })}>Add stop</button>
@@ -695,7 +703,7 @@ export function QuickFareCard({ onSaved }: { onSaved: (e: Enquiry) => void }) {
   const latest = useRef(trip);
   latest.current = trip;
   const set = (p: Partial<QuickTrip>) => setTrip((t) => ({ ...t, ...p }));
-  const sig = JSON.stringify([trip.serviceId, trip.tripType, trip.pickup?.lat, trip.pickup?.lng, trip.drop?.lat, trip.drop?.lng, trip.date, trip.time, trip.endDate, trip.endTime, roundStopPoints(trip).map((p) => [p.lat, p.lng])]);
+  const sig = JSON.stringify([trip.serviceId, trip.tripType, trip.pickup?.lat, trip.pickup?.lng, trip.drop?.lat, trip.drop?.lng, trip.date, trip.time, trip.days, roundStopPoints(trip).map((p) => [p.lat, p.lng])]);
   const stale = estimates !== null && key.current !== sig;
   const invalid = validateTrip(trip);
 

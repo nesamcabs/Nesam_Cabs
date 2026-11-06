@@ -345,7 +345,7 @@
     z-index: 90;
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    height: calc(64px + env(safe-area-inset-bottom, 0px));
+    height: calc(80px + env(safe-area-inset-bottom, 0px));
     padding: 6px 4px env(safe-area-inset-bottom, 0px);
     border-top: 1px solid var(--line);
     background: rgb(255 255 255 / 0.97);
@@ -355,12 +355,12 @@
     position: relative;
     display: grid;
     justify-items: center;
-    align-content: center;
-    gap: 3px;
+    align-content: end;
+    gap: 0;
     min-width: 0;
     color: var(--muted);
-    font-size: 0.75rem;
-    font-weight: 700;
+    font-size: 0.6875rem;
+    font-weight: 800;
     text-decoration: none;
     transition: color var(--dur) var(--ease-out);
   }
@@ -1246,3 +1246,18 @@ button.tabbar__link--button {
   font-family: inherit;
   cursor: pointer;
 }
+
+/* Bottom bar: the brand's illustrated icons. Inactive tabs are greyed; the active tab shows them in full colour. */
+/* Bottom bar icons: always in full colour. The selected tab gets a soft highlight and a short pop; hover lifts the icon. */
+.tabbar__img { display: block; object-fit: contain; pointer-events: none; transition: transform 0.2s ease; }
+.tabbar__link:hover .tabbar__img { transform: translateY(-2px); }
+.tabbar__icon { isolation: isolate; }
+/* The selected tab: its icon sits in the same brand circle as the raised Outstation button, lifted slightly. */
+.tabbar__icon::before { content: ''; position: absolute; inset: -2px; border-radius: 50%; background: var(--brand-gradient, var(--brand)); border: 4px solid #fff; box-sizing: content-box; box-shadow: 0 8px 18px -6px rgb(0 0 0 / 0.35); transform: scale(0.6); opacity: 0; transition: transform 0.25s ease, opacity 0.25s ease; z-index: -1; }
+.tabbar__link.is-active .tabbar__icon::before { transform: scale(1); opacity: 1; }
+.tabbar__link.is-active .tabbar__icon { transform: translateY(-8px); transition: transform 0.25s ease; }
+.tabbar__link.is-active .tabbar__img { animation: tabbar-pop 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.25); }
+@keyframes tabbar-pop { 0% { transform: scale(0.8); } 60% { transform: scale(1.14); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .tabbar__img, .tabbar__icon::before { transition: none; } .tabbar__link.is-active .tabbar__img { animation: none; } }
+/* Icon and label sit close together. */
+.tabbar__icon { margin-bottom: -4px; }

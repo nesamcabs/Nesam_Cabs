@@ -30,7 +30,7 @@ import { nextBookingCode } from './bookingSequence';
 import { businessContract, availableBusinessCredit } from './domain/business';
 import { assertCashAllowed } from './channelPolicy';
 import { supportsTrip, serviceAllowsCategory, matchAuthoritativeService, ServiceMasterDoc } from './onlineCatalog';
-import { NO_BOOKABLE_CATEGORIES, approved, inIndia, requestIdOf, requirePermission, routeFor, text, requireAction, requireStaffFlag } from './shared';
+import { NO_BOOKABLE_CATEGORIES, approved, inIndia, requestIdOf, requirePermission, roundTripPricingRoute, routeFor, routeThrough, text, requireAction, requireStaffFlag } from './shared';
 import { canSeePayouts } from './staffReads';
 import { storePricingInTx } from './pricingPrivate';
 import { mailNewBooking } from './commerce';
@@ -98,9 +98,13 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
   // Quick fare: the office gives the estimate before collecting any customer details, so a
   // quote-only request needs no name, mobile or payment method. Nothing is written for a quote.
   const quoteOnly = input.quoteOnly === true;
-  if (input.tripType === 'Multicity' || input.serviceId === 'multicity' || (Array.isArray(input.stops) && input.stops.length)) {
+  if (input.tripType === 'Multicity' || input.serviceId === 'multicity') {
     throw new HttpsError('failed-precondition', 'Multicity itineraries cannot be priced or converted using the standard pickup/drop booking flow.');
   }
+  // Round trips may pass through stops, priced exactly as the customer sites price them (routeThrough + roundTripPricingRoute).
+  const rawStops = Array.isArray(input.stops) ? input.stops : [];
+  if (rawStops.length > 8) throw new HttpsError('invalid-argument', 'Add no more than 8 intermediate stops.');
+  if (rawStops.length && input.tripType !== 'Round Trip') throw new HttpsError('invalid-argument', 'Intermediate stops are available for round trips only.');
   const enquiryCode = text(input.enquiryId, 40);
   if (enquiryCode) {
     if (!/^NSM-QT-\d{6}$/.test(enquiryCode)) throw new HttpsError('invalid-argument', 'Invalid enquiry reference.');
@@ -146,11 +150,17 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
   }
   const [pickupR, dropR] = await Promise.all([resolvePlace(input, 'pickup'), resolvePlace(input, 'drop')]);
   const pickup = pickupR.place, drop = dropR.place;
-  if (distanceKm(pickup, drop) < 0.1) throw new HttpsError('invalid-argument', 'Pickup and drop must be different locations.');
+  const stops = rawStops.flatMap((s: unknown) => { const p = pinPlace(s, 'stop'); return p ? [p] : []; });
+  // A round trip with stops may end where it began (a closed circuit); otherwise pickup and drop must differ.
+  if (!stops.length && distanceKm(pickup, drop) < 0.1) throw new HttpsError('invalid-argument', 'Pickup and drop must be different locations.');
+  const itinerary = [pickup, ...stops, drop];
+  for (let n = 1; n < itinerary.length; n += 1) {
+    if (distanceKm(itinerary[n - 1]!, itinerary[n]!) < 0.01) throw new HttpsError('invalid-argument', 'Two consecutive itinerary locations cannot be the same.');
+  }
   const pickupDetails = text(input.pickupAddress), dropDetails = text(input.dropAddress);
   pickup.address = pickupR.source === 'map_pin' ? [pickupDetails, pickup.address].filter(Boolean).join(', ') : pickupDetails || pickup.address;
   drop.address = dropR.source === 'map_pin' ? [dropDetails, drop.address].filter(Boolean).join(', ') : dropDetails || drop.address;
-  const route = await routeFor(pickup, drop);
+  const route = stops.length ? await roundTripPricingRoute(await routeThrough(itinerary), tripType, pickup, drop, stops.length) : await routeFor(pickup, drop);
 
   const advanceIn = input.advance && typeof input.advance === 'object' ? input.advance : null;
   if (advanceIn) {
@@ -317,6 +327,7 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
       pickup: pickup.name, pickupAddress: pickup.address, pickupLat: pickup.lat, pickupLng: pickup.lng, pickupLatitude: pickup.lat, pickupLongitude: pickup.lng,
       pickupType: pickup.type, pickupLocationId: pickupR.source === 'master' ? pickup.id : '', pickupSource: pickupR.source,
       drop: drop.name, dropAddress: drop.address, dropLat: drop.lat, dropLng: drop.lng, dropType: drop.type, dropLocationId: dropR.source === 'master' ? drop.id : '', dropSource: dropR.source,
+      ...(stops.length ? { stops, itinerary } : {}),
       service, serviceId, tripType, vehicle: category.name, vehicleCategory: category.name, vehicleCategoryId: category.id,
       passengerSeatsRequired: category.seats, dutyClass: dutyClassOf({ dutyClass: category.dutyClass, name: category.name, seats: category.seats }) ?? '', tariffClass: tariffClassOf(category) ?? '',
       fare: fare.total, fareBreakdown: fare, fareBreakup: breakup, pricing: storedPricing, fareVerified: true, fareOverride, ...(commission ? { commission } : {}), distanceKm: fare.distanceKm, durationMin: fare.durationMin,
