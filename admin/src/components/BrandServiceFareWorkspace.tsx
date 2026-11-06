@@ -247,7 +247,7 @@ export default function BrandServiceFareWorkspace({ scope, vehicleClass, vehicle
   } else if (missing.length) {
     status = { tone: "warn", text: <>Customers are not quoted these fares until these are filled: {missing.join(", ")}.{service === "Airport Taxi" ? " Until then airport trips use the vehicle category fare." : ""}</> };
   } else {
-    status = { tone: "ok", text: <>Ready. New quotes for this vehicle use these fares.</> };
+    status = { tone: "ok", text: <>Ready.</> };
   }
 
   // ── Save ──────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -302,7 +302,6 @@ export default function BrandServiceFareWorkspace({ scope, vehicleClass, vehicle
   const brandName = brand === "common" ? "All brands (shared)" : BRAND_LABELS[brand];
   const vehicle = vehicleName || CLASS_LABEL[cls];
   const where = `${brandName} → ${serviceLabel(service)} → ${vehicle}${showCng ? " (CNG)" : ""}`;
-  const ownPrices = brand !== "common" && !!t?.brandOverrides?.[brand]?.[service]?.[cls];
 
   const box = (def: FieldDef) => {
     const r = resolved(def);
@@ -330,10 +329,10 @@ export default function BrandServiceFareWorkspace({ scope, vehicleClass, vehicle
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <strong className="text-[14px] text-ink">{where}</strong>
-            {isDirty ? <Badge tone="amber">Unsaved changes</Badge> : brand === "common" ? <Badge>Shared by all brands</Badge> : ownPrices ? <Badge tone="blue">Has its own prices</Badge> : <Badge>Uses shared prices</Badge>}
+            {isDirty ? <Badge tone="amber">Unsaved changes</Badge> : null}
           </div>
           <p className={`text-[12px] mt-1 ${status.tone === "ok" ? "text-ok" : status.tone === "warn" ? "text-bad" : "text-muted"}`} role="status">
-            <Icon name={status.tone === "ok" ? "circle-check" : status.tone === "warn" ? "circle-alert" : "info"} size={13} /> {status.text}
+            {status.text}
           </p>
         </div>
         {canEdit && <Button variant="primary" icon="check" disabled={!isDirty || busy || !!loadError || invalid.length > 0} onClick={() => { setSaveError(null); setConfirmOpen(true); }}>Save changes</Button>}
@@ -341,11 +340,7 @@ export default function BrandServiceFareWorkspace({ scope, vehicleClass, vehicle
       {invalid.length > 0 && <p className="ds-error" role="alert">Enter numbers of 0 or more only.</p>}
 
       <fieldset disabled={!canEdit || busy || !!loadError} className="min-w-0 space-y-3">
-        <p className="text-[12px] text-muted">
-          {brand === "common" ? "These are the shared prices. Every brand uses them unless it has its own." : `Blank boxes use the shared price shown in grey. Type a value to give ${BRAND_LABELS[brand]} its own price.`}
-        </p>
-
-        {service === "One Way" && !showCng && <p className="ds-note">One Way trips of 40 km or less do not use these rates: they use the Pickup &amp; Drop city fares (Service → Pickup &amp; Drop), or the vehicle category fare where a city has none.</p>}
+        {service === "One Way" && !showCng && <p className="ds-note">Trips of 40 km or less use the Pickup &amp; Drop city fares instead.</p>}
         {service === "Multicity" && <p className="ds-note">Multicity is booked on the websites and quoted by the travel desk with these rates. Blank boxes use the Round Trip rates.</p>}
 
         {customer.length > 0 && service !== "Local Rental" && (
