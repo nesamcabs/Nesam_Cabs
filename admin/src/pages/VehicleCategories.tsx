@@ -12,6 +12,7 @@ import {
   type CategoryForm,
 } from "../services/categoryService";
 import { mapVehicle } from "../services/vehicleService";
+import { CLASS_LABEL, tariffClassOfCategory } from "../services/tariffService";
 import { ConfirmDialog, ErrorBanner, Toast, useToast } from "../components/Feedback";
 
 type FormTab = "basic" | "specs";
@@ -441,7 +442,7 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
 
           {/* Table */}
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[950px]">
+            <table className="w-full min-w-[760px]">
               <thead>
                 <tr className="bg-surface-2 border-b border-line">
                   <th className="px-4 py-3 text-left text-[11px] font-semibold text-faint uppercase tracking-wide">
@@ -451,13 +452,7 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
                     Seating & Luggage
                   </th>
                   <th className="px-4 py-3 text-left text-[11px] font-semibold text-faint uppercase tracking-wide">
-                    Base Fare
-                  </th>
-                  <th className="px-4 py-3 text-left text-[11px] font-semibold text-faint uppercase tracking-wide">
-                    Per KM Rate
-                  </th>
-                  <th className="px-4 py-3 text-left text-[11px] font-semibold text-faint uppercase tracking-wide">
-                    Driver Batta
+                    Priced as
                   </th>
                   <th className="px-4 py-3 text-center text-[11px] font-semibold text-faint uppercase tracking-wide">
                     Vehicles
@@ -473,7 +468,7 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
               <tbody>
                 {filteredCategories.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-[12px] text-faint">
+                    <td colSpan={6} className="px-4 py-8 text-center text-[12px] text-faint">
                       No vehicle categories match your search filters.
                     </td>
                   </tr>
@@ -530,33 +525,10 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
                           </div>
                         </td>
 
-                        {/* Base Fare */}
+                        {/* Rate class: which rates in Service & Fare Settings → Fares price this vehicle */}
                         <td className="px-4 py-3.5">
-                          <div className="text-[12px] font-bold text-brand">
-                            ₹{cat.fare?.baseFare ?? 0}
-                          </div>
-                          <div className="text-[10px] text-faint">
-                            Min {cat.fare?.baseKm ?? 10} km
-                          </div>
-                        </td>
-
-                        {/* Per KM */}
-                        <td className="px-4 py-3.5">
-                          <div className="text-[12px] font-semibold text-ink">
-                            ₹{cat.fare?.perKmRate ?? 0} <span className="text-[10px] font-normal text-faint">/ km</span>
-                          </div>
-                          {cat.fare?.outstationPerKmRate ? (
-                            <div className="text-[10px] text-faint">
-                              Outstation: ₹{cat.fare.outstationPerKmRate}/km
-                            </div>
-                          ) : null}
-                        </td>
-
-                        {/* Driver Batta */}
-                        <td className="px-4 py-3.5">
-                          <div className="text-[12px] font-medium text-body">
-                            ₹{cat.fare?.driverAllowance ?? 0}
-                          </div>
+                          <div className="text-[12px] font-semibold text-ink">{CLASS_LABEL[tariffClassOfCategory(cat)]} rates</div>
+                          <div className="text-[10px] text-faint">Set in Fares</div>
                         </td>
 
                         {/* Vehicle Count */}

@@ -1,14 +1,8 @@
 @import 'tailwindcss';
 
 /* ══ Fonts ═══════════════════════════════════════════════════════════════════
-   Self-hosted copies of the faces used by the Master Admin reference
-   (Inter 400–800, Manrope 800 for headings, Nesam Tamil for Tamil script). */
-@font-face { font-family: 'Inter'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/Inter-400.woff') format('woff'); }
-@font-face { font-family: 'Inter'; font-style: normal; font-weight: 500; font-display: swap; src: url('/fonts/Inter-500.woff') format('woff'); }
-@font-face { font-family: 'Inter'; font-style: normal; font-weight: 600; font-display: swap; src: url('/fonts/Inter-600.woff') format('woff'); }
-@font-face { font-family: 'Inter'; font-style: normal; font-weight: 700; font-display: swap; src: url('/fonts/Inter-700.woff') format('woff'); }
-@font-face { font-family: 'Inter'; font-style: normal; font-weight: 800; font-display: swap; src: url('/fonts/Inter-800.woff') format('woff'); }
-@font-face { font-family: 'Manrope'; font-style: normal; font-weight: 800; font-display: swap; src: url('/fonts/Manrope-800.woff') format('woff'); }
+   Poppins 400–800 for everything (loaded in main.tsx from @fontsource/poppins);
+   Nesam Tamil for Tamil script, which Poppins does not cover. */
 @font-face { font-family: 'Nesam Tamil'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/NesamTamil-400.ttf') format('truetype'); }
 @font-face { font-family: 'Nesam Tamil'; font-style: normal; font-weight: 600; font-display: swap; src: url('/fonts/NesamTamil-600.ttf') format('truetype'); }
 
@@ -16,8 +10,8 @@
    Values are read from the rendered reference (Master Admin 11.2). Utilities
    such as bg-brand, text-ink, border-line are generated from the colour tokens. */
 @theme {
-  --font-sans: 'Inter', 'Nesam Tamil', 'Segoe UI', Arial, sans-serif;
-  --font-display: 'Manrope', 'Inter', 'Nesam Tamil', sans-serif;
+  --font-sans: 'Poppins', 'Nesam Tamil', 'Segoe UI', Arial, sans-serif;
+  --font-display: 'Poppins', 'Nesam Tamil', 'Segoe UI', Arial, sans-serif;
 
   /* Brand */
   --color-brand: #c1232c;
@@ -885,15 +879,11 @@ details.ds-disclosure > summary { cursor: pointer; font-size: 12px; font-weight:
 .ds-tool > svg { position: absolute; right: 14px; top: 16px; width: 13px; height: 13px; color: #9aa2ae; }
 @media (max-width: 900px) { .ds-tool-grid { grid-template-columns: 1fr; } }
 
-/* Fare settings: short collapsible groups instead of one long wall of boxes. */
+/* Fare settings: a few short titled groups instead of one long wall of boxes. */
 .ds-fare-group { border: 1px solid var(--color-line); border-radius: 10px; background: #fff; }
-.ds-fare-group + .ds-fare-group { margin-top: 10px; }
-.ds-fare-group > summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 12px 14px; cursor: pointer; list-style: none; }
-.ds-fare-group > summary::-webkit-details-marker { display: none; }
-.ds-fare-group > summary::before { content: '▸'; color: var(--color-muted); font-size: 12px; transition: transform .15s ease; }
-.ds-fare-group[open] > summary::before { transform: rotate(90deg); }
-.ds-fare-group > summary strong { font-size: 14px; color: var(--color-ink); }
-.ds-fare-group > summary span { font-size: 12px; color: var(--color-muted); }
+.ds-fare-group__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 12px 14px; }
+.ds-fare-group__head strong { font-size: 14px; color: var(--color-ink); }
+.ds-fare-group__head span { font-size: 12px; color: var(--color-muted); }
 .ds-fare-group__body { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; padding: 0 14px 14px; }
 .ds-fare-group__body > p { grid-column: 1 / -1; margin: 0; }
 .ds-fare-group__body .ds-form-grid { grid-column: 1 / -1; }
@@ -1184,7 +1174,7 @@ html {
 
 /* Keep the page still: focusing or clicking a control never scrolls it under the fixed top bar, and nothing is nudged. */
 html { scroll-padding-top: 96px; }
-.fs-nav__item, .fs-pill, .ds-fare-group > summary { scroll-margin-top: 100px; }
+.fs-nav__item, .fs-pill, .ds-fare-group__head { scroll-margin-top: 100px; }
 .fs-shell, .fs-main, .fs-nav { overflow-anchor: auto; }
 .fs-main > * { min-width: 0; }
 .fs-pill, .fs-nav__item, .ds-btn { -webkit-tap-highlight-color: transparent; }

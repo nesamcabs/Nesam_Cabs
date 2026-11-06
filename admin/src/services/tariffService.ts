@@ -12,8 +12,29 @@ export const RENTAL_HOURS = [4, 6, 8, 10, 12] as const;
 /** Minimum rental hours of a category that has none saved yet (the server applies the same default). */
 export const DEFAULT_RENTAL_MIN_HOURS: Record<TariffClass, number> = { sedan: 4, suv: 4, suv7: 4, innova: 4, crysta: 10 };
 
-export interface OneWayRates { customerRate: number; customerBata: number; partnerRate: number; partnerBata: number }
+/** A class's CNG rate card as saved on the base rates (the server keeps it only when complete). */
+export interface CngRates { customerRate: number; customerBata: number; partnerRate: number; partnerBata: number; extraKmRate?: number; minKmPerDay?: number }
+export interface OneWayRates { customerRate: number; customerBata: number; partnerRate: number; partnerBata: number; cng?: Partial<CngRates> }
 export interface RoundTripRates extends OneWayRates { minKmPerDay: number }
+
+/**
+ * The rate class a vehicle category is priced as. Same order as the server (functions/src/quote.ts tariffClassOf and
+ * domain/eligibility.ts dutyClassOf): a saved tariffClass, then a saved dutyClass, then the name, then the seats.
+ */
+export function tariffClassOfCategory(c: { name?: string; seatingCapacity?: number; recommendedPassengers?: number; tariffClass?: unknown; dutyClass?: unknown }): TariffClass {
+  const saved = String(c.tariffClass ?? "").trim().toLowerCase();
+  if ((TARIFF_CLASSES as readonly string[]).includes(saved)) return saved as TariffClass;
+  const duty = String(c.dutyClass ?? "").trim().toLowerCase();
+  if (duty === "suv6") return "suv";
+  if ((["sedan", "suv7", "innova", "crysta"] as string[]).includes(duty)) return duty as TariffClass;
+  const name = (c.name || "").trim().toLowerCase();
+  const seats = Number(c.seatingCapacity) || Number(c.recommendedPassengers) || 4;
+  if (/crysta/.test(name)) return "crysta";
+  if (/innova/.test(name)) return "innova";
+  if (/(suv|xuv|ertiga|marazzo|carens|xl6|scorpio|fortuner|muv|mpv)/.test(name)) return seats >= 7 || /7\s*\+\s*1/.test(name) ? "suv7" : "suv";
+  if (/(sedan|dzire|etios|aura|verna|mini|hatch|micro|swift|wagon|alto|auto)/.test(name)) return "sedan";
+  return seats >= 7 ? "suv7" : seats >= 6 ? "suv" : "sedan";
+}
 export interface OutstationExtra { extraKmRate: number; waitingPerHour: number }
 export interface LocalFare { minKm: number; customerRate: number; partnerRate: number; extraKmRate: number; waitingPerHour: number; enabled: boolean }
 export interface RentalPackage { customerFare: number; partnerPayout: number; includedKm: number; extraKmRate: number; extraHourRate: number; gstMode: "included" | "excluded"; enabled: boolean }

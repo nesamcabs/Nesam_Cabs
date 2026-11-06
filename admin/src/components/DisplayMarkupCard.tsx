@@ -11,7 +11,9 @@ import { Button } from "./ui";
  */
 export default function DisplayMarkupCard({ scope }: { scope: FareWorkspaceScope }) {
   const { tariff } = useTariff();
-  const canEdit = useCan("pricing") && useCanDo("Settings", "edit");
+  const pricingAccess = useCan("pricing");
+  const settingsEdit = useCanDo("Settings", "edit");
+  const canEdit = pricingAccess && settingsEdit;
   const saved = tariff?.displayMarkup?.[scope.brand]?.[scope.service];
   const inherited = scope.brand !== "common" ? tariff?.displayMarkup?.common?.[scope.service] : undefined;
   const [value, setValue] = useState("");

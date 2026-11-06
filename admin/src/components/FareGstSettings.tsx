@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { GST_STATES } from '../domain/gstStates';
-import { BRAND_LABELS, useTariff, type FareGstRule, type FareWorkspaceScope } from '../services/tariffService';
+import { BRAND_LABELS, serviceLabel, useTariff, type FareGstRule, type FareWorkspaceScope } from '../services/tariffService';
 import { saveTariffSection } from '../services/bookingOpsService';
 import { Button } from './ui';
 import { useCan, useCanDo } from './AccessContext';
@@ -16,7 +16,8 @@ export default function FareGstSettings({ scope, onDirtyChange, onBusyChange }: 
   const [message, setMessage] = useState(''), [reason, setReason] = useState('');
   const [version, setVersion] = useState(0);
   const loaded = useRef('');
-  const pricing = useCan('pricing'), settings = useCanDo('Settings', 'edit');
+  const pricing = useCan('pricing');
+  const settings = useCanDo('Settings', 'edit');
   const canEdit = pricing && settings;
   const policy = tariff?.fareGst?.[scope.brand]?.[scope.service];
   const common = tariff?.fareGst?.common?.[scope.service];
@@ -59,10 +60,10 @@ export default function FareGstSettings({ scope, onDirtyChange, onBusyChange }: 
   const taxable = rule.mode === 'included' ? 1000 / (1 + rule.rate) : 1000;
   return <section id="fare-gst-settings" className="ds-panel ds-panel-pad" aria-label="GST settings">
     <h2 className="text-[17px] font-bold">GST calculation</h2>
-    <p className="text-[12px] text-muted mb-3">{scope.brand === 'common' ? 'Common — all brands' : BRAND_LABELS[scope.brand]} → {scope.service} · All vehicle categories. Brand settings override Common; within a brand, pickup-state settings override its default.</p>
+    <p className="text-[12px] text-muted mb-3">{scope.brand === 'common' ? 'All brands (shared)' : BRAND_LABELS[scope.brand]} → {serviceLabel(scope.service)} · every vehicle. A brand's own setting wins over the shared one; a pickup-state setting wins over the default.</p>
     <fieldset disabled={busy || !canEdit || tariff === undefined || !!loadError}>
-      <label className="ds-field"><span>Location scope · verified pickup state</span>{stateSelect(state, changeState, 'All pickup states — default')}</label>
-      <p className="text-[12px] text-muted my-2">{own ? 'Editing this scope’s saved setting.' : inherited ? 'Inherited setting shown. Save to create an override for this scope.' : 'No scoped GST saved. Existing fare calculations remain in use until you save.'} GST follows the supplier registration and legal place of supply; crossing a state border alone does not decide IGST. Cities and areas use their master location’s state.</p>
+      <label className="ds-field"><span>Pickup state</span>{stateSelect(state, changeState, 'All pickup states — default')}</label>
+      <p className="text-[12px] text-muted my-2">{own ? 'Editing the saved setting for this selection.' : inherited ? 'Showing the shared setting. Saving creates one for this selection.' : `Nothing saved yet: fares are treated as including ${Math.round((tariff?.gstRate ?? 0.05) * 10000) / 100}% GST until you save.`}</p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <label className="ds-field"><span>Supplier GST registration state *</span>{stateSelect(rule.supplierState, supplierState => edit({ supplierState }), 'Choose registration state')}</label>
         <label className="ds-field"><span>Fare amounts *</span><select className="ds-select" value={rule.mode} onChange={e => edit({ mode: e.target.value as FareGstRule['mode'] })}><option value="excluded">GST excluded — add GST to fare</option><option value="included">GST included — extract GST from fare</option></select></label>
@@ -71,9 +72,8 @@ export default function FareGstSettings({ scope, onDirtyChange, onBusyChange }: 
         <label className="ds-field"><span>Approved tax reference *</span><input className="ds-input" value={rule.reference} maxLength={300} onChange={e => edit({ reference: e.target.value })} /></label>
         <label className="ds-field"><span>Reason for change *</span><input className="ds-input" value={reason} maxLength={300} onChange={e => { setReason(e.target.value); setDirty(true); }} /></label>
       </div>
-      <p className="text-[12px] my-3">Automatic split: same state → CGST + SGST; applicable Union Territory → CGST + UTGST; different supplier/place-of-supply states → IGST. Registered passenger recipients use their GSTIN state; other passengers use their verified boarding state.</p>
-      <p className="text-[12px] text-muted">Route fares and business contracts retain their own included/excluded choice. Approved extras retain their separate tax treatment. This setting covers fare GST; cess, reverse-charge liabilities, permit taxes and input tax credits are separate accounting decisions.</p>
-      <p className="text-[12px] text-muted my-2">Map pins do not establish a verified state. With pickup-state overrides configured, unverified pickups need booking-desk assistance. No external geocoder is used. Multicity remains a manual quotation service.</p>
+      <p className="text-[12px] my-3">Split is automatic: same state → CGST + SGST; Union Territory → CGST + UTGST; different states → IGST. Customers with a GSTIN use its state; others use their pickup state.</p>
+      <p className="text-[12px] text-muted my-2">Fixed route fares and business contracts keep their own included / excluded choice. Extra charges follow <strong>Rules for extra charges</strong> on the Fares page. Once a pickup-state setting exists, a pickup dropped as a map pin (no verified state) cannot be quoted online.</p>
       {Number.isFinite(pct) && <p className="text-[12px] my-3">Example, entered fare ₹1,000 at {pct}%: taxable ₹{taxable.toFixed(2)} + GST ₹{(taxable * rule.rate).toFixed(2)} = ₹{(taxable * (1 + rule.rate)).toFixed(2)}.</p>}
       <div className="flex gap-2"><Button onClick={() => save()} disabled={!dirty}>{busy ? 'Saving…' : 'Save GST settings'}</Button>{own && <Button variant="ghost" onClick={() => save(true)}>Remove this GST override</Button>}</div>
     </fieldset>

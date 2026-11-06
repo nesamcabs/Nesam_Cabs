@@ -7,6 +7,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { AppliedCoupon, Coupon, FareBreakdown, GeoPlace, RideCategory, RouteInfo } from '@core/types';
 import {
   calculateFare,
+  hasEstimate,
   isOutstation,
   serviceName,
   subscribeToCoupons,
@@ -217,7 +218,7 @@ export function useBookingQuote(): BookingQuote {
   return useMemo<BookingQuote>(() => {
     const category = categories.find((c) => c.id === categoryId) ?? null;
     const quotes = new Map<string, FareBreakdown>();
-    if (route) for (const c of categories) quotes.set(c.id, calculateFare({ category: c, route, tripType, pickupTime, adjustment }));
+    if (route) for (const c of categories) if (hasEstimate(c)) quotes.set(c.id, calculateFare({ category: c, route, tripType, pickupTime, adjustment }));
     const outstation = route ? isOutstation(route.distanceKm) : false;
     const service = pickup && drop && route ? serviceName(pickup, drop, route.distanceKm) : 'Local';
     const history = trips.filter((t) => t.status !== 'Cancelled' && t.status !== 'Rejected');
@@ -237,7 +238,7 @@ export function useBookingQuote(): BookingQuote {
     // Re-validated on every change so a discount never outlives the fare it was granted on.
     const couponCheck = promoCode && category && route ? checkCoupon(promoCode) : null;
     const coupon = couponCheck?.ok ? couponCheck.coupon : null;
-    const localQuote = category && route ? calculateFare({ category, route, tripType, pickupTime, adjustment, discount: coupon?.discount ?? 0 }) : null;
+    const localQuote = category && route && hasEstimate(category) ? calculateFare({ category, route, tripType, pickupTime, adjustment, discount: coupon?.discount ?? 0 }) : null;
 
     // The server's quotes win whenever they exist for this exact trip. The local numbers above are
     // an estimate used only while waiting or offline, and are never submittable (authoritative=false).

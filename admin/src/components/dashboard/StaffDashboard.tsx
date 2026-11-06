@@ -60,11 +60,11 @@ function useFinanceQueue(enabled: boolean) {
  * opened, so a preset never hides something that was granted. Every number is a live count from
  * the same collections the pages read; a count that cannot be loaded shows "—".
  */
-export default function StaffDashboard({ access, badges, onNavigate, onNewBooking, workspace }: {
+export default function StaffDashboard({ access, badges, onNavigate, workspace }: {
   access: AdminAccess;
   badges?: NavBadges;
   onNavigate: (page: string, tab?: string) => void;
-  onNewBooking: () => void;
+  onNewBooking?: () => void;
   /** Booking / dispatch board (or the full overview) when the person can open bookings. */
   workspace: ReactNode;
 }) {
@@ -108,7 +108,6 @@ export default function StaffDashboard({ access, badges, onNavigate, onNewBookin
         eyebrow="NESAM OFFICE WORKSPACE"
         title={`${access.roleName} dashboard`}
         subtitle="Your sections and shortcuts follow the access the Master account granted to your Staff ID."
-        actions={can("new-booking") ? <Button variant="primary" icon="plus" onClick={onNewBooking}>New booking</Button> : undefined}
       />
 
       {desks.map((desk) => (

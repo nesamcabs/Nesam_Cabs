@@ -377,7 +377,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
     return (
       <div className="ds-page-body">
         <Toast toast={toast} />
-        <PageHeader eyebrow="NESAM OPERATIONS" title="New booking" actions={<Button variant="ghost" icon="arrow-left" onClick={onCancel}>Back to bookings</Button>} />
+        <PageHeader eyebrow="NESAM OPERATIONS" title="New booking" />
         {wizard(1)}
         <div className={`cf cf--${c.channel} cf-split`}>
           {side}

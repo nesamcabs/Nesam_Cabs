@@ -321,6 +321,10 @@ function priceBookingCore(i: PriceInput): PriceResult {
   }
 
   // Older admin-category engine: local / airport trips and anything while the tariff is off.
+  // A category with no older per-km fare (one added after fares moved to Service & Fare Settings) is never priced at ₹0 here.
+  if (!(i.category.fare.perKmRate > 0)) {
+    throw new HttpsError('failed-precondition', `${i.category.name} is not available for this trip yet.`, { code: 'rate-missing' });
+  }
   const fare = calculateFare({
     category: i.category, route: i.route, tripType: i.tripType, pickupTime: i.pickupAt, discount: i.discount ?? 0, adjustment: i.adjustment, adminDiscount: i.adminDiscount ?? null,
   });

@@ -13,7 +13,7 @@ import { Icon } from '../components/Icon';
 import { FareLines } from '../components/FareLines';
 import { useBookingDraft } from '../context/BookingDraft';
 import { getRoute } from '../services/geoService';
-import { calculateFare, isOutstation } from '../services/pricingService';
+import { calculateFare, hasEstimate, isOutstation } from '../services/pricingService';
 import { buildFareBreakup } from '../utils/fareBreakup';
 import { categoryLabel } from '../utils/categoryLabel';
 import { GST_RATE, SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY } from '../config/constants';
@@ -68,7 +68,7 @@ export function ChooseRideScreen() {
   if (server) {
     for (const x of server.quotes) if (x.ok && x.fare) quotes.set(x.categoryId, x.categoryId === categoryId && fuelCng && x.cng ? x.cng.fare : x.fare);
   } else if (route) {
-    for (const c of categories) quotes.set(c.id, calculateFare({ category: c, route, tripType, pickupTime, adjustment }));
+    for (const c of categories) if (hasEstimate(c)) quotes.set(c.id, calculateFare({ category: c, route, tripType, pickupTime, adjustment }));
   }
 
   const selected: RideCategory | null = categories.find((c) => c.id === categoryId) ?? categories[0] ?? null;

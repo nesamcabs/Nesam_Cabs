@@ -10,7 +10,7 @@ import { db } from "./firebase";
 import { COLLECTIONS, describeDataError } from "./adminFirestoreService";
 import { ActionError, callFunction } from "./callables";
 import type { Booking, MasterLocation, VehicleCategory } from "../types";
-import { toEngineCategory, type BookingFareBreakdown } from "./bookingFareEngine";
+import type { BookingFareBreakdown } from "./bookingFareEngine";
 import type { PickedPoint } from "../components/MapLocationPicker";
 
 export { ActionError as AdminBookingError, newId as newRequestIdWithPrefix } from "./callables";
@@ -106,8 +106,8 @@ export function pointFromLocation(l: MasterLocation): PickedPoint {
   return { lat: l.lat as number, lng: l.lng as number, name: l.name, address: [l.name, l.address || l.city].filter(Boolean).join(", "), type: l.type === "Airport" ? "airport" : "other", confirmed: true };
 }
 
-/** Categories the server can price (active with a per-km rate) — same test as the server. */
-export const bookableCategories = (categories: VehicleCategory[]) => categories.filter((c) => c.status === "Active" && toEngineCategory(c));
+/** Categories the server lists for booking (active, named) — same test as the server's mapCategory. Their fares come from Service & Fare Settings. */
+export const bookableCategories = (categories: VehicleCategory[]) => categories.filter((c) => c.status === "Active" && !!c.name?.trim());
 
 export const normalizePhone = (v: string) => {
   const digits = v.replace(/[\s()-]/g, "").replace(/^\+?91(?=\d{10}$)/, "");

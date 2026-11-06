@@ -289,8 +289,11 @@ export interface VehicleCategory {
   acSupported?: "AC" | "Non-AC" | "Both" | boolean;
   recommendedPassengers?: number;
   displayOrder?: number;
-  /** Customers can choose CNG for this category (needs its CNG rate card in Pricing → Base rates). */
+  /** Customers can choose CNG for this category (needs its CNG rate card in Service & Fare Settings → Fares). */
   cngEnabled?: boolean;
+  /** Optional saved rate class / duty class; when absent the class is read from the name and seats (see tariffClassOfCategory). */
+  tariffClass?: string;
+  dutyClass?: string;
   status: "Active" | "Inactive";
   fare: VehicleCategoryFare;
   vehicleCount?: number;

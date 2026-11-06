@@ -21,10 +21,10 @@ import { canAccessPage } from "../../config/permissions";
 /**
  * The Master Admin dashboard: urgent assignment issues, driver acknowledgements, the booking queues, new bookings to approve and the assignment priority list.
  */
-export default function OfficeDashboard({ onNavigate, onSelectBooking, onNewBooking }: {
+export default function OfficeDashboard({ onNavigate, onSelectBooking }: {
   onNavigate: (page: string, tab?: string) => void;
   onSelectBooking: (id: string) => void;
-  onNewBooking: () => void;
+  onNewBooking?: () => void;
 }) {
   const data = useOfficeData();
   const now = useNow(30000);
@@ -39,7 +39,6 @@ export default function OfficeDashboard({ onNavigate, onSelectBooking, onNewBook
   // The same dashboard serves every booking / dispatch desk; actions show only when this admin holds them.
   const access = useAccess();
   const canOpen = (page: string) => canAccessPage(access, page);
-  const canCreate = canOpen("new-booking");
   const approveDuty = useDuty("approve");
   const approveModule = useCanDo("Bookings", "approve");
   const canApprove = approveDuty && approveModule;
@@ -101,7 +100,7 @@ export default function OfficeDashboard({ onNavigate, onSelectBooking, onNewBook
         </div>
       )}
 
-      <PageHeader title="Dashboard" subtitle="Every booking, publication and assignment in pickup order." actions={canCreate ? <Button variant="primary" icon="plus" onClick={onNewBooking}>New booking</Button> : undefined} />
+      <PageHeader title="Dashboard" subtitle="Every booking, publication and assignment in pickup order." />
 
       <div className="ds-queue-grid">
         {queues.map((q) => (

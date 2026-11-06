@@ -1,92 +1,91 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   BRAND_LABELS,
-  BrandFareOverride,
-  BrandId,
   CLASS_LABEL,
   FALLS_BACK_TO_SUV,
   DEFAULT_RENTAL_MIN_HOURS,
   RENTAL_HOURS,
-  RateValue,
-  Tariff,
-  TariffClass,
-  WorkspaceService,
-  FareWorkspaceScope,
   getInheritingBrands,
   inr,
   outstationExtraFor,
   resolveRate,
+  serviceLabel,
   useTariff,
+  type BrandFareOverride,
+  type FareWorkspaceScope,
+  type Tariff,
+  type TariffClass,
+  type WorkspaceService,
 } from "../services/tariffService";
 import { saveTariffConfig, saveTariffSection } from "../services/bookingOpsService";
 import { ActionError } from "../services/callables";
 import { useCan, useCanDo } from "./AccessContext";
-import { Badge, Button, Icon, PageHeader } from "./ui";
+import { Badge, Button, Icon } from "./ui";
 import { Modal, Toast, useToast } from "./Feedback";
 
-type ScopeBrand = "common" | BrandId;
+// One form per Brand → Service → Vehicle class, saved as business_config/tariff_v2.brandOverrides[brand][service][class].
+// "common" is the shared level every brand inherits; a blank box inherits, a typed value is this scope's own price.
+// What each box feeds on the server: functions/src/domain/tariff.ts (scopedTariffForBrand, multicityRatesFor) and
+// functions/src/domain/scopedExtraCharges.ts (waiting / hill / roof carrier, customer and partner).
 
-interface FormFields {
-  partnerWaitingPerHour: string; partnerHillCharge: string; partnerCarrierCharge: string;
-  freeWaitingMinutes: string; waitingRoundingMinutes: string; waitingRoundingScope: string; taxTreatment: string;
-  customerRate: string;
-  partnerRate: string;
-  customerBase: string;
-  partnerBase: string;
-  minKm: string;
-  minKmPerDay: string;
-  customerBata: string;
-  partnerBata: string;
-  cngCustomerRate: string;
-  cngPartnerRate: string;
-  cngCustomerBata: string;
-  cngPartnerBata: string;
-  cngExtraKmRate: string;
-  cngMinKmPerDay: string;
-  extraKmRate: string;
-  waitingPerHour: string;
-  hillCharge: string;
-  carrierCharge: string;
-  minRentalHours: string;
-  rentalCustomerFare: Record<number, string>;
-  rentalPartnerPayout: Record<number, string>;
-  rentalIncludedKm: Record<number, string>;
-  rentalExtraKm: Record<number, string>;
-  rentalExtraHour: Record<number, string>;
-}
+const NUM_KEYS = [
+  "customerRate", "partnerRate", "customerBase", "partnerBase", "minKm", "minKmPerDay", "customerBata", "partnerBata",
+  "cngCustomerRate", "cngPartnerRate", "cngCustomerBata", "cngPartnerBata", "cngExtraKmRate", "cngMinKmPerDay",
+  "extraKmRate", "waitingPerHour", "hillCharge", "carrierCharge", "partnerWaitingPerHour", "partnerHillCharge", "partnerCarrierCharge",
+  "minRentalHours",
+] as const satisfies readonly (keyof BrandFareOverride)[];
+type NumKey = (typeof NUM_KEYS)[number];
+/** Older per-vehicle waiting / tax rules. They now live once in "Rules for extra charges"; saving a scope removes its old copy. */
+const OLD_RULE_KEYS = ["freeWaitingMinutes", "waitingRoundingMinutes", "waitingRoundingScope", "taxTreatment"] as const;
 
-const emptyForm = (): FormFields => ({
-  partnerWaitingPerHour: '', partnerHillCharge: '', partnerCarrierCharge: '', freeWaitingMinutes: '', waitingRoundingMinutes: '', waitingRoundingScope: '', taxTreatment: '',
-  customerRate: "",
-  partnerRate: "",
-  customerBase: "",
-  partnerBase: "",
-  minKm: "",
-  minKmPerDay: "",
-  customerBata: "",
-  partnerBata: "",
-  cngCustomerRate: "",
-  cngPartnerRate: "",
-  cngCustomerBata: "",
-  cngPartnerBata: "",
-  cngExtraKmRate: "",
-  cngMinKmPerDay: "",
-  extraKmRate: "",
-  waitingPerHour: "",
-  hillCharge: "",
-  carrierCharge: "",
-  minRentalHours: "",
-  rentalCustomerFare: {},
-  rentalPartnerPayout: {},
-  rentalIncludedKm: {},
-  rentalExtraKm: {},
-  rentalExtraHour: {},
-});
+const PKG_FIELDS = [
+  { key: "customerFare", label: "Customer fare", unit: "₹" },
+  { key: "partnerPayout", label: "Partner payout", unit: "₹" },
+  { key: "includedKm", label: "Km included", unit: "km" },
+  { key: "extraKmRate", label: "Extra km", unit: "₹/km" },
+  { key: "extraHourRate", label: "Extra hour", unit: "₹/hr" },
+] as const;
+type PkgField = (typeof PKG_FIELDS)[number]["key"];
+
+interface Form { v: Record<NumKey, string>; pkg: Record<string, Record<PkgField, string>> }
 
 const str = (v: unknown): string => (typeof v === "number" && Number.isFinite(v) ? String(v) : "");
+const emptyPkg = (): Record<PkgField, string> => ({ customerFare: "", partnerPayout: "", includedKm: "", extraKmRate: "", extraHourRate: "" });
+const emptyForm = (): Form => ({
+  v: Object.fromEntries(NUM_KEYS.map((k) => [k, ""])) as Record<NumKey, string>,
+  pkg: Object.fromEntries(RENTAL_HOURS.map((h) => [String(h), emptyPkg()])),
+});
 
-export default function BrandServiceFareWorkspace({ scope, vehicleClass, fuel = "petrol", onDirtyChange, onBusyChange }: {
-  scope: FareWorkspaceScope; vehicleClass: TariffClass; /** Which vehicles the rates on screen are for: Diesel / Petrol (the normal rates) or CNG (its own rate card). */ fuel?: "petrol" | "cng"; onDirtyChange: (dirty: boolean) => void; onBusyChange: (busy: boolean) => void;
+function formOf(t: Tariff | null | undefined, brand: FareWorkspaceScope["brand"], service: WorkspaceService, cls: TariffClass): Form {
+  const f = emptyForm();
+  const ov = t?.brandOverrides?.[brand]?.[service]?.[cls];
+  if (!ov) return f;
+  for (const k of NUM_KEYS) f.v[k] = str(ov[k]);
+  for (const h of RENTAL_HOURS) {
+    const p = ov.rentalPackages?.[String(h)];
+    for (const { key } of PKG_FIELDS) f.pkg[String(h)]![key] = str(p?.[key]);
+  }
+  return f;
+}
+
+/** What a box needs before customers are quoted: a positive amount, or any amount including 0. Optional boxes have no need. */
+type Need = "positive" | "any";
+interface FieldDef { key: NumKey; label: string; unit: string; base: number | undefined; need?: Need; hint?: string }
+interface ExtraRow { label: string; unit: string; customer: FieldDef; partner: FieldDef }
+
+export default function BrandServiceFareWorkspace({ scope, vehicleClass, vehicleName, categoryId, cngEnabled, fuel = "petrol", onDirtyChange, onBusyChange }: {
+  scope: FareWorkspaceScope;
+  vehicleClass: TariffClass;
+  /** The vehicle chosen in the side menu (several vehicles can share one rate class). */
+  vehicleName?: string;
+  /** Its vehicle category id: older extra-charge rates are keyed by it. */
+  categoryId?: string;
+  /** Whether that vehicle offers CNG to customers (Vehicle categories → CNG available). */
+  cngEnabled?: boolean;
+  /** Diesel / Petrol (the normal rates) or CNG (its own rate card, One Way and Round Trip). */
+  fuel?: "petrol" | "cng";
+  onDirtyChange: (dirty: boolean) => void;
+  onBusyChange: (busy: boolean) => void;
 }) {
   const pricingAccess = useCan("pricing");
   const settingsEdit = useCanDo("Settings", "edit");
@@ -94,1080 +93,373 @@ export default function BrandServiceFareWorkspace({ scope, vehicleClass, fuel = 
   const { tariff: t, error: loadError } = useTariff();
   const { toast, show: showToast } = useToast(6000);
 
-  // Scope hierarchy selection (brand, service and vehicle category are all chosen on the page above the tabs)
-  const selectedBrand = scope.brand;
-  const selectedService = scope.service;
-  const selectedClass = vehicleClass;
-  const showCng = fuel === "cng" && (selectedService === "One Way" || selectedService === "Round Trip");
+  const brand = scope.brand;
+  const service = scope.service;
+  const cls = vehicleClass;
+  const showCng = fuel === "cng" && (service === "One Way" || service === "Round Trip");
+  const perDay = service === "Round Trip" || service === "Multicity";
 
-  // Form edit state
-  const [form, setForm] = useState<FormFields>(emptyForm);
-  const scopeBaseline = useRef<string>("");
+  const [form, setForm] = useState<Form>(emptyForm);
+  const baseline = useRef("");
   const openedVersion = useRef(0);
   const loadedScope = useRef("");
   const dirtyRef = useRef(false);
   const [busy, setBusy] = useState(false);
-
-  // Save Confirmation Modal
-  const [confirmSaveOpen, setConfirmSaveOpen] = useState(false);
-  const [saveReason, setSaveReason] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [reason, setReason] = useState("");
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Helper to load form values from current tariff for selected scope
-  const loadScopeValues = (
-    tariff: Tariff | null | undefined,
-    brand: ScopeBrand,
-    svc: WorkspaceService,
-    cls: TariffClass
-  ): FormFields => {
-    const f = emptyForm();
-    if (!tariff) return f;
-
-      const ov = tariff.brandOverrides?.[brand]?.[svc]?.[cls];
-      if (ov) {
-        for (const key of ['partnerWaitingPerHour','partnerHillCharge','partnerCarrierCharge','freeWaitingMinutes','waitingRoundingMinutes'] as const) f[key] = str(ov[key]);
-        f.waitingRoundingScope = ov.waitingRoundingScope ?? '';
-        f.taxTreatment = ov.taxTreatment ?? '';
-        f.customerRate = str(ov.customerRate);
-        f.partnerRate = str(ov.partnerRate);
-        f.customerBase = str(ov.customerBase);
-        f.partnerBase = str(ov.partnerBase);
-        f.minKm = str(ov.minKm);
-        f.minKmPerDay = str(ov.minKmPerDay);
-        f.customerBata = str(ov.customerBata);
-        f.partnerBata = str(ov.partnerBata);
-        f.cngCustomerRate = str(ov.cngCustomerRate);
-        f.cngPartnerRate = str(ov.cngPartnerRate);
-        f.cngCustomerBata = str(ov.cngCustomerBata);
-        f.cngPartnerBata = str(ov.cngPartnerBata);
-        f.cngExtraKmRate = str(ov.cngExtraKmRate);
-        f.cngMinKmPerDay = str(ov.cngMinKmPerDay);
-        f.extraKmRate = str(ov.extraKmRate);
-        f.waitingPerHour = str(ov.waitingPerHour);
-        f.hillCharge = str(ov.hillCharge);
-        f.carrierCharge = str(ov.carrierCharge);
-        f.minRentalHours = str(ov.minRentalHours);
-        if (ov.rentalPackages) {
-          for (const h of RENTAL_HOURS) {
-            const p = ov.rentalPackages[String(h)];
-            f.rentalCustomerFare[h] = str(p?.customerFare);
-            f.rentalPartnerPayout[h] = str(p?.partnerPayout);
-            f.rentalIncludedKm[h] = str(p?.includedKm);
-            f.rentalExtraKm[h] = str(p?.extraKmRate);
-            f.rentalExtraHour[h] = str(p?.extraHourRate);
-          }
-        }
-      }
-    return f;
-  };
-
-  const serializeForm = (f: FormFields): string => JSON.stringify(f);
-
-  // Initialize or re-sync form when tariff or scope changes
+  // Load the scope's saved values; a newer tariff only replaces the form while nothing is being edited.
   useEffect(() => {
     if (t === undefined) return;
-    const key = selectedBrand + ':' + selectedService + ':' + selectedClass;
+    const key = `${brand}:${service}:${cls}`;
     if (loadedScope.current === key && (t?.version ?? 0) < openedVersion.current) return;
     if (loadedScope.current === key && (dirtyRef.current || busy)) return;
     loadedScope.current = key;
     openedVersion.current = t?.version ?? 0;
-    const loaded = loadScopeValues(t, selectedBrand, selectedService, selectedClass);
+    const loaded = formOf(t, brand, service, cls);
     setForm(loaded);
-    scopeBaseline.current = serializeForm(loaded);
-  }, [t, selectedBrand, selectedService, selectedClass, busy]);
+    baseline.current = JSON.stringify(loaded);
+  }, [t, brand, service, cls, busy]);
 
-  const isDirty = serializeForm(form) !== scopeBaseline.current;
-
+  const isDirty = JSON.stringify(form) !== baseline.current;
   dirtyRef.current = isDirty;
   useEffect(() => { onDirtyChange(isDirty); onBusyChange(busy); }, [isDirty, busy, onDirtyChange, onBusyChange]);
-  useEffect(() => { const warn = (event: BeforeUnloadEvent) => { if (dirtyRef.current) { event.preventDefault(); event.returnValue = ''; } }; window.addEventListener('beforeunload', warn); return () => window.removeEventListener('beforeunload', warn); }, []);
+  useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => { if (dirtyRef.current) { event.preventDefault(); event.returnValue = ""; } };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, []);
 
-  // Field change handler
-  const setField = (key: keyof Omit<FormFields, "rentalCustomerFare" | "rentalPartnerPayout" | "rentalIncludedKm" | "rentalExtraKm" | "rentalExtraHour">, val: string) => {
-    setForm((prev) => ({ ...prev, [key]: val }));
+  const setValue = (key: NumKey, value: string) => setForm((f) => ({ ...f, v: { ...f.v, [key]: value } }));
+  const setPkg = (hours: number, key: PkgField, value: string) => setForm((f) => ({ ...f, pkg: { ...f.pkg, [String(hours)]: { ...f.pkg[String(hours)]!, [key]: value } } }));
+
+  // ── The values a blank box inherits (exactly as the server layers them) ─────────────────────────────────────────
+  const oneWay = t?.oneWay?.classes?.[cls] ?? (FALLS_BACK_TO_SUV(cls) ? t?.oneWay?.classes?.suv : undefined);
+  const roundTrip = t?.roundTrip?.classes?.[cls] ?? (FALLS_BACK_TO_SUV(cls) ? t?.roundTrip?.classes?.suv : undefined);
+  const card = service === "One Way" ? oneWay : roundTrip; // Multicity inherits the Round Trip card
+  const outstation = service === "One Way" ? outstationExtraFor(t, cls, "One Way") : perDay ? outstationExtraFor(t, cls, "Round Trip") : undefined;
+  const oldExtras = t?.extraCharges?.categories?.[categoryId ?? ""] ?? t?.extraCharges?.categories?.[`cat-${cls}`] ?? t?.extraCharges?.categories?.[cls];
+  const rentalMin = t?.rentalPackages?.[cls]?.minHours ?? DEFAULT_RENTAL_MIN_HOURS[cls];
+
+  const resolved = (def: FieldDef) => resolveRate(t, brand, service, cls, def.key, def.base);
+  const effective = (def: FieldDef): number | undefined => {
+    const own = form.v[def.key].trim();
+    if (own !== "") return Number.isFinite(Number(own)) ? Number(own) : undefined;
+    return resolved(def).value;
+  };
+  const meets = (def: FieldDef) => {
+    const n = effective(def);
+    return n !== undefined && Number.isFinite(n) && (def.need === "positive" ? n > 0 : n >= 0);
   };
 
-  const setRentalField = (hour: number, field: "customerFare" | "partnerPayout" | "includedKm" | "extraKm" | "extraHour", val: string) => {
-    setForm((prev) => {
-      const mapKey = field === "customerFare" ? "rentalCustomerFare"
-        : field === "partnerPayout" ? "rentalPartnerPayout"
-        : field === "includedKm" ? "rentalIncludedKm"
-        : field === "extraKm" ? "rentalExtraKm"
-        : "rentalExtraHour";
-      return {
-        ...prev,
-        [mapKey]: { ...prev[mapKey], [hour]: val },
-      };
+  const allowance = perDay ? "₹/day" : "₹/trip";
+  const f = (key: NumKey, label: string, unit: string, base: number | undefined, need?: Need, hint?: string): FieldDef => ({ key, label, unit, base, need, hint });
+
+  // ── Rate boxes for the service on screen ──────────────────────────────────────────────────────────────────────
+  let customer: FieldDef[] = [], partner: FieldDef[] = [];
+  const minHoursDef = f("minRentalHours", "Minimum hours", "hours", rentalMin, undefined, "Shorter packages are not offered");
+  if (showCng) {
+    customer = [
+      f("cngCustomerRate", "CNG price per km", "₹/km", card?.cng?.customerRate, "positive"),
+      f("cngCustomerBata", "CNG driver allowance", allowance, card?.cng?.customerBata, "any"),
+      f("cngExtraKmRate", "CNG extra km price", "₹/km", card?.cng?.extraKmRate, undefined, "Blank = CNG price per km"),
+      ...(service === "Round Trip" ? [f("cngMinKmPerDay", "CNG minimum km per day", "km/day", card?.cng?.minKmPerDay, undefined, "Blank = normal minimum")] : []),
+    ];
+    partner = [
+      f("cngPartnerRate", "CNG partner pay per km", "₹/km", card?.cng?.partnerRate, "positive"),
+      f("cngPartnerBata", "CNG partner driver allowance", allowance, card?.cng?.partnerBata, "any"),
+    ];
+  } else if (service === "One Way" || perDay) {
+    customer = [
+      f("customerRate", "Price per km", "₹/km", card?.customerRate, "positive"),
+      f("customerBata", "Driver allowance", allowance, card?.customerBata, "any"),
+      service === "One Way"
+        ? f("minKm", "Minimum km charged", "km", t?.oneWay?.minKm ?? 130)
+        : f("minKmPerDay", "Minimum km per day", "km/day", roundTrip?.minKmPerDay, "positive"),
+      f("extraKmRate", "Extra km price", "₹/km", outstation?.extraKmRate ?? card?.customerRate, undefined, "Blank = price per km"),
+    ];
+    partner = [
+      f("partnerRate", "Partner pay per km", "₹/km", card?.partnerRate, "positive"),
+      f("partnerBata", "Partner driver allowance", allowance, card?.partnerBata, "any"),
+    ];
+  } else if (service === "Airport Taxi") {
+    customer = [
+      f("customerBase", "Base fare", "₹", t?.airport?.customerBase, "positive"),
+      f("minKm", "Km included in base fare", "km", undefined, "positive"),
+      f("extraKmRate", "Extra km price", "₹/km", undefined, "positive"),
+    ];
+    partner = [
+      f("partnerBase", "Partner base payout", "₹", t?.airport?.partnerBase, "positive"),
+      f("partnerRate", "Partner pay per extra km", "₹/km", undefined, "any"),
+    ];
+  } else if (service === "Local Rental") {
+    customer = [minHoursDef];
+  }
+
+  // ── Extra charges: customer and partner side by side (a charge with no partner amount cannot be billed automatically) ──
+  const extras: ExtraRow[] = [
+    ...(service !== "Local Rental" ? [{
+      label: "Waiting", unit: "₹/hour",
+      customer: f("waitingPerHour", "Waiting", "₹/hour", oldExtras?.customer?.waitingPerHour ?? (Number.isFinite(outstation?.waitingPerHour) ? outstation?.waitingPerHour : undefined)),
+      partner: f("partnerWaitingPerHour", "Partner waiting", "₹/hour", oldExtras?.partner?.waitingPerHour),
+    }] : []),
+    { label: "Hill station", unit: "₹/trip", customer: f("hillCharge", "Hill station", "₹/trip", oldExtras?.customer?.hill), partner: f("partnerHillCharge", "Partner hill", "₹/trip", oldExtras?.partner?.hill) },
+    { label: "Roof carrier", unit: "₹/trip", customer: f("carrierCharge", "Roof carrier", "₹/trip", oldExtras?.customer?.carrier), partner: f("partnerCarrierCharge", "Partner roof carrier", "₹/trip", oldExtras?.partner?.carrier) },
+  ];
+
+  // ── Rental packages: own value → shared (All brands) value → base package ─────────────────────────────────────
+  const minHours = effective(minHoursDef) ?? rentalMin;
+  const pkgValue = (hours: number, key: PkgField): { own: string; inherited: number | undefined } => {
+    const own = form.pkg[String(hours)]?.[key]?.trim() ?? "";
+    const shared = brand !== "common" ? t?.brandOverrides?.common?.[service]?.[cls]?.rentalPackages?.[String(hours)]?.[key] : undefined;
+    return { own, inherited: shared ?? t?.rentalPackages?.[cls]?.packages?.[String(hours)]?.[key] };
+  };
+  const pkgOffered = (hours: number) => {
+    if (hours < minHours) return false;
+    if (t?.rentalPackages?.[cls]?.packages?.[String(hours)]?.enabled === false) return false;
+    return PKG_FIELDS.every(({ key }) => {
+      const { own, inherited } = pkgValue(hours, key);
+      const n = own !== "" ? Number(own) : inherited;
+      return n !== undefined && Number.isFinite(n) && n > 0;
     });
   };
 
-  // Revert / Clear override
-  const handleClearOverride = (field: keyof Omit<FormFields, "rentalCustomerFare" | "rentalPartnerPayout" | "rentalIncludedKm" | "rentalExtraKm" | "rentalExtraHour">) => {
-    setField(field, "");
-  };
+  // ── Readiness: what customers are actually offered with these values ──────────────────────────────────────────
+  const missing = [...customer, ...partner].filter((d) => d.need && !meets(d)).map((d) => d.label);
+  const offeredPackages = service === "Local Rental" ? RENTAL_HOURS.filter(pkgOffered) : [];
+  const engineOff = !!t && !t.enabled && (service === "One Way" || service === "Round Trip" || service === "Airport Taxi");
+  const cngStarted = showCng && [...customer, ...partner].some((d) => effective(d) !== undefined);
+  const extraProblems = extras.filter((r) => effective(r.customer) !== undefined && effective(r.partner) === undefined).map((r) => r.label);
+  const oldRules = OLD_RULE_KEYS.filter((k) => t?.brandOverrides?.[brand]?.[service]?.[cls]?.[k] !== undefined);
+  const sharedOldRules = brand !== "common" ? OLD_RULE_KEYS.filter((k) => t?.brandOverrides?.common?.[service]?.[cls]?.[k] !== undefined) : [];
 
-  // Compute common baseline reference values for comparison
-  // Baselines exactly as the server inherits them (Innova uses the SUV card until it has its own). resolveRate then layers
-  // the Common service setting and the brand's own on top.
-  const commonOW = t?.oneWay?.classes?.[selectedClass] ?? (FALLS_BACK_TO_SUV(selectedClass) ? t?.oneWay?.classes?.suv : undefined);
-  // Round Trip uses its own card; Multicity inherits the Round Trip card (a multi-day tour is billed the same way).
-  const commonRT: { customerRate?: number; partnerRate?: number; minKmPerDay?: number; customerBata?: number; partnerBata?: number } | undefined =
-    t?.roundTrip?.classes?.[selectedClass] ?? (FALLS_BACK_TO_SUV(selectedClass) ? t?.roundTrip?.classes?.suv : undefined);
-  const commonExtras = selectedService === "One Way" ? outstationExtraFor(t, selectedClass, "One Way")
-    : selectedService === "Round Trip" || selectedService === "Multicity" ? outstationExtraFor(t, selectedClass, "Round Trip")
-    : undefined;
-  const commonAirport = t?.airport;
-  const commonExtraCharges = t?.extraCharges?.categories?.[`cat-${selectedClass}`] || t?.extraCharges?.categories?.[selectedClass];
+  let status: { tone: "ok" | "warn" | "off"; text: ReactNode };
+  if (service === "Local Rental") {
+    status = offeredPackages.length
+      ? { tone: "ok", text: <>Customers are offered the {offeredPackages.join(", ")} hour package{offeredPackages.length > 1 ? "s" : ""}.</> }
+      : { tone: "warn", text: <>No package is offered yet. Fill every box of a package (at or above {minHours} hours).</> };
+  } else if (showCng) {
+    status = !cngStarted ? { tone: "off", text: <>CNG is not offered for this vehicle. Fill the CNG rates to offer it, or leave them blank.</> }
+      : missing.length ? { tone: "warn", text: <>CNG is not offered until these are filled: {missing.join(", ")}.</> }
+      : !cngEnabled ? { tone: "warn", text: <>CNG rates are ready, but this vehicle does not offer CNG. Turn on <strong>CNG available</strong> for it in Vehicle categories.</> }
+      : { tone: "ok", text: <>Customers can choose CNG or Diesel / Petrol for this vehicle.</> };
+  } else if (missing.length) {
+    status = { tone: "warn", text: <>Customers are not quoted these fares until these are filled: {missing.join(", ")}.{service === "Airport Taxi" ? " Until then airport trips use the vehicle category fare." : ""}</> };
+  } else {
+    status = { tone: "ok", text: <>Ready. New quotes for this vehicle use these fares.</> };
+  }
 
-  // Helper for single field effective evaluation
-  const evalField = (field: keyof BrandFareOverride, commonVal: number | undefined): RateValue => {
-    return resolveRate(t, selectedBrand, selectedService, selectedClass, field, commonVal);
-  };
-
-  // Save execution
+  // ── Save ──────────────────────────────────────────────────────────────────────────────────────────────────────
+  const invalid = NUM_KEYS.filter((k) => form.v[k].trim() !== "" && !(Number.isFinite(Number(form.v[k])) && Number(form.v[k]) >= 0));
   const executeSave = async () => {
     if (!canEdit || busy || !!loadError || t === undefined) return;
-    if (saveReason.trim().length < 5) {
-      setSaveError("Please provide a short change reason (at least 5 characters) for audit tracking.");
-      return;
-    }
-
+    if (reason.trim().length < 5) return setSaveError("Add a short reason (at least 5 characters).");
     setBusy(true);
     setSaveError(null);
-
     try {
-        // Saving a Brand Override for the selected Brand -> Service -> Category
-        const overrideData: Record<string, unknown> = {};
-        for (const key of ['partnerWaitingPerHour','partnerHillCharge','partnerCarrierCharge','freeWaitingMinutes','waitingRoundingMinutes'] as const) overrideData[key] = form[key].trim() ? Number(form[key]) : null;
-        overrideData.waitingRoundingScope = form.waitingRoundingScope || null;
-        overrideData.taxTreatment = form.taxTreatment || null;
-
-        if (form.customerRate.trim()) overrideData.customerRate = Number(form.customerRate);
-        if (form.partnerRate.trim()) overrideData.partnerRate = Number(form.partnerRate);
-        if (form.customerBase.trim()) overrideData.customerBase = Number(form.customerBase);
-        if (form.partnerBase.trim()) overrideData.partnerBase = Number(form.partnerBase);
-        if (form.minKm.trim()) overrideData.minKm = Number(form.minKm);
-        if (form.minKmPerDay.trim()) overrideData.minKmPerDay = Number(form.minKmPerDay);
-        if (form.customerBata.trim()) overrideData.customerBata = Number(form.customerBata);
-        if (form.partnerBata.trim()) overrideData.partnerBata = Number(form.partnerBata);
-        for (const key of ['cngCustomerRate','cngPartnerRate','cngCustomerBata','cngPartnerBata','cngExtraKmRate','cngMinKmPerDay'] as const) if (form[key].trim()) overrideData[key] = Number(form[key]);
-        if (form.extraKmRate.trim()) overrideData.extraKmRate = Number(form.extraKmRate);
-        if (form.waitingPerHour.trim()) overrideData.waitingPerHour = Number(form.waitingPerHour);
-        if (form.hillCharge.trim()) overrideData.hillCharge = Number(form.hillCharge);
-        if (form.carrierCharge.trim()) overrideData.carrierCharge = Number(form.carrierCharge);
-        if (form.minRentalHours.trim()) overrideData.minRentalHours = Number(form.minRentalHours);
-
-        if (selectedService === "Local Rental") {
-          const rentalPkgs: Record<string, unknown> = {};
-          for (const h of RENTAL_HOURS) {
-            const cFare = form.rentalCustomerFare[h]?.trim();
-            const pPayout = form.rentalPartnerPayout[h]?.trim();
-            const incKm = form.rentalIncludedKm[h]?.trim();
-            const exKm = form.rentalExtraKm[h]?.trim();
-            const exHr = form.rentalExtraHour[h]?.trim();
-
-            if (cFare || pPayout || incKm || exKm || exHr) {
-              rentalPkgs[String(h)] = {
-                ...(cFare ? { customerFare: Number(cFare) } : {}),
-                ...(pPayout ? { partnerPayout: Number(pPayout) } : {}),
-                ...(incKm ? { includedKm: Number(incKm) } : {}),
-                ...(exKm ? { extraKmRate: Number(exKm) } : {}),
-                ...(exHr ? { extraHourRate: Number(exHr) } : {}),
-              };
-            }
-          }
-          overrideData.rentalPackages = rentalPkgs;
+      const data: Record<string, unknown> = {};
+      for (const k of NUM_KEYS) data[k] = form.v[k].trim() ? Number(form.v[k]) : null; // null removes this scope's own value
+      for (const k of OLD_RULE_KEYS) data[k] = null; // waiting / tax rules are now one shared setting
+      let packages = 0;
+      if (service === "Local Rental") {
+        const rentalPackages: Record<string, Partial<Record<PkgField, number>>> = {};
+        for (const h of RENTAL_HOURS) {
+          const row: Partial<Record<PkgField, number>> = {};
+          for (const { key } of PKG_FIELDS) { const v = form.pkg[String(h)]![key].trim(); if (v) row[key] = Number(v); }
+          if (Object.keys(row).length) { rentalPackages[String(h)] = row; packages++; }
         }
-
-        const isClearingAll = Object.values(overrideData).every(value => value === null);
-        // Null explicitly removes an individual override; omission would preserve the previous value.
-        for (const key of ['customerRate','partnerRate','customerBase','partnerBase','minKm','minKmPerDay','customerBata','partnerBata','cngCustomerRate','cngPartnerRate','cngCustomerBata','cngPartnerBata','cngExtraKmRate','cngMinKmPerDay','extraKmRate','waitingPerHour','hillCharge','carrierCharge','minRentalHours']) {
-          if (!(key in overrideData)) overrideData[key] = null;
-        }
-
-        const saved = await saveTariffSection({
-          section: "brandOverride",
-          brand: selectedBrand,
-          service: selectedService,
-          class: selectedClass,
-          expectedVersion: openedVersion.current,
-          reason: saveReason.trim(),
-          clearOverride: isClearingAll,
-          data: overrideData,
-        });
-        openedVersion.current = saved.version;
-
+        data.rentalPackages = rentalPackages;
+      }
+      const clearOverride = NUM_KEYS.every((k) => data[k] === null) && packages === 0;
+      const saved = await saveTariffSection({ section: "brandOverride", brand, service, class: cls, expectedVersion: openedVersion.current, reason: reason.trim(), clearOverride, data });
+      openedVersion.current = saved.version;
       dirtyRef.current = false;
-      scopeBaseline.current = serializeForm(form);
-      setConfirmSaveOpen(false);
-      setSaveReason("");
-      showToast(`Successfully saved fare settings for ${scopeSummary}. Saved for this scope. Existing agreed bookings retain their pricing.`);
+      baseline.current = JSON.stringify(form);
+      setConfirmOpen(false);
+      setReason("");
+      showToast(`Saved for ${where}. Bookings already made keep their price.`);
     } catch (err) {
-      setSaveError(err instanceof ActionError ? err.message : "Failed to save settings. Please try again.");
+      setSaveError(err instanceof ActionError ? err.message : "Not saved. Please try again.");
     } finally {
       setBusy(false);
     }
   };
 
-  const toggleSharedEngine = async () => {
-    if (!canEdit || busy || isDirty || !t || selectedBrand !== 'common') return;
-    const reason = window.prompt('Reason for changing the shared pricing engine switch (affects every brand):');
-    if (!reason) return;
-    if (reason.trim().length < 5) return showToast('Enter a change reason of at least five characters.', 'error');
+  const toggleEngine = async () => {
+    if (!canEdit || busy || isDirty || !t) return;
+    const why = window.prompt(`Reason for turning the pricing engine ${t.enabled ? "off" : "on"} (affects every brand):`);
+    if (!why) return;
+    if (why.trim().length < 5) return showToast("Enter a reason of at least five characters.", "error");
     setBusy(true);
     try {
-      await saveTariffConfig({ keepSavedRates: true, enabled: !t.enabled, reason: reason.trim(), expectedVersion: openedVersion.current });
-      showToast('Shared engine switch saved. All saved rates were retained.');
-    } catch (error) { showToast(error instanceof ActionError ? error.message : 'The engine switch was not saved.', 'error'); }
+      await saveTariffConfig({ keepSavedRates: true, enabled: !t.enabled, reason: why.trim(), expectedVersion: t.version ?? 0 });
+      showToast(`Pricing engine turned ${t.enabled ? "off" : "on"}. Every saved rate was kept.`);
+    } catch (error) { showToast(error instanceof ActionError ? error.message : "The switch was not saved.", "error"); }
     finally { setBusy(false); }
   };
 
-  const scopeSummary = `${selectedBrand === "common" ? "Common (Shared Baseline)" : BRAND_LABELS[selectedBrand]} → ${selectedService} → ${CLASS_LABEL[selectedClass]}`;
-  const brandOverrideActive = selectedBrand !== "common" && !!t?.brandOverrides?.[selectedBrand]?.[selectedService]?.[selectedClass];
+  const brandName = brand === "common" ? "All brands (shared)" : BRAND_LABELS[brand];
+  const vehicle = vehicleName || CLASS_LABEL[cls];
+  const where = `${brandName} → ${serviceLabel(service)} → ${vehicle}${showCng ? " (CNG)" : ""}`;
+  const ownPrices = brand !== "common" && !!t?.brandOverrides?.[brand]?.[service]?.[cls];
+
+  const box = (def: FieldDef) => {
+    const r = resolved(def);
+    const others = brand === "common" ? getInheritingBrands(t, service, cls, def.key).overridden.length : 0;
+    return (
+      <RateField key={def.key} def={def} value={form.v[def.key]} inherited={r.value} common={brand === "common"} othersOwn={others}
+        onChange={(v) => setValue(def.key, v)} />
+    );
+  };
 
   return (
-    <div className="ds-fare-workspace">
+    <div className="ds-fare-workspace space-y-3">
       <Toast toast={toast} />
+      {loadError && <div className="ds-error" role="alert"><Icon name="circle-alert" /> Fares could not be loaded: {loadError}</div>}
 
-      {selectedService === "Multicity" && <p className="ds-note mb-4">Prepare Multicity quotes in Bookings → Enquiries &amp; quotes → Price Multicity quote. These rates set distance charges, daily minimum kilometres and daily driver bata. Unset fields inherit the shared baseline. Saving a quote does not create a booking.</p>}
-      {selectedService === "Airport Taxi" && <p className="ds-note mb-4">Airport fare = base fare for the included KM + extra KM rate for every KM beyond. Customer base, partner base, included KM, extra KM rate and partner extra KM rate must all be set for a vehicle class before quotes use them; until then airport trips use the vehicle-category fare.</p>}
-
-      {loadError && (
-        <div className="ds-error mb-4" role="alert">
-          <Icon name="circle-alert" /> Tariff configuration could not be loaded: {loadError}
+      {engineOff && (
+        <div className="ds-error flex flex-wrap items-center justify-between gap-2" role="status">
+          <span><Icon name="triangle-alert" /> The pricing engine is <strong>off</strong>. Customers are charged the older vehicle category fares for {serviceLabel(service)}, not these.</span>
+          {canEdit && brand === "common" ? <Button size="sm" variant="primary" disabled={busy || isDirty} onClick={toggleEngine}>Turn pricing engine on</Button> : <small>Turn it on under Brand → All brands (shared).</small>}
         </div>
       )}
 
-      {t && !t.enabled && <p className="ds-note mb-4">The confirmed tariff engine is switched off. These scoped rates are saved but its booking paths currently use the existing category fallback. The shared engine switch is available under Common.</p>}
-      {selectedBrand === 'common' && t && <details className="ds-panel ds-panel-pad mb-4"><summary className="cursor-pointer text-[13px] font-bold">Pricing engine: {t.enabled ? "on" : "off"}</summary><p className="text-[12px] text-muted mb-2">{t.enabled ? 'Enabled' : 'Disabled'} — changing this switch retains all rates.</p>{canEdit && <Button disabled={busy || isDirty} onClick={toggleSharedEngine}>{t.enabled ? 'Disable confirmed tariff' : 'Enable confirmed tariff'}</Button>}</details>}
-
-      {/* Persistent Scope Summary Banner */}
-      <div className="ds-panel ds-panel-pad mb-4 bg-slate-50 border-l-4 border-l-brand flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[12px] font-bold uppercase tracking-wider text-muted">You are editing:</span>
-          <span className="text-[14px] font-bold text-ink">{scopeSummary}</span>
-          {isDirty && (
-            <Badge tone="amber">
-              <Icon name="clock" size={14} /> Unsaved changes
-            </Badge>
-          )}
-          {selectedBrand === "common" ? (
-            <Badge tone="neutral">Shared by all brands</Badge>
-          ) : brandOverrideActive ? (
-            <Badge tone="blue">Own prices for this brand</Badge>
-          ) : (
-            <Badge tone="neutral">Using common prices</Badge>
-          )}
+      {/* What is being edited, whether it is ready, and Save */}
+      <div className="ds-panel ds-panel-pad flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <strong className="text-[14px] text-ink">{where}</strong>
+            {isDirty ? <Badge tone="amber">Unsaved changes</Badge> : brand === "common" ? <Badge>Shared by all brands</Badge> : ownPrices ? <Badge tone="blue">Has its own prices</Badge> : <Badge>Uses shared prices</Badge>}
+          </div>
+          <p className={`text-[12px] mt-1 ${status.tone === "ok" ? "text-ok" : status.tone === "warn" ? "text-bad" : "text-muted"}`} role="status">
+            <Icon name={status.tone === "ok" ? "circle-check" : status.tone === "warn" ? "circle-alert" : "info"} size={13} /> {status.text}
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          {canEdit && (
-            <Button
-              variant="primary"
-              disabled={!isDirty || busy || !!loadError}
-              onClick={() => setConfirmSaveOpen(true)}
-            >
-              <Icon name="check" size={14} /> Save changes
-            </Button>
-          )}
-        </div>
+        {canEdit && <Button variant="primary" icon="check" disabled={!isDirty || busy || !!loadError || invalid.length > 0} onClick={() => { setSaveError(null); setConfirmOpen(true); }}>Save changes</Button>}
       </div>
+      {invalid.length > 0 && <p className="ds-error" role="alert">Enter numbers of 0 or more only.</p>}
 
-      {/* Scope Editor Controls */}
-      <section className="ds-panel ds-panel-pad"><fieldset disabled={!canEdit || busy || !!loadError} className="min-w-0">
-        <h3 className="text-[16px] font-bold text-ink mb-1">
-          {selectedService} Rates for {CLASS_LABEL[selectedClass]}
-        </h3>
-        <p className="text-[12px] text-muted mb-4">
-          {selectedBrand === "common"
-            ? "Editing Common rates sets the fallback baseline for all brands."
-            : `Set brand-specific overrides for ${BRAND_LABELS[selectedBrand]}. Unset fields cleanly inherit from Common rates.`}
+      <fieldset disabled={!canEdit || busy || !!loadError} className="min-w-0 space-y-3">
+        <p className="text-[12px] text-muted">
+          {brand === "common" ? "These are the shared prices. Every brand uses them unless it has its own." : `Blank boxes use the shared price shown in grey. Type a value to give ${BRAND_LABELS[brand]} its own price.`}
         </p>
 
-        {/* SERVICE-SPECIFIC CONTROLS */}
-        {showCng && (
-          <p className="text-[12px] text-muted mb-3">Showing the <strong>CNG</strong> rate card. Switch Fuel to Diesel / Petrol above to edit the normal rates.</p>
-        )}
-        {!showCng && selectedService === "One Way" && (
-          <div className="space-y-3">
-            <FareGroup title="Customer price" hint="What the customer pays.">
-            <RateField
-              label="Price per km"
-              unit="₹/km"
-              value={form.customerRate}
-              commonValue={commonOW?.customerRate}
-              resolved={evalField("customerRate", commonOW?.customerRate)}
-              scopeBrand={selectedBrand}
-              onChange={(v) => setField("customerRate", v)}
-              onClear={() => handleClearOverride("customerRate")}
-              tariff={t}
-              service={selectedService}
-              cls={selectedClass}
-              fieldKey="customerRate"
-            />
-            <RateField
-              label="Driver allowance"
-              unit="₹/trip"
-              value={form.customerBata}
-              commonValue={commonOW?.customerBata}
-              resolved={evalField("customerBata", commonOW?.customerBata)}
-              scopeBrand={selectedBrand}
-              onChange={(v) => setField("customerBata", v)}
-              onClear={() => handleClearOverride("customerBata")}
-              tariff={t}
-              service={selectedService}
-              cls={selectedClass}
-              fieldKey="customerBata"
-              zeroAllowed
-            />
-            <RateField
-              label="Minimum km charged"
-              unit="km"
-              value={form.minKm}
-              commonValue={t?.oneWay?.minKm ?? 130}
-              resolved={evalField("minKm", t?.oneWay?.minKm ?? 130)}
-              scopeBrand={selectedBrand}
-              onChange={(v) => setField("minKm", v)}
-              onClear={() => handleClearOverride("minKm")}
-              tariff={t}
-              service={selectedService}
-              cls={selectedClass}
-              fieldKey="minKm"
-            />
-            <RateField
-              label="Extra km price"
-              unit="₹/km"
-              value={form.extraKmRate}
-              commonValue={commonExtras?.extraKmRate ?? commonOW?.customerRate}
-              resolved={evalField("extraKmRate", commonExtras?.extraKmRate ?? commonOW?.customerRate)}
-              scopeBrand={selectedBrand}
-              onChange={(v) => setField("extraKmRate", v)}
-              onClear={() => handleClearOverride("extraKmRate")}
-              tariff={t}
-              service={selectedService}
-              cls={selectedClass}
-              fieldKey="extraKmRate"
-            />
-            </FareGroup>
-            <FareGroup title="Partner pay" hint="What the driver or fleet partner gets.">
-            <RateField
-              label="Partner pay per km"
-              unit="₹/km"
-              value={form.partnerRate}
-              commonValue={commonOW?.partnerRate}
-              resolved={evalField("partnerRate", commonOW?.partnerRate)}
-              scopeBrand={selectedBrand}
-              onChange={(v) => setField("partnerRate", v)}
-              onClear={() => handleClearOverride("partnerRate")}
-              tariff={t}
-              service={selectedService}
-              cls={selectedClass}
-              fieldKey="partnerRate"
-            />
-            <RateField
-              label="Partner driver allowance"
-              unit="₹/trip"
-              value={form.partnerBata}
-              commonValue={commonOW?.partnerBata}
-              resolved={evalField("partnerBata", commonOW?.partnerBata)}
-              scopeBrand={selectedBrand}
-              onChange={(v) => setField("partnerBata", v)}
-              onClear={() => handleClearOverride("partnerBata")}
-              tariff={t}
-              service={selectedService}
-              cls={selectedClass}
-              fieldKey="partnerBata"
-              zeroAllowed
-            />
-            </FareGroup>
-            <FareGroup title="Extra charges" hint="Paid on top, only when they happen.">
-            <RateField
-              label="Waiting price"
-              unit="₹/hour"
-              value={form.waitingPerHour}
-              commonValue={commonExtraCharges?.customer?.waitingPerHour ?? commonExtras?.waitingPerHour}
-              resolved={evalField("waitingPerHour", commonExtraCharges?.customer?.waitingPerHour ?? commonExtras?.waitingPerHour)}
-              scopeBrand={selectedBrand}
-              onChange={(v) => setField("waitingPerHour", v)}
-              onClear={() => handleClearOverride("waitingPerHour")}
-              tariff={t}
-              service={selectedService}
-              cls={selectedClass}
-              fieldKey="waitingPerHour"
-              zeroAllowed
-            />
-            <RateField
-              label="Hill charge"
-              unit="₹/trip"
-              value={form.hillCharge}
-              commonValue={commonExtraCharges?.customer?.hill}
-              resolved={evalField("hillCharge", commonExtraCharges?.customer?.hill)}
-              scopeBrand={selectedBrand}
-              onChange={(v) => setField("hillCharge", v)}
-              onClear={() => handleClearOverride("hillCharge")}
-              tariff={t}
-              service={selectedService}
-              cls={selectedClass}
-              fieldKey="hillCharge"
-              zeroAllowed
-            />
-            <RateField
-              label="Roof carrier charge"
-              unit="₹/trip"
-              value={form.carrierCharge}
-              commonValue={commonExtraCharges?.customer?.carrier}
-              resolved={evalField("carrierCharge", commonExtraCharges?.customer?.carrier)}
-              scopeBrand={selectedBrand}
-              onChange={(v) => setField("carrierCharge", v)}
-              onClear={() => handleClearOverride("carrierCharge")}
-              tariff={t}
-              service={selectedService}
-              cls={selectedClass}
-              fieldKey="carrierCharge"
-              zeroAllowed
-            />
-            </FareGroup>
-          </div>
-        )}
+        {service === "One Way" && !showCng && <p className="ds-note">One Way trips of 40 km or less do not use these rates: they use the Pickup &amp; Drop city fares (Service → Pickup &amp; Drop), or the vehicle category fare where a city has none.</p>}
+        {service === "Multicity" && <p className="ds-note">Multicity is booked on the websites and quoted by the travel desk with these rates. Blank boxes use the Round Trip rates.</p>}
 
-        {selectedService === "Airport Taxi" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <RateField
-              label="Airport Customer Base Fare"
-              unit="₹ base"
-              value={form.customerBase}
-              commonValue={commonAirport?.customerBase}
-              resolved={evalField("customerBase", commonAirport?.customerBase)}
-              scopeBrand={selectedBrand}
-              onChange={(v) => setField("customerBase", v)}
-              onClear={() => handleClearOverride("customerBase")}
-              tariff={t}
-              service={selectedService}
-              cls={selectedClass}
-              fieldKey="customerBase"
-            />
-            <RateField
-              label="Airport Partner Base Payout"
-              unit="₹ base"
-              value={form.partnerBase}
-              commonValue={commonAirport?.partnerBase}
-              resolved={evalField("partnerBase", commonAirport?.partnerBase)}
-              scopeBrand={selectedBrand}
-              onChange={(v) => setField("partnerBase", v)}
-              onClear={() => handleClearOverride("partnerBase")}
-              tariff={t}
-              service={selectedService}
-              cls={selectedClass}
-              fieldKey="partnerBase"
-            />
-            <RateField
-              label="Included KM in Base Fare"
-              unit="km"
-              value={form.minKm}
-              commonValue={undefined}
-              resolved={evalField("minKm", undefined)}
-              scopeBrand={selectedBrand}
-              onChange={(v) => setField("minKm", v)}
-              onClear={() => handleClearOverride("minKm")}
-              tariff={t}
-              service={selectedService}
-              cls={selectedClass}
-              fieldKey="minKm"
-            />
-            <RateField
-              label="Customer Extra KM Rate"
-              unit="₹/km"
-              value={form.extraKmRate}
-              commonValue={undefined}
-              resolved={evalField("extraKmRate", undefined)}
-              scopeBrand={selectedBrand}
-              onChange={(v) => setField("extraKmRate", v)}
-              onClear={() => handleClearOverride("extraKmRate")}
-              tariff={t}
-              service={selectedService}
-              cls={selectedClass}
-              fieldKey="extraKmRate"
-            />
-            <RateField
-              label="Partner Extra KM Rate"
-              unit="₹/km"
-              value={form.partnerRate}
-              commonValue={undefined}
-              resolved={evalField("partnerRate", undefined)}
-              scopeBrand={selectedBrand}
-              onChange={(v) => setField("partnerRate", v)}
-              onClear={() => handleClearOverride("partnerRate")}
-              tariff={t}
-              service={selectedService}
-              cls={selectedClass}
-              fieldKey="partnerRate"
-              zeroAllowed
-            />
-            <RateField
-              label="Waiting Charge"
-              unit="₹/hour"
-              value={form.waitingPerHour}
-              commonValue={commonExtraCharges?.customer?.waitingPerHour}
-              resolved={evalField("waitingPerHour", commonExtraCharges?.customer?.waitingPerHour)}
-              scopeBrand={selectedBrand}
-              onChange={(v) => setField("waitingPerHour", v)}
-              onClear={() => handleClearOverride("waitingPerHour")}
-              tariff={t}
-              service={selectedService}
-              cls={selectedClass}
-              fieldKey="waitingPerHour"
-              zeroAllowed
-            />
-            <RateField
-              label="Luggage / Roof Carrier Charge"
-              unit="₹/trip"
-              value={form.carrierCharge}
-              commonValue={commonExtraCharges?.customer?.carrier}
-              resolved={evalField("carrierCharge", commonExtraCharges?.customer?.carrier)}
-              scopeBrand={selectedBrand}
-              onChange={(v) => setField("carrierCharge", v)}
-              onClear={() => handleClearOverride("carrierCharge")}
-              tariff={t}
-              service={selectedService}
-              cls={selectedClass}
-              fieldKey="carrierCharge"
-              zeroAllowed
-            />
-          </div>
+        {customer.length > 0 && service !== "Local Rental" && (
+          <FareGroup title={showCng ? "CNG — customer pays" : "Customer pays"}>{customer.map(box)}</FareGroup>
         )}
+        {partner.length > 0 && <FareGroup title={showCng ? "CNG — partner gets" : "Partner gets"}>{partner.map(box)}</FareGroup>}
 
-        {selectedService === "Local Rental" && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <RateField
-                label="Minimum Rental Duration"
-                unit="hours"
-                value={form.minRentalHours}
-                commonValue={t?.rentalPackages?.[selectedClass]?.minHours ?? DEFAULT_RENTAL_MIN_HOURS[selectedClass]}
-                resolved={evalField("minRentalHours", t?.rentalPackages?.[selectedClass]?.minHours ?? DEFAULT_RENTAL_MIN_HOURS[selectedClass])}
-                scopeBrand={selectedBrand}
-                onChange={(v) => setField("minRentalHours", v)}
-                onClear={() => handleClearOverride("minRentalHours")}
-                tariff={t}
-                service={selectedService}
-                cls={selectedClass}
-                fieldKey="minRentalHours"
-              />
-              <RateField
-                label="Hill Station Charge"
-                unit="₹/trip"
-                value={form.hillCharge}
-                commonValue={commonExtraCharges?.customer?.hill}
-                resolved={evalField("hillCharge", commonExtraCharges?.customer?.hill)}
-                scopeBrand={selectedBrand}
-                onChange={(v) => setField("hillCharge", v)}
-                onClear={() => handleClearOverride("hillCharge")}
-                tariff={t}
-                service={selectedService}
-                cls={selectedClass}
-                fieldKey="hillCharge"
-                zeroAllowed
-              />
-              <RateField
-                label="Roof Carrier Charge"
-                unit="₹/trip"
-                value={form.carrierCharge}
-                commonValue={commonExtraCharges?.customer?.carrier}
-                resolved={evalField("carrierCharge", commonExtraCharges?.customer?.carrier)}
-                scopeBrand={selectedBrand}
-                onChange={(v) => setField("carrierCharge", v)}
-                onClear={() => handleClearOverride("carrierCharge")}
-                tariff={t}
-                service={selectedService}
-                cls={selectedClass}
-                fieldKey="carrierCharge"
-                zeroAllowed
-              />
-            </div>
-
-            <h4 className="text-[14px] font-bold text-ink mt-3">Rental Packages by Duration</h4>
-            <div className="overflow-x-auto">
+        {service === "Local Rental" && (
+          <FareGroup title="Hourly packages">
+            {customer.map(box)}
+            <div className="overflow-x-auto" style={{ gridColumn: "1 / -1" }}>
               <table className="ds-table w-full text-[13px]">
-                <thead>
-                  <tr>
-                    <th>PACKAGE</th>
-                    <th>CUSTOMER FARE (₹)</th>
-                    <th>PARTNER PAYOUT (₹)</th>
-                    <th>INCLUDED KM</th>
-                    <th>EXTRA KM RATE (₹/km)</th>
-                    <th>EXTRA HOUR RATE (₹/hr)</th>
-                  </tr>
-                </thead>
+                <thead><tr><th>PACKAGE</th>{PKG_FIELDS.map((p) => <th key={p.key}>{p.label.toUpperCase()} ({p.unit})</th>)}</tr></thead>
                 <tbody>
                   {RENTAL_HOURS.map((h) => {
-                    const commonPkg = { ...t?.rentalPackages?.[selectedClass]?.packages?.[String(h)], ...t?.brandOverrides?.common?.[selectedService]?.[selectedClass]?.rentalPackages?.[String(h)] };
+                    const below = h < minHours;
                     return (
-                      <tr key={h}>
-                        <td>
-                          <strong>{h} Hours</strong>
-                          <small className="block text-muted">{commonPkg?.includedKm ?? h * 10} km</small>
-                        </td>
-                        <td>
-                          <input
-                            type="number"
-                            className="ds-input text-right w-24"
-                            placeholder={str(commonPkg?.customerFare) || "—"}
-                            value={form.rentalCustomerFare[h] ?? ""}
-                            onChange={(e) => setRentalField(h, "customerFare", e.target.value)}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            type="number"
-                            className="ds-input text-right w-24"
-                            placeholder={str(commonPkg?.partnerPayout) || "—"}
-                            value={form.rentalPartnerPayout[h] ?? ""}
-                            onChange={(e) => setRentalField(h, "partnerPayout", e.target.value)}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            type="number"
-                            className="ds-input text-right w-20"
-                            placeholder={str(commonPkg?.includedKm) || String(h * 10)}
-                            value={form.rentalIncludedKm[h] ?? ""}
-                            onChange={(e) => setRentalField(h, "includedKm", e.target.value)}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            type="number"
-                            className="ds-input text-right w-20"
-                            placeholder={str(commonPkg?.extraKmRate) || "—"}
-                            value={form.rentalExtraKm[h] ?? ""}
-                            onChange={(e) => setRentalField(h, "extraKm", e.target.value)}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            type="number"
-                            className="ds-input text-right w-20"
-                            placeholder={str(commonPkg?.extraHourRate) || "—"}
-                            value={form.rentalExtraHour[h] ?? ""}
-                            onChange={(e) => setRentalField(h, "extraHour", e.target.value)}
-                          />
-                        </td>
+                      <tr key={h} style={below ? { opacity: 0.55 } : undefined}>
+                        <td><strong>{h} hours</strong><small className="block text-muted">{below ? "Below minimum — not offered" : pkgOffered(h) ? "Offered" : "Not complete"}</small></td>
+                        {PKG_FIELDS.map(({ key, label }) => {
+                          const { own, inherited } = pkgValue(h, key);
+                          return <td key={key}><input type="number" min={0} className="ds-input text-right w-24" aria-label={`${h} hours ${label}`} placeholder={str(inherited) || "—"} value={own} onChange={(e) => setPkg(h, key, e.target.value)} /></td>;
+                        })}
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
             </div>
-          </div>
-        )}
-
-        {!showCng && (selectedService === "Multicity" || selectedService === "Round Trip") && (
-          <div className="space-y-3">
-            <FareGroup title="Customer price" hint="What the customer pays.">
-              <RateField
-                label="Price per km"
-                unit="₹/km"
-                value={form.customerRate}
-                commonValue={commonRT?.customerRate}
-                resolved={evalField("customerRate", commonRT?.customerRate)}
-                scopeBrand={selectedBrand}
-                onChange={(v) => setField("customerRate", v)}
-                onClear={() => handleClearOverride("customerRate")}
-                tariff={t}
-                service={selectedService}
-                cls={selectedClass}
-                fieldKey="customerRate"
-              />
-              <RateField
-                label="Driver allowance"
-                unit="₹/trip"
-                value={form.customerBata}
-                commonValue={commonRT?.customerBata}
-                resolved={evalField("customerBata", commonRT?.customerBata)}
-                scopeBrand={selectedBrand}
-                onChange={(v) => setField("customerBata", v)}
-                onClear={() => handleClearOverride("customerBata")}
-                tariff={t}
-                service={selectedService}
-                cls={selectedClass}
-                fieldKey="customerBata"
-                zeroAllowed
-              />
-              <RateField
-                label="Minimum km per day"
-                unit="km/day"
-                value={form.minKmPerDay}
-                commonValue={commonRT?.minKmPerDay}
-                resolved={evalField("minKmPerDay", commonRT?.minKmPerDay)}
-                scopeBrand={selectedBrand}
-                onChange={(v) => setField("minKmPerDay", v)}
-                onClear={() => handleClearOverride("minKmPerDay")}
-                tariff={t}
-                service={selectedService}
-                cls={selectedClass}
-                fieldKey="minKmPerDay"
-              />
-              <RateField
-                label="Extra km price"
-                unit="₹/km"
-                value={form.extraKmRate}
-                commonValue={commonExtras?.extraKmRate ?? commonRT?.customerRate}
-                resolved={evalField("extraKmRate", commonExtras?.extraKmRate ?? commonRT?.customerRate)}
-                scopeBrand={selectedBrand}
-                onChange={(v) => setField("extraKmRate", v)}
-                onClear={() => handleClearOverride("extraKmRate")}
-                tariff={t}
-                service={selectedService}
-                cls={selectedClass}
-                fieldKey="extraKmRate"
-              />
-            </FareGroup>
-            <FareGroup title="Partner pay" hint="What the driver or fleet partner gets.">
-              <RateField
-                label="Partner pay per km"
-                unit="₹/km"
-                value={form.partnerRate}
-                commonValue={commonRT?.partnerRate}
-                resolved={evalField("partnerRate", commonRT?.partnerRate)}
-                scopeBrand={selectedBrand}
-                onChange={(v) => setField("partnerRate", v)}
-                onClear={() => handleClearOverride("partnerRate")}
-                tariff={t}
-                service={selectedService}
-                cls={selectedClass}
-                fieldKey="partnerRate"
-              />
-              <RateField
-                label="Partner driver allowance"
-                unit="₹/trip"
-                value={form.partnerBata}
-                commonValue={commonRT?.partnerBata}
-                resolved={evalField("partnerBata", commonRT?.partnerBata)}
-                scopeBrand={selectedBrand}
-                onChange={(v) => setField("partnerBata", v)}
-                onClear={() => handleClearOverride("partnerBata")}
-                tariff={t}
-                service={selectedService}
-                cls={selectedClass}
-                fieldKey="partnerBata"
-                zeroAllowed
-              />
-            </FareGroup>
-            <FareGroup title="Extra charges" hint="Paid on top, only when they happen.">
-              <RateField
-                label="Waiting price"
-                unit="₹/hour"
-                value={form.waitingPerHour}
-                commonValue={commonExtras?.waitingPerHour}
-                resolved={evalField("waitingPerHour", commonExtras?.waitingPerHour)}
-                scopeBrand={selectedBrand}
-                onChange={(v) => setField("waitingPerHour", v)}
-                onClear={() => handleClearOverride("waitingPerHour")}
-                tariff={t}
-                service={selectedService}
-                cls={selectedClass}
-                fieldKey="waitingPerHour"
-                zeroAllowed
-              />
-              <RateField
-                label="Hill charge"
-                unit="₹/trip"
-                value={form.hillCharge}
-                commonValue={commonExtraCharges?.customer?.hill}
-                resolved={evalField("hillCharge", commonExtraCharges?.customer?.hill)}
-                scopeBrand={selectedBrand}
-                onChange={(v) => setField("hillCharge", v)}
-                onClear={() => handleClearOverride("hillCharge")}
-                tariff={t}
-                service={selectedService}
-                cls={selectedClass}
-                fieldKey="hillCharge"
-                zeroAllowed
-              />
-              <RateField
-                label="Roof carrier charge"
-                unit="₹/trip"
-                value={form.carrierCharge}
-                commonValue={commonExtraCharges?.customer?.carrier}
-                resolved={evalField("carrierCharge", commonExtraCharges?.customer?.carrier)}
-                scopeBrand={selectedBrand}
-                onChange={(v) => setField("carrierCharge", v)}
-                onClear={() => handleClearOverride("carrierCharge")}
-                tariff={t}
-                service={selectedService}
-                cls={selectedClass}
-                fieldKey="carrierCharge"
-                zeroAllowed
-              />
-            </FareGroup>
-          </div>
-        )}
-        {showCng && (
-          <FareGroup title="CNG rate card" hint="Fill the first four rate boxes to offer CNG." defaultOpen>
-            <p className="text-[12px] text-muted">
-              Customers then choose CNG or Diesel on the vehicle card. Leave all boxes blank for no CNG option. The extra km price falls back to the CNG price per km.</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <RateField
-              label="CNG price per km"
-              unit="₹/km"
-              value={form.cngCustomerRate}
-              commonValue={undefined}
-              resolved={evalField("cngCustomerRate", undefined)}
-              scopeBrand={selectedBrand}
-              onChange={(v) => setField("cngCustomerRate", v)}
-              onClear={() => handleClearOverride("cngCustomerRate")}
-              tariff={t}
-              service={selectedService}
-              cls={selectedClass}
-              fieldKey="cngCustomerRate"
-            />
-            <RateField
-              label="CNG driver allowance"
-              unit="₹/trip"
-              value={form.cngCustomerBata}
-              commonValue={undefined}
-              resolved={evalField("cngCustomerBata", undefined)}
-              scopeBrand={selectedBrand}
-              onChange={(v) => setField("cngCustomerBata", v)}
-              onClear={() => handleClearOverride("cngCustomerBata")}
-              tariff={t}
-              service={selectedService}
-              cls={selectedClass}
-              fieldKey="cngCustomerBata"
-              zeroAllowed
-            />
-            <RateField
-              label="CNG partner pay per km"
-              unit="₹/km"
-              value={form.cngPartnerRate}
-              commonValue={undefined}
-              resolved={evalField("cngPartnerRate", undefined)}
-              scopeBrand={selectedBrand}
-              onChange={(v) => setField("cngPartnerRate", v)}
-              onClear={() => handleClearOverride("cngPartnerRate")}
-              tariff={t}
-              service={selectedService}
-              cls={selectedClass}
-              fieldKey="cngPartnerRate"
-            />
-            <RateField
-              label="CNG partner driver allowance"
-              unit="₹/trip"
-              value={form.cngPartnerBata}
-              commonValue={undefined}
-              resolved={evalField("cngPartnerBata", undefined)}
-              scopeBrand={selectedBrand}
-              onChange={(v) => setField("cngPartnerBata", v)}
-              onClear={() => handleClearOverride("cngPartnerBata")}
-              tariff={t}
-              service={selectedService}
-              cls={selectedClass}
-              fieldKey="cngPartnerBata"
-              zeroAllowed
-            />
-            <RateField
-              label="CNG extra km price"
-              unit="₹/km"
-              value={form.cngExtraKmRate}
-              commonValue={undefined}
-              resolved={evalField("cngExtraKmRate", undefined)}
-              scopeBrand={selectedBrand}
-              onChange={(v) => setField("cngExtraKmRate", v)}
-              onClear={() => handleClearOverride("cngExtraKmRate")}
-              tariff={t}
-              service={selectedService}
-              cls={selectedClass}
-              fieldKey="cngExtraKmRate"
-            />
-            {selectedService === "Round Trip" && (
-              <RateField
-                label="CNG minimum km per day"
-                unit="km"
-                value={form.cngMinKmPerDay}
-                commonValue={undefined}
-                resolved={evalField("cngMinKmPerDay", undefined)}
-                scopeBrand={selectedBrand}
-                onChange={(v) => setField("cngMinKmPerDay", v)}
-                onClear={() => handleClearOverride("cngMinKmPerDay")}
-                tariff={t}
-                service={selectedService}
-                cls={selectedClass}
-                fieldKey="cngMinKmPerDay"
-              />
-            )}
-            </div>
           </FareGroup>
         )}
-        <div id="fare-extra-settings">
-          <FareGroup title="Advanced: waiting rules and partner extras" hint="Most people never need this." defaultOpen={false}>
-          <p className="text-[12px] text-muted mb-3">Blank fields inherit the common settings. Waiting must have free minutes, a rounding interval, rounding scope and tax treatment configured before automatic approval.</p>
-          <div className="ds-form-grid">
-            {([
-              ['partnerWaitingPerHour','Partner waiting payout','₹/hour',commonExtraCharges?.partner?.waitingPerHour],
-              ['partnerHillCharge','Partner hill payout','₹/trip',commonExtraCharges?.partner?.hill],
-              ['partnerCarrierCharge','Partner carrier payout','₹/trip',commonExtraCharges?.partner?.carrier],
-              ['freeWaitingMinutes','Free waiting at each stop','minutes',t?.extraCharges?.freeWaitingMinutes],
-              ['waitingRoundingMinutes','Waiting rounding interval','minutes',t?.extraCharges?.waitingRoundingMinutes],
-            ] as const).map(([key,label,unit,baseline]) => <RateField key={key} label={label} unit={unit} value={form[key]} commonValue={baseline} resolved={evalField(key,baseline)} scopeBrand={selectedBrand} onChange={value => setField(key,value)} onClear={() => handleClearOverride(key)} tariff={t} service={selectedService} cls={selectedClass} fieldKey={key} zeroAllowed={key !== 'waitingRoundingMinutes'} />)}
-            <label className="ds-field"><span>Waiting rounding scope</span><select className="ds-select" value={form.waitingRoundingScope} onChange={e => setField('waitingRoundingScope',e.target.value)}><option value="">Inherit common ({t?.brandOverrides?.common?.[selectedService]?.[selectedClass]?.waitingRoundingScope ?? t?.extraCharges?.waitingRoundingScope ?? 'not configured'})</option><option value="per_stop">Each stop separately</option><option value="combined">Combined chargeable waiting</option></select></label>
-            <label className="ds-field"><span>Tax on extra charges</span><select className="ds-select" value={form.taxTreatment} onChange={e => setField('taxTreatment',e.target.value)}><option value="">Inherit common ({t?.brandOverrides?.common?.[selectedService]?.[selectedClass]?.taxTreatment ?? t?.extraCharges?.taxTreatment ?? 'not configured'})</option><option value="no_gst">No GST</option><option value="tariff_gst">Apply tariff GST</option></select></label>
-          </div>
-          </FareGroup>
-        </div>
-      </fieldset></section>
 
-      {/* Save Confirmation Dialog */}
-      {confirmSaveOpen && (
-        <Modal
-          title={`Confirm Changes for ${scopeSummary}`}
-          onClose={() => setConfirmSaveOpen(false)}
-          busy={busy}
-        >
-          <div className="space-y-4">
-            <p className="text-[13px] text-muted">
-              Review the exact scope and changes before updating the authoritative tariff.
-            </p>
-
-            <div className="p-3 bg-slate-50 border rounded text-[13px]">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <span className="text-muted block text-[11px] font-bold">BRAND</span>
-                  <strong>{selectedBrand === "common" ? "Common (Shared Baseline)" : BRAND_LABELS[selectedBrand]}</strong>
-                </div>
-                <div>
-                  <span className="text-muted block text-[11px] font-bold">SERVICE</span>
-                  <strong>{selectedService}</strong>
-                </div>
-                <div>
-                  <span className="text-muted block text-[11px] font-bold">VEHICLE CATEGORY</span>
-                  <strong>{CLASS_LABEL[selectedClass]}</strong>
-                </div>
-                <div>
-                  <span className="text-muted block text-[11px] font-bold">TARIFF VERSION</span>
-                  <strong>v{t?.version ?? 0} → v{(t?.version ?? 0) + 1}</strong>
-                </div>
-              </div>
+        {showCng ? (
+          <p className="text-[12px] text-muted">Extra charges are the same for CNG and Diesel / Petrol. Set them with Fuel → Diesel / Petrol.</p>
+        ) : (
+          <section className="ds-fare-group" aria-label="Extra charges">
+            <div className="ds-fare-group__head"><strong>Extra charges</strong><span>Added only when they happen on the trip. Blank = not decided, 0 = free.</span></div>
+            <div className="overflow-x-auto px-[14px] pb-[14px]">
+              <table className="ds-table w-full text-[13px]">
+                <thead><tr><th>CHARGE</th><th>CUSTOMER PAYS</th><th>PARTNER GETS</th></tr></thead>
+                <tbody>
+                  {extras.map((r) => (
+                    <tr key={r.label} data-rate-field={r.customer.key}>
+                      <td><strong>{r.label}</strong><small className="block text-muted">{r.unit}</small></td>
+                      {[r.customer, r.partner].map((d) => {
+                        const own = form.v[d.key];
+                        const inherited = resolved(d).value;
+                        return <td key={d.key}><input type="number" min={0} className="ds-input text-right w-28" aria-label={`${d.label} ${r.unit}`} placeholder={inherited !== undefined ? String(inherited) : "Not set"} value={own} onChange={(e) => setValue(d.key, e.target.value)} /></td>;
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {extraProblems.length > 0 && <p className="text-[12px] text-bad mt-2" role="status"><Icon name="circle-alert" size={13} /> Add the partner amount for {extraProblems.join(", ")}. Without it the charge waits for office review.</p>}
             </div>
+          </section>
+        )}
 
-            {selectedBrand === "common" && (
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded text-[12px] text-blue-900">
-                <Icon name="info" size={14} className="inline mr-1" />
-                Updating the <strong>Common Baseline</strong> affects all brands that do not have explicit overrides.
-              </div>
-            )}
+        {(oldRules.length > 0 || sharedOldRules.length > 0) && (
+          <p className="ds-note" role="status">
+            {oldRules.length > 0
+              ? <>This selection still has its own older waiting / tax rules. Saving here removes them so the shared <strong>Rules for extra charges</strong> below apply.</>
+              : <>All brands (shared) → {serviceLabel(service)} → {CLASS_LABEL[cls]} still has older waiting / tax rules. Open it and save once so the shared <strong>Rules for extra charges</strong> apply.</>}
+          </p>
+        )}
+      </fieldset>
 
-            <label className="ds-field">
-              <span>Change Reason (Required for audit history, min 5 chars)</span>
-              <input
-                type="text"
-                className="ds-input"
-                placeholder="e.g. Seasonal diesel price adjustment for People Taxi sedan drops"
-                value={saveReason}
-                onChange={(e) => setSaveReason(e.target.value)}
-              />
-            </label>
+      {brand === "common" && t?.enabled && (service === "One Way" || service === "Round Trip" || service === "Airport Taxi") && canEdit && (
+        <p className="text-[12px] text-muted">Pricing engine: on. <button type="button" className="underline" disabled={busy || isDirty} onClick={toggleEngine}>Turn off</button> (customers would be charged the older vehicle category fares).</p>
+      )}
 
-            {saveError && (
-              <div className="ds-error" role="alert">
-                <Icon name="circle-alert" /> {saveError}
-              </div>
-            )}
-
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="secondary" onClick={() => setConfirmSaveOpen(false)} disabled={busy}>
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                onClick={executeSave}
-                disabled={busy || !!loadError || saveReason.trim().length < 5}
-              >
-                {busy ? "Saving Tariff..." : "Confirm & Save"}
-              </Button>
-            </div>
-          </div>
+      {confirmOpen && (
+        <Modal title="Save fares" onClose={() => !busy && setConfirmOpen(false)} busy={busy}
+          footer={<><Button onClick={() => setConfirmOpen(false)} disabled={busy}>Cancel</Button><Button variant="primary" loading={busy} disabled={reason.trim().length < 5} onClick={executeSave}>Save</Button></>}>
+          <p className="text-[13px] text-ink mb-2"><strong>{where}</strong></p>
+          <p className="text-[12px] text-muted mb-3">
+            {brand === "common" ? "Shared prices: every brand without its own price changes too." : `Only ${BRAND_LABELS[brand]} changes.`} New quotes use the new prices; bookings already made keep theirs.
+          </p>
+          <label className="ds-field"><span>Reason for change</span><input className="ds-input" value={reason} maxLength={300} placeholder="e.g. Diesel price increase" onChange={(e) => setReason(e.target.value)} /></label>
+          {saveError && <div className="ds-error mt-2" role="alert"><Icon name="circle-alert" /> {saveError}</div>}
         </Modal>
       )}
     </div>
   );
 }
 
-/** A titled, collapsible group of related fields, so the page reads as a few short sections instead of one long wall of boxes. */
-function FareGroup({ title, hint, children, defaultOpen = true }: { title: string; hint: string; children: ReactNode; defaultOpen?: boolean }) {
+function FareGroup({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <details className="ds-fare-group" open={defaultOpen}>
-      <summary>
-        <strong>{title}</strong>
-        <span>{hint}</span>
-      </summary>
+    <section className="ds-fare-group" aria-label={title}>
+      <div className="ds-fare-group__head"><strong>{title}</strong></div>
       <div className="ds-fare-group__body">{children}</div>
-    </details>
+    </section>
   );
 }
 
-/** Reusable individual rate field with explicit source badges and inheritance tracking */
-function RateField({
-  label,
-  unit,
-  value,
-  commonValue,
-  resolved,
-  scopeBrand,
-  onChange,
-  onClear,
-  tariff,
-  service,
-  cls,
-  fieldKey,
-  zeroAllowed,
-}: {
-  label: string;
-  unit: string;
-  value: string;
-  commonValue: number | undefined;
-  resolved: RateValue;
-  scopeBrand: ScopeBrand;
-  onChange: (v: string) => void;
-  onClear: () => void;
-  tariff: Tariff | null | undefined;
-  service: WorkspaceService;
-  cls: TariffClass;
-  fieldKey: keyof BrandFareOverride;
-  zeroAllowed?: boolean;
+/** One rate box. Grey placeholder = the value it inherits; the line below says where the value comes from. */
+function RateField({ def, value, inherited, common, othersOwn, onChange }: {
+  def: FieldDef; value: string; inherited: number | undefined; common: boolean; othersOwn: number; onChange: (v: string) => void;
 }) {
-  const isOverridden = scopeBrand !== "common" && value.trim() !== "";
-  const inherits = getInheritingBrands(tariff, service, cls, fieldKey);
-
+  const own = value.trim() !== "";
+  const note = common
+    ? othersOwn > 0 ? `${othersOwn} brand${othersOwn === 1 ? " has" : "s have"} its own price` : def.hint ?? "Used by all brands"
+    : own ? `Own price: ${inr(Number(value))}` : inherited !== undefined ? `Shared price: ${inr(inherited)}` : def.hint ?? "Not set";
   return (
-    <div data-rate-field={fieldKey} className="ds-field p-2.5 border border-line rounded-lg bg-white">
-      <div className="flex items-center justify-between gap-1 mb-1">
-        <span className="text-[12px] font-bold text-ink">{label}</span>
-        <span className="text-[11px] text-muted">{unit}</span>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <input
-          type="number"
-          className="ds-input flex-1 font-semibold"
-          placeholder={resolved.value !== undefined ? String(resolved.value) : "Not configured"}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-        />
-        {scopeBrand !== "common" && isOverridden && (
-          <Button size="sm" variant="ghost" title="Revert to common baseline" onClick={onClear}>
-            <Icon name="rotate-ccw" size={13} />
-          </Button>
-        )}
-      </div>
-
-      <p className="mt-1 text-[11px] leading-tight text-muted">
-        {scopeBrand === "common"
-          ? inherits.overridden.length > 0
-            ? `${inherits.overridden.length} brand${inherits.overridden.length === 1 ? "" : "s"} use their own price`
-            : "Used by all brands"
-          : isOverridden
-            ? `Own price for this brand: ${inr(Number(value))}`
-            : `Using the common price: ${resolved.value !== undefined ? inr(resolved.value) : "not set"}`}
-      </p>
-    </div>
+    <label data-rate-field={def.key} className="ds-field p-2.5 border border-line rounded-lg bg-white">
+      <span className="flex items-center justify-between gap-1">
+        <span className="text-[12px] font-bold text-ink">{def.label}{def.need ? <span className="text-bad"> *</span> : null}</span>
+        <span className="text-[11px] text-muted">{def.unit}</span>
+      </span>
+      <span className="flex items-center gap-2">
+        <input type="number" min={0} className="ds-input flex-1 font-semibold" placeholder={inherited !== undefined ? String(inherited) : "Not set"} value={value} onChange={(e) => onChange(e.target.value)} />
+        {!common && own && <Button size="sm" variant="ghost" title="Use the shared price" aria-label={`Use the shared ${def.label}`} onClick={(e) => { e.preventDefault(); onChange(""); }}><Icon name="rotate-ccw" size={13} /></Button>}
+      </span>
+      <small className="mt-1 text-[11px] leading-tight text-muted">{note}</small>
+    </label>
   );
 }

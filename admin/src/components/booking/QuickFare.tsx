@@ -110,8 +110,8 @@ const locLabel = (l: MasterLocation) => [l.name, l.area && l.area !== l.name ? l
 
 /** The built-in services: the platform's trip types, offered before any configured service. */
 export const TRIP_SERVICES: { key: string; tripType: QuickTrip["tripType"]; label: string; multicity?: boolean; local?: boolean }[] = [
-  { key: "One Way", tripType: "One Way", label: "Outstation · One Way" },
-  { key: "Round Trip", tripType: "Round Trip", label: "Outstation · Round Trip" },
+  { key: "One Way", tripType: "One Way", label: "One Way" },
+  { key: "Round Trip", tripType: "Round Trip", label: "Round Trip" },
   // Multicity is priced from the Round Trip rates (the tariff inherits them), so it uses that trip type.
   { key: "Multicity", tripType: "Round Trip", label: "Multicity", multicity: true },
   { key: "Local Rental", tripType: "Local Rental", label: "Hourly Rental" },

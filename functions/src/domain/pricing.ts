@@ -28,7 +28,9 @@ function vehicleTypeAliases(...labels: string[]): string[] {
 export function mapCategory(id: string, d: Record<string, any>): RideCategory | null {
   const f = d.fare && typeof d.fare === 'object' ? d.fare : {};
   const perKmRate = num(f.perKmRate);
-  if (!str(d.name) || perKmRate <= 0) return null; // unpriceable — skip
+  // A category without the older per-km fare is still listed: fares now come from Service & Fare Settings (tariff_v2).
+  // Where only the older category fare could price a trip, priceBooking refuses it instead of charging ₹0.
+  if (!str(d.name)) return null;
   const waitingPerHour = num(f.waitingChargePerHour);
   return {
     id,

@@ -22,7 +22,7 @@ import Services from "./pages/Services";
 import TourPackages from "./pages/TourPackages";
 import Locations from "./pages/Locations";
 import LocalTaxi from "./pages/LocalTaxi";
-import Pricing, { CATEGORIES_VIEW, MORE_SETTINGS_VIEW, type PricingView } from "./pages/Pricing";
+import Pricing, { CATEGORIES_VIEW, type PricingView } from "./pages/Pricing";
 import Support from "./pages/Support";
 import Offers from "./pages/Offers";
 import Reviews from "./pages/Reviews";
@@ -171,14 +171,12 @@ function AdminShell({ session }: { session: AdminSession }) {
   useEffect(() => startStaffSession(session.access.staffCode ?? ""), [session.user.uid, session.access.staffCode]);
   useEffect(() => { logActivity("View page", meta.title, currentPage === "booking-detail" ? selectedBookingId ?? "" : meta.title); }, [currentPage, selectedBookingId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Service & Fare Settings as it was left when Fixed route fares opened (fareReturn), and what it restores on mount (pricingView).
-  const fareReturn = useRef<PricingView | null>(null);
+  // What Service & Fare Settings restores on mount (pricingView).
   const pricingView = useRef<PricingView | null>(null);
 
   const navigate = (page: string, tab?: string) => {
     if (!canLeaveFareWorkspace()) return;
     ({ page, tab } = resolveAdminDestination(page, tab));
-    if (page !== "fare-rules" && page !== "extra-charges") fareReturn.current = null;
     setBookingsTab(tab);
     setActivePage(page);
     setSelectedBookingId(null);
@@ -296,8 +294,6 @@ function AdminShell({ session }: { session: AdminSession }) {
             onNavigate={navigate}
             restore={pricingView.current ?? CATEGORIES_VIEW}
             onRestored={() => { pricingView.current = null; }}
-            onOpenFareRules={(view) => { fareReturn.current = view; navigate("fare-rules"); }}
-            onOpenExtraCharges={(view) => { fareReturn.current = view; navigate("extra-charges"); }}
           />
         );
 
@@ -340,8 +336,6 @@ function AdminShell({ session }: { session: AdminSession }) {
             onNavigate={navigate}
             restore={pricingView.current}
             onRestored={() => { pricingView.current = null; }}
-            onOpenFareRules={(view) => { fareReturn.current = view; navigate("fare-rules"); }}
-            onOpenExtraCharges={(view) => { fareReturn.current = view; navigate("extra-charges"); }}
           />
         );
       case "local-taxi":

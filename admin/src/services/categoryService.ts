@@ -241,9 +241,7 @@ export async function saveCategory(form: CategoryForm, existing: VehicleCategory
 }
 
 export async function setCategoryStatus(cat: VehicleCategory, status: "Active" | "Inactive"): Promise<void> {
-  if (status === "Active" && !(Number(cat.fare?.perKmRate) > 0)) {
-    throw new CategoryActionError("Set a per-km rate before activating this category.");
-  }
+  // Fares come from Service & Fare Settings → Fares (by rate class), so a category no longer needs its own per-km rate to be active.
   try {
     await updateDoc(doc(db, COLLECTIONS.VEHICLE_CATEGORIES, cat.id), { status, updatedAt: serverTimestamp() });
   } catch (err) {

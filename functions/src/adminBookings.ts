@@ -201,7 +201,7 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
     }).filter((c): c is NonNullable<typeof c> => c !== null);
     if (!configured.length) throw new HttpsError('failed-precondition', NO_BOOKABLE_CATEGORIES);
     const category = configured.find((c) => c.id === input.categoryId);
-    if (!category) throw new HttpsError('failed-precondition', 'This vehicle category is not bookable (inactive or no per-km rate).');
+    if (!category) throw new HttpsError('failed-precondition', 'This vehicle category is not bookable (it is inactive or has no name).');
     let service = serviceName(pickup, drop, route.distanceKm, tripType), serviceId = '';
     const allServices: ServiceMasterDoc[] = servicesSnap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
     if (serviceSnap) {

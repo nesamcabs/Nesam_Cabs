@@ -39,7 +39,9 @@ function vehicleTypeAliases(...labels: string[]): string[] {
 export function mapCategory(id: string, d: DocumentData): RideCategory | null {
   const f = d.fare && typeof d.fare === 'object' ? d.fare : {};
   const perKmRate = num(f.perKmRate);
-  if (!str(d.name) || perKmRate <= 0) return null; // unpriceable — skip
+  // Listed even without the older per-km fare: the server prices it from Service & Fare Settings. With no per-km fare
+  // no local estimate is shown for it (see hasEstimate); the server's quote is the only price.
+  if (!str(d.name)) return null;
   const waitingPerHour = num(f.waitingChargePerHour);
   return {
     id,
@@ -257,6 +259,9 @@ export interface FareInput {
   discount?: number;
   adjustment?: FareAdjustment | null;
 }
+
+/** Whether a local estimate can be shown for a category: only when it still has the older per-km fare. Otherwise the server quote is the price. */
+export const hasEstimate = (category: RideCategory): boolean => category.fare.perKmRate > 0;
 
 export function calculateFare({ category, route, tripType, pickupTime, discount = 0, adjustment = null }: FareInput): FareBreakdown {
   const f = category.fare;

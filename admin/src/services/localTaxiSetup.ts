@@ -2,7 +2,7 @@
 // settings (Pricing → Local fares, i.e. tariff_v2.localPickupDrop) so Local Taxi and the existing tariff agree.
 // Nothing here saves anything by itself: the admin reviews the result and the server validates every save.
 import type { VehicleCategory } from "../types";
-import { CLASS_LABEL, TARIFF_CLASSES, type LocalFare, type Tariff, type TariffClass, validLocalFare } from "./tariffService";
+import { CLASS_LABEL, tariffClassOfCategory, type LocalFare, type Tariff, type TariffClass, validLocalFare } from "./tariffService";
 import type { FareConfig, Position } from "./localTaxiService";
 
 // ── Boundary from OpenStreetMap ───────────────────────────────────────────────────────────────────────────────────
@@ -60,17 +60,7 @@ export async function osmBoundary(name: string, maxPoints = 300): Promise<OsmBou
 
 // ── Current fare settings → Local Taxi ────────────────────────────────────────────────────────────────────────────
 /** The tariff class a vehicle category is priced as (same rule as the Pricing page). */
-export function tariffClassOf(c: VehicleCategory): TariffClass {
-  const saved = String((c as unknown as { tariffClass?: unknown }).tariffClass ?? "").toLowerCase() as TariffClass;
-  if (TARIFF_CLASSES.includes(saved)) return saved;
-  const name = (c.name || "").toLowerCase();
-  if (/crysta/.test(name)) return "crysta";
-  if (/innova/.test(name)) return "innova";
-  const seats = c.seatingCapacity || 0;
-  if (/(suv|xuv|ertiga|marazzo|carens|xl6|scorpio|fortuner|muv|mpv)/.test(name)) return seats >= 7 || /7\s*\+\s*1/.test(name) ? "suv7" : "suv";
-  if (/(sedan|dzire|etios|aura|verna|mini|hatch|micro|swift|wagon|alto|auto)/.test(name)) return "sedan";
-  return seats >= 7 ? "suv7" : seats >= 6 ? "suv" : "sedan";
-}
+export const tariffClassOf = (c: VehicleCategory): TariffClass => tariffClassOfCategory(c);
 
 export interface LocalCity { id: string; name: string }
 export const localCities = (t: Tariff | null | undefined): LocalCity[] => Object.entries(t?.localPickupDrop ?? {}).map(([id, v]) => ({ id, name: v.cityName || id }));

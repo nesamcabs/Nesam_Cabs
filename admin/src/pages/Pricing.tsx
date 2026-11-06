@@ -11,7 +11,6 @@ import {
 import { useCan, useCanDo } from "../components/AccessContext";
 import { InlineModals, Modal, Toast, useToast } from "../components/Feedback";
 import { Badge, Button, DataTable, EmptyState, Icon, PageHeader, toneForStatus } from "../components/ui";
-import { StageBar } from "../components/ui/ListKit";
 import type { IconName } from "../components/ui/Icon";
 import MenuButton from "../components/ui/MenuButton";
 import FixedRouteFares from "../components/FixedRouteFares";
@@ -19,20 +18,15 @@ import LocalFares from "../components/LocalFares";
 import "./pricingReference.css";
 import VehicleCategoriesPage from "./VehicleCategories";
 import BrandServiceFareWorkspace from "../components/BrandServiceFareWorkspace";
+import ExtraChargeRulesCard from "../components/ExtraChargeRulesCard";
 import { registerFareWorkspaceGuard } from "../services/fareWorkspaceGuard";
-import { BRANDS, BRAND_LABELS, BRAND_SUPPORTED_SERVICES, CLASS_LABEL, TARIFF_CLASSES, WORKSPACE_SERVICES, PICKUP_DROP, serviceLabel, type FareWorkspaceScope, type TariffClass } from "../services/tariffService";
-import { EstimateList, TripFields, emptyTrip, estimateAll, useQuickData, validateTrip, type CategoryEstimate, type QuickTrip } from "../components/booking/QuickFare";
+import { BRANDS, BRAND_LABELS, BRAND_SUPPORTED_SERVICES, CLASS_LABEL, TARIFF_CLASSES, WORKSPACE_SERVICES, PICKUP_DROP, serviceLabel, tariffClassOfCategory, type FareWorkspaceScope, type TariffClass } from "../services/tariffService";
 import { GST_STATES } from "../domain/gstStates";
 import { directoryCities, directoryZones } from "../domain/placeDirectory";
 import DisplayMarkupCard from "../components/DisplayMarkupCard";
 import { refDateTime } from "../domain/officeStage";
 
-type Tab = "Brand & service fares" | "Booking availability" | "Cab types" | "Pricing rules" | "More settings" | "GST calculation" | "Service areas";
-const MAIN_TABS = [
-  { id: "Booking availability", label: "Booking availability", icon: "toggle-right" },
-  { id: "Cab types", label: "Cab types", icon: "car-front" },
-  { id: "Pricing rules", label: "Pricing rules", icon: "indian-rupee" },
-] as const;
+type Tab = "Brand & service fares" | "Booking availability" | "Cab types" | "Pricing rules" | "GST calculation";
 type Sel = { state: string; city: string; area: string };
 const locationKey = (value: string) => value.trim().toLocaleLowerCase();
 const stateKey = (value: string) => {
@@ -67,18 +61,14 @@ const Ta = ({ children }: { children: ReactNode }) => <span className="block tex
 /** Inside Cab types: the customer-visibility rules, or the master Vehicle Categories management. */
 export type CabSection = "Customer cab rules" | "Vehicle categories";
 export type PricingView = { tab: Tab; sel: Sel; filter: (typeof STATUS_FILTERS)[number]; scrollY: number; fareScope?: FareWorkspaceScope; fareClass?: TariffClass; cabSection?: CabSection; pickupDrop?: boolean };
-/** Where the older Vehicle Categories entry points land: Service & Fare Settings → Cab types → Vehicle categories. */
+/** Where the older Vehicle Categories entry points land: Service & Fare Settings → Vehicles → Vehicle categories. */
 export const CATEGORIES_VIEW: PricingView = { tab: "Cab types", sel: { state: "", city: "", area: "" }, filter: "All", scrollY: 0, cabSection: "Vehicle categories", fareScope: { brand: "common", service: "One Way" } };
-/** Where Back lands when there is no earlier context: the main fare settings with no location chosen. */
-export const MORE_SETTINGS_VIEW: PricingView = { tab: "Brand & service fares", sel: { state: "", city: "", area: "" }, filter: "All", scrollY: 0 };
 
-/** Master Admin "Service & Fare Settings": location-scoped availability, cab types and pricing. */
-export default function Pricing({ onNavigate, restore, onRestored, onOpenFareRules, onOpenExtraCharges }: {
+/** Master Admin "Service & Fare Settings": fares, GST, booking rules and vehicles for every brand and service. */
+export default function Pricing({ onNavigate, restore, onRestored }: {
   onNavigate: (page: string, tab?: string) => void;
   restore: PricingView | null;
   onRestored: () => void;
-  onOpenFareRules: (view: PricingView) => void;
-  onOpenExtraCharges: (view: PricingView) => void;
 }) {
   const [fareScope, setFareScope] = useState<FareWorkspaceScope>(restore?.fareScope ?? { brand: "nesam", service: "One Way" });
   // Which vehicles the base rates are for: Diesel / Petrol (the normal rates) or CNG (its own rate card, One Way and Round Trip).
@@ -94,12 +84,11 @@ export default function Pricing({ onNavigate, restore, onRestored, onOpenFareRul
   const [pickupDrop, setPickupDrop] = useState(restore?.pickupDrop ?? false);
   // The vehicle chip that was clicked. Several categories can share one rate class, so the class alone cannot say which chip is on.
   const [fareCategory, setFareCategory] = useState("");
-  const [focusExtras, setFocusExtras] = useState(false);
   const gstDirty = useRef(false), gstBusy = useRef(false);
   const workspaceDirty = useRef(false);
   const workspaceBusy = useRef(false);
   useEffect(() => registerFareWorkspaceGuard(() => !workspaceBusy.current && !gstBusy.current && (!(workspaceDirty.current || gstDirty.current) || window.confirm("Discard your unsaved fare changes before leaving?"))), []);
-  const [tab, setTab] = useState<Tab>(restore?.tab && restore.tab !== "More settings" ? restore.tab : "Brand & service fares");
+  const [tab, setTab] = useState<Tab>(restore?.tab ?? "Brand & service fares");
   const [query, setQuery] = useState("");
   const [now, setNow] = useState(Date.now);
   const [cabSection, setCabSection] = useState<CabSection>(restore?.cabSection ?? "Customer cab rules");
@@ -113,13 +102,12 @@ export default function Pricing({ onNavigate, restore, onRestored, onOpenFareRul
   const [categories, setCategories] = useState<VehicleCategory[]>([]);
   const [services, setServices] = useState<TravelService[]>([]);
   const [filter, setFilter] = useState<(typeof STATUS_FILTERS)[number]>(restore?.filter ?? "All");
-  const [sheet, setSheet] = useState<{ kind: "new"; ruleKind: RuleKind } | { kind: "edit" | "preview" | "status"; rule: ServiceRule; to?: "Enabled" | "Disabled" | "Removed" } | { kind: "history" | "test" | "fixed" | "limits" | "all" | "local" } | null>(null);
+  const [sheet, setSheet] = useState<{ kind: "new"; ruleKind: RuleKind } | { kind: "edit" | "preview" | "status"; rule: ServiceRule; to?: "Enabled" | "Disabled" | "Removed" } | { kind: "history" | "fixed" | "limits" } | null>(null);
   // These tool views open in the page itself; only add / edit / preview / status forms slide in as a side panel.
-  const inlineKind = sheet && (["local", "fixed", "limits", "all", "history"] as string[]).includes(sheet.kind) ? sheet.kind : null;
+  const inlineKind = sheet && (["fixed", "limits", "history"] as string[]).includes(sheet.kind) ? sheet.kind : null;
   const pricingAccess = useCan("pricing");
   const settingsEdit = useCanDo("Settings", "edit");
   const canEdit = pricingAccess && settingsEdit;
-  const canViewBusiness = useCanDo("Business accounts", "view");
   const contentAccess = useCan("content");
   const settingsView = useCanDo("Settings", "view");
   const canViewLocations = contentAccess && settingsView;
@@ -137,9 +125,8 @@ export default function Pricing({ onNavigate, restore, onRestored, onOpenFareRul
     if (workspaceDirty.current && !window.confirm("Discard the unsaved rates in " + scopeLabel + " → " + CLASS_LABEL[fareClass] + "?")) return;
     setFareClass(next);
   };
-  const changeTab = (target: Tab) => {
+  const changeTab = (next: Tab) => {
     if (inlineKind) setSheet(null); // leaving an in-page tool view goes back to the page the menu item points at
-    const next: Tab = target === "More settings" ? "Brand & service fares" : target; // the old "More settings" tab is gone: its tools are on the page itself
     if (next === tab || workspaceBusy.current || gstBusy.current) return;
     if ((workspaceDirty.current || gstDirty.current) && !window.confirm("Discard your unsaved fare changes before switching settings?")) return;
     workspaceDirty.current = false;
@@ -152,16 +139,6 @@ export default function Pricing({ onNavigate, restore, onRestored, onOpenFareRul
     const timer = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(timer);
   }, []);
-  useEffect(() => {
-    if (!focusExtras || tab !== "Brand & service fares") return;
-    const frame = window.requestAnimationFrame(() => {
-      const field = document.querySelector<HTMLElement>('[data-rate-field="waitingPerHour"], [data-rate-field="hillCharge"], #fare-extra-settings');
-      field?.scrollIntoView({ block: "center" });
-      field?.querySelector<HTMLInputElement>("input")?.focus({ preventScroll: true });
-      setFocusExtras(false);
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [focusExtras, tab]);
   const inFareScope = (r: ServiceRule) => (!r.brand || r.brand === scopeBrand) && (!r.fareService || r.fareService === fareScope.service)
     && (r.fareService || !r.service || r.service.toLowerCase() === "all" || fareScope.service.toLowerCase().includes(r.service.toLowerCase())
       || (fareScope.service === "One Way" && ["multicity", "outstation", "local", "local pickup & drop"].includes(r.service.toLowerCase())));
@@ -240,18 +217,6 @@ export default function Pricing({ onNavigate, restore, onRestored, onOpenFareRul
     </DataTable>
   );
 
-  const tools: { key: string; name: string; description: string; scope: string; icon: IconName; go: () => void; disabledReason?: string }[] = [
-    { key: "base", name: "Common price", description: "Regular ₹/km, driver bata and partner payout.", scope: scopeLabel, icon: "calculator", go: () => changeTab("Brand & service fares") },
-    { key: "local", name: "Pickup & Drop", description: "City pickup and drop fares.", scope: "City-wise · shared across brands", icon: "map-pin", go: () => selectPickupDrop() },
-    { key: "extra", name: "Extra charges", description: "Waiting, hills, carrier and other add-ons.", scope: scopeLabel, icon: "receipt-text", go: () => { setFocusExtras(true); changeTab("Brand & service fares"); } },
-    { key: "fixed", name: "Fixed route fares", description: "Set an agreed fare for a specific route.", scope: "Route-wise · " + scopeLabel, icon: "route", go: () => setSheet({ kind: "fixed" }), disabledReason: fareScope.service !== "One Way" ? "Fixed route fares are configured for One Way. Select One Way above." : undefined },
-    { key: "b2b", name: "Business contracts", description: "Company rates, credit terms and contracts.", scope: "Business account", icon: "building-2", go: () => onNavigate("business"), disabledReason: canViewBusiness ? undefined : "Business accounts view permission is required." },
-    { key: "boundaries", name: "Service boundaries", description: "Define verified cities, areas and service zones.", scope: "Service areas", icon: "map-pinned", go: () => onNavigate("locations"), disabledReason: canViewLocations ? undefined : "Locations view permission is required." },
-    { key: "limits", name: "Fare limits", description: "Review approved minimum and maximum amounts.", scope: scopeLabel, icon: "shield-check", go: () => setSheet({ kind: "limits" }) },
-    { key: "rules", name: "All rules & schedules", description: "Find rules across locations and pickup schedules.", scope: scopeLabel, icon: "calendar-clock", go: () => setSheet({ kind: "all" }) },
-    { key: "tax", name: "Tax settings", description: "Review tax classification and invoice settings.", scope: scopeLabel, icon: "files", go: () => changeTab("GST calculation") },
-  ];
-
   // Only rule-based views consume this selection. Route tools and the shared catalog do not.
   const locationFilter = (
     <section className="u27-location-bar">
@@ -277,48 +242,35 @@ export default function Pricing({ onNavigate, restore, onRestored, onOpenFareRul
   // ── The page: a side menu of tasks, one compact "where does this apply" bar, then the work itself ──────────────────
   const isRuleTab = tab === "Booking availability" || tab === "Cab types" || tab === "Pricing rules";
   type NavItem = { key: string; label: string; hint: string; icon: IconName; on?: boolean; opens?: boolean; go: () => void; disabledReason?: string };
+  const fixedOff = fareScope.service !== "One Way" || pickupDrop ? "Fixed route fares are for One Way. Choose Service → One Way." : undefined;
   const navGroups: { title: string; items: NavItem[] }[] = [
-    { title: "Prices", items: [
-      { key: "base", label: "Common price", hint: "Price per km, driver allowance, partner pay, CNG and extra charges", icon: "calculator", on: !inlineKind && tab === "Brand & service fares", go: () => changeTab("Brand & service fares") },
+    { title: "Fares", items: [
+      { key: "base", label: "Fares", hint: "Customer price, partner pay, CNG and extra charges", icon: "calculator", on: !inlineKind && tab === "Brand & service fares", go: () => changeTab("Brand & service fares") },
       { key: "tax", label: "GST & tax", hint: "How GST is worked out and shown", icon: "files", on: !inlineKind && tab === "GST calculation", go: () => changeTab("GST calculation") },
-    ] },
-    { title: "Special fares", items: [
-      { key: "fixed", label: "Fixed route fares", hint: "An agreed fare for one route", icon: "route", on: inlineKind === "fixed", go: () => setSheet({ kind: "fixed" }), disabledReason: fareScope.service !== "One Way" ? "Fixed route fares are for One Way. Choose One Way above." : undefined },
+      { key: "fixed", label: "Fixed route fares", hint: "An agreed fare for one route", icon: "route", on: inlineKind === "fixed", go: () => setSheet({ kind: "fixed" }), disabledReason: fixedOff },
     ] },
     { title: "Booking rules", items: [
       { key: "availability", label: "Booking availability", hint: "Where customers can and cannot book", icon: "toggle-right", on: !inlineKind && tab === "Booking availability", go: () => changeTab("Booking availability") },
+      { key: "cabs", label: "Cabs shown by area", hint: "Which cabs customers see in a place", icon: "car-front", on: !inlineKind && tab === "Cab types" && cabSection === "Customer cab rules", go: () => { setCabSection("Customer cab rules"); changeTab("Cab types"); } },
       { key: "pricing", label: "Pricing rules", hint: "Raise or lower fares by place or date", icon: "indian-rupee", on: !inlineKind && tab === "Pricing rules", go: () => changeTab("Pricing rules") },
       { key: "limits", label: "Fare limits", hint: "Lowest and highest fares allowed", icon: "shield-check", on: inlineKind === "limits", go: () => setSheet({ kind: "limits" }) },
-      { key: "rules", label: "All rules & schedules", hint: "Every rule in one list", icon: "calendar-clock", on: inlineKind === "all", go: () => setSheet({ kind: "all" }) },
     ] },
     { title: "Vehicles", items: [
-      { key: "cabs", label: "Customer cab rules", hint: "Which cabs customers see", icon: "car-front", on: !inlineKind && tab === "Cab types" && cabSection === "Customer cab rules", go: () => { setCabSection("Customer cab rules"); changeTab("Cab types"); } },
-      { key: "categories", label: "Vehicle categories", hint: "The vehicle list: names, seats and photos", icon: "car", on: !inlineKind && tab === "Cab types" && cabSection === "Vehicle categories", go: () => { setCabSection("Vehicle categories"); changeTab("Cab types"); } },
+      { key: "categories", label: "Vehicle categories", hint: "Names, seats, photos and CNG", icon: "car", on: !inlineKind && tab === "Cab types" && cabSection === "Vehicle categories", go: () => { setCabSection("Vehicle categories"); changeTab("Cab types"); } },
     ] },
-    { title: "Tools", items: [
+    { title: "History", items: [
       { key: "history", label: "Change history", hint: "Who changed which rule, and when", icon: "history", on: inlineKind === "history", go: () => setSheet({ kind: "history" }) },
     ] },
   ];
-  // The vehicle row lists the active vehicle categories. Each one has its own rate class (Sedan, SUV 6+1, SUV 7+1, Innova, Innova Crysta);
-  // SUV 7+1 and Innova use the SUV 6+1 rates until they are given their own. Before the categories load, the classes are shown.
-  const classOfCategory = (c: VehicleCategory): TariffClass => {
-    const saved = String((c as unknown as { tariffClass?: unknown }).tariffClass ?? "").toLowerCase() as TariffClass;
-    if (TARIFF_CLASSES.includes(saved)) return saved;
-    const name = (c.name || "").toLowerCase();
-    if (/crysta/.test(name)) return "crysta";
-    if (/innova/.test(name)) return "innova";
-    const seats = c.seatingCapacity || 0;
-    if (/(suv|xuv|ertiga|marazzo|carens|xl6|scorpio|fortuner|muv|mpv)/.test(name)) return seats >= 7 || /7\s*\+\s*1/.test(name) ? "suv7" : "suv";
-    if (/(sedan|dzire|etios|aura|verna|mini|hatch|micro|swift|wagon|alto|auto)/.test(name)) return "sedan";
-    return seats >= 7 ? "suv7" : seats >= 6 ? "suv" : "sedan";
-  };
+  // The Vehicle list shows the active vehicle categories. Each is priced as one rate class (Sedan, SUV 6+1, SUV 7+1, Innova,
+  // Innova Crysta) worked out exactly as the server does; SUV 7+1 and Innova use the SUV 6+1 rates until given their own.
   const activeCats = categories.filter((c) => c.status === "Active").sort((a, b) => (a.displayOrder || 99) - (b.displayOrder || 99));
-  const vehicleChoices: { key: string; label: string; cls: TariffClass; shared: boolean }[] = activeCats.length
-    ? activeCats.map((c) => ({ key: c.id, label: c.name, cls: classOfCategory(c), shared: activeCats.filter((o) => classOfCategory(o) === classOfCategory(c)).length > 1 }))
-    : TARIFF_CLASSES.map((cls) => ({ key: cls, label: CLASS_LABEL[cls], cls, shared: false }));
-  // Only the clicked chip is on; when none was clicked yet, the first chip of the current class.
+  const vehicleChoices: { key: string; label: string; cls: TariffClass; shared: boolean; cng: boolean }[] = activeCats.length
+    ? activeCats.map((c) => ({ key: c.id, label: c.name, cls: tariffClassOfCategory(c), cng: c.cngEnabled === true, shared: activeCats.filter((o) => tariffClassOfCategory(o) === tariffClassOfCategory(c)).length > 1 }))
+    : TARIFF_CLASSES.map((cls) => ({ key: cls, label: CLASS_LABEL[cls], cls, shared: false, cng: false }));
+  // Only the chosen vehicle is on; when none was chosen yet, the first vehicle of the current class.
   const selectedVehicle = vehicleChoices.find((v) => v.key === fareCategory && v.cls === fareClass) ?? vehicleChoices.find((v) => v.cls === fareClass);
-  const showScope = tab !== "Service areas" && inlineKind !== "local" && inlineKind !== "history" && !(tab === "Cab types" && cabSection === "Vehicle categories" && !inlineKind);
+  const showScope = inlineKind !== "history" && !(tab === "Cab types" && cabSection === "Vehicle categories" && !inlineKind);
   // Where a setting applies (brand, service, fuel, vehicle) is chosen in the side menu; the page itself only repeats the rule in one line.
   const scopeNav = showScope ? (
     <div className="fs-nav__group fs-nav__scope">
@@ -370,9 +322,14 @@ export default function Pricing({ onNavigate, restore, onRestored, onOpenFareRul
       )}
     </div>
   ) : null;
+  // When the saved vehicle list has no vehicle of the class on screen, show the first vehicle instead of an empty choice.
+  useEffect(() => {
+    const first = vehicleChoices[0];
+    if (activeCats.length && first && !vehicleChoices.some((v) => v.cls === fareClass) && !workspaceDirty.current) setFareClass(first.cls);
+  }, [categories]); // eslint-disable-line react-hooks/exhaustive-deps
   const pageTitle = inlineKind ? null : tab === "Brand & service fares"
-    ? (pickupDrop ? { h: "Pickup & Drop", p: "Fares for a pickup and drop inside one city, set city by city." } : { h: "Common price", p: "What customers pay per km, what partners earn, and the CNG option. Change one section at a time." })
-    : tab === "GST calculation" ? { h: "GST & tax", p: "How GST is worked out and shown on fares." } : null;
+    ? (pickupDrop ? { h: "Pickup & Drop", p: "City fares for a pickup and drop inside one city (One Way trips of 40 km or less). Shared by all brands." } : { h: "Fares", p: "What the customer pays and what the partner gets. Choose the brand, service, fuel and vehicle on the left." })
+    : tab === "GST calculation" ? { h: "GST & tax", p: "How GST is worked out on fares, for the brand and service chosen on the left." } : null;
 
   return (
     <div className="ds-page-body fare-reference u27-settings-page u11-settings-page">
@@ -398,8 +355,7 @@ export default function Pricing({ onNavigate, restore, onRestored, onOpenFareRul
         </nav>
         <div className="fs-main">
       {pageTitle && <header className="fs-title"><h2>{pageTitle.h}</h2><p>{pageTitle.p}</p></header>}
-      {!inlineKind && tab === "Brand & service fares" && !pickupDrop && <DisplayMarkupCard scope={fareScope} />}
-      {!inlineKind && tab !== "Service areas" && <>
+      {!inlineKind && <>
       {tab !== "Brand & service fares" && tab !== "GST calculation" && <>
         {locationFilter}
         <section className="u28-overview" aria-label="Current location settings">
@@ -415,8 +371,10 @@ export default function Pricing({ onNavigate, restore, onRestored, onOpenFareRul
         </section>
       </>}
       {tab === "Brand & service fares" && pickupDrop && <LocalFares only="Pickup & Drop" initialTab="Pickup & Drop" initialCity={sel.city} onToast={show} />}
-      {tab === "Brand & service fares" && !pickupDrop && <div>
-        <BrandServiceFareWorkspace scope={fareScope} vehicleClass={fareClass} fuel={fuelApplies ? fareFuel : "petrol"} onDirtyChange={dirty => { workspaceDirty.current = dirty; }} onBusyChange={busy => { workspaceBusy.current = busy; }} />
+      {tab === "Brand & service fares" && !pickupDrop && <div className="space-y-4">
+        <BrandServiceFareWorkspace scope={fareScope} vehicleClass={fareClass} vehicleName={selectedVehicle?.label} categoryId={activeCats.length ? selectedVehicle?.key : undefined} cngEnabled={selectedVehicle?.cng} fuel={fuelApplies ? fareFuel : "petrol"} onDirtyChange={dirty => { workspaceDirty.current = dirty; }} onBusyChange={busy => { workspaceBusy.current = busy; }} />
+        {fareFuel !== "cng" || !fuelApplies ? <ExtraChargeRulesCard /> : null}
+        <DisplayMarkupCard scope={fareScope} />
       </div>}
       {tab === "GST calculation" && <div>
         <FareGstSettings key={fareScope.brand + ":" + fareScope.service} scope={fareScope} onDirtyChange={value => { gstDirty.current = value; }} onBusyChange={value => { gstBusy.current = value; }} />
@@ -443,9 +401,7 @@ export default function Pricing({ onNavigate, restore, onRestored, onOpenFareRul
         <InlineModals value={true}>
       {sheet?.kind === "history" && <HistorySheet rules={rules.filter(inFareScope)} onClose={() => setSheet(null)} />}
       {sheet?.kind === "fixed" && <FixedRouteFares scope={fareScope} onClose={() => setSheet(null)} onToast={show} />}
-      {sheet?.kind === "local" && <Modal title="Pickup & Drop fares" onClose={() => setSheet(null)} wide><div className="ds-note mb-4">City Pickup &amp; Drop fares are shared across brands. Hourly Rental packages are set per brand.</div><Button className="mb-4" icon="clock" onClick={() => { setSheet(null); setFareScope({ ...fareScope, service: "Local Rental" }); setTab("Brand & service fares"); }}>Manage Hourly Rental packages</Button><LocalFares only="Pickup & Drop" initialTab="Pickup & Drop" initialCity={sel.city} onToast={show} /></Modal>}
       {sheet?.kind === "limits" && <LimitsSheet locationFilter={<div className="fare-reference u11-settings-page">{locationFilter}</div>} loaded={loaded} loadError={loadError} rules={scoped.filter((r) => r.kind === "limit" && r.status !== "Removed")} canEdit={canEdit} canEditRule={canEditRule} onAdd={() => setSheet({ kind: "new", ruleKind: "limit" })} onEdit={(r) => setSheet({ kind: "edit", rule: r })} onStatus={(r, to) => setSheet({ kind: "status", rule: r, to })} onClose={() => setSheet(null)} />}
-      {sheet?.kind === "all" && <Modal title="All rules & schedules" onClose={() => setSheet(null)} wide><div className="fare-reference u11-settings-page">{locationFilter}</div>{loadError ? <p className="ds-error" role="alert">{loadError}</p> : (ruleTable(scoped.filter((r) => r.status !== "Removed")) ?? <EmptyState title="No rules configured" />)}</Modal>}
         </InlineModals>
       )}
 
