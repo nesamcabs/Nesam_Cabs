@@ -1,3 +1,4 @@
+import { serviceSlogan } from '@/lib/serviceSlogan';
 import { ReviewsSection, CatalogSection } from '@/components/PublicContentSections';
 import { useCallback, useEffect, useRef } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
@@ -45,7 +46,8 @@ const writeOutstation = (t: 'One Way' | 'Round Trip') => {
   }
 };
 
-function HeroCopy() {
+function HeroCopy({ service, trip }: { service: ServiceId; trip: 'One Way' | 'Round Trip' }) {
+  const [headline, subtitle] = serviceSlogan(service, trip);
   // While the logo shows in the hero the header leaves its own logo out; once the page scrolls past it, the header takes over.
   const logo = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -67,8 +69,8 @@ function HeroCopy() {
       <div className="hero-logo" ref={logo}>
         <img src="/nesam/logo.webp" alt="NESAM Cabs" width={224} height={52} />
       </div>
-      <h1>
-        Dependable cabs, <span className="hero-accent">for every journey.</span>
+      <h1 aria-live="polite" style={{ textTransform: 'none' }}>
+        {headline} <span className="hero-accent">{subtitle}</span>
       </h1>
       {/* Decoration for tablets and wider: a route that runs around the booking card, pickup to drop. */}
       <svg className="hero-route" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true" focusable="false">
@@ -200,7 +202,7 @@ function Home() {
     <div className="home">
       <div className="wrap home__wrap">
         <div className="home-hero">
-          <HeroCopy />
+          <HeroCopy service={service} trip={outstationTrip} />
           <BookingForm
             service={service}
             onService={onService}

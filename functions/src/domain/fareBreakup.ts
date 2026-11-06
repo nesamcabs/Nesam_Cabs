@@ -95,7 +95,9 @@ export function buildFareBreakup(category: RideCategory, fare: FareBreakdown, ou
   add(outstation
     ? { key: 'stateTax', label: 'State tax / permit', amount: x && x.permitCharge > 0 ? x.permitCharge : null, treatment: 'extra', detail: x && x.permitCharge > 0 ? 'Payable separately per trip' : 'Payable separately at actuals' }
     : { key: 'stateTax', label: 'State tax / permit', amount: null, treatment: 'not_applicable', detail: 'Not applicable to local trips' });
-  if (x && x.carrierCharge > 0) add({ key: 'carrier', label: 'Carrier / luggage', amount: x.carrierCharge, treatment: 'extra', detail: 'Payable separately if a carrier is used' });
+  if (fare.addOns?.roofCarrier) add({ key: 'carrierAddon', label: 'Roof carrier', amount: fare.addOns.carrierCharge, treatment: 'included', detail: 'Selected add-on per trip' });
+  if (fare.addOns?.pets) add({ key: 'petAddon', label: 'Pet travel', amount: fare.addOns.petCharge, treatment: 'included', detail: 'Selected add-on per trip' });
+  if (x && x.carrierCharge > 0 && !fare.addOns?.roofCarrier) add({ key: 'carrier', label: 'Carrier / luggage', amount: x.carrierCharge, treatment: 'extra', detail: 'Payable separately if a carrier is used' });
 
   const extras = lines.filter((l) => l.treatment === 'extra');
   return {
@@ -236,7 +238,7 @@ export function withApprovedExtraLines(b: FareBreakup, x: ApprovedExtraLines): F
         : 'No chargeable waiting on this trip',
     },
     { key: 'hill', label: 'Hill travel', amount: money(x.customer.hillPaise), treatment: 'extra', detail: x.usage.hill ? 'Hill travel applied' : 'Not applicable to this trip' },
-    { key: 'carrier', label: 'Roof carrier', amount: money(x.customer.carrierPaise), treatment: 'extra', detail: x.usage.carrier ? 'Roof carrier used' : 'Not used on this trip' },
+    ...(lines.some(l => l.key === 'carrierAddon') && x.customer.carrierPaise === 0 ? [] : [{ key: 'carrier', label: 'Roof carrier', amount: money(x.customer.carrierPaise), treatment: 'extra' as const, detail: x.usage.carrier ? 'Roof carrier used' : 'Not used on this trip' }]),
     ...(x.customer.gstPaise > 0 ? [{ key: 'extraGst', label: 'GST on extra charges', amount: money(x.customer.gstPaise), treatment: 'extra' as const, detail: 'At the GST rate saved with this booking' }] : []),
   ];
   const next = at >= 0 ? [...lines.slice(0, at), ...added, ...lines.slice(at)] : [...lines, ...added];

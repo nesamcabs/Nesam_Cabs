@@ -23,3 +23,6 @@ html .shell--scroll-header .topbar:not(.topbar--hidden) .brand {
 @media (prefers-reduced-motion: reduce) {
   .shell--scroll-header .topbar { transition: none; }
 }
+
+/* Local maps fill the space previously reserved for the site header. */
+.shell--local-page .lr { top: 0; }

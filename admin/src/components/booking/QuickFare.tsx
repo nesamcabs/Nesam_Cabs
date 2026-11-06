@@ -38,19 +38,21 @@ export interface QuickTrip {
   time: string;
   /** Round trips: how many days the trip lasts. It ends on the last day, at the pickup time. */
   days: number;
+  rentalHours?: number;
   /** Airport transfers: whether the airport is the drop ("to") or the pickup ("from"). */
   airportDirection: "to" | "from";
   /** Extras & terms the office records with the booking. */
   hill: boolean;
   carrier: boolean;
+  pets?: boolean;
   waitingMin: string;
   priceEntered: "Excluding GST" | "Including GST";
 }
 
 export const emptyTrip = (): QuickTrip => ({
   businessId: "", serviceId: "", tripType: "One Way", pickupText: "", dropText: "", pickup: null, drop: null, stops: [],
-  date: isoDateIST(new Date(Date.now() + 86400000)), time: "08:00", days: 1, airportDirection: "to",
-  hill: false, carrier: false, waitingMin: "0", priceEntered: "Excluding GST",
+  date: isoDateIST(new Date(Date.now() + 86400000)), time: "08:00", days: 1, rentalHours: 1, airportDirection: "to",
+  hill: false, carrier: false, pets: false, waitingMin: "0", priceEntered: "Excluding GST",
 });
 
 export interface CategoryEstimate {
@@ -77,6 +79,8 @@ export function tripToForm(t: QuickTrip, categoryId: string, base: ManualBooking
     drop: t.drop,
     stops: roundStopPoints(t),
     categoryId,
+    rentalHours: t.tripType === "Local Rental" ? (t.rentalHours ?? 1) : undefined,
+    addOns: { roofCarrier: t.carrier, pets: t.pets === true },
     tripType: t.tripType,
     pickupAt: tripPickupAt(t),
     tripEndAt: tripEndAt(t),
@@ -160,6 +164,7 @@ export function validateTrip(t: QuickTrip): string | null {
   if (!t.date || !t.time) return "Choose the pickup date and time.";
   const at = tripPickupDate(t);
   if (!at || at.getTime() < Date.now() + 30 * 60000) return "Pickup must be at least 30 minutes from now.";
+  if (t.tripType === "Local Rental" && (!Number.isInteger(t.rentalHours ?? 1) || (t.rentalHours ?? 1) < 1 || (t.rentalHours ?? 1) > 15)) return "Choose rental hours from 1 to 15.";
   if (t.tripType === "Round Trip" && !t.multicity && (!(t.days >= 1) || t.days > ROUND_TRIP_MAX_DAYS)) return `Choose 1 to ${ROUND_TRIP_MAX_DAYS} days.`;
   if (t.tripType === "Round Trip" && !t.multicity && (t.stops ?? []).some((s) => !s.point)) return "Choose each stop on the map, or remove it.";
   if (t.tripType === "Airport Taxi" && t[airportSide(t)]?.type !== "airport") return `Choose the airport as the ${airportSide(t)} for this transfer.`;
@@ -517,6 +522,11 @@ export function TripFields({ trip, set, data, compact, idPrefix, action, allowed
             </select>
           </label>
         )}
+        {rental ? <label className="ds-field ds-inbox"><span className="ds-inbox__name">Rental hours</span>
+          <select className="ds-select" value={trip.rentalHours ?? 1} onChange={e => set({ rentalHours: Number(e.target.value) })}>
+            {Array.from({ length: 15 }, (_, i) => i + 1).map(h => <option key={h} value={h}>{h} {h === 1 ? 'hour' : 'hours'}</option>)}
+          </select>
+        </label> : null}
         {trip.tripType === "Round Trip" && !trip.multicity && (trip.stops ?? []).map((s, i) => (
           <PlaceField key={i} label={`Stop ${i + 1}`} placeholder={`Stop ${i + 1}`} text={s.text} value={s.point} saved={data.drops} near={trip.pickup} airport={false}
             onChange={(text, p) => set({ stops: (trip.stops ?? []).map((x, n) => (n === i ? { text, point: p } : x)) })} />
@@ -557,6 +567,7 @@ export function ExtrasFields({ trip, set }: { trip: QuickTrip; set: (p: Partial<
       <div className="flex flex-wrap gap-5 mb-3">
         <label className="ds-check"><input type="checkbox" checked={trip.hill} onChange={(e) => set({ hill: e.target.checked })} />Hill travel</label>
         <label className="ds-check"><input type="checkbox" checked={trip.carrier} onChange={(e) => set({ carrier: e.target.checked })} />Roof carrier required</label>
+        <label className="ds-check"><input type="checkbox" checked={trip.pets === true} onChange={(e) => set({ pets: e.target.checked })} />Travelling with pets (extra charge)</label>
       </div>
       <label className="ds-field" style={{ maxWidth: 280 }}>
         <span>Expected waiting · minutes</span>
@@ -567,7 +578,7 @@ export function ExtrasFields({ trip, set }: { trip: QuickTrip; set: (p: Partial<
 }
 
 export const extrasNote = (t: QuickTrip) =>
-  [t.hill ? "Hill travel" : "", t.carrier ? "Roof carrier required" : "", Number(t.waitingMin) > 0 ? `Expected waiting ${t.waitingMin} min` : ""].filter(Boolean).join(" · ");
+  [t.hill ? "Hill travel" : "", t.carrier ? "Roof carrier required" : "", t.pets ? "Travelling with pets" : "", Number(t.waitingMin) > 0 ? `Expected waiting ${t.waitingMin} min` : ""].filter(Boolean).join(" · ");
 
 // ── Estimate list ─────────────────────────────────────────────────────────
 
@@ -703,7 +714,7 @@ export function QuickFareCard({ onSaved }: { onSaved: (e: Enquiry) => void }) {
   const latest = useRef(trip);
   latest.current = trip;
   const set = (p: Partial<QuickTrip>) => setTrip((t) => ({ ...t, ...p }));
-  const sig = JSON.stringify([trip.serviceId, trip.tripType, trip.pickup?.lat, trip.pickup?.lng, trip.drop?.lat, trip.drop?.lng, trip.date, trip.time, trip.days, roundStopPoints(trip).map((p) => [p.lat, p.lng])]);
+  const sig = JSON.stringify([trip.serviceId, trip.tripType, trip.pickup?.lat, trip.pickup?.lng, trip.drop?.lat, trip.drop?.lng, trip.date, trip.time, trip.days, trip.rentalHours, trip.carrier, trip.pets, roundStopPoints(trip).map((p) => [p.lat, p.lng])]);
   const stale = estimates !== null && key.current !== sig;
   const invalid = validateTrip(trip);
 

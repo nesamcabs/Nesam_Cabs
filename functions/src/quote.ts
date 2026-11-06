@@ -1,3 +1,4 @@
+import { bookingAddOnsOf, withBookingAddOns, type BookingAddOns } from './domain/bookingAddOns';
 import { fareBoardingState, recipientAddressState, recipientGstState } from './fareGstContext';
 import { applyFareGst, fareGstFor, fareGstForScope, gstPricingInput, isDefaultFareGst } from './fareGstPricing';
 import { fareServiceKey } from './fareScope';
@@ -140,10 +141,13 @@ export async function sharedCityId(pickup: GeoPlace, drop: GeoPlace): Promise<st
 
 /** Whole rental hours from a request, or null when none were asked for. */
 export function rentalHoursOf(v: unknown): number | null {
-  return typeof v === 'number' && Number.isInteger(v) && v > 0 ? v : null;
+  if (v == null) return null;
+  if (typeof v !== 'number' || !Number.isInteger(v) || v < 1 || v > 15) throw new HttpsError('invalid-argument', 'Choose rental hours from 1 to 15.');
+  return v;
 }
 
 export interface PriceInput {
+  addOns?: BookingAddOns;
   boardingState?: string;
   recipientState?: string;
   recipientAddressState?: string;
@@ -192,6 +196,10 @@ export interface PriceResult {
  * discloses them in the breakup. The fare itself is unchanged: these are billed only for the extras actually used.
  */
 export function priceBooking(i: PriceInput): PriceResult {
+  return withBookingAddOns(priceBookingWithoutAddOns(i), i.addOns, i.category.fare.extras, i.tariff?.petCharge ?? 0);
+}
+
+function priceBookingWithoutAddOns(i: PriceInput): PriceResult {
   if (i.multicity) {
     const tour = priceMulticityTour(i);
     const extras = scopedExtraChargesSnapshot(i.tariff, i.brand, 'Multicity', tariffClassOf(i.category), i.category.id);
@@ -591,7 +599,7 @@ export const quoteBooking = onCall({ timeoutSeconds: 60, cors: PUBLIC_CALLABLE_O
     .map(({ d, c }) => {
       const category = { ...c, tariffClass: d.data().tariffClass, dutyClass: d.data().dutyClass };
       const matched = matchAuthoritativeService(onlineMasters, { tripType, categoryId: c.id, distanceKm: route.distanceKm, pickupType: pickup.type, dropType: drop.type, context: 'customer' });
-      const base = { boardingState, recipientState, recipientAddressState: recipientAddressState(customer?.data()), category, route: pricingRoute, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, rentalHours: tripType === 'Local Rental' ? rentalHoursOf(input.rentalHours) : null, brand, fixedRoutes, localCityId, serviceId: matched?.id ?? '', multicity };
+      const base = { addOns: bookingAddOnsOf(input.addOns), boardingState, recipientState, recipientAddressState: recipientAddressState(customer?.data()), category, route: pricingRoute, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, rentalHours: tripType === 'Local Rental' ? rentalHoursOf(input.rentalHours) : null, brand, fixedRoutes, localCityId, serviceId: matched?.id ?? '', multicity };
       try {
         assertCatalogAvailable(onlineMasters,tripType,category.id);
         assertBookable(rules, category.name);
@@ -624,7 +632,7 @@ export const quoteBooking = onCall({ timeoutSeconds: 60, cors: PUBLIC_CALLABLE_O
         }
         return {
           cng,
-          categoryId: c.id, ok: true as const, fare: priced.fare, breakup: priced.breakup, service: priced.service, ...struck(priced.fare.total),
+          categoryId: c.id, addOnRates: { carrierCharge: category.fare.extras?.carrierCharge ?? 0, petCharge: tariff?.petCharge ?? 0 }, ok: true as const, fare: priced.fare, breakup: priced.breakup, service: priced.service, ...struck(priced.fare.total),
           model: priced.pricing.model, days: priced.pricing.days, includedKm: priced.pricing.includedKm, rentalHours: priced.pricing.rentalHours ?? null,
           // The customer-facing extra-KM rate (as entered when the fare includes GST).
           extraKmRate: (priced.pricing.gstInclusiveBase?.extraKmRatePaise ?? priced.pricing.extraKmRatePaise) / 100, gstIncluded: priced.pricing.gstInFare === true, couponMessage, couponApplied: discount > 0,

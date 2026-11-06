@@ -389,7 +389,8 @@ export function Shell() {
   const isFlow = FLOW.some((re) => re.test(location.pathname));
   const isImmersive = IMMERSIVE.some((re) => re.test(location.pathname));
   const onMapPage = /^\/local-rentals(\/|$)/.test(location.pathname);
-  const isLanding = location.pathname === '/' || location.pathname === '/book';
+  const isLocalPage = /^\/local-(rentals|taxi)\/?$/.test(location.pathname);
+  const isLanding = location.pathname === '/' || location.pathname === '/book' || isLocalPage;
   const [hasScrolled, setHasScrolled] = useState(false);
   const headerHidden = isLanding && !hasScrolled;
 
@@ -407,7 +408,7 @@ export function Shell() {
   }, [location.pathname]);
 
   return (
-    <div className={`shell ${isLanding ? 'shell--scroll-header' : ''} ${isImmersive ? 'shell--immersive' : ''} ${isFlow ? '' : 'shell--dock'}`}>
+    <div className={`shell ${isLanding ? 'shell--scroll-header' : ''} ${isLocalPage ? 'shell--local-page' : ''} ${isImmersive ? 'shell--immersive' : ''} ${isFlow ? '' : 'shell--dock'}`}>
       <a
         className="skip-link"
         href="#main"

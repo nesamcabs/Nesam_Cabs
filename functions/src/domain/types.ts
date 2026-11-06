@@ -85,6 +85,7 @@ export interface RideCategory {
   description: string;
   seats: number;
   imageUrl?: string;
+  iconUrl?: string;
   /** Driver `vehicleType` values that can serve this category. */
   matchVehicleTypes: string[];
   fare: FareConfig;
@@ -94,6 +95,7 @@ export interface RideCategory {
 }
 
 export interface FareBreakdown {
+  addOns?: { roofCarrier: boolean; pets: boolean; carrierCharge: number; petCharge: number };
   gstDetails?: import('./gst').GstSnapshot & { cgst: number; sgst: number; utgst: number; igst: number };
   baseFare: number;
   distanceFare: number;

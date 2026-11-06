@@ -1,3 +1,4 @@
+import { bookingAddOnsOf } from './domain/bookingAddOns';
 import { fareBoardingState, recipientAddressState, recipientGstState } from './fareGstContext';
 import { fareServiceKey } from './fareScope';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
@@ -175,7 +176,7 @@ export const createBooking = onCall({ timeoutSeconds: 60 }, async (request) => {
     const recipientState = recipientGstState(customer.data());
     const fuel = input.fuelType === 'cng' ? ('cng' as const) : undefined;
     if (fuel && category.cngEnabled !== true) throw new HttpsError('failed-precondition', 'CNG is not offered on this vehicle.');
-    const priceInput = { fuel, boardingState, recipientState, recipientAddressState: recipientAddressState(customer.data()), category, route: pricingRoute, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, rentalHours: tripType === 'Local Rental' ? rentalHoursOf(input.rentalHours) : null, brand: bookingBrand, fixedRoutes, localCityId, serviceId, multicity };
+    const priceInput = { addOns: bookingAddOnsOf(input.addOns ?? input.tripExtras), fuel, boardingState, recipientState, recipientAddressState: recipientAddressState(customer.data()), category, route: pricingRoute, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, rentalHours: tripType === 'Local Rental' ? rentalHoursOf(input.rentalHours) : null, brand: bookingBrand, fixedRoutes, localCityId, serviceId, multicity };
     const beforeDiscount = priceBooking(priceInput);
     // The percentage commission only prices duties still on the category engine; confirmed
     // tariff duties carry fixed partner rates, so no commission is required (or invented).
@@ -228,7 +229,7 @@ export const createBooking = onCall({ timeoutSeconds: 60 }, async (request) => {
       ...(multicity ? { tourType: 'Multicity' } : {}),
       service, serviceId, tripType, vehicle: category.name, vehicleCategory: category.name, vehicleCategoryId: category.id,
       passengerSeatsRequired: category.seats, dutyClass: dutyClassOf({ dutyClass: category.dutyClass, name: category.name, seats: category.seats }) ?? '', tariffClass: tariffClassOf(category) ?? '',
-      fare: fare.total, fareBreakdown: fare, fareBreakup: breakup, pricing: storedPricing, fareVerified: true, ...(commission ? { commission } : {}), distanceKm: fare.distanceKm, durationMin: fare.durationMin,
+      fare: fare.total, fareBreakdown: fare, fareBreakup: breakup, addOns: bookingAddOnsOf(input.addOns), pricing: storedPricing, fareVerified: true, ...(commission ? { commission } : {}), distanceKm: fare.distanceKm, durationMin: fare.durationMin,
       ...(tripEndAt ? { tripEndAt: Timestamp.fromDate(tripEndAt), endDate: priced.pricing.endDate, billableDays: priced.pricing.days } : {}),
       discountDetails: fare.discountDetail, globalAdjustmentApplied: fare.globalAdjustment ?? null,
       routeEstimated: false, couponCode, discount, notes: text(input.notes), payment: 'Pending', paymentStatus: 'Unpaid',

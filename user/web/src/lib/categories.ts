@@ -19,6 +19,7 @@ export function categoryGroup(c: Pick<RideCategory, 'name' | 'seats'>): Category
  * illustration. A category image is representative only: the assigned model may vary.
  */
 export function categoryPhoto(c: Pick<RideCategory, 'name' | 'seats'> & { imageUrl?: string }): string {
+  if (c.imageUrl) return c.imageUrl;
   const n = c.name.toLowerCase();
   if (/crysta|hycross/.test(n)) return '/nesam/cars/crysta.webp';
   if (/innova/.test(n)) return '/nesam/cars/innova.webp';

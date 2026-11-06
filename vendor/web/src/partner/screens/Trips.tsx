@@ -42,6 +42,7 @@ const DutyRow: React.FC<{ t: OpenTrip; onAccept: () => void; onBid: () => void; 
         <div className="q-duty-meta d-duty-meta">
           {t.tripType ? <span className="v-badge d-service">{t.tripType}</span> : null}
           <span className="d-category"><Icon name="car-front" /><span className="v-sr">Vehicle category: </span>{t.vehicleCategory || 'Any category'}</span>
+          {t.addOns?.roofCarrier || t.addOns?.pets ? <span className="d-category">Required: {[t.addOns?.roofCarrier ? 'Roof carrier' : '', t.addOns?.pets ? 'Pet travel' : ''].filter(Boolean).join(' / ')}</span> : null}
         </div>
         {t.distanceKm ? <p className="d-included-km"><Icon name="route" />{Math.round(t.distanceKm)} km included</p> : null}
         <ExtraTag />

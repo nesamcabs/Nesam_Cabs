@@ -279,6 +279,7 @@ export interface TripDetails {
 
 /** An open marketplace offer a driver may accept. */
 export interface MarketplaceOffer {
+  addOns?: { roofCarrier: boolean; pets: boolean };
   id: string;
   bookingId: string;
   pickup: TripLocation;

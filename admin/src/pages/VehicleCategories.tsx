@@ -1,3 +1,5 @@
+import CategoryMediaField from '../components/CategoryMediaField';
+import { uploadCategoryMedia } from '../services/categoryMedia';
 import { useEffect, useMemo, useState } from "react";
 import { VehicleCategory, Vehicle } from "../types";
 import { subscribeVehicleCategories, subscribeVehicles } from "../services/adminFirestoreService";
@@ -18,14 +20,15 @@ import { ConfirmDialog, ErrorBanner, Toast, useToast } from "../components/Feedb
 type FormTab = "basic" | "specs";
 
 const TAB_FIELDS: Record<FormTab, CategoryField[]> = {
-  basic: ["name", "code", "imageUrl"],
-  specs: ["seatingCapacity", "recommendedPassengers", "displayOrder"],
+  basic: ["name", "code", "imageUrl", "iconUrl"],
+  specs: ["seatingCapacity", "recommendedPassengers", "displayOrder", "fare.carrierCharge"],
 };
 
 const FIELD_LABELS: Partial<Record<CategoryField, string>> = {
   name: "Category name",
   code: "Category code",
-  imageUrl: "Image URL",
+  imageUrl: "Car image",
+  iconUrl: "Category icon",
   seatingCapacity: "Seating capacity",
   recommendedPassengers: "Recommended passengers",
   displayOrder: "Display order",
@@ -42,7 +45,7 @@ const FIELD_LABELS: Partial<Record<CategoryField, string>> = {
   "fare.extraHourCharge": "Extra hour charge",
   "fare.extraKmCharge": "Extra km charge",
   "fare.permitCharge": "Permit charge",
-  "fare.carrierCharge": "Carrier / luggage charge",
+  "fare.carrierCharge": "Roof carrier charge",
 };
 
 // A new category starts without prices: every rate must be entered by the admin.
@@ -52,6 +55,7 @@ const defaultFormState = {
   code: "",
   description: "",
   imageUrl: "",
+  iconUrl: "",
   icon: "🚘",
   seatingCapacity: 0,
   luggageCapacity: "" as string | number,
@@ -85,6 +89,7 @@ const toForm = (f: typeof defaultFormState): CategoryForm => ({
   code: f.code,
   description: f.description,
   imageUrl: f.imageUrl,
+  iconUrl: f.iconUrl,
   icon: f.icon,
   seatingCapacity: f.seatingCapacity,
   luggageCapacity: f.luggageCapacity,
@@ -118,6 +123,8 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
   const [formData, setFormData] = useState(defaultFormState);
   const [activeTab, setActiveTab] = useState<FormTab>("basic");
   const [saving, setSaving] = useState(false);
+  const [iconFile, setIconFile] = useState<File | null>(null);
+  const [carFile, setCarFile] = useState<File | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<CategoryField, string>>>({});
 
@@ -177,6 +184,8 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
     setIsEditing(!!original);
     setEditingOriginal(original);
     setFormData(data);
+    setIconFile(null);
+    setCarFile(null);
     setActiveTab("basic");
     setFormError(null);
     setFieldErrors({});
@@ -197,6 +206,7 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
         code: cat.code || "",
         description: cat.description && cat.description.trim().length <= 48 ? cat.description.trim() : "",
         imageUrl: cat.imageUrl || "",
+        iconUrl: cat.iconUrl || "",
         icon: cat.icon || "🚘",
         seatingCapacity: cat.seatingCapacity || 0,
         luggageCapacity: cat.luggageCapacity ?? "",
@@ -232,6 +242,8 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
     if (saving) return;
     setFormError(null);
     const form = toForm(formData);
+    if (iconFile) form.iconUrl = '';
+    if (carFile) form.imageUrl = '';
     const errors = validateCategory(form, categories, editingOriginal?.id ?? null);
     setFieldErrors(errors);
     const keys = Object.keys(errors) as CategoryField[];
@@ -245,6 +257,17 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
     }
     setSaving(true);
     try {
+      const mediaFolder = editingOriginal?.id || crypto.randomUUID();
+      if (iconFile) {
+        form.iconUrl = await uploadCategoryMedia(iconFile, 'icon', mediaFolder);
+        setFormData(current => ({ ...current, iconUrl: form.iconUrl || '' }));
+        setIconFile(null);
+      }
+      if (carFile) {
+        form.imageUrl = await uploadCategoryMedia(carFile, 'car', mediaFolder);
+        setFormData(current => ({ ...current, imageUrl: form.imageUrl || '' }));
+        setCarFile(null);
+      }
       const { renamed } = await saveCategory(form, editingOriginal);
       setShowModal(false);
       showToast(
@@ -253,7 +276,7 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
           : `Vehicle category "${form.name.trim()}" created.`,
       );
     } catch (err) {
-      setFormError(actionError(err));
+      setFormError(err instanceof Error ? err.message : actionError(err));
     } finally {
       setSaving(false);
     }
@@ -481,11 +504,11 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
                         <td className="px-4 py-3.5">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl bg-brand-soft flex items-center justify-center text-[20px] shrink-0 border border-[#FEE2E2]">
-                              {cat.imageUrl ? (
+                              {cat.iconUrl || cat.imageUrl ? (
                                 <img
-                                  src={cat.imageUrl}
+                                  src={cat.iconUrl || cat.imageUrl}
                                   alt={cat.name}
-                                  className="w-full h-full object-cover rounded-xl"
+                                  className="w-full h-full object-contain p-1 rounded-xl"
                                   onError={(e) => {
                                     (e.target as any).style.display = "none";
                                   }}
@@ -639,7 +662,7 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
 
             {/* Form Form Container */}
             <form onSubmit={handleSave} noValidate>
-              <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+              <fieldset disabled={saving} className="p-6 space-y-4 max-h-[60vh] overflow-y-auto min-w-0">
                 {formError && (
                   <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-semibold">
                     ⚠️ {formError}
@@ -694,6 +717,16 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
                       />
                     </div>
 
+                    <section aria-label="Category images" className="space-y-2">
+                      <h4 className="text-sm font-bold">Category artwork</h4>
+                      <p className="text-xs text-muted">These images appear on NESAM Cabs, PeopleTaxi and One Way Car Rentals.</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <CategoryMediaField label="Category icon" value={formData.iconUrl} file={iconFile} disabled={saving} onChange={(file, clear) => { setIconFile(file); if (clear) setFormData(current => ({ ...current, iconUrl: '' })); }} />
+                        <CategoryMediaField label="Car image" value={formData.imageUrl} file={carFile} disabled={saving} onChange={(file, clear) => { setCarFile(file); if (clear) setFormData(current => ({ ...current, imageUrl: '' })); }} />
+                      </div>
+                      {errNode('iconUrl')}{errNode('imageUrl')}
+                    </section>
+
                     <label className="flex items-center gap-3 p-3 rounded-xl border border-line bg-gray-50 max-w-xs cursor-pointer">
                       <input
                         type="checkbox"
@@ -721,6 +754,20 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
                 {/* TAB 2: SPECS */}
                 {activeTab === "specs" && (
                   <div className="space-y-4">
+                    <section className="rounded-lg border border-line p-4 space-y-3">
+                      <h3 className="font-bold text-sm">Roof carrier charge</h3>
+                      <p className="text-xs text-muted">Per trip, only when selected. Applies to all vehicles in this category across all brands, using the booking's GST setting. Enter 0 for no extra charge.</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {([['carrierCharge', 'Roof carrier charge']] as const).map(([key, label]) => (
+                          <label key={key} className="block text-xs font-semibold">{label} (INR / trip)
+                            <input type="number" min="0" max="100000" step="0.01" value={formData.fare[key]}
+                              onChange={(e) => setFormData({ ...formData, fare: { ...formData.fare, [key]: Number(e.target.value) } })}
+                              className="mt-1 w-full p-2.5 border border-line rounded-lg" />
+                            {errNode(`fare.${key}`)}
+                          </label>
+                        ))}
+                      </div>
+                    </section>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-[11px] font-bold text-ink mb-1">
@@ -771,7 +818,7 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
                     </div>
                   </div>
                 )}
-              </div>
+              </fieldset>
 
               {/* Modal Footer */}
               <div className="px-6 py-4 border-t border-line flex items-center justify-between bg-surface-2">

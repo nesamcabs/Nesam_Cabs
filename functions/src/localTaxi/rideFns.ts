@@ -93,7 +93,7 @@ export const ltGetQuotes = onCall({ secrets: [RAZORPAY_KEY_ID, RAZORPAY_KEY_SECR
     };
     batch.set(ref, doc);
     quotes.push({
-      quoteId: ref.id, categoryId: cat.id, categoryName: doc.categoryName, seats: cat.data()!.seatingCapacity ?? null, imageUrl: cat.data()!.imageUrl ?? '', totalPaise: breakdown.totalPaise, lines: breakdown.lines,
+      quoteId: ref.id, categoryId: cat.id, categoryName: doc.categoryName, seats: cat.data()!.seatingCapacity ?? null, imageUrl: cat.data()!.imageUrl ?? '', iconUrl: cat.data()!.iconUrl ?? '', totalPaise: breakdown.totalPaise, lines: breakdown.lines,
       expiresAtMs, available: supply.count > 0, availableDrivers: supply.count, etaMinutes: supply.etaMinutes, sampleFare: fare.sample, distanceCapMeters: Math.round(distanceMeters * fare.config.maxDistanceOverQuoteBps / 10000),
       cancellationFeePaise: fare.config.cancellation.feePaise, cancellationGraceSeconds: fare.config.cancellation.graceSeconds,
     });

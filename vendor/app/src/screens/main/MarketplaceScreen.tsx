@@ -125,6 +125,7 @@ export function MarketplaceScreen() {
             <View style={s.topRow}>
               <View style={s.categoryBadge}>
                 <Text style={s.categoryText}>{item.vehicleCategory}</Text>
+                {item.addOns?.roofCarrier || item.addOns?.pets ? <Text style={s.categoryText}>Required: {[item.addOns?.roofCarrier ? 'Roof carrier' : '', item.addOns?.pets ? 'Pet travel' : ''].filter(Boolean).join(' / ')}</Text> : null}
               </View>
               <Text style={s.payoutText}>{formatINR(item.offeredPayout)}</Text>
             </View>

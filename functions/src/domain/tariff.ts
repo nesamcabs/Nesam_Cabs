@@ -1,3 +1,4 @@
+import { withBookedAddOnFare } from './bookingAddOns';
 import { gstComponents, withFareGst, validGstRule, type FareGstPolicies, type GstSnapshot } from './gst';
 // Confirmed customer tariffs and normal partner rates (Tariff & Operations v2.0, 09 Oct 2026).
 //
@@ -71,17 +72,26 @@ export interface AirportClassRates { customerBase?: number; partnerBase?: number
 export interface LocalFareEntry { minKm: number; customerRate: number; partnerRate: number; extraKmRate: number; waitingPerHour: number; enabled: boolean }
 /** Keyed by the canonical City record id in `locations`; `cityName` is a display copy only. */
 export interface LocalCityFares { cityName: string; classes: Partial<Record<TariffClass, LocalFareEntry>> }
-export const RENTAL_HOURS = [1, 2, 3, 4, 6, 8, 10, 12] as const;
+export const RENTAL_HOURS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] as const;
 export type RentalHours = (typeof RENTAL_HOURS)[number];
 export type GstMode = 'included' | 'excluded';
 export interface RentalPackage { customerFare: number; partnerPayout: number; includedKm: number; extraKmRate: number; extraHourRate: number; gstMode: GstMode; enabled: boolean }
 /** `packages` is keyed by the hour count ("4", "6", …). */
 export interface RentalClassConfig { minHours?: number; packages: Partial<Record<string, RentalPackage>> }
 /** Minimum rental hours of a category that has none saved yet. */
-export const DEFAULT_RENTAL_MIN_HOURS: Readonly<Record<TariffClass, number>> = { sedan: 4, suv: 4, suv7: 4, innova: 4, crysta: 10 };
+export const DEFAULT_RENTAL_MIN_HOURS: Readonly<Record<TariffClass, number>> = { sedan: 1, suv: 1, suv7: 1, innova: 1, crysta: 1 };
 
 /** Brand-scoped fare override for a specific service and vehicle class. */
+export interface RentalPackageRule { firstHourFare: number; additionalHourFare: number; partnerPerHour: number; includedKm: number; kmMode: 'per_hour' | 'per_trip'; extraKmRate: number; extraHourRate: number }
+export function parseRentalPackageRule(value: unknown): RentalPackageRule | null {
+  if (!value || typeof value !== 'object') return null;
+  const r = value as RentalPackageRule;
+  if (!['per_hour', 'per_trip'].includes(r.kmMode)) return null;
+  if (!['firstHourFare', 'additionalHourFare', 'partnerPerHour', 'includedKm', 'extraKmRate', 'extraHourRate'].every(key => typeof (r as any)[key] === 'number' && Number.isFinite((r as any)[key]) && (r as any)[key] > 0 && (r as any)[key] <= 100000)) return null;
+  return { firstHourFare: r.firstHourFare, additionalHourFare: r.additionalHourFare, partnerPerHour: r.partnerPerHour, includedKm: r.includedKm, kmMode: r.kmMode, extraKmRate: r.extraKmRate, extraHourRate: r.extraHourRate };
+}
 export interface BrandFareOverride {
+  rentalPackageRule?: RentalPackageRule;
   partnerWaitingPerHour?: number;
   partnerHillCharge?: number;
   partnerCarrierCharge?: number;
@@ -131,6 +141,8 @@ function parseFareGst(value: unknown): FareGstPolicies | undefined {
 }
 
 export interface TariffConfig {
+  /** Common pet travel price per trip, shared by all brands and categories. */
+  petCharge?: number;
   fareGst?: FareGstPolicies;
   /** Rupee amounts. Absent = not configured (never zero). */
   version: number;
@@ -264,7 +276,7 @@ function parseRentalPackages(v: unknown): Partial<Record<TariffClass, RentalClas
       if (p) packages[String(h)] = p;
     }
     const min = raw.minHours;
-    out[c] = { ...(Number.isInteger(min) && min >= 1 && min <= 12 ? { minHours: min } : {}), packages };
+    out[c] = { ...(Number.isInteger(min) && min >= 1 && min <= 15 ? { minHours: min } : {}), packages };
   }
   return Object.keys(out).length ? out : undefined;
 }
@@ -299,6 +311,8 @@ function parseBrandOverrides(raw: unknown): TariffConfig['brandOverrides'] {
         if (isNum(rates.carrierCharge)) r.carrierCharge = rates.carrierCharge;
         if (isNum(rates.minRentalHours)) r.minRentalHours = rates.minRentalHours;
         if (typeof rates.enabled === 'boolean') r.enabled = rates.enabled;
+        const rentalRule = parseRentalPackageRule(rates.rentalPackageRule);
+        if (rentalRule) r.rentalPackageRule = rentalRule;
         if (rates.rentalPackages && typeof rates.rentalPackages === 'object') {
           const pkgs: NonNullable<BrandFareOverride['rentalPackages']> = {};
           for (const h of RENTAL_HOURS) {
@@ -494,6 +508,7 @@ export function parseTariffConfig(d: Record<string, any> | undefined | null): Ta
   return {
     version: typeof d.version === 'number' ? d.version : 0,
     enabled: d.enabled === true,
+    ...(isNum(d.petCharge) && d.petCharge <= 100000 ? { petCharge: d.petCharge } : {}),
     gstRate: isNum(d.gstRate) && d.gstRate < 1 ? d.gstRate : 0.05,
     oneWay: { minKm: isNum(d.oneWay?.minKm) && d.oneWay.minKm > 0 ? d.oneWay.minKm : 130, classes: sanitizeCng(rateMap<OneWayRates>(d.oneWay?.classes, ['customerRate', 'customerBata', 'partnerRate', 'partnerBata'])) },
     roundTrip: {
@@ -548,6 +563,7 @@ export interface PartnerNormalRate {
 }
 
 export interface PricingSnapshot {
+  bookingAddOns?: import('./bookingAddOns').BookingAddOnCharges;
   gst?: GstSnapshot;
   /** True when the configured fare already contained GST (GST was extracted from it, not added on top). */
   gstInFare?: boolean;
@@ -867,9 +883,9 @@ export function quoteAirport(i: QuoteInput & { rates: NonNullable<ReturnType<typ
   };
 }
 
-/** Minimum rental hours of a class: the saved value, else the initial minimum (Sedan / SUV / Innova 4, Crysta 10). */
+/** All vehicle classes support the full 1-15-hour range; legacy minimum values no longer hide shorter packages. */
 export function rentalMinHours(cfg: TariffConfig, cls: TariffClass): number {
-  return cfg.rentalPackages?.[cls]?.minHours ?? DEFAULT_RENTAL_MIN_HOURS[cls];
+  return DEFAULT_RENTAL_MIN_HOURS[cls];
 }
 
 /** Taxable paise of a GST-inclusive amount, using the same half-up GST rounding as every other fare. */
@@ -882,8 +898,7 @@ export function taxableFromInclusivePaise(totalPaise: number, gstRate: number): 
 }
 
 /**
- * A saved rental package that may be quoted now: enabled, valid, and not shorter than the class minimum.
- * A package below the minimum keeps its saved data but is never quoted.
+ * A saved rental package that may be quoted now: one of the supported 1-15 hours, enabled and valid.
  */
 export function rentalPackageFor(cfg: TariffConfig, cls: TariffClass, hours: number): { pkg: RentalPackage } | { error: string } {
   if (!(RENTAL_HOURS as readonly number[]).includes(hours)) return { error: `${hours}-hour rental packages are not offered.` };
@@ -1084,6 +1099,11 @@ export interface FinalResult {
  * A round trip that runs into another Indian date adds the day's bata and daily minimum.
  */
 export function finalizeFare(i: FinalInput): FinalResult {
+  const result = finalizeFareWithoutAddOns(i);
+  return { ...result, fare: withBookedAddOnFare(result.fare, i.pricing.bookingAddOns) };
+}
+
+function finalizeFareWithoutAddOns(i: FinalInput): FinalResult {
   const p = i.pricing;
   if (p.gst && p.gstInclusiveBase) {
     const base = p.gstInclusiveBase;
@@ -1091,7 +1111,7 @@ export function finalizeFare(i: FinalInput): FinalResult {
       // An office fare override is a net adjustment and must survive the inclusive snapshot.
       adminAdjustment: r2(p.adminAdjustment * (1 + p.gstRate)),
     };
-    const result = finalizeFare({ ...i, pricing: rawPricing });
+    const result = finalizeFareWithoutAddOns({ ...i, pricing: rawPricing });
     const fare = withFareGst(result.fare, p.gst, true);
     return { ...result, fare, customerPackagePaise: taxableFromInclusivePaise(result.customerPackagePaise, p.gstRate), extraKmPaise: taxableFromInclusivePaise(result.extraKmPaise, p.gstRate) };
   }

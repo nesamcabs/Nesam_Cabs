@@ -81,6 +81,7 @@ export function mapMarketTrip(id: string, d: DocumentData): MarketTrip {
     service: str(d.service),
     tripType: str(d.tripType),
     vehicleCategory: str(d.vehicleCategory || d.categoryName),
+    addOns: { roofCarrier: d.addOns?.roofCarrier === true, pets: d.addOns?.pets === true },
     distanceKm: num(d.distanceKm),
     offeredPayout: num(d.offeredPayout),
     status: str(d.status) || 'Open',
@@ -205,6 +206,10 @@ export function mapVendorBooking(id: string, d: DocumentData): VendorBooking {
     vehicleId: str(d.assignedVehicleId),
     vehicleNumber: str(d.assignedVehicleNumber),
     fare: num(d.fare),
+    ...(d.fareBreakdown?.addOns ? { addOns: {
+      roofCarrier: d.fareBreakdown.addOns.roofCarrier === true, pets: d.fareBreakdown.addOns.pets === true,
+      carrierCharge: num(d.fareBreakdown.addOns.carrierCharge), petCharge: num(d.fareBreakdown.addOns.petCharge),
+    } } : {}),
     // The server records the payout; the app never estimates one. Once finance has
     // finalized the trip, its snapshot (bookings/{id}.finance) is the amount that counts.
     ...vendorPayoutOf(d),

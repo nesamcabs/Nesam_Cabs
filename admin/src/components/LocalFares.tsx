@@ -105,13 +105,11 @@ export default function LocalFares({ initialTab = "Rental packages", initialCity
             <thead><tr><th>VEHICLE CATEGORY</th>{RENTAL_HOURS.map((h) => <th key={h}>{h} HOURS</th>)}</tr></thead>
             <tbody>{TARIFF_CLASSES.map((cls) => {
               const min = rentalMinHours(tariff, cls);
-              const minSaved = tariff?.rentalPackages?.[cls]?.minHours !== undefined;
               return (
                 <tr key={cls}>
                   <td>
                     <strong>{CLASS_LABEL[cls]}</strong>
-                    <small>Minimum {min} hours{minSaved ? "" : " (initial)"}</small>
-                    {canEdit && <Button size="sm" variant="ghost" onClick={() => setEdit({ kind: "minimum", cls })}>Change minimum</Button>}
+                    <small>1 to 15 hours</small>
                   </td>
                   {RENTAL_HOURS.map((h) => {
                     const raw = tariff?.rentalPackages?.[cls]?.packages?.[String(h)];
@@ -176,7 +174,6 @@ export default function LocalFares({ initialTab = "Rental packages", initialCity
       )}
 
       {edit?.kind === "package" && <PackageEditor cls={edit.cls} hours={edit.hours} existing={tariff?.rentalPackages?.[edit.cls]?.packages?.[String(edit.hours)]} version={version} onClose={() => setEdit(null)} onSaved={done} />}
-      {edit?.kind === "minimum" && <MinimumEditor cls={edit.cls} current={rentalMinHours(tariff, edit.cls)} packages={tariff?.rentalPackages?.[edit.cls]?.packages ?? {}} version={version} onClose={() => setEdit(null)} onSaved={done} />}
       {edit?.kind === "local" && city && <LocalEditor cls={edit.cls} city={city} existing={tariff?.localPickupDrop?.[city.id]?.classes?.[edit.cls]} version={version} onClose={() => setEdit(null)} onSaved={done} />}
     </div>
   );
@@ -246,29 +243,6 @@ function PackageEditor({ cls, hours, existing, version, onClose, onSaved }: { cl
         </fieldset>
         <label className="ds-check"><input type="checkbox" checked={f.enabled} onChange={(e) => set({ enabled: e.target.checked })} />Available for new quotes and bookings</label>
         <label className="ds-field"><span>Reason for this change</span><input className="ds-input" maxLength={300} value={f.reason} onChange={(e) => set({ reason: e.target.value })} /></label>
-      </form>
-    </Modal>
-  );
-}
-
-function MinimumEditor({ cls, current, packages, version, onClose, onSaved }: { cls: TariffClass; current: number; packages: Partial<Record<string, Partial<RentalPackage>>>; version: number; onClose: () => void; onSaved: (t: string) => void }) {
-  const ed = useEditor(onClose, onSaved);
-  const [hours, setHours] = useState(String(current));
-  const [reason, setReason] = useState("");
-  const next = Number(hours);
-  const hidden = RENTAL_HOURS.filter((h) => h < next && validPackage(packages[String(h)]));
-  const problem = !Number.isInteger(next) || next < 1 || next > 12 ? "Choose a whole number of hours from 1 to 12." : next === current ? "Choose a different minimum." : reason.trim().length < 5 ? "Record the reason for this change." : null;
-  return (
-    <Modal title={`${CLASS_LABEL[cls]} · minimum rental`} onClose={ed.close} busy={ed.busy}
-      footer={<><Button onClick={ed.close} disabled={ed.busy}>Cancel</Button><Button variant="primary" type="submit" form="min-form" loading={ed.busy}>Save minimum</Button></>}>
-      <form id="min-form" className="grid gap-4" noValidate onSubmit={(e) => ed.submit(e, problem, async () => (await saveTariffSection({ section: "rentalMinimum", class: cls, minHours: next, expectedVersion: version, reason: reason.trim() })).version, (v) => `${CLASS_LABEL[cls]} minimum rental is now ${next} hours (tariff version ${v}).`)}>
-        {ed.error && <div className="ds-error" role="alert"><Icon name="circle-alert" />{ed.error}</div>}
-        <label className="ds-field"><span>Minimum rental · hours</span>
-          <select className="ds-select" value={hours} onChange={(e) => { setHours(e.target.value); ed.setDirty(); ed.setError(null); }}>{Array.from({ length: 12 }, (_, i) => i + 1).map((h) => <option key={h} value={h}>{h} hours</option>)}</select>
-        </label>
-        <p className="text-[12px] text-muted">Packages shorter than the minimum show as Not available and are not quoted. Their saved values are kept.</p>
-        {hidden.length > 0 && <p className="text-[12px] text-bad" role="status">Saved {hidden.join(", ")}-hour package{hidden.length > 1 ? "s" : ""} will stop being quoted for {CLASS_LABEL[cls]}.</p>}
-        <label className="ds-field"><span>Reason for this change</span><input className="ds-input" maxLength={300} value={reason} onChange={(e) => { setReason(e.target.value); ed.setDirty(); ed.setError(null); }} /></label>
       </form>
     </Modal>
   );

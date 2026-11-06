@@ -181,3 +181,5 @@ h2,
 .footer a:hover {
   color: #e9cf9d;
 }
+
+.hero-copy h1 { text-transform: none; }

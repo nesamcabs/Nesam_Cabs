@@ -38,6 +38,7 @@ export function mapCategory(id: string, d: Record<string, any>): RideCategory | 
     description: str(d.description),
     seats: num(d.seatingCapacity) || num(d.recommendedPassengers) || 4,
     imageUrl: str(d.imageUrl) || undefined,
+    iconUrl: str(d.iconUrl) || undefined,
     matchVehicleTypes: vehicleTypeAliases(str(d.name), str(d.code)),
     fare: {
       baseFare: num(f.baseFare),

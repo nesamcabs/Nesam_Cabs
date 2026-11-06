@@ -52,6 +52,7 @@ export interface Booking {
   discount?: number;
   /** Written only by the booking server (createBooking / createAdminBooking / overrideBookingFare). */
   fareBreakdown?: {
+    addOns?: { roofCarrier: boolean; pets: boolean; carrierCharge: number; petCharge: number };
     baseFare?: number;
     distanceFare?: number;
     timeFare?: number;
@@ -284,6 +285,7 @@ export interface VehicleCategory {
   description?: string;
   imageUrl?: string;
   icon?: string;
+  iconUrl?: string;
   seatingCapacity: number;
   luggageCapacity?: string | number;
   acSupported?: "AC" | "Non-AC" | "Both" | boolean;

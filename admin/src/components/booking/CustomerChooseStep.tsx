@@ -158,7 +158,8 @@ export default function CustomerChooseStep({ trip, set, estimates, selected, onS
 
               <div className="cf-extras">
                 <label className="check"><input type="checkbox" className="check__input" checked={trip.hill} onChange={(ev) => set({ hill: ev.target.checked })} /><span className="check__label"><strong>Hill travel</strong></span></label>
-                <label className="check"><input type="checkbox" className="check__input" checked={trip.carrier} onChange={(ev) => set({ carrier: ev.target.checked })} /><span className="check__label"><strong>Roof carrier</strong></span></label>
+                <label className="check"><input type="checkbox" className="check__input" checked={trip.carrier} onChange={(ev) => set({ carrier: ev.target.checked })} /><span className="check__label"><strong>Roof carrier (+{rupee(chosen?.category.fare?.carrierCharge ?? 0)} / trip)</strong></span></label>
+                <label className="check"><input type="checkbox" className="check__input" checked={trip.pets === true} onChange={(ev) => set({ pets: ev.target.checked })} /><span className="check__label"><strong>Travelling with pets (+{rupee(chosen?.quote?.addOnRates?.petCharge ?? 0)} / trip)</strong></span></label>
                 <input className="input bf-input cf-sm" inputMode="numeric" aria-label="Expected waiting in minutes" placeholder="Waiting (minutes)" value={trip.waitingMin === "0" ? "" : trip.waitingMin} onChange={(ev) => set({ waitingMin: ev.target.value.replace(/\D/g, "") || "0" })} />
               </div>
 

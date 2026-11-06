@@ -64,7 +64,9 @@ export function buildFareBreakup(category: RideCategory, fare: FareBreakdown, ou
   add(outstation
     ? { key: 'stateTax', label: 'State tax / permit', amount: x && x.permitCharge > 0 ? x.permitCharge : null, treatment: 'extra', detail: x && x.permitCharge > 0 ? 'Payable separately per trip' : 'Payable separately at actuals' }
     : { key: 'stateTax', label: 'State tax / permit', amount: null, treatment: 'not_applicable', detail: 'Not applicable to local trips' });
-  if (x && x.carrierCharge > 0) add({ key: 'carrier', label: 'Carrier / luggage', amount: x.carrierCharge, treatment: 'extra', detail: 'Payable separately if a carrier is used' });
+  if (fare.addOns?.roofCarrier) add({ key: 'carrierAddon', label: 'Roof carrier', amount: fare.addOns.carrierCharge, treatment: 'included', detail: 'Selected add-on per trip' });
+  if (fare.addOns?.pets) add({ key: 'petAddon', label: 'Pet travel', amount: fare.addOns.petCharge, treatment: 'included', detail: 'Selected add-on per trip' });
+  if (x && x.carrierCharge > 0 && !fare.addOns?.roofCarrier) add({ key: 'carrier', label: 'Carrier / luggage', amount: x.carrierCharge, treatment: 'extra', detail: 'Payable separately if a carrier is used' });
 
   return { lines, packageTotal: fare.total };
 }
@@ -83,6 +85,8 @@ export function linesFromBreakdown(fare: FareBreakdown): FareLine[] {
   add('minimum', 'Minimum fare top-up', fare.minimumFareAdjustment);
   if (fare.globalAdjustment) add('adjustment', fare.globalAdjustment.name || 'Fare adjustment', fare.globalAdjustment.amount);
   add('agreed', 'Agreed fare adjustment', fare.adminAdjustment ?? 0);
+  add('carrierAddon', 'Roof carrier', fare.addOns?.carrierCharge ?? 0);
+  add('petAddon', 'Pet travel', fare.addOns?.petCharge ?? 0);
   add('discount', 'Discount', -fare.discount);
   lines.push({ key: 'gst', label: 'GST', amount: fare.gst, treatment: 'included', detail: '' });
   return lines;

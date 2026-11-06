@@ -402,6 +402,7 @@ export function subscribeToOpenMarketplace(callback: (offers: MarketplaceOffer[]
           travelDate: str(data.travelDate),
           pickupAt: toDate(data.pickupAt),
           vehicleCategory: str(data.vehicleCategory || data.categoryName),
+          addOns: { roofCarrier: data.addOns?.roofCarrier === true, pets: data.addOns?.pets === true },
           distanceKm: parseAmount(data.distanceKm),
           offeredPayout: typeof data.offeredPayout === 'number' && data.offeredPayout > 0 ? data.offeredPayout : null,
           mode: (data.mode === 'bid_review' ? 'bid_review' : data.mode === 'accept_offer' ? 'accept_offer' : '') as MarketplaceOffer['mode'],

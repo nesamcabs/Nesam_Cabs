@@ -103,12 +103,16 @@ function place(prefix: 'pickup' | 'drop', d: Record<string, unknown>): GeoPlace 
 function mapFareBreakdown(v: unknown, adjustment?: unknown): FareBreakdown | null {
   if (!v || typeof v !== 'object') return null;
   const f = v as Record<string, unknown>;
-  const keys: Exclude<keyof FareBreakdown, 'subtotalBeforeAdjustment' | 'globalAdjustment' | 'discountDetail'>[] = [
+  const keys: Exclude<keyof FareBreakdown, 'subtotalBeforeAdjustment' | 'globalAdjustment' | 'discountDetail' | 'addOns'>[] = [
     'baseFare', 'distanceFare', 'timeFare', 'nightCharge', 'driverAllowance', 'minimumFareAdjustment', 'adminAdjustment',
     'subtotal', 'discount', 'taxableAmount', 'gstRate', 'gst', 'total', 'distanceKm', 'durationMin',
     'perKmRate', 'perMinuteRate',
   ];
   const out = {} as FareBreakdown;
+  if (f.addOns && typeof f.addOns === 'object') {
+    const a = f.addOns as Record<string, unknown>;
+    out.addOns = { roofCarrier: a.roofCarrier === true, pets: a.pets === true, carrierCharge: num(a.carrierCharge), petCharge: num(a.petCharge) };
+  }
   for (const k of keys) out[k] = num(f[k]);
   // Older bookings stored the applied % adjustment beside the breakdown only.
   const a = (f.globalAdjustment ?? adjustment) as Record<string, unknown> | null | undefined;
@@ -302,6 +306,7 @@ export function subscribeToBoardingOtp(id: string, cb: (otp: string | null) => v
 // ── Create ──────────────────────────────────────────────────────────────────
 
 export interface RideRequestInput {
+  addOns?: { roofCarrier: boolean; pets: boolean };
   profile: UserProfile;
   pickup: GeoPlace;
   drop: GeoPlace;
@@ -346,13 +351,13 @@ export async function createRideRequest(input: RideRequestInput): Promise<RideRe
   if (!input.scheduledAt || !Number.isFinite(input.scheduledAt.getTime())) throw new Error('Choose your pickup date and time.');
   if (input.tripType === 'Round Trip' && (!input.tripEndAt || !Number.isFinite(input.tripEndAt.getTime()))) throw new Error('Choose when your round trip ends.');
   const bSource = input.bookingSource || input.source || input.brand || '';
-  const key = JSON.stringify([input.profile.uid, input.pickup.lat, input.pickup.lng, ...(input.stops ?? []).flatMap((p) => [p.lat, p.lng]), input.drop.lat, input.drop.lng, input.category.id, input.tripType, input.multicity === true, input.scheduledAt?.toISOString(), input.tripEndAt?.toISOString(), input.couponCode, bSource, input.rentalHours ?? null]);
+  const key = JSON.stringify([input.profile.uid, input.pickup.lat, input.pickup.lng, ...(input.stops ?? []).flatMap((p) => [p.lat, p.lng]), input.drop.lat, input.drop.lng, input.category.id, input.tripType, input.multicity === true, input.scheduledAt?.toISOString(), input.tripEndAt?.toISOString(), input.couponCode, bSource, input.rentalHours ?? null, input.addOns?.roofCarrier === true, input.addOns?.pets === true]);
   const requestId = pendingBookingIds.get(key) ?? doc(collection(db, BOOKINGS)).id;
   pendingBookingIds.set(key, requestId);
   // An advance booking request: it waits for NESAM's review and is not offered to any partner until then.
   await callBackend('createBooking', { requestId, pickup: input.pickup, drop: input.drop, stops: input.tripType === 'Round Trip' ? input.stops ?? [] : [], termsAccepted: input.termsAccepted === true,
     categoryId: input.category.id, tripType: input.multicity && input.tripType === 'Round Trip' ? 'Multicity' : input.tripType, expectedFare: input.fare.total,
-    paymentMethod: input.paymentMethod, couponCode: input.couponCode, notes: input.notes, fuelType: input.fuelType === 'cng' ? 'cng' : undefined,
+    addOns: input.addOns, paymentMethod: input.paymentMethod, couponCode: input.couponCode, notes: input.notes, fuelType: input.fuelType === 'cng' ? 'cng' : undefined,
     whatsapp: input.whatsapp, email: input.email || undefined,
     scheduledAt: input.scheduledAt.toISOString(), tripEndAt: input.tripType === 'Round Trip' ? input.tripEndAt?.toISOString() : undefined,
     rentalHours: input.tripType === 'Local Rental' && input.rentalHours ? input.rentalHours : undefined,

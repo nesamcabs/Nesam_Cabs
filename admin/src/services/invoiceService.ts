@@ -71,6 +71,7 @@ export interface InvoiceLines {
 export function buildInvoiceLines(b: Booking): InvoiceLines {
   const fare = parseAmount(b.fare);
   const fb = (b.fareBreakdown ?? {}) as Record<string, unknown>;
+  const addons = fb.addOns && typeof fb.addOns === "object" ? fb.addOns as Record<string, unknown> : {};
   const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
   const gst = round2(bookingGst(b));
   const taxable = round2(fare - gst);
@@ -80,6 +81,8 @@ export function buildInvoiceLines(b: Booking): InvoiceLines {
 
   const components: [string, unknown][] = [
     ["Base fare", fb.baseFare],
+    ["Roof carrier", addons.carrierCharge],
+    ["Pet travel", addons.petCharge],
     ["Distance charge", fb.distanceFare],
     ["Time charge", fb.timeFare],
     ["Night charge", fb.nightCharge],

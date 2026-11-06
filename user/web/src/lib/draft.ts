@@ -20,6 +20,8 @@ export interface BookingDraft {
   /** A code the rider has applied (re-validated against every fare). */
   promoCode: string;
   notes: string;
+  roofCarrier: boolean;
+  pets: boolean;
   waSame: boolean;
   waCode: string;
   waNumber: string;
@@ -37,7 +39,7 @@ export interface BookingDraft {
 }
 
 /** Local Rental packages the booking server offers (each car shows which it can book). */
-export const RENTAL_PACKAGE_HOURS: readonly number[] = [1, 2, 3, 4, 6, 8, 10, 12];
+export const RENTAL_PACKAGE_HOURS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
 
 export const EMPTY_DRAFT: BookingDraft = {
   pickup: null,
@@ -51,6 +53,8 @@ export const EMPTY_DRAFT: BookingDraft = {
   fuelType: '',
   promoCode: '',
   notes: '',
+  roofCarrier: false,
+  pets: false,
   waSame: true,
   waCode: '+91',
   waNumber: '',
@@ -104,6 +108,8 @@ export function loadDraft(): BookingDraft {
       fuelType: d.fuelType === 'cng' ? 'cng' : '',
       promoCode: typeof d.promoCode === 'string' ? d.promoCode : '',
       notes: typeof d.notes === 'string' ? d.notes.slice(0, 300) : '',
+      roofCarrier: d.roofCarrier === true,
+      pets: d.pets === true,
       waSame: d.waSame !== false,
       waCode: typeof d.waCode === 'string' ? d.waCode : '+91',
       waNumber: typeof d.waNumber === 'string' ? d.waNumber : '',

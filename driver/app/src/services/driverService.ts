@@ -416,6 +416,7 @@ export function mapOffer(id: string, data: DocumentData): MarketplaceOffer & { c
     pickupTime: str(pickup.time),
     travelDate: str(data.travelDate),
     vehicleCategory: str(data.vehicleCategory || data.categoryName),
+    addOns: { roofCarrier: data.addOns?.roofCarrier === true, pets: data.addOns?.pets === true },
     distanceKm: parseAmount(data.distanceKm),
     offeredPayout: parseAmount(data.offeredPayout),
     mode: data.mode === 'bid_review' ? 'bid_review' : data.mode === 'accept_offer' ? 'accept_offer' : '',

@@ -1,9 +1,10 @@
+import RentalPackageBuilder from './RentalPackageBuilder';
+import type { RentalPackageRule } from '../services/rentalPackageRule';
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   BRAND_LABELS,
   CLASS_LABEL,
   FALLS_BACK_TO_SUV,
-  DEFAULT_RENTAL_MIN_HOURS,
   RENTAL_HOURS,
   getInheritingBrands,
   inr,
@@ -32,7 +33,6 @@ const NUM_KEYS = [
   "customerRate", "partnerRate", "customerBase", "partnerBase", "minKm", "minKmPerDay", "customerBata", "partnerBata",
   "cngCustomerRate", "cngPartnerRate", "cngCustomerBata", "cngPartnerBata", "cngExtraKmRate", "cngMinKmPerDay",
   "extraKmRate", "waitingPerHour", "hillCharge", "carrierCharge", "partnerWaitingPerHour", "partnerHillCharge", "partnerCarrierCharge",
-  "minRentalHours",
 ] as const satisfies readonly (keyof BrandFareOverride)[];
 type NumKey = (typeof NUM_KEYS)[number];
 /** Older per-vehicle waiting / tax rules. They now live once in "Rules for extra charges"; saving a scope removes its old copy. */
@@ -47,7 +47,7 @@ const PKG_FIELDS = [
 ] as const;
 type PkgField = (typeof PKG_FIELDS)[number]["key"];
 
-interface Form { v: Record<NumKey, string>; pkg: Record<string, Record<PkgField, string>> }
+interface Form { rentalRule?: RentalPackageRule; v: Record<NumKey, string>; pkg: Record<string, Record<PkgField, string>> }
 
 const str = (v: unknown): string => (typeof v === "number" && Number.isFinite(v) ? String(v) : "");
 const emptyPkg = (): Record<PkgField, string> => ({ customerFare: "", partnerPayout: "", includedKm: "", extraKmRate: "", extraHourRate: "" });
@@ -60,6 +60,7 @@ function formOf(t: Tariff | null | undefined, brand: FareWorkspaceScope["brand"]
   const f = emptyForm();
   const ov = t?.brandOverrides?.[brand]?.[service]?.[cls];
   if (!ov) return f;
+  f.rentalRule = ov.rentalPackageRule;
   for (const k of NUM_KEYS) f.v[k] = str(ov[k]);
   for (const h of RENTAL_HOURS) {
     const p = ov.rentalPackages?.[String(h)];
@@ -140,7 +141,6 @@ export default function BrandServiceFareWorkspace({ scope, vehicleClass, vehicle
   const card = service === "One Way" ? oneWay : roundTrip; // Multicity inherits the Round Trip card
   const outstation = service === "One Way" ? outstationExtraFor(t, cls, "One Way") : perDay ? outstationExtraFor(t, cls, "Round Trip") : undefined;
   const oldExtras = t?.extraCharges?.categories?.[categoryId ?? ""] ?? t?.extraCharges?.categories?.[`cat-${cls}`] ?? t?.extraCharges?.categories?.[cls];
-  const rentalMin = t?.rentalPackages?.[cls]?.minHours ?? DEFAULT_RENTAL_MIN_HOURS[cls];
 
   const resolved = (def: FieldDef) => resolveRate(t, brand, service, cls, def.key, def.base);
   const effective = (def: FieldDef): number | undefined => {
@@ -158,7 +158,6 @@ export default function BrandServiceFareWorkspace({ scope, vehicleClass, vehicle
 
   // ── Rate boxes for the service on screen ──────────────────────────────────────────────────────────────────────
   let customer: FieldDef[] = [], partner: FieldDef[] = [];
-  const minHoursDef = f("minRentalHours", "Minimum hours", "hours", rentalMin, undefined, "Shorter packages are not offered");
   if (showCng) {
     customer = [
       f("cngCustomerRate", "CNG price per km", "₹/km", card?.cng?.customerRate, "positive"),
@@ -194,7 +193,7 @@ export default function BrandServiceFareWorkspace({ scope, vehicleClass, vehicle
       f("partnerRate", "Partner pay per extra km", "₹/km", undefined, "any"),
     ];
   } else if (service === "Local Rental") {
-    customer = [minHoursDef];
+    customer = [];
   }
 
   // ── Extra charges: customer and partner side by side (a charge with no partner amount cannot be billed automatically) ──
@@ -205,11 +204,10 @@ export default function BrandServiceFareWorkspace({ scope, vehicleClass, vehicle
       partner: f("partnerWaitingPerHour", "Partner waiting", "₹/hour", oldExtras?.partner?.waitingPerHour),
     }] : []),
     { label: "Hill station", unit: "₹/trip", customer: f("hillCharge", "Hill station", "₹/trip", oldExtras?.customer?.hill), partner: f("partnerHillCharge", "Partner hill", "₹/trip", oldExtras?.partner?.hill) },
-    { label: "Roof carrier", unit: "₹/trip", customer: f("carrierCharge", "Roof carrier", "₹/trip", oldExtras?.customer?.carrier), partner: f("partnerCarrierCharge", "Partner roof carrier", "₹/trip", oldExtras?.partner?.carrier) },
   ];
 
   // ── Rental packages: own value → shared (All brands) value → base package ─────────────────────────────────────
-  const minHours = effective(minHoursDef) ?? rentalMin;
+  const minHours = 1;
   const pkgValue = (hours: number, key: PkgField): { own: string; inherited: number | undefined } => {
     const own = form.pkg[String(hours)]?.[key]?.trim() ?? "";
     const shared = brand !== "common" ? t?.brandOverrides?.common?.[service]?.[cls]?.rentalPackages?.[String(hours)]?.[key] : undefined;
@@ -270,6 +268,7 @@ export default function BrandServiceFareWorkspace({ scope, vehicleClass, vehicle
           if (Object.keys(row).length) { rentalPackages[String(h)] = row; packages++; }
         }
         data.rentalPackages = rentalPackages;
+        if (form.rentalRule) data.rentalPackageRule = form.rentalRule;
       }
       const clearOverride = NUM_KEYS.every((k) => data[k] === null) && packages === 0;
       const saved = await saveTariffSection({ section: "brandOverride", brand, service, class: cls, expectedVersion: t?.version ?? 0, reason: reason.trim(), clearOverride, data });
@@ -350,6 +349,11 @@ export default function BrandServiceFareWorkspace({ scope, vehicleClass, vehicle
 
         {service === "Local Rental" && (
           <FareGroup title="Hourly packages">
+            {t !== undefined ? <RentalPackageBuilder key={`${brand}:${cls}`} disabled={!canEdit || busy}
+              initialRule={form.rentalRule ?? (brand !== 'common' ? t?.brandOverrides?.common?.['Local Rental']?.[cls]?.rentalPackageRule : undefined)}
+              hourly={t?.rental?.classes?.[cls] ?? (FALLS_BACK_TO_SUV(cls) ? t?.rental?.classes?.suv : undefined)}
+              onGenerate={(rentalRule, rows) => setForm(current => ({ ...current, rentalRule, pkg: { ...current.pkg, ...Object.fromEntries(Object.entries(rows).map(([h, row]) => [h, Object.fromEntries(PKG_FIELDS.map(({ key }) => [key, String(row[key])])) as Record<PkgField, string>])) } }))} /> : null}
+
             {customer.map(box)}
             <div className="overflow-x-auto" style={{ gridColumn: "1 / -1" }}>
               <table className="ds-table w-full text-[13px]">

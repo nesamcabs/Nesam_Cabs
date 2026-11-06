@@ -1,3 +1,4 @@
+import { ratesAfterPrepaidAddOns } from './domain/bookingAddOns';
 // Extra usage on a trip — waiting at each stop, hill travel, roof carrier — from recording to billing and settlement.
 //
 //   recordExtraUsage   the assigned driver or vendor, or office staff, states what happened (per stop, with an explicit "none"
@@ -132,7 +133,9 @@ export const reviewExtraUsage = onCall(async (request) => {
       throw new HttpsError('failed-precondition', 'These extra charges cannot be posted yet: the booking has no saved GST rate to apply.', { code: 'extra-posting-blocked', reasons: ['The booking has no saved GST rate to apply.'] });
     }
     const gstRate = typeof pricing?.gstRate === 'number' ? pricing.gstRate : 0;
-    const calc = computeExtraCharges(snapshot, snapshot.partner, usage, gstRate, pricing?.waitingPerHourPaise);
+    const carrierPrepaid = whole.pricing?.bookingAddOns?.roofCarrier === true;
+    const billingSnapshot = ratesAfterPrepaidAddOns(snapshot, carrierPrepaid);
+    const calc = computeExtraCharges(billingSnapshot, snapshot.partner, usage, gstRate, pricing?.waitingPerHourPaise);
     if (calc.blocked.length || !calc.customer || !calc.partner || calc.customerGstPaise === null || calc.customerTotalPaise === null) {
       throw new HttpsError('failed-precondition', `These extra charges cannot be posted yet: ${calc.blocked.join(' ')}`, { code: 'extra-posting-blocked', reasons: calc.blocked });
     }

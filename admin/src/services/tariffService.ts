@@ -1,3 +1,4 @@
+import type { RentalPackageRule } from './rentalPackageRule';
 import { useEffect, useState } from "react";
 import { subscribeToDocument } from "./adminFirestoreService";
 
@@ -8,9 +9,9 @@ export const TARIFF_CLASSES: readonly TariffClass[] = ["sedan", "suv", "suv7", "
 export const FALLS_BACK_TO_SUV = (c: TariffClass): boolean => c === "innova" || c === "suv7";
 export const CLASS_LABEL: Record<TariffClass, string> = { sedan: "Sedan", suv: "SUV 6+1", suv7: "SUV 7+1", innova: "Innova", crysta: "Innova Crysta" };
 
-export const RENTAL_HOURS = [1, 2, 3, 4, 6, 8, 10, 12] as const;
+export const RENTAL_HOURS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] as const;
 /** Minimum rental hours of a category that has none saved yet (the server applies the same default). */
-export const DEFAULT_RENTAL_MIN_HOURS: Record<TariffClass, number> = { sedan: 4, suv: 4, suv7: 4, innova: 4, crysta: 10 };
+export const DEFAULT_RENTAL_MIN_HOURS: Record<TariffClass, number> = { sedan: 1, suv: 1, suv7: 1, innova: 1, crysta: 1 };
 
 /** A class's CNG rate card as saved on the base rates (the server keeps it only when complete). */
 export interface CngRates { customerRate: number; customerBata: number; partnerRate: number; partnerBata: number; extraKmRate?: number; minKmPerDay?: number }
@@ -76,6 +77,7 @@ export const BRAND_SUPPORTED_SERVICES: Record<BrandId, readonly WorkspaceService
 };
 
 export interface BrandFareOverride {
+  rentalPackageRule?: RentalPackageRule;
   partnerWaitingPerHour?: number;
   partnerHillCharge?: number;
   partnerCarrierCharge?: number;
@@ -110,6 +112,8 @@ export interface BrandFareOverride {
 export interface FareGstRule { supplierState: string; rate: number; mode: 'included' | 'excluded'; classification: 'passenger' | 'rental'; reference: string }
 export interface FareGstPolicy { default?: FareGstRule; states?: Record<string, FareGstRule> }
 export interface Tariff {
+  rental?: { classes?: Partial<Record<TariffClass, { firstHour?: number; laterHour?: number; partnerPerHour?: number }>> };
+  petCharge?: number;
   fareGst?: Record<string, Record<string, FareGstPolicy>>;
   version?: number;
   enabled?: boolean;
@@ -144,7 +148,7 @@ export function useTariff(): { tariff: Tariff | null | undefined; error: string 
   return { tariff, error };
 }
 
-export const rentalMinHours = (t: Tariff | null | undefined, cls: TariffClass): number => t?.rentalPackages?.[cls]?.minHours ?? DEFAULT_RENTAL_MIN_HOURS[cls];
+export const rentalMinHours = (t: Tariff | null | undefined, cls: TariffClass): number => DEFAULT_RENTAL_MIN_HOURS[cls];
 
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 export const inr = (n: unknown): string => (finite(n) ? `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 2 })}` : "—");

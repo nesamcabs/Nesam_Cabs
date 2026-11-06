@@ -15,6 +15,8 @@ import {
 } from '../services/pricingService';
 
 export interface BookingDraft {
+  roofCarrier: boolean;
+  pets: boolean;
   pickup: GeoPlace | null;
   drop: GeoPlace | null;
   /** Ordered intermediate places for an outstation round trip. */
@@ -92,6 +94,8 @@ export function BookingDraftProvider({ children }: { children: React.ReactNode }
     categoryId: '',
     airportDirection: 'to',
     flightNumber: '',
+    roofCarrier: false,
+    pets: false,
     promoCode: '',
     rentalHours: null,
     fuelType: '',
@@ -136,7 +140,7 @@ export function BookingDraftProvider({ children }: { children: React.ReactNode }
   const reset = useCallback(() => {
     lastOutstation.current = 'One Way';
     setServiceState('outstation');
-    setDraft((d) => ({ ...d, drop: null, stops: [], scheduledAt: null, tripEndAt: null, tripType: 'One Way', flightNumber: '', airportDirection: 'to', promoCode: '', rentalHours: null, fuelType: '' }));
+    setDraft((d) => ({ ...d, drop: null, stops: [], scheduledAt: null, tripEndAt: null, tripType: 'One Way', flightNumber: '', airportDirection: 'to', promoCode: '', roofCarrier: false, pets: false, rentalHours: null, fuelType: '' }));
   }, []);
   const setRoute = useCallback((key: string, info: RouteInfo) => setRouteState({ key, info }), []);
 
@@ -153,6 +157,7 @@ export function BookingDraftProvider({ children }: { children: React.ReactNode }
       tripType,
       scheduledAt: scheduledAt.toISOString(),
       tripEndAt: tripType === 'Round Trip' && tripEndAt ? tripEndAt.toISOString() : null,
+      addOns: { roofCarrier: draft.roofCarrier, pets: draft.pets },
       couponCode: promoCode || '',
       rentalHours: tripType === 'Local Rental' ? draft.rentalHours : null,
     };

@@ -1,3 +1,4 @@
+import CommonPetChargeCard from '../components/CommonPetChargeCard';
 import DateTime12Input from "../components/DateTime12Input";
 import FareGstSettings from '../components/FareGstSettings';
 import FareAdjustmentCard from '../components/FareAdjustmentCard';
@@ -365,6 +366,7 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
           </>}
         </section>
       </>}
+      {tab === "Brand & service fares" && <CommonPetChargeCard />}
       {tab === "Brand & service fares" && pickupDrop && <LocalFares only="Pickup & Drop" initialTab="Pickup & Drop" initialCity={sel.city} onToast={show} />}
       {tab === "Brand & service fares" && !pickupDrop && <div className="space-y-4">
         <BrandServiceFareWorkspace scope={fareScope} vehicleClass={fareClass} vehicleName={selectedVehicle?.label} categoryId={activeCats.length ? selectedVehicle?.key : undefined} cngEnabled={selectedVehicle?.cng} fuel={fuelApplies ? fareFuel : "petrol"} onDirtyChange={dirty => { workspaceDirty.current = dirty; }} onBusyChange={busy => { workspaceBusy.current = busy; }} />
@@ -377,7 +379,7 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
       {isRuleTab && <section className="u27-settings-surface" id="fare-settings-panel">
         <>
           {tab === "Cab types" && cabSection === "Vehicle categories" ? <>
-            {fareScope.brand === "common" ? <VehicleCategoriesPage embedded /> : <Button onClick={() => changeScope({ ...fareScope, brand: "common" })}>Open shared vehicle catalog</Button>}
+            <VehicleCategoriesPage embedded />
           </> : <>
             <div className="sc-section-head"><div><h2>{tab === "Booking availability" ? "Can customers book in this area?" : tab === "Cab types" ? "Which cab types should customers see?" : "When should the fare increase or decrease?"}</h2><p className="u27-tamil" lang="ta">{tab === "Booking availability" ? "இந்த இடத்தில் booking எடுக்கலாமா?" : tab === "Cab types" ? "Customer-க்கு எந்த car வகைகளைக் காட்ட வேண்டும்?" : "இந்த இடத்திற்குக் கட்டணத்தை ஏற்ற / குறைக்க"}</p></div>
               {canEdit && <Button variant="primary" icon="plus" disabledReason={!loaded || loadError ? "Wait for saved rules to load before adding a setting." : undefined} onClick={() => setSheet({ kind: "new", ruleKind: tab === "Booking availability" ? "availability" : tab === "Cab types" ? "categories" : "pricing" })}>{tab === "Booking availability" ? "Add booking availability" : tab === "Cab types" ? "Add cab types" : "Add pricing rule"}</Button>}

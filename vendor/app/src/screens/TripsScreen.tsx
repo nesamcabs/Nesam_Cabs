@@ -105,7 +105,7 @@ export function TripsScreen() {
             const canAccept = t.mode !== 'bid_review' && t.offeredPayout > 0;
             return (
               <DutyCard key={t.id} pickupAt={t.pickupMs ? new Date(t.pickupMs) : null} pickupText={[t.travelDate, t.pickup.time].filter(Boolean).join(' · ')} from={t.pickup.city || t.pickup.address} to={t.drop.city || t.drop.address}
-                tripType={typeOf(t)} category={t.vehicleCategory} km={t.distanceKm ? Math.round(t.distanceKm) : undefined} payout={t.offeredPayout} code={t.bookingId}
+                tripType={typeOf(t)} category={[t.vehicleCategory, t.addOns?.roofCarrier ? 'Roof carrier required' : '', t.addOns?.pets ? 'Pet travel' : ''].filter(Boolean).join(' / ')} km={t.distanceKm ? Math.round(t.distanceKm) : undefined} payout={t.offeredPayout} code={t.bookingId}
                 note={bid ? <Text style={styles.bidNote}>Your bid {rupees(bid.vendorCounterRate)}{bid.autoAcceptConsent ? '' : ' · Consent needed'}</Text> : null}
                 footer={
                   <>

@@ -173,7 +173,7 @@ export function ChooseStep() {
 
                     <div className="cab__info">
                       <div className="cab__header">
-                        <h3 className="cab__name">{name}</h3>
+                        <h3 className="cab__name">{c.iconUrl ? <img className="cab__category-icon" src={c.iconUrl} alt="" width={24} height={24} loading="lazy" /> : null}{name}</h3>
                         <ul className="cabx-facts">
                           <li><CabIcon kind="seat" size={20} /> {c.seats} seats</li>
                           <li><CabIcon kind="ac" size={20} /> AC</li>

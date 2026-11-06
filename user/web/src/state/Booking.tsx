@@ -86,9 +86,9 @@ export function BookingProvider({ children }: { children: ReactNode }) {
     (patch) => setDraft((d) => ({ ...d, ...(typeof patch === 'function' ? patch(d) : patch) })),
     [],
   );
-  const reset = useCallback(() => setDraft((d) => ({ ...d, drop: null, stops: [], scheduledAt: null, tripEndAt: null, tripType: 'One Way', multicity: false, promoCode: '', notes: '' })), []);
+  const reset = useCallback(() => setDraft((d) => ({ ...d, drop: null, stops: [], scheduledAt: null, tripEndAt: null, tripType: 'One Way', multicity: false, roofCarrier: false, pets: false, promoCode: '', notes: '' })), []);
   // A repeat booking always needs a fresh future pickup: the old schedule is never carried over.
-  const startFrom = useCallback<BookingValue['startFrom']>((pickup, drop) => setDraft((d) => ({ ...d, pickup, drop, stops: [], scheduledAt: null, tripEndAt: null, multicity: false, promoCode: '' })), []);
+  const startFrom = useCallback<BookingValue['startFrom']>((pickup, drop) => setDraft((d) => ({ ...d, pickup, drop, stops: [], scheduledAt: null, tripEndAt: null, multicity: false, roofCarrier: false, pets: false, promoCode: '' })), []);
 
   const routeStops = draft.tripType === 'Round Trip' ? draft.stops : [];
   const isRoundTrip = draft.tripType === 'Round Trip';
@@ -154,6 +154,7 @@ export function BookingProvider({ children }: { children: ReactNode }) {
       scheduledAt: scheduledAt.toISOString(),
       tripEndAt: tripType === 'Round Trip' && tripEndAt ? tripEndAt.toISOString() : null,
       rentalHours: tripType === 'Local Rental' ? draft.rentalHours : null,
+      addOns: { roofCarrier: draft.roofCarrier, pets: draft.pets },
       couponCode: promoCode || '',
       brand: 'nesam',
     };

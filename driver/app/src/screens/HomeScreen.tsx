@@ -166,6 +166,7 @@ export function HomeScreen() {
               </Text>
             </View>
             <NxBadge label={o.mode === 'bid_review' ? 'Bid' : o.vehicleCategory || 'Any vehicle'} tone={mismatch ? 'amber' : 'neutral'} />
+            {o.addOns?.roofCarrier || o.addOns?.pets ? <NxBadge label={[o.addOns?.roofCarrier ? 'Roof carrier required' : '', o.addOns?.pets ? 'Pet travel' : ''].filter(Boolean).join(' / ')} tone="amber" /> : null}
           </View>
           <NxRouteStack pickup={o.pickup.address} drop={o.drop.address} />
           <View style={styles.dutyInfo}>

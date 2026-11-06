@@ -195,6 +195,12 @@ export default function CustomerTripForm({ trip, set, data, top, action, error, 
           ) : null}
         </div>
 
+        {rental ? <div className="bf-cell">
+          <label className="bf-label bf-label--out" htmlFor="nb-rental-hours">Rental hours</label>
+          <select id="nb-rental-hours" className="input bf-input" value={trip.rentalHours ?? 1} onChange={e => set({ rentalHours: Number(e.target.value) })}>
+            {Array.from({ length: 15 }, (_, i) => i + 1).map(h => <option key={h} value={h}>{h} {h === 1 ? 'hour' : 'hours'}</option>)}
+          </select>
+        </div> : null}
         <div className="bf-row">
           <div className="bf-cell">
             <label className="bf-label bf-label--out" htmlFor="nb-date">Pickup date</label>

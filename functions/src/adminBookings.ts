@@ -1,3 +1,4 @@
+import { bookingAddOnsOf } from './domain/bookingAddOns';
 import { fareBoardingState, recipientAddressState, recipientGstState } from './fareGstContext';
 import { fareServiceKey } from './fareScope';
 // Admin (phone / walk-in) bookings. Priced by the same server fare engine as
@@ -249,7 +250,7 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
 
     const boardingState = await fareBoardingState(tariff, pickup);
     const recipientState = recipientGstState(business?.data() ?? customer?.data());
-    const priceInput = { boardingState, recipientState, recipientAddressState: recipientAddressState(business?.data() ?? customer?.data()), category, route, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, adminDiscount: discountIn, localCityId, rentalHours, fixedRoutes, serviceId, businessContract:contract, brand: bookingChannel };
+    const priceInput = { addOns: bookingAddOnsOf(input.addOns ?? input.tripExtras), boardingState, recipientState, recipientAddressState: recipientAddressState(business?.data() ?? customer?.data()), category, route, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, adminDiscount: discountIn, localCityId, rentalHours, fixedRoutes, serviceId, businessContract:contract, brand: bookingChannel };
     // Coupon: the same server checks as customer checkout (validity, usage limits, minimum fare,
     // category / service, audience) against the fare before discount; then the booking is priced with it.
     let couponDiscount = 0;
@@ -290,7 +291,7 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
       const roundTrip = tripType === 'Round Trip';
       const roadKm = Math.round(route.distanceKm * (roundTrip ? 2 : 1) * 10) / 10;
       const roadMinutes = Math.round(route.durationMin * (roundTrip ? 2 : 1));
-      return { quote: calculated, breakup, service, categoryName: category.name, commissionConfigured: true, adjustmentApplied: calculated.globalAdjustment, pricing: quotePricing, roadKm, roadMinutes, ...(couponCode ? { couponCode, couponDiscount } : {}) };
+      return { quote: calculated, addOnRates: { carrierCharge: category.fare.extras?.carrierCharge ?? 0, petCharge: tariff?.petCharge ?? 0 }, breakup, service, categoryName: category.name, commissionConfigured: true, adjustmentApplied: calculated.globalAdjustment, pricing: quotePricing, roadKm, roadMinutes, ...(couponCode ? { couponCode, couponDiscount } : {}) };
     }
     if (!Number.isFinite(input.expectedFare) || input.expectedFare !== calculated.total) {
       throw new HttpsError('failed-precondition', `The calculated fare is ₹${calculated.total}. Review it and submit again.`, { fare: calculated });
@@ -410,7 +411,7 @@ function officeBookingExtras(input: any, admin: { uid: string; name: string }): 
   const ex = input?.tripExtras && typeof input.tripExtras === 'object' ? input.tripExtras : null;
   if (ex) {
     const waiting = Number(ex.waitingMinutes);
-    out.tripExtras = { hillTravel: ex.hillTravel === true, roofCarrier: ex.roofCarrier === true, waitingMinutes: Number.isFinite(waiting) && waiting >= 0 && waiting <= 1440 ? Math.round(waiting) : 0 };
+    out.tripExtras = { hillTravel: ex.hillTravel === true, roofCarrier: ex.roofCarrier === true, pets: ex.pets === true, waitingMinutes: Number.isFinite(waiting) && waiting >= 0 && waiting <= 1440 ? Math.round(waiting) : 0 };
   }
   const enquiry = text(input?.enquiryId, 40);
   if (enquiry && /^NSM-QT-\d{6}$/.test(enquiry)) out.enquiryId = enquiry;

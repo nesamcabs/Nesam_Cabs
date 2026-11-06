@@ -541,3 +541,6 @@
 .lr-row > .lr-addr, .lr-row > .lr-cta { min-height: 64px; box-sizing: border-box; margin: 0; }
 .lr-row > .lr-addr { display: flex; align-items: center; }
 .lr-row > .lr-cta { width: auto; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; padding: 0 18px; font-size: 0.9375rem; white-space: nowrap; border-radius: 16px; }
+
+.lr-slogan { margin: 8px 0 0; text-align: center; font-size: 14px; font-weight: 700; line-height: 1.4; }
+.lr-slogan span { display: block; color: var(--brand); font-weight: 500; }

@@ -17,6 +17,8 @@ export { ActionError as AdminBookingError, newId as newRequestIdWithPrefix } fro
 export type { PickedPoint };
 
 export interface ManualBookingForm {
+  rentalHours?: number;
+  addOns?: { roofCarrier: boolean; pets: boolean };
   customerId: string;
   customerName: string;
   customerPhone: string;
@@ -227,7 +229,9 @@ const bookingRequest = (f: ManualBookingForm, requestId: string) => ({
   pickupAddress: f.pickupAddress.trim(),
   dropAddress: f.dropAddress.trim(),
   categoryId: f.categoryId,
+  addOns: f.addOns,
   tripType: f.tripType,
+  rentalHours: f.tripType === "Local Rental" ? (f.rentalHours ?? 1) : undefined,
   scheduledAt: f.pickupAt && Number.isFinite(new Date(f.pickupAt).getTime()) ? new Date(f.pickupAt).toISOString() : null,
   tripEndAt: f.tripType === "Round Trip" && f.tripEndAt && Number.isFinite(new Date(f.tripEndAt).getTime()) ? new Date(f.tripEndAt).toISOString() : null,
   paymentMethod: f.paymentMethod,
@@ -243,6 +247,7 @@ const bookingRequest = (f: ManualBookingForm, requestId: string) => ({
 });
 
 export interface FareQuote {
+  addOnRates?: { carrierCharge: number; petCharge: number };
   quote: BookingFareBreakdown & {
     subtotalBeforeAdjustment?: number;
     globalAdjustment?: { id: string; name: string; direction: string; percent: number; amount: number } | null;
@@ -262,8 +267,11 @@ export interface FareQuote {
 /** @deprecated use FareQuote */
 export type AdminQuote = FareQuote;
 
-export const quoteAdminBooking = (f: ManualBookingForm, requestId: string, extras: { businessAccountId?: string; businessBilledTo?: string } = {}) =>
-  callFunction<unknown, FareQuote>("createAdminBooking", { ...bookingRequest(f, requestId), ...extras, quoteOnly: true });
+export const quoteAdminBooking = async (f: ManualBookingForm, requestId: string, extras: { businessAccountId?: string; businessBilledTo?: string } = {}) => {
+  const result = await callFunction<unknown, FareQuote>("createAdminBooking", { ...bookingRequest(f, requestId), ...extras, quoteOnly: true });
+  if ((f.addOns?.roofCarrier && !result.quote.addOns?.roofCarrier) || (f.addOns?.pets && !result.quote.addOns?.pets)) throw new ActionError('Carrier and pet pricing is not available from the booking server yet. Please retry after the pricing update.');
+  return result;
+};
 
 export interface CreatedAdminBooking {
   id: string;
@@ -278,7 +286,7 @@ export interface OfficeBookingExtras {
   enquirySource?: "Phone" | "WhatsApp" | "Office" | "App";
   businessAccountId?: string;
   businessBilledTo?: "Company pays" | "Passenger pays";
-  tripExtras?: { hillTravel: boolean; roofCarrier: boolean; waitingMinutes: number };
+  tripExtras?: { hillTravel: boolean; roofCarrier: boolean; pets?: boolean; waitingMinutes: number };
   enquiryId?: string;
   termsAccepted?: boolean;
 }

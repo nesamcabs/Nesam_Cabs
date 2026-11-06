@@ -61,6 +61,7 @@ export interface FleetDriver {
 }
 
 export interface OpenTrip {
+  addOns?: { roofCarrier: boolean; pets: boolean };
   id: string;
   bookingId: string;
   route: string;

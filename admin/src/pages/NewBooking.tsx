@@ -147,8 +147,25 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
   }, [data.categories]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const set = (p: Partial<QuickTrip>) => {
+    if (p.carrier !== undefined || p.pets !== undefined) { void changeAddOns(p); return; }
     setTrip((t) => ({ ...t, ...p }));
-    if (p.pickup !== undefined || p.drop !== undefined || p.date || p.time || p.serviceId !== undefined || p.days !== undefined || p.stops !== undefined || p.airportDirection !== undefined) setEstimates(null);
+    if (p.pickup !== undefined || p.drop !== undefined || p.date || p.time || p.serviceId !== undefined || p.days !== undefined || p.rentalHours !== undefined || p.stops !== undefined || p.airportDirection !== undefined) setEstimates(null);
+  };
+  const addOnQuoteRun = useRef(0);
+  const changeAddOns = async (patch: Partial<QuickTrip>) => {
+    const next = { ...trip, ...patch };
+    setTrip(next);
+    const run = ++addOnQuoteRun.current;
+    setBusy(true);
+    setError(null);
+    try {
+      const list = await estimateAll(next, data.categories, c.channel);
+      if (run !== addOnQuoteRun.current) return;
+      setEstimates(list);
+      setAppliedCoupon(null);
+      if (!list.some(x => x.category.id === selected && x.quote)) setError('This vehicle could not be priced. Return to vehicles and retry.');
+    } catch { if (run === addOnQuoteRun.current) { setEstimates(null); setError('Could not refresh the add-on charges. Retry before booking.'); } }
+    finally { if (run === addOnQuoteRun.current) setBusy(false); }
   };
   const chosen = estimates?.find((x) => x.category.id === selected && x.quote) ?? null;
   const q = chosen?.quote ?? null;
@@ -280,7 +297,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
         passenger: c.someoneElse ? { name: c.paxName.trim(), phone: c.paxPhone, whatsapp: c.paxWhatsapp.trim() } : null,
         enquirySource: c.source,
         ...(business ? { businessAccountId: business.id, businessBilledTo: billedTo } : {}),
-        tripExtras: { hillTravel: trip.hill, roofCarrier: trip.carrier, waitingMinutes: Number(trip.waitingMin) || 0 },
+        tripExtras: { hillTravel: trip.hill, roofCarrier: trip.carrier, pets: trip.pets === true, waitingMinutes: Number(trip.waitingMin) || 0 },
         ...(draft?.enquiry ? { enquiryId: draft.enquiry.code } : {}),
         termsAccepted: true,
       });
@@ -459,6 +476,13 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                   </div>
                 </section>
 
+                <section className="card" aria-labelledby="rv-addons-head">
+                  <h2 id="rv-addons-head">Travel add-ons</h2>
+                  <label className="check"><input type="checkbox" className="check__input" checked={trip.carrier} disabled={busy} onChange={e => void changeAddOns({ carrier: e.target.checked })} /><span className="check__label">Roof carrier (+{rupee(chosen?.category.fare?.carrierCharge ?? 0)} / trip)</span></label>
+                  <label className="check"><input type="checkbox" className="check__input" checked={trip.pets === true} disabled={busy} onChange={e => void changeAddOns({ pets: e.target.checked })} /><span className="check__label">Travelling with pets (+{rupee(chosen?.quote?.addOnRates?.petCharge ?? 0)} / trip)</span></label>
+                  <p className="muted">Selected charges are included in the total and bill. GST follows the fare settings.</p>
+                </section>
+
                 <section className="card" aria-labelledby="rv-who-head">
                   <h2 id="rv-who-head">Passenger &amp; Contact Details</h2>
                   <div className="rv-grid">
@@ -473,7 +497,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                       {cfErr("phone")}
                       {match && <p className="field__hint">Existing customer · {match.name}</p>}
                       <div className="rv-fold">
-                        <label className="check"><input type="checkbox" className="check__input" checked={c.whatsappSame} onChange={(e) => setC({ ...c, whatsappSame: e.target.checked })} /><span className="check__label"><strong>Is this also your WhatsApp number?</strong></span></label>
+                        <label className="check check--whatsapp"><input type="checkbox" className="check__input" checked={c.whatsappSame} onChange={(e) => setC({ ...c, whatsappSame: e.target.checked })} /><span className="check__label"><strong>Same WhatsApp number</strong></span></label>
                         {!c.whatsappSame && (
                           <div className={`field ${errors.waNumber ? "is-invalid" : ""}`} style={{ marginTop: 10 }}>
                             <label className="field__label" htmlFor="rv-wa">WhatsApp number</label>

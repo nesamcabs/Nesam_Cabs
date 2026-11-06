@@ -122,6 +122,7 @@ function place(v: unknown): { address: string; city: string; time: string } {
 }
 
 export function mapOpenTrip(id: string, d: Data): OpenTrip {
+  const addOns = d.addOns && typeof d.addOns === "object" ? d.addOns as Data : {};
   const offer = num(d.offeredPayout);
   const pickup = place(d.pickup);
   // Show the time on a 12-hour clock, in India time, whenever the real pickup instant is stored.
@@ -139,6 +140,7 @@ export function mapOpenTrip(id: string, d: Data): OpenTrip {
     drop: { address: drop.address, city: drop.city },
     travelDate: at ? formatDate(at) : str(d.travelDate),
     vehicleCategory: str(d.vehicleCategory),
+    addOns: { roofCarrier: addOns.roofCarrier === true, pets: addOns.pets === true },
     distanceKm: distance !== null && distance > 0 ? distance : null,
     offeredPayout: offer !== null && offer > 0 ? offer : null,
     status: d.status === 'Bidding' ? 'Bidding' : 'Open',

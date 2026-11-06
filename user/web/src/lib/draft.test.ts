@@ -61,6 +61,20 @@ describe('booking draft persistence', () => {
     expect(loadDraft().waSame).toBe(true);
   });
 
+  it('preserves paid travel add-on choices across a reload and clears them for a new trip', () => {
+    saveDraft({ ...EMPTY_DRAFT, roofCarrier: true, pets: true });
+    expect(loadDraft()).toMatchObject({ roofCarrier: true, pets: true });
+    saveDraft({ ...EMPTY_DRAFT });
+    expect(loadDraft()).toMatchObject({ roofCarrier: false, pets: false });
+  });
+
+  it('keeps every rental duration from 1 through 15 across reloads', () => {
+    for (let rentalHours = 1; rentalHours <= 15; rentalHours++) {
+      saveDraft({ ...EMPTY_DRAFT, tripType: 'Local Rental', rentalHours });
+      expect(loadDraft().rentalHours).toBe(rentalHours);
+    }
+  });
+
   it('survives corrupt storage', () => {
     sessionStorage.setItem('nesam.booking.v1', '{not json');
     expect(loadDraft()).toEqual(EMPTY_DRAFT);

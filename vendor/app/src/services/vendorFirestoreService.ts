@@ -216,6 +216,7 @@ export function subscribeToOpenMarketplaceTrips(
               },
               travelDate: data.travelDate || "Today, 26 Aug",
               vehicleCategory: data.vehicleCategory || "Sedan",
+              addOns: { roofCarrier: data.addOns?.roofCarrier === true, pets: data.addOns?.pets === true },
               distanceKm: data.distanceKm || 165,
               offeredPayout: data.offeredPayout || 4200,
               status: data.status || "Open",

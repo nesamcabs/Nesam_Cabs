@@ -50,6 +50,7 @@ export interface AdminDiscountInput {
 }
 
 export interface BookingFareBreakdown {
+  addOns?: { roofCarrier: boolean; pets: boolean; carrierCharge: number; petCharge: number };
   subtotalBeforeAdjustment: number;
   globalAdjustment: { id: string; name: string; direction: "increase" | "decrease"; percent: number; amount: number } | null;
   discountDetail: { type: string; value: number; amount: number; source: string; reason: string } | null;

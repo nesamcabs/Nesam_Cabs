@@ -82,6 +82,7 @@ export interface RideCategory {
   seats: number;
   luggageCapacity?: number;
   imageUrl?: string;
+  iconUrl?: string;
   /** Driver `vehicleType` values that can serve this category. */
   matchVehicleTypes: string[];
   fare: FareConfig;
@@ -97,6 +98,7 @@ export interface DiscountDetail {
 }
 
 export interface FareBreakdown {
+  addOns?: { roofCarrier: boolean; pets: boolean; carrierCharge: number; petCharge: number };
   /** Package total before the global % adjustment. */
   subtotalBeforeAdjustment?: number;
   globalAdjustment?: { id: string; name: string; direction: 'increase' | 'decrease'; percent: number; amount: number } | null;

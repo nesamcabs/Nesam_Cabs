@@ -63,6 +63,18 @@ service firebase.storage {
       return resource == null;
     }
 
+    // Public category artwork for all customer brands; only pricing admins may upload it.
+    match /category-media/{categoryId}/{assetName} {
+      allow get: if true;
+      allow list: if can('pricing');
+      allow create: if can('pricing') && newObject()
+                       && request.resource.size > 0 && request.resource.size <= 5 * 1024 * 1024
+                       && request.resource.contentType.matches('image/(jpeg|png|webp)')
+                       && assetName.matches('(icon|car)-[A-Za-z0-9-]+\\.(jpg|png|webp)');
+      allow update: if false;
+      allow delete: if can('pricing');
+    }
+
     // Vendor onboarding + business docs:
     //   vendors/{uid}/onboarding/{category}/{ts}_{rand}_{name}
     // The owner may add new files at any time but never overwrite one, and may

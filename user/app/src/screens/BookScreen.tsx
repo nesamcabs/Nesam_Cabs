@@ -432,7 +432,7 @@ export function BookScreen() {
                   </View>
                   <Segmented
                     style={{ marginTop: 10 }}
-                    options={[{ value: 'auto', label: 'Shortest' }, ...[4, 6, 8, 10, 12].map((h) => ({ value: String(h), label: `${h}h` }))]}
+                    options={[{ value: 'auto', label: 'Shortest' }, ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map((h) => ({ value: String(h), label: `${h}h` }))]}
                     value={draft.rentalHours ? String(draft.rentalHours) : 'auto'}
                     onChange={(v) => update({ rentalHours: v === 'auto' ? null : Number(v) })}
                   />

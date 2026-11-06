@@ -7,6 +7,7 @@ import { db } from '@/platform/firebase';
 export interface Spot { lat: number; lng: number; name: string; address: string }
 export interface FareLine { code: string; label: string; amountPaise: number }
 export interface Quote {
+  imageUrl?: string; iconUrl?: string;
   quoteId: string; categoryId: string; categoryName: string; seats: number | null; totalPaise: number; lines: FareLine[]; expiresAtMs: number;
   available: boolean; availableDrivers: number; etaMinutes: number | null; sampleFare: boolean; distanceCapMeters: number; cancellationFeePaise: number; cancellationGraceSeconds: number;
 }

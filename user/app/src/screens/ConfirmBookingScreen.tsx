@@ -126,6 +126,7 @@ export function ConfirmBookingScreen() {
   const strikeTotal = (cngEntry ? cngEntry.strikeTotal : authoritativeEntry?.strikeTotal) ?? 0;
 
   const emailError = email.trim() && !EMAIL_RE.test(email.trim()) ? 'Enter a valid email address or leave blank.' : '';
+  const addOnsConfirmed = (!draft.roofCarrier || quote.addOns?.roofCarrier === true) && (!draft.pets || quote.addOns?.pets === true);
   const waError = whatsappProblem(waSame, waCode, waNumber);
   const guestError = someoneElse && (guestName.trim().length < 2 ? 'Enter the passenger’s name.' : !isValidIndianMobile(guestMobile.replace(/\D/g, '').slice(-10)) ? 'Enter the passenger’s 10-digit mobile number.' : '');
   const blocker = !online
@@ -144,6 +145,7 @@ export function ConfirmBookingScreen() {
 
   const submit = async () => {
     if (blocker || submittingRef.current) return;
+    if (!addOnsConfirmed) { setSubmitError('Carrier and pet pricing must be confirmed before booking. Please retry.'); return; }
     submittingRef.current = true;
     setSubmitting(true);
     setSubmitError('');
@@ -167,6 +169,7 @@ export function ConfirmBookingScreen() {
           notes,
         }),
         scheduledAt,
+        addOns: { roofCarrier: draft.roofCarrier, pets: draft.pets },
         whatsapp: waSame
           ? { sameAsMobile: true }
           : { sameAsMobile: false, countryCode: waCode.trim(), number: waNumber.replace(/[\s()-]/g, '') },
@@ -241,7 +244,7 @@ export function ConfirmBookingScreen() {
           <Text style={styles.cardTitle}>Booking contact</Text>
           <Line label="Passenger name" value={profile.name} />
           <Line label="Mobile number" value={formatPhone(profile.phone)} />
-          <Checkbox checked={waSame} onChange={setWaSame} label="Is this also your WhatsApp number?" />
+          <Checkbox checked={waSame} onChange={setWaSame} label="Same WhatsApp number" />
           {!waSame ? (
             <View style={styles.waRow}>
               <View style={{ width: 84 }}>
@@ -272,6 +275,11 @@ export function ConfirmBookingScreen() {
               />
             </View>
           ) : null}
+          <View style={styles.rule} />
+          <Text style={styles.cardTitle}>Travel add-ons</Text>
+          <Checkbox checked={draft.roofCarrier} onChange={(roofCarrier) => update({ roofCarrier })} label={`Roof carrier (+${formatINR(category.fare.extras?.carrierCharge ?? 0)} per trip)`} />
+          <Checkbox checked={draft.pets} onChange={(pets) => update({ pets })} label={`Travelling with pets (+${formatINR(authoritativeEntry?.addOnRates?.petCharge ?? 0)} per trip)`} />
+          <Text style={{ color: colors.muted, fontSize: 12 }}>Selected charges are included in your total and bill, with GST as shown in the fare breakdown.</Text>
           <View style={styles.rule} />
           <Disclosure title="Email for receipt (optional)">
             <TextField label="Email address" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} placeholder="name@example.com" error={emailError || undefined} />

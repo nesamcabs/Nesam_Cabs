@@ -165,6 +165,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   {w.time ? ` · ${w.time}` : ''}
                 </span>
                 <span className={`badge ${mismatch ? 'amber' : 'neutral'}`}>{o.mode === 'bid_review' ? 'Bid' : o.vehicleCategory || 'Any vehicle'}</span>
+                {o.addOns?.roofCarrier || o.addOns?.pets ? <span className="badge amber">Required: {[o.addOns?.roofCarrier ? 'Roof carrier' : '', o.addOns?.pets ? 'Pet travel' : ''].filter(Boolean).join(' / ')}</span> : null}
               </div>
               <h3 className="duty-route">
                 {placeName(o.pickup.address)} <Icon name="arrow" /> {placeName(o.drop.address)}

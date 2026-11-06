@@ -132,7 +132,7 @@ export function ChooseRideScreen() {
             const entry = entryOf(c.id);
             // CNG is chosen on the card itself, and only cab types the admin enabled it for show the choice.
             const cardCng = on && fuelCng && !!entry?.ok && !!entry.cng;
-            const photo = getVehicleImage(c.name);
+            const photo = c.imageUrl ? { uri: c.imageUrl } : getVehicleImage(c.name);
             const bagText = `${c.luggageCapacity ?? (c.seats >= 6 ? 4 : 2)} bags`;
             const seatText = `${c.seats} seats`;
             const extraRate = entry?.ok && cardCng && entry.cng ? entry.cng.extraKmRate : entry?.ok && entry.extraKmRate ? entry.extraKmRate : c.fare.extras?.extraKmRate ?? (outstation && c.fare.outstationPerKmRate ? c.fare.outstationPerKmRate : c.fare.perKmRate);
@@ -156,7 +156,7 @@ export function ChooseRideScreen() {
                   </View>
                   <View style={styles.carTop}>
                     <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text style={styles.carName}>{categoryLabel(c)}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>{c.iconUrl ? <Image source={{ uri: c.iconUrl }} style={{ width: 22, height: 22 }} resizeMode="contain" /> : null}<Text style={[styles.carName, { flexShrink: 1 }]}>{categoryLabel(c)}</Text></View>
                       <View style={styles.facts}>
                         <Fact tint="slate" icon="seat-belt" text={seatText} />
                         <Fact tint="amber" icon="luggage" text={bagText} />

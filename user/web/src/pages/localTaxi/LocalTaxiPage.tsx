@@ -168,8 +168,8 @@ export function LocalTaxiPage() {
           <div className="lts__list">
             {quotes.quotes.map((q) => (
               <button key={q.quoteId} type="button" className={`lts-ride ${selected === q.quoteId ? 'is-on' : ''}`} disabled={!q.available} aria-pressed={selected === q.quoteId} onClick={() => setSelected(q.quoteId)}>
-                <img src={vehicleArtUrl({ name: q.categoryName, seats: q.seats ?? 4 })} alt="" width={84} height={54} loading="lazy" />
-                <span className="lts-ride__txt"><strong>{q.categoryName}</strong><small>{away(q)}{q.sampleFare ? ' · test fare' : ''}</small></span>
+                <img src={q.imageUrl || vehicleArtUrl({ name: q.categoryName, seats: q.seats ?? 4 })} alt="" width={84} height={54} loading="lazy" />
+                <span className="lts-ride__txt"><strong>{q.iconUrl ? <img src={q.iconUrl} alt="" width={20} height={20} style={{ display: 'inline-block', width: 20, height: 20, objectFit: 'contain', verticalAlign: 'middle', marginRight: 6 }} /> : null}{q.categoryName}</strong><small>{away(q)}{q.sampleFare ? ' · test fare' : ''}</small></span>
                 <b className="lts-ride__price num">{rupees(q.totalPaise)}</b>
               </button>
             ))}

@@ -25,6 +25,7 @@ export type CategoryField =
   | "name"
   | "code"
   | "imageUrl"
+  | "iconUrl"
   | "seatingCapacity"
   | "recommendedPassengers"
   | "displayOrder"
@@ -77,6 +78,9 @@ export function validateCategory(
   if (form.imageUrl && !/^https?:\/\/\S+$/i.test(form.imageUrl.trim())) {
     errors.imageUrl = "Enter a full image link starting with http:// or https://.";
   }
+  if (form.iconUrl && !/^https?:\/\/\S+$/i.test(form.iconUrl.trim())) {
+    errors.iconUrl = "Enter a valid icon image URL.";
+  }
   if (!Number.isInteger(form.seatingCapacity) || form.seatingCapacity < 1 || form.seatingCapacity > 60) {
     errors.seatingCapacity = "Seating must be a whole number from 1 to 60.";
   }
@@ -106,6 +110,7 @@ function payloadFrom(form: CategoryForm) {
     code: deriveCategoryCode(form.code || form.name),
     description: (form.description || "").trim(),
     imageUrl: (form.imageUrl || "").trim(),
+    iconUrl: (form.iconUrl || "").trim(),
     icon: form.icon || "🚘",
     seatingCapacity: form.seatingCapacity,
     luggageCapacity: typeof form.luggageCapacity === "string" ? form.luggageCapacity.trim() : form.luggageCapacity ?? "",

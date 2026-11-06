@@ -93,7 +93,7 @@ const SHARED_FACTS = `Booking facts (state only these; never invent fares, offer
 - Cancellation: free until 1 hour before pickup, then a ₹100 fee. Cancel from My Trips.
 - Boarding code: a 4-digit code on the booking, shared with the driver only once inside the car.
 - Driver name, number and vehicle appear on the booking page once a driver is assigned.
-- Local Rental packages: 1, 2, 3, 4, 6, 8, 10 or 12 hours with included km.
+- Local Rental packages: every whole hour from 1 to 15 hours, with included km as configured by the admin.
 - Multicity: riders can send a multi-stop itinerary from the Multicity tab; the travel desk prices it and sends a quote to accept.
 - Support: ${SUPPORT_PHONE} (24/7), WhatsApp available.`;
 
@@ -196,7 +196,7 @@ function offlineTanglishAnswer(intent: Intent | null, name: string, call: string
     case 'boarding': return 'Booking-ku 4-digit boarding code varum. Car-la erina apram mattum driver-kitta share pannunga. Driver assign aana name, number, vehicle details **My Trips**-la theriyum.';
     case 'driver': return 'Driver assign aana udane avar name, phone number, vehicle number **My Trips**-la varum. Pickup-ku munnaadi adha check pannalaam.';
     case 'airport': return 'Home page-la **Airport** select panni, “To airport” illa “From airport” choose pannunga. Location, date, time enter panna car options-um fare-um kaatum.';
-    case 'rental': return 'Local Rental-la 1, 2, 3, 4, 6, 8, 10, 12 hours package irukku; included KM-um irukkum. Home page-la **Local Rental** select panni pickup location kudunga.';
+    case 'rental': return 'Local Rental-la 1 mudhal 15 hours varaikkum package select pannalaam; included KM admin settings-padi irukkum. Home page-la **Local Rental** select panni pickup location kudunga.';
     case 'multicity': return 'Home page-la **Multicity** open panni pickup, intermediate stops, final drop, date, time add pannunga. Travel desk itinerary check panni quote anuppuvanga; accept panna booking confirm aagum.';
     case 'oneway': return '**One Way**-na neenga travel panra direction-ku mattum fare. **Round Trip**-na return date/time-um add pannanum; multiple stops-um add pannalaam.';
     case 'contact': return `24/7 help-ku [${SUPPORT_PHONE}](tel:${SUPPORT_PHONE_TEL}) call pannunga illa [WhatsApp](https://wa.me/919025099990)-la message pannunga.`;
@@ -251,8 +251,8 @@ function offlineAnswer(brand: string, userQuery: string, lang: ConversationLangu
         : `**Airport rides**\n• Choose **Airport** on the home page, then "To airport" or "From airport".\n• Enter the pickup/drop, date and time to see the fare for each car.\n• Book ahead of your flight time.`;
     case 'rental':
       return ta
-        ? `**உள்ளூர் மணிநேர வாடகை**\n• நகருக்குள் டிரைவருடன் கார் — **1, 2, 3, 4, 6, 8, 10 அல்லது 12 மணி நேர** பேக்கேஜ்கள், குறிப்பிட்ட கி.மீ உட்பட.\n• முகப்புப் பக்கத்தில் **Local Rental** தேர்வு செய்து பிக்கப் இடம் உள்ளிடுங்கள்; ஒவ்வொரு காருக்கும் பேக்கேஜ் கட்டணம் தெரியும்.`
-        : `**Local hourly rental**\n• A car with a driver inside the city: **1, 2, 3, 4, 6, 8, 10 or 12 hour** packages with included km.\n• Choose **Local Rental** on the home page and enter your pickup; each car shows its package fare.`;
+        ? `**உள்ளூர் மணிநேர வாடகை**\n• நகருக்குள் டிரைவருடன் கார் — **1 முதல் 15 மணி நேரம் வரை** பேக்கேஜ்கள். கட்டணமும் சேர்க்கப்பட்ட கி.மீ அளவும் நிர்வாகம் சேமித்த அமைப்பின்படி இருக்கும்.\n• முகப்புப் பக்கத்தில் **Local Rental** தேர்வு செய்து பிக்கப் இடம் உள்ளிடுங்கள்; ஒவ்வொரு காருக்கும் பேக்கேஜ் கட்டணம் தெரியும்.`
+        : `**Local hourly rental**\n• A car with a driver inside the city: choose **1 to 15 hours**, with prices and included kilometres configured by the admin.\n• Choose **Local Rental** on the home page and enter your pickup; each car shows its package fare.`;
     case 'multicity':
       return ta
         ? `**பல நகரச் சுற்றுலா (Multicity)**\n• முகப்புப் பக்கத்தில் **Multicity** தாவலைத் திறந்து, தொடக்க இடம், இடையில் நிற்கும் நகரங்கள், இறுதி இடம், தேதி, நேரம் ஆகியவற்றைக் கொடுத்து படிவத்தின் கீழுள்ள பொத்தானை அழுத்துங்கள்.\n• எங்கள் பயண மேசை வழியைக் கணக்கிட்டு உங்களுக்குக் கட்டணத்தை அனுப்பும்; ஏற்றால் புக்கிங் உறுதியாகும்.\n• உங்கள் கோரிக்கை நிலை **My Trips** இல் தெரியும்.`

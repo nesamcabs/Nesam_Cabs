@@ -3,6 +3,7 @@
 // the documents firestore.rules actually governs.
 
 export interface MarketTrip {
+  addOns?: { roofCarrier: boolean; pets: boolean };
   id: string;
   bookingId: string;
   route: string;
@@ -41,6 +42,7 @@ export interface VendorBid {
 }
 
 export interface VendorBooking {
+  addOns?: { roofCarrier: boolean; pets: boolean; carrierCharge: number; petCharge: number };
   id: string;
   bookingId: string;
   customerName: string;

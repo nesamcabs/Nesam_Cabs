@@ -97,6 +97,8 @@ export function ReviewStep() {
     tripType,
     scheduledAt?.toISOString() ?? null,
     category.id,
+    draft.roofCarrier,
+    draft.pets,
     q.coupon?.code,
     adjustment?.id,
     adjustment?.percent,
@@ -105,6 +107,7 @@ export function ReviewStep() {
   const breakup = q.breakup ?? buildFareBreakup(category, quote, q.outstation);
   const airport = tripType === 'Airport Taxi';
 
+  const addOnsConfirmed = (!draft.roofCarrier || quote.addOns?.roofCarrier === true) && (!draft.pets || quote.addOns?.pets === true);
   const emailError = email.trim() && !isValidEmail(email) ? 'Enter a valid email address or leave it blank.' : '';
   const waError = whatsappProblem(waSame, waCode, waNumber);
   const passengerError = forOther
@@ -128,7 +131,7 @@ export function ReviewStep() {
           ? 'Confirming fare with NESAM Cabs…'
           : q.quoteError || 'Fare confirmation required.'
         : '') ||
-      (waError || emailError || passengerError ? 'Check your contact details below.' : '');
+      (!addOnsConfirmed ? 'Confirming carrier and pet charges. Please retry if pricing is unavailable.' : waError || emailError || passengerError ? 'Check your contact details below.' : '');
 
   const submit = async () => {
     setTried(true);
@@ -174,6 +177,7 @@ export function ReviewStep() {
         tripEndAt: tripType === 'Round Trip' ? tripEndAt : null,
         rentalHours: tripType === 'Local Rental' ? draft.rentalHours : null,
         termsAccepted,
+        addOns: { roofCarrier: draft.roofCarrier, pets: draft.pets },
         whatsapp: waSame ? { sameAsMobile: true } : { sameAsMobile: false, countryCode: waCode.trim(), number: waNumber.replace(/[\s()-]/g, '') },
         email: email.trim(),
         source: 'nesam',
@@ -217,7 +221,8 @@ export function ReviewStep() {
                   />
                   <div style={{ marginTop: 12 }}>
                     <Checkbox
-                      label="Is this also your WhatsApp number?"
+                      className="check--whatsapp"
+                      label="Same WhatsApp number"
                       checked={waSame}
                       onChange={(checked) => update({ waSame: checked })}
                     />
@@ -285,6 +290,23 @@ export function ReviewStep() {
                     />
                   </div>
                 ) : null}
+              </div>
+
+              <div className="rv-fold">
+                <h3 style={{ margin: '0 0 12px', fontSize: '1rem' }}>Travel add-ons</h3>
+                <Checkbox
+                  label={`Roof carrier (+${formatINR(category.fare.extras?.carrierCharge ?? 0)} per trip)`}
+                  checked={draft.roofCarrier}
+                  onChange={(checked) => update({ roofCarrier: checked })}
+                />
+                <div style={{ marginTop: 12 }}>
+                  <Checkbox
+                    label={`Travelling with pets (+${formatINR(q.entries.get(category.id)?.addOnRates?.petCharge ?? 0)} per trip)`}
+                    checked={draft.pets}
+                    onChange={(checked) => update({ pets: checked })}
+                  />
+                </div>
+                <p className="muted" style={{ marginTop: 8, fontSize: '0.8125rem' }}>Selected charges are included in your total and bill. GST follows the fare settings shown in the breakdown.</p>
               </div>
 
               {airport ? (

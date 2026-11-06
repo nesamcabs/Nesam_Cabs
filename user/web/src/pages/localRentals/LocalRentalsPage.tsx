@@ -1,3 +1,4 @@
+import { serviceSlogan } from '@/lib/serviceSlogan';
 // Local Rentals: a full-screen map and a sheet that rises from the bottom, one question at a time.
 //   Hourly Rental   → pickup on the map, how many hours, pickup date and time.
 //   Pickup & Drop   → pickup on the map, drop on the map, pickup date and time.
@@ -497,6 +498,10 @@ export function LocalRentalsPage() {
           <button type="button" role="tab" aria-selected={mode === 'hourly'} onClick={() => switchMode('hourly')}>Hourly Rental</button>
           <button type="button" role="tab" aria-selected={mode === 'pickup'} onClick={() => switchMode('pickup')}>Pickup &amp; Drop</button>
         </div>
+        <p className="lr-slogan" aria-live="polite">
+          {serviceSlogan(mode === 'hourly' ? 'rental' : 'pickup')[0]}
+          <span>{serviceSlogan(mode === 'hourly' ? 'rental' : 'pickup')[1]}</span>
+        </p>
       </header>
 
       {picking ? (

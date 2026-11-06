@@ -1,3 +1,4 @@
+import { parseRentalPackageRule } from './domain/tariff';
 // Admin edits to business_config/tariff_v2, one section at a time: base rates (with outstation extra
 // usage and the airport fare), a city's Local Pickup & Drop fare, a class's minimum rental hours and a
 // rental package. Each save is validated here (the editors' checks are only a convenience), refuses a stale
@@ -38,7 +39,7 @@ function classOf(v: unknown): TariffClass {
 }
 
 function hoursOf(v: unknown): number {
-  if (typeof v !== 'number' || !(RENTAL_HOURS as readonly number[]).includes(v)) throw bad(`Rental packages are 1, 2, 3, 4, 6, 8, 10 or 12 hours.`);
+  if (typeof v !== 'number' || !(RENTAL_HOURS as readonly number[]).includes(v)) throw bad(`Choose a whole-hour rental package from 1 to 15 hours.`);
   return v;
 }
 
@@ -198,7 +199,7 @@ function applyExtraCharges(base: TariffConfig, d: Record<string, unknown>, names
 // ── Sections: rental minimum and packages ───────────────────────────────────
 
 function applyRentalMinimum(base: TariffConfig, cls: TariffClass, hours: unknown): TariffConfig {
-  if (typeof hours !== 'number' || !Number.isInteger(hours) || hours < 1 || hours > 12) throw bad('The minimum rental must be a whole number of hours from 1 to 12.');
+  if (typeof hours !== 'number' || !Number.isInteger(hours) || hours < 1 || hours > 15) throw bad('The minimum rental must be a whole number of hours from 1 to 15.');
   const current = base.rentalPackages?.[cls];
   // Packages already saved are kept untouched; the ones below the new minimum simply stop being quotable.
   return { ...base, rentalPackages: { ...(base.rentalPackages ?? {}), [cls]: { packages: current?.packages ?? {}, minHours: hours } } };
@@ -370,9 +371,16 @@ function applyBrandOverride(
 
   if (data.minRentalHours === null) delete override.minRentalHours;
   else if (data.minRentalHours !== undefined) {
-    if (typeof data.minRentalHours !== 'number' || !Number.isInteger(data.minRentalHours) || data.minRentalHours < 1 || data.minRentalHours > 12) throw bad('Minimum rental hours must be between 1 and 12.');
+    if (typeof data.minRentalHours !== 'number' || !Number.isInteger(data.minRentalHours) || data.minRentalHours < 1 || data.minRentalHours > 15) throw bad('Minimum rental hours must be between 1 and 15.');
     override.minRentalHours = data.minRentalHours;
   }
+  if (data.rentalPackageRule !== undefined) {
+    if (service !== 'Local Rental') throw bad('Rental package settings require Local Rental scope.');
+    const rule = parseRentalPackageRule(data.rentalPackageRule);
+    if (!rule) throw bad('Complete all rental package settings with positive amounts and choose the kilometre allowance mode.');
+    override.rentalPackageRule = rule;
+  }
+
   if (data.rentalPackages !== undefined) {
     if (service !== 'Local Rental') throw bad('Rental packages require Local Rental scope.');
     const packages = obj(data.rentalPackages, 'Rental package overrides');
@@ -429,7 +437,12 @@ export const saveTariffSection = onCall(async (request) => {
     const base = before ?? parseTariffConfig({ enabled: false, version: 0 })!;
     let next: TariffConfig;
     let meta: Record<string, unknown>;
-    if (section === 'baseRates') {
+    if (section === 'petCharge') {
+      const petCharge = amount(obj(input.data, 'Pet travel pricing').petCharge, 'Common pet travel charge', false);
+      if (petCharge > 100000) throw bad('Common pet travel charge must not exceed INR 100,000.');
+      next = { ...base, petCharge };
+      meta = { section, petCharge };
+    } else if (section === 'baseRates') {
       const d = obj(input.data, 'The rates');
       next = applyBaseRates(base, d);
       meta = { section, classes: Object.keys(obj(d.classes, 'The category rates')) };

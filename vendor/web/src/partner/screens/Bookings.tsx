@@ -104,6 +104,7 @@ const BookingCard: React.FC<{ t: VendorTrip }> = ({ t }) => {
         {t.vehicleCategory ? <span className="d-category"><Icon name="car-front" /><span className="v-sr">Vehicle category: </span>{t.vehicleCategory}</span> : null}
       </div>
       {t.includedKm ? <p className="d-included-km"><Icon name="route" />{t.includedKm} km included</p> : null}
+      {t.fareLines.filter(l => ['carrierAddon', 'petAddon'].includes(l.key)).map(l => <p key={l.key} className="d-included-km">{l.label}: {rupees(l.amount)} included in customer fare (before GST)</p>)}
       <div className="s-pending-team">
         <span><Icon name="user-round" />{t.driverName || 'Driver pending'}</span>
         <span><Icon name="car-front" />{t.vehicleNumber ? plate(t.vehicleNumber) : 'Vehicle pending'}</span>
