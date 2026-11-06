@@ -346,7 +346,13 @@ export function SoundSettingsDialog({ onClose }: { onClose: () => void }) {
     <Modal title="Notification sounds" onClose={onClose} wide footNote="Office defaults · 5 preset tones" footer={<><Button onClick={() => setCfg(DEFAULT_SOUNDS)}>Reset defaults</Button><Button variant="primary" onClick={() => { saveSoundConfig(cfg); onClose(); }}>Save changes</Button></>}>
       <div className="flex items-center justify-between gap-3 mb-4">
         <div><strong className="text-[15px] text-ink">Notification sounds</strong><p className="text-[12px] text-muted">Choose a sound for each alert.</p></div>
-        <div className="flex items-center gap-2"><Badge tone={soundOn ? "green" : "neutral"}>{soundOn ? "Sound on" : "Sound off"}</Badge><Button size="sm" icon={soundOn ? "volume-x" : "volume-2"} onClick={() => setSoundOn(!soundOn)}>{soundOn ? "Turn sound off" : "Enable sound"}</Button></div>
+        <div className="flex items-center gap-3">
+          <span className="text-[12px] font-semibold text-ink">{soundOn ? "Sound on" : "Sound off"}</span>
+          <button type="button" role="switch" aria-checked={soundOn} aria-label={soundOn ? "Turn sound off" : "Turn sound on"} onClick={() => setSoundOn(!soundOn)}
+            className="relative inline-flex h-6 w-11 items-center rounded-full transition" style={{ background: soundOn ? "var(--color-brand)" : "#cfd6df" }}>
+            <span className="inline-block h-5 w-5 rounded-full bg-white shadow transition" style={{ transform: `translateX(${soundOn ? 22 : 2}px)` }} />
+          </button>
+        </div>
       </div>
       <DataTable label="Alert sounds" minWidth={860} fixed hideTools>
         <thead><tr><th>ALERT / DURATION</th><th>TONE</th><th>VOLUME</th><th>SOUND</th><th>REPEAT</th><th>PREVIEW</th></tr></thead>

@@ -2,7 +2,6 @@ import { Fragment, useMemo, useState } from "react";
 import type { Booking } from "../../types";
 import { approveBooking } from "../../services/bookingOpsService";
 import { ActionError } from "../../services/callables";
-import type { Enquiry } from "../../services/enquiryService";
 import { useOfficeData } from "../../hooks/useOfficeData";
 import { useNow } from "../../hooks/useNow";
 import { useOperationsSettings } from "../../hooks/useOperationsSettings";
@@ -15,21 +14,17 @@ import { Section } from "../ui/ListKit";
 import { AcceptedByCell, AssignmentCell, BookingExpand, CustomerCell, DateCell, FareCell, PayoutCell, RouteCell, TripTypeCell, VehicleCell } from "../booking/OfficeCells";
 import { AssignOnBehalfDrawer } from "../booking/DutyDrawers";
 import { AckRemindersDialog, AlertsDialog, AlertsTable, useOfficeFollowups } from "../shell/AlertDialogs";
-import { QuickFareCard, type CategoryEstimate, type QuickTrip } from "../booking/QuickFare";
 import { bookingPickupDate } from "../../utils/time";
 import { useAccess, useCanDo, useDuty } from "../AccessContext";
 import { canAccessPage } from "../../config/permissions";
 
 /**
- * The Master Admin dashboard: urgent assignment issues, driver acknowledgements, the phone-enquiry
- * Quick fare, the booking queues, new bookings to approve and the assignment priority list.
+ * The Master Admin dashboard: urgent assignment issues, driver acknowledgements, the booking queues, new bookings to approve and the assignment priority list.
  */
-export default function OfficeDashboard({ onNavigate, onSelectBooking, onNewBooking, onProceed, onEnquirySaved }: {
+export default function OfficeDashboard({ onNavigate, onSelectBooking, onNewBooking }: {
   onNavigate: (page: string, tab?: string) => void;
   onSelectBooking: (id: string) => void;
   onNewBooking: () => void;
-  onProceed: (trip: QuickTrip, categoryId: string, estimates: CategoryEstimate[]) => void;
-  onEnquirySaved: (e: Enquiry) => void;
 }) {
   const data = useOfficeData();
   const now = useNow(30000);
@@ -95,21 +90,6 @@ export default function OfficeDashboard({ onNavigate, onSelectBooking, onNewBook
   return (
     <>
       <Toast toast={toast} />
-      {/* Urgent · Action required */}
-      <section className="ds-panel ds-urgent" aria-labelledby="urgent-title">
-        <div className="ds-section-head">
-          <div>
-            <h2 id="urgent-title" className="flex items-center gap-2"><span className="ds-urgent-dot" aria-hidden="true" />Urgent · Action required <span className="ds-tab-count" style={{ background: "var(--color-brand-soft)", color: "var(--color-brand-ink)" }}>{urgent.length}</span></h2>
-            <p>Pickup within 2 hours or assignment deadline missed</p>
-          </div>
-          <Button icon="list-checks" onClick={() => setSheet("alerts")}>View all alerts</Button>
-        </div>
-        {urgent.length === 0 ? (
-          <p className="ds-section-body text-[13px] text-body">No urgent assignment issue. New bookings appear below.</p>
-        ) : (
-          <div className="ds-section-body"><AlertsTable rows={urgent} own={own} onOpenBooking={onSelectBooking} /></div>
-        )}
-      </section>
 
       {/* Driver acknowledgement reminders */}
       {acks.length > 0 && (
@@ -122,8 +102,6 @@ export default function OfficeDashboard({ onNavigate, onSelectBooking, onNewBook
       )}
 
       <PageHeader title="Dashboard" subtitle="Every booking, publication and assignment in pickup order." actions={canCreate ? <Button variant="primary" icon="plus" onClick={onNewBooking}>New booking</Button> : undefined} />
-
-      {canCreate && <QuickFareCard onProceed={onProceed} onSaved={(e) => { show("Enquiry saved. The fare and terms are retained."); onEnquirySaved(e); }} />}
 
       <div className="ds-queue-grid">
         {queues.map((q) => (

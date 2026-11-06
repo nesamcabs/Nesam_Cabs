@@ -21,8 +21,6 @@ import OfficeDashboard from "../components/dashboard/OfficeDashboard";
 import StaffDashboard from "../components/dashboard/StaffDashboard";
 import { useAccess } from "../components/AccessContext";
 import type { NavBadges } from "../hooks/useNavBadges";
-import type { CategoryEstimate, QuickTrip } from "../components/booking/QuickFare";
-import type { Enquiry } from "../services/enquiryService";
 import { useNow } from "../hooks/useNow";
 import { useOperationsSettings } from "../hooks/useOperationsSettings";
 import { paymentOf } from "../domain/bookingFlow";
@@ -54,8 +52,6 @@ interface DashboardProps {
   onNavigate: (page: string, tab?: string) => void;
   onSelectBooking: (id: string) => void;
   onNewBooking: () => void;
-  onProceed: (trip: QuickTrip, categoryId: string, estimates: CategoryEstimate[]) => void;
-  onEnquirySaved: (e: Enquiry) => void;
   badges?: NavBadges;
 }
 
@@ -72,7 +68,7 @@ export default function Dashboard(props: DashboardProps) {
   const workspace = fullOverview ? (
     <MasterDashboard {...props} />
   ) : has("operations") ? (
-    <OfficeDashboard onNavigate={props.onNavigate} onSelectBooking={props.onSelectBooking} onNewBooking={props.onNewBooking} onProceed={props.onProceed} onEnquirySaved={props.onEnquirySaved} />
+    <OfficeDashboard onNavigate={props.onNavigate} onSelectBooking={props.onSelectBooking} onNewBooking={props.onNewBooking} />
   ) : null;
   return <StaffDashboard access={access} badges={props.badges} onNavigate={props.onNavigate} onNewBooking={props.onNewBooking} workspace={workspace} />;
 }
@@ -81,8 +77,6 @@ function MasterDashboard({
   onNavigate,
   onSelectBooking,
   onNewBooking,
-  onProceed,
-  onEnquirySaved,
 }: DashboardProps) {
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -294,7 +288,7 @@ function MasterDashboard({
       <Toast toast={toast} />
       {loadError && <ErrorBanner message={loadError} onRetry={() => setRetryKey((k) => k + 1)} />}
 
-      <OfficeDashboard onNavigate={onNavigate} onSelectBooking={onSelectBooking} onNewBooking={onNewBooking} onProceed={onProceed} onEnquirySaved={onEnquirySaved} />
+      <OfficeDashboard onNavigate={onNavigate} onSelectBooking={onSelectBooking} onNewBooking={onNewBooking} />
 
       <h2 className="text-lg font-bold text-ink pt-2">Today &amp; tomorrow</h2>
       <OperationsSection bookings={liveBookings} penalties={livePenalties} now={now} thresholds={ops} loading={!loaded && !loadError} onNavigate={onNavigate} onSelectBooking={onSelectBooking} />

@@ -657,21 +657,11 @@ export function QuickFareCard({ onProceed, onSaved }: { onProceed: (trip: QuickT
     <section className="ds-panel ds-quick" aria-labelledby="quick-fare-title">
       <div className="ds-section-head">
         <div>
-          <span className="ds-eyebrow" style={{ color: "var(--color-brand-ink)" }}>PHONE ENQUIRY</span>
           <h2 id="quick-fare-title">Quick fare</h2>
           <p>Get the estimate first. Customer details follow when booking.</p>
         </div>
       </div>
       <form className="ds-section-body" onSubmit={estimate} noValidate>
-        <div className="flex flex-wrap items-center gap-3 mb-4 text-[11px]">
-          <label className="flex items-center gap-2 text-[11px] text-muted">Booking for
-            <select className="ds-select" style={{ minHeight: 30, fontSize: 11 }} value={trip.businessId} onChange={(e) => set({ businessId: e.target.value })}>
-              <option value="">Direct customer</option>
-              {data.business.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
-          </label>
-          <span className="text-[10px] text-info">{trip.businessId ? "Matching business contracts apply; company credit is checked on submission" : "Existing direct-customer pricing and booking flow"}</span>
-        </div>
         {error && <div className="ds-error" role="alert" style={{ marginBottom: 12 }}><Icon name="circle-alert" />{error}</div>}
         <TripFields trip={trip} set={set} data={data} compact idPrefix="dash-quick" action={<Button variant="primary" icon="refresh-cw" type="submit" loading={busy}>{estimates ? "Recalculate" : "Get estimate"}</Button>} />
         <details className="ds-disclosure">

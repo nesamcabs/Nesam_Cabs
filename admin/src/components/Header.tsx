@@ -17,6 +17,7 @@ interface HeaderProps {
   /** Opens a page or, with a booking id, that booking's details. */
   onOpen: (page: string, bookingId?: string) => void;
   onCreateBooking?: () => void;
+  onQuickFare?: () => void;
   onOpenMenu: () => void;
   userName?: string | null;
   userEmail?: string | null;
@@ -28,18 +29,17 @@ interface HeaderProps {
 type Sheet = "alerts" | "privacy" | "search" | "profile" | "reminders" | "sounds" | null;
 
 /** Master Admin top bar: lock · sign out · privacy · search · new booking · alerts · account. */
-export default function Header({ title, onNavigate, onOpen, onCreateBooking, onOpenMenu, userName, userEmail, userRole, onSignOut, badges }: HeaderProps) {
+export default function Header({ title, onNavigate, onOpen, onCreateBooking, onQuickFare, onOpenMenu, userName, userEmail, userRole, onSignOut, badges }: HeaderProps) {
   const [sheet, setSheet] = useState<Sheet>(null);
   const [locked, setLocked] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const access = useAccess();
   const canOps = canAccessPage(access, "bookings");
   const { rows } = useBookingAlerts(canOps);
-  const { unread, soundOn, setSoundOn, audio } = useNotifications();
+  const { unread } = useNotifications();
   const displayName = userName || userEmail?.split("@")[0] || "Admin";
   const roleLabel = (userRole || "Administrator").toUpperCase();
   const alertCount = (canOps ? rows.length : 0) + unread;
-  const soundBlocked = audio === "unsupported";
 
   useEffect(() => {
     if (!notice) return;
@@ -47,21 +47,11 @@ export default function Header({ title, onNavigate, onOpen, onCreateBooking, onO
     return () => clearTimeout(t);
   }, [notice]);
 
-  const toggleSound = () => {
-    const next = !soundOn;
-    setSoundOn(next);
-    setNotice(next ? "Sound enabled for this tab. Use Test sound to check the office speaker volume." : "Sound turned off for this tab.");
-  };
-
   return (
     <>
       <header className="ds-header">
         <div className="flex items-center gap-3 min-w-0">
           <Button className="ds-menu-toggle" variant="secondary" iconOnly icon="menu" aria-label="Open navigation menu" onClick={onOpenMenu} />
-          <div className="ds-header-title">
-            <span>{roleLabel} · DESKTOP</span>
-            <strong>{title}</strong>
-          </div>
         </div>
 
         {/* Live operations indicators and quick controls in the header middle */}
@@ -106,22 +96,6 @@ export default function Header({ title, onNavigate, onOpen, onCreateBooking, onO
             <Button
               variant="ghost"
               size="sm"
-              icon={soundOn ? (audio === "locked" ? "volume-1" : "volume-2") : "volume-x"}
-              className={`ds-header-live-btn ${soundOn ? "" : "text-brand"}`}
-              onClick={toggleSound}
-              aria-pressed={soundOn}
-              aria-label={soundOn ? (audio === "locked" ? "Sound on (click page once)" : "Sound on") : "Sound off (enable sound)"}
-              title={soundOn ? (audio === "locked" ? "Sound on · click page once" : "Sound on") : "Sound off · click to enable"}
-              disabledReason={soundBlocked ? "This browser does not support alert sounds." : undefined}
-            >
-              <span className="ds-live-label">
-                {soundOn ? (audio === "locked" ? "Sound on (click)" : "Sound on") : "Enable sound"}
-              </span>
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
               icon="sliders-horizontal"
               className="ds-header-live-btn"
               onClick={() => setSheet("sounds")}
@@ -138,6 +112,11 @@ export default function Header({ title, onNavigate, onOpen, onCreateBooking, onO
         <Button variant="ghost" iconOnly icon="log-out" onClick={() => onSignOut?.()} aria-label="Sign out" title="Sign out" />
         <Button iconOnly icon="shield-check" onClick={() => setSheet("privacy")} aria-label="Privacy" title="Customer privacy & access" />
         <Button iconOnly icon="search" onClick={() => setSheet("search")} aria-label="Search records" title="Search records" />
+        {onQuickFare && (
+          <Button variant="primary" icon="calculator" onClick={onQuickFare} title="Quick fare estimate">
+            <span className="ds-btn-label">Quick fare</span>
+          </Button>
+        )}
         {onCreateBooking && (
           <Button variant="primary" icon="plus" onClick={onCreateBooking}>
             <span className="ds-btn-label">New booking</span>

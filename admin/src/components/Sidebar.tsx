@@ -53,11 +53,10 @@ export default function Sidebar({ activePage, onNavigate, collapsed, onToggleCol
             }}
             aria-label={access.isSuper ? "NESAM Super Admin — dashboard" : "NESAM office workspace — home"}
           >
-            <img src="/icons/logo.png" alt="" />
+            <img src="/brand/nesam-cabs-emblem.webp" alt="" />
             {!collapsed && (
               <span>
                 <strong>NESAM</strong>
-                <small>{access.isSuper ? "SUPER ADMIN" : "OFFICE"}</small>
               </span>
             )}
           </a>
