@@ -234,7 +234,6 @@ export default function Bookings({ onSelectBooking, initialTab, onNewBooking, on
 
       <PageHeader
         title="Bookings"
-        subtitle="Office review, publication and assignment — one history."
         actions={<Button variant="ghost" icon="download" onClick={exportCsv} disabledReason={filtered.length === 0 ? "No bookings in this view to export." : undefined}>Export</Button>}
       />
 

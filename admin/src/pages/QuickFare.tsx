@@ -6,7 +6,7 @@ import { PageHeader } from "../components/ui";
 export default function QuickFare({ onSaved }: { onSaved: (e: Enquiry) => void }) {
   return (
     <>
-      <PageHeader eyebrow="NESAM OPERATIONS" title="Quick fare" subtitle="Get the estimate first." />
+      <PageHeader title="Quick fare" />
       <QuickFareCard onSaved={onSaved} />
     </>
   );

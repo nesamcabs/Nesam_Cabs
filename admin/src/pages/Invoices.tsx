@@ -154,7 +154,7 @@ export default function Invoices() {
       <Toast toast={toast} />
       {loadError && <ErrorBanner message={loadError} onRetry={() => setRetryKey((k) => k + 1)} />}
       {missingCompany.length > 0 && <p className="ds-note mb-3">Invoices cannot be issued until Settings → Company has {missingCompany.join(", ")}.</p>}
-      <PageHeader title="Invoices" subtitle="Document lifecycle and collection status are tracked separately." actions={canFinance ? <><Button variant="primary" icon="plus" onClick={() => setCreate("new")}>Create invoice</Button><Button icon="settings-2" onClick={() => setShowPolicy(true)}>Tax automation</Button></> : undefined} />
+      <PageHeader title="Invoices" actions={canFinance ? <><Button variant="primary" icon="plus" onClick={() => setCreate("new")}>Create invoice</Button><Button icon="settings-2" onClick={() => setShowPolicy(true)}>Tax automation</Button></> : undefined} />
       <div className="ds-filterbar">
         <div className="ds-search" style={{ flex: "1 1 280px" }}><Icon name="search" /><input className="ds-input" type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Invoice, booking or customer" aria-label="Search invoices" /></div>
         <label className="ds-field"><span>Document status</span><select className="ds-select" value={docStatus} onChange={(e) => setDocStatus(e.target.value)}>{["All", "Draft", "Issued", "Voided"].map((x) => <option key={x}>{x}</option>)}</select></label>

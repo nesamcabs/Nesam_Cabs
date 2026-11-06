@@ -249,7 +249,7 @@ export default function ManualBookingModal({ customers, services, locations, cat
           </div>
         </Section>
 
-        <Section title="Pickup" subtitle="Search or click the map, adjust the pin if needed, then confirm.">
+        <Section title="Pickup">
           {pickups.length > 0 && (
             <Field label="Start from a saved location" hint="Optional shortcut — you can still move the pin.">
               <select value="" onChange={(e) => { const l = pickups.find((x) => x.id === e.target.value); if (l) set("pickup", pointFromLocation(l)); }} className={inputCls}>
@@ -264,7 +264,7 @@ export default function ManualBookingModal({ customers, services, locations, cat
           </Field>
         </Section>
 
-        <Section title="Drop" subtitle="Same map selection as pickup.">
+        <Section title="Drop">
           {drops.length > 0 && (
             <Field label="Start from a saved location">
               <select value="" onChange={(e) => { const l = drops.find((x) => x.id === e.target.value); if (l) set("drop", pointFromLocation(l)); }} className={inputCls}>
@@ -279,7 +279,7 @@ export default function ManualBookingModal({ customers, services, locations, cat
           </Field>
         </Section>
 
-        <Section title="Fare" subtitle="Calculated automatically from the vehicle category, route and pricing rules.">
+        <Section title="Fare">
           {!readyToQuote(form) && <Notice tone="info">Set the pickup, drop (confirmed on the map) and vehicle category to see the fare.</Notice>}
           {quoteBusy && <Notice tone="info">Calculating the fare…</Notice>}
           {quoteError && (
@@ -308,7 +308,7 @@ export default function ManualBookingModal({ customers, services, locations, cat
         </Section>
 
         {canDiscount && (
-          <Section title="Discount" subtitle="One discount per booking. It is stored separately — the base fare is never rewritten.">
+          <Section title="Discount">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Field label="Discount type">
                 <select value={form.discountType} onChange={(e) => set("discountType", e.target.value as ManualBookingForm["discountType"])} className={inputCls}>

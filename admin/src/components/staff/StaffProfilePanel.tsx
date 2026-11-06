@@ -144,7 +144,7 @@ export default function StaffProfilePanel({ account, onClose, onEdit, onInvite, 
       <Modal
         title={account.name || account.email}
         subtitle={`${p.staffCode} · ${p.preset}${p.branch ? ` · ${p.branch}` : ""}`}
-        eyebrow="STAFF PROFILE"
+       
         onClose={onClose}
         busy={busy}
         size="xl"

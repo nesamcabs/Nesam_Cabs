@@ -62,7 +62,7 @@ export default function FareAdjustmentCard() {
     form.percent.trim() !== "" && (!Number.isFinite(pct) || pct < 0 || pct > 100) ? "Enter a percentage from 0 to 100."
     : form.direction === "decrease" && pct >= 100 ? "A decrease must be below 100%."
     : form.endDate && form.startDate && form.endDate < form.startDate ? "The end date is before the start date."
-    : form.enabled && !form.name.trim() ? "Give the adjustment a name, e.g. “Festival pricing”."
+    : form.enabled && !form.name.trim() ? "Enter a name for the adjustment."
     : form.enabled && !(pct > 0) ? "Enter the percentage."
     : form.enabled && form.reason.trim().length < 5 ? "Give a short reason."
     : null;
@@ -108,14 +108,14 @@ export default function FareAdjustmentCard() {
           <input type="checkbox" checked={form.enabled} onChange={(e) => set("enabled", e.target.checked)} disabled={!canEdit} className="w-4 h-4 accent-brand" />
           Adjustment is on
         </label>
-        <Field label="Name" hint="Shown on the fare, e.g. Festival pricing"><input value={form.name} onChange={(e) => set("name", e.target.value)} maxLength={80} disabled={!canEdit} className={inputCls} /></Field>
+        <Field label="Name"><input value={form.name} onChange={(e) => set("name", e.target.value)} maxLength={80} disabled={!canEdit} className={inputCls} /></Field>
         <Field label="Direction">
           <select value={form.direction} onChange={(e) => set("direction", e.target.value as "increase" | "decrease")} disabled={!canEdit} className={inputCls}>
             <option value="increase">Increase (+)</option>
             <option value="decrease">Decrease (−)</option>
           </select>
         </Field>
-        <Field label="Percentage" hint={example !== null ? `Example: a ₹10,000 package becomes ₹${example.toLocaleString("en-IN")}` : undefined}>
+        <Field label="Percentage">
           <input value={form.percent} onChange={(e) => set("percent", e.target.value.replace(/[^\d.]/g, ""))} inputMode="decimal" disabled={!canEdit} className={inputCls} />
         </Field>
         <Field label="Reason"><input value={form.reason} onChange={(e) => set("reason", e.target.value)} maxLength={300} disabled={!canEdit} className={inputCls} /></Field>

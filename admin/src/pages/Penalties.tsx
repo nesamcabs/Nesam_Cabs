@@ -43,7 +43,7 @@ export default function Penalties({ onOpenBooking, onNavigate }: { onOpenBooking
     <div className="ds-page-body">
       <Toast toast={toast} />
       {error && <ErrorBanner message={error} />}
-      <PageHeader title="Penalties" subtitle="Separate notices, acknowledgement and time-limited Master reversals." actions={canAct ? <Button variant="primary" icon="plus" onClick={() => setSheet({ kind: "new" })}>Apply penalty</Button> : undefined} />
+      <PageHeader title="Penalties" actions={canAct ? <Button variant="primary" icon="plus" onClick={() => setSheet({ kind: "new" })}>Apply penalty</Button> : undefined} />
       <StageBar label="Penalty status" tabs={(["Pending", "Applied", "Reversed", "All"] as const).map((t) => ({ id: t, label: t, count: counts[t] }))} value={tab} onChange={setTab} />
       <div className="ds-filterbar">
         <label className="ds-field" style={{ minWidth: 280 }}><span>Partner</span><select className="ds-select" value={partner} onChange={(e) => setPartner(e.target.value)}><option value="All">All</option>{partners.map(([id, n]) => <option key={id} value={id}>{n}</option>)}</select></label>

@@ -317,7 +317,6 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
           }}>
             {vehicleChoices.map((v) => <option key={v.key} value={v.key}>{v.label}</option>)}
           </select>
-          {selectedVehicle?.shared && <small>Same rates as {vehicleChoices.filter((o) => o.cls === selectedVehicle.cls && o.key !== selectedVehicle.key).map((o) => o.label).join(", ")}</small>}
         </label>
       )}
     </div>
@@ -327,15 +326,12 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
     const first = vehicleChoices[0];
     if (activeCats.length && first && !vehicleChoices.some((v) => v.cls === fareClass) && !workspaceDirty.current) setFareClass(first.cls);
   }, [categories]); // eslint-disable-line react-hooks/exhaustive-deps
-  const pageTitle = inlineKind ? null : tab === "Brand & service fares"
-    ? (pickupDrop ? { h: "Pickup & Drop", p: "City fares for a pickup and drop inside one city (One Way trips of 40 km or less). Shared by all brands." } : { h: "Fares", p: "What the customer pays and what the partner gets. Choose the brand, service, fuel and vehicle on the left." })
-    : tab === "GST calculation" ? { h: "GST & tax", p: "How GST is worked out on fares, for the brand and service chosen on the left." } : null;
 
   return (
     <div className="ds-page-body fare-reference u27-settings-page u11-settings-page">
       <Toast toast={toast} />
       {loadError && <div className="ds-error mb-4" role="alert"><Icon name="circle-alert" />Saved settings could not be loaded: {loadError}. Check your pricing access and reload.</div>}
-      <PageHeader title="Service & Fare Settings" subtitle="Pick what you want to change on the left, then choose where it applies." />
+      <PageHeader title="Service & Fare Settings" />
 
       <div className="fs-shell">
         <nav className="fs-nav" aria-label="Fare settings sections">
@@ -354,7 +350,6 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
           ))}
         </nav>
         <div className="fs-main">
-      {pageTitle && <header className="fs-title"><h2>{pageTitle.h}</h2><p>{pageTitle.p}</p></header>}
       {!inlineKind && <>
       {tab !== "Brand & service fares" && tab !== "GST calculation" && <>
         {locationFilter}
@@ -382,7 +377,6 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
       {isRuleTab && <section className="u27-settings-surface" id="fare-settings-panel">
         <>
           {tab === "Cab types" && cabSection === "Vehicle categories" ? <>
-            <p className="ds-note my-4">Shared vehicle catalog — location filters do not apply. Brand prices are managed in Common price.</p>
             {fareScope.brand === "common" ? <VehicleCategoriesPage embedded /> : <Button onClick={() => changeScope({ ...fareScope, brand: "common" })}>Open shared vehicle catalog</Button>}
           </> : <>
             <div className="sc-section-head"><div><h2>{tab === "Booking availability" ? "Can customers book in this area?" : tab === "Cab types" ? "Which cab types should customers see?" : "When should the fare increase or decrease?"}</h2><p className="u27-tamil" lang="ta">{tab === "Booking availability" ? "இந்த இடத்தில் booking எடுக்கலாமா?" : tab === "Cab types" ? "Customer-க்கு எந்த car வகைகளைக் காட்ட வேண்டும்?" : "இந்த இடத்திற்குக் கட்டணத்தை ஏற்ற / குறைக்க"}</p></div>
@@ -516,14 +510,12 @@ function RuleSheet({ kind, rule, fareScope, sel, locations, categories, services
             {kind === "categories" && (
               <>
                 <div className="u27-cab-choices">{categories.map((c) => <label key={c}><input type="checkbox" checked={cats.includes(c)} onChange={(e) => setCats(e.target.checked ? [...cats, c] : cats.filter((x) => x !== c))} /><Icon name="car-front" /><strong>{c}</strong></label>)}</div>
-                <p className="text-[11px] text-faint">Unchecked categories stay hidden in search. Time-based cab unavailability is managed under Service Areas.</p>
               </>
             )}
             {kind === "pricing" && (
               <div className="u27-price-columns">
                 {adjEditor("Customer fare", "Amount the customer pays", customer, setCustomer)}
                 {adjEditor("Partner payout", "Amount the partner receives", partner, setPartner)}
-                <p className="text-[11px] text-faint md:col-span-2">Customer fare and partner payout change independently. Fixed route / B2B adjustments require opt-in on the corresponding rate.</p>
               </div>
             )}
             {kind === "limit" && (
@@ -566,7 +558,6 @@ function PreviewSheet({ rule, onClose }: { rule: ServiceRule; onClose: () => voi
       <dl className="ds-facts" data-cols={2}>
         {([["Rule", rule.name], ["Location", [rule.scope.area, rule.scope.city, rule.scope.state].filter(Boolean).join(", ") || "All locations"], ["Service / categories", `${rule.service || "All"} · ${rule.categories?.join(" · ") || "All"}`], ["State", phaseOf(rule)], ["Priority", String(rule.priority)], ["Customer / payout", rule.kind === "pricing" ? `${adjText(rule.customer)} / ${adjText(rule.partner)}` : "Not applicable"], ["Reason", rule.reason]] as const).map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}
       </dl>
-      <p className="text-[11px] text-faint mt-3">Test customer search to see the rule applied to a real route.</p>
     </Modal>
   );
 }
@@ -595,7 +586,6 @@ function HistorySheet({ rules, onClose }: { rules: ServiceRule[]; onClose: () =>
   const [open, setOpen] = useState<(typeof rows)[number] | null>(null);
   return (
     <Modal title="Change history" onClose={onClose} wide footNote="Read-only change history">
-      <p className="text-[12px] text-muted mb-3">Who changed the setting, when it changed, and the recorded reason. Open View change for the original before / after values.</p>
       {rows.length === 0 ? <EmptyState /> : (
         <DataTable label="Change history" minWidth={820} hideTools hasActions>
           <thead><tr><th>DATE / TIME · IST</th><th>CHANGE / RECORD</th><th>REASON</th><th>STAFF / ID</th><th className="ds-actions">DETAILS</th></tr></thead>
@@ -612,7 +602,7 @@ function LimitsSheet({ locationFilter, loaded, loadError, rules, canEdit, canEdi
     <Modal title="Fare limits" onClose={onClose} wide>
       {locationFilter}
       <div className="flex items-start justify-between gap-3 mb-3">
-        <div><strong className="text-[15px] text-ink">Office &amp; authority fare limits</strong><p className="text-[12px] text-muted">Stops a new quote for rate review when a configured limit is breached.</p></div>
+        <div><strong className="text-[15px] text-ink">Office &amp; authority fare limits</strong></div>
         {canEdit && <Button icon="plus" onClick={onAdd}>Add limit</Button>}
       </div>
       {loadError ? <p className="ds-error" role="alert">{loadError}</p> : !loaded ? <p role="status">Loading saved limits…</p> : rules.length === 0 ? <EmptyState title="No limits configured" hint="Add an office-approved limit or a verified state notification reference when applicable." /> : (

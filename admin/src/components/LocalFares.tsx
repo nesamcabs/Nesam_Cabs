@@ -172,7 +172,6 @@ export default function LocalFares({ initialTab = "Rental packages", initialCity
               })}</tbody>
             </DataTable>
           )}
-          {city && <p className="text-[11px] text-faint mt-3">Applies to bookings whose pickup and drop are both locations of this city in the location master (office bookings). A trip without an enabled fare here keeps its existing pricing; it is never quoted at ₹0.</p>}
         </section>
       )}
 

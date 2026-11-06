@@ -45,7 +45,7 @@ export default function FullFinal({ initialTab, onOpenBooking }: { initialTab?: 
   return (
     <div className="ds-page-body">
       <Toast toast={toast} />
-      <PageHeader title="Full & Final" subtitle="Closed account statements and Master-approved reactivation cycles." />
+      <PageHeader title="Full & Final" />
       <StageBar label="Full & Final" tabs={[{ id: "F&F records" as const, label: "F&F records", count: sorted.length }, { id: "Bill review" as const, label: "Bill review", count: bills.length }]} value={tab} onChange={setTab} />
       {tab === "F&F records" && (rows === null ? <p className="text-[12px] text-muted">Loading…</p> : sorted.length === 0 ? <div className="ds-panel"><EmptyState /></div> : (
         <DataTable label="Full & Final records" minWidth={1040} fixed hasActions>

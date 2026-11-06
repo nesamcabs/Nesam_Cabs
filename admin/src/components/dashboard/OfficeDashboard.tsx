@@ -100,7 +100,7 @@ export default function OfficeDashboard({ onNavigate, onSelectBooking }: {
         </div>
       )}
 
-      <PageHeader title="Dashboard" subtitle="Every booking, publication and assignment in pickup order." />
+      <PageHeader title="Dashboard" />
 
       <div className="ds-queue-grid">
         {queues.map((q) => (
@@ -112,7 +112,7 @@ export default function OfficeDashboard({ onNavigate, onSelectBooking }: {
         ))}
       </div>
 
-      <Section title="New bookings" subtitle="Approve after checking the customer, fare and pickup details." actions={<Button variant="ghost" icon="arrow-right" onClick={() => onNavigate("bookings", "New bookings")}>View all</Button>} flush>
+      <Section title="New bookings" actions={<Button variant="ghost" icon="arrow-right" onClick={() => onNavigate("bookings", "New bookings")}>View all</Button>} flush>
         {newBookings.length === 0 ? <EmptyState title="No new bookings" hint="New bookings appear here for office review." /> : (
           <DataTable label="New bookings" minWidth={1092} fixed hasActions>
             <colgroup><col style={{ width: 120 }} /><col style={{ width: 250 }} /><col style={{ width: 100 }} /><col style={{ width: 96 }} /><col style={{ width: 190 }} /><col style={{ width: 126 }} /><col style={{ width: 210 }} /></colgroup>
@@ -133,7 +133,7 @@ export default function OfficeDashboard({ onNavigate, onSelectBooking }: {
         )}
       </Section>
 
-      <Section title="Assignment priority" subtitle="Overdue first, then nearest pickup. Partner acceptance stays recorded." actions={<Button icon="alarm-clock" onClick={() => setSheet("alerts")}>Open reminders</Button>} flush>
+      <Section title="Assignment priority" actions={<Button icon="alarm-clock" onClick={() => setSheet("alerts")}>Open reminders</Button>} flush>
         {priority.length === 0 ? <EmptyState title="No assignment pending" hint="Accepted duties waiting for a driver and cab appear here." /> : (
           <DataTable label="Assignment priority" minWidth={1300} fixed hasActions>
             <colgroup><col style={{ width: 120 }} /><col style={{ width: 230 }} /><col style={{ width: 100 }} /><col style={{ width: 96 }} /><col style={{ width: 126 }} /><col style={{ width: 200 }} /><col style={{ width: 190 }} /><col style={{ width: 200 }} /></colgroup>

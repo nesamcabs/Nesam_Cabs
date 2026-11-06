@@ -163,8 +163,8 @@ export default function BrandServiceFareWorkspace({ scope, vehicleClass, vehicle
     customer = [
       f("cngCustomerRate", "CNG price per km", "₹/km", card?.cng?.customerRate, "positive"),
       f("cngCustomerBata", "CNG driver allowance", allowance, card?.cng?.customerBata, "any"),
-      f("cngExtraKmRate", "CNG extra km price", "₹/km", card?.cng?.extraKmRate, undefined, "Blank = CNG price per km"),
-      ...(service === "Round Trip" ? [f("cngMinKmPerDay", "CNG minimum km per day", "km/day", card?.cng?.minKmPerDay, undefined, "Blank = normal minimum")] : []),
+      f("cngExtraKmRate", "CNG extra km price", "₹/km", card?.cng?.extraKmRate, undefined),
+      ...(service === "Round Trip" ? [f("cngMinKmPerDay", "CNG minimum km per day", "km/day", card?.cng?.minKmPerDay, undefined)] : []),
     ];
     partner = [
       f("cngPartnerRate", "CNG partner pay per km", "₹/km", card?.cng?.partnerRate, "positive"),
@@ -177,7 +177,7 @@ export default function BrandServiceFareWorkspace({ scope, vehicleClass, vehicle
       service === "One Way"
         ? f("minKm", "Minimum km charged", "km", t?.oneWay?.minKm ?? 130)
         : f("minKmPerDay", "Minimum km per day", "km/day", roundTrip?.minKmPerDay, "positive"),
-      f("extraKmRate", "Extra km price", "₹/km", outstation?.extraKmRate ?? card?.customerRate, undefined, "Blank = price per km"),
+      f("extraKmRate", "Extra km price", "₹/km", outstation?.extraKmRate ?? card?.customerRate, undefined),
     ];
     partner = [
       f("partnerRate", "Partner pay per km", "₹/km", card?.partnerRate, "positive"),
@@ -245,7 +245,7 @@ export default function BrandServiceFareWorkspace({ scope, vehicleClass, vehicle
       : !cngEnabled ? { tone: "warn", text: <>CNG rates are ready, but this vehicle does not offer CNG. Turn on <strong>CNG available</strong> for it in Vehicle categories.</> }
       : { tone: "ok", text: <>Customers can choose CNG or Diesel / Petrol for this vehicle.</> };
   } else if (missing.length) {
-    status = { tone: "warn", text: <>Customers are not quoted these fares until these are filled: {missing.join(", ")}.{service === "Airport Taxi" ? " Until then airport trips use the vehicle category fare." : ""}</> };
+    status = { tone: "warn", text: <>Customers are not quoted these fares until these are filled: {missing.join(", ")}.{service === "Airport Taxi" ? "" : ""}</> };
   } else {
     status = { tone: "ok", text: <>Ready.</> };
   }
@@ -340,8 +340,7 @@ export default function BrandServiceFareWorkspace({ scope, vehicleClass, vehicle
       {invalid.length > 0 && <p className="ds-error" role="alert">Enter numbers of 0 or more only.</p>}
 
       <fieldset disabled={!canEdit || busy || !!loadError} className="min-w-0 space-y-3">
-        {service === "One Way" && !showCng && <p className="ds-note">Trips of 40 km or less use the Pickup &amp; Drop city fares instead.</p>}
-        {service === "Multicity" && <p className="ds-note">Multicity is booked on the websites and quoted by the travel desk with these rates. Blank boxes use the Round Trip rates.</p>}
+        
 
         {customer.length > 0 && service !== "Local Rental" && (
           <FareGroup title={showCng ? "CNG — customer pays" : "Customer pays"}>{customer.map(box)}</FareGroup>
@@ -377,7 +376,7 @@ export default function BrandServiceFareWorkspace({ scope, vehicleClass, vehicle
           <p className="text-[12px] text-muted">Extra charges are the same for CNG and Diesel / Petrol. Set them with Fuel → Diesel / Petrol.</p>
         ) : (
           <section className="ds-fare-group" aria-label="Extra charges">
-            <div className="ds-fare-group__head"><strong>Extra charges</strong><span>Added only when they happen on the trip. Blank = not decided, 0 = free.</span></div>
+            <div className="ds-fare-group__head"><strong>Extra charges</strong></div>
             <div className="overflow-x-auto px-[14px] pb-[14px]">
               <table className="ds-table w-full text-[13px]">
                 <thead><tr><th>CHARGE</th><th>CUSTOMER PAYS</th><th>PARTNER GETS</th></tr></thead>
@@ -400,26 +399,19 @@ export default function BrandServiceFareWorkspace({ scope, vehicleClass, vehicle
         )}
 
         {(oldRules.length > 0 || sharedOldRules.length > 0) && (
-          <p className="ds-note" role="status">
-            {oldRules.length > 0
-              ? <>This selection still has its own older waiting / tax rules. Saving here removes them so the shared <strong>Rules for extra charges</strong> below apply.</>
-              : <>All brands (shared) → {serviceLabel(service)} → {CLASS_LABEL[cls]} still has older waiting / tax rules. Open it and save once so the shared <strong>Rules for extra charges</strong> apply.</>}
-          </p>
+          <p className="ds-note" role="status">Older waiting and tax rules still apply here. Save once to use the shared rules.</p>
         )}
       </fieldset>
 
       {brand === "common" && t?.enabled && (service === "One Way" || service === "Round Trip" || service === "Airport Taxi") && canEdit && (
-        <p className="text-[12px] text-muted">Pricing engine: on. <button type="button" className="underline" disabled={busy || isDirty} onClick={toggleEngine}>Turn off</button> (customers would be charged the older vehicle category fares).</p>
+        <p className="text-[12px] text-muted">Pricing engine is on. <button type="button" className="underline" disabled={busy || isDirty} onClick={toggleEngine}>Turn off</button></p>
       )}
 
       {confirmOpen && (
         <Modal title="Save fares" onClose={() => !busy && setConfirmOpen(false)} busy={busy}
           footer={<><Button onClick={() => setConfirmOpen(false)} disabled={busy}>Cancel</Button><Button variant="primary" loading={busy} disabled={reason.trim().length < 5} onClick={executeSave}>Save</Button></>}>
           <p className="text-[13px] text-ink mb-2"><strong>{where}</strong></p>
-          <p className="text-[12px] text-muted mb-3">
-            {brand === "common" ? "Shared prices: every brand without its own price changes too." : `Only ${BRAND_LABELS[brand]} changes.`} New quotes use the new prices; bookings already made keep theirs.
-          </p>
-          <label className="ds-field"><span>Reason for change</span><input className="ds-input" value={reason} maxLength={300} placeholder="e.g. Diesel price increase" onChange={(e) => setReason(e.target.value)} /></label>
+          <label className="ds-field"><span>Reason for change</span><input className="ds-input" value={reason} maxLength={300} onChange={(e) => setReason(e.target.value)} /></label>
           {saveError && <div className="ds-error mt-2" role="alert"><Icon name="circle-alert" /> {saveError}</div>}
         </Modal>
       )}
@@ -442,7 +434,7 @@ function RateField({ def, value, inherited, common, othersOwn, onChange }: {
 }) {
   const own = value.trim() !== "";
   const note = common
-    ? othersOwn > 0 ? `${othersOwn} brand${othersOwn === 1 ? " has" : "s have"} its own price` : def.hint ?? "Used by all brands"
+    ? othersOwn > 0 ? `${othersOwn} brand${othersOwn === 1 ? " has" : "s have"} its own price` : def.hint ?? ""
     : own ? `Own price: ${inr(Number(value))}` : inherited !== undefined ? `Shared price: ${inr(inherited)}` : def.hint ?? "Not set";
   return (
     <label data-rate-field={def.key} className="ds-field p-2.5 border border-line rounded-lg bg-white">

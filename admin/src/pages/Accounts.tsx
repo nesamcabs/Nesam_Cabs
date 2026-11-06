@@ -71,7 +71,7 @@ export default function Accounts({ onNavigate, initialTab }: { onNavigate: (p: s
     <div className="ds-page-body">
       <Toast toast={toast} />
       {error && <ErrorBanner message={error} />}
-      <PageHeader title="Accounts" subtitle="Collections, payouts, wallets, expenses and verified payment records." actions={<Button icon="download" onClick={exportRegister}>Export register</Button>} />
+      <PageHeader title="Accounts" actions={<Button icon="download" onClick={exportRegister}>Export register</Button>} />
       <StageBar label="Accounts" tabs={TABS.map((t) => ({ id: t, label: t }))} value={tab} onChange={setTab} />
 
       {["Overview", "Collections", "Partner payouts", "Expenses & bills", "Bank & cash", "Tax payments"].includes(tab) && (

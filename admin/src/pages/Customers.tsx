@@ -95,7 +95,6 @@ export default function Customers({ onNavigate }: { onNavigate?: (page: string, 
       {customers.error && <ErrorBanner message={customers.error} />}
       <PageHeader
         title="Customers"
-        subtitle="Customer contacts, groups and booking history."
         actions={<><Button icon="download" onClick={() => setExporting(true)}>Export data</Button><Button variant="primary" icon="user-plus" onClick={() => setEditing("new")}>Add customer</Button></>}
       />
       <div className="ds-filterbar" role="search">

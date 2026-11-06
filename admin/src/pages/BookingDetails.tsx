@@ -143,7 +143,7 @@ export default function BookingDetails({ bookingId, onBack, onNavigate }: { book
   if (loadError || !booking) {
     return (
       <div className="ds-page-body">
-        <PageHeader eyebrow="BOOKING DETAILS" title={loadError ? "Booking unavailable" : "Booking not found"} subtitle={loadError ?? `The booking “${bookingId}” does not exist or was removed.`} actions={<><Button icon="rotate-ccw" onClick={() => setRetry((n) => n + 1)}>Retry</Button><Button icon="arrow-left" onClick={onBack}>Back to bookings</Button></>} />
+        <PageHeader title={loadError ? "Booking unavailable" : "Booking not found"} subtitle={loadError ?? `The booking “${bookingId}” does not exist or was removed.`} actions={<><Button icon="rotate-ccw" onClick={() => setRetry((n) => n + 1)}>Retry</Button><Button icon="arrow-left" onClick={onBack}>Back to bookings</Button></>} />
       </div>
     );
   }
@@ -224,9 +224,7 @@ export default function BookingDetails({ bookingId, onBack, onNavigate }: { book
     <div className="ds-page-body">
       <Toast toast={toast} />
       <PageHeader
-        eyebrow="BOOKING DETAILS"
         title={code}
-        subtitle={`${booking.pickup} → ${booking.drop}`}
         actions={<><Badge tone={headerBadge === "Booking confirmed" ? "green" : headerBadge === "Awaiting confirmation" ? "amber" : "red"}>{headerBadge}</Badge><Button icon="arrow-left" onClick={onBack}>Back to bookings</Button></>}
       />
 

@@ -656,7 +656,7 @@ export function SaveEnquiryDialog({ trip, estimate, serviceName, onClose, onSave
     }
   };
   return (
-    <Modal eyebrow="NESAM" title="Save enquiry for follow-up" onClose={onClose} busy={busy} footer={<Button variant="primary" type="submit" form="save-enquiry" loading={busy}>Save enquiry</Button>}>
+    <Modal title="Save enquiry for follow-up" onClose={onClose} busy={busy} footer={<Button variant="primary" type="submit" form="save-enquiry" loading={busy}>Save enquiry</Button>}>
       <form id="save-enquiry" onSubmit={save} className="grid gap-4" noValidate>
         {error && <div className="ds-error" role="alert"><Icon name="circle-alert" />{error}</div>}
         <div className="ds-sheet-card" style={{ marginBottom: 0 }}>

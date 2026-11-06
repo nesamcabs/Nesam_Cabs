@@ -54,11 +54,11 @@ function rowOf(kind: PartnerKind, raw: Raw, vendors: Map<string, Vendor>): Partn
   return { id: d.id, kind, name: d.name || "Driver", code: d.licenseNumber || d.license || d.id.slice(0, 12), phone: d.phone || "", email: s(raw.email), linked: vendor?.companyName || vendor?.name || s(raw.vendor) || "", linkedId: d.vendorId || "", approval: approvalOf(kind, raw), account: accountOf(kind, raw), dispute: disputeOf(raw), raw };
 }
 
-const CONFIG: Record<PartnerKind, { title: string; subtitle: string; plural: string; singular: string; add?: string; idLabel: string }> = {
-  driver: { title: "Driver Partners", subtitle: "DL number is the Driver ID. Approval, account status and dispute remain separate.", plural: "Driver Partners", singular: "Driver Partner", add: "Add driver", idLabel: "Driver ID" },
-  "vendor-driver": { title: "Vendor Drivers", subtitle: "DL number is the Driver ID. Approval, account status and dispute remain separate.", plural: "Vendor Drivers", singular: "Vendor Driver", add: "Add driver", idLabel: "Driver ID" },
-  vendor: { title: "Vendors", subtitle: "Vendor applications, approval decisions and separate account controls.", plural: "Vendors", singular: "Vendor", idLabel: "Permanent ID" },
-  vehicle: { title: "Vehicles", subtitle: "Registration is the vehicle ID. Approval and account restrictions stay separate.", plural: "Vehicles", singular: "Vehicle", add: "Add vehicle", idLabel: "Vehicle ID" },
+const CONFIG: Record<PartnerKind, { title: string; plural: string; singular: string; add?: string; idLabel: string }> = {
+  driver: { title: "Driver Partners", plural: "Driver Partners", singular: "Driver Partner", add: "Add driver", idLabel: "Driver ID" },
+  "vendor-driver": { title: "Vendor Drivers", plural: "Vendor Drivers", singular: "Vendor Driver", add: "Add driver", idLabel: "Driver ID" },
+  vendor: { title: "Vendors", plural: "Vendors", singular: "Vendor", idLabel: "Permanent ID" },
+  vehicle: { title: "Vehicles", plural: "Vehicles", singular: "Vehicle", add: "Add vehicle", idLabel: "Vehicle ID" },
 };
 
 type ApprovalTab = Approval | "Suspended" | "All";
@@ -190,7 +190,7 @@ export default function PartnerRegistry({ kind, onOpenBooking, onNavigate, aside
     <div className="ds-page-body">
       <Toast toast={toast} />
       {data.error && <ErrorBanner message={data.error} />}
-      <PageHeader title={cfg.title} subtitle={cfg.subtitle} actions={<>{aside}<Button icon="download" onClick={() => setExporting(true)}>Export data</Button>{cfg.add && <Button variant="primary" icon="plus" onClick={() => setSheet({ kind: "add" })}>{cfg.add}</Button>}</>} />
+      <PageHeader title={cfg.title} actions={<>{aside}<Button icon="download" onClick={() => setExporting(true)}>Export data</Button>{cfg.add && <Button variant="primary" icon="plus" onClick={() => setSheet({ kind: "add" })}>{cfg.add}</Button>}</>} />
       <StageBar label="Approval" tabs={tabs} value={tab} onChange={(t) => { setTab(t); setPage(1); }} />
       <div className="ds-filterbar" role="search">
         <div className="ds-search" style={{ flex: "1 1 320px" }}>

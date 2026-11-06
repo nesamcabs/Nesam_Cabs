@@ -59,7 +59,7 @@ export default function BusinessAccounts({ onQuote }: { onQuote: (businessId: st
     <div className="ds-page-body">
       <Toast toast={toast} />
       {error && <ErrorBanner message={error} />}
-      <PageHeader title="Business accounts" subtitle="Travel agencies, hotels and corporate booking accounts." actions={<Button variant="primary" icon="plus" onClick={() => setEditing("new")}>Add business</Button>} />
+      <PageHeader title="Business accounts" actions={<Button variant="primary" icon="plus" onClick={() => setEditing("new")}>Add business</Button>} />
       <StageBar label="Account status" tabs={TABS.map((t) => ({ id: t, label: t, count: counts[t] }))} value={tab} onChange={setTab} />
       <div className="ds-toolbar-count"><strong>{shown.length} accounts · B2B stays separate from passenger contact</strong></div>
       {rows === null ? <div className="ds-panel"><TableSkeleton rows={3} cols={5} /></div> : shown.length === 0 ? <div className="ds-panel"><EmptyState /></div> : (

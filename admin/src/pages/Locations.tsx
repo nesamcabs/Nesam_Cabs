@@ -789,7 +789,7 @@ export default function Locations() {
                         type="text"
                         value={formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        placeholder="e.g. Chennai International Airport (MAA), Madurai Jn"
+                       
                         className="w-full p-2.5 border border-line rounded-xl text-xs focus:border-brand focus:outline-none"
                         required
                       />
@@ -821,7 +821,7 @@ export default function Locations() {
                         type="text"
                         value={formData.code}
                         onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                        placeholder="e.g. MAA, CJB, MDU"
+                       
                         className="w-full p-2.5 border border-line rounded-xl text-xs uppercase font-mono focus:border-brand focus:outline-none"
                       />
                       {errNode("code")}
@@ -884,7 +884,7 @@ export default function Locations() {
                         type="text"
                         value={formData.district}
                         onChange={(e) => setFormData({ ...formData, district: e.target.value })}
-                        placeholder="e.g. Chengalpattu, Coimbatore, Erode"
+                       
                         className="w-full p-2.5 border border-line rounded-xl text-xs focus:border-brand focus:outline-none"
                       />
                     </div>
@@ -897,7 +897,7 @@ export default function Locations() {
                         type="text"
                         value={formData.city}
                         onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                        placeholder="e.g. Chennai, Coimbatore, Salem"
+                       
                         className="w-full p-2.5 border border-line rounded-xl text-xs focus:border-brand focus:outline-none"
                         required
                       />
@@ -912,7 +912,7 @@ export default function Locations() {
                         type="text"
                         value={formData.area}
                         onChange={(e) => setFormData({ ...formData, area: e.target.value })}
-                        placeholder="e.g. Meenambakkam, Peelamedu, Gandhipuram"
+                       
                         className="w-full p-2.5 border border-line rounded-xl text-xs focus:border-brand focus:outline-none"
                       />
                     </div>
@@ -925,7 +925,7 @@ export default function Locations() {
                         type="text"
                         value={formData.pincode}
                         onChange={(e) => setFormData({ ...formData, pincode: e.target.value })}
-                        placeholder="e.g. 600027, 641014"
+                       
                         className="w-full p-2.5 border border-line rounded-xl text-xs font-mono focus:border-brand focus:outline-none"
                       />
                       {errNode("pincode")}
@@ -953,7 +953,7 @@ export default function Locations() {
                         type="text"
                         value={formData.lat}
                         onChange={(e) => setFormData({ ...formData, lat: e.target.value })}
-                        placeholder="e.g. 12.9941"
+                       
                         className="w-full p-2.5 border border-line rounded-xl text-xs font-mono focus:border-brand focus:outline-none"
                       />
                       {errNode("lat")}
@@ -967,7 +967,7 @@ export default function Locations() {
                         type="text"
                         value={formData.lng}
                         onChange={(e) => setFormData({ ...formData, lng: e.target.value })}
-                        placeholder="e.g. 80.1709"
+                       
                         className="w-full p-2.5 border border-line rounded-xl text-xs font-mono focus:border-brand focus:outline-none"
                       />
                       {errNode("lng")}

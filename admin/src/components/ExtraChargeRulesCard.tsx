@@ -58,13 +58,12 @@ export default function ExtraChargeRulesCard() {
   return (
     <section className="ds-panel ds-panel-pad" aria-label="Rules for extra charges" id="fare-extra-settings">
       <h3 className="text-[15px] font-bold text-ink mb-1">Rules for extra charges</h3>
-      <p className="text-[12px] text-muted mb-1">One setting for every brand, service and vehicle.</p>
-      <p className={`text-[12px] mb-3 ${complete ? "text-ok" : "text-bad"}`} role="status">
-        <Icon name={complete ? "circle-check" : "circle-alert"} size={13} /> {complete ? "Set. Waiting, hill and roof-carrier charges are billed automatically." : "Not complete. Waiting, hill and roof-carrier charges wait for office review until all four are set."}
+            <p className={`text-[12px] mb-3 ${complete ? "text-ok" : "text-bad"}`} role="status">
+        <Icon name={complete ? "circle-check" : "circle-alert"} size={13} /> {complete ? "Set." : "Not complete."}
       </p>
       <fieldset disabled={!canEdit || busy} className="grid grid-cols-1 md:grid-cols-2 gap-3 min-w-0">
-        <label className="ds-field"><span>Free waiting at each stop (minutes)</span><input className="ds-input" type="number" min={0} max={1440} step={1} value={free} placeholder="e.g. 30" onChange={(e) => setFree(e.target.value)} /></label>
-        <label className="ds-field"><span>Round waiting up to every (minutes)</span><input className="ds-input" type="number" min={1} max={1440} step={1} value={step} placeholder="e.g. 15" onChange={(e) => setStep(e.target.value)} /></label>
+        <label className="ds-field"><span>Free waiting at each stop (minutes)</span><input className="ds-input" type="number" min={0} max={1440} step={1} value={free} onChange={(e) => setFree(e.target.value)} /></label>
+        <label className="ds-field"><span>Round waiting up to every (minutes)</span><input className="ds-input" type="number" min={1} max={1440} step={1} value={step} onChange={(e) => setStep(e.target.value)} /></label>
         <label className="ds-field"><span>Rounding</span>
           <select className="ds-select" value={scope} onChange={(e) => setScope(e.target.value)}>
             <option value="">Not decided</option><option value="per_stop">Each stop on its own</option><option value="combined">All stops added together</option>

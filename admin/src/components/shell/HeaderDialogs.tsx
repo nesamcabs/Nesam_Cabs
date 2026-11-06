@@ -275,7 +275,7 @@ function PolicyDialog({ policy, onClose }: { policy: PrivacyPolicy; onClose: () 
 
 export function ProfileDialog({ access, name, email, onClose, onNavigate, onSignOut }: { access: AdminAccess; name: string; email: string; onClose: () => void; onNavigate: (p: string) => void; onSignOut: () => void }) {
   return (
-    <Modal eyebrow="NESAM" title={access.isSuper ? "Super Admin" : access.roleName} onClose={onClose}>
+    <Modal title={access.isSuper ? "Super Admin" : access.roleName} onClose={onClose}>
       <div className="flex items-start gap-3 mb-4">
         <span className="inline-grid place-items-center w-11 h-11 rounded-lg bg-brand-soft text-brand"><Icon name="shield-check" /></span>
         <div>

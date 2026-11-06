@@ -657,7 +657,7 @@ export default function Services() {
                         <input
                           type="text"
                           required
-                          placeholder="e.g. Airport Taxi, Outstation Cab"
+                         
                           value={formData.name}
                           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                           className="w-full p-2.5 border border-line rounded-lg text-[12px] focus:outline-none focus:border-brand"
@@ -694,7 +694,7 @@ export default function Services() {
                         </label>
                         <input
                           type="text"
-                          placeholder="e.g. AIRPORT_TAXI"
+                         
                           value={formData.code}
                           onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
                           className="w-full p-2.5 border border-line rounded-lg text-[12px] font-mono focus:outline-none focus:border-brand"
@@ -708,7 +708,7 @@ export default function Services() {
                         </label>
                         <input
                           type="text"
-                          placeholder="e.g. airport-taxi"
+                         
                           value={formData.slug}
                           onChange={(e) => setFormData({ ...formData, slug: e.target.value.toLowerCase() })}
                           className="w-full p-2.5 border border-line rounded-lg text-[12px] font-mono focus:outline-none focus:border-brand"
@@ -899,7 +899,7 @@ export default function Services() {
                       </label>
                       <input
                         type="text"
-                        placeholder="e.g. Book Airport Taxi in Tamil Nadu | Nesam Tours"
+                       
                         value={formData.seoTitle}
                         onChange={(e) => setFormData({ ...formData, seoTitle: e.target.value })}
                         className="w-full p-2.5 border border-line rounded-lg text-[12px] focus:outline-none focus:border-brand"

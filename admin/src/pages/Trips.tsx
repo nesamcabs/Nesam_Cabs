@@ -86,7 +86,7 @@ export default function Trips({ onOpenBooking, initialTab }: { onOpenBooking: (i
   return (
     <div className="ds-page-body">
       <Toast toast={toast} />
-      <PageHeader title="Trips" subtitle="Partner, driver and vehicle are tracked independently." />
+      <PageHeader title="Trips" />
       <StageBar label="Trip status" tabs={TRIP_TABS.map((t) => ({ id: t, label: t, count: counts[t] }))} value={tab} onChange={(t) => { setTab(t); setExpanded(null); }} />
       <div className="ds-filterbar">
         <label className="ds-field">

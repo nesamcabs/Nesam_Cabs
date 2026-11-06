@@ -76,7 +76,7 @@ export default function MessagesPanel({ canSend }: { canSend: boolean }) {
         <div><strong className="text-[13px] text-ink">Duty email automation</strong><p className="text-[11px] text-muted mt-1">Confirmation · Assignment · Revision · Cancellation · Settlement</p></div>
         <Button size="sm" icon="mail" onClick={() => setSheet({ kind: "duty" })}>Duty email history</Button>
       </section>
-      <PageHeader eyebrow="NESAM OPERATIONS" title="Communication" subtitle="Wishes, common notices and individual warnings." actions={canSend && <Button variant="primary" icon="plus" onClick={() => setSheet({ kind: "new" })}>Create notification</Button>} />
+      <PageHeader title="Communication" actions={canSend && <Button variant="primary" icon="plus" onClick={() => setSheet({ kind: "new" })}>Create notification</Button>} />
       <section className="ds-panel ds-panel-pad mb-5">
         <h2 className="text-[17px] font-bold text-ink" style={{ fontFamily: "var(--font-display)" }}>Everyone · Groups · Selected people</h2>
         <p className="text-[12px] text-body mt-1">Choose Customers, Driver Partners, Vendors and Vendor Drivers independently. Personal warnings go to one profile.</p>
@@ -195,7 +195,7 @@ function CreateSheet({ editing, onClose, onSaved }: { editing?: Campaign; onClos
   };
 
   return (
-    <Modal title={editing ? "Edit notification" : "Create notification"} eyebrow="NESAM" onClose={onClose} busy={busy} footer={<Button variant="primary" icon="eye" type="submit" form="notice-form" loading={busy}>Review recipients &amp; message</Button>}>
+    <Modal title={editing ? "Edit notification" : "Create notification"} onClose={onClose} busy={busy} footer={<Button variant="primary" icon="eye" type="submit" form="notice-form" loading={busy}>Review recipients &amp; message</Button>}>
       <form id="notice-form" onSubmit={submit} className="grid gap-4" noValidate>
         {error && <div className="ds-error" role="alert"><Icon name="circle-alert" />{error}</div>}
         <div className="ds-form-grid">

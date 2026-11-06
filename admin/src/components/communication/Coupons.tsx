@@ -45,7 +45,7 @@ export default function CouponsPanel({ canEdit, canSeeUsage, includeLegacy = fal
   return (
     <>
       <Toast toast={toast} />
-      <PageHeader title="Offers & Coupons" subtitle="Generate codes, control eligibility and review confirmed usage." actions={canEdit && <Button variant="primary" icon="plus" onClick={() => setSheet({ kind: "new" })}>Create coupon</Button>} />
+      <PageHeader title="Offers & Coupons" actions={canEdit && <Button variant="primary" icon="plus" onClick={() => setSheet({ kind: "new" })}>Create coupon</Button>} />
       <div className="ds-note mb-4"><Icon name="badge-percent" size={15} />NESAM-funded discounts · Partner payout stays unchanged · One coupon per booking</div>
       <div className="ds-filterbar mb-3">
         <input type="search" className="ds-input" style={{ maxWidth: 260 }} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search code or offer name" aria-label="Search coupons" />

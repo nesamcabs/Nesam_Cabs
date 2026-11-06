@@ -62,7 +62,7 @@ export default function Verification({ onBack }: { onBack?: () => void }) {
   return (
     <div className="ds-page-body">
       <Toast toast={toast} />
-      <PageHeader eyebrow="NESAM OPERATIONS" title="Verification" subtitle="Driver and vehicle documents, approvals and transfer records." actions={onBack ? <Button icon="arrow-left" onClick={onBack}>Back</Button> : undefined} />
+      <PageHeader title="Verification" actions={onBack ? <Button icon="arrow-left" onClick={onBack}>Back</Button> : undefined} />
       <section className="ds-panel ds-panel-pad">
         <h2 className="text-[17px] font-bold text-ink" style={{ fontFamily: "var(--font-display)" }}>Account approvals</h2>
         <p className="text-[12px] text-muted mb-4">Consent, documents and account status.</p>
@@ -99,7 +99,7 @@ function ReviewApplication({ it, onClose, onDone }: { it: Item; onClose: () => v
     catch { setError("The decision was not recorded. Check your permissions and try again."); setBusy(null); }
   };
   return (
-    <Modal eyebrow="" title="Review application" onClose={onClose} busy={!!busy} footer={<><Button onClick={onClose} disabled={!!busy}>Close</Button><Button loading={busy === "Changes requested"} onClick={() => decide("Changes requested")}>Request changes</Button><Button variant="primary" icon="circle-check" loading={busy === "Approved"} onClick={() => decide("Approved")}>Approve account</Button></>}>
+    <Modal title="Review application" onClose={onClose} busy={!!busy} footer={<><Button onClick={onClose} disabled={!!busy}>Close</Button><Button loading={busy === "Changes requested"} onClick={() => decide("Changes requested")}>Request changes</Button><Button variant="primary" icon="circle-check" loading={busy === "Approved"} onClick={() => decide("Approved")}>Approve account</Button></>}>
       <div className="ds-profile-head"><span className="ds-initials">{it.name.slice(0, 2).toUpperCase()}</span><div><strong>{it.name}</strong><small>{it.code}</small></div></div>
       {error && <div className="ds-error" role="alert"><Icon name="circle-alert" />{error}</div>}
       <dl className="ds-facts" data-cols={2}>

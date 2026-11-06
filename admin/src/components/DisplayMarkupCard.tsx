@@ -47,7 +47,6 @@ export default function DisplayMarkupCard({ scope }: { scope: FareWorkspaceScope
   return (
     <section className="ds-panel ds-panel-pad" aria-label="Struck-out price">
       <h3 className="text-[15px] font-bold text-ink mb-1">Struck-out price</h3>
-      <p className="text-[12px] text-muted mb-3">Shows a higher price crossed out above the real fare. The fare itself never changes. For {where}.</p>
       <fieldset disabled={!canEdit || busy} className="flex flex-wrap items-end gap-3 min-w-0">
         <label className="ds-field" style={{ width: 150 }}>
           <span>Increase by (%)</span>
@@ -55,11 +54,10 @@ export default function DisplayMarkupCard({ scope }: { scope: FareWorkspaceScope
         </label>
         <label className="ds-field" style={{ flex: "1 1 220px" }}>
           <span>Reason for change</span>
-          <input className="ds-input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why this changed" />
+          <input className="ds-input" value={reason} onChange={(e) => setReason(e.target.value)} />
         </label>
         <Button variant="primary" onClick={save} loading={busy} disabled={invalid || !changed || !canEdit}>Save</Button>
       </fieldset>
-      {example ? <p className="text-[12px] text-muted mt-2">Example: a ₹1,000 fare shows <s>₹{example.toLocaleString("en-IN")}</s> ₹1,000.</p> : null}
       {invalid ? <p className="ds-error mt-2" role="alert">Enter a percentage above 0 and up to 300, or leave it blank for none.</p> : null}
       {message ? <p className={message.ok ? "text-[12px] text-ok mt-2" : "ds-error mt-2"} role="status">{message.text}</p> : null}
     </section>

@@ -99,9 +99,7 @@ export default function Enquiries({ stageCounts, onStage, onBack, onNewBooking, 
     <>
       <Toast toast={toast} />
       <PageHeader
-        eyebrow="NESAM OPERATIONS"
         title="Enquiries & follow-ups"
-        subtitle="Save the route first. Collect only the contact needed for the next step."
         actions={<Button variant="primary" icon="calculator" onClick={onNewBooking}>Quick fare</Button>}
       />
       <StageBar
@@ -171,9 +169,7 @@ function QuoteDetails({ e, onBack, onConvert, onCopy, onSent, onHandler }: { e: 
   return (
     <>
       <PageHeader
-        eyebrow="NESAM OPERATIONS"
         title="Quote details"
-        subtitle={e.code}
         actions={<Button icon="arrow-left" onClick={onBack}>Back to enquiries</Button>}
       />
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
@@ -397,7 +393,7 @@ function StatusDialog({ e, onClose, onSaved }: { e: Enquiry; onClose: () => void
     }
   };
   return (
-    <Modal eyebrow="NESAM" title="Update enquiry" onClose={onClose} busy={busy} footer={<Button variant="primary" type="submit" form="enq-status" loading={busy}>Save status</Button>}>
+    <Modal title="Update enquiry" onClose={onClose} busy={busy} footer={<Button variant="primary" type="submit" form="enq-status" loading={busy}>Save status</Button>}>
       <form id="enq-status" onSubmit={save} className="grid gap-4">
         {error && <div className="ds-error" role="alert">{error}</div>}
         <label className="ds-field"><span>Status</span>
@@ -438,7 +434,7 @@ function HandlerDialog({ e, onClose, onSaved }: { e: Enquiry; onClose: () => voi
     }
   };
   return (
-    <Modal eyebrow="NESAM" title="Assign handling staff" onClose={onClose} busy={busy} footer={<Button variant="primary" type="submit" form="enq-handler" loading={busy}>Save handover</Button>}>
+    <Modal title="Assign handling staff" onClose={onClose} busy={busy} footer={<Button variant="primary" type="submit" form="enq-handler" loading={busy}>Save handover</Button>}>
       <form id="enq-handler" onSubmit={save} className="grid gap-4">
         {error && <div className="ds-error" role="alert">{error}</div>}
         <label className="ds-field"><span>Responsible staff</span>

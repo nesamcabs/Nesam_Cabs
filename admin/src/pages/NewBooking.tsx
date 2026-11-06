@@ -306,7 +306,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
   );
 
   if (draft?.enquiry && isMulticityEnquiry(draft.enquiry)) {
-    return <div className="ds-page-body"><PageHeader title="Multicity enquiry" subtitle={draft.enquiry.code} actions={<Button onClick={onCancel}>Back to enquiries</Button>} /><p role="alert">{MULTICITY_CONVERSION_MESSAGE}</p></div>;
+    return <div className="ds-page-body"><PageHeader title="Multicity enquiry" actions={<Button onClick={onCancel}>Back to enquiries</Button>} /><p role="alert">{MULTICITY_CONVERSION_MESSAGE}</p></div>;
   }
 
   // ── 1 Plan: platform, customer and the trip, drawn as the selected platform's own booking form ──
@@ -377,7 +377,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
     return (
       <div className="ds-page-body">
         <Toast toast={toast} />
-        <PageHeader eyebrow="NESAM OPERATIONS" title="New booking" />
+        <PageHeader title="New booking" />
         {wizard(1)}
         <div className={`cf cf--${c.channel} cf-split`}>
           {side}
@@ -404,7 +404,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
     return (
       <div className="ds-page-body">
         <Toast toast={toast} />
-        <PageHeader eyebrow="NESAM OPERATIONS" title="New booking" />
+        <PageHeader title="New booking" />
         {wizard(2)}
         {errorLine}
         <div className={`cf cf--${c.channel}`}>
@@ -437,7 +437,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
   return (
     <div className="ds-page-body">
       <Toast toast={toast} />
-      <PageHeader eyebrow="NESAM OPERATIONS" title="New booking" />
+      <PageHeader title="New booking" />
       {wizard(3)}
       <div className={`cf cf--${c.channel}`}>
         <form className="flow-page flow-page--review" noValidate onSubmit={confirm}>

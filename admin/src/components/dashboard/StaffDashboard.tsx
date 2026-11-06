@@ -105,9 +105,7 @@ export default function StaffDashboard({ access, badges, onNavigate, workspace }
   return (
     <div className="ds-page-body space-y-6">
       <PageHeader
-        eyebrow="NESAM OFFICE WORKSPACE"
         title={`${access.roleName} dashboard`}
-        subtitle="Your sections and shortcuts follow the access the Master account granted to your Staff ID."
       />
 
       {desks.map((desk) => (

@@ -129,7 +129,7 @@ export default function ReportsGst({ initialTab, onNavigate }: { initialTab?: st
   return (
     <div className="ds-page-body">
       <Toast toast={toast} />
-      <PageHeader title="Reports & GST" subtitle="GST working reports, verified tax payments and annual Income Tax preparation." />
+      <PageHeader title="Reports & GST" />
       <StageBar label="Reports" tabs={(["GST Reports", "GST Payment History", "Income Tax Reports", "Business analytics"] as const).map((t) => ({ id: t, label: t }))} value={top} onChange={setTop} />
       {top === "Business analytics" ? <ReportsAnalytics /> : filters}
 

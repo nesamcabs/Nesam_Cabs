@@ -68,7 +68,7 @@ const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]):not([typ
 const InlineModalContext = createContext(false);
 export const InlineModals = InlineModalContext.Provider;
 
-export function Modal({ title, subtitle, eyebrow = "NESAM MASTER CONTROL", onClose, busy, size = "md", centered, wide, children, footer, footNote }: ModalProps) {
+export function Modal({ title, subtitle, eyebrow, onClose, busy, size = "md", centered, wide, children, footer, footNote }: ModalProps) {
   const inline = useContext(InlineModalContext) && !!wide;
   const drawer = !centered;
   const dialog = useRef<HTMLDivElement>(null);

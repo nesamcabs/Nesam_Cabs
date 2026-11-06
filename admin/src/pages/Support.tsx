@@ -71,7 +71,7 @@ export default function Support({ onOpenBooking, onNavigate }: { onOpenBooking: 
   return (
     <div className="ds-page-body">
       <Toast toast={toast} />
-      <PageHeader eyebrow="NESAM OPERATIONS" title="Help & support" subtitle="Customer requests and partner duty assistance in one queue." actions={<Button variant="ghost" icon="list-checks" onClick={() => setDesk(true)}>Ticket desk</Button>} />
+      <PageHeader title="Help & support" actions={<Button variant="ghost" icon="list-checks" onClick={() => setDesk(true)}>Ticket desk</Button>} />
       <section className="ds-panel ds-panel-pad mb-5 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3"><Icon name="headset" size={22} /><span><strong className="block text-[14px] text-ink">24/7 office helpdesk</strong><small className="text-[12px] text-muted">{phone ? (phone.startsWith("+") ? phone : `+91 ${phone}`) : "Add the office phone in Settings › Company"}</small></span></div>
         {phone ? <a className="ds-btn ds-btn-secondary" href={`tel:${phone.startsWith("+") ? phone : `+91${phone}`}`}><Icon name="phone" />Call office</a> : <Button icon="phone" disabled disabledReason="Add the office phone in Settings">Call office</Button>}

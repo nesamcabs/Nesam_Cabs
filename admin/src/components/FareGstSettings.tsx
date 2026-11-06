@@ -74,7 +74,6 @@ export default function FareGstSettings({ scope, onDirtyChange, onBusyChange }: 
       </div>
       <p className="text-[12px] my-3">Split is automatic: same state → CGST + SGST; Union Territory → CGST + UTGST; different states → IGST. Customers with a GSTIN use its state; others use their pickup state.</p>
       <p className="text-[12px] text-muted my-2">Fixed route fares and business contracts keep their own included / excluded choice. Extra charges follow <strong>Rules for extra charges</strong> on the Fares page. Once a pickup-state setting exists, a pickup dropped as a map pin (no verified state) cannot be quoted online.</p>
-      {Number.isFinite(pct) && <p className="text-[12px] my-3">Example, entered fare ₹1,000 at {pct}%: taxable ₹{taxable.toFixed(2)} + GST ₹{(taxable * rule.rate).toFixed(2)} = ₹{(taxable * (1 + rule.rate)).toFixed(2)}.</p>}
       <div className="flex gap-2"><Button onClick={() => save()} disabled={!dirty}>{busy ? 'Saving…' : 'Save GST settings'}</Button>{own && <Button variant="ghost" onClick={() => save(true)}>Remove this GST override</Button>}</div>
     </fieldset>
     {(loadError || message) && <p className="text-[12px] mt-3" role="status">{loadError || message}</p>}
