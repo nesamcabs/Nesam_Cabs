@@ -331,7 +331,7 @@ export default function BrandServiceFareWorkspace({ scope, vehicleClass, vehicle
             <strong className="text-[14px] text-ink">{where}</strong>
             {isDirty ? <Badge tone="amber">Unsaved changes</Badge> : null}
           </div>
-          <p className={`text-[12px] mt-1 ${status.tone === "ok" ? "text-ok" : status.tone === "warn" ? "text-bad" : "text-muted"}`} role="status">
+          <p className={`flex items-center gap-1.5 text-[12px] mt-1 ${status.tone === "ok" ? "text-ok" : status.tone === "warn" ? "text-bad" : "text-muted"}`} role="status">
             {status.text}
           </p>
         </div>
@@ -393,7 +393,7 @@ export default function BrandServiceFareWorkspace({ scope, vehicleClass, vehicle
                   ))}
                 </tbody>
               </table>
-              {extraProblems.length > 0 && <p className="text-[12px] text-bad mt-2" role="status"><Icon name="circle-alert" size={13} /> Add the partner amount for {extraProblems.join(", ")}. Without it the charge waits for office review.</p>}
+              {extraProblems.length > 0 && <p className="flex items-center gap-1.5 text-[12px] text-bad mt-2" role="status"><Icon name="circle-alert" size={13} /> Add the partner amount for {extraProblems.join(", ")}. Without it the charge waits for office review.</p>}
             </div>
           </section>
         )}

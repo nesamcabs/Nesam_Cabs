@@ -49,6 +49,7 @@ export default function ExtraChargeRulesCard() {
       setReason("");
       setMessage({ ok: true, text: "Saved. New bookings use these rules." });
     } catch (err) {
+      console.error("[NESAM API] Save extra-charge rules failed:", err);
       setMessage({ ok: false, text: err instanceof ActionError ? err.message : "Not saved. Please try again." });
     } finally {
       setBusy(false);
@@ -58,7 +59,7 @@ export default function ExtraChargeRulesCard() {
   return (
     <section className="ds-panel ds-panel-pad" aria-label="Rules for extra charges" id="fare-extra-settings">
       <h3 className="text-[15px] font-bold text-ink mb-1">Rules for extra charges</h3>
-            <p className={`text-[12px] mb-3 ${complete ? "text-ok" : "text-bad"}`} role="status">
+            <p className={`flex items-center gap-1.5 text-[12px] mb-3 ${complete ? "text-ok" : "text-bad"}`} role="status">
         <Icon name={complete ? "circle-check" : "circle-alert"} size={13} /> {complete ? "Set." : "Not complete."}
       </p>
       <fieldset disabled={!canEdit || busy} className="grid grid-cols-1 md:grid-cols-2 gap-3 min-w-0">
