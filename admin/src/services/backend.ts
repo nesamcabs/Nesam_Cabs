@@ -51,18 +51,23 @@ export async function callBackend<Req, Res>(name: string, data: Req, timeoutMs =
     console.error(LOG, '✗', name, 'no signed-in user (auth.currentUser is null)');
     throw new BackendError('unauthenticated', 'Sign in required.');
   }
-  const token = await user.getIdToken();
-
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
-  let response: Response;
-  try {
-    response = await fetch(`${API_URL}/api/call/${encodeURIComponent(name)}`, {
+  const send = (token: string) =>
+    fetch(`${API_URL}/api/call/${encodeURIComponent(name)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ data }),
       signal: controller.signal,
     });
+  let response: Response;
+  try {
+    response = await send(await user.getIdToken());
+    // A stale token is refreshed once and the call is retried; nothing else is retried.
+    if (response.status === 401) {
+      console.info(LOG, '↻', name, 'token rejected, refreshing and retrying once');
+      response = await send(await user.getIdToken(true));
+    }
   } catch (err) {
     // A browser "Failed to fetch" here usually means the request never got a reply: wrong API URL, server down, or CORS blocked.
     console.error(LOG, '✗', name, 'no response after', took(), err);

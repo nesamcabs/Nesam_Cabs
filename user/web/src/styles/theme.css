@@ -2793,7 +2793,6 @@ html[data-hero-logo='in'] .ride-chip {
 .rv-pay-promo {
   margin-top: 6px;
   padding-top: 4px;
-  border-top: 1px solid var(--line, #e2e6ec);
 }
 .rv-pay-promo .promo {
   display: flex;

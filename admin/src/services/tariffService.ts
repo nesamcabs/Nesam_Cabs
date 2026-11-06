@@ -8,7 +8,7 @@ export const TARIFF_CLASSES: readonly TariffClass[] = ["sedan", "suv", "suv7", "
 export const FALLS_BACK_TO_SUV = (c: TariffClass): boolean => c === "innova" || c === "suv7";
 export const CLASS_LABEL: Record<TariffClass, string> = { sedan: "Sedan", suv: "SUV 6+1", suv7: "SUV 7+1", innova: "Innova", crysta: "Innova Crysta" };
 
-export const RENTAL_HOURS = [4, 6, 8, 10, 12] as const;
+export const RENTAL_HOURS = [1, 2, 3, 4, 6, 8, 10, 12] as const;
 /** Minimum rental hours of a category that has none saved yet (the server applies the same default). */
 export const DEFAULT_RENTAL_MIN_HOURS: Record<TariffClass, number> = { sedan: 4, suv: 4, suv7: 4, innova: 4, crysta: 10 };
 

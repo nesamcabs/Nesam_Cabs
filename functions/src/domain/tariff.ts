@@ -71,7 +71,7 @@ export interface AirportClassRates { customerBase?: number; partnerBase?: number
 export interface LocalFareEntry { minKm: number; customerRate: number; partnerRate: number; extraKmRate: number; waitingPerHour: number; enabled: boolean }
 /** Keyed by the canonical City record id in `locations`; `cityName` is a display copy only. */
 export interface LocalCityFares { cityName: string; classes: Partial<Record<TariffClass, LocalFareEntry>> }
-export const RENTAL_HOURS = [4, 6, 8, 10, 12] as const;
+export const RENTAL_HOURS = [1, 2, 3, 4, 6, 8, 10, 12] as const;
 export type RentalHours = (typeof RENTAL_HOURS)[number];
 export type GstMode = 'included' | 'excluded';
 export interface RentalPackage { customerFare: number; partnerPayout: number; includedKm: number; extraKmRate: number; extraHourRate: number; gstMode: GstMode; enabled: boolean }

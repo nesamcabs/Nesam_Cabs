@@ -38,7 +38,7 @@ function classOf(v: unknown): TariffClass {
 }
 
 function hoursOf(v: unknown): number {
-  if (typeof v !== 'number' || !(RENTAL_HOURS as readonly number[]).includes(v)) throw bad(`Rental packages are 4, 6, 8, 10 or 12 hours.`);
+  if (typeof v !== 'number' || !(RENTAL_HOURS as readonly number[]).includes(v)) throw bad(`Rental packages are 1, 2, 3, 4, 6, 8, 10 or 12 hours.`);
   return v;
 }
 
@@ -412,7 +412,9 @@ export const saveTariffSection = onCall(async (request) => {
   const input = request.data ?? {};
   const reason = text(input.reason, 300);
   if (reason.length < 5) throw bad('Give a short reason for the change.');
-  if (typeof input.expectedVersion !== 'number' || !Number.isInteger(input.expectedVersion) || input.expectedVersion < 0) throw bad('Reload the tariff before saving.');
+  // `latest: true` saves against the newest tariff: each section writes only its own fields inside a transaction.
+  const saveLatest = input.latest === true;
+  if (!saveLatest && (typeof input.expectedVersion !== 'number' || !Number.isInteger(input.expectedVersion) || input.expectedVersion < 0)) throw bad('Reload the tariff before saving.');
   const section = input.section;
   const city = section === 'localPickupDrop' ? await cityOf(input.cityId) : null;
   const extraNames = section === 'extraCharges' ? await extraCategoryNames(obj(input.data, 'The extra charges')) : null;
@@ -421,7 +423,7 @@ export const saveTariffSection = onCall(async (request) => {
   return db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     const before = snap.exists ? parseTariffConfig(snap.data()) : null;
-    if (input.expectedVersion !== (before?.version ?? 0)) {
+    if (!saveLatest && input.expectedVersion !== (before?.version ?? 0)) {
       throw new HttpsError('failed-precondition', 'The tariff was changed by someone else. Reload and review it before saving.');
     }
     const base = before ?? parseTariffConfig({ enabled: false, version: 0 })!;

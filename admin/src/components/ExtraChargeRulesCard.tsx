@@ -20,7 +20,6 @@ export default function ExtraChargeRulesCard() {
   const [step, setStep] = useState("");
   const [scope, setScope] = useState("");
   const [tax, setTax] = useState("");
-  const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const savedKey = JSON.stringify([saved?.freeWaitingMinutes, saved?.waitingRoundingMinutes, saved?.waitingRoundingScope, saved?.taxTreatment]);
@@ -38,19 +37,17 @@ export default function ExtraChargeRulesCard() {
   const save = async () => {
     if (!canEdit || busy || !changed || tariff === undefined) return;
     if (!whole(free, 0) || !whole(step, 1)) return setMessage({ ok: false, text: "Enter whole minutes: free waiting 0–1440, rounding 1–1440." });
-    if (reason.trim().length < 5) return setMessage({ ok: false, text: "Add a short reason (at least 5 characters)." });
     setBusy(true);
     setMessage(null);
     try {
       await saveTariffSection({
-        section: "extraCharges", expectedVersion: tariff?.version ?? 0, reason: reason.trim(),
+        section: "extraCharges", expectedVersion: tariff?.version ?? 0, reason: "Extra charge rules updated",
         data: { freeWaitingMinutes: Number(free), waitingRoundingMinutes: Number(step), waitingRoundingScope: scope || null, taxTreatment: tax || null, categories: {} },
       });
-      setReason("");
       setMessage({ ok: true, text: "Saved. New bookings use these rules." });
     } catch (err) {
       console.error("[NESAM API] Save extra-charge rules failed:", err);
-      setMessage({ ok: false, text: err instanceof ActionError ? err.message : "Not saved. Please try again." });
+      setMessage({ ok: false, text: "Not saved. Please try again." });
     } finally {
       setBusy(false);
     }
@@ -75,7 +72,6 @@ export default function ExtraChargeRulesCard() {
             <option value="">Not decided</option><option value="no_gst">No GST</option><option value="tariff_gst">Add the booking's GST rate</option>
           </select>
         </label>
-        <label className="ds-field md:col-span-2"><span>Reason for change</span><input className="ds-input" value={reason} maxLength={300} onChange={(e) => setReason(e.target.value)} /></label>
         <div><Button variant="primary" onClick={save} loading={busy} disabled={!changed}>Save rules</Button></div>
       </fieldset>
       {message && <p className={message.ok ? "text-[12px] text-ok mt-2" : "ds-error mt-2"} role="status">{message.text}</p>}

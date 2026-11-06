@@ -37,7 +37,7 @@ export interface BookingDraft {
 }
 
 /** Local Rental packages the booking server offers (each car shows which it can book). */
-export const RENTAL_PACKAGE_HOURS: readonly number[] = [4, 6, 8, 10, 12];
+export const RENTAL_PACKAGE_HOURS: readonly number[] = [1, 2, 3, 4, 6, 8, 10, 12];
 
 export const EMPTY_DRAFT: BookingDraft = {
   pickup: null,

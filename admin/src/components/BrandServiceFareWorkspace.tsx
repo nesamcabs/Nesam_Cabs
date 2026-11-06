@@ -272,7 +272,7 @@ export default function BrandServiceFareWorkspace({ scope, vehicleClass, vehicle
         data.rentalPackages = rentalPackages;
       }
       const clearOverride = NUM_KEYS.every((k) => data[k] === null) && packages === 0;
-      const saved = await saveTariffSection({ section: "brandOverride", brand, service, class: cls, expectedVersion: openedVersion.current, reason: reason.trim(), clearOverride, data });
+      const saved = await saveTariffSection({ section: "brandOverride", brand, service, class: cls, expectedVersion: t?.version ?? 0, reason: reason.trim(), clearOverride, data });
       openedVersion.current = saved.version;
       dirtyRef.current = false;
       baseline.current = JSON.stringify(form);
@@ -280,7 +280,8 @@ export default function BrandServiceFareWorkspace({ scope, vehicleClass, vehicle
       setReason("");
       showToast(`Saved for ${where}. Bookings already made keep their price.`);
     } catch (err) {
-      setSaveError(err instanceof ActionError ? err.message : "Not saved. Please try again.");
+      const raw = err instanceof ActionError ? err.message.replace(/\s*\[\d{3}\]\s*$/, "") : "";
+      setSaveError(/changed by someone else/i.test(raw) ? "Someone else saved this fare. Reload the page, check the prices and save again." : raw || "Not saved. Please try again.");
     } finally {
       setBusy(false);
     }

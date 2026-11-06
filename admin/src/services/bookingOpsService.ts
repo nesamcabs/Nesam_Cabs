@@ -33,7 +33,7 @@ export const saveTariffConfig = (i: { useConfirmedDefaults?: boolean; keepSavedR
 
 /** Saves one section of the tariff (base rates, a city's local fare, a rental minimum or a rental package) against the version the editor loaded. */
 export const saveTariffSection = (i: { section: "baseRates" | "localPickupDrop" | "rentalMinimum" | "rentalPackage" | "extraCharges" | "brandOverride" | "fareGst" | "displayMarkup"; expectedVersion: number; reason: string; class?: string; cityId?: string; hours?: number; minHours?: number; brand?: string; service?: string; clearOverride?: boolean; data?: unknown }) =>
-  callFunction<typeof i, { version: number; extraChargesVersion?: number }>("saveTariffSection", i);
+  callFunction<typeof i & { latest: boolean }, { version: number; extraChargesVersion?: number }>("saveTariffSection", { ...i, latest: true });
 
 export interface ExtraUsageInput {
   stops: { stopId: string; waitedMinutes: number }[] | null; hill: boolean | null; carrier: boolean | null;
