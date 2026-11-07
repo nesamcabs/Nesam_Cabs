@@ -1,4 +1,3 @@
-import CommonPetChargeCard from '../components/CommonPetChargeCard';
 import DateTime12Input from "../components/DateTime12Input";
 import FareGstSettings from '../components/FareGstSettings';
 import FareAdjustmentCard from '../components/FareAdjustmentCard';
@@ -274,7 +273,10 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
   // Where a setting applies (brand, service, fuel, vehicle) is chosen in the side menu; the page itself only repeats the rule in one line.
   const scopeNav = showScope ? (
     <div className="fs-nav__group fs-nav__scope">
-      <span className="fs-nav__title">Applies to</span>
+      <div className="fs-scope-heading">
+        <span className="fs-scope-heading__icon"><Icon name="sliders-horizontal" /></span>
+        <div><strong>Applies to</strong><small>Choose your fare setup</small></div>
+      </div>
       <label className="fs-nav__field">
         <span>Brand</span>
         <select className="ds-select" value={fareScope.brand} onChange={(e) => {
@@ -351,7 +353,6 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
         </nav>
         <div className="fs-main">
       {!inlineKind && <>
-      {tab === "Brand & service fares" && <CommonPetChargeCard />}
       {tab === "Brand & service fares" && pickupDrop && <LocalFares only="Pickup & Drop" initialTab="Pickup & Drop" initialCity={sel.city} onToast={show} />}
       {tab === "Brand & service fares" && !pickupDrop && <div className="space-y-4">
         <BrandServiceFareWorkspace scope={fareScope} vehicleClass={fareClass} vehicleName={selectedVehicle?.label} categoryId={activeCats.length ? selectedVehicle?.key : undefined} cngEnabled={selectedVehicle?.cng} fuel={fuelApplies ? fareFuel : "petrol"} onDirtyChange={dirty => { workspaceDirty.current = dirty; }} onBusyChange={busy => { workspaceBusy.current = busy; }} />

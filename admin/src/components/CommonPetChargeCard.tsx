@@ -26,14 +26,12 @@ export default function CommonPetChargeCard() {
     } finally { setBusy(false); }
   };
   return (
-    <section className="ds-panel ds-panel-pad" aria-label="Common pet travel charge">
-      <h3 className="text-[15px] font-bold text-ink mb-1">Common pet travel charge</h3>
-      <p className="ds-note mb-3">One price per trip for all brands, services and vehicle categories. Charged only when pet travel is selected. The booking's GST setting applies. Enter 0 for no extra charge.</p>
-      <label className="ds-field max-w-sm"><span>Pet travel charge (INR / trip)</span>
+    <section className="min-w-0 rounded-xl border border-line p-3" aria-label="Pet travel charge">
+      <label className="ds-field max-w-sm"><span className="flex items-center justify-between gap-1"><span className="text-[12px] font-bold text-ink">Pet travel charge</span><span className="text-[11px] text-muted">₹/trip</span></span>
         <input className="ds-input" type="number" min="0" max="100000" step="0.01" value={amount} disabled={busy || !canPrice || !canEditSettings} onChange={e => { setAmount(e.target.value); setMessage(''); }} />
       </label>
       {!valid ? <p role="alert" className="text-xs text-bad mt-2">Enter a price from INR 0 to 100,000.</p> : null}
-      <div className="mt-3"><Button onClick={() => void save()} disabled={busy || !valid || Number(amount) === saved || !canPrice || !canEditSettings || tariff === undefined}>{busy ? 'Saving…' : 'Save common pet charge'}</Button></div>
+      <div className="mt-3"><Button onClick={() => void save()} disabled={busy || !valid || Number(amount) === saved || !canPrice || !canEditSettings || tariff === undefined}>{busy ? 'Saving…' : 'Save pet charge'}</Button></div>
       {message ? <p role="status" className="text-xs mt-2">{message}</p> : null}
     </section>
   );

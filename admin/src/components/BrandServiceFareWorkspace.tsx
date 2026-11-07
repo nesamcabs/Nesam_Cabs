@@ -345,7 +345,11 @@ export default function BrandServiceFareWorkspace({ scope, vehicleClass, vehicle
         {customer.length > 0 && service !== "Local Rental" && (
           <FareGroup title={showCng ? "CNG — customer pays" : "Customer pays"}>{customer.map(box)}</FareGroup>
         )}
-        {partner.length > 0 && <FareGroup title={showCng ? "CNG — partner gets" : "Partner gets"}>{partner.map(box)}</FareGroup>}
+        <FareGroup title={showCng ? "CNG — partner gets" : "Partner gets"}>
+          {partner.map(box)}
+          {box(f("partnerCarrierCharge", "Roof carrier charge", "₹/trip", oldExtras?.partner?.carrier))}
+          <CommonPetChargeCard />
+        </FareGroup>
 
         {service === "Local Rental" && (
           <FareGroup title="Hourly packages">
@@ -455,3 +459,4 @@ function RateField({ def, value, inherited, common, othersOwn, onChange }: {
     </label>
   );
 }
+import CommonPetChargeCard from './CommonPetChargeCard';

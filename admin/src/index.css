@@ -917,7 +917,18 @@ details.ds-disclosure > summary { cursor: pointer; font-size: 12px; font-weight:
   gap: 2px;
 }
 /* "Applies to": brand, service, fuel and vehicle as stacked dropdowns at the top of the side menu. */
-.fs-nav__scope { gap: 8px; padding-bottom: 14px; border-bottom: 1px solid var(--color-line-soft, #eef1f5); }
+.fs-nav .fs-nav__scope { display: grid; gap: 14px; margin: 0 0 12px; padding: 16px 12px; border: 1px solid #e6e9f0; border-radius: 16px; background: linear-gradient(155deg, #f6f8fc 0%, #fff 65%); box-shadow: 0 4px 16px rgb(15 23 42 / 0.035); }
+.fs-scope-heading { display: flex; align-items: center; gap: 10px; padding: 0 2px 12px; border-bottom: 1px solid #e8ecf3; }
+.fs-scope-heading__icon { display: grid; place-items: center; flex: 0 0 34px; height: 34px; border: 1px solid #e2e7f0; border-radius: 11px; background: #fff; color: var(--color-ink); }
+.fs-scope-heading__icon svg { width: 17px; height: 17px; }
+.fs-scope-heading > div { display: grid; gap: 3px; }
+.fs-scope-heading strong { font-size: 13px; font-weight: 800; line-height: 1.2; }
+.fs-scope-heading small { color: var(--color-muted); font-size: 10px; line-height: 1.3; }
+.fs-nav__scope .fs-nav__field { gap: 7px; padding: 0; min-width: 0; }
+.fs-nav__scope .fs-nav__field > span { padding-left: 2px; color: #637087; font-size: 10px; font-weight: 800; letter-spacing: 0.065em; text-transform: uppercase; }
+.fs-nav__scope .fs-nav__field > .ds-select { box-sizing: border-box; width: 100%; min-width: 0; height: 44px; min-height: 44px; border: 1px solid #dce2ed; border-radius: 11px; background-color: #fff; padding-left: 12px; padding-right: 30px; color: var(--color-ink); font-size: 12px; font-weight: 650; box-shadow: 0 2px 3px rgb(15 23 42 / 0.02); transition: border-color 160ms ease, box-shadow 160ms ease; }
+.fs-nav__scope .fs-nav__field > .ds-select:hover { border-color: #aebbd0; }
+.fs-nav__scope .fs-nav__field > .ds-select:focus-visible { outline: 2px solid #c7d8fa; outline-offset: 2px; border-color: #779bd5; }
 .fs-nav__field { display: grid; gap: 4px; padding: 0 4px; }
 .fs-nav__field > span { color: var(--color-muted); font-size: 11px; font-weight: 600; }
 .fs-nav__field > .ds-select { width: 100%; min-height: 38px; }

@@ -324,7 +324,7 @@ export function ChooseStep() {
         total={quote?.total}
         hideFare
         onBack={() => navigate(tripType === 'Local Rental' ? '/local-rentals?mode=hourly' : '/book')}
-        backLabel="Back to trip details"
+        backLabel="Back"
         onHome={() => navigate('/')}
       />
 

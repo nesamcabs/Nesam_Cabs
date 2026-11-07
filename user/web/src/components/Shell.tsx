@@ -512,9 +512,9 @@ export function Shell() {
 
       {!isFlow ? <BottomNav /> : null}
       <SideDrawer open={menuOpen} onClose={() => setMenuOpen(false)} brand={<Brand />} />
-      {/* The Local Rentals map keeps the header and the bottom bar; its sheet needs the corner free. */}
-      {onMapPage ? null : <FloatingCallButton />}
-      {onMapPage ? null : <AiChatbot />}
+      {/* Keep maps and active booking flows clear: fixed support controls can cover fares and primary actions. */}
+      {onMapPage || isFlow ? null : <FloatingCallButton />}
+      {onMapPage || isFlow ? null : <AiChatbot />}
     </div>
   );
 }

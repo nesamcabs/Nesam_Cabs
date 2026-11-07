@@ -1139,3 +1139,61 @@
 .bf-row--trio .bf-chip { font-size: 9px; padding: 1px 5px; }
 .bf-row--trio .bf-days__input { padding-right: 20px; }
 .bf-row--trio .bf-days__end { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Keep the round-trip controls aligned after the brand theme's date/time overrides. */
+.bf .bf-form .bf-row.bf-row--trio {
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1.05fr) minmax(0, 0.8fr) !important;
+  gap: 8px;
+}
+.bf .bf-form .bf-row.bf-row--trio .bf-cell {
+  display: flex;
+  flex-direction: column;
+  align-content: initial;
+}
+.bf .bf-form .bf-row.bf-row--trio .bf-label--out {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 15px;
+  margin-bottom: 6px;
+}
+.bf .bf-form .bf-row.bf-row--trio .bf-input,
+.bf .bf-form .bf-row.bf-row--trio .bf-time,
+.bf .bf-form .bf-row.bf-row--trio .bf-days__input {
+  width: 100%;
+  min-height: 48px;
+  height: 48px;
+  box-sizing: border-box;
+}
+.bf .bf-form .bf-row.bf-row--trio .bf-datewrap {
+  height: 48px;
+}
+.bf .bf-form .bf-row.bf-row--trio .bf-datewrap .bf-input {
+  padding-inline: 6px 30px;
+  text-align: left;
+}
+.bf .bf-form .bf-row.bf-row--trio .bf-datewrap::after {
+  right: 7px;
+  width: 18px;
+  height: 18px;
+}
+.bf .bf-form .bf-row.bf-row--trio .bf-time {
+  justify-content: flex-start;
+  padding-inline: 8px 30px;
+  white-space: nowrap;
+}
+.bf .bf-form .bf-row.bf-row--trio .bf-time svg {
+  right: 7px;
+  width: 18px;
+  height: 18px;
+}
+.bf .bf-form .bf-row.bf-row--trio .bf-time > span {
+  white-space: nowrap;
+}
+.bf .bf-form .bf-row.bf-row--trio .bf-days__input {
+  padding-inline: 8px 22px;
+}
+.bf .bf-form .bf-row.bf-row--trio .bf-days__end {
+  margin-top: 4px;
+  text-align: center;
+}
