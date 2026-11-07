@@ -134,7 +134,7 @@ export function evaluateRules(rules: ServiceRule[], pickup: GeoPlace, drop: GeoP
     categories: cats?.categories?.length ? cats.categories.map(norm) : null,
     customer: customer ? { id: `rule_${price!.id}`, name: price!.name || 'Location fare rule', direction: customer.direction, percent: customer.percent } : null,
     partner: adj(price?.partner),
-    limits: hit.filter((r) => r.kind === 'limit' && r.limit),
+    limits: [], // Retired: historical fare-limit records never restrict quotes or bookings.
   };
 }
 
@@ -186,7 +186,7 @@ export function assertWithinLimits(o: RuleOutcome, i: { categoryName: string; cu
 
 // ── Admin: create, edit and change the status of a rule ─────────────────────
 
-const KINDS: readonly RuleKind[] = ['availability', 'categories', 'pricing', 'limit'];
+const KINDS: readonly RuleKind[] = ['availability', 'categories', 'pricing'];
 const SIDES: readonly Side[] = ['Pickup or drop', 'Pickup only', 'Drop only'];
 const MODES = ['Normal', 'Increase', 'Decrease'] as const;
 const MAX_RUPEES = 10_000_000;

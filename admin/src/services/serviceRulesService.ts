@@ -39,7 +39,7 @@ export interface ServiceRule {
 const COL = "service_rules";
 
 export function subscribeServiceRules(cb: (rows: ServiceRule[]) => void, onError?: (m: string) => void) {
-  return onSnapshot(collection(db, COL), (s) => cb(s.docs.map((d) => ({ ...(d.data() as Omit<ServiceRule, "id">), id: d.id }))), (e) => (onError ? onError(e.message) : cb([])));
+  return onSnapshot(collection(db, COL), (s) => cb(s.docs.map((d) => ({ ...(d.data() as Omit<ServiceRule, "id">), id: d.id })).filter((r) => r.kind !== "limit")), (e) => (onError ? onError(e.message) : cb([])));
 }
 
 export const summary = (r: Omit<ServiceRule, "id">) =>

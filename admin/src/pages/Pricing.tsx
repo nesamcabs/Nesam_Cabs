@@ -221,7 +221,7 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
   // Only rule-based views consume this selection. Route tools and the shared catalog do not.
   const locationFilter = (
     <section className="u27-location-bar">
-      <div><span className="dx-eyebrow">LOCATION</span><h2>Which location are you managing?</h2><p lang="ta">எந்த இடத்திற்கான setting?</p></div>
+      <div><span className="dx-eyebrow">LOCATION</span><h2>Which location are you managing?</h2></div>
       <div className="ds-filterbar">
         <label className="ds-field"><span>State</span><select className="ds-select" value={sel.state} onChange={(e) => setSel({ state: e.target.value, city: "", area: "" })}><option value="">All states</option>{GST_STATES.map(([c, n]) => <option key={c} value={c}>{n} ({c})</option>)}{otherStates.map(state => <option key={state} value={state}>{state}</option>)}</select></label>
         <label className="ds-field"><span>City</span><select className="ds-select" value={sel.city} disabled={locationsLoaded && !cities.length} onChange={(e) => setSel({ ...sel, city: e.target.value, area: "" })}><option value="">{locationsLoaded && !cities.length ? "No cities listed for this state" : "All cities"}</option>{cities.map((c) => <option key={c}>{c}</option>)}</select></label>
@@ -242,6 +242,7 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
 
   // ── The page: a side menu of tasks, one compact "where does this apply" bar, then the work itself ──────────────────
   const isRuleTab = tab === "Booking availability" || tab === "Cab types" || tab === "Pricing rules";
+  const isRuleSection = isRuleTab && cabSection !== "Vehicle categories";
   type NavItem = { key: string; label: string; hint: string; icon: IconName; on?: boolean; opens?: boolean; go: () => void; disabledReason?: string };
   const fixedOff = fareScope.service !== "One Way" || pickupDrop ? "Fixed route fares are for One Way. Choose Service → One Way." : undefined;
   const navGroups: { title: string; items: NavItem[] }[] = [
@@ -249,12 +250,10 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
       { key: "base", label: "Fares", hint: "Customer price, partner pay, CNG and extra charges", icon: "calculator", on: !inlineKind && tab === "Brand & service fares", go: () => changeTab("Brand & service fares") },
       { key: "tax", label: "GST & tax", hint: "How GST is worked out and shown", icon: "files", on: !inlineKind && tab === "GST calculation", go: () => changeTab("GST calculation") },
       { key: "fixed", label: "Fixed route fares", hint: "An agreed fare for one route", icon: "route", on: inlineKind === "fixed", go: () => setSheet({ kind: "fixed" }), disabledReason: fixedOff },
-    ] },
-    { title: "Booking rules", items: [
-      { key: "availability", label: "Booking availability", hint: "Where customers can and cannot book", icon: "toggle-right", on: !inlineKind && tab === "Booking availability", go: () => changeTab("Booking availability") },
-      { key: "cabs", label: "Cabs shown by area", hint: "Which cabs customers see in a place", icon: "car-front", on: !inlineKind && tab === "Cab types" && cabSection === "Customer cab rules", go: () => { setCabSection("Customer cab rules"); changeTab("Cab types"); } },
-      { key: "pricing", label: "Pricing rules", hint: "Raise or lower fares by place or date", icon: "indian-rupee", on: !inlineKind && tab === "Pricing rules", go: () => changeTab("Pricing rules") },
-      { key: "limits", label: "Fare limits", hint: "Lowest and highest fares allowed", icon: "shield-check", on: inlineKind === "limits", go: () => setSheet({ kind: "limits" }) },
+      { key: "rules", label: "Booking rules", hint: "Availability, cabs and pricing rules", icon: "toggle-right", on: !inlineKind && isRuleSection, go: () => {
+        setCabSection("Customer cab rules");
+        changeTab(tab === "Cab types" || tab === "Pricing rules" ? tab : "Booking availability");
+      } },
     ] },
     { title: "Vehicles", items: [
       { key: "categories", label: "Vehicle categories", hint: "Names, seats, photos and CNG", icon: "car", on: !inlineKind && tab === "Cab types" && cabSection === "Vehicle categories", go: () => { setCabSection("Vehicle categories"); changeTab("Cab types"); } },
@@ -352,20 +351,6 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
         </nav>
         <div className="fs-main">
       {!inlineKind && <>
-      {tab !== "Brand & service fares" && tab !== "GST calculation" && <>
-        {locationFilter}
-        <section className="u28-overview" aria-label="Current location settings">
-          <header><strong><Icon name="map-pin" />{where}</strong><span>Rules active now · IST</span></header>
-          {!loaded ? <p role="status">Loading current settings…</p> : loadError ? <p role="alert">Current settings could not be loaded.</p> : <>
-            <div className="u28-overview-values">
-              <div><span>Booking controls</span><strong>{availabilityValues.length > 1 ? "Varies by rule" : availabilityValues[0] || "Available by default"}</strong><small>{activeOf("availability").length ? activeOf("availability").length + " active controls" : "No active availability restriction"}</small></div>
-              <div><span>Configured cabs</span><strong>{cabSets.length > 1 ? "Varies by zone / service" : cabSets[0] || "All active cab types"}</strong><small>{activeOf("categories").length ? activeOf("categories").length + " active category rules" : "Uses default enabled categories"}</small></div>
-              <div><span>Pricing rules</span><strong>{activeOf("pricing").length} active</strong><small>{scoped.filter(r => r.kind === "pricing" && phaseOf(r, now) === "Scheduled").length} scheduled</small></div>
-            </div>
-            <p>Exact availability and fare depend on the route, cab type and pickup time.</p>
-          </>}
-        </section>
-      </>}
       {tab === "Brand & service fares" && <CommonPetChargeCard />}
       {tab === "Brand & service fares" && pickupDrop && <LocalFares only="Pickup & Drop" initialTab="Pickup & Drop" initialCity={sel.city} onToast={show} />}
       {tab === "Brand & service fares" && !pickupDrop && <div className="space-y-4">
@@ -376,22 +361,125 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
       {tab === "GST calculation" && <div>
         <FareGstSettings key={fareScope.brand + ":" + fareScope.service} scope={fareScope} onDirtyChange={value => { gstDirty.current = value; }} onBusyChange={value => { gstBusy.current = value; }} />
       </div>}
-      {isRuleTab && <section className="u27-settings-surface" id="fare-settings-panel">
-        <>
-          {tab === "Cab types" && cabSection === "Vehicle categories" ? <>
+      {isRuleTab && (
+        tab === "Cab types" && cabSection === "Vehicle categories" ? (
+          <section className="u27-settings-surface" id="fare-settings-panel">
             <VehicleCategoriesPage embedded />
-          </> : <>
-            <div className="sc-section-head"><div><h2>{tab === "Booking availability" ? "Can customers book in this area?" : tab === "Cab types" ? "Which cab types should customers see?" : "When should the fare increase or decrease?"}</h2><p className="u27-tamil" lang="ta">{tab === "Booking availability" ? "இந்த இடத்தில் booking எடுக்கலாமா?" : tab === "Cab types" ? "Customer-க்கு எந்த car வகைகளைக் காட்ட வேண்டும்?" : "இந்த இடத்திற்குக் கட்டணத்தை ஏற்ற / குறைக்க"}</p></div>
-              {canEdit && <Button variant="primary" icon="plus" disabledReason={!loaded || loadError ? "Wait for saved rules to load before adding a setting." : undefined} onClick={() => setSheet({ kind: "new", ruleKind: tab === "Booking availability" ? "availability" : tab === "Cab types" ? "categories" : "pricing" })}>{tab === "Booking availability" ? "Add booking availability" : tab === "Cab types" ? "Add cab types" : "Add pricing rule"}</Button>}
+          </section>
+        ) : (
+          <div className="space-y-0" id="fare-settings-panel">
+            <div className="u27-main-tabs" role="tablist" aria-label="Booking rules" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)" }}>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === "Booking availability"}
+                onClick={() => changeTab("Booking availability")}
+              >
+                <Icon name="toggle-right" />
+                <span>Booking availability</span>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === "Cab types" && cabSection === "Customer cab rules"}
+                onClick={() => { setCabSection("Customer cab rules"); changeTab("Cab types"); }}
+              >
+                <Icon name="car-front" />
+                <span>Cabs shown by area</span>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === "Pricing rules"}
+                onClick={() => changeTab("Pricing rules")}
+              >
+                <Icon name="indian-rupee" />
+                <span>Pricing rules</span>
+              </button>
             </div>
-            {tab === "Pricing rules" && <div className="u27-fare-key"><span><strong>Customer fare</strong>Amount the customer pays</span><span><strong>Partner payout</strong>Amount for the Vendor / Driver Partner</span></div>}
-            <div className="u27-inline-filters"><input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search settings for this location" aria-label="Search location settings" /><select value={filter} onChange={e => setFilter(e.target.value as typeof filter)} aria-label="Setting status">{STATUS_FILTERS.map(status => <option key={status} value={status}>{status}</option>)}</select></div>
-            {loadError ? <p className="ds-error" role="alert">Saved settings could not be loaded. Reload to try again.</p> : ruleTable(byKind(tab === "Booking availability" ? "availability" : tab === "Cab types" ? "categories" : "pricing")) ?? <div className="u27-empty-setting"><Icon name={tab === "Pricing rules" ? "badge-indian-rupee" : tab === "Cab types" ? "car-front" : "toggle-right"} /><strong>{query || filter !== "All" ? "No matching settings" : tab === "Pricing rules" ? "Normal applicable fare" : tab === "Cab types" ? "Default cab categories" : "Booking service is available by default"}</strong><p>{query || filter !== "All" ? "Try another search or status filter." : "No additional setting for this selection. Wider matching settings still apply."}</p></div>}
-            <div className="u11-settings-foot"><Icon name="calendar-clock" />Set pickup dates and times inside each rule. Use the fare settings above for base rates and local fares.</div>
-            {tab === "Pricing rules" && fareScope.brand === "common" && <details className="mt-4"><summary className="font-semibold cursor-pointer">Existing shared adjustment — all brands and all services</summary><p className="ds-note my-3">This older shared percentage adjustment is still applied by the fare engine to every brand and service unless a scoped pricing rule replaces it. Staff with pricing access can see it here and switch it off.</p><FareAdjustmentCard /></details>}
-          </>}
-        </>
-      </section>}
+
+            <section className="u27-settings-surface" style={{ borderTop: 0, borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    className="ds-select"
+                    style={{ height: 36, minHeight: 36, fontSize: 12, minWidth: 140, padding: "4px 8px" }}
+                    value={sel.state}
+                    onChange={(e) => setSel({ state: e.target.value, city: "", area: "" })}
+                    aria-label="State"
+                  >
+                    <option value="">All states</option>
+                    {GST_STATES.map(([c, n]) => <option key={c} value={c}>{n} ({c})</option>)}
+                    {otherStates.map(state => <option key={state} value={state}>{state}</option>)}
+                  </select>
+                  <select
+                    className="ds-select"
+                    style={{ height: 36, minHeight: 36, fontSize: 12, minWidth: 140, padding: "4px 8px" }}
+                    value={sel.city}
+                    disabled={locationsLoaded && !cities.length}
+                    onChange={(e) => setSel({ ...sel, city: e.target.value, area: "" })}
+                    aria-label="City"
+                  >
+                    <option value="">{locationsLoaded && !cities.length ? "No cities listed" : "All cities"}</option>
+                    {cities.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <select
+                    className="ds-select"
+                    style={{ height: 36, minHeight: 36, fontSize: 12, minWidth: 140, padding: "4px 8px" }}
+                    value={sel.area}
+                    disabled={locationsLoaded && !areas.length}
+                    onChange={(e) => setSel({ ...sel, area: e.target.value })}
+                    aria-label="Area / Zone"
+                  >
+                    <option value="">{locationsLoaded && !areas.length ? (sel.city ? "No zones listed" : "All zones") : "All areas"}</option>
+                    {areas.map((a) => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                  <input
+                    type="search"
+                    style={{ height: 36, minHeight: 36, fontSize: 12, width: 220, padding: "4px 10px", border: "1px solid #dfe5ed", borderRadius: 6 }}
+                    value={query}
+                    onChange={e => setQuery(e.target.value)}
+                    placeholder="Search rules..."
+                    aria-label="Search settings for this location"
+                  />
+                  <select
+                    className="ds-select"
+                    style={{ height: 36, minHeight: 36, fontSize: 12, padding: "4px 8px" }}
+                    value={filter}
+                    onChange={e => setFilter(e.target.value as typeof filter)}
+                    aria-label="Setting status"
+                  >
+                    {STATUS_FILTERS.map(status => <option key={status} value={status}>{status}</option>)}
+                  </select>
+                </div>
+                {canEdit && (
+                  <Button
+                    variant="primary"
+                    icon="plus"
+                    size="sm"
+                    disabledReason={!loaded || loadError ? "Wait for saved rules to load before adding a setting." : undefined}
+                    onClick={() => setSheet({ kind: "new", ruleKind: tab === "Booking availability" ? "availability" : tab === "Cab types" ? "categories" : "pricing" })}
+                  >
+                    {tab === "Booking availability" ? "Add booking availability" : tab === "Cab types" ? "Add cab types" : "Add pricing rule"}
+                  </Button>
+                )}
+              </div>
+
+              {loadError ? (
+                <p className="ds-error" role="alert">Saved settings could not be loaded. Reload to try again.</p>
+              ) : (
+                ruleTable(byKind(tab === "Booking availability" ? "availability" : tab === "Cab types" ? "categories" : "pricing")) ?? (
+                  <div className="u27-empty-setting">
+                    <Icon name={tab === "Pricing rules" ? "badge-indian-rupee" : tab === "Cab types" ? "car-front" : "toggle-right"} />
+                    <strong>{query || filter !== "All" ? "No matching settings" : tab === "Pricing rules" ? "Normal applicable fare" : tab === "Cab types" ? "Default cab categories" : "Booking service is available by default"}</strong>
+                    <p>{query || filter !== "All" ? "Try another search or status filter." : "No additional setting for this selection."}</p>
+                  </div>
+                )
+              )}
+            </section>
+          </div>
+        )
+      )}
       </>}
       {inlineKind && (
         <InlineModals value={true}>

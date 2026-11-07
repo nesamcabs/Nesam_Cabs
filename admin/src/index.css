@@ -1117,7 +1117,13 @@ details.ds-disclosure > summary { cursor: pointer; font-size: 12px; font-weight:
   }
 }
 
-/* Tool views that sit in the page (Local fares, Fixed routes, Fare limits, All rules, Change history). */
+.fs-booking-rules > summary { cursor: pointer; list-style: none; }
+.fs-booking-rules > summary::-webkit-details-marker { display: none; }
+.fs-booking-rules > summary > svg:last-child { margin-left: auto; transition: transform 180ms ease; }
+.fs-booking-rules[open] > summary > svg:last-child { transform: rotate(90deg); }
+.fs-booking-rules__items { display: grid; gap: 4px; margin: 6px 0 0 12px; padding-left: 8px; border-left: 2px solid #e4e8ef; }
+
+/* Tool views that sit in the page (Local fares, Fixed routes, All rules, Change history). */
 .ds-inline-sheet {
   border: 1px solid var(--color-line);
   border-radius: 12px;

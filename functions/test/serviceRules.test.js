@@ -33,13 +33,14 @@ test('cab restrictions and paused locations reject booking', () => {
   assert.throws(() => assertBookable(result, 'SUV'), /not offered/);
 });
 
-test('all applicable customer and partner limits apply, including exact bounds', () => {
+test('retired customer and partner limits do not block bookings', () => {
   const limit = { target: 'Customer fare', category: 'Sedan', min: 100, max: 200 };
   const result = evaluate([rule({ kind: 'limit', limit })]);
   for (const customerFare of [100, 200]) assert.doesNotThrow(() => assertWithinLimits(result, { categoryName: 'Sedan', customerFare, partnerPayout: 150 }));
-  for (const customerFare of [99, 201]) assert.throws(() => assertWithinLimits(result, { categoryName: 'Sedan', customerFare, partnerPayout: 150 }), /rate review/);
+  for (const customerFare of [99, 201]) assert.doesNotThrow(() => assertWithinLimits(result, { categoryName: 'Sedan', customerFare, partnerPayout: 150 }));
   const partner = evaluate([rule({ kind: 'limit', limit: { ...limit, target: 'Partner payout' } })]);
-  assert.throws(() => assertWithinLimits(partner, { categoryName: 'Sedan', customerFare: 150, partnerPayout: 201 }), /partner payout/);
+  assert.doesNotThrow(() => assertWithinLimits(partner, { categoryName: 'Sedan', customerFare: 150, partnerPayout: 201 }));
+  assert.deepEqual(result.limits, []);
 });
 
 test('partner adjustment preserves bata and original booking snapshot', () => {
