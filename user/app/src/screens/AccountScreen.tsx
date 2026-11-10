@@ -127,15 +127,15 @@ export function AccountScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.white },
+  root: { flex: 1, backgroundColor: colors.bg },
   page: { paddingHorizontal: space.xl, paddingTop: space.md, paddingBottom: space.xxl },
   person: { flexDirection: 'row', alignItems: 'center', gap: 13, paddingBottom: 20 },
   avatar: { width: 48, height: 48, borderRadius: 24 },
   initials: { backgroundColor: '#FFF1F1', alignItems: 'center', justifyContent: 'center' },
   initialsText: { fontFamily: fonts.medium, fontSize: 18, color: colors.primary },
-  camBadge: { position: 'absolute', right: -3, bottom: -3, width: 20, height: 20, borderRadius: 10, backgroundColor: colors.white, borderWidth: 1, borderColor: '#E3E7EC', alignItems: 'center', justifyContent: 'center' },
+  camBadge: { position: 'absolute', right: -3, bottom: -3, width: 20, height: 20, borderRadius: 10, backgroundColor: colors.white, borderWidth: 1, borderColor: '#E8E3DC', alignItems: 'center', justifyContent: 'center' },
   name: { fontFamily: fonts.semiBold, fontSize: 20, lineHeight: 25, letterSpacing: -0.35, color: colors.ink },
-  phone: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: '#6D7785', marginTop: 2 },
+  phone: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: '#66615A', marginTop: 2 },
   uploading: { fontFamily: fonts.medium, fontSize: 11, color: colors.primary, marginTop: 2 },
   logoutBtn: {
     flexDirection: 'row',
@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 9,
     minHeight: 48,
-    backgroundColor: '#E21B23',
+    backgroundColor: '#E31E24',
     borderRadius: 12,
     paddingHorizontal: 28,
     paddingVertical: 12,
@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     width: '100%',
     maxWidth: 320,
-    shadowColor: '#E21B23',
+    shadowColor: '#E31E24',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.22,
     shadowRadius: 8,

@@ -4,9 +4,10 @@ import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
-import { Button, Notice } from './ui';
+import { Notice } from './ui';
 import { Icon } from './Icon';
 import { PressableScale } from './brand';
+import { DropPinIcon, GoButton, LocationField, ScheduleCell } from './BookForm';
 import { PlaceSearchModal } from './PlaceSearchModal';
 import { TimePickerSheet } from './TimePickerSheet';
 import { useBookingDraft } from '../context/BookingDraft';
@@ -133,7 +134,7 @@ export function MulticityForm() {
       }
     }
     if (filled.some((s) => !validMulticityPlace(s.place))) err.stops = 'Choose a valid location for every city.';
-    if (!when) err.date = 'Select the pickup date and time.';
+    if (!when) err.time = 'Choose a pickup time.';
     else if (when.getHours() === 0 && when.getMinutes() === 0 && scheduleProblem(when)) err.time = 'Select the pickup time.';
     else {
       const problem = scheduleProblem(when);
@@ -163,6 +164,7 @@ export function MulticityForm() {
   };
 
   const title = target === 'pickup' ? 'Pickup location' : target === 'drop' ? 'Drop location' : target === 'new' ? `Stop ${filled.length + 1}` : 'Change stop';
+  const day = when ? dayStart(when) : dayStart(new Date());
 
   return (
     <View>
@@ -183,7 +185,7 @@ export function MulticityForm() {
         <TimePickerSheet
           visible
           title="Pickup time"
-          day={when ? dayStart(when) : dayStart(new Date())}
+          day={day}
           value={when && (when.getHours() || when.getMinutes()) ? when : null}
           problemOf={(at) => scheduleProblem(at)}
           onClose={() => setTimeOpen(false)}
@@ -195,118 +197,75 @@ export function MulticityForm() {
         />
       ) : null}
 
-      <View style={styles.routeBox}>
-        <Field pin="start" label="Pickup location" value={pickup?.name} sub={pickup?.address} error={errors.pickup} onPress={() => setTarget('pickup')} />
-        {filled.map((s, i) => (
-          <Field key={s.id} pin="stop" label={`Stop ${i + 1}`} value={s.place?.name} sub={s.place?.address} divider onPress={() => setTarget(s.id)} onRemove={() => setStops((all) => all.filter((x) => x.id !== s.id))} removeLabel={`Remove stop ${i + 1}`} />
-        ))}
-        {filled.length < MAX_CITIES ? (
-          <Pressable onPress={() => setTarget('new')} accessibilityRole="button" accessibilityLabel="Add stop" style={[styles.addStop, !!errors.stops && styles.addStopError]}>
-            <Icon name="plus" size={16} color={colors.primary} strokeWidth={2.4} />
-            <Text style={styles.addStopText}>Add stop</Text>
-          </Pressable>
-        ) : null}
-        {errors.stops ? <Text style={styles.error}>{errors.stops}</Text> : null}
-        <Field pin="end" label="Drop location" value={drop?.name} sub={drop?.address} error={errors.drop} divider onPress={() => setTarget('drop')} />
-        {errors.itinerary ? <Text style={styles.error}>{errors.itinerary}</Text> : null}
-      </View>
-
-      <View style={styles.pair}>
-        <PickerBox label="Pickup date" value={when ? formatDay(when) : ''} placeholder="Select date" icon="calendar-days" error={errors.date} onPress={openDate} />
-        <PickerBox
-          label="Pickup time"
-          value={when && (when.getHours() || when.getMinutes()) ? formatTime(when).replace(/^0/, '') : ''}
-          placeholder="Select time"
-          icon="clock-3"
-          error={errors.time}
-          onPress={() => (when ? setTimeOpen(true) : openDate())}
-        />
-      </View>
-
-      {errors.form ? <Notice tone="error" message={errors.form} style={{ marginTop: space.md }} /> : null}
-      <Button title="Let’s Go !" iconRight="arrow-right" onPress={submit} style={{ marginTop: 14 }} />
-    </View>
-  );
-}
-
-function Field({
-  pin,
-  label,
-  value,
-  sub,
-  error,
-  divider,
-  onPress,
-  onRemove,
-  removeLabel,
-}: {
-  pin: 'start' | 'stop' | 'end';
-  label: string;
-  value?: string;
-  sub?: string;
-  error?: string;
-  divider?: boolean;
-  onPress: () => void;
-  onRemove?: () => void;
-  removeLabel?: string;
-}) {
-  return (
-    <View style={[styles.field, divider && styles.divider]}>
-      <PressableScale onPress={onPress} activeScale={0.98} style={styles.fieldMain} accessibilityRole="button" accessibilityLabel={`${label}: ${value ?? 'not set'}`} accessibilityHint={error || 'Opens location search'}>
-        <View style={[styles.pin, pin === 'end' ? styles.pinEnd : pin === 'stop' ? styles.pinStop : styles.pinStart, !!error && { borderColor: colors.primary }]} />
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={styles.label}>{label}</Text>
-          <Text style={[styles.value, !value && styles.placeholder]} numberOfLines={1}>
-            {value || (pin === 'start' ? 'Enter pickup location' : pin === 'end' ? 'Enter drop location' : 'Choose a city')}
-          </Text>
-          {sub && sub !== value ? <Text style={styles.sub} numberOfLines={1}>{sub}</Text> : null}
-          {error ? <Text style={styles.error}>{error}</Text> : null}
+      <View style={styles.box}>
+        <View style={{ gap: 10 }}>
+          <LocationField
+            label="Pickup location"
+            value={pickup?.name}
+            address={pickup?.address}
+            error={errors.pickup}
+            onPress={() => setTarget('pickup')}
+            leading={
+              <View style={styles.startHalo}>
+                <View style={styles.startDot} />
+              </View>
+            }
+          />
+          {filled.map((s, i) => (
+            <LocationField
+              key={s.id}
+              label={`Stop ${i + 1}`}
+              value={s.place?.name}
+              address={s.place?.address}
+              onPress={() => setTarget(s.id)}
+              trailing={
+                <Pressable onPress={() => setStops((all) => all.filter((x) => x.id !== s.id))} accessibilityRole="button" accessibilityLabel={`Remove stop ${i + 1}`} hitSlop={10}>
+                  <Icon name="trash-2" size={17} color={colors.primary} strokeWidth={2} />
+                </Pressable>
+              }
+            />
+          ))}
+          {filled.length < MAX_CITIES ? (
+            <PressableScale onPress={() => setTarget('new')} activeScale={0.96} accessibilityRole="button" accessibilityLabel="Add stop" style={[styles.addStop, !!errors.stops && styles.addStopError]} containerStyle={{ alignSelf: 'center' }}>
+              <Icon name="plus" size={16} color={colors.primary} strokeWidth={2.2} />
+              <Text style={styles.addStopText}>Add stop</Text>
+            </PressableScale>
+          ) : null}
+          {errors.stops ? <Text style={styles.error}>{errors.stops}</Text> : null}
+          <LocationField label="Drop location" value={drop?.name} address={drop?.address} error={errors.drop} onPress={() => setTarget('drop')} leading={<DropPinIcon />} />
+          {errors.itinerary ? <Text style={styles.error}>{errors.itinerary}</Text> : null}
         </View>
-        {onRemove ? null : <Icon name="chevron-right" size={17} color="#90939A" strokeWidth={2.2} />}
-      </PressableScale>
-      {onRemove ? (
-        <Pressable onPress={onRemove} accessibilityRole="button" accessibilityLabel={removeLabel} hitSlop={8} style={styles.remove}>
-          <Icon name="trash-2" size={17} color={colors.primary} strokeWidth={2} />
-        </Pressable>
-      ) : null}
+
+        <View style={styles.pair}>
+          <ScheduleCell label="Pickup date" value={formatDay(day)} icon="calendar-days" chip={dayHint(day)} error={errors.date} onPress={openDate} />
+          <ScheduleCell
+            label="Pickup time"
+            value={when && (when.getHours() || when.getMinutes()) ? formatTime(when).replace(/^0/, '') : ''}
+            icon="clock"
+            error={errors.time}
+            onPress={() => setTimeOpen(true)}
+          />
+        </View>
+
+        {errors.form ? <Notice tone="error" message={errors.form} style={{ marginTop: space.md }} /> : null}
+        <GoButton title="Let’s Go !" onPress={submit} style={{ marginTop: 14 }} />
+      </View>
     </View>
   );
 }
 
-function PickerBox({ label, value, placeholder, icon, error, onPress }: { label: string; value: string; placeholder: string; icon: 'calendar-days' | 'clock-3'; error?: string; onPress: () => void }) {
-  return (
-    <View style={{ flex: 1, minWidth: 0 }}>
-      <Text style={styles.pickerLabel}>{label}</Text>
-      <PressableScale onPress={onPress} activeScale={0.96} style={[styles.pickerBox, !!error && styles.pickerError]} accessibilityRole="button" accessibilityLabel={`${label}: ${value || 'not set'}`} accessibilityHint={error || undefined}>
-        <Text style={[styles.pickerValue, !value && styles.placeholder]} numberOfLines={1}>{value || placeholder}</Text>
-        <Icon name={icon} size={15} color="#858B95" strokeWidth={2} />
-      </PressableScale>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-    </View>
-  );
-}
+const dayHint = (d: Date): string => {
+  const diff = Math.round((dayStart(d).getTime() - dayStart(new Date()).getTime()) / 86400000);
+  return diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow' : d.toLocaleDateString('en-IN', { weekday: 'long' });
+};
 
 const styles = StyleSheet.create({
-  routeBox: { marginTop: 14, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 14, backgroundColor: colors.white },
-  field: { flexDirection: 'row', alignItems: 'center' },
-  fieldMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 10, minHeight: 62 },
-  divider: { borderTopWidth: 1, borderTopColor: colors.divider },
-  pin: { width: 9, height: 9, borderWidth: 1.5 },
-  pinStart: { borderRadius: 5, borderColor: '#7D838D' },
-  pinStop: { borderRadius: 5, borderColor: colors.primary, backgroundColor: colors.primarySoft },
-  pinEnd: { borderRadius: 3, borderColor: colors.primary },
-  label: { fontFamily: fonts.regular, fontSize: 11, color: colors.label },
-  value: { fontFamily: fonts.medium, fontSize: 15.5, color: colors.value, marginTop: 2 },
-  placeholder: { color: '#99A1AD', fontFamily: fonts.regular },
-  sub: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.muted, marginTop: 1 },
-  error: { fontFamily: fonts.medium, fontSize: 11.5, color: colors.primaryDark, marginTop: 3 },
-  remove: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  addStop: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginVertical: 8, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: colors.primaryBorder, backgroundColor: colors.primarySoft },
-  addStopError: { borderColor: colors.primary },
-  addStopText: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.primary },
-  pair: { flexDirection: 'row', gap: 11, marginTop: 14 },
-  pickerLabel: { fontFamily: fonts.regular, fontSize: 11, color: '#697587', marginBottom: 5 },
-  pickerBox: { minHeight: 46, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.white },
-  pickerError: { borderColor: colors.primary, backgroundColor: '#FFFBFB' },
-  pickerValue: { flex: 1, fontFamily: fonts.medium, fontSize: 13.5, color: colors.text },
+  box: { marginTop: 16, padding: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 6, backgroundColor: colors.white },
+  startHalo: { width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(34,168,90,0.3)', alignItems: 'center', justifyContent: 'center' },
+  startDot: { width: 16, height: 16, borderRadius: 8, backgroundColor: '#22A85A' },
+  addStop: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 40, paddingHorizontal: 20, borderRadius: 6, borderWidth: 1, borderColor: '#DAC0C9', backgroundColor: colors.white },
+  addStopError: { borderColor: colors.danger },
+  addStopText: { fontFamily: fonts.bold, fontSize: 14, color: colors.ink },
+  error: { fontFamily: fonts.medium, fontSize: 12, lineHeight: 17, color: colors.danger },
+  pair: { flexDirection: 'row', gap: 10, marginTop: 16 },
 });

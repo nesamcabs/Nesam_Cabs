@@ -27,7 +27,7 @@ const EMPTY: Record<BookingTab, { title: string; message?: string }> = {
   Cancelled: { title: 'No cancelled bookings' },
 };
 
-const CHIP_TONE = (bg: string): BadgeTone => (bg === '#DCFCE7' ? 'success' : bg === '#FEF3C7' ? 'warning' : bg === '#FEE2E2' ? 'danger' : 'info');
+const CHIP_TONE = (bg: string): BadgeTone => (bg === '#EEF7F2' ? 'success' : bg === '#FEF3C7' ? 'warning' : bg === '#FFDDDD' ? 'danger' : 'info');
 
 export function TripsScreen() {
   const navigation = useNavigation();
@@ -122,7 +122,7 @@ function TripCard({ trip: t, onOpen, onCancel }: { trip: TripRecord; onOpen: () 
         </View>
       </Pressable>
       <Pressable onPress={onOpen} style={styles.foot} accessibilityRole="button" accessibilityLabel={`${status.label}. Open booking`}>
-        <Icon name="clock-3" size={17} color="#8A929E" />
+        <Icon name="clock-3" size={17} color="#9A958C" />
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={styles.footText} numberOfLines={2}>
             {t.driver && tab !== 'Cancelled' && tab !== 'Completed' ? `${t.driver.name}${t.driver.vehicleNumber ? ` · ${t.driver.vehicleNumber}` : ''}` : status.label}
@@ -133,7 +133,7 @@ function TripCard({ trip: t, onOpen, onCancel }: { trip: TripRecord; onOpen: () 
       </Pressable>
       {cancellable ? (
         <Pressable onPress={onCancel} style={styles.cancel} accessibilityRole="button" accessibilityLabel="Cancel booking" hitSlop={6}>
-          <Icon name="circle-x" size={15} color="#7A8494" />
+          <Icon name="circle-x" size={15} color="#9A958C" />
           <Text style={styles.cancelText}>Cancel booking</Text>
         </Pressable>
       ) : null}
@@ -142,21 +142,21 @@ function TripCard({ trip: t, onOpen, onCancel }: { trip: TripRecord; onOpen: () 
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.white },
+  root: { flex: 1, backgroundColor: colors.bg },
   list: { paddingHorizontal: space.xl, paddingTop: space.md, paddingBottom: space.xxl },
   tabs: { flexDirection: 'row', gap: 8, marginBottom: space.sm },
   loading: { fontFamily: fonts.medium, textAlign: 'center', color: colors.muted, marginTop: space.xl, fontSize: 13 },
-  card: { borderWidth: 1, borderColor: '#E3E7EC', borderRadius: 10, marginBottom: 12, backgroundColor: colors.white, overflow: 'hidden' },
+  card: { borderWidth: 1, borderColor: '#E8E3DC', borderRadius: 10, marginBottom: 12, backgroundColor: colors.white, overflow: 'hidden' },
   cardBody: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 14 },
   badges: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' },
   route: { fontFamily: fonts.bold, fontSize: 17, lineHeight: 24, color: colors.text, marginTop: 12 },
-  arrow: { fontFamily: fonts.regular, color: '#8A929E' },
+  arrow: { fontFamily: fonts.regular, color: '#9A958C' },
   metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
-  meta: { fontFamily: fonts.regular, fontSize: 12, color: '#6D7785' },
+  meta: { fontFamily: fonts.regular, fontSize: 12, color: '#66615A' },
   fare: { fontFamily: fonts.bold, fontSize: 14, color: colors.ink },
-  foot: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingHorizontal: 14, paddingVertical: 12, minHeight: 50, backgroundColor: '#FAFAF8', borderTopWidth: 1, borderTopColor: '#EEF0F4' },
-  footText: { fontFamily: fonts.regular, fontSize: 12, color: '#55606F' },
-  pay: { fontFamily: fonts.regular, fontSize: 10.5, color: '#8A929E', marginTop: 2 },
-  cancel: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, minHeight: 44, borderTopWidth: 1, borderTopColor: '#EEF0F4' },
-  cancelText: { fontFamily: fonts.medium, fontSize: 12, color: '#55606F' },
+  foot: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingHorizontal: 14, paddingVertical: 12, minHeight: 50, backgroundColor: '#FAFAF8', borderTopWidth: 1, borderTopColor: '#E8E3DC' },
+  footText: { fontFamily: fonts.regular, fontSize: 12, color: '#66615A' },
+  pay: { fontFamily: fonts.regular, fontSize: 10.5, color: '#9A958C', marginTop: 2 },
+  cancel: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, minHeight: 44, borderTopWidth: 1, borderTopColor: '#E8E3DC' },
+  cancelText: { fontFamily: fonts.medium, fontSize: 12, color: '#66615A' },
 });

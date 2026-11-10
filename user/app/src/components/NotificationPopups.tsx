@@ -132,7 +132,7 @@ function PopupCard({
           accessibilityLabel="Dismiss notification"
           style={styles.closeBtn}
         >
-          <Icon name="x" size={15} color="#94A3B8" />
+          <Icon name="x" size={15} color="#9A958C" />
         </Pressable>
       </Pressable>
     </Animated.View>
@@ -160,11 +160,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E8E3DC',
     overflow: 'hidden',
     paddingVertical: 10,
     paddingRight: 12,
-    shadowColor: '#0F172A',
+    shadowColor: '#14171C',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
     shadowRadius: 10,
@@ -199,13 +199,13 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semiBold,
     fontSize: 13.5,
     lineHeight: 18,
-    color: '#0F172A',
+    color: '#14171C',
     flex: 1,
   },
   category: {
     fontFamily: fonts.medium,
     fontSize: 9.5,
-    color: '#94A3B8',
+    color: '#9A958C',
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     fontSize: 12,
     lineHeight: 16,
-    color: '#475569',
+    color: '#66615A',
     marginTop: 2,
   },
   closeBtn: {

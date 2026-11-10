@@ -153,18 +153,18 @@ export function SupportScreen({ route, navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.white },
+  root: { flex: 1, backgroundColor: colors.bg },
   page: { paddingHorizontal: space.xl, paddingTop: space.md, paddingBottom: space.xxl },
-  faqList: { borderTopWidth: 1, borderTopColor: '#E3E6EB' },
+  faqList: { borderTopWidth: 1, borderTopColor: '#E8E3DC' },
   faqA: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 22, color: '#727D8B' },
-  card: { borderWidth: 1, borderColor: '#E3E7EC', borderRadius: 13, padding: 18, backgroundColor: colors.white },
+  card: { borderWidth: 1, borderColor: '#E8E3DC', borderRadius: 13, padding: 18, backgroundColor: colors.white },
   cardTitle: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.ink, marginBottom: 14 },
-  label: { fontFamily: fonts.regular, fontSize: 11.5, color: '#697587', marginBottom: 8 },
+  label: { fontFamily: fonts.regular, fontSize: 11.5, color: '#66615A', marginBottom: 8 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: space.lg },
   textarea: { fontFamily: fonts.regular, borderWidth: 1, borderColor: colors.border, borderRadius: 6, padding: 12, minHeight: 100, textAlignVertical: 'top', color: colors.value, fontSize: 14, marginBottom: space.md },
-  safety: { fontFamily: fonts.regular, fontSize: 11.5, lineHeight: 18, color: '#6D7785', marginTop: 14 },
+  safety: { fontFamily: fonts.regular, fontSize: 11.5, lineHeight: 18, color: '#66615A', marginTop: 14 },
   ticketHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   ticketCategory: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.ink, flex: 1 },
-  ticketMeta: { fontFamily: fonts.regular, fontSize: 11.5, color: '#7A8494', marginTop: 6 },
+  ticketMeta: { fontFamily: fonts.regular, fontSize: 11.5, color: '#9A958C', marginTop: 6 },
   ticketDesc: { fontFamily: fonts.regular, fontSize: 13, color: colors.text, marginTop: 8, lineHeight: 19 },
 });

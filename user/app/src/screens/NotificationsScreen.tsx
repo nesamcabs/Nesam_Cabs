@@ -78,7 +78,7 @@ export function NotificationsScreen() {
                 accessibilityLabel={`${n.read ? '' : 'Unread. '}${n.title}. ${n.message}`}
                 accessibilityHint={n.read ? undefined : 'Marks as read'}
               >
-                <View style={[styles.dot, { backgroundColor: n.read ? '#D5DAE1' : tone.bar }]} />
+                <View style={[styles.dot, { backgroundColor: n.read ? '#D9D2C8' : tone.bar }]} />
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={[styles.cat, !n.read && { color: tone.text }]}>{CATEGORY_LABEL[n.category]}</Text>
                   <View style={styles.titleRow}>
@@ -98,19 +98,19 @@ export function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.white },
+  root: { flex: 1, backgroundColor: colors.bg },
   container: { flex: 1 },
   head: { paddingHorizontal: space.xl, paddingTop: space.md, width: '100%', maxWidth: 780, alignSelf: 'center' },
   tabs: { gap: 8, paddingBottom: 4 },
-  tab: { paddingHorizontal: 13, minHeight: 34, justifyContent: 'center', borderRadius: 8, borderWidth: 1, borderColor: '#E3E7EC', backgroundColor: colors.white },
-  tabOn: { backgroundColor: '#FFF1F1', borderColor: '#F3C3C3' },
+  tab: { paddingHorizontal: 13, minHeight: 34, justifyContent: 'center', borderRadius: 8, borderWidth: 1, borderColor: '#E8E3DC', backgroundColor: colors.white },
+  tabOn: { backgroundColor: '#FFF1F1', borderColor: '#FFC5C7' },
   tabText: { fontFamily: fonts.medium, fontSize: 11.5, color: colors.text },
   tabTextOn: { color: colors.primary },
-  item: { flexDirection: 'row', gap: 12, borderRadius: 10, borderWidth: 1, borderColor: '#E3E7EC', padding: 14, marginBottom: 10, backgroundColor: colors.white },
+  item: { flexDirection: 'row', gap: 12, borderRadius: 10, borderWidth: 1, borderColor: '#E8E3DC', padding: 14, marginBottom: 10, backgroundColor: colors.white },
   dot: { width: 8, height: 8, borderRadius: 4, marginTop: 6 },
-  cat: { fontFamily: fonts.medium, fontSize: 10, color: '#7A8494', marginBottom: 3, letterSpacing: 0.4, textTransform: 'uppercase' },
+  cat: { fontFamily: fonts.medium, fontSize: 10, color: '#9A958C', marginBottom: 3, letterSpacing: 0.4, textTransform: 'uppercase' },
   titleRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
   itemTitle: { fontFamily: fonts.semiBold, fontSize: 13.5, lineHeight: 19, color: colors.ink, flex: 1 },
-  timeText: { fontFamily: fonts.regular, fontSize: 10.5, color: '#7A8494' },
-  itemMessage: { fontFamily: fonts.regular, marginTop: 4, color: '#55606F', fontSize: 12, lineHeight: 18 },
+  timeText: { fontFamily: fonts.regular, fontSize: 10.5, color: '#9A958C' },
+  itemMessage: { fontFamily: fonts.regular, marginTop: 4, color: '#66615A', fontSize: 12, lineHeight: 18 },
 });

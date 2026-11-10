@@ -4,15 +4,17 @@
 // All click interactions have modern tactile micro-animations.
 // Website footers, marketing copy, and FAQs are cleanly omitted from the mobile application.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Pressable, ScrollView as RNScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, ScrollView as RNScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAvoid } from '../components/KeyboardAvoid';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
-import { Button, Disclosure, Notice, Segmented, Tabs } from '../components/ui';
-import { ScrollView } from '../components/layout';
-import { AppHeader, PressableScale } from '../components/brand';
-import { Icon, type IconName } from '../components/Icon';
+import { Notice } from '../components/ui';
+import { MenuButton, NotificationsAction, PressableScale, SupportMenuAction } from '../components/brand';
+import { GoButton, LocationField, PillTabs, RouteRail, ScheduleCell } from '../components/BookForm';
+import { Icon } from '../components/Icon';
+import { serviceSlogan } from '../utils/serviceSlogan';
+import { useDockPad } from '../context/Dock';
 import { PlaceSearchModal } from '../components/PlaceSearchModal';
 import { MulticityForm } from '../components/MulticityForm';
 import { TimePickerSheet } from '../components/TimePickerSheet';
@@ -30,33 +32,20 @@ import type { GeoPlace, TripType } from '../types';
 import { formatTime } from '../utils/format';
 import { haversineKm, isValidLatLng } from '../utils/geo';
 import { colors, fonts, space } from '../theme';
-import { ROUTE_ART } from '../assets/images';
+import { HEROES, NESAM } from '../assets/images';
 import { useRideFocus } from '../navigation/MainNavigator';
 
 type Field = 'pickup' | 'drop';
+type Picker = Field | { stop: number | 'new' };
 type TimeTarget = 'pickup' | null;
-
-const SERVICE_TITLE: Record<HomeService, string> = {
-  airport: 'Airport Transfers',
-  multicity: 'Multicity',
-  outstation: 'One Way',
-  rental: 'Local Rental',
-};
-
-const CHENNAI: GeoPlace = { id: 'city-chennai', name: 'Chennai', address: 'Chennai, Tamil Nadu', lat: 13.0827, lng: 80.2707, type: 'other' };
-
-/** Six popular journeys from Chennai, with real city-centre coordinates. */
-const POPULAR: { city: string; art: keyof typeof ROUTE_ART; place: GeoPlace }[] = [
-  { city: 'Trichy', art: 'trichy', place: { id: 'city-trichy', name: 'Trichy', address: 'Tiruchirappalli, Tamil Nadu', lat: 10.7905, lng: 78.7047, type: 'other' } },
-  { city: 'Madurai', art: 'madurai', place: { id: 'city-madurai', name: 'Madurai', address: 'Madurai, Tamil Nadu', lat: 9.9252, lng: 78.1198, type: 'other' } },
-  { city: 'Thanjavur', art: 'thanjavur', place: { id: 'city-thanjavur', name: 'Thanjavur', address: 'Thanjavur, Tamil Nadu', lat: 10.787, lng: 79.1378, type: 'other' } },
-  { city: 'Puducherry', art: 'puducherry', place: { id: 'city-puducherry', name: 'Puducherry', address: 'Puducherry', lat: 11.9416, lng: 79.8083, type: 'other' } },
-  { city: 'Coimbatore', art: 'coimbatore', place: { id: 'city-coimbatore', name: 'Coimbatore', address: 'Coimbatore, Tamil Nadu', lat: 11.0168, lng: 76.9558, type: 'other' } },
-  { city: 'Rameswaram', art: 'rameswaram', place: { id: 'city-rameswaram', name: 'Rameswaram', address: 'Rameswaram, Tamil Nadu', lat: 9.2876, lng: 79.3129, type: 'other' } },
-];
 
 const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const formatDay = (d: Date) => d.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+/** "Today", "Tomorrow" or the weekday, so the chosen day is clear at a glance. */
+const dayHint = (d: Date): string => {
+  const diff = Math.round((dayStart(d).getTime() - dayStart(new Date()).getTime()) / 86400000);
+  return diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow' : d.toLocaleDateString('en-IN', { weekday: 'long' });
+};
 /** Round trips are booked for up to this many days (the server's roundTrip.maxDays). */
 const RT_MAX_DAYS = SCHEDULE_MAX_DAYS;
 /** A round trip ends on the last of its days, at the pickup time (the server counts calendar days). */
@@ -74,11 +63,12 @@ export function BookScreen() {
   const { pickup, drop, tripType, scheduledAt, tripEndAt, airportDirection } = draft;
   const { position, error: locError, permission, locating, locate } = useDeviceLocation(true);
   const { online } = useNetworkStatus();
-  const [picker, setPicker] = useState<Field | null>(null);
+  const [picker, setPicker] = useState<Picker | null>(null);
   const [timeTarget, setTimeTarget] = useState<TimeTarget>(null);
   // A date picked before its time is kept here; once a time is chosen the draft's instant is the truth.
+  // Like the website, the date starts on today.
   const [pendingPickupDay, setPendingPickupDay] = useState<Date | null>(null);
-  const pickupDay = scheduledAt ? dayStart(scheduledAt) : pendingPickupDay;
+  const pickupDay = scheduledAt ? dayStart(scheduledAt) : (pendingPickupDay ?? dayStart(new Date()));
   // Round trip: how many days the trip lasts. It ends on the last day, at the pickup time.
   const [days, setDays] = useState<number>(() => {
     if (!tripEndAt || !scheduledAt) return 1;
@@ -173,7 +163,8 @@ export function BookScreen() {
     clearErrors();
   };
 
-  const airportField: Field = isAirport ? (airportDirection === 'to' ? 'drop' : 'pickup') : 'pickup';
+  // Which end is the airport on an airport transfer; null for every other service.
+  const airportField: Field | null = isAirport ? (airportDirection === 'to' ? 'drop' : 'pickup') : null;
 
   // ── Scheduling ──────────────────────────────────────────────────────────────
   const openDate = () => {
@@ -219,9 +210,8 @@ export function BookScreen() {
     if (isAirport && airportField === 'drop' && drop && drop.type !== 'airport') errs.drop = 'Choose an airport for an airport drop.';
     if (isAirport && airportField === 'pickup' && pickup && pickup.type !== 'airport') errs.pickup = 'Choose the airport you are arriving at.';
     if (pickup && targetDrop && !isRound && haversineKm(pickup, targetDrop) < 0.2) errs.drop = 'Pickup and drop cannot be the same place.';
-    if (!pickupDay) errs.date = 'Choose the pickup date.';
     const sched = scheduleProblem(scheduledAt);
-    if (pickupDay && sched) errs.time = sched;
+    if (sched) errs.time = sched;
     if (isRound && (days < 1 || days > RT_MAX_DAYS)) errs.return = `Choose 1 to ${RT_MAX_DAYS} days.`;
     setFieldError(errs);
     const first = Object.values(errs).find(Boolean);
@@ -233,107 +223,125 @@ export function BookScreen() {
     if (!first) navigation.navigate('ChooseRide');
   };
 
-  const planRoute = (dest: GeoPlace) => {
-    setService('outstation');
-    update({ pickup: CHENNAI, drop: dest });
-    clearErrors();
-    scroller.current?.scrollTo({ y: 0, animated: true });
-  };
-
   const locationHint = locError ? LOCATION_ERROR_TEXT[locError.kind] : permission === 'prompt' && !position ? 'Allow location access to fill your pickup automatically.' : '';
-  const title = service === 'outstation' ? tripType : SERVICE_TITLE[service];
+  const [headline, subline] = serviceSlogan(service, tripType === 'Round Trip' ? 'Round Trip' : 'One Way');
+  const dockPad = useDockPad();
+  const { width: screenW, height: screenH } = useWindowDimensions();
+  // The hero logo scales down on short phones so the whole form stays in one view.
+  const logoW = Math.min(304, Math.round(screenW * 0.78), Math.round((screenH - dockPad) * 0.4));
+  const fieldLabel = (f: Field) => (airportField === f ? (f === 'drop' ? 'Drop airport' : 'Pickup airport') : f === 'pickup' ? 'Pickup location' : 'Drop location');
+  const pickerTitle = picker === null ? '' : typeof picker === 'object' ? (picker.stop === 'new' ? 'Add itinerary stop' : `Edit stop ${picker.stop + 1}`) : fieldLabel(picker);
 
   // ── Field rendering ─────────────────────────────────────────────────────────
-  const fieldLabel = (f: Field) => (airportField === f ? 'Airport' : f === 'pickup' ? 'Pickup location' : 'Drop location');
-  const fieldPlaceholder = (f: Field) => (airportField === f ? 'Choose airport' : f === 'pickup' ? (locating ? 'Finding your location…' : 'Enter pickup location') : 'Enter drop location');
 
   return (
-    <SafeAreaView style={styles.root} edges={['top']}>
-<KeyboardAvoid>
-      <PlaceSearchModal
-        visible={picker !== null}
-        title={picker ? fieldLabel(picker) : ''}
-        subtitle={picker && airportField === picker ? 'Choose an airport or search by name.' : undefined}
-        onClose={() => setPicker(null)}
-        onSelect={(p) => {
-          if (picker === 'pickup') {
-            pickupFromGps.current = true;
-            update({ pickup: p });
-          } else {
-            update({ drop: p });
-          }
-          clearErrors();
-        }}
-        savedPlaces={picker && airportField === picker ? [] : savedPlaces}
-        recentPlaces={picker && airportField === picker ? recentPlaces.filter((p) => p.type === 'airport') : recentPlaces.filter((p) => p.type !== 'airport')}
-        suggestions={picker && airportField === picker ? POPULAR_AIRPORTS : []}
-        suggestionsLabel="Airports"
-        near={picker === 'drop' ? (pickup ?? position) : position}
-        onUseCurrentLocation={picker === 'pickup' && airportField !== 'pickup' ? () => void locateMe() : undefined}
-      />
-      {timeTarget ? (
-        <TimePickerSheet
-          visible
-          title="Pickup time"
-          day={pickupDay ?? dayStart(new Date())}
-          value={scheduledAt}
-          problemOf={(at) => scheduleProblem(at)}
-          onClose={() => setTimeTarget(null)}
-          onConfirm={(at) => {
-            update({ scheduledAt: at });
-            setPendingPickupDay(null);
-            setFieldError((e) => ({ ...e, time: '' }));
-            setTimeTarget(null);
-          }}
-        />
-      ) : null}
-
-      <AppHeader title={title} />
-
-      <ScrollView ref={scroller} kind="narrow" contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        {liveRide ? (
-          <PressableScale
-            activeScale={0.96}
-            style={styles.live}
-            onPress={() => {
-              undismiss(liveRide.id);
-              navigation.navigate('ActiveRide', { bookingId: liveRide.id });
+    <View style={styles.root}>
+      <Image source={HEROES.desktop} style={styles.heroImg} resizeMode="cover" accessible={false} />
+      <View style={styles.heroWash} pointerEvents="none" />
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        <KeyboardAvoid>
+          <PlaceSearchModal
+            visible={picker !== null}
+            title={pickerTitle}
+            subtitle={picker === 'pickup' || picker === 'drop' ? (airportField === picker ? 'Choose an airport or search by name.' : undefined) : 'Add a stop on your route.'}
+            onClose={() => setPicker(null)}
+            onSelect={(p) => {
+              if (picker === 'pickup') {
+                pickupFromGps.current = true;
+                update({ pickup: p });
+              } else if (picker === 'drop') {
+                update({ drop: p });
+              } else if (picker && typeof picker === 'object') {
+                update((d) => ({ stops: picker.stop === 'new' ? [...d.stops, p] : d.stops.map((s, i) => (i === picker.stop ? p : s)) }));
+              }
+              clearErrors();
             }}
-            accessibilityRole="button"
-            accessibilityLabel={`Open your current trip, ${liveRide.pickup.name} to ${liveRide.drop.name}`}
-          >
-            <View style={styles.liveDot} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.liveTitle}>{liveRide.status === 'Ongoing' ? 'Trip in progress' : 'Your trip is coming up'}</Text>
-              <Text style={styles.liveRoute} numberOfLines={1}>
-                {liveRide.pickup.name} → {liveRide.drop.name}
-              </Text>
-            </View>
-            <Icon name="chevron-right" size={18} color={colors.success} strokeWidth={2.2} />
-          </PressableScale>
-        ) : null}
-
-        {service === 'outstation' ? (
-          <View style={{ marginBottom: 16 }}>
-            <Tabs<TripType>
-              options={[
-                { value: 'One Way', label: 'One Way' },
-                { value: 'Round Trip', label: 'Round Trip' },
-              ]}
-              value={tripType === 'Round Trip' ? 'Round Trip' : 'One Way'}
-              onChange={switchOutstation}
+            savedPlaces={picker && airportField === picker ? [] : savedPlaces}
+            recentPlaces={picker && airportField === picker ? recentPlaces.filter((p) => p.type === 'airport') : recentPlaces.filter((p) => p.type !== 'airport')}
+            suggestions={picker && airportField === picker ? POPULAR_AIRPORTS : []}
+            suggestionsLabel="Airports"
+            near={picker === 'drop' ? (pickup ?? position) : position}
+            onUseCurrentLocation={picker === 'pickup' && airportField !== 'pickup' ? () => void locateMe() : undefined}
+          />
+          {timeTarget ? (
+            <TimePickerSheet
+              visible
+              title="Pickup time"
+              day={pickupDay}
+              value={scheduledAt}
+              problemOf={(at) => scheduleProblem(at)}
+              onClose={() => setTimeTarget(null)}
+              onConfirm={(at) => {
+                update({ scheduledAt: at });
+                setPendingPickupDay(null);
+                setFieldError((e) => ({ ...e, time: '' }));
+                setTimeTarget(null);
+              }}
             />
-          </View>
-        ) : null}
+          ) : null}
 
-        <View style={styles.widget}>
-          {isMulti ? (
-            <MulticityForm />
-          ) : (
-            <>
-              {isAirport ? (
-                <Segmented
-                  style={{ marginTop: 15 }}
+          <RNScrollView
+            ref={scroller}
+            contentContainerStyle={[styles.page, { paddingBottom: 12 + dockPad }]}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+            overScrollMode="never"
+          >
+            <View style={styles.topRow}>
+              <MenuButton glass />
+              <View style={{ flex: 1 }} />
+              <SupportMenuAction glass />
+              <View style={styles.glass}>
+                <NotificationsAction />
+              </View>
+            </View>
+
+            <View style={styles.hero}>
+              <Image source={NESAM.logo} style={{ width: logoW, height: logoW / 3.05 }} resizeMode="contain" accessibilityLabel="NESAM Cabs" />
+              {headline || subline ? (
+                <Text style={[styles.slogan, isMulti && styles.sloganBig]} accessibilityRole="header" accessibilityLiveRegion="polite" maxFontSizeMultiplier={1.15}>
+                  {headline}
+                  {'\n'}
+                  <Text style={[styles.sloganAccent, isMulti && styles.sloganAccentMulti]}>{subline}</Text>
+                </Text>
+              ) : null}
+            </View>
+
+            {liveRide ? (
+              <PressableScale
+                activeScale={0.97}
+                style={styles.live}
+                onPress={() => {
+                  undismiss(liveRide.id);
+                  navigation.navigate('ActiveRide', { bookingId: liveRide.id });
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`Open your current trip, ${liveRide.pickup.name} to ${liveRide.drop.name}`}
+              >
+                <View style={styles.liveDot} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.liveTitle}>{liveRide.status === 'Ongoing' ? 'Trip in progress' : 'Your trip is coming up'}</Text>
+                  <Text style={styles.liveRoute} numberOfLines={1}>
+                    {liveRide.pickup.name} → {liveRide.drop.name}
+                  </Text>
+                </View>
+                <Icon name="chevron-right" size={18} color={colors.success} strokeWidth={2.2} />
+              </PressableScale>
+            ) : null}
+
+            <View style={styles.card}>
+              {service === 'outstation' ? (
+                <PillTabs<TripType>
+                  options={[
+                    { value: 'One Way', label: 'One Way' },
+                    { value: 'Round Trip', label: 'Round Trip' },
+                  ]}
+                  value={tripType === 'Round Trip' ? 'Round Trip' : 'One Way'}
+                  onChange={switchOutstation}
+                />
+              ) : isAirport ? (
+                <PillTabs<'to' | 'from'>
                   options={[
                     { value: 'to', label: 'To airport' },
                     { value: 'from', label: 'From airport' },
@@ -343,237 +351,118 @@ export function BookScreen() {
                 />
               ) : null}
 
-              <View>
-                <RouteField
-                  pin="start"
-                  label={fieldLabel('pickup')}
-                  value={pickup?.name}
-                  placeholder={fieldPlaceholder('pickup')}
-                  error={fieldError.pickup}
-                  onPress={() => setPicker('pickup')}
-                  roomForSwap={service === 'outstation'}
-                />
-                <RouteField
-                  pin="end"
-                  label={fieldLabel('drop')}
-                  value={drop?.name}
-                  placeholder={fieldPlaceholder('drop')}
-                  error={fieldError.drop}
-                  onPress={() => setPicker('drop')}
-                  divider
-                  roomForSwap={service === 'outstation'}
-                />
-                {service === 'outstation' ? (
-                  <PressableScale
-                    onPress={() => {
-                      update({ pickup: drop, drop: pickup });
-                      clearErrors();
-                    }}
-                    activeScale={0.86}
-                    disabled={!pickup && !drop}
-                    style={styles.swap}
-                    accessibilityRole="button"
-                    accessibilityLabel="Swap pickup and drop"
-                    hitSlop={6}
-                  >
-                    <Icon name="arrow-up-down" size={17} color="#657184" strokeWidth={2.0} />
-                  </PressableScale>
-                ) : null}
-              </View>
+              {isMulti ? (
+                <MulticityForm />
+              ) : (
+                <View style={styles.form}>
+                  <RouteRail
+                    pickup={<LocationField label={fieldLabel('pickup')} value={pickup?.name} address={pickup?.address} error={fieldError.pickup} onPress={() => setPicker('pickup')} />}
+                    drop={<LocationField label={fieldLabel('drop')} value={drop?.name} address={drop?.address} error={fieldError.drop} onPress={() => setPicker('drop')} />}
+                    middle={
+                      isRound ? (
+                        <View style={{ gap: 10 }}>
+                          {draft.stops.map((stop, i) => (
+                            <View key={`${stop.id}-${i}`} style={{ marginLeft: 9 }}>
+                              <LocationField
+                                label={`Stop ${i + 1}`}
+                                value={stop.name}
+                                address={stop.address}
+                                onPress={() => setPicker({ stop: i })}
+                                trailing={
+                                  <Pressable accessibilityRole="button" accessibilityLabel={`Delete stop ${i + 1}`} hitSlop={10} onPress={() => update((d) => ({ stops: d.stops.filter((_, n) => n !== i) }))}>
+                                    <Icon name="trash-2" size={17} color={colors.primary} strokeWidth={2} />
+                                  </Pressable>
+                                }
+                              />
+                            </View>
+                          ))}
+                          {draft.stops.length < 8 ? (
+                            <PressableScale activeScale={0.96} onPress={() => setPicker({ stop: 'new' })} accessibilityRole="button" accessibilityLabel="Add stop" style={styles.addStop} containerStyle={{ alignSelf: 'center' }}>
+                              <Icon name="plus" size={16} color={colors.primary} strokeWidth={2.2} />
+                              <Text style={styles.addStopText}>Add stop</Text>
+                            </PressableScale>
+                          ) : null}
+                        </View>
+                      ) : null
+                    }
+                    swapDisabled={!pickup && !drop}
+                    onSwap={
+                      isAirport
+                        ? undefined
+                        : () => {
+                            update((d) => ({ pickup: d.drop, drop: d.pickup, stops: d.tripType === 'Round Trip' ? [...d.stops].reverse() : d.stops }));
+                            clearErrors();
+                          }
+                    }
+                  />
 
-              <View style={styles.formRow}>
-                <PickerBox
-                  label="Pickup date"
-                  value={pickupDay ? formatDay(pickupDay) : ''}
-                  placeholder="Select date"
-                  icon="calendar-days"
-                  error={fieldError.date}
-                  onPress={() => openDate()}
-                />
-                <PickerBox
-                  label="Pickup time"
-                  value={scheduledAt ? formatTime(scheduledAt).replace(/^0/, '') : ''}
-                  placeholder="Select time"
-                  icon="chevron-down"
-                  error={fieldError.time}
-                  onPress={() => openTime()}
-                />
-              </View>
+                  <View style={styles.formRow}>
+                    <ScheduleCell label="Pickup date" value={formatDay(pickupDay)} icon="calendar-days" chip={dayHint(pickupDay)} error={fieldError.date} onPress={() => openDate()} />
+                    <ScheduleCell label="Pickup time" value={scheduledAt ? formatTime(scheduledAt).replace(/^0/, '') : ''} icon="clock" error={fieldError.time} onPress={() => openTime()} />
+                  </View>
 
-              {isRound ? (
-                <View style={styles.formRow}>
-                  <View style={styles.dayBox}>
-                    <Text style={styles.formLabel}>Number of days</Text>
-                    <View style={styles.stepper}>
-                      <Pressable accessibilityRole="button" accessibilityLabel="One day fewer" disabled={days <= 1} onPress={() => setDays((n) => Math.max(1, n - 1))} style={[styles.stepBtn, days <= 1 && styles.stepBtnOff]}>
-                        <Text style={styles.stepText}>−</Text>
-                      </Pressable>
-                      <Text style={styles.stepValue}>{days} {days === 1 ? 'day' : 'days'}</Text>
-                      <Pressable accessibilityRole="button" accessibilityLabel="One day more" disabled={days >= RT_MAX_DAYS} onPress={() => setDays((n) => Math.min(RT_MAX_DAYS, n + 1))} style={[styles.stepBtn, days >= RT_MAX_DAYS && styles.stepBtnOff]}>
-                        <Text style={styles.stepText}>+</Text>
-                      </Pressable>
+                  {isRound ? (
+                    <View>
+                      <View style={styles.daysCell}>
+                        <Text style={styles.cellLabel}>Days</Text>
+                        <View style={styles.stepper}>
+                          <Pressable accessibilityRole="button" accessibilityLabel="One day fewer" disabled={days <= 1} onPress={() => setDays((n) => Math.max(1, n - 1))} style={[styles.stepBtn, days <= 1 && styles.stepBtnOff]}>
+                            <Text style={styles.stepText}>−</Text>
+                          </Pressable>
+                          <Text style={styles.stepValue}>
+                            {days} {days === 1 ? 'day' : 'days'}
+                          </Text>
+                          <Pressable accessibilityRole="button" accessibilityLabel="One day more" disabled={days >= RT_MAX_DAYS} onPress={() => setDays((n) => Math.min(RT_MAX_DAYS, n + 1))} style={[styles.stepBtn, days >= RT_MAX_DAYS && styles.stepBtnOff]}>
+                            <Text style={styles.stepText}>+</Text>
+                          </Pressable>
+                        </View>
+                        <Text style={styles.daysEnd}>Ends {dayHint(tripEndFor(pickupDay, days))}</Text>
+                      </View>
+                      {fieldError.return ? <Text style={styles.errorText}>{fieldError.return}</Text> : null}
                     </View>
-                    {fieldError.return ? <Text style={styles.fieldError}>{fieldError.return}</Text> : null}
-                  </View>
-                  <View style={styles.dayBox}>
-                    <Text style={styles.formLabel}>Trip ends</Text>
-                    <Text style={styles.fieldValue}>{scheduledAt ? formatDay(tripEndFor(scheduledAt, days)) : 'Choose a pickup date'}</Text>
-                  </View>
+                  ) : null}
+
+                  {isAirport ? (
+                    <View style={styles.flight}>
+                      <Text style={styles.cellLabelDark}>Flight number (optional)</Text>
+                      <TextInput
+                        value={draft.flightNumber}
+                        onChangeText={(v) => update({ flightNumber: v.toUpperCase().replace(/[^A-Z0-9 -]/g, '').slice(0, 10) })}
+                        placeholder="e.g. 6E 562"
+                        placeholderTextColor={colors.faint}
+                        autoCapitalize="characters"
+                        style={styles.flightInput}
+                        accessibilityLabel="Flight number (optional)"
+                      />
+                    </View>
+                  ) : null}
+
+                  {problem ? <Text style={styles.errorText}>{problem}</Text> : null}
+                  <GoButton title="Let’s Go !" onPress={findCab} />
                 </View>
-              ) : null}
+              )}
+            </View>
 
-              {isAirport ? (
-                <View style={styles.flight}>
-                  <Disclosure title="Flight details (optional)" initiallyOpen={!!draft.flightNumber}>
-                    <Text style={styles.formLabel}>Flight number</Text>
-                    <TextInput
-                      value={draft.flightNumber}
-                      onChangeText={(v) => update({ flightNumber: v.toUpperCase().replace(/[^A-Z0-9 -]/g, '').slice(0, 10) })}
-                      placeholder="e.g. 6E 562"
-                      placeholderTextColor={colors.faint}
-                      autoCapitalize="characters"
-                      style={styles.flightInput}
-                      accessibilityLabel="Flight number (optional)"
-                    />
-                    <Text style={styles.flightHint}>Shared with NESAM in your booking notes to help plan the pickup.</Text>
-                  </Disclosure>
-                </View>
-              ) : null}
-
-              <Button title="Search Cabs" iconRight="arrow-right" onPress={findCab} style={{ marginTop: 14 }} />
-              <View style={styles.trust}>
-                <Icon name="shield-check" size={13} color="#8994A4" strokeWidth={2.0} />
-                <Text style={styles.trustText}>Clear fares. Dedicated support.</Text>
-              </View>
-            </>
-          )}
-        </View>
-
-        {problem ? <Notice message={problem} tone={online ? 'warning' : 'error'} style={{ marginTop: space.md }} /> : null}
-        {locationHint && !pickup && !isMulti ? <Notice tone="info" message={locationHint} style={{ marginTop: space.md }} /> : null}
-
-        {/* Popular routes */}
-        <View style={styles.popular}>
-          <Text style={styles.popularTitle} accessibilityRole="header">
-            Popular routes
-          </Text>
-          <Text style={styles.caption}>A few favourites from Chennai.</Text>
-        </View>
-        <RNScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail} style={styles.railWrap}>
-          {POPULAR.map((r) => (
-            <PressableScale
-              key={r.city}
-              activeScale={0.94}
-              onPress={() => planRoute(r.place)}
-              style={styles.routeCard}
-              accessibilityRole="button"
-              accessibilityLabel={`Plan trip: Chennai to ${r.city}`}
-            >
-              <View style={styles.routeArt}>
-                <Image source={ROUTE_ART[r.art]} style={styles.routeImg} resizeMode="contain" accessible={false} />
-              </View>
-              <View style={styles.routeBody}>
-                <View style={styles.routeName}>
-                  <Text style={styles.routeFrom}>Chennai</Text>
-                  <Icon name="arrow-right" size={14} color="#9199A5" strokeWidth={2.0} />
-                  <Text style={styles.routeTo}>{r.city}</Text>
-                </View>
-                <View style={styles.planTrip}>
-                  <Text style={styles.planText}>Plan trip</Text>
-                  <Icon name="arrow-right" size={13} color={colors.primary} strokeWidth={2.0} />
-                </View>
-              </View>
-            </PressableScale>
-          ))}
-        </RNScrollView>
-      </ScrollView>
-    </KeyboardAvoid>
-</SafeAreaView>
-  );
-}
-
-function RouteField({
-  pin,
-  label,
-  value,
-  placeholder,
-  error,
-  onPress,
-  divider,
-  roomForSwap,
-}: {
-  pin: 'start' | 'end';
-  label: string;
-  value?: string;
-  placeholder: string;
-  error?: string;
-  onPress: () => void;
-  divider?: boolean;
-  roomForSwap?: boolean;
-}) {
-  return (
-    <PressableScale
-      onPress={onPress}
-      activeScale={0.98}
-      style={[styles.field, divider && styles.fieldDivider]}
-      accessibilityRole="button"
-      accessibilityLabel={`${label}: ${value ?? 'not set'}`}
-      accessibilityHint={error || 'Opens location search'}
-    >
-      <View style={[styles.pin, pin === 'end' ? styles.pinEnd : styles.pinStart, !!error && { borderColor: colors.primary }]} />
-      <View style={{ flex: 1, minWidth: 0, marginRight: roomForSwap ? 30 : 0 }}>
-        <Text style={styles.formLabelTight}>{label}</Text>
-        <Text style={[styles.fieldValue, !value && styles.fieldPlaceholder]} numberOfLines={1}>
-          {value || placeholder}
-        </Text>
-        {error ? <Text style={styles.fieldError}>{error}</Text> : null}
-      </View>
-      <View style={[styles.chev, roomForSwap && { marginRight: 32 }]}>
-        <Icon name="chevron-right" size={17} color="#90939A" strokeWidth={2.2} />
-      </View>
-    </PressableScale>
-  );
-}
-
-function PickerBox({
-  label,
-  value,
-  placeholder,
-  icon,
-  error,
-  onPress,
-}: {
-  label: string;
-  value: string;
-  placeholder: string;
-  icon: IconName;
-  error?: string;
-  onPress: () => void;
-}) {
-  return (
-    <View style={{ flex: 1, minWidth: 0 }}>
-      <Text style={styles.formLabel}>{label}</Text>
-      <PressableScale
-        onPress={onPress}
-        activeScale={0.96}
-        style={[styles.pickerBox, !!error && styles.pickerError]}
-        accessibilityRole="button"
-        accessibilityLabel={`${label}: ${value || 'not set'}`}
-        accessibilityHint={error || undefined}
-      >
-        <Text style={[styles.pickerValue, !value && styles.fieldPlaceholder]} numberOfLines={1}>
-          {value || placeholder}
-        </Text>
-        <Icon name={icon} size={15} color="#858B95" strokeWidth={2.0} />
-      </PressableScale>
-      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+            {locError && !pickup && !isMulti ? <Notice tone="info" message={locationHint} style={{ marginTop: space.md }} /> : null}
+          </RNScrollView>
+        </KeyboardAvoid>
+      </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.white },
-  page: { paddingHorizontal: space.xl, paddingTop: space.md, paddingBottom: 40 },
+  heroImg: { ...StyleSheet.absoluteFill, width: '100%', height: '100%' },
+  heroWash: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(244,249,255,0.84)' },
+  page: { flexGrow: 1, paddingHorizontal: 14, paddingBottom: 12 },
+  topRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 6, minHeight: 50 },
+  glass: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.92)', alignItems: 'center', justifyContent: 'center' },
+  hero: { alignItems: 'center', gap: 6, paddingTop: 2, paddingBottom: 14 },
+  slogan: { fontFamily: fonts.bold, fontSize: 18, lineHeight: 23, letterSpacing: -0.1, textAlign: 'center', color: colors.primary },
+  sloganAccent: { color: '#0B1D46' },
+  sloganBig: { fontSize: 25, lineHeight: 31 },
+  sloganAccentMulti: { color: '#000000' },
   live: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -581,81 +470,29 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.successBorder,
     backgroundColor: colors.successSoft,
-    borderRadius: 10,
+    borderRadius: 6,
     paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: space.md,
+    paddingVertical: 10,
+    marginBottom: 10,
   },
   liveDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.successStrong },
   liveTitle: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.success },
-  liveRoute: { fontFamily: fonts.regular, fontSize: 12, color: '#3E5A4C', marginTop: 2 },
-  widget: { borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 16, paddingBottom: 14, backgroundColor: colors.white },
-  field: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, minHeight: 67, gap: 13 },
-  fieldDivider: { borderTopWidth: 1, borderTopColor: colors.divider },
-  pin: { width: 8, height: 8, borderWidth: 1 },
-  pinStart: { borderRadius: 4, borderColor: '#7D838D' },
-  pinEnd: { borderRadius: 3, borderColor: colors.primary },
-  formLabelTight: { fontFamily: fonts.regular, fontSize: 11, lineHeight: 15.4, color: '#7E8691' },
-  formLabel: { fontFamily: fonts.regular, fontSize: 11, lineHeight: 16.5, color: '#697587', marginBottom: 5 },
-  fieldValue: { fontFamily: fonts.medium, fontSize: 16, lineHeight: 24.8, color: colors.value, letterSpacing: -0.3, marginTop: 3 },
-  fieldPlaceholder: { color: '#99A1AD', fontFamily: fonts.regular },
-  fieldError: { fontFamily: fonts.medium, fontSize: 11.5, color: colors.primaryDark, marginTop: 3 },
-  chev: { paddingHorizontal: 3, paddingVertical: 8 },
-  swap: {
-    position: 'absolute',
-    right: 0,
-    top: 50,
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E4E8EE',
-    backgroundColor: colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  formRow: { flexDirection: 'row', gap: 11, marginTop: 14 },
-  dayBox: { flex: 1 },
-  stepper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 46, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 6, backgroundColor: '#FAFBFC' },
-  stepBtn: { width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
+  liveRoute: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted, marginTop: 2 },
+  card: { padding: 12, borderWidth: 1, borderColor: colors.borderStrong, borderRadius: 6, backgroundColor: colors.white },
+  form: { gap: 14, marginTop: 16 },
+  formRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  addStop: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 38, paddingHorizontal: 18, borderWidth: 1, borderColor: '#DAC0C9', borderRadius: 6, backgroundColor: colors.white },
+  addStopText: { fontFamily: fonts.bold, fontSize: 14, color: colors.ink },
+  daysCell: { paddingHorizontal: 12, paddingTop: 22, paddingBottom: 10, borderWidth: 1, borderColor: '#DAC0C9', borderRadius: 6, backgroundColor: colors.white },
+  cellLabel: { position: 'absolute', top: 8, left: 14, fontFamily: fonts.extraBold, fontSize: 10.4, letterSpacing: 0.42, textTransform: 'uppercase', color: colors.muted },
+  cellLabelDark: { fontFamily: fonts.extraBold, fontSize: 10.4, letterSpacing: 0.42, textTransform: 'uppercase', color: colors.muted, marginBottom: 6 },
+  stepper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  stepBtn: { width: 38, height: 38, borderRadius: 4, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
   stepBtnOff: { opacity: 0.35 },
-  stepText: { fontFamily: fonts.medium, fontSize: 20, color: '#FFFFFF' },
-  stepValue: { fontFamily: fonts.medium, fontSize: 15, color: colors.value },
-  pickerBox: {
-    minHeight: 46,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: colors.white,
-  },
-  pickerError: { borderColor: colors.primary, backgroundColor: '#FFFBFB' },
-  pickerValue: { flex: 1, fontFamily: fonts.medium, fontSize: 13.5, color: colors.text, letterSpacing: -0.2 },
-  flight: { marginTop: 14, borderTopWidth: 1, borderTopColor: colors.divider, paddingTop: 2 },
-  flightInput: { minHeight: 46, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 11, fontFamily: fonts.medium, fontSize: 15, color: colors.value },
-  flightHint: { fontFamily: fonts.regular, fontSize: 11, color: colors.muted, marginTop: 5 },
-  trust: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 11 },
-  trustText: { fontFamily: fonts.regular, fontSize: 9.5, color: '#7F8998' },
-  popular: { marginTop: 24 },
-  popularTitle: { fontFamily: fonts.heading, fontSize: 20, lineHeight: 28, letterSpacing: -0.5, color: colors.text },
-  caption: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: '#74808F', marginTop: 3 },
-  railWrap: { marginHorizontal: -space.xl, marginTop: 12 },
-  rail: { paddingHorizontal: space.xl, paddingBottom: 8, gap: 12 },
-  routeCard: { width: 249, borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10, backgroundColor: colors.white, overflow: 'hidden' },
-  routeArt: { height: 110, margin: 5, marginBottom: 0, borderRadius: 6, backgroundColor: '#FFF5F2', overflow: 'hidden' },
-  routeImg: { width: '100%', height: '100%' },
-  routeBody: { paddingHorizontal: 14, paddingTop: 12, paddingBottom: 14 },
-  routeName: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  routeFrom: { fontFamily: fonts.regular, fontSize: 14, color: '#3D4653', letterSpacing: -0.3 },
-  routeTo: { fontFamily: fonts.semiBold, fontSize: 14, color: '#252D38', letterSpacing: -0.3, flexShrink: 1 },
-  planTrip: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 },
-  planText: { fontFamily: fonts.medium, fontSize: 11, color: colors.primary },
+  stepText: { fontFamily: fonts.medium, fontSize: 22, lineHeight: 26, color: '#FFFFFF' },
+  stepValue: { fontFamily: fonts.semiBold, fontSize: 16, color: colors.ink },
+  daysEnd: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted, marginTop: 6, textAlign: 'center' },
+  errorText: { fontFamily: fonts.medium, fontSize: 12, lineHeight: 17, color: colors.danger },
+  flight: { },
+  flightInput: { minHeight: 48, borderWidth: 1, borderColor: '#DAC0C9', borderRadius: 6, paddingHorizontal: 12, fontFamily: fonts.semiBold, fontSize: 15, color: colors.ink, backgroundColor: colors.white },
 });

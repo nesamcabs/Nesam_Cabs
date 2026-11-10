@@ -32,7 +32,7 @@ import { colors, fonts, space } from '../theme';
 type Props = NativeStackScreenProps<RootStackParamList, 'ActiveRide'>;
 
 const dayText = (d: Date) => `${d.getDate()} ${d.toLocaleDateString('en-IN', { month: 'short' })} ${d.getFullYear()}`;
-const CHIP_TONE = (bg: string): BadgeTone => (bg === '#DCFCE7' ? 'success' : bg === '#FEF3C7' ? 'warning' : bg === '#FEE2E2' ? 'danger' : 'info');
+const CHIP_TONE = (bg: string): BadgeTone => (bg === '#EEF7F2' ? 'success' : bg === '#FEF3C7' ? 'warning' : bg === '#FFDDDD' ? 'danger' : 'info');
 
 export function ActiveRideScreen({ route, navigation }: Props) {
   const { bookingId, unconfirmed, justBooked } = route.params;
@@ -223,7 +223,7 @@ export function ActiveRideScreen({ route, navigation }: Props) {
           ) : (
             <View style={styles.driverRow}>
               <View style={styles.driverGhost}>
-                <Icon name="user-round" size={20} color="#7A8494" />
+                <Icon name="user-round" size={20} color="#9A958C" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.driverName}>{trip.phase === 'partner_confirmed' ? 'Driver details pending' : 'Driver to be arranged'}</Text>
@@ -284,7 +284,7 @@ export function ActiveRideScreen({ route, navigation }: Props) {
                   {i < steps.length - 1 ? <View style={[styles.mileLine, m.state === 'done' && { backgroundColor: '#BFDCCB' }]} /> : null}
                 </View>
                 <View style={{ flex: 1, paddingBottom: i < steps.length - 1 ? 18 : 0 }}>
-                  <Text style={[styles.mileLabel, m.state === 'todo' && { color: '#7A8494' }]}>{m.label}</Text>
+                  <Text style={[styles.mileLabel, m.state === 'todo' && { color: '#9A958C' }]}>{m.label}</Text>
                   <Text style={styles.mileSub}>{m.at && m.state === 'done' ? formatDateTime(m.at) : m.detail || '—'}</Text>
                 </View>
               </View>
@@ -361,7 +361,7 @@ function ConfirmedView({ trip, pending, onHome, onView }: { trip: TripRecord; pe
           accessibilityState={{ checked: soundOn }}
           accessibilityLabel="Confirmation sound"
         >
-          <Icon name={soundOn ? 'volume-2' : 'volume-x'} size={15} color="#6D7785" />
+          <Icon name={soundOn ? 'volume-2' : 'volume-x'} size={15} color="#66615A" />
           <Text style={styles.soundText}>{soundOn ? 'Sound on' : 'Sound off'}</Text>
         </Pressable>
 
@@ -387,7 +387,7 @@ function ConfirmedView({ trip, pending, onHome, onView }: { trip: TripRecord; pe
             </View>
             <View style={{ flexDirection: 'row', gap: 12, marginTop: 14 }}>
               <View style={styles.pins}>
-                <View style={[styles.pinDot, { borderColor: '#8D95A1', borderRadius: 4 }]} />
+                <View style={[styles.pinDot, { borderColor: '#9A958C', borderRadius: 4 }]} />
                 <View style={styles.pinLine} />
                 <View style={[styles.pinDot, { borderColor: colors.primary, borderRadius: 3 }]} />
               </View>
@@ -411,7 +411,7 @@ function ConfirmedView({ trip, pending, onHome, onView }: { trip: TripRecord; pe
               <Fact icon="clock-3" label="Pickup time" value={when ? formatTime(when).replace(/^0/, '') : trip.time} />
             </View>
             <View style={styles.catRow}>
-              <Icon name="car-front" size={18} color="#7A8494" />
+              <Icon name="car-front" size={18} color="#9A958C" />
               <View style={{ flex: 1 }}>
                 <Text style={styles.catName}>{trip.categoryName}</Text>
               </View>
@@ -420,7 +420,7 @@ function ConfirmedView({ trip, pending, onHome, onView }: { trip: TripRecord; pe
           </View>
         </View>
         <View style={styles.saved}>
-          <Icon name="shield-check" size={13} color="#7A8494" />
+          <Icon name="shield-check" size={13} color="#9A958C" />
           <Text style={styles.savedText}>Your trip is saved in My Bookings.</Text>
         </View>
       </ScrollView>
@@ -443,7 +443,7 @@ function ConfirmedView({ trip, pending, onHome, onView }: { trip: TripRecord; pe
 function Fact({ icon, label, value }: { icon: IconName; label: string; value: string }) {
   return (
     <View style={{ flex: 1, flexDirection: 'row', gap: 9 }}>
-      <Icon name={icon} size={17} color="#7A8494" />
+      <Icon name={icon} size={17} color="#9A958C" />
       <View>
         <Text style={styles.stopLabel}>{label}</Text>
         <Text style={styles.factValue}>{value}</Text>
@@ -484,40 +484,40 @@ function Action({ icon, label, onPress, accent, last }: { icon: IconName; label:
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.white },
+  root: { flex: 1, backgroundColor: colors.bg },
   scroll: { paddingHorizontal: space.xl, paddingTop: space.xl, paddingBottom: 28 },
-  bottom: { backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: '#E5E8ED', paddingHorizontal: space.xl, paddingVertical: 10 },
+  bottom: { backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: '#E8E3DC', paddingHorizontal: space.xl, paddingVertical: 10 },
   loading: { alignItems: 'center', paddingTop: 80 },
   loadingTitle: { fontFamily: fonts.semiBold, fontSize: 15, color: colors.ink },
   loadingSub: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted, marginTop: 4 },
   badges: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' },
   route: { fontFamily: fonts.bold, fontSize: 19, lineHeight: 26, color: colors.text, marginTop: 12 },
-  arrow: { fontFamily: fonts.regular, color: '#8A929E' },
-  when: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: '#6D7785', marginTop: 6, marginBottom: 6 },
-  card: { borderWidth: 1, borderColor: '#E3E7EC', borderRadius: 13, padding: 18, marginTop: 14, backgroundColor: colors.white },
+  arrow: { fontFamily: fonts.regular, color: '#9A958C' },
+  when: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: '#66615A', marginTop: 6, marginBottom: 6 },
+  card: { borderWidth: 1, borderColor: '#E8E3DC', borderRadius: 13, padding: 18, marginTop: 14, backgroundColor: colors.white },
   cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   cardTitle: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.ink, marginBottom: 12 },
   cardTitleInline: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.ink },
   rule: { height: 1, backgroundColor: colors.divider, marginVertical: 12 },
   stop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 6 },
   stopName: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.value },
-  stopAddr: { fontFamily: fonts.regular, fontSize: 11, lineHeight: 16, color: '#8A929E', marginTop: 2 },
+  stopAddr: { fontFamily: fonts.regular, fontSize: 11, lineHeight: 16, color: '#9A958C', marginTop: 2 },
   passenger: { fontFamily: fonts.regular, fontSize: 13, color: colors.value },
   passengerLabel: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.ink },
-  passengerPhone: { fontFamily: fonts.regular, fontSize: 12.5, color: '#6D7785', marginTop: 4 },
-  notes: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: '#55606F', marginTop: 4 },
+  passengerPhone: { fontFamily: fonts.regular, fontSize: 12.5, color: '#66615A', marginTop: 4 },
+  notes: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: '#66615A', marginTop: 4 },
   driverRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   driverGhost: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#F3F4F7', alignItems: 'center', justifyContent: 'center' },
   driverName: { fontFamily: fonts.semiBold, fontSize: 13.5, color: colors.ink },
-  driverMeta: { fontFamily: fonts.regular, fontSize: 11.5, lineHeight: 17, color: '#6D7785', marginTop: 2 },
-  plate: { borderWidth: 1, borderColor: '#D5DAE1', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#F6F7F9' },
+  driverMeta: { fontFamily: fonts.regular, fontSize: 11.5, lineHeight: 17, color: '#66615A', marginTop: 2 },
+  plate: { borderWidth: 1, borderColor: '#D9D2C8', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#F7F5F2' },
   plateText: { fontFamily: fonts.semiBold, fontSize: 11, color: colors.ink, letterSpacing: 0.5 },
   money: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 7 },
-  moneyLabel: { fontFamily: fonts.regular, fontSize: 13, color: '#55606F' },
+  moneyLabel: { fontFamily: fonts.regular, fontSize: 13, color: '#66615A' },
   moneyValue: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.ink },
   moneyStrong: { fontFamily: fonts.semiBold, fontSize: 15, color: colors.ink },
-  note: { marginTop: 10, backgroundColor: '#F6F8FB', borderRadius: 8, padding: 12 },
-  noteText: { fontFamily: fonts.regular, fontSize: 11.5, lineHeight: 17, color: '#6D7785' },
+  note: { marginTop: 10, backgroundColor: '#F7F5F2', borderRadius: 8, padding: 12 },
+  noteText: { fontFamily: fonts.regular, fontSize: 11.5, lineHeight: 17, color: '#66615A' },
   otp: { marginTop: 14, borderWidth: 1, borderColor: colors.warningBorder, backgroundColor: colors.warningSoft, borderRadius: 13, padding: 16, alignItems: 'center' },
   otpHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   otpTitle: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.warning },
@@ -527,37 +527,37 @@ const styles = StyleSheet.create({
   mileRail: { alignItems: 'center', width: 24 },
   mileDot: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#F0F1F4', alignItems: 'center', justifyContent: 'center' },
   mileDone: { backgroundColor: '#E6F3EB' },
-  mileCurrent: { backgroundColor: '#FFF1F1', borderWidth: 1, borderColor: '#F3C3C3' },
-  mileLine: { flex: 1, width: 1.5, backgroundColor: '#E3E6EB', marginTop: 4, marginBottom: -2 },
+  mileCurrent: { backgroundColor: '#FFF1F1', borderWidth: 1, borderColor: '#FFC5C7' },
+  mileLine: { flex: 1, width: 1.5, backgroundColor: '#E8E3DC', marginTop: 4, marginBottom: -2 },
   mileLabel: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.ink, lineHeight: 20 },
-  mileSub: { fontFamily: fonts.regular, fontSize: 11, color: '#7A8494', marginTop: 2 },
+  mileSub: { fontFamily: fonts.regular, fontSize: 11, color: '#9A958C', marginTop: 2 },
   action: { flexDirection: 'row', alignItems: 'center', gap: 13, minHeight: 52, paddingVertical: 12 },
   actionLine: { borderBottomWidth: 1, borderBottomColor: colors.divider },
   actionText: { flex: 1, fontFamily: fonts.medium, fontSize: 13, color: colors.text },
-  sound: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-end', borderWidth: 1, borderColor: '#E3E7EC', borderRadius: 16, paddingHorizontal: 11, minHeight: 32 },
-  soundText: { fontFamily: fonts.regular, fontSize: 11, color: '#6D7785' },
+  sound: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-end', borderWidth: 1, borderColor: '#E8E3DC', borderRadius: 16, paddingHorizontal: 11, minHeight: 32 },
+  soundText: { fontFamily: fonts.regular, fontSize: 11, color: '#66615A' },
   confTitle: { fontFamily: fonts.semiBold, fontSize: 28, lineHeight: 36, letterSpacing: -0.7, color: colors.ink, textAlign: 'center', marginTop: 14 },
-  confSub: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: '#55606F', textAlign: 'center', marginTop: 10, marginBottom: 22 },
-  ticket: { borderWidth: 1, borderColor: '#E3E7EC', borderRadius: 16, backgroundColor: colors.white, overflow: 'hidden' },
+  confSub: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: '#66615A', textAlign: 'center', marginTop: 10, marginBottom: 22 },
+  ticket: { borderWidth: 1, borderColor: '#E8E3DC', borderRadius: 16, backgroundColor: colors.white, overflow: 'hidden' },
   ticketHead: { backgroundColor: colors.primary, paddingHorizontal: 18, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   ticketBrand: { fontFamily: fonts.brand, fontSize: 17, letterSpacing: 2.5, color: colors.white },
   ticketLabel: { fontFamily: fonts.regular, fontSize: 11, color: '#FBD9D9' },
   ticketBody: { paddingHorizontal: 18, paddingVertical: 16 },
   refRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  refLabel: { fontFamily: fonts.regular, fontSize: 11, color: '#7A8494' },
+  refLabel: { fontFamily: fonts.regular, fontSize: 11, color: '#9A958C' },
   refValue: { fontFamily: fonts.medium, fontSize: 12, color: '#2A3A52', letterSpacing: 0.5 },
   pins: { alignItems: 'center', paddingTop: 12 },
   pinDot: { width: 9, height: 9, borderWidth: 1.5, backgroundColor: colors.white },
   pinLine: { width: 1, flex: 1, borderLeftWidth: 1, borderStyle: 'dashed', borderColor: '#CBD1D9', marginVertical: 3, minHeight: 24 },
-  stopLabel: { fontFamily: fonts.regular, fontSize: 10.5, color: '#7A8494' },
+  stopLabel: { fontFamily: fonts.regular, fontSize: 10.5, color: '#9A958C' },
   tear: { height: 18, justifyContent: 'center' },
-  tearLine: { borderTopWidth: 1, borderStyle: 'dashed', borderColor: '#D5DAE1', marginHorizontal: 12 },
-  notch: { position: 'absolute', top: 0, width: 18, height: 18, borderRadius: 9, backgroundColor: colors.white, borderWidth: 1, borderColor: '#E3E7EC' },
+  tearLine: { borderTopWidth: 1, borderStyle: 'dashed', borderColor: '#D9D2C8', marginHorizontal: 12 },
+  notch: { position: 'absolute', top: 0, width: 18, height: 18, borderRadius: 9, backgroundColor: colors.white, borderWidth: 1, borderColor: '#E8E3DC' },
   factValue: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.ink, marginTop: 2 },
-  catRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: '#EEF0F4' },
+  catRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: '#E8E3DC' },
   catName: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.ink },
   saved: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 18 },
-  savedText: { fontFamily: fonts.regular, fontSize: 11, color: '#6D7785' },
+  savedText: { fontFamily: fonts.regular, fontSize: 11, color: '#66615A' },
   viewLink: { flexDirection: 'row', alignItems: 'center', gap: 7, minHeight: 40, paddingHorizontal: 12 },
   viewLinkText: { fontFamily: fonts.medium, fontSize: 13, color: colors.primary },
 });

@@ -24,7 +24,7 @@ export function DesktopHeader({ title, subtitle, badge, onBack, actions }: Deskt
             onPress={onBack}
             style={({ pressed, hovered }: any) => [
               styles.backBtn,
-              hovered && { backgroundColor: '#F1F5F9' },
+              hovered && { backgroundColor: '#E8E3DC' },
               pressed && { opacity: 0.7 },
             ]}
             accessibilityRole="button"
@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: '#E8E3DC',
     marginBottom: space.lg,
     gap: space.md,
   },
@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E8E3DC',
     cursor: 'pointer' as any,
   },
   titleRow: {
@@ -92,9 +92,9 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   badge: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: '#FFF1F1',
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: '#FFC5C7',
     borderRadius: radius.pill,
     paddingHorizontal: 8,
     paddingVertical: 2,

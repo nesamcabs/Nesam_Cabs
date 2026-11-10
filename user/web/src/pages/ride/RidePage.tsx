@@ -30,7 +30,7 @@ import { useBooking } from '@/state/Booking';
 import { CancelDialog, SafetyDialog } from './dialogs';
 import { RatingCard } from './Rating';
 import { markRideDismissed, unmarkRideDismissed } from '@/state/rideFocus';
-import { vehicleArtUrl } from '@/lib/vehicleArt';
+import { categoryPhoto } from '@/lib/categories';
 
 const PHASE_TITLE: Record<TripRecord['phase'], string> = {
   awaiting_review: 'Booking under review',
@@ -123,7 +123,7 @@ export function RidePage() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const { profile } = useCustomerData();
-  const { startFrom } = useBooking();
+  const { startFrom, categories } = useBooking();
   const { push } = useToasts();
   const { online } = useOnline();
   const { position } = useDeviceLocation(true);
@@ -311,6 +311,8 @@ export function RidePage() {
   const showDriver = !!trip.driver && (tracking || phase === 'driver_assigned');
   const closed = phase === 'cancelled' || trip.status === 'Rejected';
   const paymentState = closed ? paymentLabel(trip).text : isPaid(trip) ? 'Paid' : trip.paymentStatus;
+  // The photo uploaded for this vehicle category in the admin panel.
+  const tripCategory = categories.find((c) => c.name === trip.categoryName);
   const driverLine = trip.driver ? [trip.driver.name, trip.driver.vehicleModel || trip.categoryName, trip.driver.vehicleNumber].filter(Boolean).join(' · ') : '';
   const hasMap = phase !== 'cancelled' && isValidLatLng(trip.pickup) && isValidLatLng(trip.drop);
 
@@ -339,7 +341,7 @@ export function RidePage() {
       <RoutePoints pickup={trip.pickup.name} drop={trip.drop.name} pickupAddress={trip.pickup.address} dropAddress={trip.drop.address} />
       <TripItinerary trip={trip} />
       <div className="mini-ride">
-        <img src={vehicleArtUrl({ name: trip.categoryName, seats: 4 })} alt="" width={96} height={63} />
+        <img src={categoryPhoto({ name: trip.categoryName, seats: tripCategory?.seats ?? 4, imageUrl: tripCategory?.imageUrl })} alt="" width={96} height={63} />
         <div className="mini-ride__info">
           <strong>{trip.categoryName}</strong>
           <small className="muted">

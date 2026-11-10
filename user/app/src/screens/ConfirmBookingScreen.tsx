@@ -236,7 +236,7 @@ export function ConfirmBookingScreen() {
               <Text style={styles.gstNote}>GST included</Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
-              {strikeTotal > 0 ? <Text style={{ fontSize: 14, color: '#697587', opacity: 0.55, textDecorationLine: 'line-through' }}>{formatINR(strikeTotal)}</Text> : null}
+              {strikeTotal > 0 ? <Text style={{ fontSize: 14, color: '#66615A', opacity: 0.55, textDecorationLine: 'line-through' }}>{formatINR(strikeTotal)}</Text> : null}
               <Text style={styles.total}>{formatINR(quote.total)}</Text>
             </View>
           </View>
@@ -383,23 +383,23 @@ function Line({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.white },
+  root: { flex: 1, backgroundColor: colors.bg },
   pad: { padding: space.xl },
   scroll: { paddingHorizontal: space.xl, paddingTop: space.xl, paddingBottom: 28 },
-  card: { borderWidth: 1, borderColor: '#E3E7EC', borderRadius: 13, padding: 18, marginBottom: 14, backgroundColor: colors.white },
+  card: { borderWidth: 1, borderColor: '#E8E3DC', borderRadius: 13, padding: 18, marginBottom: 14, backgroundColor: colors.white },
   route: { fontFamily: fonts.bold, fontSize: 17, lineHeight: 24, color: colors.text },
-  arrow: { fontFamily: fonts.regular, color: '#8A929E' },
-  when: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: '#6D7785', marginTop: 8 },
-  catRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#EEF0F4' },
+  arrow: { fontFamily: fonts.regular, color: '#9A958C' },
+  when: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: '#66615A', marginTop: 8 },
+  catRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E8E3DC' },
   cat: { fontFamily: fonts.regular, fontSize: 13.5, color: colors.text, flexShrink: 1 },
-  incl: { fontFamily: fonts.regular, fontSize: 11.5, color: '#7A8494' },
-  totalRow: { flexDirection: 'row', alignItems: 'flex-end', marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#EEF0F4' },
+  incl: { fontFamily: fonts.regular, fontSize: 11.5, color: '#9A958C' },
+  totalRow: { flexDirection: 'row', alignItems: 'flex-end', marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E8E3DC' },
   totalLabel: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.ink },
-  gstNote: { fontFamily: fonts.regular, fontSize: 10, color: '#7A8494', marginTop: 4 },
+  gstNote: { fontFamily: fonts.regular, fontSize: 10, color: '#9A958C', marginTop: 4 },
   total: { fontFamily: fonts.bold, fontSize: 24, lineHeight: 30, letterSpacing: -0.6, color: colors.ink },
   cardTitle: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.ink, marginBottom: 12 },
   line: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, paddingVertical: 8 },
-  lineLabel: { fontFamily: fonts.regular, fontSize: 12, color: '#7A8494' },
+  lineLabel: { fontFamily: fonts.regular, fontSize: 12, color: '#9A958C' },
   lineValue: { fontFamily: fonts.medium, fontSize: 12.5, color: colors.ink, flexShrink: 1, textAlign: 'right' },
   checks: { marginTop: 4 },
   waRow: { flexDirection: 'row', gap: 10 },
@@ -407,13 +407,13 @@ const styles = StyleSheet.create({
   codeBox: { minHeight: 50, borderWidth: 1, borderColor: colors.border, borderRadius: 9, justifyContent: 'center', paddingHorizontal: 10, backgroundColor: colors.white },
   rule: { height: 1, backgroundColor: colors.divider, marginVertical: 8 },
   notes: { minHeight: 76, borderWidth: 1, borderColor: colors.border, borderRadius: 6, padding: 11, fontFamily: fonts.regular, fontSize: 13, color: colors.value, textAlignVertical: 'top' },
-  small: { fontFamily: fonts.regular, fontSize: 11.5, lineHeight: 17, color: '#6D7785', marginTop: 8 },
+  small: { fontFamily: fonts.regular, fontSize: 11.5, lineHeight: 17, color: '#66615A', marginTop: 8 },
   promoRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
   promoInput: { flex: 1, minHeight: 46, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 11, fontFamily: fonts.medium, fontSize: 14, color: colors.value },
   promoFeedback: { fontFamily: fonts.medium, fontSize: 12, marginTop: 8 },
   heading: { fontFamily: fonts.semiBold, fontSize: 15, color: colors.ink, marginTop: 10, marginBottom: 12 },
   payNow: { fontFamily: fonts.bold, fontSize: 13, color: colors.ink, textAlign: 'right' },
-  payNowSub: { fontFamily: fonts.regular, fontSize: 10, color: '#7A8494' },
-  policy: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 19, color: '#55606F' },
-  bottom: { backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: '#E5E8ED', paddingHorizontal: space.xl, paddingVertical: 10 },
+  payNowSub: { fontFamily: fonts.regular, fontSize: 10, color: '#9A958C' },
+  policy: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 19, color: '#66615A' },
+  bottom: { backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: '#E8E3DC', paddingHorizontal: space.xl, paddingVertical: 10 },
 });

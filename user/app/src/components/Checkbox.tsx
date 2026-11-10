@@ -15,6 +15,6 @@ export function Checkbox({ checked, onChange, label, tone = colors.primary }: { 
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'flex-start', gap: 11, paddingVertical: 10, minHeight: 44 },
-  box: { width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: '#8D95A1', alignItems: 'center', justifyContent: 'center', marginTop: 1, backgroundColor: colors.white },
-  label: { flex: 1, fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 18, color: '#55606F' },
+  box: { width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: '#9A958C', alignItems: 'center', justifyContent: 'center', marginTop: 1, backgroundColor: colors.white },
+  label: { flex: 1, fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 18, color: '#66615A' },
 });

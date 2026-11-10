@@ -98,11 +98,11 @@ export function toneOf(n: Pick<PartnerNotification, 'category' | 'severity'>): T
 }
 
 export const TONE_COLORS: Record<Tone, { bg: string; border: string; bar: string; text: string }> = {
-  blue: { bg: '#EFF6FF', border: '#93C5FD', bar: '#2563EB', text: '#1E3A8A' },
-  green: { bg: '#F0FDF4', border: '#86EFAC', bar: '#16A34A', text: '#14532D' },
+  blue: { bg: '#EFF6FF', border: '#93C5FD', bar: '#2563C9', text: '#1E3A8A' },
+  green: { bg: '#F0FDF4', border: '#86EFAC', bar: '#2A7555', text: '#14532D' },
   orange: { bg: '#FFF7ED', border: '#FDBA74', bar: '#F97316', text: '#7C2D12' },
-  red: { bg: '#FEF2F2', border: '#FCA5A5', bar: '#DC2626', text: '#7F1D1D' },
+  red: { bg: '#FFF1F1', border: '#FCA5A5', bar: '#E31E24', text: '#7F1D1D' },
   purple: { bg: '#FAF5FF', border: '#D8B4FE', bar: '#9333EA', text: '#581C87' },
   amber: { bg: '#FFFBEB', border: '#FCD34D', bar: '#F59E0B', text: '#78350F' },
-  neutral: { bg: '#FFFFFF', border: '#D1D5DB', bar: '#6B7280', text: '#1F2937' },
+  neutral: { bg: '#FFFFFF', border: '#D9D2C8', bar: '#66615A', text: '#1F2937' },
 };

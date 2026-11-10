@@ -20,7 +20,7 @@ export type RootStackParamList = {
   ChooseRide: undefined;
   ConfirmBooking: undefined;
   PaymentHistory: undefined;
-  LegalDocuments: undefined;
+  LegalDocuments: { section?: 'terms' | 'privacy' | 'cancellation' | 'refund' | 'payment' | 'deletion' } | undefined;
   Settings: undefined;
 };
 

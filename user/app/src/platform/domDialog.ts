@@ -24,7 +24,7 @@ export interface DialogOptions {
 
 const BRAND = '#E31E24';
 const INK = '#111111';
-const MUTED = '#6B7280';
+const MUTED = '#66615A';
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, css: string, text?: string): HTMLElementTagNameMap[K] {
@@ -90,7 +90,7 @@ export function showDialog(options: DialogOptions): () => void {
   const buttonEls = buttons.map((b) => {
     const isPrimary = b.style !== 'cancel';
     const color = b.style === 'destructive' ? '#D92D20' : isPrimary ? '#fff' : MUTED;
-    const bg = b.style === 'destructive' ? '#FEF2F2' : isPrimary ? BRAND : '#F3F4F6';
+    const bg = b.style === 'destructive' ? '#FFF1F1' : isPrimary ? BRAND : '#F3F4F6';
     const node = el(
       'button',
       `flex:${buttons.length > 2 ? 'none' : '1'};min-height:44px;padding:0 16px;border:0;border-radius:12px;cursor:pointer;font:700 14px ${FONT};color:${color};background:${bg};`,

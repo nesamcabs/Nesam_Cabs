@@ -118,8 +118,8 @@ export function SavedPlacesScreen() {
               onChange={setKind}
             />
             <Pressable style={styles.pick} onPress={() => setSearchOpen(true)} accessibilityRole="button" accessibilityLabel="Search for the address">
-              <Icon name="search" size={18} color="#8D95A1" />
-              <Text style={[styles.pickText, !picked && { color: '#99A1AD' }]} numberOfLines={2}>
+              <Icon name="search" size={18} color="#9A958C" />
+              <Text style={[styles.pickText, !picked && { color: '#9A958C' }]} numberOfLines={2}>
                 {picked ? `${picked.name} — ${picked.address}` : 'City, area or landmark'}
               </Text>
             </Pressable>
@@ -151,7 +151,7 @@ export function SavedPlacesScreen() {
                     <TextButton title="Use as pickup" icon="arrow-up-right" size={11} disabled={!usable} onPress={() => pickupFrom(p)} accessibilityLabel={`Use ${p.name} as pickup`} />
                     <TextButton title="Edit" icon="pencil" size={11} onPress={() => startEdit(p)} accessibilityLabel={`Edit ${p.name}`} />
                     <View style={{ flex: 1 }} />
-                    <TextButton title={deleting === p.id ? 'Removing…' : 'Delete'} icon="trash-2" size={11} color="#8A929E" disabled={deleting === p.id} onPress={() => remove(p)} accessibilityLabel={`Delete ${p.name}`} />
+                    <TextButton title={deleting === p.id ? 'Removing…' : 'Delete'} icon="trash-2" size={11} color="#9A958C" disabled={deleting === p.id} onPress={() => remove(p)} accessibilityLabel={`Delete ${p.name}`} />
                   </View>
                 </View>
               );
@@ -169,18 +169,18 @@ export function SavedPlacesScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.white },
+  root: { flex: 1, backgroundColor: colors.bg },
   page: { paddingHorizontal: space.xl, paddingTop: space.md, paddingBottom: space.xxl },
-  card: { borderWidth: 1, borderColor: '#E3E7EC', borderRadius: 13, padding: 18, marginBottom: 14, backgroundColor: colors.white },
+  card: { borderWidth: 1, borderColor: '#E8E3DC', borderRadius: 13, padding: 18, marginBottom: 14, backgroundColor: colors.white },
   cardTitle: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.ink, marginBottom: 12 },
   pick: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 12, marginVertical: 14, minHeight: 48 },
   pickText: { fontFamily: fonts.regular, fontSize: 13.5, color: colors.value, flex: 1, paddingVertical: 8 },
   row: { flexDirection: 'row', gap: 10 },
-  list: { borderWidth: 1, borderColor: '#E3E7EC', borderRadius: 13, paddingHorizontal: 18, backgroundColor: colors.white },
+  list: { borderWidth: 1, borderColor: '#E8E3DC', borderRadius: 13, paddingHorizontal: 18, backgroundColor: colors.white },
   item: { paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: colors.divider },
   itemHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   name: { fontFamily: fonts.regular, fontSize: 15, color: colors.ink },
-  addr: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: '#6D7785', marginTop: 8 },
+  addr: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: '#66615A', marginTop: 8 },
   warn: { fontFamily: fonts.medium, fontSize: 11, color: colors.warning, marginTop: 4 },
   actions: { flexDirection: 'row', alignItems: 'center', gap: 18, marginTop: 10 },
 });

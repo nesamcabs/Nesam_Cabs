@@ -117,7 +117,7 @@ export function UserDesktopSidebar({ state, navigation }: BottomTabBarProps) {
             onPress={() => void signOutUser()}
             style={({ pressed, hovered }: any) => [
               styles.signOutBtn,
-              hovered && { backgroundColor: '#FEE2E2' },
+              hovered && { backgroundColor: '#FFDDDD' },
               pressed && { opacity: 0.7 },
             ]}
             accessibilityRole="button"
@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
     width: 260,
     backgroundColor: '#FFFFFF',
     borderRightWidth: 1,
-    borderRightColor: '#E2E8F0',
+    borderRightColor: '#E8E3DC',
     flexDirection: 'column',
     height: '100%',
     paddingTop: space.lg,
@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
   brandContainer: {
     paddingBottom: space.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: '#E8E3DC',
     marginBottom: space.md,
   },
   brandRow: {
@@ -175,14 +175,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F7F5F2',
     borderRadius: radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 4,
     alignSelf: 'flex-start',
     marginTop: space.sm,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E8E3DC',
   },
   dot: {
     width: 6,
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     fontSize: 11,
     fontWeight: '700',
-    color: '#475569',
+    color: '#66615A',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.extraBold,
     fontSize: 11,
     fontWeight: '800',
-    color: '#94A3B8',
+    color: '#9A958C',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginBottom: 6,
@@ -222,16 +222,16 @@ const styles = StyleSheet.create({
     cursor: 'pointer' as any,
   },
   navItemHovered: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F7F5F2',
   },
   navItemActive: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: '#FFF1F1',
   },
   navLabel: {
     fontFamily: fonts.semiBold,
     fontSize: 14,
     fontWeight: '600',
-    color: '#475569',
+    color: '#66615A',
     flex: 1,
   },
   navLabelActive: {
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   badge: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#E8E3DC',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: radius.pill,
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.extraBold,
     fontSize: 11,
     fontWeight: '800',
-    color: '#475569',
+    color: '#66615A',
   },
   badgeTextActive: {
     fontFamily: fonts.extraBold,
@@ -262,18 +262,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.sm,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F7F5F2',
     borderRadius: radius.md,
     padding: space.sm,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E8E3DC',
     marginBottom: space.sm,
   },
   supportIconWrap: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: '#FFF1F1',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     fontSize: 11,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#66615A',
   },
   supportPhone: {
     fontFamily: fonts.extraBold,
@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
   footer: {
     paddingTop: space.sm,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: '#E8E3DC',
   },
   userRow: {
     flexDirection: 'row',
@@ -303,11 +303,11 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: '#FFF1F1',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: '#FFC5C7',
   },
   avatarText: {
     fontFamily: fonts.extraBold,

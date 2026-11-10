@@ -66,7 +66,7 @@ export function SettingsScreen() {
                 setSound(v);
                 void setConfirmationSound(v);
               }}
-              trackColor={{ true: '#E59A9A', false: '#D5DAE1' }}
+              trackColor={{ true: '#E59A9A', false: '#D9D2C8' }}
               thumbColor={sound ? colors.primary : '#F4F5F7'}
               accessibilityLabel="Booking confirmation sound"
             />
@@ -99,9 +99,9 @@ export function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.white },
+  root: { flex: 1, backgroundColor: colors.bg },
   page: { paddingHorizontal: space.xl, paddingTop: space.md, paddingBottom: space.xxl },
   soundRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 6 },
   head: { fontFamily: fonts.semiBold, fontSize: 15, color: colors.ink, marginBottom: 6 },
-  text: { fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: '#55606F' },
+  text: { fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: '#66615A' },
 });

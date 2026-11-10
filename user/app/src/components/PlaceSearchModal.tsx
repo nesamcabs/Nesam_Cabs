@@ -149,12 +149,12 @@ function PlaceSearchBody({
       <Frame kind="narrow" style={styles.frame}>
         <PageHead title={title} subtitle={subtitle} onBack={onClose} />
         <View style={styles.searchBox}>
-          <Icon name="search" size={18} color="#8D95A1" />
+          <Icon name="search" size={18} color="#9A958C" />
           <TextInput
             value={text}
             onChangeText={setText}
             placeholder="City, area or landmark"
-            placeholderTextColor="#8D95A1"
+            placeholderTextColor="#9A958C"
             autoFocus
             style={styles.input}
             returnKeyType="search"
@@ -164,7 +164,7 @@ function PlaceSearchBody({
           {loading ? <ActivityIndicator size="small" color={colors.primary} /> : null}
           {text ? (
             <Pressable onPress={() => setText('')} hitSlop={10} accessibilityRole="button" accessibilityLabel="Clear search">
-              <Icon name="x" size={16} color="#8D95A1" />
+              <Icon name="x" size={16} color="#9A958C" />
             </Pressable>
           ) : null}
         </View>
@@ -253,9 +253,9 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   currentText: { fontFamily: fonts.medium, fontSize: 13.5, color: colors.value },
-  group: { fontFamily: fonts.medium, fontSize: 9.5, color: '#7E8691', textTransform: 'uppercase', letterSpacing: 1, paddingTop: 24, paddingBottom: 6 },
+  group: { fontFamily: fonts.medium, fontSize: 9.5, color: '#9A958C', textTransform: 'uppercase', letterSpacing: 1, paddingTop: 24, paddingBottom: 6 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 15, minHeight: 64, borderBottomWidth: 1, borderBottomColor: colors.divider },
   name: { fontFamily: fonts.medium, fontSize: 13, color: colors.text },
-  addr: { fontFamily: fonts.regular, fontSize: 10.5, color: '#8A929E', marginTop: 3 },
+  addr: { fontFamily: fonts.regular, fontSize: 10.5, color: '#9A958C', marginTop: 3 },
   hint: { fontFamily: fonts.regular, fontSize: 12, textAlign: 'center', color: colors.muted, marginTop: space.xl },
 });

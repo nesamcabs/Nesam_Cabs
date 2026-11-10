@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 6, gap: 12 },
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   label: { fontFamily: fonts.regular, fontSize: 13, color: colors.text },
-  detail: { fontFamily: fonts.regular, fontSize: 10.5, color: '#8A929E', marginTop: 2 },
+  detail: { fontFamily: fonts.regular, fontSize: 10.5, color: '#9A958C', marginTop: 2 },
   value: { fontFamily: fonts.semiBold, fontSize: 13, color: colors.ink },
   total: { borderTopWidth: 1, borderTopColor: colors.divider, marginTop: 6, paddingTop: 12 },
   totalText: { fontFamily: fonts.semiBold, fontSize: 16, color: colors.ink },

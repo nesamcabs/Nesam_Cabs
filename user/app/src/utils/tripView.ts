@@ -48,9 +48,9 @@ export function customerStatus(t: TripRecord, now = Date.now()): { label: string
 /** Status chip text + colours; the text always carries the meaning, colour only reinforces it. */
 export function tripStatusChip(t: TripRecord, now = Date.now()): { label: string; fg: string; bg: string } {
   const blue = { fg: '#1D4ED8', bg: '#E0EDFF' };
-  const green = { fg: '#15803D', bg: '#DCFCE7' };
+  const green = { fg: '#15803D', bg: '#EEF7F2' };
   const amber = { fg: '#B45309', bg: '#FEF3C7' };
-  const red = { fg: '#B91C1C', bg: '#FEE2E2' };
+  const red = { fg: '#B91C1C', bg: '#FFDDDD' };
   const { label } = customerStatus(t, now);
   if (t.status === 'Rejected') return { label, ...red };
   switch (t.phase) {

@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
+import { View } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { navigationRef } from './navigationRef';
@@ -22,6 +23,9 @@ import { LegalDocumentsScreen } from '../screens/LegalDocumentsScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { BookingDraftProvider } from '../context/BookingDraft';
 import { NotificationPopups } from '../components/NotificationPopups';
+import { SideDrawer } from '../components/SideDrawer';
+import { DrawerProvider } from '../context/Drawer';
+import { DockPadding } from '../context/Dock';
 import { useInbox } from '../context/Inbox';
 import { markNotificationRead } from '../services/partnerNotifications';
 import { onPushOpened } from '../services/notificationService';
@@ -38,18 +42,21 @@ interface RideFocus {
 const RideFocusCtx = createContext<RideFocus>({ dismiss: () => undefined, undismiss: () => undefined });
 export const useRideFocus = () => useContext(RideFocusCtx);
 
-// The reference's five-item navigation replaces the stock tab bar: the four services all
-// open the Book tab; My Bookings and Notifications are reached from Account and the header,
-// and highlight Account like the reference does for every non-home page.
-function tabActive(name?: string): 'rental' | 'account' | undefined {
+// The website's floating bar (Outstation · Multicity · Local · Airport · Profile) sits under every tab page. The
+// service tabs follow the service chosen on the booking form; Profile lights up on the account page; My Bookings and
+// Notifications belong to none of them (they open from the side menu and the header).
+function tabActive(name?: string): 'rental' | 'account' | null | undefined {
   if (name === 'Book') return undefined;
-  return name === 'Rentals' ? 'rental' : 'account';
+  if (name === 'Rentals') return 'rental';
+  if (name === 'Account') return 'account';
+  return null;
 }
 
 function Tabs() {
   return (
+    <DockPadding>
     <Tab.Navigator
-      initialRouteName="Rentals"
+      initialRouteName="Book"
       tabBar={(props) => <BottomNav active={tabActive(props.state.routes[props.state.index]?.name)} />}
       screenOptions={{ headerShown: false, tabBarPosition: 'bottom' }}
     >
@@ -59,8 +66,32 @@ function Tabs() {
       <Tab.Screen name="Alerts" component={NotificationsScreen} options={{ title: 'Notifications' }} />
       <Tab.Screen name="Account" component={AccountScreen} options={{ title: 'Account' }} />
     </Tab.Navigator>
+    </DockPadding>
   );
 }
+
+/** Pages that keep the website's bottom bar even though they open above the tabs (support, offers, account pages, policies). */
+function withDock<P extends object>(Page: React.ComponentType<P>): React.ComponentType<P> {
+  function Docked(props: P) {
+    return (
+      <DockPadding>
+        <View style={{ flex: 1 }}>
+          <Page {...props} />
+          <BottomNav active={null} />
+        </View>
+      </DockPadding>
+    );
+  }
+  Docked.displayName = `Docked(${Page.displayName ?? Page.name ?? 'Page'})`;
+  return Docked;
+}
+const SavedPlaces = withDock(SavedPlacesScreen);
+const Offers = withDock(OffersScreen);
+const Support = withDock(SupportScreen);
+const EditProfile = withDock(EditProfileScreen);
+const PaymentHistory = withDock(PaymentHistoryScreen);
+const LegalDocuments = withDock(LegalDocumentsScreen);
+const Settings = withDock(SettingsScreen);
 
 /** Where a notification's call-to-action (or a tapped push) leads. */
 function openPage(page: string) {
@@ -129,6 +160,7 @@ export function MainNavigator() {
   return (
     <RideFocusCtx.Provider value={focus}>
       <BookingDraftProvider>
+      <DrawerProvider>
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
@@ -140,18 +172,20 @@ export function MainNavigator() {
       >
         <Stack.Screen name="Tabs" component={Tabs} />
         <Stack.Screen name="ActiveRide" component={ActiveRideScreen} />
-        <Stack.Screen name="SavedPlaces" component={SavedPlacesScreen} />
-        <Stack.Screen name="Offers" component={OffersScreen} />
-        <Stack.Screen name="Support" component={SupportScreen} />
-        <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+        <Stack.Screen name="SavedPlaces" component={SavedPlaces} />
+        <Stack.Screen name="Offers" component={Offers} />
+        <Stack.Screen name="Support" component={Support} />
+        <Stack.Screen name="EditProfile" component={EditProfile} />
         <Stack.Screen name="ChooseRide" component={ChooseRideScreen} />
         <Stack.Screen name="ConfirmBooking" component={ConfirmBookingScreen} />
-        <Stack.Screen name="PaymentHistory" component={PaymentHistoryScreen} />
-        <Stack.Screen name="LegalDocuments" component={LegalDocumentsScreen} />
-        <Stack.Screen name="Settings" component={SettingsScreen} />
+        <Stack.Screen name="PaymentHistory" component={PaymentHistory} />
+        <Stack.Screen name="LegalDocuments" component={LegalDocuments} />
+        <Stack.Screen name="Settings" component={Settings} />
       </Stack.Navigator>
       <RideAutoFocus dismissed={dismissed} />
       <InboxOverlays />
+      <SideDrawer />
+      </DrawerProvider>
       </BookingDraftProvider>
     </RideFocusCtx.Provider>
   );

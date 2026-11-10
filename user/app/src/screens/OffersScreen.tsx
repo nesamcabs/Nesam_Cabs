@@ -72,13 +72,13 @@ export function OffersScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.white },
+  root: { flex: 1, backgroundColor: colors.bg },
   page: { paddingHorizontal: space.xl, paddingTop: space.md, paddingBottom: space.xxl },
   loading: { fontFamily: fonts.medium, textAlign: 'center', marginTop: space.xl, color: colors.muted, fontSize: 13 },
-  card: { borderWidth: 1, borderColor: '#E3E7EC', borderRadius: 10, padding: 16, backgroundColor: colors.white },
+  card: { borderWidth: 1, borderColor: '#E8E3DC', borderRadius: 10, padding: 16, backgroundColor: colors.white },
   tag: { alignSelf: 'flex-start', backgroundColor: '#FFF1F1', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 5, marginBottom: 10 },
   tagText: { fontFamily: fonts.bold, color: colors.primary, fontSize: 10, letterSpacing: 0.4 },
   title: { fontFamily: fonts.semiBold, fontSize: 15, color: colors.ink },
-  desc: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: '#55606F', marginTop: 4 },
-  terms: { fontFamily: fonts.regular, fontSize: 11, color: '#7A8494', marginTop: 6 },
+  desc: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: '#66615A', marginTop: 4 },
+  terms: { fontFamily: fonts.regular, fontSize: 11, color: '#9A958C', marginTop: 6 },
 });

@@ -27,6 +27,7 @@ import { useResponsive, type ContentKind } from '../theme/responsive';
 import { ScrollView, useContentStyle } from './layout';
 import { initials } from '../utils/format';
 import { Icon, type IconName } from './Icon';
+import { useDockPad } from '../context/Dock';
 
 // ── Layout ──────────────────────────────────────────────────────────────────
 
@@ -55,17 +56,18 @@ export function Screen({
   kind?: ContentKind;
 }) {
   const content = useContentStyle(kind);
+  const dockPad = useDockPad();
   const body = scroll ? (
     <ScrollView
       kind={kind}
-      contentContainerStyle={[padded && styles.padded, { paddingBottom: space.xxl }]}
+      contentContainerStyle={[padded && styles.padded, { paddingBottom: space.xxl + dockPad }]}
       keyboardShouldPersistTaps="handled"
       refreshControl={refreshControl}
     >
       {children}
     </ScrollView>
   ) : (
-    <View style={[{ flex: 1 }, content, padded && styles.padded]}>{children}</View>
+    <View style={[{ flex: 1, paddingBottom: dockPad }, content, padded && styles.padded]}>{children}</View>
   );
   return (
     <SafeAreaView style={[styles.screen, bg ? { backgroundColor: bg } : null]} edges={edges}>
@@ -92,7 +94,7 @@ export function PageHead({ title, subtitle, onBack, right }: { title: string; su
     <View style={styles.pageHead}>
       {onBack ? (
         <Pressable onPress={onBack} hitSlop={6} accessibilityRole="button" accessibilityLabel="Back" style={({ pressed }) => [styles.back, pressed && styles.pressed]}>
-          <Icon name="arrow-left" size={17} color="#757880" />
+          <Icon name="arrow-left" size={17} color="#9A958C" />
         </Pressable>
       ) : null}
       <View style={{ flex: 1, minWidth: 0 }}>
@@ -316,10 +318,10 @@ export function Button({
 
 const BUTTON_VARIANTS: Record<ButtonVariant, { bg: string; fg: string; border: string; pressed: string }> = {
   primary: { bg: colors.primary, fg: colors.white, border: colors.primary, pressed: colors.primaryDark },
-  secondary: { bg: colors.white, fg: colors.ink, border: colors.border, pressed: colors.subtle },
+  secondary: { bg: colors.white, fg: colors.ink, border: colors.borderStrong, pressed: colors.subtle },
   danger: { bg: colors.white, fg: colors.primary, border: colors.primaryBorder, pressed: colors.primarySoft },
   ghost: { bg: 'transparent', fg: colors.primary, border: 'transparent', pressed: colors.primarySoft },
-  dark: { bg: colors.navy, fg: colors.white, border: colors.navy, pressed: '#0F151D' },
+  dark: { bg: colors.navy, fg: colors.white, border: colors.navy, pressed: '#000000' },
   success: { bg: colors.successStrong, fg: colors.white, border: colors.successStrong, pressed: colors.success },
 };
 
@@ -476,7 +478,7 @@ export function Tabs<T extends string>({ options, value, onChange }: { options: 
         const on = o.value === value;
         return (
           <Pressable key={o.value} accessibilityRole="tab" accessibilityState={{ selected: on }} onPress={() => onChange(o.value)} style={[styles.tab, on && styles.tabOn]}>
-            <Text style={[styles.tabText, on && styles.tabTextOn]}>{o.label}</Text>
+            <Text style={[styles.tabText, options.length > 2 && styles.tabTextSmall, on && styles.tabTextOn]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{o.label}</Text>
           </Pressable>
         );
       })}
@@ -546,7 +548,7 @@ export function RadioCard({
 type NoticeTone = 'error' | 'info' | 'success' | 'warning';
 const NOTICE: Record<NoticeTone, { bg: string; border: string; fg: string; icon: IconName }> = {
   error: { bg: '#FFF4F3', border: colors.primaryBorder, fg: colors.primaryDark, icon: 'info' },
-  info: { bg: colors.surface, border: colors.divider, fg: '#55606F', icon: 'info' },
+  info: { bg: colors.surface, border: colors.divider, fg: '#66615A', icon: 'info' },
   success: { bg: colors.successSoft, border: colors.successBorder, fg: colors.success, icon: 'circle-check' },
   warning: { bg: colors.warningSoft, border: colors.warningBorder, fg: colors.warning, icon: 'info' },
 };
@@ -610,7 +612,7 @@ export function EmptyState({
     <View style={styles.empty}>
       {icon ? (
         <View style={{ marginBottom: space.md }}>
-          <Icon name={icon} size={30} color="#7A8494" strokeWidth={1.6} />
+          <Icon name={icon} size={30} color="#9A958C" strokeWidth={1.6} />
         </View>
       ) : image ? (
         <Image source={image} style={[styles.emptyImage, imageStyle]} resizeMode="contain" accessible={false} importantForAccessibility="no" />
@@ -624,7 +626,7 @@ export function EmptyState({
 
 export type BadgeTone = 'neutral' | 'success' | 'warning' | 'danger' | 'info' | 'brand';
 const BADGE: Record<BadgeTone, { bg: string; fg: string }> = {
-  neutral: { bg: '#F0F3F7', fg: '#465265' },
+  neutral: { bg: '#E8E3DC', fg: '#66615A' },
   success: { bg: colors.successSoft, fg: colors.success },
   warning: { bg: colors.warningSoft, fg: colors.warning },
   danger: { bg: '#FFF1F1', fg: colors.primary },
@@ -689,7 +691,7 @@ export function Sheet({
               </View>
               {dismissible ? (
                 <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" hitSlop={8} style={({ pressed }) => [styles.sheetClose, pressed && styles.pressed]}>
-                  <Icon name="x" size={18} color="#757880" />
+                  <Icon name="x" size={18} color="#9A958C" />
                 </Pressable>
               ) : null}
             </View>
@@ -704,7 +706,7 @@ export function Sheet({
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.white },
+  screen: { flex: 1, backgroundColor: colors.bg },
   padded: { paddingHorizontal: space.xl, paddingTop: space.xl },
   pressed: { opacity: 0.72 },
   footer: {
@@ -712,14 +714,14 @@ const styles = StyleSheet.create({
     paddingVertical: space.md,
     backgroundColor: colors.white,
     borderTopWidth: 1,
-    borderTopColor: '#E5E8ED',
+    borderTopColor: '#E8E3DC',
   },
   card: {
     backgroundColor: colors.card,
-    borderRadius: radius.xl,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: '#E3E7EC',
-    padding: 18,
+    borderColor: colors.border,
+    padding: 16,
     marginBottom: space.md,
   },
   pageHead: { flexDirection: 'row', alignItems: 'center', gap: space.md, marginBottom: space.xl },
@@ -728,13 +730,13 @@ const styles = StyleSheet.create({
     height: 38,
     borderRadius: 11,
     borderWidth: 1,
-    borderColor: '#E3E7EC',
+    borderColor: '#E8E3DC',
     backgroundColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',
   },
   pageTitle: { ...type.h1 },
-  pageSub: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: '#6D7785', marginTop: 4 },
+  pageSub: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: '#66615A', marginTop: 4 },
   steps: { flexDirection: 'row', gap: 6, marginBottom: space.xl },
   step: { flex: 1, height: 3, borderRadius: 3, backgroundColor: '#E0E5E1' },
   stepOn: { backgroundColor: colors.primary },
@@ -742,21 +744,21 @@ const styles = StyleSheet.create({
   sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: space.md, marginTop: space.sm },
   sectionTitle: { fontFamily: fonts.semiBold, fontSize: 15, color: colors.ink, letterSpacing: -0.2 },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 8, gap: space.md },
-  rowLabel: { fontFamily: fonts.regular, fontSize: 13, color: '#55606F' },
-  rowHint: { fontFamily: fonts.regular, fontSize: 10, color: '#8A929E', marginTop: 2 },
+  rowLabel: { fontFamily: fonts.regular, fontSize: 13, color: '#66615A' },
+  rowHint: { fontFamily: fonts.regular, fontSize: 10, color: '#9A958C', marginTop: 2 },
   rowValue: { flexShrink: 1, fontFamily: fonts.semiBold, fontSize: 13, color: colors.ink, textAlign: 'right' },
   bold: { fontFamily: fonts.semiBold, color: colors.ink, fontSize: 16 },
   boldValue: { fontFamily: fonts.bold, color: colors.ink, fontSize: 17 },
   divider: { height: 1, backgroundColor: colors.divider, marginVertical: space.md },
-  menuGroup: { borderRadius: radius.xl, borderWidth: 1, borderColor: '#E3E7EC', paddingHorizontal: 15, paddingVertical: 2, backgroundColor: colors.white, marginBottom: 14 },
+  menuGroup: { borderRadius: radius.lg, borderWidth: 1, borderColor: '#E8E3DC', paddingHorizontal: 15, paddingVertical: 2, backgroundColor: colors.white, marginBottom: 14 },
   menuDivider: { borderTopWidth: 1, borderTopColor: colors.divider },
   menuRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, minHeight: 64 },
-  menuIcon: { width: 35, height: 35, borderRadius: 10, backgroundColor: '#F6F7F9', alignItems: 'center', justifyContent: 'center' },
-  menuTitle: { fontFamily: fonts.medium, fontSize: 13, lineHeight: 19.5, color: colors.text },
+  menuIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  menuTitle: { fontFamily: fonts.semiBold, fontSize: 14, lineHeight: 20, color: colors.ink },
   menuSub: { fontFamily: fonts.regular, fontSize: 10.5, lineHeight: 15, color: '#9499A3', marginTop: 2 },
   menuCount: { minWidth: 22, paddingHorizontal: 5, paddingVertical: 3, borderRadius: 6, backgroundColor: '#FFF2F2', alignItems: 'center' },
   menuCountText: { fontFamily: fonts.medium, fontSize: 10, color: colors.primary },
-  faqItem: { borderBottomWidth: 1, borderBottomColor: '#E3E6EB' },
+  faqItem: { borderBottomWidth: 1, borderBottomColor: '#E8E3DC' },
   faqSummary: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.md, paddingVertical: 17, minHeight: 54 },
   faqTitle: { flex: 1, fontFamily: fonts.medium, fontSize: 12.5, lineHeight: 19, color: '#343D4B' },
   faqAnswer: { paddingRight: 22, paddingBottom: 17 },
@@ -766,7 +768,7 @@ const styles = StyleSheet.create({
   btn: {
     minHeight: 48,
     paddingHorizontal: 15,
-    borderRadius: radius.md,
+    borderRadius: radius.sm,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -776,65 +778,66 @@ const styles = StyleSheet.create({
   },
   btnSmall: { minHeight: 38, paddingHorizontal: space.md, gap: 6 },
   btnDisabled: { opacity: 0.5, cursor: 'not-allowed' as any },
-  btnText: { fontFamily: fonts.semiBold, fontSize: 14.5, textAlign: 'center', flexShrink: 1 },
+  btnText: { fontFamily: fonts.semiBold, fontSize: 15, letterSpacing: 0.3, textAlign: 'center', flexShrink: 1 },
   btnTextSmall: { fontSize: 12.5 },
   textBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 6, minHeight: 34 },
   textBtnText: { fontFamily: fonts.medium },
   link: { color: colors.link, fontFamily: fonts.medium, fontSize: 13, cursor: 'pointer' as any },
   flowFooterRow: { flexDirection: 'row', gap: space.md },
   flowFooterBtn: { flex: 1, minHeight: 46 },
-  fieldLabel: { fontFamily: fonts.regular, fontSize: 11.5, color: '#697587', marginBottom: 6 },
+  fieldLabel: { fontFamily: fonts.bold, fontSize: 11, letterSpacing: 0.4, textTransform: 'uppercase', color: '#66615A', marginBottom: 6 },
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.sm,
-    paddingHorizontal: 11,
-    minHeight: 46,
+    borderColor: '#DAC0C9',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    minHeight: 50,
   },
-  inputFocused: { borderColor: '#B7BEC9' },
-  inputError: { borderColor: colors.primary, backgroundColor: '#FFFBFB' },
+  inputFocused: { borderColor: colors.primary },
+  inputError: { borderColor: colors.danger, backgroundColor: '#FFFBFA' },
   inputDisabled: { backgroundColor: '#F4F6F9', borderColor: '#E7EAEF' },
-  prefix: { color: '#697587', fontFamily: fonts.medium, marginRight: 8, fontSize: 15 },
-  input: { flex: 1, fontFamily: fonts.medium, fontSize: 15, color: colors.value, paddingVertical: 11, letterSpacing: -0.2 },
+  prefix: { color: '#66615A', fontFamily: fonts.medium, marginRight: 8, fontSize: 15 },
+  input: { flex: 1, fontFamily: fonts.semiBold, fontSize: 15, color: colors.ink, paddingVertical: 11 },
   inputMultiline: { minHeight: 84, textAlignVertical: 'top' },
   errorText: { color: colors.primaryDark, fontFamily: fonts.medium, fontSize: 12, marginTop: 5 },
-  hint: { color: '#6D7785', fontFamily: fonts.regular, fontSize: 11, marginTop: 5 },
-  segment: { flexDirection: 'row', backgroundColor: '#F6F7F9', borderRadius: 11, borderWidth: 1, borderColor: '#ECEEF2', padding: 4, gap: 4 },
-  segmentItem: { flex: 1, minHeight: 40, paddingVertical: 10, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, borderWidth: 1, borderColor: 'transparent' },
-  segmentOn: { backgroundColor: colors.white, borderColor: '#E3E6EB', ...shadows.sm },
-  segmentText: { fontFamily: fonts.medium, fontSize: 12.5, color: '#666D79' },
-  segmentTextOn: { color: colors.primary },
-  tabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#E7EAEE' },
-  tab: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 12, minHeight: 44, borderBottomWidth: 2, borderBottomColor: 'transparent', marginBottom: -1 },
-  tabOn: { borderBottomColor: colors.primary },
-  tabText: { fontFamily: fonts.medium, fontSize: 13, color: '#7B8390' },
-  tabTextOn: { fontFamily: fonts.semiBold, color: colors.primary },
+  hint: { color: '#66615A', fontFamily: fonts.regular, fontSize: 11, marginTop: 5 },
+  segment: { flexDirection: 'row', backgroundColor: '#FCE6E7', borderRadius: 4, padding: 5, gap: 4 },
+  segmentItem: { flex: 1, minHeight: 42, paddingVertical: 8, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center', borderRadius: 4 },
+  segmentOn: { backgroundColor: colors.primary },
+  segmentText: { fontFamily: fonts.bold, fontSize: 14.5, color: '#8B2128' },
+  segmentTextOn: { color: colors.white },
+  tabs: { flexDirection: 'row', backgroundColor: '#FCE6E7', borderRadius: 4, padding: 5, gap: 4 },
+  tab: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8, minHeight: 44, borderRadius: 4 },
+  tabOn: { backgroundColor: colors.primary },
+  tabText: { fontFamily: fonts.bold, fontSize: 15, color: '#8B2128' },
+  tabTextSmall: { fontSize: 13 },
+  tabTextOn: { color: colors.white },
   chip: {
     flexGrow: 1,
     flexBasis: 0,
     minHeight: 38,
     paddingHorizontal: 6,
     paddingVertical: 9,
-    borderRadius: 8,
+    borderRadius: 4,
     backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: '#E3E7EC',
+    borderColor: colors.borderStrong,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  chipOn: { backgroundColor: '#FFF1F1', borderColor: '#F3C3C3' },
-  chipText: { fontFamily: fonts.medium, fontSize: 11, color: colors.text },
+  chipOn: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
+  chipText: { fontFamily: fonts.semiBold, fontSize: 11.5, color: colors.text },
   chipTextOn: { color: colors.primary },
-  radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 1.5, borderColor: '#8D95A1', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.white },
+  radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 1.5, borderColor: '#9A958C', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.white },
   radioOn: { borderColor: colors.primary },
   radioInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.primary },
-  radioCard: { flexDirection: 'row', alignItems: 'center', gap: 14, borderWidth: 1, borderColor: '#E3E7EC', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 16, backgroundColor: colors.white, marginBottom: 10 },
-  radioCardOn: { borderColor: '#E59A9A', backgroundColor: '#FFF6F5' },
+  radioCard: { flexDirection: 'row', alignItems: 'center', gap: 14, borderWidth: 1, borderColor: '#E8E3DC', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 16, backgroundColor: colors.white, marginBottom: 10 },
+  radioCardOn: { borderColor: '#E59A9A', backgroundColor: '#FFF1F1' },
   radioTitle: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.ink },
-  radioSub: { fontFamily: fonts.regular, fontSize: 10.5, color: '#6D7785', marginTop: 3 },
+  radioSub: { fontFamily: fonts.regular, fontSize: 10.5, color: '#66615A', marginTop: 3 },
   notice: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -847,19 +850,19 @@ const styles = StyleSheet.create({
   },
   noticeText: { flex: 1, fontFamily: fonts.medium, fontSize: 12.5, lineHeight: 18 },
   noticeRetry: { fontFamily: fonts.semiBold, fontSize: 12.5, textDecorationLine: 'underline' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.white, padding: space.xl },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg, padding: space.xl },
   empty: {
     alignItems: 'center',
     paddingHorizontal: space.xl,
     paddingVertical: 40,
     backgroundColor: colors.card,
-    borderRadius: radius.xl,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: '#E3E7EC',
+    borderColor: '#E8E3DC',
   },
   emptyImage: { width: 120, height: 120, marginBottom: space.md },
   emptyTitle: { fontFamily: fonts.semiBold, fontSize: 13.5, color: '#5F6978', textAlign: 'center' },
-  emptyMsg: { fontFamily: fonts.regular, fontSize: 12, color: '#6D7785', textAlign: 'center', marginTop: 4, lineHeight: 18 },
+  emptyMsg: { fontFamily: fonts.regular, fontSize: 12, color: '#66615A', textAlign: 'center', marginTop: 4, lineHeight: 18 },
   badge: { paddingHorizontal: 8, paddingVertical: 5, borderRadius: radius.xs, alignSelf: 'flex-start' },
   badgeText: { fontFamily: fonts.bold, fontSize: 10, letterSpacing: 0.2 },
   avatar: { backgroundColor: '#FFF1F1', alignItems: 'center', justifyContent: 'center' },
@@ -870,12 +873,12 @@ const styles = StyleSheet.create({
   sheetWide: { borderRadius: 16, paddingTop: space.sm },
   sheet: {
     backgroundColor: colors.card,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
     paddingHorizontal: space.xl,
   },
   sheetHandle: { alignSelf: 'center', width: 38, height: 4, borderRadius: 2, backgroundColor: '#DDE2E8', marginTop: space.sm },
   sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: space.lg, gap: space.md },
   sheetTitle: { fontFamily: fonts.semiBold, fontSize: 18, color: colors.ink, letterSpacing: -0.4 },
-  sheetClose: { width: 36, height: 36, borderRadius: 10, borderWidth: 1, borderColor: '#E3E7EC', alignItems: 'center', justifyContent: 'center' },
+  sheetClose: { width: 36, height: 36, borderRadius: 10, borderWidth: 1, borderColor: '#E8E3DC', alignItems: 'center', justifyContent: 'center' },
 });

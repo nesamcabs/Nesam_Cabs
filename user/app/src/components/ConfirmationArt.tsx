@@ -47,17 +47,17 @@ export function ConfirmationArt({ animate }: { animate: boolean }) {
   return (
     <View style={styles.box} accessible={false} importantForAccessibility="no-hide-descendants">
       <Svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} fill="none">
-        <Rect x={15} y={34} width={230} height={59} rx={29.5} fill="#fff5f2" />
+        <Rect x={15} y={34} width={230} height={59} rx={29.5} fill="#FFF1F1" />
         <Path d="M31 78h191" stroke="#e6c7c1" strokeWidth={1.6} strokeDasharray="3 6" strokeLinecap="round" />
-        <Path d="M31 78h110" stroke="#c62828" strokeWidth={2.3} strokeLinecap="round" />
+        <Path d="M31 78h110" stroke="#E31E24" strokeWidth={2.3} strokeLinecap="round" />
         <Circle cx={29} cy={78} r={4} fill="white" stroke="#d7aaa1" strokeWidth={1.6} />
       </Svg>
       <Animated.View style={[styles.layer, { opacity: cab, transform: [{ translateX: cab.interpolate({ inputRange: [0, 1], outputRange: [-18, 0] }) }] }]}>
         <Svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} fill="none">
           <G>
-            <Path d="M27 58h7l7-10h17l11 10 8 3v12H24V62l3-4Z" fill="#c62828" />
+            <Path d="M27 58h7l7-10h17l11 10 8 3v12H24V62l3-4Z" fill="#E31E24" />
             <Path d="m43 51-5 7h12v-7h-7ZM53 51v7h11l-8-7h-3Z" fill="white" />
-            <Path d="M24 65h53" stroke="#a71f1f" strokeWidth={1.3} />
+            <Path d="M24 65h53" stroke="#C8171D" strokeWidth={1.3} />
             <Circle cx={35} cy={73} r={5} fill="#394457" />
             <Circle cx={66} cy={73} r={5} fill="#394457" />
             <Circle cx={35} cy={73} r={2} fill="white" />
@@ -75,7 +75,7 @@ export function ConfirmationArt({ animate }: { animate: boolean }) {
         <Svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} fill="none">
           <Circle cx={218} cy={57} r={28} fill="white" />
           <Circle cx={218} cy={57} r={24} fill="#edf8f0" stroke="#d7ebdd" />
-          <Path d="m208 57 7 7 13-14" stroke="#278050" strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round" />
+          <Path d="m208 57 7 7 13-14" stroke="#2A7555" strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round" />
         </Svg>
       </Animated.View>
     </View>

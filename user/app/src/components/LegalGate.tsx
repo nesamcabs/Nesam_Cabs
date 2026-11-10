@@ -114,8 +114,8 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.white },
   head: { padding: space.xl, gap: space.xs, borderBottomWidth: 1, borderBottomColor: colors.divider, backgroundColor: colors.white },
   body: { padding: space.xl, gap: space.md },
-  doc: { backgroundColor: colors.white, borderWidth: 1, borderColor: '#E3E7EC', borderRadius: 10, padding: space.lg },
+  doc: { backgroundColor: colors.white, borderWidth: 1, borderColor: '#E8E3DC', borderRadius: 10, padding: space.lg },
   docTitle: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.ink },
-  docBody: { fontFamily: fonts.regular, marginTop: space.sm, fontSize: 12.5, lineHeight: 20, color: '#55606F' },
-  foot: { padding: space.xl, gap: space.sm, borderTopWidth: 1, borderTopColor: '#E5E8ED', backgroundColor: colors.white },
+  docBody: { fontFamily: fonts.regular, marginTop: space.sm, fontSize: 12.5, lineHeight: 20, color: '#66615A' },
+  foot: { padding: space.xl, gap: space.sm, borderTopWidth: 1, borderTopColor: '#E8E3DC', backgroundColor: colors.white },
 });

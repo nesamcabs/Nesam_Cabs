@@ -17,7 +17,7 @@ function draw(nodes: IconNode[], fill?: string) {
 }
 
 /** A 24×24 line icon from the reference set (stroke 1.8, round caps). */
-export function Icon({ name, size = 20, color = '#626e80', strokeWidth = 1.8, fill }: { name: IconName; size?: number; color?: string; strokeWidth?: number; fill?: string }) {
+export function Icon({ name, size = 20, color = '#66615A', strokeWidth = 1.8, fill }: { name: IconName; size?: number; color?: string; strokeWidth?: number; fill?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
       {draw(ALL[name] ?? ICON_NODES['circle-dot'], fill)}

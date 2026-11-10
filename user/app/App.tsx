@@ -22,12 +22,11 @@ import { describeError } from './src/utils/retry';
 import { Text, TextInput } from 'react-native';
 import { colors, fonts } from './src/theme';
 import { useFonts } from 'expo-font';
-import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold } from '@expo-google-fonts/inter';
-import { Manrope_800ExtraBold } from '@expo-google-fonts/manrope';
+import { Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold, Poppins_800ExtraBold } from '@expo-google-fonts/poppins';
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
-// Inter is the reference's text face. Tamil text has no Inter glyphs, so the
+// Poppins is the website's text face. Tamil text has no Poppins glyphs, so the
 // platform falls back to its Tamil font (Noto Sans Tamil on Android) per glyph.
 const defaultFont = { fontFamily: fonts.regular };
 // @ts-ignore
@@ -77,13 +76,11 @@ interface ProfileState {
 
 function Root() {
   const [fontsLoaded, fontError] = useFonts({
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    Inter_700Bold,
-    Inter_800ExtraBold,
-    Manrope_800ExtraBold,
-    [fonts.brand]: require('./assets/reference/fonts/NesamBrand.ttf'),
+    Poppins_400Regular,
+    Poppins_500Medium,
+    Poppins_600SemiBold,
+    Poppins_700Bold,
+    Poppins_800ExtraBold,
   });
   // A font that fails to load must not hold the app on the splash screen: the system face is used instead.
   const fontsReady = fontsLoaded || !!fontError;
@@ -116,6 +113,17 @@ function Root() {
     if (resolved) void SplashScreen.hideAsync().catch(() => undefined);
   }, [resolved]);
 
+  // __HARNESS__ (temporary, for visual checks only)
+  if (process.env.EXPO_PUBLIC_HARNESS === '1' && fontsReady) {
+    const fake = { uid: 'harness', name: 'Karthik Raja', phone: '+919025099990', email: 'k@nesam.in', photoUrl: '', walletBalance: 0, emergencyContact: '', language: 'en', status: 'Active' } as UserProfile;
+    return (
+      <InboxProvider userId={fake.uid} role="customer">
+        <CustomerDataProvider profile={fake}>
+          <MainNavigator />
+        </CustomerDataProvider>
+      </InboxProvider>
+    );
+  }
   if (!fontsReady || authUser === undefined) return <FullScreenLoader />;
   if (!authUser) return <AuthScreen />;
   if (profile === undefined && profileError) {

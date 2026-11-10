@@ -9,7 +9,7 @@ import { paymentLabel, tabOfTrip, tripStatusChip, type TripTab } from '@core/uti
 import { Button, EmptyState, LinkButton, Notice, PageHead } from '@/components/ui';
 import { Icon } from '@/components/Icon';
 import { TourQuotes } from '@/components/TourQuotes';
-import { vehicleArtUrl } from '@/lib/vehicleArt';
+import { categoryPhoto } from '@/lib/categories';
 import { useSeo } from '@/lib/seo';
 import { useAuth } from '@/state/Auth';
 import { useBooking } from '@/state/Booking';
@@ -27,7 +27,9 @@ const EMPTY: Record<TripTab, { title: string; text: string }> = {
 /** One booking as a single compact list row; the whole row opens the trip, small actions sit underneath. */
 function TripRow({ trip, onCancel }: { trip: TripRecord; onCancel: (t: TripRecord) => void }) {
   const navigate = useNavigate();
-  const { startFrom } = useBooking();
+  const { startFrom, categories } = useBooking();
+  // The photo uploaded for the trip's vehicle category in the admin panel (the site's art stands in when there is none).
+  const cat = categories.find((c) => c.name === trip.categoryName);
   const chip = tripStatusChip(trip);
   const pay = paymentLabel(trip);
   const when = trip.scheduledAt ?? trip.completedAt ?? trip.cancelledAt ?? trip.createdAt;
@@ -39,7 +41,7 @@ function TripRow({ trip, onCancel }: { trip: TripRecord; onCancel: (t: TripRecor
   return (
     <li className="trow">
       <Link className="trow__link" to={`/trips/${trip.id}`} aria-label={`Trip from ${trip.pickup.name} to ${trip.drop.name}, ${chip.label}`}>
-        <img className="trow__art" src={vehicleArtUrl({ name: trip.categoryName, seats: 4 })} alt="" width={56} height={37} loading="lazy" decoding="async" />
+        <img className="trow__art" src={categoryPhoto({ name: trip.categoryName, seats: cat?.seats ?? 4, imageUrl: cat?.imageUrl })} alt="" width={56} height={37} loading="lazy" decoding="async" />
         <span className="trow__body">
           <strong className="trow__route">
             <span className="trow__place">{trip.pickup.name}</span>

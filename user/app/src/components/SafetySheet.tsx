@@ -91,5 +91,5 @@ export function SafetySheet({
 
 const styles = StyleSheet.create({
   gap: { marginTop: space.sm },
-  alertBox: { marginTop: space.lg, paddingTop: space.lg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E5E7EB' },
+  alertBox: { marginTop: space.lg, paddingTop: space.lg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E8E3DC' },
 });

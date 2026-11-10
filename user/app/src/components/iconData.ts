@@ -84,5 +84,9 @@ export const EXTRA_ICON_NODES = {
   "camera":[["path",{"d":"M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"}],["circle",{"cx":"12","cy":"13","r":"3"}]],
   "volume-2":[["path",{"d":"m11 5-6 4H2v6h3l6 4V5Z"}],["path",{"d":"M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"}]],
   "chevron-left":[["path",{"d":"m15 18-6-6 6-6"}]],
+  "sparkles":[["path",{"d":"M10 3l2 6.2 6.2 2-6.2 2-2 6.2-2-6.2-6.2-2 6.2-2z"}],["path",{"d":"M19 2l.9 2.1L22 5l-2.1.9L19 8l-.9-2.1L16 5l2.1-.9z"}]],
+  "menu":[["path",{"d":"M4 7h16"}],["path",{"d":"M4 12h16"}],["path",{"d":"M4 17h16"}]],
+  "help-circle":[["circle",{"cx":"12","cy":"12","r":"10"}],["path",{"d":"M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"}],["path",{"d":"M12 17h.01"}]],
+  "clock":[["circle",{"cx":"12","cy":"12","r":"10"}],["path",{"d":"M12 6v6l4 2"}]],
   "chevron-up":[["path",{"d":"m18 15-6-6-6 6"}]],
 } satisfies Record<string, IconNode[]>;

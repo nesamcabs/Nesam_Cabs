@@ -72,7 +72,7 @@ export function ProfileSetupScreen({ phone }: { phone: string }) {
 
 const styles = StyleSheet.create({
   title: { fontFamily: fonts.semiBold, fontSize: 23, lineHeight: 30, letterSpacing: -0.6, color: colors.ink, textAlign: 'center', marginTop: space.xl },
-  sub: { fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: '#6D7785', marginBottom: space.xl, marginTop: 8, textAlign: 'center' },
+  sub: { fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: '#66615A', marginBottom: space.xl, marginTop: 8, textAlign: 'center' },
   card: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 16, paddingTop: 20, paddingBottom: 18, backgroundColor: colors.white },
   signOut: { alignItems: 'center', marginTop: space.lg },
 });

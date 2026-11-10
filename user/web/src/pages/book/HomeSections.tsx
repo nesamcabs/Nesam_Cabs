@@ -6,10 +6,9 @@ import { SCHEDULED_CANCELLATION_FEE, SCHEDULED_FREE_CANCEL_BEFORE_MS, SUPPORT_PH
 import { formatINR } from '@core/utils/format';
 import { Icon } from '@/components/Icon';
 import { useBooking } from '@/state/Booking';
-import { vehicleArtUrl } from '@/lib/vehicleArt';
 import { ASSURANCE, CORRIDORS, DESTINATIONS, FAQS, FEATURES, IMG, MORE_CORRIDORS, SERVICES, STEPS, type Corridor, type Destination, type Service } from './content';
 import { findRouteBySlug } from '../routes/routesData';
-import { categoryName } from '@/lib/categories';
+import { categoryName, categoryPhoto } from '@/lib/categories';
 
 function SectionHead({ eyebrow, title, text, action, id }: { eyebrow: string; title: string; text?: string; action?: React.ReactNode; id?: string }) {
   return (
@@ -215,7 +214,8 @@ export function FleetSection({ onPick }: { onPick: () => void }) {
         {live.length
           ? live.map((c) => (
               <li key={c.id} id={`vehicle-${c.id}`} className="vehicle">
-                <img src={vehicleArtUrl(c)} alt={`NESAM Cabs ${c.name} - ${c.seats} seater cab`} width={320} height={210} loading="lazy" />
+                {/* The photo uploaded for this category in the admin panel (NESAM Cabs' own image); the site's art only stands in until one is uploaded. */}
+                <img src={categoryPhoto(c)} alt={`NESAM Cabs ${c.name} - ${c.seats} seater cab`} width={320} height={210} loading="lazy" decoding="async" />
                 <div className="vehicle__body">
                   <strong>{categoryName(c)}</strong>
                   <span className="vehicle__seats">

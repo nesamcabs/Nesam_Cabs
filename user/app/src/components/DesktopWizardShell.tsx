@@ -56,7 +56,7 @@ export function DesktopWizardShell({
                 onPress={onCancel}
                 style={({ pressed, hovered }: any) => [
                   styles.headerBtn,
-                  hovered && { backgroundColor: '#F1F5F9' },
+                  hovered && { backgroundColor: '#E8E3DC' },
                   pressed && { opacity: 0.7 },
                 ]}
               >
@@ -68,7 +68,7 @@ export function DesktopWizardShell({
                 onPress={onSignOut}
                 style={({ pressed, hovered }: any) => [
                   styles.signOutBtn,
-                  hovered && { backgroundColor: '#FEE2E2' },
+                  hovered && { backgroundColor: '#FFDDDD' },
                   pressed && { opacity: 0.7 },
                 ]}
               >
@@ -97,13 +97,13 @@ export function DesktopWizardShell({
 const styles = StyleSheet.create({
   page: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F7F5F2',
     minHeight: '100%',
   },
   topBar: {
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: '#E8E3DC',
     paddingVertical: space.md,
     paddingHorizontal: space.xl,
     ...shadows.sm,
@@ -138,9 +138,9 @@ const styles = StyleSheet.create({
     color: colors.muted,
   },
   badge: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: '#FFF1F1',
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: '#FFC5C7',
     borderRadius: radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 3,
@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#E8E3DC',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: radius.pill,
@@ -170,14 +170,14 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semiBold,
     fontSize: 12,
     fontWeight: '600',
-    color: '#475569',
+    color: '#66615A',
   },
   headerBtn: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E8E3DC',
     cursor: 'pointer' as any,
   },
   headerBtnText: {
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: '#FFC5C7',
     backgroundColor: '#FFF5F5',
     cursor: 'pointer' as any,
   },
@@ -216,13 +216,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E8E3DC',
     padding: space.xl,
     ...shadows.md,
   },
   header: {
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: '#E8E3DC',
     paddingBottom: space.md,
     marginBottom: space.lg,
   },

@@ -72,9 +72,9 @@ export function LegalDocumentsScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.white },
+  root: { flex: 1, backgroundColor: colors.bg },
   page: { paddingHorizontal: space.xl, paddingTop: space.md, paddingBottom: space.xxl },
-  list: { borderTopWidth: 1, borderTopColor: '#E3E6EB' },
+  list: { borderTopWidth: 1, borderTopColor: '#E8E3DC' },
   muted: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted, textAlign: 'center', marginTop: space.xl },
-  body: { fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 20, color: '#55606F' },
+  body: { fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 20, color: '#66615A' },
 });

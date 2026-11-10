@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 1.5,
     borderColor: colors.primary,
-    backgroundColor: '#FFF6F5',
+    backgroundColor: '#FFF1F1',
   },
   hidden: { height: 0, overflow: 'hidden' },
   wheel: { flex: 1 },

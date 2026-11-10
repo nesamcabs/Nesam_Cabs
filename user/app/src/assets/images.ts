@@ -9,6 +9,18 @@ export const BRAND = {
   splashIcon: require('../../assets/splash-icon.png') as ImageSourcePropType,
 } as const;
 
+/** The website's brand artwork and the service icons of its bottom bar (user/web/public/nesam, src/assets/nav). */
+export const NESAM = {
+  logo: require('../../assets/nesam/logo.webp') as ImageSourcePropType,
+  logoSmall: require('../../assets/nesam/logo-sm.webp') as ImageSourcePropType,
+  emblem: require('../../assets/nesam/emblem.webp') as ImageSourcePropType,
+  navOutstation: require('../../assets/nav/outstation.webp') as ImageSourcePropType,
+  navMulticity: require('../../assets/nav/multicity.webp') as ImageSourcePropType,
+  navLocal: require('../../assets/nav/local-rentals.webp') as ImageSourcePropType,
+  navAirport: require('../../assets/nav/airport-taxi.webp') as ImageSourcePropType,
+  navProfile: require('../../assets/nav/profile.webp') as ImageSourcePropType,
+} as const;
+
 /** Artwork taken from the customer reference design (optimized local copies). */
 export const REFERENCE = {
   emblem: require('../../assets/reference/brand/emblem.png') as ImageSourcePropType,

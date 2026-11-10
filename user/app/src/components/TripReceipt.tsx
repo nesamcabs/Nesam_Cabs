@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
   head: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: space.sm },
   paid: { backgroundColor: colors.successSoft, borderColor: colors.successBorder },
   due: { backgroundColor: colors.ink, borderColor: colors.ink },
-  dueLabel: { color: '#D1D5DB', fontFamily: fonts.extraBold, fontSize: 11, fontWeight: '800', letterSpacing: 0.8 },
+  dueLabel: { color: '#D9D2C8', fontFamily: fonts.extraBold, fontSize: 11, fontWeight: '800', letterSpacing: 0.8 },
   dueAmount: { color: colors.white, fontFamily: fonts.black, fontSize: 30, fontWeight: '900', marginTop: 4 },
-  dueHint: { color: '#E5E7EB', fontFamily: fonts.regular, fontSize: 12, marginTop: 4 },
+  dueHint: { color: '#E8E3DC', fontFamily: fonts.regular, fontSize: 12, marginTop: 4 },
 });

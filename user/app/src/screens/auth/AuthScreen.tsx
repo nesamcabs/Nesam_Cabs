@@ -125,7 +125,7 @@ export function AuthScreen() {
         <Button title="Create new account" variant="secondary" onPress={() => start('signup')} style={{ marginTop: space.xl }} />
         <Text style={styles.helper}>New to NESAM</Text>
         <View style={styles.trust}>
-          <Icon name="shield-check" size={13} color="#8994A4" />
+          <Icon name="shield-check" size={13} color="#9A958C" />
           <Text style={styles.trustText}>Clear fares. Dedicated support.</Text>
         </View>
       </>,
@@ -221,14 +221,14 @@ export function AuthScreen() {
 
 const styles = StyleSheet.create({
   title: { fontFamily: fonts.semiBold, fontSize: 23, lineHeight: 30, letterSpacing: -0.6, color: colors.ink, textAlign: 'center', marginTop: space.xl },
-  subtitle: { fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: '#6D7785', textAlign: 'center', marginTop: 8, marginBottom: space.xl, paddingHorizontal: space.lg },
+  subtitle: { fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: '#66615A', textAlign: 'center', marginTop: 8, marginBottom: space.xl, paddingHorizontal: space.lg },
   card: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 16, paddingTop: 20, paddingBottom: 18, backgroundColor: colors.white },
-  helper: { fontFamily: fonts.regular, fontSize: 11.5, color: '#6D7785', textAlign: 'center', marginTop: 8 },
+  helper: { fontFamily: fonts.regular, fontSize: 11.5, color: '#66615A', textAlign: 'center', marginTop: 8 },
   trust: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: space.xl },
-  trustText: { fontFamily: fonts.regular, fontSize: 9.5, color: '#7F8998' },
-  offline: { fontFamily: fonts.regular, fontSize: 11.5, color: '#6D7785', textAlign: 'center', marginTop: 10 },
+  trustText: { fontFamily: fonts.regular, fontSize: 9.5, color: '#9A958C' },
+  offline: { fontFamily: fonts.regular, fontSize: 11.5, color: '#66615A', textAlign: 'center', marginTop: 10 },
   backRow: { marginTop: space.lg, alignItems: 'center' },
-  cool: { fontFamily: fonts.regular, fontSize: 12, color: '#6D7785' },
+  cool: { fontFamily: fonts.regular, fontSize: 12, color: '#66615A' },
   otp: {
     borderWidth: 1,
     borderColor: colors.border,
