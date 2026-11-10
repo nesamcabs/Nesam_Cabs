@@ -7,7 +7,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Linking, Pressable, ScrollView as RNScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAvoid } from '../components/KeyboardAvoid';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { Button, Disclosure, Notice, Segmented, Tabs } from '../components/ui';
 import { ScrollView } from '../components/layout';
@@ -26,7 +26,7 @@ import {
   SUPPORT_PHONE_DISPLAY,
 } from '../config/constants';
 import { scheduleProblem } from '../utils/bookingRules';
-import { POPULAR_AIRPORTS, makeLocalDisposalPlace } from '../services/pricingService';
+import { POPULAR_AIRPORTS } from '../services/pricingService';
 import type { GeoPlace, TripType } from '../types';
 import { formatTime } from '../utils/format';
 import { haversineKm, isValidLatLng } from '../utils/geo';
@@ -90,8 +90,14 @@ export function BookScreen() {
   const [fieldError, setFieldError] = useState<Partial<Record<'pickup' | 'drop' | 'date' | 'time' | 'return', string>>>({});
   const scroller = useRef<RNScrollView>(null);
 
+  // Local Rentals has its own map flow (the Rentals tab); coming back to this form means a different service.
+  useFocusEffect(
+    React.useCallback(() => {
+      if (service === 'rental') setService('outstation');
+    }, [service, setService]),
+  );
+
   const isAirport = service === 'airport';
-  const isRental = service === 'rental';
   const isMulti = service === 'multicity';
   const isRound = service === 'outstation' && tripType === 'Round Trip';
 
@@ -207,17 +213,13 @@ export function BookScreen() {
 
   // ── Search ──────────────────────────────────────────────────────────────────
   const findCab = () => {
-    let targetDrop = drop;
-    if (isRental && pickup) {
-      targetDrop = makeLocalDisposalPlace(pickup);
-      update({ drop: targetDrop });
-    }
+    const targetDrop = drop;
     const errs: typeof fieldError = {};
     if (!pickup) errs.pickup = airportField === 'pickup' ? 'Choose the airport.' : 'Choose your pickup location.';
     if (!targetDrop) errs.drop = airportField === 'drop' ? 'Choose the airport.' : 'Choose your drop location.';
     if (isAirport && airportField === 'drop' && drop && drop.type !== 'airport') errs.drop = 'Choose an airport for an airport drop.';
     if (isAirport && airportField === 'pickup' && pickup && pickup.type !== 'airport') errs.pickup = 'Choose the airport you are arriving at.';
-    if (pickup && targetDrop && !isRental && !isRound && haversineKm(pickup, targetDrop) < 0.2) errs.drop = 'Pickup and drop cannot be the same place.';
+    if (pickup && targetDrop && !isRound && haversineKm(pickup, targetDrop) < 0.2) errs.drop = 'Pickup and drop cannot be the same place.';
     if (!pickupDay) errs.date = 'Choose the pickup date.';
     const sched = scheduleProblem(scheduledAt);
     if (pickupDay && sched) errs.time = sched;
@@ -352,18 +354,16 @@ export function BookScreen() {
                   onPress={() => setPicker('pickup')}
                   roomForSwap={service === 'outstation'}
                 />
-                {isRental ? null : (
-                  <RouteField
-                    pin="end"
-                    label={fieldLabel('drop')}
-                    value={drop?.name}
-                    placeholder={fieldPlaceholder('drop')}
-                    error={fieldError.drop}
-                    onPress={() => setPicker('drop')}
-                    divider
-                    roomForSwap={service === 'outstation'}
-                  />
-                )}
+                <RouteField
+                  pin="end"
+                  label={fieldLabel('drop')}
+                  value={drop?.name}
+                  placeholder={fieldPlaceholder('drop')}
+                  error={fieldError.drop}
+                  onPress={() => setPicker('drop')}
+                  divider
+                  roomForSwap={service === 'outstation'}
+                />
                 {service === 'outstation' ? (
                   <PressableScale
                     onPress={() => {
@@ -420,22 +420,6 @@ export function BookScreen() {
                     <Text style={styles.formLabel}>Trip ends</Text>
                     <Text style={styles.fieldValue}>{scheduledAt ? formatDay(tripEndFor(scheduledAt, days)) : 'Choose a pickup date'}</Text>
                   </View>
-                </View>
-              ) : null}
-
-              {isRental ? (
-                <View style={styles.packageNote}>
-                  <Text style={styles.formLabel}>Rental package</Text>
-                  <View style={styles.packageBox}>
-                    <Icon name="clock-3" size={16} color="#7E8896" strokeWidth={2.0} />
-                    <Text style={styles.packageText}>Hourly, within the city. Each car shows its package hours, included km and extra-hour rate.</Text>
-                  </View>
-                  <Segmented
-                    style={{ marginTop: 10 }}
-                    options={[{ value: 'auto', label: 'Shortest' }, ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map((h) => ({ value: String(h), label: `${h}h` }))]}
-                    value={draft.rentalHours ? String(draft.rentalHours) : 'auto'}
-                    onChange={(v) => update({ rentalHours: v === 'auto' ? null : Number(v) })}
-                  />
                 </View>
               ) : null}
 
@@ -679,9 +663,6 @@ const styles = StyleSheet.create({
   },
   pickerError: { borderColor: colors.primary, backgroundColor: '#FFFBFB' },
   pickerValue: { flex: 1, fontFamily: fonts.medium, fontSize: 13.5, color: colors.text, letterSpacing: -0.2 },
-  packageNote: { marginTop: 14 },
-  packageBox: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 11, backgroundColor: '#FAFBFC' },
-  packageText: { flex: 1, fontFamily: fonts.regular, fontSize: 12, lineHeight: 17, color: '#55606F' },
   flight: { marginTop: 14, borderTopWidth: 1, borderTopColor: colors.divider, paddingTop: 2 },
   flightInput: { minHeight: 46, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 11, fontFamily: fonts.medium, fontSize: 15, color: colors.value },
   flightHint: { fontFamily: fonts.regular, fontSize: 11, color: colors.muted, marginTop: 5 },

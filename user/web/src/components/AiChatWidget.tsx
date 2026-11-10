@@ -139,9 +139,31 @@ function Sparkle({ size = 20 }: { size?: number }) {
 
 // ── The widget ───────────────────────────────────────────────────────────────
 
-export function AiChatWidget({ brand, Icon, closeIcon = 'close' }: { brand: ChatBrand; Icon: IconComponent; closeIcon?: string }) {
+export function AiChatWidget({
+  brand,
+  Icon,
+  closeIcon = 'close',
+  open: controlledOpen,
+  onOpenChange,
+  hideLauncher = false,
+}: {
+  brand: ChatBrand;
+  Icon: IconComponent;
+  closeIcon?: string;
+  /** When given, the page decides when the chat is open (for example from a header menu). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Drop the floating "Ask AI" button; something else opens the chat. */
+  hideLauncher?: boolean;
+}) {
   const [lang, setLang] = useState<ChatLang>(readLang);
-  const [open, setOpen] = useState(false);
+  const [innerOpen, setInnerOpen] = useState(false);
+  const open = controlledOpen ?? innerOpen;
+  const setOpen = (next: boolean | ((cur: boolean) => boolean)) => {
+    const value = typeof next === 'function' ? next(open) : next;
+    setInnerOpen(value);
+    onOpenChange?.(value);
+  };
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [provider, setProvider] = useState('');
@@ -244,20 +266,22 @@ export function AiChatWidget({ brand, Icon, closeIcon = 'close' }: { brand: Chat
 
   return (
     <>
-      <button
-        type="button"
-        className={`floating-ai-launcher floating-ai-launcher--${brand.variant} ${open ? 'is-active' : ''}`}
-        onClick={() => setOpen((v) => !v)}
-        aria-label={open ? t.close : t.open}
-        aria-expanded={open}
-        title={brand.assistantName}
-      >
-        <span className="floating-ai-launcher__sparkle" aria-hidden="true">
-          {open ? <Icon name={closeIcon} size={20} /> : <Sparkle size={22} />}
-        </span>
-        <span className="floating-ai-launcher__text">{open ? t.closeChat : t.askAi}</span>
-        {!open && <span className="floating-ai-launcher__pulse" aria-hidden="true" />}
-      </button>
+      {hideLauncher ? null : (
+        <button
+          type="button"
+          className={`floating-ai-launcher floating-ai-launcher--${brand.variant} ${open ? 'is-active' : ''}`}
+          onClick={() => setOpen((v) => !v)}
+          aria-label={open ? t.close : t.open}
+          aria-expanded={open}
+          title={brand.assistantName}
+        >
+          <span className="floating-ai-launcher__sparkle" aria-hidden="true">
+            {open ? <Icon name={closeIcon} size={20} /> : <Sparkle size={22} />}
+          </span>
+          <span className="floating-ai-launcher__text">{open ? t.closeChat : t.askAi}</span>
+          {!open && <span className="floating-ai-launcher__pulse" aria-hidden="true" />}
+        </button>
+      )}
 
       {open && (
         <div ref={win} className={`ai-chat-window ai-chat-window--${brand.variant}`} role="dialog" aria-label={brand.assistantName}>

@@ -10,6 +10,7 @@ import { Icon } from '@/components/Icon';
 import { confirmOtpCode, describePhoneAuthError, sendOtpToPhone } from '@/lib/authService';
 import { useAuth } from '@/state/Auth';
 import { useOnline } from '@/lib/hooks';
+import { CountryCodeSelect } from '@/components/CountryCodeSelect';
 
 const RESEND_SECONDS = 30;
 const OTP_LENGTH = 6;
@@ -87,6 +88,7 @@ export function LoginModal() {
 
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [mobile, setMobile] = useState('');
+  const [countryCode, setCountryCode] = useState('+91');
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
   const [sending, setSending] = useState(false);
@@ -127,12 +129,12 @@ export function LoginModal() {
 
   const sendOtp = async () => {
     if (sending) return;
-    if (!isValidIndianMobile(mobile)) return setError('Enter a valid 10-digit mobile number.');
+    if (mobile.length < 6 || mobile.length > 14) return setError('Enter a valid mobile number.');
     if (!online) return setError('You’re offline. Connect to the internet to receive your code.');
     setError('');
     setSending(true);
     try {
-      const res = await sendOtpToPhone(`+91${mobile}`);
+      const res = await sendOtpToPhone(`${countryCode}${mobile}`);
       setConfirmation(res);
       setOtp('');
       setStep('otp');
@@ -265,21 +267,13 @@ export function LoginModal() {
                 void sendOtp();
               }}
             >
-              <TextField
-                label="Mobile number"
-                prefix="+91"
-                value={mobile}
-                onChange={(e) => {
-                  setMobile(e.target.value.replace(/\D/g, '').slice(0, 10));
-                  setError('');
-                }}
-                inputMode="numeric"
-                autoComplete="tel-national"
-                placeholder="98765 43210"
-                hint="We’ll text you a one-time verification code."
-              />
+              <div className="phone-entry">
+                <CountryCodeSelect id="modal-country-code" value={countryCode} onChange={(code) => { setCountryCode(code); setError(''); }} />
+                <TextField label="Mobile number" value={mobile} onChange={(e) => { setMobile(e.target.value.replace(/\D/g, '').slice(0, 14)); setError(''); }} inputMode="numeric" autoComplete="tel-national" placeholder="Mobile number" />
+              </div>
+              <p className="phone-entry__hint">We’ll text you a one-time verification code.</p>
               {error ? <Notice tone="error">{error}</Notice> : null}
-              <Button type="submit" size="lg" block loading={sending} disabled={mobile.length < 10}>
+              <Button type="submit" size="lg" block loading={sending} disabled={mobile.length < 6}>
                 {sending ? 'Sending code…' : 'Continue'}
               </Button>
               {agreement}
@@ -290,7 +284,7 @@ export function LoginModal() {
             <div className="login-modal__head">
               <img className="login-modal__art" src="/art/phone-verification.webp" alt="" width={80} height={80} />
               <p className="login-modal__sub">
-                We sent a 6-digit code to +91 {mobile.slice(0, 5)} {mobile.slice(5)}.
+                We sent a 6-digit code to {countryCode} {mobile}.
               </p>
             </div>
             <form

@@ -72,7 +72,7 @@ export async function getForegroundPermissionsAsync(): Promise<PermissionRespons
 export async function requestForegroundPermissionsAsync(): Promise<PermissionResponse> {
   try {
     // The browser shows its own prompt on the first position request.
-    await once({ enableHighAccuracy: false, timeout: 20000, maximumAge: 60000 });
+    await once({ enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
     return { status: PermissionStatus.GRANTED, granted: true, canAskAgain: true };
   } catch (err) {
     const code = (err as { code?: number }).code;
@@ -87,7 +87,7 @@ export async function hasServicesEnabledAsync(): Promise<boolean> {
 }
 
 export function getCurrentPositionAsync(options?: { accuracy?: Accuracy }): Promise<LocationObject> {
-  return once({ enableHighAccuracy: (options?.accuracy ?? Accuracy.Balanced) >= Accuracy.High, timeout: 20000, maximumAge: 15000 });
+  return once({ enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
 }
 
 export async function getLastKnownPositionAsync(options?: { maxAge?: number }): Promise<LocationObject | null> {

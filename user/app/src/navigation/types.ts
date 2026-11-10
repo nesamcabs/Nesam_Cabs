@@ -2,6 +2,8 @@ import type { NavigatorScreenParams } from '@react-navigation/native';
 
 export type TabParamList = {
   Book: undefined;
+  /** Local Rentals: the map flow for Pickup & Drop and Hourly Rental. */
+  Rentals: { mode?: 'hourly' | 'pickup' } | undefined;
   Trips: undefined;
   Alerts: undefined;
   Account: undefined;

@@ -8,6 +8,8 @@ import {
   CategoryActionError,
   deleteCategory,
   saveCategory,
+  BRAND_IMAGE_BRANDS,
+  type BrandImageKey,
   setCategoryStatus,
   validateCategory,
   vehiclesInCategory,
@@ -56,6 +58,7 @@ const defaultFormState = {
   code: "",
   description: "",
   imageUrl: "",
+  brandImages: {} as Partial<Record<BrandImageKey, string>>,
   iconUrl: "",
   icon: "🚘",
   seatingCapacity: 0,
@@ -90,6 +93,7 @@ const toForm = (f: typeof defaultFormState): CategoryForm => ({
   code: f.code,
   description: f.description,
   imageUrl: f.imageUrl,
+  brandImages: { ...f.brandImages },
   iconUrl: f.iconUrl,
   icon: f.icon,
   seatingCapacity: f.seatingCapacity,
@@ -127,6 +131,7 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
   const [saving, setSaving] = useState(false);
   const [iconFile, setIconFile] = useState<File | null>(null);
   const [carFile, setCarFile] = useState<File | null>(null);
+  const [brandFiles, setBrandFiles] = useState<Partial<Record<BrandImageKey, File | null>>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<CategoryField, string>>>({});
 
@@ -188,6 +193,7 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
     setFormData(data);
     setIconFile(null);
     setCarFile(null);
+    setBrandFiles({});
     setActiveTab("basic");
     setFormError(null);
     setFieldErrors({});
@@ -208,6 +214,7 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
         code: cat.code || "",
         description: cat.description && cat.description.trim().length <= 48 ? cat.description.trim() : "",
         imageUrl: cat.imageUrl || "",
+        brandImages: { ...(cat.brandImages ?? {}) },
         iconUrl: cat.iconUrl || "",
         icon: cat.icon || "🚘",
         seatingCapacity: cat.seatingCapacity || 0,
@@ -269,6 +276,14 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
         form.imageUrl = await uploadCategoryMedia(carFile, 'car', mediaFolder);
         setFormData(current => ({ ...current, imageUrl: form.imageUrl || '' }));
         setCarFile(null);
+      }
+      for (const brand of BRAND_IMAGE_BRANDS) {
+        const file = brandFiles[brand.id];
+        if (!file) continue;
+        const url = await uploadCategoryMedia(file, 'car', mediaFolder);
+        form.brandImages = { ...(form.brandImages ?? {}), [brand.id]: url };
+        setFormData(current => ({ ...current, brandImages: { ...current.brandImages, [brand.id]: url } }));
+        setBrandFiles(current => ({ ...current, [brand.id]: null }));
       }
       const { renamed } = await saveCategory(form, editingOriginal);
       setShowModal(false);
@@ -739,12 +754,33 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
 
                     <section aria-label="Category images" className="space-y-2">
                       <h4 className="text-sm font-bold">Category artwork</h4>
-                      <p className="text-xs text-muted">These images appear on NESAM Cabs, PeopleTaxi and One Way Car Rentals.</p>
+                      <p className="text-xs text-muted">The icon and the car image below are shared by NESAM Cabs, PeopleTaxi and One Way Car Rentals unless a brand has its own car image.</p>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <CategoryMediaField label="Category icon" kind="icon" value={formData.iconUrl} file={iconFile} disabled={saving} onChange={(file, clear) => { setIconFile(file); if (clear) setFormData(current => ({ ...current, iconUrl: '' })); }} />
                         <CategoryMediaField label="Car image" kind="car" plateText={formData.name} value={formData.imageUrl} file={carFile} disabled={saving} onChange={(file, clear) => { setCarFile(file); if (clear) setFormData(current => ({ ...current, imageUrl: '' })); }} />
                       </div>
                       {errNode('iconUrl')}{errNode('imageUrl')}
+                      <div className="pt-2">
+                        <h5 className="text-[12px] font-bold text-ink">Car image for each brand</h5>
+                        <p className="text-xs text-muted mb-2">Optional. A brand with its own image shows it; the others use the car image above.</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {BRAND_IMAGE_BRANDS.map((brand) => (
+                            <CategoryMediaField
+                              key={brand.id}
+                              label={`${brand.name} car image`}
+                              kind="car"
+                              plateText={formData.name}
+                              value={formData.brandImages[brand.id] || ''}
+                              file={brandFiles[brand.id] ?? null}
+                              disabled={saving}
+                              onChange={(file, clear) => {
+                                setBrandFiles(current => ({ ...current, [brand.id]: file }));
+                                if (clear) setFormData(current => { const next = { ...current.brandImages }; delete next[brand.id]; return { ...current, brandImages: next }; });
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
                     </section>
 
                     <label className="flex items-center gap-3 p-3 rounded-xl border border-line bg-gray-50 max-w-xs cursor-pointer">

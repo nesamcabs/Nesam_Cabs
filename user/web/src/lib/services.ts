@@ -104,8 +104,8 @@ export function tripTypeLabel(t: TripType | string): string {
   }
 }
 
-/** Local Rentals open as a full-screen map; every other service opens the booking form. */
-export const serviceHref = (s: ServiceId) => (s === 'rental' ? '/local-rentals?mode=hourly' : s === 'pickup' ? '/local-rentals?mode=pickup' : `/book?service=${s}`);
+/** Local Rentals open as a full-screen map, on Pickup & Drop by default (the switch in the page offers Hourly Rental); every other service opens the booking form. */
+export const serviceHref = (s: ServiceId) => (s === 'rental' || s === 'pickup' ? '/local-rentals?mode=pickup' : `/book?service=${s}`);
 
 /** The booking form's "Local Rentals" button covers both the hourly rental and the scheduled pickup & drop. */
 export const LOCAL_RENTALS_LABEL = 'Local Rentals';

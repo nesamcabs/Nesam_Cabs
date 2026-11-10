@@ -17,8 +17,8 @@ const BRAND: ChatBrand = {
   placeholder: { en: 'Ask about fares, cabs, routes…', ta: 'கட்டணம், கார், வழி பற்றிக் கேளுங்கள்…' },
 };
 
-export function AiChatbot() {
-  return <AiChatWidget brand={BRAND} Icon={Icon} closeIcon="xmark" />;
+export function AiChatbot({ open, onOpenChange, hideLauncher }: { open?: boolean; onOpenChange?: (open: boolean) => void; hideLauncher?: boolean } = {}) {
+  return <AiChatWidget brand={BRAND} Icon={Icon} closeIcon="xmark" open={open} onOpenChange={onOpenChange} hideLauncher={hideLauncher} />;
 }
 
 export default AiChatbot;

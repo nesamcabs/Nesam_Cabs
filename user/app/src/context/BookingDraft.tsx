@@ -37,6 +37,8 @@ export interface BookingDraft {
   rentalHours: number | null;
   /** 'cng' when the rider chose CNG vehicles (priced on a vehicle's CNG rate card where one is saved). */
   fuelType: '' | 'cng';
+  /** A Multicity tour: booked as a Round Trip through its cities and priced from the Multicity rates. */
+  multicity: boolean;
 }
 
 /** The services in the bottom navigation. Multicity has no booking contract on the server yet. */
@@ -99,6 +101,7 @@ export function BookingDraftProvider({ children }: { children: React.ReactNode }
     promoCode: '',
     rentalHours: null,
     fuelType: '',
+    multicity: false,
   });
   const [service, setServiceState] = useState<HomeService>('outstation');
   const lastOutstation = useRef<TripType>('One Way');
@@ -140,7 +143,7 @@ export function BookingDraftProvider({ children }: { children: React.ReactNode }
   const reset = useCallback(() => {
     lastOutstation.current = 'One Way';
     setServiceState('outstation');
-    setDraft((d) => ({ ...d, drop: null, stops: [], scheduledAt: null, tripEndAt: null, tripType: 'One Way', flightNumber: '', airportDirection: 'to', promoCode: '', roofCarrier: false, pets: false, rentalHours: null, fuelType: '' }));
+    setDraft((d) => ({ ...d, drop: null, stops: [], scheduledAt: null, tripEndAt: null, tripType: 'One Way', flightNumber: '', airportDirection: 'to', promoCode: '', roofCarrier: false, pets: false, rentalHours: null, fuelType: '', multicity: false }));
   }, []);
   const setRoute = useCallback((key: string, info: RouteInfo) => setRouteState({ key, info }), []);
 
@@ -154,7 +157,8 @@ export function BookingDraftProvider({ children }: { children: React.ReactNode }
     return {
       pickup: { id: pickup.id, name: pickup.name, address: pickup.address, lat: pickup.lat, lng: pickup.lng, type: pickup.type },
       drop: { id: drop.id, name: drop.name, address: drop.address, lat: drop.lat, lng: drop.lng, type: drop.type },
-      tripType,
+      stops: tripType === 'Round Trip' ? draft.stops.map((p) => ({ id: p.id, name: p.name, address: p.address, lat: p.lat, lng: p.lng, type: p.type })) : [],
+      tripType: draft.multicity && tripType === 'Round Trip' ? ('Multicity' as const) : tripType,
       scheduledAt: scheduledAt.toISOString(),
       tripEndAt: tripType === 'Round Trip' && tripEndAt ? tripEndAt.toISOString() : null,
       addOns: { roofCarrier: draft.roofCarrier, pets: draft.pets },

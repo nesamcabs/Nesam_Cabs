@@ -17,6 +17,13 @@ import type { VehicleCategory, VehicleCategoryFare } from "../types";
 
 export class CategoryActionError extends Error {}
 
+export type BrandImageKey = "nesam" | "people_taxi" | "onewaycarrentals";
+export const BRAND_IMAGE_BRANDS: { id: BrandImageKey; name: string }[] = [
+  { id: "nesam", name: "NESAM" },
+  { id: "people_taxi", name: "People Taxi" },
+  { id: "onewaycarrentals", name: "One Way Car Rentals" },
+];
+
 export type CategoryForm = Omit<VehicleCategory, "id" | "vehicleCount" | "createdAt" | "updatedAt" | "createdBy" | "fare"> & {
   fare: Required<VehicleCategoryFare>;
 };
@@ -110,6 +117,9 @@ function payloadFrom(form: CategoryForm) {
     code: deriveCategoryCode(form.code || form.name),
     description: (form.description || "").trim(),
     imageUrl: (form.imageUrl || "").trim(),
+    brandImages: Object.fromEntries(
+      Object.entries(form.brandImages ?? {}).filter(([, url]) => typeof url === "string" && /^https?:\/\/\S+$/i.test(url.trim())),
+    ) as NonNullable<VehicleCategory["brandImages"]>,
     iconUrl: (form.iconUrl || "").trim(),
     icon: form.icon || "🚘",
     seatingCapacity: form.seatingCapacity,
@@ -245,10 +255,12 @@ export async function saveCategory(form: CategoryForm, existing: VehicleCategory
   }
 }
 
-/** Saves only the car image link of a category (used by the bulk image upload). */
-export async function setCategoryImage(cat: VehicleCategory, imageUrl: string): Promise<void> {
+/** Saves only a car image link of a category (used by the bulk image upload). */
+export async function setCategoryImage(cat: VehicleCategory, imageUrl: string, brand?: BrandImageKey): Promise<void> {
   try {
-    await updateDoc(doc(db, COLLECTIONS.VEHICLE_CATEGORIES, cat.id), { imageUrl, updatedAt: serverTimestamp() });
+    // One brand's own image, or (no brand) the shared image every brand falls back to.
+    const field = brand ? { [`brandImages.${brand}`]: imageUrl } : { imageUrl };
+    await updateDoc(doc(db, COLLECTIONS.VEHICLE_CATEGORIES, cat.id), { ...field, updatedAt: serverTimestamp() });
   } catch (err) {
     throw new CategoryActionError(describeDataError(err));
   }

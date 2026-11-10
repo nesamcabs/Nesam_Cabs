@@ -230,7 +230,7 @@ const NAV_ITEMS: { key: NavKey; label: string; glyph: TravelGlyph }[] = [
   { key: 'airport', label: 'Airport', glyph: 'airport' },
   { key: 'multicity', label: 'Multicity', glyph: 'multicity' },
   { key: 'outstation', label: 'Outstation', glyph: 'outstation' },
-  { key: 'rental', label: 'Local Rental', glyph: 'rental' },
+  { key: 'rental', label: 'Local Rentals', glyph: 'rental' },
   { key: 'account', label: 'Account', glyph: 'account' },
 ];
 
@@ -292,7 +292,8 @@ export function BottomNav({ active }: { active?: NavKey }) {
                 return;
               }
               setService(item.key);
-              navigation.navigate('Tabs', { screen: 'Book' });
+              // Local Rentals is a map flow of its own; every other service uses the booking form.
+              navigation.navigate('Tabs', { screen: item.key === 'rental' ? 'Rentals' : 'Book' });
             }}
             containerStyle={styles.navCell}
             style={styles.navItem}

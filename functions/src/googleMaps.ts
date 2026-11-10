@@ -1,6 +1,7 @@
 // Secure Google Maps Platform proxy for all customer apps. The server key never reaches a browser.
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { PUBLIC_CALLABLE_ORIGINS } from './corsOrigins';
+import { FAST, WARM } from './hotOptions';
 import { rateLimited } from './http/util';
 import { requestIp } from './security';
 import { googleRouteRequest, inIndia, text } from './shared';
@@ -40,7 +41,7 @@ const googleFetch = async (url: string, init: RequestInit) => {
 
 const placeType = (types: unknown): 'airport' | 'other' => Array.isArray(types) && types.some((v) => ['airport', 'international_airport'].includes(String(v))) ? 'airport' : 'other';
 
-export const searchGooglePlaces = onCall({ timeoutSeconds: 30, cors: PUBLIC_CALLABLE_ORIGINS }, async (request) => {
+export const searchGooglePlaces = onCall({ timeoutSeconds: 30, cors: PUBLIC_CALLABLE_ORIGINS, ...WARM }, async (request) => {
   guarded(request, 'search', 45);
   const query = text((request.data as any)?.query, 120);
   if (query.length < 3) return { places: [] };
@@ -62,7 +63,7 @@ export const searchGooglePlaces = onCall({ timeoutSeconds: 30, cors: PUBLIC_CALL
   return { places };
 });
 
-export const reverseGoogleGeocode = onCall({ timeoutSeconds: 30, cors: PUBLIC_CALLABLE_ORIGINS }, async (request) => {
+export const reverseGoogleGeocode = onCall({ timeoutSeconds: 30, cors: PUBLIC_CALLABLE_ORIGINS, ...FAST }, async (request) => {
   guarded(request, 'reverse', 60);
   const p = point(request.data, 'map');
   const params = new URLSearchParams({ latlng: `${p.lat},${p.lng}`, key: key(), language: 'en', region: 'in' });
@@ -97,7 +98,7 @@ function decodePolyline(encoded: string): [number, number][] {
   return path;
 }
 
-export const getGoogleRoute = onCall({ timeoutSeconds: 30, cors: PUBLIC_CALLABLE_ORIGINS }, async (request) => {
+export const getGoogleRoute = onCall({ timeoutSeconds: 30, cors: PUBLIC_CALLABLE_ORIGINS, ...FAST }, async (request) => {
   if (rateLimited(`google:route:${request.auth?.uid || requestIp(request) || 'unknown'}`, 60, 60_000)) {
     throw new HttpsError('resource-exhausted', 'Too many route requests. Please wait a moment.');
   }

@@ -6,6 +6,7 @@ import type { RootStackParamList, TabParamList } from './types';
 import { BottomNav } from '../components/brand';
 import { useCustomerData } from '../context/CustomerData';
 import { BookScreen } from '../screens/BookScreen';
+import { LocalRentalsScreen } from '../screens/LocalRentalsScreen';
 import { TripsScreen } from '../screens/TripsScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { AccountScreen } from '../screens/AccountScreen';
@@ -40,13 +41,19 @@ export const useRideFocus = () => useContext(RideFocusCtx);
 // The reference's five-item navigation replaces the stock tab bar: the four services all
 // open the Book tab; My Bookings and Notifications are reached from Account and the header,
 // and highlight Account like the reference does for every non-home page.
+function tabActive(name?: string): 'rental' | 'account' | undefined {
+  if (name === 'Book') return undefined;
+  return name === 'Rentals' ? 'rental' : 'account';
+}
+
 function Tabs() {
   return (
     <Tab.Navigator
-      tabBar={(props) => <BottomNav active={props.state.routes[props.state.index]?.name === 'Book' ? undefined : 'account'} />}
+      tabBar={(props) => <BottomNav active={tabActive(props.state.routes[props.state.index]?.name)} />}
       screenOptions={{ headerShown: false, tabBarPosition: 'bottom' }}
     >
       <Tab.Screen name="Book" component={BookScreen} options={{ title: 'Book a cab' }} />
+      <Tab.Screen name="Rentals" component={LocalRentalsScreen} options={{ title: 'Local Rentals' }} />
       <Tab.Screen name="Trips" component={TripsScreen} options={{ title: 'My Bookings' }} />
       <Tab.Screen name="Alerts" component={NotificationsScreen} options={{ title: 'Notifications' }} />
       <Tab.Screen name="Account" component={AccountScreen} options={{ title: 'Account' }} />

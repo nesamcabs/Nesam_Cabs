@@ -13,7 +13,6 @@ import { Avatar, Button, Dialog, PageLoader } from './ui';
 import { Icon } from './Icon';
 import { RideBanner } from './RideBanner';
 import { RouteErrorBoundary } from '@/components/RouteErrorBoundary';
-import { FloatingCallButton } from './FloatingCallButton';
 import { SideDrawer } from './SideDrawer';
 import { AiChatbot } from './AiChatbot';
 import { ALL_ROUTES } from '@/pages/routes/routesData';
@@ -38,11 +37,11 @@ const NAV = [
   { to: '/notifications', label: 'Notifications', short: 'Alerts', icon: 'notifications' },
 ] as const;
 
-import airportIcon from '@/assets/nav/airport-taxi.png';
-import multicityIcon from '@/assets/nav/multicity.png';
-import outstationIcon from '@/assets/nav/outstation.png';
-import rentalIcon from '@/assets/nav/local-rentals.png';
-import profileIcon from '@/assets/nav/profile.png';
+import airportIcon from '@/assets/nav/airport-taxi.webp';
+import multicityIcon from '@/assets/nav/multicity.webp';
+import outstationIcon from '@/assets/nav/outstation.webp';
+import rentalIcon from '@/assets/nav/local-rentals.webp';
+import profileIcon from '@/assets/nav/profile.webp';
 
 /** Desktop header links. Account lives in the profile menu there. On phones the bottom bar holds the four
     services, and the header holds Notifications. Account and My trips are in the side menu. */
@@ -112,6 +111,84 @@ function ProfileTab({ picked, onPick }: { picked: boolean; onPick: () => void })
     <button type="button" className={`tabbar__link tabbar__link--button ${picked ? 'is-active' : ''}`} onClick={() => { onPick(); openLoginModal({ title: 'Sign in to NESAM Cabs' }); }}>
       {inner}
     </button>
+  );
+}
+
+/** One header button that opens two choices: chat with the AI assistant, or call the 24/7 desk. */
+function SupportMenu({ onAsk }: { onAsk: () => void }) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const location = useLocation();
+
+  useEffect(() => setOpen(false), [location.pathname]);
+  useEffect(() => {
+    if (!open) return undefined;
+    const down = (e: MouseEvent | TouchEvent) => {
+      if (root.current && !root.current.contains(e.target as Node)) setOpen(false);
+    };
+    const key = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    document.addEventListener('mousedown', down);
+    document.addEventListener('touchstart', down, { passive: true });
+    document.addEventListener('keydown', key);
+    return () => {
+      document.removeEventListener('mousedown', down);
+      document.removeEventListener('touchstart', down);
+      document.removeEventListener('keydown', key);
+    };
+  }, [open]);
+
+  return (
+    <div className="support-menu" ref={root}>
+      <button
+        type="button"
+        className={`support-menu__btn${open ? ' is-open' : ''}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Help: ask NESAM or call us"
+        title="Help"
+        onClick={() => setOpen((o) => !o)}
+      >
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+          <path d="M4 14v-2a8 8 0 0 1 16 0v2" />
+          <rect x="3" y="13" width="4" height="6" rx="1.5" />
+          <rect x="17" y="13" width="4" height="6" rx="1.5" />
+          <path d="M19 19c0 1.6-1.6 2.5-4 2.5h-2" />
+        </svg>
+      </button>
+      {open ? (
+        <div className="support-menu__panel" role="menu">
+          <button
+            type="button"
+            role="menuitem"
+            className="support-menu__item"
+            onClick={() => {
+              setOpen(false);
+              onAsk();
+            }}
+          >
+            <span className="support-menu__icon support-menu__icon--ai" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" focusable="false">
+                <path d="M10 3l2 6.2 6.2 2-6.2 2-2 6.2-2-6.2-6.2-2 6.2-2z" />
+                <path d="M19 2l.9 2.1L22 5l-2.1.9L19 8l-.9-2.1L16 5l2.1-.9z" />
+              </svg>
+            </span>
+            <span className="support-menu__text">
+              <strong>Ask NESAM</strong>
+              <small>Instant travel help</small>
+            </span>
+          </button>
+          <a role="menuitem" className="support-menu__item" href={`tel:${SUPPORT_PHONE}`} onClick={() => setOpen(false)}>
+            <span className="support-menu__icon support-menu__icon--call" aria-hidden="true">
+              <Icon name="phone" size={18} />
+            </span>
+            <span className="support-menu__text">
+              <strong>Call us</strong>
+              <small>24/7 booking · {SUPPORT_PHONE_DISPLAY}</small>
+            </span>
+          </a>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -384,11 +461,11 @@ export function Shell() {
   const { online, recovered } = useOnline();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
   // The menu closes whenever the page changes.
   useEffect(() => setMenuOpen(false), [location.pathname]);
   const isFlow = FLOW.some((re) => re.test(location.pathname));
   const isImmersive = IMMERSIVE.some((re) => re.test(location.pathname));
-  const onMapPage = /^\/local-rentals(\/|$)/.test(location.pathname);
   const isLocalPage = /^\/local-(rentals|taxi)\/?$/.test(location.pathname);
   const isLanding = location.pathname === '/' || location.pathname === '/book' || isLocalPage;
   const [hasScrolled, setHasScrolled] = useState(false);
@@ -466,9 +543,11 @@ export function Shell() {
               <Icon name="phone" size={18} />
               <span className="num">{SUPPORT_PHONE_DISPLAY}</span>
             </a>
+            <SupportMenu onAsk={() => setAiOpen(true)} />
             <ProfileMenu />
           </div>
           <div className="topbar__mobile">
+            <SupportMenu onAsk={() => setAiOpen(true)} />
             {!profile ? (
               <Button
                 variant="primary"
@@ -512,9 +591,8 @@ export function Shell() {
 
       {!isFlow ? <BottomNav /> : null}
       <SideDrawer open={menuOpen} onClose={() => setMenuOpen(false)} brand={<Brand />} />
-      {/* Keep maps and active booking flows clear: fixed support controls can cover fares and primary actions. */}
-      {onMapPage || isFlow ? null : <FloatingCallButton />}
-      {onMapPage || isFlow ? null : <AiChatbot />}
+      {/* Support lives in the header (Ask AI / Call us): no floating buttons to cover fares or actions. */}
+      <AiChatbot open={aiOpen} onOpenChange={setAiOpen} hideLauncher />
     </div>
   );
 }

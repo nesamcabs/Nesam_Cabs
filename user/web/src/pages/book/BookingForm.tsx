@@ -187,8 +187,6 @@ export function BookingForm({
     }
     if (isRound && (!days || days < 1 || days > RT_MAX_DAYS)) e.retDate = `Choose 1 to ${RT_MAX_DAYS} days.`;
     const at = combineDateTime(date, time);
-    // Local Taxi is on demand: it has no pickup date or time to check.
-    if (service === 'local') return e;
     if (!date) e.date = 'Choose a pickup date.';
     else if (!time) e.time = 'Choose a pickup time.';
     else {
@@ -413,9 +411,8 @@ export function BookingForm({
             </>
           ) : null}
 
-          {service !== 'local' ? (
-          <div className={isRound ? 'bf-row bf-row--trio' : 'bf-row'}>
-            <div className="bf-cell">
+          <div className={isRound ? 'bf-row bf-row--round-schedule' : 'bf-row'}>
+            <div className="bf-cell bf-cell--schedule">
               <label className="bf-label bf-label--out" htmlFor="bf-date">
                 Pickup date
               </label>
@@ -432,6 +429,14 @@ export function BookingForm({
                   max={toDateInput(latestPickup())}
                   aria-invalid={!!errors.date || undefined}
                   aria-describedby={errors.date ? 'bf-date-err' : undefined}
+                  onClick={(e) => {
+                    // With the native arrow gone, tapping anywhere on the field opens the calendar.
+                    try {
+                      e.currentTarget.showPicker?.();
+                    } catch {
+                      /* the browser opens it itself */
+                    }
+                  }}
                   onChange={(e) => {
                     setDate(e.target.value);
                     setErrors((x) => ({ ...x, date: '', time: '' }));
@@ -441,7 +446,7 @@ export function BookingForm({
               </div>
               {fieldErr('date')}
             </div>
-            <div className="bf-cell">
+            <div className="bf-cell bf-cell--schedule">
               <span className="bf-label bf-label--out" id="bf-time-label">
                 Pickup time
               </span>
@@ -462,10 +467,12 @@ export function BookingForm({
               {fieldErr('time')}
             </div>
             {isRound ? (
-              <div className="bf-cell">
+              <div className="bf-cell bf-round-days">
                 <label className="bf-label bf-label--out" htmlFor="bf-days">
                   Days
                 </label>
+                <div className="bf-duration-stepper" role="group" aria-label="Trip duration">
+                  <button type="button" aria-label="Decrease trip days" disabled={days <= 1} onClick={() => { setDays((n) => Math.max(1, n - 1)); setErrors((x) => ({ ...x, retDate: '' })); }}>−</button>
                 <select
                   id="bf-days"
                   className="bf-days__input"
@@ -482,12 +489,13 @@ export function BookingForm({
                     </option>
                   ))}
                 </select>
+                  <button type="button" aria-label="Increase trip days" disabled={days >= RT_MAX_DAYS} onClick={() => { setDays((n) => Math.min(RT_MAX_DAYS, n + 1)); setErrors((x) => ({ ...x, retDate: '' })); }}>+</button>
+                </div>
                 <span className="bf-days__end">{date ? `Ends ${dayHint(addDaysISO(date, days - 1))}` : 'Pick a date'}</span>
                 {fieldErr('retDate')}
               </div>
             ) : null}
           </div>
-          ) : null}
 
 
           {errors.form ? (

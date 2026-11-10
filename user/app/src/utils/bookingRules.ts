@@ -66,3 +66,8 @@ export function composeBookingNotes(p: { flight?: string; passengerName?: string
   const joined = head && note ? `${head} | ${note}` : head || note;
   return joined.slice(0, NOTES_MAX);
 }
+
+/** The earliest pickup a rider can choose: the minimum lead time after `now`, rounded up to the next 5 minutes. */
+export function earliestSlot(now = Date.now()): Date {
+  return new Date(Math.ceil((now + SCHEDULE_MIN_LEAD_MIN * 60000) / 300000) * 300000);
+}

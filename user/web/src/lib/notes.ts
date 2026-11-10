@@ -1,7 +1,9 @@
 export const NOTES_MAX = 300;
 
-export function composeNotes(p: { flight?: string; passengerName?: string; passengerMobile?: string; notes?: string }): string {
+export function composeNotes(p: { customerName?: string; flight?: string; passengerName?: string; passengerMobile?: string; notes?: string }): string {
   const parts: string[] = [];
+  const booker = (p.customerName ?? '').trim();
+  if (booker) parts.push(`Booked by: ${booker}`);
   const flight = (p.flight ?? '').trim();
   if (flight) parts.push(`Flight: ${flight}`);
   const name = (p.passengerName ?? '').trim();
@@ -12,5 +14,5 @@ export function composeNotes(p: { flight?: string; passengerName?: string; passe
   return (head && note ? `${head} | ${note}` : head || note).slice(0, NOTES_MAX);
 }
 
-export const notesRoom = (p: { flight?: string; passengerName?: string; passengerMobile?: string }) =>
+export const notesRoom = (p: { customerName?: string; flight?: string; passengerName?: string; passengerMobile?: string }) =>
   Math.max(0, NOTES_MAX - (composeNotes(p).length + (composeNotes(p) ? 3 : 0)));

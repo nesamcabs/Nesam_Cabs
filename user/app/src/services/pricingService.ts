@@ -35,6 +35,13 @@ function vehicleTypeAliases(...labels: string[]): string[] {
   return [...out];
 }
 
+/** This site's brand: a category can carry a car image of its own per brand (admin → Vehicle categories). */
+const SITE_BRAND = 'nesam';
+const brandImage = (d: DocumentData): string => {
+  const images = d.brandImages;
+  return images && typeof images === 'object' ? str((images as Record<string, unknown>)[SITE_BRAND]) : '';
+};
+
 /** Exported for the server-parity test. */
 export function mapCategory(id: string, d: DocumentData): RideCategory | null {
   const f = d.fare && typeof d.fare === 'object' ? d.fare : {};
@@ -48,7 +55,7 @@ export function mapCategory(id: string, d: DocumentData): RideCategory | null {
     name: str(d.name),
     description: str(d.description),
     seats: num(d.seatingCapacity) || num(d.recommendedPassengers) || 4,
-    imageUrl: str(d.imageUrl) || undefined,
+    imageUrl: brandImage(d) || str(d.imageUrl) || undefined,
     iconUrl: str(d.iconUrl) || undefined,
     matchVehicleTypes: vehicleTypeAliases(str(d.name), str(d.code)),
     fare: {

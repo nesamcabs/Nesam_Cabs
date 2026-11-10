@@ -1,0 +1,94 @@
+/* Round Trip and Multicity only: no dotted line between the places; the green dot and the red pins sit inside
+   their own cards, before the text. One Way, Airport and Local keep their existing look (nothing here matches them).
+   Loaded last so it wins over the older route rules. */
+
+/* ── Round Trip ── */
+.bf .bf-form .bf-route.bf-route--round {
+  padding-left: 0;
+}
+.bf .bf-form .bf-route.bf-route--round::before {
+  display: none;
+  content: none;
+  border: 0;
+}
+.bf .bf-form .bf-route.bf-route--round:not(.bf-route--single) > .bf-route__cell:last-of-type {
+  margin-left: 0;
+}
+.bf .bf-form .bf-route.bf-route--round .bf-pin,
+.bf .bf-form .bf-route.bf-route--round .bf-pin.bf-pin--drop {
+  position: relative;
+  top: auto;
+  right: auto;
+  left: auto;
+  flex: none;
+  translate: none;
+  margin: 0 4px 0 0;
+}
+.bf .bf-form .bf-route.bf-route--round .bf-pin {
+  box-sizing: content-box;
+  width: 12px;
+  height: 12px;
+  border: 4px solid rgb(34 168 90 / 0.3);
+  border-radius: 50%;
+  background: #22a85a;
+  background-clip: padding-box;
+  box-shadow: none;
+}
+.bf .bf-form .bf-route.bf-route--round .bf-pin.bf-pin--drop {
+  box-sizing: border-box;
+  width: 17px;
+  height: 17px;
+  margin: 0 8px 0 3px;
+  border: 0;
+  border-radius: 50% 50% 50% 0;
+  background: #e8344c;
+  rotate: -45deg;
+}
+.bf .bf-form .bf-route.bf-route--round .bf-field {
+  padding-left: 14px;
+}
+
+/* ── Multicity ── */
+.bf .bf-multicity .bf-section[aria-label='Route and stops'] {
+  padding-left: 0;
+}
+.bf .bf-multicity .bf-section[aria-label='Route and stops']::before {
+  display: none;
+  content: none;
+  border: 0;
+}
+.bf .bf-multicity .bf-pin,
+.bf .bf-multicity .bf-pin.bf-pin--stop,
+.bf .bf-multicity .bf-pin.bf-pin--drop {
+  position: relative;
+  top: auto;
+  right: auto;
+  left: auto;
+  flex: none;
+  translate: none;
+  margin: 0 4px 0 0;
+}
+.bf .bf-multicity .bf-pin {
+  box-sizing: content-box;
+  width: 12px;
+  height: 12px;
+  border: 4px solid rgb(34 168 90 / 0.3);
+  border-radius: 50%;
+  background: #22a85a;
+  background-clip: padding-box;
+  box-shadow: none;
+}
+.bf .bf-multicity .bf-pin.bf-pin--stop,
+.bf .bf-multicity .bf-pin.bf-pin--drop {
+  box-sizing: border-box;
+  width: 17px;
+  height: 17px;
+  margin: 0 8px 0 3px;
+  border: 0;
+  border-radius: 50% 50% 50% 0;
+  background: #e8344c;
+  rotate: -45deg;
+}
+.bf .bf-multicity .bf-field {
+  padding-left: 14px;
+}

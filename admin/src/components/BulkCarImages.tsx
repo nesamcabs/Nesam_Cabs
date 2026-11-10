@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { VehicleCategory } from "../types";
 import { compressCategoryImage, formatBytes, uploadCategoryMedia, categoryMediaProblem } from "../services/categoryMedia";
-import { setCategoryImage } from "../services/categoryService";
+import { BRAND_IMAGE_BRANDS, setCategoryImage, type BrandImageKey } from "../services/categoryService";
 import { Modal } from "./Feedback";
 import { Button } from "./ui";
 
@@ -50,6 +50,7 @@ export default function BulkCarImages({ categories, onClose, onDone }: {
 }) {
   const [rows, setRows] = useState<Row[]>([]);
   const [writePlate, setWritePlate] = useState(true);
+  const [brand, setBrand] = useState<BrandImageKey | "">("");
   const [running, setRunning] = useState(false);
   const [finished, setFinished] = useState(false);
   const [problem, setProblem] = useState("");
@@ -111,7 +112,7 @@ export default function BulkCarImages({ categories, onClose, onDone }: {
         const result = await compressCategoryImage(row.file, "car", writePlate ? cat.name : undefined);
         setRow(row.key, { message: "Uploading…" });
         const url = await uploadCategoryMedia(result.file, "car", cat.id);
-        await setCategoryImage(cat, url);
+        await setCategoryImage(cat, url, brand || undefined);
         const plate = result.plate === "stamped" ? ` · “${cat.name.toUpperCase()}” written on the plate`
           : result.plate === "not-found" ? " · no yellow number plate found, name not added" : "";
         setRow(row.key, { state: "done", message: `${formatBytes(result.originalBytes)} → ${formatBytes(result.bytes)}${plate}` });
@@ -153,6 +154,14 @@ export default function BulkCarImages({ categories, onClose, onDone }: {
             onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
           <Button onClick={() => input.current?.click()} disabled={running}>Choose pictures</Button>
         </div>
+
+        <label className="flex flex-wrap items-center gap-2 text-[12px] font-semibold text-ink">
+          Save these images for
+          <select value={brand} disabled={running} onChange={(e) => setBrand(e.target.value as BrandImageKey | "")} className="rounded-lg border border-line bg-white px-2 py-1.5 text-[12px] font-semibold">
+            <option value="">All brands (shared image)</option>
+            {BRAND_IMAGE_BRANDS.map((b) => <option key={b.id} value={b.id}>{b.name} only</option>)}
+          </select>
+        </label>
 
         <label className="flex items-center gap-2 text-[12px] font-semibold text-ink">
           <input type="checkbox" checked={writePlate} disabled={running} onChange={(e) => setWritePlate(e.target.checked)} />

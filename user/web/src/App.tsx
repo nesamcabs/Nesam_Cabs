@@ -1,5 +1,5 @@
 import { lazy, useEffect, useRef, type ReactNode } from 'react';
-import { Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { CustomerDataProvider } from '@core/context/CustomerData';
 import { Shell } from '@/components/Shell';
 import { EmptyState, LinkButton, PageLoader } from '@/components/ui';
@@ -122,8 +122,8 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route element={<Shell />}>
-        {/* The booking home lives at "/"; "/book" shows the same page and declares "/" as canonical. */}
-        <Route index element={<BookPage step="plan" />} />
+        {/* Open the Local Pickup & Drop screen by default when the app starts. */}
+        <Route index element={<Navigate to="/local-rentals?mode=pickup" replace />} />
         <Route path="/book" element={<BookPage step="plan" />} />
         <Route path="/book/ride" element={<BookPage step="choose" />} />
         <Route path="/book/confirm" element={<BookPage step="review" />} />

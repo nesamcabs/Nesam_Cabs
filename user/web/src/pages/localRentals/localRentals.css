@@ -87,7 +87,7 @@
   box-shadow: 0 4px 12px rgb(var(--brand-rgb, 22 101 232) / 0.45);
   transition: transform 260ms cubic-bezier(0.3, 0.8, 0.3, 1);
 }
-.lr-seg[data-mode='pickup'] .lr-seg__thumb { transform: translateX(100%); }
+.lr-seg[data-mode='hourly'] .lr-seg__thumb { transform: translateX(100%); }
 
 /* ── Search and city chips, under the top bar while a place is being chosen ── */
 .lr-find {
@@ -514,6 +514,80 @@
 .lr-date { min-width: 0; box-sizing: border-box; padding-right: 6px; }
 .lr-date::-webkit-datetime-edit { padding: 0; }
 
+/* Date and time labels live inside their controls, above the selected value. */
+.lr-field--schedule { position: relative; gap: 0; }
+.lr-field--schedule > span {
+  position: absolute;
+  z-index: 2;
+  top: 7px;
+  left: 11px;
+  color: var(--muted, #5b6472);
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+.lr-field--schedule .lr-date,
+.lr-field--schedule .lr-select select {
+  min-height: 54px;
+  padding-top: 17px;
+  padding-bottom: 2px;
+  font-weight: 700;
+}
+
+/* Hourly Rental · Step 2: match the compact reference card and keep every edge aligned. */
+.lr-sheet--tall { position: relative; }
+.lr-sheet--tall > .lr-step {
+  position: absolute;
+  top: 35px;
+  right: 20px;
+  color: var(--muted, #5b6472);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.lr-hourly-plan { display: grid; gap: 8px; margin-top: 8px; }
+.lr-hourly-plan .lr-pair { margin-top: 0; }
+.lr-field--duration { position: relative; gap: 0; }
+.lr-field--duration > span {
+  position: absolute;
+  z-index: 2;
+  top: 8px;
+  left: 14px;
+  color: var(--muted, #5b6472);
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+.lr-field--duration .lr-select select {
+  min-height: 54px;
+  padding: 17px 38px 2px 14px;
+  border-color: color-mix(in srgb, var(--brand, #e31e24) 38%, var(--line-strong, #d5dae2));
+  font-size: 0.9375rem;
+  font-weight: 800;
+}
+.lr-hourly-plan .lr-field--schedule .lr-date,
+.lr-hourly-plan .lr-field--schedule .lr-select select,
+.lr-hourly-plan + * {
+  box-sizing: border-box;
+}
+.lr-hourly-plan .lr-pair--two { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.lr-hourly-plan .lr-field--schedule .lr-date,
+.lr-hourly-plan .lr-field--schedule .lr-select select {
+  width: 100%;
+  min-height: 54px;
+  border-color: color-mix(in srgb, var(--brand, #e31e24) 38%, var(--line-strong, #d5dae2));
+}
+.lr-sheet--tall .lr-foot .lr-cta { min-height: 52px; margin-top: 8px; border-radius: 6px; }
+@media (max-width: 899.98px) {
+  .lr-sheet--tall > .lr-step { top: 33px; right: 16px; }
+  .lr-hourly-plan { margin-top: 6px; }
+}
+
 /* Google Maps: the map ends at the sheet, so Google's logo and terms are never covered. */
 .lr__map--google { bottom: var(--lr-sheet, 240px); background: var(--paper, #eef1f6); }
 .lr__map--google .gm-style { font-family: inherit; }
@@ -544,3 +618,50 @@
 
 .lr-slogan { margin: 8px 0 0; text-align: center; font-size: 14px; font-weight: 700; line-height: 1.4; }
 .lr-slogan span { display: block; color: var(--brand); font-weight: 500; }
+
+/* The Pickup & Drop / Hourly Rental switch sits at the top of the bottom card, above the step line. */
+.lr-sheet .lr-seg {
+  flex: none;
+  max-width: none;
+  margin: 10px 0 4px;
+  background: var(--sunken, #f1f4f9);
+  box-shadow: none;
+}
+.lr-sheet .lr-seg button { min-height: 36px; }
+
+/* ── Phones: content starts at the very top, and the bottom card is smaller, cleaner and simpler ── */
+@media (max-width: 899.98px) {
+  .lr-find { top: calc(10px + env(safe-area-inset-top, 0px)); left: 12px; right: 12px; gap: 6px; }
+  .lr-search { min-height: 42px; padding: 0 14px; border-radius: 6px; font-size: 0.875rem; box-shadow: 0 4px 14px rgb(15 23 42 / 0.14); }
+  .lr-chip { min-height: 30px; padding: 0 12px; font-size: 0.78rem; }
+
+  .lr-sheet { padding: 6px 14px 12px; border-radius: 8px; box-shadow: 0 8px 26px rgb(15 23 42 / 0.22); }
+  .lr-grip { height: 4px; margin: 0 auto 6px; }
+  .lr-gripbtn { height: 14px; }
+  .lr-gripbtn::before { top: 4px; height: 4px; }
+
+  .lr-sheet .lr-seg { margin: 8px 0 2px; padding: 3px; }
+  .lr-sheet .lr-seg button { min-height: 30px; font-size: 0.78rem; }
+  .lr-seg__thumb { top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px); box-shadow: 0 2px 8px rgb(var(--brand-rgb, 22 101 232) / 0.35); }
+
+  .lr-step { font-size: 0.62rem; letter-spacing: 0.06em; }
+  .lr-sheet--tall > .lr-step { position: static; color: var(--brand-ink, var(--brand, #e31e24)); letter-spacing: 0.06em; text-transform: uppercase; }
+  .lr-sheet h2 { margin: 1px 0 8px; font-size: 0.95rem; }
+
+  .lr-row { gap: 8px; margin: 6px 0 2px; }
+  .lr-row > .lr-addr, .lr-row > .lr-cta { min-height: 46px; border-radius: 6px; }
+  .lr-row > .lr-cta { padding: 0 14px; font-size: 0.85rem; }
+  .lr-addr { gap: 9px; padding: 6px 11px; }
+  .lr-addr strong { font-size: 0.875rem; }
+  .lr-addr small { font-size: 0.7rem; }
+  .lr-dot { width: 11px; height: 11px; border-width: 2px; }
+  .lr-hint, .lr-warn { margin-top: 6px; font-size: 0.72rem; }
+
+  .lr-trip button { min-height: 40px; }
+  .lr-field--schedule .lr-date,
+  .lr-field--schedule .lr-select select,
+  .lr-hourly-plan .lr-field--schedule .lr-date,
+  .lr-hourly-plan .lr-field--schedule .lr-select select,
+  .lr-field--duration .lr-select select { min-height: 46px; font-size: 0.875rem; }
+  .lr-sheet--tall .lr-foot .lr-cta { min-height: 46px; font-size: 0.9rem; }
+}

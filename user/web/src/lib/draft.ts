@@ -26,6 +26,8 @@ export interface BookingDraft {
   waCode: string;
   waNumber: string;
   email: string;
+  /** The booker's name (prefilled from the profile; a different name is sent inside the notes). */
+  customerName: string;
   /** Booking for someone else: who travels (sent to the server inside the notes). */
   forOther: boolean;
   passengerName: string;
@@ -59,6 +61,7 @@ export const EMPTY_DRAFT: BookingDraft = {
   waCode: '+91',
   waNumber: '',
   email: '',
+  customerName: '',
   forOther: false,
   passengerName: '',
   passengerMobile: '',
@@ -114,6 +117,7 @@ export function loadDraft(): BookingDraft {
       waCode: typeof d.waCode === 'string' ? d.waCode : '+91',
       waNumber: typeof d.waNumber === 'string' ? d.waNumber : '',
       email: typeof d.email === 'string' ? d.email : '',
+      customerName: typeof d.customerName === 'string' ? d.customerName.slice(0, 60) : '',
       forOther: d.forOther === true,
       passengerName: typeof d.passengerName === 'string' ? d.passengerName.slice(0, 60) : '',
       passengerMobile: typeof d.passengerMobile === 'string' ? d.passengerMobile.slice(0, 16) : '',

@@ -1,5 +1,6 @@
 """
-Writes each vehicle category's name on the yellow number plate of its car image.
+Writes each vehicle category's name on the yellow number plate of its car image, with a clean finished look
+(soft yellow gradient, thin dark border, a little gloss, spaced and slightly embossed lettering).
 
     python stamp_car_plates.py <input folder> <output folder> [--names names.json]
 
@@ -15,7 +16,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 
 FONT_CANDIDATES = [
     "C:/Windows/Fonts/segoeuib.ttf",
@@ -23,6 +24,7 @@ FONT_CANDIDATES = [
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
     "/Library/Fonts/Arial Bold.ttf",
 ]
+SCALE = 8  # everything is drawn this many times larger, then shrunk: smooth edges at any size
 
 
 def load_font(size: int) -> ImageFont.FreeTypeFont:
@@ -34,11 +36,15 @@ def load_font(size: int) -> ImageFont.FreeTypeFont:
     return ImageFont.load_default()
 
 
+def yellow_mask(rgba: np.ndarray) -> np.ndarray:
+    r, g, b, a = (rgba[..., i].astype(int) for i in range(4))
+    return (a > 200) & (r > 200) & (g > 140) & (g < 228) & (b < 95) & (r - b > 130) & (r >= g)
+
+
 def find_plate(rgba: np.ndarray):
     """The biggest roughly rectangular patch of plate-yellow, as (x, y, w, h), or None."""
     h, w = rgba.shape[:2]
-    r, g, b, a = (rgba[..., i].astype(int) for i in range(4))
-    mask = (a > 200) & (r > 200) & (g > 140) & (g < 228) & (b < 95) & (r - b > 130) & (r >= g)
+    mask = yellow_mask(rgba)
     if mask.sum() > 0.25 * w * h:  # a yellow car, not a plate
         return None
     seen = np.zeros_like(mask)
@@ -67,8 +73,20 @@ def find_plate(rgba: np.ndarray):
     return best[:4] if best else None
 
 
-def layout(text: str, plate_w: int, plate_h: int, scale: int):
-    """Picks one or two lines and the biggest font size that fits the plate."""
+def tracked_width(font, text: str, tracking: float) -> float:
+    return sum(font.getlength(c) for c in text) + tracking * (len(text) - 1)
+
+
+def draw_tracked(draw, cx: float, cy: float, text: str, font, tracking: float, fill):
+    """Draws text centred on (cx, cy) with a little extra space between the letters."""
+    x = cx - tracked_width(font, text, tracking) / 2
+    for c in text:
+        draw.text((x, cy), c, font=font, fill=fill, anchor="lm")
+        x += font.getlength(c) + tracking
+
+
+def layout(text: str, inner_w: float, inner_h: float):
+    """One or two lines, and the biggest font size (in drawing pixels) that fits."""
     words = text.split()
     options = [[text]]
     if len(words) > 1:
@@ -76,16 +94,61 @@ def layout(text: str, plate_w: int, plate_h: int, scale: int):
         options.append([" ".join(words[:mid]), " ".join(words[mid:])])
     best = None
     for lines in options:
-        size = int(min(plate_h * 0.62, plate_h * 0.8 / len(lines)) * scale)
-        while size > 6:
+        size = int(min(inner_h * 0.9 / len(lines), inner_h))
+        while size > 8:
             font = load_font(size)
-            widest = max(font.getlength(line) for line in lines)
-            if widest <= plate_w * 0.86 * scale:
+            tracking = size * 0.07
+            if max(tracked_width(font, line, tracking) for line in lines) <= inner_w:
                 break
             size -= 1
         if best is None or size > best[0] * 1.15:
             best = (size, lines)
     return best
+
+
+def plate_layer(w: int, h: int, text: str) -> Image.Image:
+    """The finished plate, w x h pixels, RGBA: matte taxi-yellow face, thin black border, blue IND strip, embossed name."""
+    W, H = w * SCALE, h * SCALE
+    t = np.linspace(0, 1, H)[:, None]
+    top, bottom = np.array([252, 211, 58]), np.array([243, 181, 8])
+    face = (top[None, :] * (1 - t) + bottom[None, :] * t)[:, None, :].repeat(W, axis=1)
+    gloss = np.clip(1 - np.linspace(0, 1, H) / 0.38, 0, 1)[:, None, None] * 0.10  # a faint sheen, not a mirror
+    face = face * (1 - gloss) + 255 * gloss
+    img = Image.fromarray(np.dstack([face, np.full((H, W), 255)]).astype(np.uint8), "RGBA")
+    draw = ImageDraw.Draw(img)
+    r_out = H * 0.11
+
+    # bevelled edge: a darker rim, then a light line just inside it
+    draw.rounded_rectangle([0, 0, W - 1, H - 1], radius=r_out, outline=(150, 108, 0, 255), width=max(2, int(H * 0.035)))
+    draw.line([(r_out, H * 0.05), (W - r_out, H * 0.05)], fill=(255, 238, 150, 120), width=max(1, int(H * 0.018)))
+
+    # thin black border
+    inset = H * 0.09
+    bw = max(2, int(H * 0.032))
+    draw.rounded_rectangle([inset, inset, W - inset - 1, H - inset - 1], radius=H * 0.07, outline=(24, 24, 24, 255), width=bw)
+
+    # blue IND strip, as on a registered plate
+    sx0, sx1 = inset + bw, inset + bw + W * 0.115
+    draw.rectangle([sx0, inset + bw, sx1, H - inset - bw - 1], fill=(26, 70, 160, 255))
+    cx, cy, rr = (sx0 + sx1) / 2, H * 0.38, W * 0.032
+    draw.ellipse([cx - rr, cy - rr, cx + rr, cy + rr], outline=(255, 255, 255, 235), width=max(2, int(H * 0.018)))
+    ind = load_font(int(H * 0.17))
+    draw.text(((sx0 + sx1) / 2, H * 0.66), "IND", font=ind, fill=(255, 255, 255, 240), anchor="mm")
+
+    # the name, centred in the space right of the strip
+    area_x0, area_x1 = sx1 + W * 0.02, W - inset - bw - W * 0.02
+    size, lines = layout(text, (area_x1 - area_x0) * 0.94, H * 0.5)
+    font = load_font(size)
+    tracking = size * 0.07
+    line_h = size * 1.12
+    mid_x = (area_x0 + area_x1) / 2
+    top_y = H / 2 - (len(lines) - 1) * line_h / 2
+    lift = max(2, size * 0.04)
+    for i, line in enumerate(lines):
+        y = top_y + i * line_h
+        draw_tracked(draw, mid_x + lift, y + lift, line, font, tracking, (255, 244, 190, 150))  # light edge: embossed
+        draw_tracked(draw, mid_x, y, line, font, tracking, (20, 20, 20, 255))
+    return img.resize((w, h), Image.LANCZOS)
 
 
 def stamp(img: Image.Image, text: str):
@@ -94,18 +157,20 @@ def stamp(img: Image.Image, text: str):
     if plate is None:
         return img, False
     x, y, w, h = plate
-    scale = 6  # draw large, then shrink: smooth edges at any size
-    size, lines = layout(text, w, h, scale)
-    font = load_font(size)
-    layer = Image.new("RGBA", (w * scale, h * scale), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(layer)
-    line_h = size * 1.08
-    top = h * scale / 2 - (len(lines) - 1) * line_h / 2
-    for i, line in enumerate(lines):
-        draw.text((w * scale / 2, top + i * line_h), line, font=font, fill=(28, 28, 28, 255), anchor="mm")
-    layer = layer.resize((w, h), Image.LANCZOS)
+    pad = 2  # catch the plate's soft edge
+    x0, y0 = max(0, x - pad), max(0, y - pad)
+    x1, y1 = min(rgba.shape[1], x + w + pad), min(rgba.shape[0], y + h + pad)
+    bw, bh = x1 - x0, y1 - y0
+
+    # Only the plate's own pixels are painted: its edges (and any slant) stay exactly as in the picture.
+    region = yellow_mask(rgba[y0:y1, x0:x1])
+    mask = Image.fromarray((region * 255).astype(np.uint8), "L")
+    mask = mask.filter(ImageFilter.MaxFilter(5)).filter(ImageFilter.MinFilter(3)).filter(ImageFilter.GaussianBlur(0.6))
+
+    layer = plate_layer(bw, bh, text)
+    layer.putalpha(ImageChops.multiply(layer.getchannel("A"), mask))
     out = img.convert("RGBA")
-    out.alpha_composite(layer, (x, y))
+    out.alpha_composite(layer, (x0, y0))
     return out, True
 
 
@@ -123,8 +188,7 @@ def main() -> int:
         if path.suffix.lower() not in (".png", ".jpg", ".jpeg", ".webp"):
             continue
         text = str(names.get(path.name) or path.stem.replace("-", " ").replace("_", " ")).strip().upper()
-        img = Image.open(path)
-        out, ok = stamp(img, text)
+        out, ok = stamp(Image.open(path), text)
         target = dst / path.name
         if path.suffix.lower() in (".jpg", ".jpeg"):
             out.convert("RGB").save(target, quality=92)

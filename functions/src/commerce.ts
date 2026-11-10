@@ -29,13 +29,14 @@ import { storePricingInTx } from './pricingPrivate';
 import { notifyInTx, pushAfterCommit, NotifyInput } from './notify';
 import { NO_BOOKABLE_CATEGORIES, approved, inIndia, requestIdOf as id, roundTripPricingRoute, routeThrough, text } from './shared';
 import { assertServiceSupported, resolveAndValidateBrand } from './brandContext';
+import { FAST, WARM } from './hotOptions';
 
 function place(v: any): GeoPlace {
   if (!v || !inIndia(v.lat, v.lng)) throw new HttpsError('invalid-argument', 'Choose valid pickup and drop locations in India.');
   return { id: 'pin', name: text(v.name, 120), address: text(v.address), lat: v.lat, lng: v.lng, type: v.type === 'airport' ? 'airport' : 'other' };
 }
 
-export const createBooking = onCall({ timeoutSeconds: 60 }, async (request) => {
+export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.');
   const input = request.data ?? {};
@@ -49,16 +50,26 @@ export const createBooking = onCall({ timeoutSeconds: 60 }, async (request) => {
   }
   // A Multicity tour is booked directly as a Round Trip through its cities, priced from the Multicity rates.
   const multicity = input.tripType === 'Multicity';
+  // The reads below do not depend on each other, so they start together instead of one after another. Each is awaited
+  // where it used to run, so the first problem a customer is told about is unchanged.
+  const settled = <T,>(p: Promise<T>): Promise<T> => {
+    p.catch(() => undefined); // reported where it is awaited, never as an unhandled rejection
+    return p;
+  };
+  const cashCheck = settled(assertCashAllowed(input.paymentMethod));
+  const legalCheck = settled(assertLegalAccepted(uid, 'customer'));
+  const operationsRead = settled(db.doc('settings/operations').get());
+  const serviceRulesRead = settled(loadServiceRules());
   // Customers must have accepted the current published Terms & Privacy Policy (none published → no block).
-  await assertCashAllowed(input.paymentMethod);
-  await assertLegalAccepted(uid, 'customer');
+  await cashCheck;
+  await legalCheck;
   // NESAM takes advance bookings only. The pickup must be an unambiguous instant
   // (ISO-8601 with "Z" or an offset) inside the booking window; there is no
   // "now" and no default pickup time.
   if (input.termsAccepted !== true) throw new HttpsError('failed-precondition', 'Accept the NESAM terms and cancellation policy to submit a booking request.');
   const now = new Date();
   const scheduled = parsePickupInstant(input.scheduledAt);
-  const window = bookingWindowFrom((await db.doc('settings/operations').get()).data());
+  const window = bookingWindowFrom((await operationsRead).data());
   const scheduleProblem = pickupWindowProblem(scheduled, now, window);
   if (scheduleProblem || !scheduled) throw new HttpsError('invalid-argument', scheduleProblem || 'Choose the pickup date and time.');
   const when = scheduled;
@@ -98,14 +109,16 @@ export const createBooking = onCall({ timeoutSeconds: 60 }, async (request) => {
     if (tripEndAt.getTime() < when.getTime()) throw new HttpsError('invalid-argument', 'The trip cannot end before it starts.');
   }
   const pushes: { id: string; input: NotifyInput }[] = [];
-  const serviceRules = await loadServiceRules();
+  const serviceRules = await serviceRulesRead;
+  // The coupon list and the customer's earlier bookings are only needed to check a coupon.
+  const wantsCoupon = Boolean(normalizeCode(text(input.couponCode, 50)));
   const result = await db.runTransaction(async (tx) => {
     pushes.length = 0; // the callback can retry; only the committed attempt may push
     const [previous, customer, categories, coupons, history, policy, adjustmentDoc, tariff, servicesSnap] = await Promise.all([
       tx.get(ref), tx.get(db.doc(`customers/${uid}`)),
       tx.get(db.collection('vehicle_categories').where('status', '==', 'Active')),
-      tx.get(db.collection('coupons')),
-      tx.get(db.collection('bookings').where('customerId', '==', uid)),
+      wantsCoupon ? tx.get(db.collection('coupons')) : Promise.resolve(null),
+      wantsCoupon ? tx.get(db.collection('bookings').where('customerId', '==', uid)) : Promise.resolve(null),
       loadCommissionPolicy(tx),
       loadFareAdjustment(tx),
       loadTariffConfig(tx),
@@ -190,8 +203,8 @@ export const createBooking = onCall({ timeoutSeconds: 60 }, async (request) => {
     const couponCode = normalizeCode(text(input.couponCode, 50));
     let discount = 0, usedCoupon;
     if (couponCode) {
-      const prior = history.docs.map(d => d.data()).filter(b => b.status !== 'Cancelled' && b.status !== 'Rejected');
-      const result = validateCoupon(coupons.docs.map(d => mapCoupon(d.id, d.data())), couponCode, {
+      const prior = history!.docs.map(d => d.data()).filter(b => b.status !== 'Cancelled' && b.status !== 'Rejected');
+      const result = validateCoupon(coupons!.docs.map(d => mapCoupon(d.id, d.data())), couponCode, {
         subtotal: beforeDiscount.fare.subtotal, categoryId: category.id, service,
         isFirstBooking: prior.length === 0, customerUses: prior.filter(b => normalizeCode(b.couponCode || '') === couponCode).length,
         pickupAt: when, completedTrips: prior.filter(b => b.status === 'Completed').length,
@@ -200,7 +213,7 @@ export const createBooking = onCall({ timeoutSeconds: 60 }, async (request) => {
       });
       if (!result.ok) throw new HttpsError('failed-precondition', result.message);
       discount = result.coupon.discount;
-      usedCoupon = coupons.docs.find(d => normalizeCode(d.data().code || '') === couponCode);
+      usedCoupon = coupons!.docs.find(d => normalizeCode(d.data().code || '') === couponCode);
     }
     const pricedRaw = priceBooking({ ...priceInput, discount });
     const priced = { ...pricedRaw, pricing: adjustPartner(pricedRaw.pricing, rules) };
@@ -275,8 +288,8 @@ export const createBooking = onCall({ timeoutSeconds: 60 }, async (request) => {
     pushes.push({ id: notifyInTx(tx, toCustomer), input: toCustomer });
     return { id: requestId, fare: fare.total, created: true as const };
   });
-  await pushAfterCommit(pushes);
-  if ('created' in result) await mailNewBooking(result.id);
+  // Both swallow their own failures (a booking is never failed by a notification), so they run side by side.
+  await Promise.all([pushAfterCommit(pushes), 'created' in result ? mailNewBooking(result.id) : Promise.resolve()]);
   return { id: result.id, fare: result.fare };
 });
 

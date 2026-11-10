@@ -1,0 +1,66 @@
+/* Home booking form: pickup date and time.
+   - No native dropdown arrow beside the calendar icon (the icon drawn by .bf-datewrap::after is the only one).
+   - A smaller value on phones so the whole date (10/11/2026) is visible next to the "Today" chip and the icon. */
+
+.bf .bf-datewrap .bf-input {
+  -webkit-appearance: none;
+  appearance: none;
+}
+/* The browser's own calendar button is removed completely: even invisible it takes about 22px of the field on Android
+   and squeezes the date. Tapping the field opens the calendar instead (see the onClick on the date inputs). */
+.bf .bf-datewrap .bf-input::-webkit-calendar-picker-indicator {
+  display: none;
+  -webkit-appearance: none;
+  width: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  background: none;
+  opacity: 0;
+}
+.bf .bf-datewrap .bf-input::-webkit-inner-spin-button,
+.bf .bf-datewrap .bf-input::-webkit-clear-button {
+  display: none;
+  -webkit-appearance: none;
+}
+
+@media (max-width: 899.98px) {
+  .bf .bf-form .bf-cell--schedule .bf-datewrap .bf-input,
+  .bf .bf-form .bf-cell--schedule .bf-time,
+  .bf .bf-form .bf-row .bf-time {
+    font-size: clamp(0.8125rem, 4.2vw, 1rem);
+    letter-spacing: 0;
+  }
+  .bf .bf-form .bf-cell--schedule .bf-datewrap .bf-input {
+    padding-inline: 12px 34px;
+    white-space: nowrap;
+    text-overflow: clip;
+  }
+  .bf .bf-datewrap .bf-input::-webkit-datetime-edit,
+  .bf .bf-datewrap .bf-input::-webkit-datetime-edit-fields-wrapper {
+    padding: 0;
+  }
+  .bf .bf-datewrap::after {
+    right: 10px;
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* Round Trip (and any other schedule row) has its own, more specific rule: match it so the whole date shows. */
+@media (max-width: 899.98px) {
+  .bf .bf-form .bf-row .bf-cell--schedule .bf-datewrap .bf-input,
+  .bf .bf-form .bf-row--round-schedule .bf-cell--schedule .bf-datewrap .bf-input {
+    min-width: 0;
+    padding-inline: 12px 32px;
+    font-size: clamp(0.8125rem, 4.2vw, 1rem);
+    letter-spacing: 0;
+    white-space: nowrap;
+  }
+  .bf .bf-form .bf-row .bf-cell--schedule .bf-time,
+  .bf .bf-form .bf-row--round-schedule .bf-cell--schedule .bf-time {
+    padding-inline: 12px 32px;
+    font-size: clamp(0.8125rem, 4.2vw, 1rem);
+    letter-spacing: 0;
+  }
+}

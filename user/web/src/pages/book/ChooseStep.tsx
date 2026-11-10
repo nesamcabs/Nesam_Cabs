@@ -122,6 +122,26 @@ export function ChooseStep() {
                   <a href={`tel:${SUPPORT_PHONE}`}>Call {SUPPORT_PHONE_DISPLAY}</a> to plan with dispatch.
                 </Notice>
               ) : null}
+
+              {categoryStatus === 'error' ? (
+                <Notice variant="error" icon="warning">
+                  We couldn't load the available vehicles. Please check your connection and refresh the page.
+                </Notice>
+              ) : categoryStatus === 'unavailable' ? (
+                <Notice variant="warning" icon="warning">
+                  No vehicles are configured for online booking right now. Please call <a href={`tel:${SUPPORT_PHONE}`}>{SUPPORT_PHONE_DISPLAY}</a>.
+                </Notice>
+              ) : null}
+
+              {q.quoteError ? (
+                <Notice
+                  variant="error"
+                  icon="warning"
+                  action={<Button variant="secondary" size="sm" onClick={q.retryQuote}>Retry Fare</Button>}
+                >
+                  {q.quoteError}
+                </Notice>
+              ) : null}
             </div>
 
 

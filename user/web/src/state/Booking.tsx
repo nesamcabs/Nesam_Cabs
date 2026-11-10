@@ -241,10 +241,8 @@ export function useBookingQuote(): BookingQuote {
     // Re-validated on every change so a discount never outlives the fare it was granted on.
     const couponCheck = promoCode && category && route ? checkCoupon(promoCode) : null;
     const coupon = couponCheck?.ok ? couponCheck.coupon : null;
-    const localQuote = category && route && hasEstimate(category) ? calculateFare({ category, route, tripType, pickupTime, adjustment, discount: coupon?.discount ?? 0 }) : null;
-
-    // The server's quotes win whenever they exist for this exact trip. The local numbers above are
-    // an estimate used only while waiting or offline, and are never submittable (authoritative=false).
+    // Only the server's quotes are customer-visible. Local calculations remain available for coupon
+    // validation, but showing them while this request is pending makes stale/config-default prices flash.
     const server = serverQuote.status === 'ready' ? serverQuote.data : null;
     const byId = new Map<string, ServerCategoryQuote>((server?.quotes ?? []).map((x) => [x.categoryId, x]));
     const unavailable = new Map<string, string>();
@@ -259,8 +257,8 @@ export function useBookingQuote(): BookingQuote {
     const days = chosen?.ok && typeof chosen.days === 'number' && chosen.model === 'round_trip_calendar' ? chosen.days : null;
     return {
       category,
-      quotes: server ? finalQuotes : quotes,
-      quote: server ? serverFare : localQuote,
+      quotes: server ? finalQuotes : new Map<string, FareBreakdown>(),
+      quote: server ? serverFare : null,
       coupon: server && chosen?.couponApplied && serverFare ? { code: promoCode.trim().toUpperCase(), discount: serverFare.discount, message: chosen.couponMessage ?? '' } : server ? null : coupon,
       couponCheck: server && promoCode ? (chosen?.couponApplied ? couponCheck : { ok: false, message: chosen?.couponMessage || 'This code does not apply to this trip.' } as CouponResult) : couponCheck,
       outstation: server ? (route ? isOutstation(route.distanceKm) : outstation) : outstation,

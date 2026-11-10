@@ -22,9 +22,14 @@ import './styles/bottom-nav.css';
 import './styles/desktop-controls.css';
 import './styles/scroll-header.css';
 import './styles/contact-controls.css';
+import './styles/bookform-date.css';
+import './styles/support-menu.css';
+import './styles/bookform-route.css';
+import { keepHomeBehindEveryScreen } from './lib/homeNav';
+import { installStaleVersionReload, installVersionCheck } from '@/components/RouteErrorBoundary';
 import { App } from './App';
-import { installStaleVersionReload, installVersionCheck } from './components/RouteErrorBoundary';
 
+keepHomeBehindEveryScreen();
 installStaleVersionReload();
 installVersionCheck();
 

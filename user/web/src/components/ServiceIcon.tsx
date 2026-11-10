@@ -1,7 +1,7 @@
-import airportIcon from '@/assets/nav/airport-taxi.png';
-import multicityIcon from '@/assets/nav/multicity.png';
-import outstationIcon from '@/assets/nav/outstation.png';
-import localIcon from '@/assets/nav/local-rentals.png';
+import airportIcon from '@/assets/nav/airport-taxi.webp';
+import multicityIcon from '@/assets/nav/multicity.webp';
+import outstationIcon from '@/assets/nav/outstation.webp';
+import localIcon from '@/assets/nav/local-rentals.webp';
 
 const SRC: Record<string, string> = { airport: airportIcon, multicity: multicityIcon, outstation: outstationIcon, rental: localIcon, pickup: localIcon };
 

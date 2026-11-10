@@ -67,11 +67,13 @@ function HeroCopy({ service, trip }: { service: ServiceId; trip: 'One Way' | 'Ro
   return (
     <div className="hero-copy">
       <div className="hero-logo" ref={logo}>
-        <img src="/nesam/logo.webp" alt="NESAM Cabs" width={224} height={52} />
+        <img className="people-wordmark" src="/nesam/logo.webp" alt="NESAM Cabs" width={2191} height={718} />
       </div>
-      <h1 aria-live="polite" style={{ textTransform: 'none' }}>
-        {headline} <span className="hero-accent">{subtitle}</span>
-      </h1>
+      {headline || subtitle ? (
+        <h1 key={`${service}-${trip}`} className={service === 'multicity' ? 'multicity-slogan' : service === 'outstation' || service === 'airport' ? 'journey-slogan' : undefined} aria-live="polite" style={{ textTransform: 'none' }}>
+          {headline} <span className="hero-accent">{subtitle}</span>
+        </h1>
+      ) : null}
       {/* Decoration for tablets and wider: a route that runs around the booking card, pickup to drop. */}
       <svg className="hero-route" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true" focusable="false">
         <path className="hero-route__line" d="M640 120 C 800 60, 960 110, 968 330 S 975 800, 930 940 S 800 962, 600 955 S 250 975, 40 955" />
@@ -164,13 +166,6 @@ function Home() {
       writeOutstation('Round Trip');
     } else if (tripParam === 'one-way' || rawService === 'one-way') {
       writeOutstation('One Way');
-    }
-    if (rawService || tripParam) {
-      scrollToConsole();
-      const timer = window.setTimeout(() => {
-        scrollToConsole();
-      }, 120);
-      return () => window.clearTimeout(timer);
     }
   }, [rawService, tripParam, scrollToConsole]);
 

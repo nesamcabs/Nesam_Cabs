@@ -2047,6 +2047,37 @@ html[data-hero-logo='in'] .topbar .brand {
   }
 }
 
+/* Pickup schedule: keep the label and selected value together inside each box. */
+.bf .bf-form .bf-cell--schedule {
+  position: relative;
+  padding-top: 0;
+}
+.bf .bf-form .bf-cell--schedule > .bf-label--out {
+  position: absolute;
+  z-index: 2;
+  top: 8px;
+  left: 14px;
+  margin: 0;
+  color: var(--muted, #5b6472);
+  font-size: 0.65rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+.bf .bf-form .bf-cell--schedule .bf-datewrap .bf-input,
+.bf .bf-form .bf-cell--schedule .bf-time {
+  min-height: 62px;
+  padding-top: 20px;
+  padding-bottom: 4px;
+  text-align: left;
+}
+.bf .bf-form .bf-cell--schedule .bf-time {
+  justify-content: space-between;
+}
+
 /* Desktop hero: a smaller logo and headline, and the booking form pulled up so it is seen without scrolling. */
 @media (min-width: 768px) {
   .home-hero {
@@ -2958,4 +2989,132 @@ html[data-hero-logo='in'] .ride-chip {
 .bf .bf-services,
 .home-hero > .bf .bf-services {
   grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+/* Round Trip uses the same roomy date/time controls as One Way. */
+.bf .bf-form .bf-row--round-schedule { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+.bf .bf-form .bf-row--round-schedule .bf-cell--schedule .bf-input,
+.bf .bf-form .bf-row--round-schedule .bf-cell--schedule .bf-time { box-sizing: border-box; height: 62px; min-height: 62px; padding: 22px 36px 5px 12px; font-size: 0.9375rem; text-align: left; }
+.bf .bf-form .bf-row--round-schedule .bf-time { justify-content: flex-start; }
+.bf .bf-form .bf-row--round-schedule .bf-chip { display: none; }
+.bf .bf-form .bf-row--round-schedule .bf-round-days { grid-column: 1 / -1; display: grid; grid-template-columns: auto minmax(100px, 1fr) auto; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--bfx-line, #e3dcd6); border-radius: 6px; }
+.bf .bf-form .bf-round-days > .bf-label--out { margin: 0; text-align: left; }
+.bf .bf-form .bf-round-days .bf-days__input { width: 100%; min-width: 0; height: 42px; border-radius: 6px; }
+.bf .bf-form .bf-round-days .bf-days__end { margin: 0; font-size: 0.7rem; color: var(--muted); }
+
+/* Compact trip duration card with accessible day controls. */
+.bf .bf-form .bf-row--round-schedule .bf-round-days { grid-template-columns: minmax(0, 1fr) auto; gap: 3px 14px; padding: 12px 14px; background: linear-gradient(120deg, #fbf6f6, #fff); border-color: #f1cfd1; border-radius: 6px; }
+.bf .bf-form .bf-round-days > .bf-label--out { grid-column: 1; grid-row: 1; font-size: 0.75rem; font-weight: 800; color: #14171c; text-transform: none; }
+.bf .bf-form .bf-round-days .bf-days__end { grid-column: 1; grid-row: 2; color: #66615a; font-size: 0.7rem; }
+.bf-duration-stepper { grid-column: 2; grid-row: 1 / 3; display: flex; align-items: center; gap: 4px; padding: 4px; border: 1px solid #eadede; border-radius: 6px; background: #fff; box-shadow: 0 3px 9px rgb(var(--brand-rgb) / 0.05); }
+.bf-duration-stepper button { display: grid; place-items: center; width: 32px; height: 34px; padding: 0; border: 0; border-radius: 6px; background: #fff1f1; color: #e31e24; font: inherit; font-size: 1.25rem; font-weight: 700; cursor: pointer; }
+.bf-duration-stepper button:disabled { opacity: 0.35; cursor: default; }
+.bf-duration-stepper button:focus-visible { outline: 2px solid #e31e24; outline-offset: 2px; }
+.bf .bf-form .bf-round-days .bf-duration-stepper .bf-days__input { width: 68px; height: 34px; padding: 0 2px; border: 0; background: transparent; appearance: none; text-align: center; color: #14171c; font-size: 0.875rem; font-weight: 800; cursor: pointer; }
+
+/* Uploaded wordmark: responsive proportions and a gentle entrance. */
+.hero-logo img.people-wordmark {
+  width: clamp(260px, 78vw, 380px);
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+  mix-blend-mode: normal;
+}
+@keyframes people-wordmark-enter {
+  from { opacity: 0; transform: translateY(-8px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hero-logo img.people-wordmark { animation: people-wordmark-enter 850ms cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+}
+
+/* Service-specific slogans retain the existing entrance animation. */
+.hero-copy h1.journey-slogan {
+  width: 100%;
+  max-width: 32ch;
+  margin: 4px auto 0;
+  color: #e31e24;
+  text-align: center;
+  font-size: clamp(1rem, 4.65vw, 1.65rem);
+  line-height: 1.25;
+  letter-spacing: -0.005em;
+  font-weight: 700;
+  text-wrap: balance;
+}
+.hero-copy h1.journey-slogan .hero-accent {
+  display: block;
+  margin-top: 3px;
+  color: #0b1d46;
+  background: none;
+  -webkit-text-fill-color: #0b1d46;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.hero-copy h1.journey-slogan { max-width: none; white-space: nowrap; }
+@media (prefers-reduced-motion: no-preference) {
+  .hero-copy h1.journey-slogan { animation: multicity-slogan-reveal 750ms ease-out both; }
+  .hero-copy h1.journey-slogan .hero-accent { animation: multicity-slogan-reveal 900ms 200ms ease-out both; }
+}
+
+/* Multicity's two-line slogan uses solid colours with a balanced centred layout. */
+.hero-copy h1.multicity-slogan {
+  width: 100%;
+  max-width: 30ch;
+  margin: 4px auto 0;
+  color: #e31e24;
+  text-align: center;
+  font-size: clamp(1.25rem, 6.4vw, 1.65rem);
+  line-height: 1.18;
+  letter-spacing: -0.005em;
+  font-weight: 700;
+  text-wrap: balance;
+}
+.hero-copy h1.multicity-slogan .hero-accent {
+  display: block;
+  margin-top: 2px;
+  color: #000;
+  background: none;
+  -webkit-text-fill-color: #000;
+  animation: none;
+  font-weight: 700;
+}
+@keyframes multicity-slogan-reveal {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hero-copy h1.multicity-slogan { animation: multicity-slogan-reveal 750ms ease-out both; }
+  .hero-copy h1.multicity-slogan .hero-accent { animation: multicity-slogan-reveal 900ms 200ms ease-out both; }
+}
+
+/* Multicity schedule labels belong inside the date/time boxes. Keep this last so
+   the multicity-specific form rules above cannot move them outside again. */
+.bf .bf-multicity .bf-cell--schedule {
+  position: relative;
+  padding-top: 0;
+}
+.bf .bf-multicity .bf-cell--schedule > .bf-label--out {
+  position: absolute;
+  z-index: 3;
+  top: 8px;
+  left: 14px;
+  margin: 0;
+  color: var(--muted, #5b6472);
+  font-size: 0.625rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+.bf .bf-multicity .bf-cell--schedule .bf-datewrap .bf-input,
+.bf .bf-multicity .bf-cell--schedule .bf-time {
+  min-height: 58px;
+  padding-top: 20px;
+  padding-bottom: 3px;
+  text-align: left;
+}
+.bf .bf-multicity .bf-cell--schedule .bf-time {
+  justify-content: space-between;
 }
