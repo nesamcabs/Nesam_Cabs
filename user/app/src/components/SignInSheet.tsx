@@ -2,7 +2,7 @@
 // signs in or creates the account; a six-digit code confirms it. Real Firebase phone authentication; nothing here
 // simulates a login or an OTP. (A brand-new number continues to the profile step once it is verified.)
 import React, { useEffect, useRef, useState } from 'react';
-import { Image, Linking, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { ConfirmationResult } from 'firebase/auth';
 import { LinkText, Notice, Sheet } from './ui';
 import { GoButton } from './BookForm';
@@ -158,25 +158,34 @@ export function SignInSheet({ visible, onClose, title, subtitle }: { visible: bo
           </>
         ) : (
           <>
-            <TextInput
-              ref={otpRef}
-              value={otp}
-              onChangeText={(v) => {
-                const digits = v.replace(/\D/g, '').slice(0, 6);
-                setOtp(digits);
-                setError('');
-                if (digits.length === 6) void verify(digits);
-              }}
-              keyboardType="number-pad"
-              autoComplete="sms-otp"
-              textContentType="oneTimeCode"
-              maxLength={6}
-              editable={!verifying}
-              placeholder="••••••"
-              placeholderTextColor={colors.faint}
-              style={[styles.otp, !!error && { borderColor: colors.danger }]}
-              accessibilityLabel="6-digit code"
-            />
+            {/* Six boxes over one invisible input: tap anywhere on them to type. */}
+            <Pressable onPress={() => otpRef.current?.focus()} accessibilityRole="none" style={styles.otpWrap}>
+              <View style={styles.otpBoxes} pointerEvents="none">
+                {Array.from({ length: 6 }, (_, i) => (
+                  <View key={i} style={[styles.otpBox, !!otp[i] && styles.otpBoxFilled, i === otp.length && !verifying && styles.otpBoxCurrent, !!error && styles.otpBoxError]}>
+                    <Text style={[styles.otpDigit, !!otp[i] && { color: colors.eyebrow }]}>{otp[i] ?? ''}</Text>
+                  </View>
+                ))}
+              </View>
+              <TextInput
+                ref={otpRef}
+                value={otp}
+                onChangeText={(v) => {
+                  const digits = v.replace(/\D/g, '').slice(0, 6);
+                  setOtp(digits);
+                  setError('');
+                  if (digits.length === 6) void verify(digits);
+                }}
+                keyboardType="number-pad"
+                autoComplete="sms-otp"
+                textContentType="oneTimeCode"
+                maxLength={6}
+                editable={!verifying}
+                caretHidden
+                style={styles.otpInput}
+                accessibilityLabel="6-digit code"
+              />
+            </Pressable>
             <Notice message={error} />
             <GoButton title={verifying ? 'Verifying…' : 'Verify and continue'} onPress={() => void verify(otp)} loading={verifying} disabled={otp.length !== 6} />
             <View style={styles.links}>
@@ -212,7 +221,14 @@ const styles = StyleSheet.create({
   offline: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted, textAlign: 'center' },
   terms: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 24, color: colors.muted, textAlign: 'center', marginTop: 4 },
   termsLink: { color: colors.primary, textDecorationLine: 'underline', fontFamily: fonts.semiBold },
-  otp: { borderWidth: 1, borderColor: colors.field, borderRadius: 6, fontFamily: fonts.semiBold, fontSize: 28, letterSpacing: 10, textAlign: 'center', paddingVertical: 12, color: colors.ink, backgroundColor: colors.white },
+  otpWrap: { position: 'relative' },
+  otpBoxes: { flexDirection: 'row', gap: 8 },
+  otpBox: { flex: 1, height: 56, borderRadius: 14, borderWidth: 1.5, borderColor: '#FFC5C7', backgroundColor: '#FFF1F1', alignItems: 'center', justifyContent: 'center' },
+  otpBoxFilled: { borderColor: colors.primary, backgroundColor: colors.white },
+  otpBoxCurrent: { borderColor: colors.primary, backgroundColor: colors.white, shadowColor: colors.primary, shadowOpacity: 0.25, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 3 },
+  otpBoxError: { borderColor: colors.danger, backgroundColor: colors.dangerSoft },
+  otpDigit: { fontFamily: fonts.bold, fontSize: 22, color: colors.ink },
+  otpInput: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.02, color: 'transparent', fontSize: 16 },
   links: { flexDirection: 'row', justifyContent: 'space-between' },
   cool: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted },
 });

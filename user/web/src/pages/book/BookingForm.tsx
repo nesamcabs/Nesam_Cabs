@@ -1,7 +1,7 @@
 // The booking form on the NESAM Cabs home page: service, route, schedule and "Search Cabs".
 // Places are real coordinates (search, device location, saved/recent places, map pin); the
 // schedule follows the booking server's rules; fares are only ever priced by the server.
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { GeoPlace } from '@core/types';
 import { useCustomerData } from '@/state/customer';
@@ -468,32 +468,40 @@ export function BookingForm({
             </div>
             {isRound ? (
               <div className="bf-cell bf-round-days">
-                <label className="bf-label bf-label--out" htmlFor="bf-days">
-                  Days <b className="bf-days__value">{days} {days === 1 ? 'day' : 'days'}</b>
-                </label>
-                {/* Drag to choose how many days the trip lasts (1 to RT_MAX_DAYS); the red track shows how far. */}
-                <input
-                  id="bf-days"
-                  className="bf-days__slider"
-                  type="range"
-                  min={1}
-                  max={RT_MAX_DAYS}
-                  step={1}
-                  value={days}
-                  aria-label="Trip duration in days"
-                  aria-valuetext={`${days} ${days === 1 ? 'day' : 'days'}`}
-                  aria-invalid={!!errors.retDate || undefined}
-                  style={{ '--fill': `${((days - 1) / (RT_MAX_DAYS - 1)) * 100}%` } as CSSProperties}
-                  onChange={(e) => {
-                    setDays(Number(e.target.value));
-                    setErrors((x) => ({ ...x, retDate: '' }));
-                  }}
-                />
-                <span className="bf-days__end">{date ? `Ends ${dayHint(addDaysISO(date, days - 1))}` : 'Pick a date'}</span>
+                <span className="bf-label bf-label--out" id="bf-days-label">Days</span>
+                {/* Plus and minus buttons choose how many days the trip lasts (1 to RT_MAX_DAYS). */}
+                <div className="bf-days__stepper" role="group" aria-labelledby="bf-days-label">
+                  <button
+                    type="button"
+                    aria-label="One day less"
+                    disabled={days <= 1}
+                    onClick={() => {
+                      setDays((d) => Math.max(1, d - 1));
+                      setErrors((x) => ({ ...x, retDate: '' }));
+                    }}
+                  >
+                    −
+                  </button>
+                  <output id="bf-days" aria-live="polite" aria-invalid={!!errors.retDate || undefined}>
+                    {days} {days === 1 ? 'day' : 'days'}
+                  </output>
+                  <button
+                    type="button"
+                    aria-label="One day more"
+                    disabled={days >= RT_MAX_DAYS}
+                    onClick={() => {
+                      setDays((d) => Math.min(RT_MAX_DAYS, d + 1));
+                      setErrors((x) => ({ ...x, retDate: '' }));
+                    }}
+                  >
+                    +
+                  </button>
+                </div>
                 {fieldErr('retDate')}
               </div>
             ) : null}
           </div>
+          {isRound ? <p className="bf-days__end bf-days__end--centered">{date ? `Ends ${dayHint(addDaysISO(date, days - 1))}` : 'Pick a date'}</p> : null}
 
 
           {errors.form ? (

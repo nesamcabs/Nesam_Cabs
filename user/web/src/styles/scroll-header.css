@@ -26,3 +26,13 @@ html .shell--scroll-header .topbar:not(.topbar--hidden) .brand {
 
 /* Local maps fill the space previously reserved for the site header. */
 .shell--local-page .lr { top: 0; }
+
+/* Desktop: the header is always on screen and takes its own space above the hero. */
+@media (min-width: 900px) {
+  .shell--scroll-header .topbar {
+    position: sticky;
+  }
+  .shell--local-page .lr {
+    top: var(--nav-h, 76px);
+  }
+}

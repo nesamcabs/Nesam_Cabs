@@ -6,7 +6,7 @@ import { COMPANY_LEGAL_NAME, SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY } from '@core/
 import { useInbox } from '@/state/Inbox';
 import { useAuth } from '@/state/Auth';
 import { useBooking } from '@/state/Booking';
-import { useOnline } from '@/lib/hooks';
+import { useMinWidth, useOnline } from '@/lib/hooks';
 import { scrollToBookingForm } from '@/lib/scrollToForm';
 import { SERVICES, parseService, serviceHref, serviceOfTrip, type ServiceId } from '@/lib/services';
 import { Avatar, Button, Dialog, PageLoader } from './ui';
@@ -469,7 +469,9 @@ export function Shell() {
   const isLocalPage = /^\/local-(rentals|taxi)\/?$/.test(location.pathname);
   const isLanding = location.pathname === '/' || location.pathname === '/book' || isLocalPage;
   const [hasScrolled, setHasScrolled] = useState(false);
-  const headerHidden = isLanding && !hasScrolled;
+  // Desktop always shows the header; only phones and tablets tuck it away until the page is scrolled.
+  const isDesktop = useMinWidth(900);
+  const headerHidden = isLanding && !hasScrolled && !isDesktop;
 
   useEffect(() => {
     const updateHeader = () => setHasScrolled(window.scrollY > 48);

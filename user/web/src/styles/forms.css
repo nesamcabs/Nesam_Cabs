@@ -164,3 +164,78 @@
     bottom: calc(var(--dock-h, 0px) + env(safe-area-inset-bottom, 0px) + 96px);
   }
 }
+
+/* ── One-time code: six boxes over one invisible input (sign-in sheet) ───────────────────────────── */
+.otp {
+  position: relative;
+  cursor: text;
+}
+.otp__input {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: transparent;
+  caret-color: transparent;
+  opacity: 0;
+  font-size: 16px;
+}
+.otp__boxes {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+.otp__box {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  height: 56px;
+  border: 1.5px solid #ffc5c7;
+  border-radius: 14px;
+  background: #fff1f1;
+  color: var(--ink);
+  font-size: 1.375rem;
+  font-weight: 700;
+  line-height: 1;
+  transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+.otp__box.is-filled {
+  border-color: var(--brand);
+  background: #fff;
+  color: var(--brand-ink);
+}
+.otp__box.is-current {
+  border-color: var(--brand);
+  background: #fff;
+  box-shadow: 0 0 0 4px rgb(var(--brand-rgb) / 0.16);
+  transform: translateY(-1px);
+}
+.otp.is-invalid .otp__box {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  animation: otp-shake 280ms ease;
+}
+@keyframes otp-shake {
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .otp__box,
+  .otp.is-invalid .otp__box { transition: none; animation: none; transform: none; }
+}
+/* The sign-in sheet's main action is a full-width pill; its links sit on one row. */
+.login-modal__form .btn--primary.btn--lg {
+  min-height: 56px;
+  border-radius: 999px;
+  font-size: 1.0625rem;
+}
+.login-modal__links {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
