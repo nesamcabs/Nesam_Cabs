@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
   list: { paddingHorizontal: space.xl, paddingTop: space.md, paddingBottom: space.xxl },
   tabs: { flexDirection: 'row', gap: 8, marginBottom: space.sm },
   loading: { fontFamily: fonts.medium, textAlign: 'center', color: colors.muted, marginTop: space.xl, fontSize: 13 },
-  card: { borderWidth: 1, borderColor: '#E8E3DC', borderRadius: 10, marginBottom: 12, backgroundColor: colors.white, overflow: 'hidden' },
+  card: { borderWidth: 1, borderColor: '#E8E3DC', borderRadius: 6, marginBottom: 12, backgroundColor: colors.white, overflow: 'hidden' },
   cardBody: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 14 },
   badges: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' },
   route: { fontFamily: fonts.bold, fontSize: 17, lineHeight: 24, color: colors.text, marginTop: 12 },

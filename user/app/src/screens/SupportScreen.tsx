@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
   page: { paddingHorizontal: space.xl, paddingTop: space.md, paddingBottom: space.xxl },
   faqList: { borderTopWidth: 1, borderTopColor: '#E8E3DC' },
   faqA: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 22, color: '#727D8B' },
-  card: { borderWidth: 1, borderColor: '#E8E3DC', borderRadius: 13, padding: 18, backgroundColor: colors.white },
+  card: { borderWidth: 1, borderColor: '#E8E3DC', borderRadius: 6, padding: 18, backgroundColor: colors.white },
   cardTitle: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.ink, marginBottom: 14 },
   label: { fontFamily: fonts.regular, fontSize: 11.5, color: '#66615A', marginBottom: 8 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: space.lg },

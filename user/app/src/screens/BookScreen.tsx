@@ -15,6 +15,7 @@ import { GoButton, LocationField, PillTabs, RouteRail, ScheduleCell } from '../c
 import { Icon } from '../components/Icon';
 import { serviceSlogan } from '../utils/serviceSlogan';
 import { useDockPad } from '../context/Dock';
+import { setResumeFares, useAuthGate } from '../context/AuthGate';
 import { PlaceSearchModal } from '../components/PlaceSearchModal';
 import { MulticityForm } from '../components/MulticityForm';
 import { TimePickerSheet } from '../components/TimePickerSheet';
@@ -28,6 +29,7 @@ import {
 } from '../config/constants';
 import { scheduleProblem } from '../utils/bookingRules';
 import { POPULAR_AIRPORTS } from '../services/pricingService';
+import { QUICK_CITIES } from '../data/localRentals';
 import type { GeoPlace, TripType } from '../types';
 import { formatTime } from '../utils/format';
 import { haversineKm, isValidLatLng } from '../utils/geo';
@@ -219,13 +221,21 @@ export function BookScreen() {
       setProblem('You are offline. Check your connection and try again.');
       return;
     }
-    setProblem(first ? 'Please check the highlighted details.' : '');
-    if (!first) navigation.navigate('ChooseRide');
+    setProblem('');
+    if (first) return;
+    if (guest) {
+      // Fares need an account: sign in, then carry on with this trip (the draft is kept).
+      setResumeFares(true);
+      requestSignIn({ title: 'Sign in to compare fares', subtitle: 'Verify your mobile number to continue with your saved trip.' });
+      return;
+    }
+    navigation.navigate('ChooseRide');
   };
 
   const locationHint = locError ? LOCATION_ERROR_TEXT[locError.kind] : permission === 'prompt' && !position ? 'Allow location access to fill your pickup automatically.' : '';
   const [headline, subline] = serviceSlogan(service, tripType === 'Round Trip' ? 'Round Trip' : 'One Way');
   const dockPad = useDockPad();
+  const { guest, requestSignIn } = useAuthGate();
   const { width: screenW, height: screenH } = useWindowDimensions();
   // The hero logo scales down on short phones so the whole form stays in one view.
   const logoW = Math.min(304, Math.round(screenW * 0.78), Math.round((screenH - dockPad) * 0.4));
@@ -258,8 +268,8 @@ export function BookScreen() {
             }}
             savedPlaces={picker && airportField === picker ? [] : savedPlaces}
             recentPlaces={picker && airportField === picker ? recentPlaces.filter((p) => p.type === 'airport') : recentPlaces.filter((p) => p.type !== 'airport')}
-            suggestions={picker && airportField === picker ? POPULAR_AIRPORTS : []}
-            suggestionsLabel="Airports"
+            suggestions={picker && airportField === picker ? POPULAR_AIRPORTS : QUICK_CITIES}
+            suggestionsLabel={picker && airportField === picker ? 'Airports' : 'Popular locations'}
             near={picker === 'drop' ? (pickup ?? position) : position}
             onUseCurrentLocation={picker === 'pickup' && airportField !== 'pickup' ? () => void locateMe() : undefined}
           />

@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   pad: { padding: space.xl },
   scroll: { paddingHorizontal: space.xl, paddingTop: space.xl, paddingBottom: 28 },
-  card: { borderWidth: 1, borderColor: '#E8E3DC', borderRadius: 13, padding: 18, marginBottom: 14, backgroundColor: colors.white },
+  card: { borderWidth: 1, borderColor: '#E8E3DC', borderRadius: 6, padding: 18, marginBottom: 14, backgroundColor: colors.white },
   route: { fontFamily: fonts.bold, fontSize: 17, lineHeight: 24, color: colors.text },
   arrow: { fontFamily: fonts.regular, color: '#9A958C' },
   when: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: '#66615A', marginTop: 8 },

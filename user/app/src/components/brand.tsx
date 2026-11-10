@@ -13,6 +13,7 @@ import { Icon, type IconName } from './Icon';
 import { useInbox } from '../context/Inbox';
 import { useBookingDraft, type HomeService } from '../context/BookingDraft';
 import { useDrawer } from '../context/Drawer';
+import { useAuthGate } from '../context/AuthGate';
 import { Steps } from './ui';
 import { AiChatSheet } from './AiChatSheet';
 
@@ -155,6 +156,15 @@ export function SupportMenuAction({ active, glass }: { active?: boolean; glass?:
 export function NotificationsAction({ active }: { active?: boolean }) {
   const navigation = useNavigation();
   const { unreadCount } = useInbox();
+  const { guest, requestSignIn } = useAuthGate();
+  // The website shows "Sign in" here until someone is signed in.
+  if (guest) {
+    return (
+      <PressableScale onPress={() => requestSignIn({ title: 'Sign in to NESAM Cabs' })} accessibilityRole="button" accessibilityLabel="Sign in" activeScale={0.94} style={styles.signIn} containerStyle={{ flexShrink: 0 }}>
+        <Text style={styles.signInText} numberOfLines={1}>Sign in</Text>
+      </PressableScale>
+    );
+  }
   return <HeaderAction icon="bell" label="Notifications" active={active} badge={unreadCount} onPress={() => navigation.navigate('Tabs', { screen: 'Alerts' })} />;
 }
 
@@ -299,6 +309,7 @@ export function BottomNav({ active }: { active?: NavKey | null }) {
   const { service, setService } = useBookingDraft();
   const insets = useSafeAreaInsets();
   const keyboardOpen = useKeyboardHeight() > 0;
+  const { guest, requestSignIn } = useAuthGate();
   const selected = active === undefined ? service : active;
   if (keyboardOpen) return null;
 
@@ -312,7 +323,9 @@ export function BottomNav({ active }: { active?: NavKey | null }) {
             on={selected === item.key}
             onPress={() => {
               if (item.key === 'account') {
-                navigation.navigate('Tabs', { screen: 'Account' });
+                // Profile asks a guest to sign in, as on the website.
+                if (guest) requestSignIn({ title: 'Sign in to NESAM Cabs' });
+                else navigation.navigate('Tabs', { screen: 'Account' });
                 return;
               }
               setService(item.key);
@@ -442,6 +455,8 @@ const styles = StyleSheet.create({
   pageTitle: { fontFamily: fonts.semiBold, fontSize: 22, lineHeight: 28, letterSpacing: -0.2, color: colors.ink },
   pageSubtitle: { fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 18, color: colors.muted, marginTop: 1 },
   actions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  signIn: { minHeight: 40, paddingHorizontal: 16, borderRadius: 4, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  signInText: { fontFamily: fonts.semiBold, fontSize: 14, color: colors.white, letterSpacing: 0.3 },
   menuBtn: { width: 40, height: 40, borderRadius: 5, alignItems: 'center', justifyContent: 'center' },
   menuBtnGlass: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.92)' },
   supportBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },

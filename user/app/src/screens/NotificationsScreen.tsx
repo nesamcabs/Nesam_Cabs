@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
   tabOn: { backgroundColor: '#FFF1F1', borderColor: '#FFC5C7' },
   tabText: { fontFamily: fonts.medium, fontSize: 11.5, color: colors.text },
   tabTextOn: { color: colors.primary },
-  item: { flexDirection: 'row', gap: 12, borderRadius: 10, borderWidth: 1, borderColor: '#E8E3DC', padding: 14, marginBottom: 10, backgroundColor: colors.white },
+  item: { flexDirection: 'row', gap: 12, borderRadius: 6, borderWidth: 1, borderColor: '#E8E3DC', padding: 14, marginBottom: 10, backgroundColor: colors.white },
   dot: { width: 8, height: 8, borderRadius: 4, marginTop: 6 },
   cat: { fontFamily: fonts.medium, fontSize: 10, color: '#9A958C', marginBottom: 3, letterSpacing: 0.4, textTransform: 'uppercase' },
   titleRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },

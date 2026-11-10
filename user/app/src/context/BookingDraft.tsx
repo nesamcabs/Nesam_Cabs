@@ -85,7 +85,8 @@ export function useBookingDraft(): BookingDraftValue {
 
 export const routeKeyOf = (pickup: GeoPlace | null, drop: GeoPlace | null) => (pickup && drop ? `${pickup.lat},${pickup.lng}>${drop.lat},${drop.lng}` : '');
 
-export function BookingDraftProvider({ children }: { children: React.ReactNode }) {
+/** `authKey` changes when the rider signs in or out, so the live price lists are read again with their new access (the draft itself is kept). */
+export function BookingDraftProvider({ authKey = '', children }: { authKey?: string; children: React.ReactNode }) {
   const [draft, setDraft] = useState<BookingDraft>({
     pickup: null,
     drop: null,
@@ -120,10 +121,10 @@ export function BookingDraftProvider({ children }: { children: React.ReactNode }
         // Keep the rider's choice while it is still bookable; otherwise pre-select one.
         setDraft((d) => (cats.some((c) => c.id === d.categoryId) ? d : { ...d, categoryId: cats[Math.min(1, cats.length - 1)]?.id ?? '' }));
       }),
-    [],
+    [authKey],
   );
-  useEffect(() => subscribeToFareAdjustment(setAdjustment), []);
-  useEffect(() => subscribeToCoupons(setCoupons), []);
+  useEffect(() => subscribeToFareAdjustment(setAdjustment), [authKey]);
+  useEffect(() => subscribeToCoupons(setCoupons), [authKey]);
 
   const update = useCallback(
     (patch: Partial<BookingDraft> | ((d: BookingDraft) => Partial<BookingDraft>)) =>

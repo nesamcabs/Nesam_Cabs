@@ -24,10 +24,11 @@ export function InboxProvider({ userId, role, penaltyField, children }: { userId
   const [notifications, setNotifications] = useState<PartnerNotification[]>([]);
   const [penalties, setPenalties] = useState<PartnerPenalty[]>([]);
 
-  useEffect(() => subscribeToNotifications(userId, setNotifications, { role }), [userId, role]);
-  useEffect(() => (penaltyField ? subscribeToPenalties(penaltyField, userId, setPenalties) : undefined), [userId, penaltyField]);
+  // No user id means a guest browsing the booking form: nothing to read.
+  useEffect(() => (userId ? subscribeToNotifications(userId, setNotifications, { role }) : undefined), [userId, role]);
+  useEffect(() => (userId && penaltyField ? subscribeToPenalties(penaltyField, userId, setPenalties) : undefined), [userId, penaltyField]);
   useEffect(() => {
-    void registerForPush(userId, role);
+    if (userId) void registerForPush(userId, role);
   }, [userId, role]);
 
   const value = useMemo<InboxValue>(

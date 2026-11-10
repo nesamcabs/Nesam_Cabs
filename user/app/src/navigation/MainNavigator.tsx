@@ -21,11 +21,13 @@ import { ConfirmBookingScreen } from '../screens/ConfirmBookingScreen';
 import { PaymentHistoryScreen } from '../screens/PaymentHistoryScreen';
 import { LegalDocumentsScreen } from '../screens/LegalDocumentsScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
-import { BookingDraftProvider } from '../context/BookingDraft';
 import { NotificationPopups } from '../components/NotificationPopups';
 import { SideDrawer } from '../components/SideDrawer';
 import { DrawerProvider } from '../context/Drawer';
 import { DockPadding } from '../context/Dock';
+import { takeResumeFares, useAuthGate } from '../context/AuthGate';
+import { SignInPrompt } from '../components/SignInPrompt';
+import { useBookingDraft } from '../context/BookingDraft';
 import { useInbox } from '../context/Inbox';
 import { markNotificationRead } from '../services/partnerNotifications';
 import { onPushOpened } from '../services/notificationService';
@@ -62,9 +64,9 @@ function Tabs() {
     >
       <Tab.Screen name="Book" component={BookScreen} options={{ title: 'Book a cab' }} />
       <Tab.Screen name="Rentals" component={LocalRentalsScreen} options={{ title: 'Local Rentals' }} />
-      <Tab.Screen name="Trips" component={TripsScreen} options={{ title: 'My Bookings' }} />
-      <Tab.Screen name="Alerts" component={NotificationsScreen} options={{ title: 'Notifications' }} />
-      <Tab.Screen name="Account" component={AccountScreen} options={{ title: 'Account' }} />
+      <Tab.Screen name="Trips" component={TripsTab} options={{ title: 'My Bookings' }} />
+      <Tab.Screen name="Alerts" component={AlertsTab} options={{ title: 'Notifications' }} />
+      <Tab.Screen name="Account" component={AccountTab} options={{ title: 'Account' }} />
     </Tab.Navigator>
     </DockPadding>
   );
@@ -85,13 +87,28 @@ function withDock<P extends object>(Page: React.ComponentType<P>): React.Compone
   Docked.displayName = `Docked(${Page.displayName ?? Page.name ?? 'Page'})`;
   return Docked;
 }
-const SavedPlaces = withDock(SavedPlacesScreen);
-const Offers = withDock(OffersScreen);
-const Support = withDock(SupportScreen);
-const EditProfile = withDock(EditProfileScreen);
-const PaymentHistory = withDock(PaymentHistoryScreen);
-const LegalDocuments = withDock(LegalDocumentsScreen);
-const Settings = withDock(SettingsScreen);
+/** Pages that need an account: a guest sees the sign-in prompt in their place. */
+function gated<P extends object>(Page: React.ComponentType<P>, title: string, message: string): React.ComponentType<P> {
+  function Gated(props: P) {
+    const { guest } = useAuthGate();
+    return guest ? <SignInPrompt title={title} message={message} /> : <Page {...props} />;
+  }
+  Gated.displayName = `Gated(${Page.displayName ?? Page.name ?? 'Page'})`;
+  return Gated;
+}
+const TripsTab = gated(TripsScreen, 'My Bookings', 'Sign in with your mobile number to see your upcoming, ongoing and past trips.');
+const AlertsTab = gated(NotificationsScreen, 'Notifications', 'Sign in to see booking and payment updates.');
+const AccountTab = gated(AccountScreen, 'Account', 'Sign in to manage your profile, saved places and payments.');
+const ActiveRide = gated(ActiveRideScreen, 'Trip Details', 'Sign in to follow your trip.');
+const ChooseRide = gated(ChooseRideScreen, 'Choose a cab', 'Sign in to compare fares for your trip.');
+const ConfirmBooking = gated(ConfirmBookingScreen, 'Review & Book', 'Sign in to review and confirm your booking.');
+const SavedPlaces = withDock(gated(SavedPlacesScreen, 'Saved Addresses', 'Sign in to keep your regular pickup and drop places.'));
+const Offers = withDock(gated(OffersScreen, 'Offers & Coupons', 'Sign in to see the offers you can use.'));
+const Support = withDock(gated(SupportScreen, 'Help & Support', 'Sign in to raise a request or follow one up. You can always call us on +91 90250 99990.'));
+const EditProfile = withDock(gated(EditProfileScreen, 'My Profile', 'Sign in to see and edit your profile.'));
+const PaymentHistory = withDock(gated(PaymentHistoryScreen, 'Payments & Refunds', 'Sign in to see your payments and refunds.'));
+const LegalDocuments = withDock(gated(LegalDocumentsScreen, 'Terms & Privacy', 'Sign in to see the agreement versions published for your account.'));
+const Settings = withDock(gated(SettingsScreen, 'Settings', 'Sign in to change your settings.'));
 
 /** Where a notification's call-to-action (or a tapped push) leads. */
 function openPage(page: string) {
@@ -147,7 +164,28 @@ function RideAutoFocus({ dismissed }: { dismissed: React.MutableRefObject<Set<st
   return null;
 }
 
-export function MainNavigator() {
+/** A booking started as a guest carries straight on to the fares once the rider has signed in. */
+function ResumeFares() {
+  const { draft } = useBookingDraft();
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current || !takeResumeFares()) return;
+    started.current = true;
+    if (!draft.pickup || !draft.drop || !draft.scheduledAt) return;
+    let tries = 0;
+    const go = () => {
+      if (!navigationRef.isReady()) {
+        if (tries++ < 20) setTimeout(go, 100);
+        return;
+      }
+      navigationRef.navigate('ChooseRide');
+    };
+    setTimeout(go, 150);
+  }, [draft.pickup, draft.drop, draft.scheduledAt]);
+  return null;
+}
+
+export function MainNavigator({ guest = false }: { guest?: boolean }) {
   const dismissed = useRef<Set<string>>(new Set());
   const dismiss = useCallback((id: string) => {
     dismissed.current.add(id);
@@ -159,7 +197,6 @@ export function MainNavigator() {
 
   return (
     <RideFocusCtx.Provider value={focus}>
-      <BookingDraftProvider>
       <DrawerProvider>
       <Stack.Navigator
         screenOptions={{
@@ -171,22 +208,22 @@ export function MainNavigator() {
         }}
       >
         <Stack.Screen name="Tabs" component={Tabs} />
-        <Stack.Screen name="ActiveRide" component={ActiveRideScreen} />
+        <Stack.Screen name="ActiveRide" component={ActiveRide} />
         <Stack.Screen name="SavedPlaces" component={SavedPlaces} />
         <Stack.Screen name="Offers" component={Offers} />
         <Stack.Screen name="Support" component={Support} />
         <Stack.Screen name="EditProfile" component={EditProfile} />
-        <Stack.Screen name="ChooseRide" component={ChooseRideScreen} />
-        <Stack.Screen name="ConfirmBooking" component={ConfirmBookingScreen} />
+        <Stack.Screen name="ChooseRide" component={ChooseRide} />
+        <Stack.Screen name="ConfirmBooking" component={ConfirmBooking} />
         <Stack.Screen name="PaymentHistory" component={PaymentHistory} />
         <Stack.Screen name="LegalDocuments" component={LegalDocuments} />
         <Stack.Screen name="Settings" component={Settings} />
       </Stack.Navigator>
+      {guest ? null : <ResumeFares />}
       <RideAutoFocus dismissed={dismissed} />
       <InboxOverlays />
       <SideDrawer />
       </DrawerProvider>
-      </BookingDraftProvider>
     </RideFocusCtx.Provider>
   );
 }

@@ -11,7 +11,6 @@ import { isValidLatLng } from '../utils/geo';
 import { isOnline } from '../utils/network';
 import { colors, fonts, space } from '../theme';
 import { Icon, type IconName } from './Icon';
-import { PageHead } from './ui';
 
 interface Props {
   visible: boolean;
@@ -76,6 +75,7 @@ function PlaceSearchBody({
   initialQuery = '',
 }: Props) {
   const [text, setText] = useState(initialQuery);
+  const [focused, setFocused] = useState(true);
   // Results are tagged with the query they answer; anything else is stale.
   const [search, setSearch] = useState<SearchState>({ query: '', results: [], error: '' });
   const q = text.trim();
@@ -147,8 +147,17 @@ function PlaceSearchBody({
   return (
     <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
       <Frame kind="narrow" style={styles.frame}>
-        <PageHead title={title} subtitle={subtitle} onBack={onClose} />
-        <View style={styles.searchBox}>
+        <View style={styles.handle} />
+        <View style={styles.head}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={styles.title} accessibilityRole="header">{title}</Text>
+            <Text style={styles.subtitle}>{subtitle}</Text>
+          </View>
+          <Pressable onPress={onClose} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close" style={styles.close}>
+            <Icon name="x" size={22} color={colors.ink} strokeWidth={2} />
+          </Pressable>
+        </View>
+        <View style={[styles.searchBox, focused && styles.searchFocus]}>
           <Icon name="search" size={18} color="#9A958C" />
           <TextInput
             value={text}
@@ -156,6 +165,8 @@ function PlaceSearchBody({
             placeholder="City, area or landmark"
             placeholderTextColor="#9A958C"
             autoFocus
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
             style={styles.input}
             returnKeyType="search"
             autoCorrect={false}
@@ -191,8 +202,14 @@ function PlaceSearchBody({
                   }}
                   accessibilityRole="button"
                 >
-                  <Icon name="locate-fixed" size={19} color={colors.primary} />
-                  <Text style={styles.currentText}>Use current location</Text>
+                  <View style={styles.currentIcon}>
+                    <Icon name="navigation" size={20} color={colors.success} strokeWidth={1.9} />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={styles.currentText}>Use your current location</Text>
+                    <Text style={styles.currentSub}>Fill the pickup from where you are now.</Text>
+                  </View>
+                  <Icon name="chevron-right" size={16} color={colors.success} strokeWidth={2.2} />
                 </Pressable>
               );
             }
@@ -205,7 +222,7 @@ function PlaceSearchBody({
                 accessibilityLabel={`${item.place.name}, ${item.sub}`}
                 disabled={!usable}
               >
-                <Icon name={item.icon} size={18} color="#7E8896" />
+                <Icon name={item.icon} size={20} color={colors.muted} strokeWidth={1.7} />
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={styles.name} numberOfLines={2}>
                     {item.place.name}
@@ -214,7 +231,7 @@ function PlaceSearchBody({
                     {usable ? item.sub : 'No map position — re-save this place from search.'}
                   </Text>
                 </View>
-                <Icon name="chevron-right" size={16} color="#9BA1AB" />
+                <Icon name="chevron-right" size={16} color={colors.faint} />
               </Pressable>
             );
           }}
@@ -227,35 +244,44 @@ function PlaceSearchBody({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.white },
-  frame: { paddingHorizontal: space.xl, paddingTop: space.xl },
+  frame: { paddingHorizontal: 20, paddingTop: 8 },
+  handle: { alignSelf: 'center', width: 44, height: 5, borderRadius: 3, backgroundColor: '#DDD6CB', marginBottom: 14 },
+  head: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 14 },
+  title: { fontFamily: fonts.bold, fontSize: 22, lineHeight: 28, color: colors.ink },
+  subtitle: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 21, color: colors.ink },
+  close: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingHorizontal: 13,
-    borderRadius: 8,
+    paddingHorizontal: 14,
+    borderRadius: 6,
     backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: colors.border,
-    minHeight: 48,
+    borderColor: colors.field,
+    minHeight: 52,
   },
-  input: { flex: 1, fontFamily: fonts.regular, fontSize: 14.5, color: colors.value, paddingVertical: 10 },
-  error: { fontFamily: fonts.medium, color: colors.primaryDark, marginTop: space.sm, fontSize: 12 },
+  searchFocus: { borderColor: colors.primary, borderWidth: 1.5 },
+  input: { flex: 1, fontFamily: fonts.semiBold, fontSize: 16, color: colors.ink, paddingVertical: 10 },
+  error: { fontFamily: fonts.medium, color: colors.danger, marginTop: space.sm, fontSize: 12 },
   current: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    minHeight: 64,
-    paddingHorizontal: 16,
+    gap: 14,
+    minHeight: 72,
+    paddingHorizontal: 14,
     marginTop: space.lg,
-    borderRadius: 10,
+    borderRadius: 6,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.successBorder,
+    backgroundColor: colors.successSoft,
   },
-  currentText: { fontFamily: fonts.medium, fontSize: 13.5, color: colors.value },
-  group: { fontFamily: fonts.medium, fontSize: 9.5, color: '#9A958C', textTransform: 'uppercase', letterSpacing: 1, paddingTop: 24, paddingBottom: 6 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 15, minHeight: 64, borderBottomWidth: 1, borderBottomColor: colors.divider },
-  name: { fontFamily: fonts.medium, fontSize: 13, color: colors.text },
-  addr: { fontFamily: fonts.regular, fontSize: 10.5, color: '#9A958C', marginTop: 3 },
+  currentIcon: { width: 44, height: 44, borderRadius: 6, backgroundColor: '#D6EEDF', alignItems: 'center', justifyContent: 'center' },
+  currentText: { fontFamily: fonts.bold, fontSize: 16, color: colors.ink },
+  currentSub: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.muted, marginTop: 1 },
+  group: { fontFamily: fonts.bold, fontSize: 12, color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.8, paddingTop: 26, paddingBottom: 8 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 12, minHeight: 64, borderBottomWidth: 1, borderBottomColor: colors.divider },
+  name: { fontFamily: fonts.bold, fontSize: 15.5, color: colors.ink },
+  addr: { fontFamily: fonts.regular, fontSize: 14, color: colors.muted, marginTop: 2 },
   hint: { fontFamily: fonts.regular, fontSize: 12, textAlign: 'center', color: colors.muted, marginTop: space.xl },
 });

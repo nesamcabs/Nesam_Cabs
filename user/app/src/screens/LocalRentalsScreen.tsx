@@ -29,6 +29,7 @@ import { CITY_LIMIT_KM, QUICK_CITIES, RENTAL_PACKAGE_HOURS, STATE_VIEW, pinPlace
 import type { GeoPlace } from '../types';
 import type { TabParamList } from '../navigation/types';
 import { colors, fonts, radius, space } from '../theme';
+import { useDockPad } from '../context/Dock';
 
 type Mode = 'hourly' | 'pickup';
 type Stage = 'pickup' | 'drop' | 'when';
@@ -39,6 +40,8 @@ const formatDay = (d: Date) => d.toLocaleDateString('en-IN', { day: '2-digit', m
 
 export function LocalRentalsScreen() {
   const navigation = useNavigation();
+  // The floating bottom bar covers the foot of the screen; the sheet sits above it.
+  const dockPad = useDockPad();
   const tabNav = useNavigation<NavigationProp<TabParamList, 'Rentals'>>();
   const route = useRoute<RouteProp<TabParamList, 'Rentals'>>();
   const { draft, update, setService } = useBookingDraft();
@@ -389,7 +392,7 @@ export function LocalRentalsScreen() {
           <View style={styles.cities} pointerEvents="box-none">
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: space.lg }} keyboardShouldPersistTaps="handled">
               {QUICK_CITIES.map((c) => (
-                <Chip key={c.id} label={c.name} active={place?.id === c.id} onPress={() => chooseCity(c)} />
+                <Chip pill key={c.id} label={c.name} active={place?.id === c.id} onPress={() => chooseCity(c)} />
               ))}
             </ScrollView>
           </View>
@@ -412,7 +415,7 @@ export function LocalRentalsScreen() {
 
       {/* ── Sheet ── */}
       {picking ? (
-        <View style={styles.sheet} accessibilityLabel={stage === 'drop' ? 'Set drop location' : 'Set pickup location'}>
+        <View style={[styles.sheet, { paddingBottom: space.lg + dockPad }]} accessibilityLabel={stage === 'drop' ? 'Set drop location' : 'Set pickup location'}>
           <View style={styles.grip} />
           <Text style={styles.step}>
             STEP {stepNo} OF {steps}
@@ -450,7 +453,7 @@ export function LocalRentalsScreen() {
           ) : null}
         </View>
       ) : (
-        <View style={[styles.sheet, styles.sheetTall]} accessibilityLabel="Plan your trip">
+        <View style={[styles.sheet, styles.sheetTall, { paddingBottom: space.lg + dockPad }]} accessibilityLabel="Plan your trip">
           <View style={styles.grip} />
           <Text style={styles.step}>
             STEP {steps} OF {steps}
@@ -549,8 +552,8 @@ const styles = StyleSheet.create({
   locate: { position: 'absolute', right: 14, bottom: 14, width: 44, height: 44, borderRadius: 22, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center', ...SHADOW },
   sheet: {
     backgroundColor: colors.white,
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
     paddingHorizontal: space.xl,
     paddingTop: 8,
     paddingBottom: space.lg,

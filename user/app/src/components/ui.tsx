@@ -486,7 +486,7 @@ export function Tabs<T extends string>({ options, value, onChange }: { options: 
   );
 }
 
-export function Chip({ label, active, onPress, count, accessibilityLabel }: { label: string; active?: boolean; onPress?: () => void; count?: number; accessibilityLabel?: string }) {
+export function Chip({ label, active, onPress, count, accessibilityLabel, pill }: { label: string; active?: boolean; onPress?: () => void; count?: number; accessibilityLabel?: string; /** A rounded shortcut chip that keeps its own width (the city shortcuts over the map). */ pill?: boolean }) {
   return (
     <Pressable
       onPress={onPress}
@@ -828,13 +828,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  chipPill: { flexGrow: 0, flexBasis: 'auto', minHeight: 40, paddingHorizontal: 18, borderRadius: 999, borderColor: 'transparent', shadowColor: '#14171C', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.14, shadowRadius: 6, elevation: 3 },
+  chipTextPill: { fontFamily: fonts.bold, fontSize: 15 },
   chipOn: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
   chipText: { fontFamily: fonts.semiBold, fontSize: 11.5, color: colors.text },
   chipTextOn: { color: colors.primary },
   radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 1.5, borderColor: '#9A958C', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.white },
   radioOn: { borderColor: colors.primary },
   radioInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.primary },
-  radioCard: { flexDirection: 'row', alignItems: 'center', gap: 14, borderWidth: 1, borderColor: '#E8E3DC', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 16, backgroundColor: colors.white, marginBottom: 10 },
+  radioCard: { flexDirection: 'row', alignItems: 'center', gap: 14, borderWidth: 1, borderColor: '#E8E3DC', borderRadius: 6, paddingHorizontal: 14, paddingVertical: 16, backgroundColor: colors.white, marginBottom: 10 },
   radioCardOn: { borderColor: '#E59A9A', backgroundColor: '#FFF1F1' },
   radioTitle: { fontFamily: fonts.semiBold, fontSize: 12.5, color: colors.ink },
   radioSub: { fontFamily: fonts.regular, fontSize: 10.5, color: '#66615A', marginTop: 3 },

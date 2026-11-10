@@ -122,7 +122,7 @@ export function EditProfileScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   page: { paddingHorizontal: space.xl, paddingTop: space.md, paddingBottom: space.xxl },
-  card: { borderWidth: 1, borderColor: '#E8E3DC', borderRadius: 13, padding: 18, backgroundColor: colors.white },
+  card: { borderWidth: 1, borderColor: '#E8E3DC', borderRadius: 6, padding: 18, backgroundColor: colors.white },
   label: { fontFamily: fonts.regular, fontSize: 11.5, color: '#66615A', marginBottom: 8 },
   langRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
 });

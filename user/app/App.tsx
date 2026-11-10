@@ -7,12 +7,13 @@ import type { User } from 'firebase/auth';
 import { RecaptchaProvider } from './src/components/RecaptchaVerifier';
 import { NetworkBanner } from './src/components/NetworkBanner';
 import { FullScreenLoader } from './src/components/ui';
-import { AuthScreen } from './src/screens/auth/AuthScreen';
 import { ProfileSetupScreen } from './src/screens/auth/ProfileSetupScreen';
 import { AccountHoldScreen, LoadErrorScreen } from './src/screens/auth/AccountStateScreens';
 import { MainNavigator } from './src/navigation/MainNavigator';
 import { navigationRef } from './src/navigation/navigationRef';
 import { CustomerDataProvider } from './src/context/CustomerData';
+import { BookingDraftProvider } from './src/context/BookingDraft';
+import { AuthGateProvider } from './src/context/AuthGate';
 import { InboxProvider } from './src/context/Inbox';
 import { LegalGate } from './src/components/LegalGate';
 import { signOutUser, subscribeToAuthUser } from './src/services/authService';
@@ -113,34 +114,53 @@ function Root() {
     if (resolved) void SplashScreen.hideAsync().catch(() => undefined);
   }, [resolved]);
 
+  // One booking in progress survives signing in: the draft lives above the sign-in switch.
+  const draftKey = uid ?? 'guest';
+  const wrap = (node: React.ReactNode) => <BookingDraftProvider authKey={draftKey}>{node}</BookingDraftProvider>;
+
+  if (!fontsReady || authUser === undefined) return <FullScreenLoader />;
   // __HARNESS__ (temporary, for visual checks only)
   if (process.env.EXPO_PUBLIC_HARNESS === '1' && fontsReady) {
     const fake = { uid: 'harness', name: 'Karthik Raja', phone: '+919025099990', email: 'k@nesam.in', photoUrl: '', walletBalance: 0, emergencyContact: '', language: 'en', status: 'Active' } as UserProfile;
-    return (
-      <InboxProvider userId={fake.uid} role="customer">
-        <CustomerDataProvider profile={fake}>
-          <MainNavigator />
-        </CustomerDataProvider>
-      </InboxProvider>
+    return wrap(
+      <AuthGateProvider guest={false}>
+        <InboxProvider userId={fake.uid} role="customer">
+          <CustomerDataProvider profile={fake}>
+            <MainNavigator />
+          </CustomerDataProvider>
+        </InboxProvider>
+      </AuthGateProvider>,
     );
   }
-  if (!fontsReady || authUser === undefined) return <FullScreenLoader />;
-  if (!authUser) return <AuthScreen />;
-  if (profile === undefined && profileError) {
-    return <LoadErrorScreen message={profileError} onRetry={() => setAttempt((k) => k + 1)} onSignOut={() => void signOutUser()} />;
+  // Like the website, the booking form opens straight away; the phone sign-in sheet appears when an account is needed.
+  if (!authUser) {
+    return wrap(
+      <AuthGateProvider guest>
+        <InboxProvider userId="" role="customer">
+          <CustomerDataProvider>
+            <MainNavigator guest />
+          </CustomerDataProvider>
+        </InboxProvider>
+      </AuthGateProvider>,
+    );
   }
-  if (profile === undefined) return <FullScreenLoader label="Loading your account…" />;
-  if (profile === null) return <ProfileSetupScreen phone={authUser.phoneNumber ?? ''} />;
-  if (!ACTIVE_STATUSES.includes(profile.status)) return <AccountHoldScreen status={profile.status} onSignOut={() => void signOutUser()} />;
+  if (profile === undefined && profileError) {
+    return wrap(<LoadErrorScreen message={profileError} onRetry={() => setAttempt((k) => k + 1)} onSignOut={() => void signOutUser()} />);
+  }
+  if (profile === undefined) return wrap(<FullScreenLoader label="Loading your account…" />);
+  if (profile === null) return wrap(<ProfileSetupScreen phone={authUser.phoneNumber ?? ''} />);
+  if (!ACTIVE_STATUSES.includes(profile.status)) return wrap(<AccountHoldScreen status={profile.status} onSignOut={() => void signOutUser()} />);
 
-  return (
-    <LegalGate key={profile.uid} role="customer">
-      <InboxProvider userId={profile.uid} role="customer">
-        <CustomerDataProvider profile={profile}>
-          <MainNavigator />
-        </CustomerDataProvider>
-      </InboxProvider>
-    </LegalGate>
+  return wrap(
+    <AuthGateProvider guest={false}>
+      <LegalGate key={profile.uid} role="customer">
+        <InboxProvider userId={profile.uid} role="customer">
+          <CustomerDataProvider profile={profile}>
+            <MainNavigator />
+          </CustomerDataProvider>
+        </InboxProvider>
+      </LegalGate>
+    </AuthGateProvider>,
   );
 }
 
