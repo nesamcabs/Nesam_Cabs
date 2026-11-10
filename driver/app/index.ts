@@ -1,3 +1,5 @@
+// Browser-only set-up (dialogs, layout); an empty module on Android / iOS.
+import './src/platform/webSetup';
 import { registerRootComponent } from 'expo';
 
 import App from './App';

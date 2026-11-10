@@ -14,7 +14,7 @@ const config: ExpoConfig = {
   slug: 'nesam-travels-driver',
   scheme: 'nesamdriver',
   version: '1.0.0',
-  platforms: ['android', 'ios'],
+  platforms: ['android', 'ios', 'web'],
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
@@ -45,6 +45,18 @@ const config: ExpoConfig = {
       'android.permission.SYSTEM_ALERT_WINDOW',
       'android.permission.ACCESS_BACKGROUND_LOCATION',
     ],
+  },
+  web: {
+    // Metro bundler, one HTML shell for the whole app (client-side navigation).
+    bundler: 'metro',
+    output: 'single',
+    name: 'NESAM Driver',
+    shortName: 'NESAM Driver',
+    description: 'Accept trips, navigate and manage your earnings with NESAM.',
+    lang: 'en-IN',
+    favicon: './assets/favicon.png',
+    themeColor: '#E31E24',
+    backgroundColor: '#F7F7F7',
   },
   plugins: [
     [
