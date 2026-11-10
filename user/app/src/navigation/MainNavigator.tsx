@@ -107,7 +107,8 @@ const Offers = withDock(gated(OffersScreen, 'Offers & Coupons', 'Sign in to see 
 const Support = withDock(gated(SupportScreen, 'Help & Support', 'Sign in to raise a request or follow one up. You can always call us on +91 90250 99990.'));
 const EditProfile = withDock(gated(EditProfileScreen, 'My Profile', 'Sign in to see and edit your profile.'));
 const PaymentHistory = withDock(gated(PaymentHistoryScreen, 'Payments & Refunds', 'Sign in to see your payments and refunds.'));
-const LegalDocuments = withDock(gated(LegalDocumentsScreen, 'Terms & Privacy', 'Sign in to see the agreement versions published for your account.'));
+// The policies are public, as on the website; the screen shows the account's agreement versions only when signed in.
+const LegalDocuments = withDock(LegalDocumentsScreen);
 const Settings = withDock(gated(SettingsScreen, 'Settings', 'Sign in to change your settings.'));
 
 /** Where a notification's call-to-action (or a tapped push) leads. */

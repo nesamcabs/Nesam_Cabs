@@ -2,7 +2,7 @@
 // trips, finalised penalties) — the app never sends an amount. Razorpay Checkout runs in a WebView; the dues are marked paid
 // only after the server verifies the captured payment (functions/src/partnerOps.ts: createDuesPayment / verifyDuesPayment).
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Sheet } from './ui';
 import { Feedback, PButton } from './partner';
@@ -20,6 +20,24 @@ handler:function(r){post({ok:true,orderId:r.razorpay_order_id,paymentId:r.razorp
 modal:{ondismiss:function(){post({ok:false,reason:'Payment was cancelled. No money was taken.'})}}});
 rz.on('payment.failed',function(){post({ok:false,reason:'The payment failed. You have not been charged; please try again.'})});
 rz.open();</script></body></html>`;
+
+// react-native-webview has no browser implementation ("does not support this platform"), so on the web the same checkout page
+// runs in an iframe; a shim forwards its ReactNativeWebView.postMessage calls to the parent window.
+function CheckoutFrame({ order, onMessage }: { order: DuesOrder; onMessage: (raw: string) => void }) {
+  const html = React.useMemo(
+    () => checkoutHtml(order).replace('<head>', '<head><script>window.ReactNativeWebView={postMessage:function(m){parent.postMessage(m,"*")}}</script>'),
+    [order],
+  );
+  const frame = React.useRef<HTMLIFrameElement | null>(null);
+  useEffect(() => {
+    const h = (e: MessageEvent) => {
+      if (e.source === frame.current?.contentWindow && typeof e.data === 'string') onMessage(e.data);
+    };
+    window.addEventListener('message', h);
+    return () => window.removeEventListener('message', h);
+  }, [onMessage]);
+  return React.createElement('iframe', { ref: frame, srcDoc: html, title: 'Secure payment', style: { border: 0, width: '100%', height: '100%' } });
+}
 
 /** Never says "paid" unless an amount was actually applied to the dues. */
 function outcomeMessage(v: DuesOutcome): string {
@@ -75,7 +93,11 @@ export function DuesPaymentSheet({ onClose, onDone }: { onClose: () => void; onD
     <Sheet visible onClose={onClose} title="Pay outstanding dues" dismissible={!busy && !order}>
       {order ? (
         <View style={styles.web}>
-          <WebView originWhitelist={['*']} source={{ html: checkoutHtml(order) }} onMessage={(e) => void onMessage(e.nativeEvent.data)} javaScriptEnabled />
+          {Platform.OS === 'web' ? (
+            <CheckoutFrame order={order} onMessage={(raw) => void onMessage(raw)} />
+          ) : (
+            <WebView originWhitelist={['*']} source={{ html: checkoutHtml(order) }} onMessage={(e) => void onMessage(e.nativeEvent.data)} javaScriptEnabled />
+          )}
         </View>
       ) : loading ? (
         <ActivityIndicator color={colors.primary} style={{ marginVertical: space.lg }} />

@@ -1,7 +1,7 @@
 // Brand pieces shared by the customer screens: the modern header (emblem,
 // dynamic page heading, notification + support actions) and the modern five-item service
 // navigation (Airport · Multicity · Outstation · Local Rental · Account) with prominent middle hero.
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Animated, Image, type ImageSourcePropType, Linking, Modal, Pressable, type PressableProps, type StyleProp, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useKeyboardHeight } from './KeyboardAvoid';
@@ -272,7 +272,7 @@ const NAV_ITEMS: { key: NavKey; label: string; image: ImageSourcePropType }[] = 
 
 /** One bar item: the active one rises on a red disc, with a little pop. */
 function NavItem({ item, on, onPress }: { item: (typeof NAV_ITEMS)[number]; on: boolean; onPress: () => void }) {
-  const rise = useRef(new Animated.Value(on ? 1 : 0)).current;
+  const [rise] = useState(() => new Animated.Value(on ? 1 : 0));
   useEffect(() => {
     Animated.spring(rise, { toValue: on ? 1 : 0, speed: 16, bounciness: 9, useNativeDriver: true }).start();
   }, [on, rise]);

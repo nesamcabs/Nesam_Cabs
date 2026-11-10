@@ -33,12 +33,15 @@ export function SignInSheet({ visible, onClose, title, subtitle }: { visible: bo
   const { online } = useNetworkStatus();
 
   // A fresh sheet starts at the phone step.
-  useEffect(() => {
-    if (!visible) return;
-    setStep('phone');
-    setOtp('');
-    setError('');
-  }, [visible]);
+  const [wasVisible, setWasVisible] = useState(false);
+  if (visible !== wasVisible) {
+    setWasVisible(visible);
+    if (visible) {
+      setStep('phone');
+      setOtp('');
+      setError('');
+    }
+  }
 
   useEffect(() => {
     if (cooldown <= 0) return undefined;

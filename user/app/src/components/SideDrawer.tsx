@@ -1,7 +1,7 @@
 // The side menu opened by the hamburger button: the everyday links as icon rows, then the website footer's
 // groups (services, popular routes, policies) as simple accordions, with the support phone at the bottom.
 // Mirrors user/web/src/components/SideDrawer.tsx.
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Animated, BackHandler, Image, Linking, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -24,13 +24,21 @@ export function SideDrawer() {
   const panelWidth = Math.min(Math.round(width * 0.86), 360);
   const [mounted, setMounted] = useState(false);
   const [group, setGroup] = useState<string | null>(null);
-  const slide = useRef(new Animated.Value(0)).current;
+  const [slide] = useState(() => new Animated.Value(0));
   const open = !!drawer?.open;
 
-  useEffect(() => {
+  // Opening mounts the panel straight away and starts it collapsed; closing keeps it mounted until it has slid out.
+  const [wasOpen, setWasOpen] = useState(false);
+  if (open !== wasOpen) {
+    setWasOpen(open);
     if (open) {
       setMounted(true);
       setGroup(null);
+    }
+  }
+
+  useEffect(() => {
+    if (open) {
       Animated.timing(slide, { toValue: 1, duration: 240, useNativeDriver: true }).start();
       return undefined;
     }

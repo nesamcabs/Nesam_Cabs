@@ -22,7 +22,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, Edge } from 'react-native-safe-area-context';
 import { KeyboardAvoid } from './KeyboardAvoid';
-import { colors, fonts, radius, shadows, space, type } from '../theme';
+import { colors, fonts, radius, space, type } from '../theme';
 import { useResponsive, type ContentKind } from '../theme/responsive';
 import { ScrollView, useContentStyle } from './layout';
 import { initials } from '../utils/format';

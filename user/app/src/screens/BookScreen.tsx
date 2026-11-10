@@ -20,7 +20,7 @@ import { PlaceSearchModal } from '../components/PlaceSearchModal';
 import { MulticityForm } from '../components/MulticityForm';
 import { TimePickerSheet } from '../components/TimePickerSheet';
 import { useCustomerData } from '../context/CustomerData';
-import { useBookingDraft, type HomeService } from '../context/BookingDraft';
+import { useBookingDraft } from '../context/BookingDraft';
 import { useDeviceLocation } from '../hooks/useDeviceLocation';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { LOCATION_ERROR_TEXT, reverseGeocode } from '../services/geoService';
@@ -63,7 +63,7 @@ export function BookScreen() {
   const { draft, update, service, setService } = useBookingDraft();
   const { undismiss } = useRideFocus();
   const { pickup, drop, tripType, scheduledAt, tripEndAt, airportDirection } = draft;
-  const { position, error: locError, permission, locating, locate } = useDeviceLocation(true);
+  const { position, error: locError, permission, locate } = useDeviceLocation(true);
   const { online } = useNetworkStatus();
   const [picker, setPicker] = useState<Picker | null>(null);
   const [timeTarget, setTimeTarget] = useState<TimeTarget>(null);

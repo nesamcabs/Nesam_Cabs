@@ -119,19 +119,6 @@ function Root() {
   const wrap = (node: React.ReactNode) => <BookingDraftProvider authKey={draftKey}>{node}</BookingDraftProvider>;
 
   if (!fontsReady || authUser === undefined) return <FullScreenLoader />;
-  // __HARNESS__ (temporary, for visual checks only)
-  if (process.env.EXPO_PUBLIC_HARNESS === '1' && fontsReady) {
-    const fake = { uid: 'harness', name: 'Karthik Raja', phone: '+919025099990', email: 'k@nesam.in', photoUrl: '', walletBalance: 0, emergencyContact: '', language: 'en', status: 'Active' } as UserProfile;
-    return wrap(
-      <AuthGateProvider guest={false}>
-        <InboxProvider userId={fake.uid} role="customer">
-          <CustomerDataProvider profile={fake}>
-            <MainNavigator />
-          </CustomerDataProvider>
-        </InboxProvider>
-      </AuthGateProvider>,
-    );
-  }
   // Like the website, the booking form opens straight away; the phone sign-in sheet appears when an account is needed.
   if (!authUser) {
     return wrap(
