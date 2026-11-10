@@ -7,7 +7,7 @@
 .lt-place strong { display: block; font-size: 0.9rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lt-dot { width: 12px; height: 12px; border-radius: 50%; }
 .lt-dot--from { background: #16a34a; }
-.lt-dot--to { background: #dc2626; }
+.lt-dot--to { background: #1e3a66; }
 .lt-note { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--muted); font-size: 0.85rem; }
 .lt-note--ok { color: #15803d; font-weight: 700; }
 .lt-map { height: 240px; border-radius: 6px; border: 1px solid var(--line); overflow: hidden; z-index: 0; }
@@ -93,7 +93,7 @@ label.lts-chip { border-color: var(--brand); background: var(--brand-soft, var(-
 .lt-tag--to { transform: translate(-50%, 0); }
 .lt-tag i { flex: none; width: 10px; height: 10px; border-radius: 50%; }
 .lt-tag--from i { background: #16a34a; }
-.lt-tag--to i { background: #dc2626; }
+.lt-tag--to i { background: #1e3a66; }
 .lt-tag span { overflow: hidden; text-overflow: ellipsis; }
 .lt-tag b { flex: none; color: #64748b; font-size: 1.1rem; line-height: 1; }
 .lt-tag.is-tap { cursor: pointer; }

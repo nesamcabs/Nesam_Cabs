@@ -22,6 +22,9 @@ export const PUBLIC_CALLABLE_ORIGINS: string[] = [
   'https://www.nesamtravels.in',
   'https://nesamtravels.in',
 
+  // ── NESAM Cabs customer site on Vercel ────────────────────────────────────
+  'https://nesamcabs-app.vercel.app',
+
   // ── One Way Car Rentals ───────────────────────────────────────────────────
   'https://www.onewaycarrentals.in',
   'https://onewaycarrentals.in',

@@ -35,7 +35,7 @@ export function receiptHtml(trip: TripRecord, customerName: string): string {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Receipt ${escapeHtml(trip.bookingId)}</title>
 <style>
 body{font-family:'Poppins',system-ui,-apple-system,Helvetica,Arial,sans-serif;margin:32px;color:#111;max-width:640px}
-h1{font-size:20px;margin:0;color:#c62828}.muted{color:#666;font-size:12px}
+h1{font-size:20px;margin:0;color:#1e3a66}.muted{color:#666;font-size:12px}
 .box{border:1px solid #e5e5e5;border-radius:8px;padding:12px;margin:14px 0;font-size:13px;line-height:1.6}
 table{width:100%;border-collapse:collapse;font-size:13px}td{padding:6px 0;border-bottom:1px solid #eee}.r{text-align:right}
 .paid{margin-top:8px}.total td{font-weight:700;font-size:15px;border-top:2px solid #111;border-bottom:none}

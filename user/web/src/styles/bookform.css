@@ -883,7 +883,7 @@
 .bf-submit {
   position: relative;
   overflow: hidden;
-  background-image: linear-gradient(135deg, var(--brand) 0%, #c62828 55%, #0b3f9c 100%);
+  background-image: linear-gradient(135deg, var(--brand) 0%, #1e3a66 55%, #0b3f9c 100%);
   box-shadow: 0 12px 28px -8px rgb(var(--brand-rgb) / 0.55);
   transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), filter var(--dur) var(--ease);
 }
@@ -1104,8 +1104,8 @@
   background: var(--brand-soft);
 }
 .bf-add-city.is-invalid {
-  border-color: var(--danger, #c62828);
-  color: var(--danger, #c62828);
+  border-color: var(--danger, #b42318);
+  color: var(--danger, #b42318);
 }
 
 /* Local Rentals: Hourly Rental and Pickup & Drop sit on one line each. */

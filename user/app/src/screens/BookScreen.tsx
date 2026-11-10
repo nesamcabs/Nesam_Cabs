@@ -302,9 +302,12 @@ export function BookScreen() {
               <MenuButton glass />
               <View style={{ flex: 1 }} />
               <SupportMenuAction glass />
-              <View style={styles.glass}>
-                <NotificationsAction />
-              </View>
+              {/* A guest has no notifications; signing in happens from "Let's Go !" or the Profile tab. */}
+              {guest ? null : (
+                <View style={styles.glass}>
+                  <NotificationsAction />
+                </View>
+              )}
             </View>
 
             <View style={styles.hero}>

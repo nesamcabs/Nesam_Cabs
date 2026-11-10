@@ -139,7 +139,7 @@ export function ZoneMapView({
     // Service areas: drawn always; they count towards the view only while no trip is shown.
     for (const z of zones) for (const rings of z.polygons) {
       const paths = rings.map((r) => r.map(([lng, lat]) => ({ lat, lng })));
-      add(new maps.Polygon({ map: m, paths, strokeColor: '#c62828', strokeWeight: 1.5, strokeOpacity: 0.8, fillColor: '#c62828', fillOpacity: 0.05, clickable: false }));
+      add(new maps.Polygon({ map: m, paths, strokeColor: '#1e3a66', strokeWeight: 1.5, strokeOpacity: 0.8, fillColor: '#1e3a66', fillOpacity: 0.05, clickable: false }));
       if (!hasBoth) paths[0]?.forEach(extend);
     }
 
@@ -156,7 +156,7 @@ export function ZoneMapView({
     const pin = (p: Spot, kind: 'from' | 'to', onClick?: () => void) => {
       add(new maps.Marker({
         map: m, position: { lat: p.lat, lng: p.lng }, clickable: false, zIndex: 400,
-        icon: { path: maps.SymbolPath.CIRCLE, scale: 7, fillColor: kind === 'from' ? '#16a34a' : '#dc2626', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 3 },
+        icon: { path: maps.SymbolPath.CIRCLE, scale: 7, fillColor: kind === 'from' ? '#16a34a' : '#1e3a66', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 3 },
       }));
       const tag = add(new Tag(new maps.LatLng(p.lat, p.lng), tagElement(kind, p.name, onClick), kind === 'from' ? -18 : 10));
       tag.setMap(m);

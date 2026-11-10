@@ -263,7 +263,7 @@
   }
   @supports ((-webkit-background-clip: text) or (background-clip: text)) {
     .hero-copy h1 .hero-accent {
-      background-image: linear-gradient(90deg, #c62828 0%, var(--brand-bright) 40%, #c62828 80%);
+      background-image: linear-gradient(90deg, #1e3a66 0%, var(--brand-bright) 40%, #1e3a66 80%);
       background-size: 200% 100%;
       -webkit-background-clip: text;
       background-clip: text;
@@ -393,7 +393,7 @@
       inset: 0 0 auto 0;
       z-index: 120;
       height: 3px;
-      background: linear-gradient(90deg, #c62828, var(--brand-bright), var(--sun));
+      background: linear-gradient(90deg, #1e3a66, var(--brand-bright), var(--sun));
       transform-origin: 0 50%;
       pointer-events: none;
       animation: pt-progress linear both;

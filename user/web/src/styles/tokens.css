@@ -1,22 +1,22 @@
 /*
   NESAM Cabs — design tokens (the single source of truth).
-  Identity: an "executive" corporate look. Charcoal and warm ivory surfaces, a bright logo red for action, thin gold
+  Identity: an "executive" corporate look. Charcoal and warm ivory surfaces, a deep navy for action, thin gold
   rules, Poppins type and sharp, precise corners. Every colour, size and radius used by the other stylesheets comes
   from here; screens never hard-code them.
 */
 :root {
   color-scheme: light;
 
-  /* Brand — bright logo red */
-  --brand: #e31e24;
-  --brand-hover: #d71920;
-  --brand-press: #c8171d;
-  --brand-soft: #fff1f1;
-  --brand-tint: #ffdddd;
-  --brand-line: #ffc5c7;
-  --brand-ink: #cf171e; /* stronger red for text on light surfaces */
-  --brand-bright: #ff666b; /* bright red on dark surfaces */
-  --brand-gradient: linear-gradient(135deg, #ff3b40 0%, #e31e24 60%, #d71920 100%);
+  /* Brand — corporate navy (red is reserved for errors and cancellations only) */
+  --brand: #1e3a66;
+  --brand-hover: #18305a;
+  --brand-press: #12264a;
+  --brand-soft: #eef2f8;
+  --brand-tint: #dde6f3;
+  --brand-line: #c5d3e8;
+  --brand-ink: #1e3a66; /* text on light surfaces */
+  --brand-bright: #8fb0e3; /* brand blue on dark surfaces */
+  --brand-gradient: linear-gradient(135deg, #2b4f87 0%, #1e3a66 60%, #18305a 100%);
 
   /* Highlight — gold: rules, ratings, the call button */
   --sun: #b08d57;
@@ -27,7 +27,7 @@
 
   /* Card washes (kept quiet: warm ivory) */
   --mint-soft: #f4f1ec;
-  --rose-soft: #fbf3f3;
+  --rose-soft: #f1f4f9;
   --lilac-soft: #f4f1ec;
 
   /* Names used by older markup */
@@ -144,13 +144,13 @@
   --field-line: #b9b1a5;
   --inset: #f3f0ec;
 
-  --ring: 0 0 0 3px rgb(227 30 36 / 0.2);
+  --ring: 0 0 0 3px rgb(30 58 102 / 0.22);
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
   --dur: 160ms;
 
   /* Brand channels for rgb() tints used across the stylesheets */
-  --brand-rgb: 227 30 36;
+  --brand-rgb: 30 58 102;
   --sun-rgb: 176 141 87;
 }
 

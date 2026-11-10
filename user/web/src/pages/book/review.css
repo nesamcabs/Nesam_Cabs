@@ -558,7 +558,7 @@
   overflow: hidden;
   border: 0;
   border-radius: 6px;
-  background: linear-gradient(135deg, #ff3b40 0%, #e31e24 55%, #d71920 100%);
+  background: linear-gradient(135deg, #2b4f87 0%, #1e3a66 55%, #18305a 100%);
   box-shadow: 0 8px 20px rgb(var(--brand-rgb) / 0.35), inset 0 1px 0 rgb(255 255 255 / 0.25);
   color: #fff;
   font-size: 1.05rem;

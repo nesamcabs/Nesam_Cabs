@@ -2,7 +2,7 @@
    Colours, corners and type come from the site's own tokens, so the same page reads as People Taxi, One Way Car Rentals or Nesam Cabs. */
 .lr {
   --lr-green: #16a34a;
-  --lr-red: #dc2626;
+  --lr-red: #1e3a66;
   /* Between the site header (on top) and the bottom bar (on phones): the header and the tab bar stay on screen and usable. */
   position: fixed;
   top: var(--nav-h, 76px);
@@ -578,7 +578,7 @@
 .lr-field--duration .lr-select select {
   min-height: 54px;
   padding: 17px 38px 2px 14px;
-  border-color: color-mix(in srgb, var(--brand, #e31e24) 38%, var(--line-strong, #d5dae2));
+  border-color: color-mix(in srgb, var(--brand, #1e3a66) 38%, var(--line-strong, #d5dae2));
   font-size: 0.9375rem;
   font-weight: 800;
 }
@@ -592,7 +592,7 @@
 .lr-hourly-plan .lr-field--schedule .lr-select select {
   width: 100%;
   min-height: 54px;
-  border-color: color-mix(in srgb, var(--brand, #e31e24) 38%, var(--line-strong, #d5dae2));
+  border-color: color-mix(in srgb, var(--brand, #1e3a66) 38%, var(--line-strong, #d5dae2));
 }
 .lr-sheet--tall .lr-foot .lr-cta { min-height: 52px; margin-top: 8px; border-radius: 6px; }
 @media (max-width: 899.98px) {
@@ -657,7 +657,7 @@
   .lr-seg__thumb { top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px); box-shadow: 0 2px 8px rgb(var(--brand-rgb, 22 101 232) / 0.35); }
 
   .lr-step { font-size: 0.62rem; letter-spacing: 0.06em; }
-  .lr-sheet--tall > .lr-step { position: static; color: var(--brand-ink, var(--brand, #e31e24)); letter-spacing: 0.06em; text-transform: uppercase; }
+  .lr-sheet--tall > .lr-step { position: static; color: var(--brand-ink, var(--brand, #1e3a66)); letter-spacing: 0.06em; text-transform: uppercase; }
   .lr-sheet h2 { margin: 1px 0 8px; font-size: 0.95rem; }
 
   .lr-row { gap: 8px; margin: 6px 0 2px; }

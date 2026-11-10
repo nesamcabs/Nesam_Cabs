@@ -39,6 +39,9 @@ export default defineConfig(({ mode }) => {
   const processEnv: Record<string, string> = { NODE_ENV: mode === 'production' ? 'production' : 'development' };
   for (const [k, v] of Object.entries(env)) if (k.startsWith('EXPO_PUBLIC_')) processEnv[k] = v;
   if (env.VITE_API_URL && !processEnv.EXPO_PUBLIC_API_URL) processEnv.EXPO_PUBLIC_API_URL = env.VITE_API_URL;
+  // The booking server. A build always talks to it (the Firebase callables it falls back to are not deployed, so fares would
+  // never load), whether or not the host's environment variables were set; an explicit value still wins.
+  if (!processEnv.EXPO_PUBLIC_API_URL && processEnv.EXPO_PUBLIC_USE_FIREBASE_EMULATORS !== 'true') processEnv.EXPO_PUBLIC_API_URL = 'https://nesam-travels-api.vercel.app';
 
   // Local development: call the deployed Cloud Functions through this dev server (same origin), so a new localhost port
   // (8085, 8087 …) is never blocked by the functions' CORS list. Not used in production, with the HTTP API or with emulators.
