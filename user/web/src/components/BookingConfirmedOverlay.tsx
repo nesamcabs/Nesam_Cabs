@@ -10,7 +10,7 @@ import './bookingConfirmed.css';
 
 const FALLING = 44;
 const BURST = 26;
-const BURST_COLOURS = ['#ffffff', '#ffd23f', '#8fb0e3', '#7cf0c2', '#8ec5ff'];
+const BURST_COLOURS = ['#ffffff', '#ffd23f', '#ff7aa2', '#7cf0c2', '#8ec5ff'];
 
 export function BookingConfirmedOverlay({
   logo,

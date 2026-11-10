@@ -204,7 +204,7 @@
   stroke-linecap: round;
   stroke-dasharray: 11 89;
   stroke-dashoffset: 0;
-  filter: drop-shadow(0 0 6px rgb(var(--brand-rgb) / 0.6));
+  filter: drop-shadow(0 0 6px rgb(20 23 28 / 0.22));
 }
 
 /* ── Booking card ────────────────────────────────────────────────────────────────────────────────── */
@@ -213,7 +213,7 @@
 }
 .jd:hover {
   border-color: var(--brand-line, var(--line-strong));
-  box-shadow: 0 24px 60px -14px rgb(var(--brand-rgb) / 0.28), 0 4px 18px rgb(0 0 0 / 0.05);
+  box-shadow: 0 24px 60px -14px rgb(20 23 28 / 0.2), 0 4px 18px rgb(0 0 0 / 0.05);
 }
 .jd-tab .icon {
   transition: transform var(--dur) var(--ease);
@@ -227,7 +227,7 @@
   position: relative;
   overflow: hidden;
   background-image: var(--brand-gradient);
-  box-shadow: 0 12px 28px -8px rgb(var(--brand-rgb) / 0.55);
+  box-shadow: 0 12px 28px -8px rgb(20 23 28 / 0.22);
   transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), filter var(--dur) var(--ease);
 }
 .jd-submit::after {
@@ -241,7 +241,7 @@
 .jd-submit:hover:not(:disabled) {
   transform: translateY(-2px);
   filter: brightness(1.06);
-  box-shadow: 0 18px 34px -8px rgb(var(--brand-rgb) / 0.6);
+  box-shadow: 0 18px 34px -8px rgb(20 23 28 / 0.22);
 }
 .jd-submit:active:not(:disabled) {
   transform: translateY(0);
@@ -263,7 +263,7 @@
   }
   @supports ((-webkit-background-clip: text) or (background-clip: text)) {
     .hero-copy h1 .hero-accent {
-      background-image: linear-gradient(90deg, #1e3a66 0%, var(--brand-bright) 40%, #1e3a66 80%);
+      background-image: linear-gradient(90deg, #c8181f 0%, var(--brand-bright) 40%, #c8181f 80%);
       background-size: 200% 100%;
       -webkit-background-clip: text;
       background-clip: text;
@@ -393,7 +393,7 @@
       inset: 0 0 auto 0;
       z-index: 120;
       height: 3px;
-      background: linear-gradient(90deg, #1e3a66, var(--brand-bright), var(--sun));
+      background: linear-gradient(90deg, #c8181f, var(--brand-bright), var(--sun));
       transform-origin: 0 50%;
       pointer-events: none;
       animation: pt-progress linear both;

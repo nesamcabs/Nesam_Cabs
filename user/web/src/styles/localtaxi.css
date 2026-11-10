@@ -7,7 +7,7 @@
 .lt-place strong { display: block; font-size: 0.9rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lt-dot { width: 12px; height: 12px; border-radius: 50%; }
 .lt-dot--from { background: #16a34a; }
-.lt-dot--to { background: #1e3a66; }
+.lt-dot--to { background: #c8181f; }
 .lt-note { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--muted); font-size: 0.85rem; }
 .lt-note--ok { color: #15803d; font-weight: 700; }
 .lt-map { height: 240px; border-radius: 6px; border: 1px solid var(--line); overflow: hidden; z-index: 0; }
@@ -72,7 +72,7 @@
 .lts-ride__txt strong { color: var(--brand); font-size: 1rem; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lts-ride__txt small { color: var(--muted); font-size: 0.8rem; font-weight: 600; }
 .lts-ride__price { font-size: 1.15rem; font-weight: 900; color: var(--ink); }
-.lts-ride.is-on { border-color: var(--brand); background: var(--brand-soft, var(--brand-soft)); box-shadow: 0 6px 16px -8px rgb(var(--brand-rgb) / 0.55); }
+.lts-ride.is-on { border-color: var(--brand); background: var(--brand-soft, var(--brand-soft)); box-shadow: 0 6px 16px -8px rgb(20 23 28 / 0.22); }
 .lts-ride:disabled { opacity: 0.55; cursor: not-allowed; }
 .lts-ride:focus-visible, .lts-chip:focus-within, .lts__back:focus-visible { outline: 3px solid color-mix(in srgb, var(--brand) 45%, transparent); outline-offset: 2px; }
 .lts__foot { display: grid; gap: 10px; padding: 10px 16px calc(14px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); background: #fff; }
@@ -93,7 +93,7 @@ label.lts-chip { border-color: var(--brand); background: var(--brand-soft, var(-
 .lt-tag--to { transform: translate(-50%, 0); }
 .lt-tag i { flex: none; width: 10px; height: 10px; border-radius: 50%; }
 .lt-tag--from i { background: #16a34a; }
-.lt-tag--to i { background: #1e3a66; }
+.lt-tag--to i { background: #c8181f; }
 .lt-tag span { overflow: hidden; text-overflow: ellipsis; }
 .lt-tag b { flex: none; color: #64748b; font-size: 1.1rem; line-height: 1; }
 .lt-tag.is-tap { cursor: pointer; }

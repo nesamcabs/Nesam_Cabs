@@ -41,12 +41,12 @@
   --btn-bg: var(--brand);
   --btn-fg: #fff;
   --btn-line: var(--brand);
-  box-shadow: 0 10px 22px rgb(var(--brand-rgb) / 0.32);
+  box-shadow: 0 10px 22px rgb(20 23 28 / 0.22);
 }
 .btn--primary:hover:not(:disabled) {
   --btn-bg: var(--brand-hover);
   --btn-line: var(--brand-hover);
-  box-shadow: 0 14px 28px rgb(var(--brand-rgb) / 0.4);
+  box-shadow: 0 14px 28px rgb(20 23 28 / 0.22);
 }
 .btn--primary:active:not(:disabled) {
   --btn-bg: var(--brand-press);
@@ -377,7 +377,7 @@
 .tab[aria-selected='true'] {
   background: var(--brand);
   color: #fff;
-  box-shadow: 0 6px 14px rgb(var(--brand-rgb) / 0.3);
+  box-shadow: 0 6px 14px rgb(20 23 28 / 0.22);
 }
 
 .badge {

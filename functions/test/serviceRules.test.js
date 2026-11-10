@@ -77,13 +77,16 @@ test('local pickup fare uses city minimum without the outstation floor', () => {
   assert.equal(T.localFareFor(config, 'salem', 'sedan'), null);
 });
 
-test('rental package honors included GST and refuses packages below the minimum', () => {
+test('rental package honors included GST and refuses unsupported durations', () => {
   const config = T.parseTariffConfig({ ...T.CONFIRMED_TARIFF_V2, rentalPackages: { sedan: { minHours: 4, packages: { '4': { customerFare: 1050, partnerPayout: 800, includedKm: 40, extraKmRate: 15, extraHourRate: 150, gstMode: 'included', enabled: true } } } } });
   const q = T.quoteRentalPackage({ config, hours: 4, tariffClass: 'sedan', routeKm: 20, durationMin: 240, pickupMs: at.getTime(), tripType: 'One Way' });
   assert.equal(q.fare.total, 1050);
   assert.equal(q.pricing.partner.basePaise, 80000);
+  // Every whole duration from 1 to 15 hours is bookable (docs/rental-packages.md): a saved minHours no longer blocks a package.
   config.rentalPackages.sedan.minHours = 5;
-  assert.throws(() => T.quoteRentalPackage({ config, hours: 4, tariffClass: 'sedan', pickupMs: at.getTime() }), /starts at 5/);
+  assert.equal(T.quoteRentalPackage({ config, hours: 4, tariffClass: 'sedan', routeKm: 20, durationMin: 240, pickupMs: at.getTime(), tripType: 'One Way' }).fare.total, 1050);
+  assert.throws(() => T.quoteRentalPackage({ config, hours: 16, tariffClass: 'sedan', pickupMs: at.getTime() }), /not offered/);
+  assert.throws(() => T.quoteRentalPackage({ config, hours: 3, tariffClass: 'sedan', pickupMs: at.getTime() }), /not configured/);
 });
 
 test('fixed route honors direction, category, date and explicit peak exclusion', () => {

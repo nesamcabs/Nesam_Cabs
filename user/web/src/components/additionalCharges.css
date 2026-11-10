@@ -1,6 +1,6 @@
 /* "Additional charges" card of the fare breakup. Flat, one accent colour (each site's --brand), no gradients. Kept compact. */
 .addl {
-  --addl-accent: var(--brand, var(--red, #1e3a66));
+  --addl-accent: var(--brand, var(--red, #c8181f));
   container-type: inline-size;
   display: grid;
   gap: 10px;

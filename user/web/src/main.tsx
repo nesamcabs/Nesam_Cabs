@@ -25,6 +25,7 @@ import './styles/contact-controls.css';
 import './styles/bookform-date.css';
 import './styles/support-menu.css';
 import './styles/bookform-route.css';
+import './styles/calm.css';
 import { keepHomeBehindEveryScreen } from './lib/homeNav';
 import { installStaleVersionReload, installVersionCheck } from '@/components/RouteErrorBoundary';
 import { prefetchWhenIdle, registerDeviceCache } from '@/lib/deviceCache';

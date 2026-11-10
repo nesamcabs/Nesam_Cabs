@@ -74,7 +74,7 @@ export function GoogleRouteMap({ pickup, drop, driver, userLocation, path, baseP
     if (basePath && basePath.length > 1) draw(basePath, '#9a96a0', 5, 0.72);
     if (line) { draw(line, '#ffffff', 9, 0.9); draw(line, '#17171c', 5, 0.95); }
     if (p) { add(new maps.Marker({ map, position: p, title: p.name ?? 'Pickup', icon: markerIcon(maps, '#22a85a') })); addPoint(p); }
-    if (d) { add(new maps.Marker({ map, position: d, title: d.name ?? 'Destination', icon: markerIcon(maps, '#1e3a66') })); addPoint(d); }
+    if (d) { add(new maps.Marker({ map, position: d, title: d.name ?? 'Destination', icon: markerIcon(maps, '#c8181f') })); addPoint(d); }
     if (userLocation && isValidLatLng(userLocation)) add(new maps.Marker({ map, position: userLocation, title: 'You', icon: { path: maps.SymbolPath.CIRCLE, fillColor: '#2563eb', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 3, scale: 7 } }));
     if (driver && isValidLatLng(driver)) { add(new maps.Marker({ map, position: driver, title: driver.label ?? 'Driver', label: { text: '🚕', fontSize: '22px' } })); addPoint(driver); }
     if (pinMode) {

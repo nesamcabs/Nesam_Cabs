@@ -140,7 +140,7 @@ function LeafletPinMap({ picking, target, pins, sheetH, onPick, me }: { picking:
     const pts: [number, number][] = pins.map((p) => [p.place.lat, p.place.lng]);
     if (pins.length === 2) L.polyline(pts, { color: '#0f172a', weight: 4, opacity: 0.8, dashArray: '2 9', lineCap: 'round', interactive: false }).addTo(g);
     for (const p of pins) {
-      L.circleMarker([p.place.lat, p.place.lng], { radius: 7, color: '#fff', weight: 3, fillColor: p.kind === 'from' ? '#16a34a' : '#1e3a66', fillOpacity: 1, interactive: false }).addTo(g);
+      L.circleMarker([p.place.lat, p.place.lng], { radius: 7, color: '#fff', weight: 3, fillColor: p.kind === 'from' ? '#16a34a' : '#c8181f', fillOpacity: 1, interactive: false }).addTo(g);
       L.marker([p.place.lat, p.place.lng], { icon: L.divIcon({ className: 'lr-tagwrap', html: tag(p.kind, p.place.name), iconSize: [0, 0], iconAnchor: [0, p.kind === 'from' ? 18 : -10] }), keyboard: false, interactive: false, zIndexOffset: 500 }).addTo(g);
     }
     if (live.current.picking || !pts.length) return;
@@ -243,7 +243,7 @@ function GooglePinMap({ picking, target, pins, sheetH, onPick, onFail, me }: { p
     for (const p of pins) {
       const pos = { lat: p.place.lat, lng: p.place.lng };
       bounds.extend(pos);
-      add(new maps.Marker({ map: m, position: pos, clickable: false, zIndex: 5, icon: { path: maps.SymbolPath.CIRCLE, scale: 7, fillColor: p.kind === 'from' ? '#16a34a' : '#1e3a66', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 3 } }));
+      add(new maps.Marker({ map: m, position: pos, clickable: false, zIndex: 5, icon: { path: maps.SymbolPath.CIRCLE, scale: 7, fillColor: p.kind === 'from' ? '#16a34a' : '#c8181f', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 3 } }));
       // The name tag is a small HTML overlay (built from DOM nodes) placed at the point.
       const div = tag(p.kind, p.place.name);
       div.style.position = 'absolute';

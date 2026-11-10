@@ -3,8 +3,8 @@
    highlights. Behaviour and layout stay the same as the other two customer sites. */
 
 :root {
-  --shadow-1: 0 3px 10px rgb(var(--brand-rgb) / 0.08);
-  --shadow-2: 0 10px 28px rgb(var(--brand-rgb) / 0.14);
+  --shadow-1: 0 3px 10px rgb(20 23 28 / 0.08);
+  --shadow-2: 0 10px 28px rgb(20 23 28 / 0.14);
 }
 
 /* ── Headlines: round and heavy ──────────────────────────────────────────────────────────────────── */
@@ -38,7 +38,7 @@ h2,
 .btn--primary {
   border-color: transparent;
   background: var(--brand);
-  box-shadow: 0 10px 22px -10px rgb(var(--brand-rgb) / 0.75);
+  box-shadow: 0 10px 22px -10px rgb(20 23 28 / 0.22);
 }
 .btn--primary:hover:not(:disabled) {
   filter: brightness(1.06);
@@ -77,7 +77,7 @@ h2,
   border-color: transparent;
   background: var(--brand);
   color: #fff;
-  box-shadow: 0 8px 18px -8px rgb(var(--brand-rgb) / 0.8);
+  box-shadow: 0 8px 18px -8px rgb(20 23 28 / 0.22);
 }
 .bf-service.is-active .icon {
   color: #fff;
@@ -1374,7 +1374,7 @@ html[data-hero-logo='in'] .topbar .brand {
    a "Tomorrow" tag on the date, and a round swap button between the two places. Every colour comes from the
    site's own accent (--brand, or --red on NESAM), so the same form looks right in each theme. Flat colours only. */
 .bf.bf {
-  --bfx: var(--brand, var(--red, #1e3a66));
+  --bfx: var(--brand, var(--red, #c8181f));
   --bfx-raise: 8px 10px 20px -10px rgb(15 23 42 / 0.22), -6px -6px 14px rgb(255 255 255 / 0.95);
   background: color-mix(in srgb, var(--bfx) 6%, #fff);
 }
@@ -1489,7 +1489,7 @@ html[data-hero-logo='in'] .topbar .brand {
   width: 17px;
   height: 17px;
   border-radius: 50% 50% 50% 0;
-  background: #1e3a66;
+  background: #c8181f;
   box-shadow: none;
   rotate: -45deg;
 }
@@ -1604,7 +1604,7 @@ html[data-hero-logo='in'] .topbar .brand {
    red pin, a drop card set in from the pickup card, a round swap button between them, an outlined date with a tag on its
    edge and a raised time card. Colours follow each site's accent. */
 .bf.bf {
-  --bfx: var(--brand, var(--red, #1e3a66));
+  --bfx: var(--brand, var(--red, #c8181f));
   --bfx-bg: color-mix(in srgb, var(--bfx) 7%, #eceff5);
   --bfx-raise: 7px 7px 16px rgb(15 23 42 / 0.13), -6px -6px 14px rgb(255 255 255 / 0.92);
   background: var(--bfx-bg);
@@ -1681,7 +1681,7 @@ html[data-hero-logo='in'] .topbar .brand {
   left: -23px;
   width: 18px;
   height: 18px;
-  background: #1e3a66;
+  background: #c8181f;
   box-shadow: none;
 }
 .bf .bf-form .bf-route .bf-swap {
@@ -1748,7 +1748,7 @@ html[data-hero-logo='in'] .topbar .brand {
    No shadows. A white panel; cards are told apart by a thin line in the site's accent. The green start dot has a ring,
    the drop is a red map pin, the swap is two arrows, the date has the dotted calendar and the time a solid clock. */
 .bf.bf {
-  --bfx: var(--brand, var(--red, #1e3a66));
+  --bfx: var(--brand, var(--red, #c8181f));
   --bfx-line: color-mix(in srgb, var(--bfx) 16%, #d9dfe9);
   --bfx-bg: #fff;
   --bfx-raise: none;
@@ -1828,7 +1828,7 @@ html[data-hero-logo='in'] .topbar .brand {
   width: 18px;
   height: 18px;
   border: 0;
-  background: #1e3a66;
+  background: #c8181f;
   box-sizing: border-box;
   translate: 0 -50%;
 }
@@ -2443,7 +2443,7 @@ html[data-hero-logo='in'] .ride-chip {
   margin: 0;
   border: 0;
   border-radius: 50% 50% 50% 0;
-  background: #1e3a66;
+  background: #c8181f;
   box-sizing: border-box;
   rotate: -45deg;
   translate: -50% -50%;
@@ -2567,7 +2567,7 @@ html[data-hero-logo='in'] .ride-chip {
 .bf .bf-form .bf-stop-field .bf-stop-remove { display: grid; place-items: center; flex: 0 0 36px; width: 36px; height: 36px; padding: 0; border: 1px solid color-mix(in srgb, var(--danger, #d92d20) 30%, transparent); border-radius: 50%; background: color-mix(in srgb, var(--danger, #d92d20) 6%, white); color: var(--danger, #d92d20); cursor: pointer; }
 .bf .bf-form .bf-stop-field .bf-stop-remove:hover { background: color-mix(in srgb, var(--danger, #d92d20) 12%, white); }
 .bf .bf-form .bf-round-stop-add { min-height: 46px; margin-left: 26px; border: 1px dashed var(--bfx, var(--brand)); border-radius: 6px; background: color-mix(in srgb, var(--bfx, var(--brand)) 5%, white); color: var(--ink, #20252d); display: flex; align-items: center; justify-content: center; gap: 8px; font: inherit; cursor: pointer; }
-.bf .bf-form .bf-round-stop-add svg { color: #1e3a66; }
+.bf .bf-form .bf-round-stop-add svg { color: #c8181f; }
 @media (max-width: 560px) {
   .bf .bf-multicity .bf-datewrap .bf-input,
   .bf .bf-multicity .bf-row .bf-time {
@@ -2865,14 +2865,14 @@ html[data-hero-logo='in'] .ride-chip {
   width: 28px;
   height: 28px;
   padding: 0;
-  border: 1px solid color-mix(in srgb, var(--brand, #1e3a66) 35%, #fff);
+  border: 1px solid color-mix(in srgb, var(--brand, #c8181f) 35%, #fff);
   border-radius: 50%;
-  background: color-mix(in srgb, var(--brand, #1e3a66) 8%, #fff);
-  color: var(--brand, #1e3a66);
+  background: color-mix(in srgb, var(--brand, #c8181f) 8%, #fff);
+  color: var(--brand, #c8181f);
   cursor: pointer;
 }
 .rv-info-btn:hover {
-  background: color-mix(in srgb, var(--brand, #1e3a66) 16%, #fff);
+  background: color-mix(in srgb, var(--brand, #c8181f) 16%, #fff);
 }
 
 /* Confirmation page: Home and View Booking in one compact row. */
@@ -2918,7 +2918,7 @@ html[data-hero-logo='in'] .ride-chip {
   min-height: 38px;
   margin: 0;
   padding: 0 18px;
-  border: 1.5px solid color-mix(in srgb, var(--bfx, var(--brand, #1e3a66)) 35%, #d9dfe9);
+  border: 1.5px solid color-mix(in srgb, var(--bfx, var(--brand, #c8181f)) 35%, #d9dfe9);
   border-radius: 6px;
   background: #fff;
   color: var(--ink, #20252d);
@@ -2928,7 +2928,7 @@ html[data-hero-logo='in'] .ride-chip {
   cursor: pointer;
 }
 .bf .bf-multicity .bf-round-stop-add svg {
-  color: var(--bfx, var(--brand, #1e3a66));
+  color: var(--bfx, var(--brand, #c8181f));
 }
 .bf .bf-multicity .bf-round-stop-add.is-invalid {
   border-color: var(--danger, #d92d20);
@@ -2969,7 +2969,7 @@ html[data-hero-logo='in'] .ride-chip {
   color: #11773a;
 }
 .cabx-fuelbar__btn:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--brand, #1e3a66) 40%, transparent);
+  outline: 3px solid color-mix(in srgb, var(--brand, #c8181f) 40%, transparent);
   outline-offset: 2px;
 }
 
@@ -3006,10 +3006,10 @@ html[data-hero-logo='in'] .ride-chip {
 .bf .bf-form .bf-row--round-schedule .bf-round-days { grid-template-columns: minmax(0, 1fr) auto; gap: 3px 14px; padding: 12px 14px; background: linear-gradient(120deg, #fbf6f6, #fff); border-color: #f1cfd1; border-radius: 6px; }
 .bf .bf-form .bf-round-days > .bf-label--out { grid-column: 1; grid-row: 1; font-size: 0.75rem; font-weight: 800; color: #14171c; text-transform: none; }
 .bf .bf-form .bf-round-days .bf-days__end { grid-column: 1; grid-row: 2; color: #66615a; font-size: 0.7rem; }
-.bf-duration-stepper { grid-column: 2; grid-row: 1 / 3; display: flex; align-items: center; gap: 4px; padding: 4px; border: 1px solid #eadede; border-radius: 6px; background: #fff; box-shadow: 0 3px 9px rgb(var(--brand-rgb) / 0.05); }
-.bf-duration-stepper button { display: grid; place-items: center; width: 32px; height: 34px; padding: 0; border: 0; border-radius: 6px; background: #eef2f8; color: #1e3a66; font: inherit; font-size: 1.25rem; font-weight: 700; cursor: pointer; }
+.bf-duration-stepper { grid-column: 2; grid-row: 1 / 3; display: flex; align-items: center; gap: 4px; padding: 4px; border: 1px solid #eadede; border-radius: 6px; background: #fff; box-shadow: 0 3px 9px rgb(20 23 28 / 0.05); }
+.bf-duration-stepper button { display: grid; place-items: center; width: 32px; height: 34px; padding: 0; border: 0; border-radius: 6px; background: #fff1f1; color: #c8181f; font: inherit; font-size: 1.25rem; font-weight: 700; cursor: pointer; }
 .bf-duration-stepper button:disabled { opacity: 0.35; cursor: default; }
-.bf-duration-stepper button:focus-visible { outline: 2px solid #1e3a66; outline-offset: 2px; }
+.bf-duration-stepper button:focus-visible { outline: 2px solid #c8181f; outline-offset: 2px; }
 .bf .bf-form .bf-round-days .bf-duration-stepper .bf-days__input { width: 68px; height: 34px; padding: 0 2px; border: 0; background: transparent; appearance: none; text-align: center; color: #14171c; font-size: 0.875rem; font-weight: 800; cursor: pointer; }
 
 /* Uploaded wordmark: responsive proportions and a gentle entrance. */
@@ -3033,7 +3033,7 @@ html[data-hero-logo='in'] .ride-chip {
   width: 100%;
   max-width: 32ch;
   margin: 4px auto 0;
-  color: #1e3a66;
+  color: #c8181f;
   text-align: center;
   font-size: clamp(1rem, 4.65vw, 1.65rem);
   line-height: 1.25;
@@ -3061,7 +3061,7 @@ html[data-hero-logo='in'] .ride-chip {
   width: 100%;
   max-width: 30ch;
   margin: 4px auto 0;
-  color: #1e3a66;
+  color: #c8181f;
   text-align: center;
   font-size: clamp(1.25rem, 6.4vw, 1.65rem);
   line-height: 1.18;

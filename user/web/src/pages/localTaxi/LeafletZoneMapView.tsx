@@ -96,7 +96,7 @@ export function LeafletZoneMapView({
     const pts: [number, number][] = [];
     for (const z of zones) for (const rings of z.polygons) {
       const latlngs = rings.map((r) => r.map(([lng, lat]) => [lat, lng] as [number, number]));
-      L.polygon(latlngs, { color: '#1e3a66', weight: 1.5, fillOpacity: 0.05, dashArray: '4 6', interactive: false }).addTo(g);
+      L.polygon(latlngs, { color: '#c8181f', weight: 1.5, fillOpacity: 0.05, dashArray: '4 6', interactive: false }).addTo(g);
       pts.push(...latlngs[0]!);
     }
     const hasBoth = !!pickup && !!drop;
@@ -107,7 +107,7 @@ export function LeafletZoneMapView({
       pts.push(...line);
     }
     const pin = (p: Spot, kind: 'from' | 'to', onClick?: () => void) => {
-      L.circleMarker([p.lat, p.lng], { radius: 7, color: '#fff', weight: 3, fillColor: kind === 'from' ? '#16a34a' : '#1e3a66', fillOpacity: 1, interactive: false }).addTo(g);
+      L.circleMarker([p.lat, p.lng], { radius: 7, color: '#fff', weight: 3, fillColor: kind === 'from' ? '#16a34a' : '#c8181f', fillOpacity: 1, interactive: false }).addTo(g);
       L.marker([p.lat, p.lng], { icon: L.divIcon({ className: 'lt-tagwrap', html: tag(kind, p.name, onClick), iconSize: [0, 0], iconAnchor: [0, kind === 'from' ? 18 : -10] }), keyboard: false, zIndexOffset: 500 }).addTo(g);
       if (!hasBoth) pts.push([p.lat, p.lng]);
     };

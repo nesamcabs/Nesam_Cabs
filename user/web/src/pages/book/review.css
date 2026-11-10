@@ -558,8 +558,8 @@
   overflow: hidden;
   border: 0;
   border-radius: 6px;
-  background: linear-gradient(135deg, #2b4f87 0%, #1e3a66 55%, #18305a 100%);
-  box-shadow: 0 8px 20px rgb(var(--brand-rgb) / 0.35), inset 0 1px 0 rgb(255 255 255 / 0.25);
+  background: linear-gradient(135deg, #d62830 0%, #c8181f 55%, #b3141a 100%);
+  box-shadow: 0 8px 20px rgb(20 23 28 / 0.22), inset 0 1px 0 rgb(255 255 255 / 0.25);
   color: #fff;
   font-size: 1.05rem;
   font-weight: 800;
@@ -593,7 +593,7 @@
 }
 .cb-confirm:hover:not(:disabled) {
   filter: brightness(1.06);
-  box-shadow: 0 10px 26px rgb(var(--brand-rgb) / 0.45), inset 0 1px 0 rgb(255 255 255 / 0.25);
+  box-shadow: 0 10px 26px rgb(20 23 28 / 0.22), inset 0 1px 0 rgb(255 255 255 / 0.25);
 }
 .cb-confirm:active:not(:disabled) {
   transform: scale(0.97);

@@ -146,7 +146,7 @@ export function ClockIcon({ size = 24 }: { size?: number }) {
 export function PinIcon({ size = 20 }: { size?: number }) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" focusable="false">
-      <path d="M12 2.2c-4 0-7.2 3.1-7.2 7.1 0 5.2 7.2 12.5 7.2 12.5s7.2-7.3 7.2-12.5c0-4-3.2-7.1-7.2-7.1Z" fill="#1e3a66" />
+      <path d="M12 2.2c-4 0-7.2 3.1-7.2 7.1 0 5.2 7.2 12.5 7.2 12.5s7.2-7.3 7.2-12.5c0-4-3.2-7.1-7.2-7.1Z" fill="#c8181f" />
       <circle cx="12" cy="9.3" r="2.8" fill="#fff" />
     </svg>
   );

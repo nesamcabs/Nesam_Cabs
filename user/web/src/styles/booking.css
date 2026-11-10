@@ -254,17 +254,17 @@
   background: #fff;
   cursor: pointer;
   transition: all var(--dur) var(--ease);
-  box-shadow: 0 3px 12px rgb(var(--brand-rgb) / 0.04);
+  box-shadow: 0 3px 12px rgb(20 23 28 / 0.04);
 }
 .cab:hover {
   border-color: var(--brand-line);
-  box-shadow: 0 8px 24px rgb(var(--brand-rgb) / 0.08);
+  box-shadow: 0 8px 24px rgb(20 23 28 / 0.08);
   transform: translateY(-1px);
 }
 .cab.is-selected {
   border-color: var(--brand);
   background: var(--brand-soft);
-  box-shadow: 0 0 0 2px var(--brand), 0 8px 24px rgb(var(--brand-rgb) / 0.12);
+  box-shadow: 0 0 0 2px var(--brand), 0 8px 24px rgb(20 23 28 / 0.1);
 }
 .cab.is-disabled {
   cursor: not-allowed;
@@ -411,7 +411,7 @@
   border: 1px solid var(--line);
   border-radius: var(--r-card);
   background: #fff;
-  box-shadow: 0 8px 30px rgb(var(--brand-rgb) / 0.06);
+  box-shadow: 0 8px 30px rgb(20 23 28 / 0.06);
 }
 .sel-card__top {
   display: flex;
@@ -762,7 +762,7 @@
   border-radius: 50%;
   background: var(--sun-soft);
   color: var(--sun-ink);
-  box-shadow: 0 4px 16px rgb(var(--brand-rgb) / 0.12);
+  box-shadow: 0 4px 16px rgb(20 23 28 / 0.12);
 }
 .journey-art.is-done .journey-art__badge {
   background: var(--green-soft);
@@ -784,7 +784,7 @@
   border: 1px solid var(--line);
   border-radius: var(--r-card);
   background: #fff;
-  box-shadow: 0 10px 32px rgb(var(--brand-rgb) / 0.08);
+  box-shadow: 0 10px 32px rgb(20 23 28 / 0.08);
   overflow: hidden;
 }
 .ticket__head {

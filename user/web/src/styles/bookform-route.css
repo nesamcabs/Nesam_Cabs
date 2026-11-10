@@ -41,7 +41,7 @@
   margin: 0 8px 0 3px;
   border: 0;
   border-radius: 50% 50% 50% 0;
-  background: #1e3a66;
+  background: #c8181f;
   rotate: -45deg;
 }
 .bf .bf-form .bf-route.bf-route--round .bf-field {
@@ -86,9 +86,94 @@
   margin: 0 8px 0 3px;
   border: 0;
   border-radius: 50% 50% 50% 0;
-  background: #1e3a66;
+  background: #c8181f;
   rotate: -45deg;
 }
 .bf .bf-multicity .bf-field {
   padding-left: 14px;
+}
+
+/* Round Trip: date, time and the number of days sit on one row (the days cell is a compact stepper). */
+.bf .bf-form .bf-row.bf-row--round-schedule {
+  grid-template-columns: minmax(0, 1.28fr) minmax(0, 1fr) minmax(0, 1.12fr);
+  gap: 8px;
+  align-items: stretch;
+}
+.bf .bf-form .bf-row--round-schedule .bf-cell--schedule .bf-datewrap .bf-input,
+.bf .bf-form .bf-row--round-schedule .bf-cell--schedule .bf-time {
+  padding: 22px 24px 5px 8px;
+  font-size: clamp(0.6875rem, 3.3vw, 0.8125rem);
+  letter-spacing: 0;
+}
+.bf .bf-form .bf-row--round-schedule .bf-cell--schedule .bf-label {
+  left: 9px;
+  font-size: 0.625rem;
+}
+.bf .bf-form .bf-row--round-schedule .bf-cell--schedule .bf-datewrap .bf-input {
+  min-width: 0;
+}
+.bf .bf-form .bf-row--round-schedule .bf-time .icon,
+.bf .bf-form .bf-row--round-schedule .bf-datewrap .icon,
+.bf .bf-form .bf-row--round-schedule .bf-time svg,
+.bf .bf-form .bf-row--round-schedule .bf-datewrap svg {
+  width: 17px;
+  height: 17px;
+}
+.bf .bf-form .bf-row--round-schedule .bf-datewrap::after,
+.bf .bf-form .bf-row--round-schedule .bf-time::after {
+  right: 6px;
+}
+.bf .bf-form .bf-row--round-schedule .bf-round-days {
+  grid-column: auto;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  gap: 2px 4px;
+  align-content: stretch;
+  box-sizing: border-box;
+  height: 62px;
+  padding: 6px 6px 6px 9px;
+}
+.bf .bf-form .bf-round-days > .bf-label--out {
+  grid-column: 1;
+  grid-row: 1;
+  align-self: center;
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.bf .bf-form .bf-round-days .bf-days__end {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
+  justify-self: end;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.5625rem;
+  line-height: 1.1;
+}
+.bf .bf-form .bf-round-days .bf-duration-stepper {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  gap: 0;
+  padding: 2px;
+  min-width: 0;
+}
+.bf .bf-form .bf-round-days .bf-duration-stepper button {
+  flex: none;
+  width: 20px;
+  height: 26px;
+  font-size: 1rem;
+}
+.bf .bf-form .bf-round-days .bf-duration-stepper .bf-days__input {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+  height: 26px;
+  padding: 0;
+  font-size: 0.6875rem;
+  text-overflow: clip;
 }

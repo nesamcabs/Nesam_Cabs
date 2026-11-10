@@ -897,16 +897,16 @@
 }
 
 .floating-ai-launcher--people {
-  background: linear-gradient(135deg, #1e3a66 0%, var(--brand-press) 100%);
-  box-shadow: 0 4px 16px rgb(var(--brand-rgb) / 0.42);
+  background: linear-gradient(135deg, #c8181f 0%, var(--brand-press) 100%);
+  box-shadow: 0 4px 16px rgb(20 23 28 / 0.22);
 }
 .floating-ai-launcher--oneway {
   background: linear-gradient(135deg, #0d8a45 0%, #065f46 100%);
   box-shadow: 0 4px 16px rgba(13, 138, 69, 0.42);
 }
 .floating-ai-launcher--nesam {
-  background: linear-gradient(135deg, #1e3a66 0%, #12264a 100%);
-  box-shadow: 0 4px 16px rgba(30, 58, 102, 0.35);
+  background: linear-gradient(135deg, #c8181f 0%, #8f1117 100%);
+  box-shadow: 0 4px 16px rgba(200, 24, 31, 0.3);
 }
 
 .floating-ai-launcher:hover {
@@ -960,9 +960,9 @@
   color: #ffffff;
 }
 
-.ai-chat-window--people .ai-chat-head { background: linear-gradient(135deg, #1e3a66 0%, var(--brand-press) 100%); }
+.ai-chat-window--people .ai-chat-head { background: linear-gradient(135deg, #c8181f 0%, var(--brand-press) 100%); }
 .ai-chat-window--oneway .ai-chat-head { background: linear-gradient(135deg, #0d8a45 0%, #065f46 100%); }
-.ai-chat-window--nesam .ai-chat-head { background: linear-gradient(135deg, #1e3a66 0%, #12264a 100%); }
+.ai-chat-window--nesam .ai-chat-head { background: linear-gradient(135deg, #c8181f 0%, #8f1117 100%); }
 
 .ai-chat-brand {
   display: flex;

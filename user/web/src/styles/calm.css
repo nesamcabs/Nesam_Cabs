@@ -1,0 +1,269 @@
+/* NESAM Cabs — "clean white" pass. Loaded last.
+   Same logo red, used far less: white surfaces, charcoal text and thin neutral lines carry the page; red stays on the
+   primary call-to-action buttons, small accents (links, icons, rules) and the logo. */
+
+/* ── Hero tagline and headings: charcoal, not red ─────────────────────────────────────────────────── */
+.hero-copy h1,
+.hero-copy h1 .hero-accent,
+.hero-copy h1 .hero-accent:not(#x),
+.hero-copy h1 em {
+  color: var(--ink);
+  -webkit-text-fill-color: var(--ink);
+}
+
+/* ── Booking card tabs: white pills, red only as an underline on the one that is selected ─────────── */
+.bf-services {
+  background: #f3f4f6;
+}
+.bf-service.is-active,
+.bf-service.is-active:hover {
+  border-color: transparent;
+  border-bottom: 3px solid var(--brand);
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgb(20 23 28 / 0.12);
+}
+.bf-journey.tabs {
+  background: #f3f4f6;
+}
+.bf-journey.tabs .tab.is-active,
+.bf-journey.tabs .tab[aria-selected='true'] {
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgb(20 23 28 / 0.14), inset 0 -3px 0 var(--brand);
+}
+
+/* ── "Service details & tariff" links: quiet charcoal ─────────────────────────────────────────────── */
+.service__more {
+  color: var(--text);
+}
+.service__more:hover {
+  color: var(--brand-ink);
+}
+
+/* ── Big red panels become white cards ────────────────────────────────────────────────────────────── */
+.service--call {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--brand);
+  background: #fff;
+  box-shadow: var(--shadow-1);
+}
+.service--call .service__body strong {
+  color: var(--ink);
+}
+.service--call .service__body > span {
+  color: var(--muted);
+}
+.service--call .eyebrow {
+  background: var(--brand-soft);
+  color: var(--ink);
+}
+
+.band--dark {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--text);
+  box-shadow: var(--shadow-1);
+}
+.band--dark h2,
+.band--dark h3 {
+  color: var(--ink);
+}
+.band--dark p,
+.band--dark .how__card p {
+  color: var(--muted);
+}
+.band--dark .how__card {
+  border: 1px solid var(--line);
+  background: #fff;
+  box-shadow: none;
+}
+.band--dark .how__steps li:not(:last-child)::after {
+  border-color: var(--line-strong);
+}
+.band--dark .how__num {
+  background: #fff;
+  border: 2px solid var(--brand);
+  color: var(--brand-ink);
+  box-shadow: none;
+}
+
+/* ── Circles and cards that glowed pink ───────────────────────────────────────────────────────────── */
+.dest__img,
+.dest img,
+.destinations img {
+  border-color: var(--line);
+  box-shadow: var(--shadow-1);
+}
+
+/* ── Booking card (higher specificity than the hero rules in theme.css) ─────────────────────────── */
+.bf .bf-services,
+.home-hero > .bf .bf-services {
+  background: #f3f4f6 !important;
+}
+.bf .bf-service.is-active,
+.home-hero > .bf .bf-service.is-active,
+.bf .bf-service.is-active:hover {
+  border: 0 !important;
+  background: #fff !important;
+  color: var(--ink) !important;
+  box-shadow: 0 1px 3px rgb(20 23 28 / 0.16), inset 0 -3px 0 var(--brand) !important;
+}
+.bf .bf-service.is-active .bf-service__icon,
+.home-hero > .bf .bf-service.is-active .bf-service__icon {
+  background: transparent !important;
+  color: var(--brand) !important;
+}
+.bf .bf-journey.tabs,
+.bf .bf-journey.bf-journey--local.tabs {
+  background: #f3f4f6 !important;
+  border-color: var(--line) !important;
+}
+.bf .bf-journey.tabs .tab,
+.bf .bf-journey.tabs .tab:hover {
+  color: var(--muted) !important;
+}
+.bf .bf-journey.tabs .tab.is-active,
+.bf .bf-journey.tabs .tab[aria-selected='true'] {
+  background: #fff !important;
+  color: var(--ink) !important;
+  box-shadow: 0 1px 3px rgb(20 23 28 / 0.16), inset 0 -3px 0 var(--brand) !important;
+}
+.bf .bf-journey.tabs .tab.is-active::after,
+.bf .bf-journey.tabs .tab[aria-selected='true']::after {
+  display: none !important;
+}
+/* Swap button + stray pink */
+.bf .bf-swap,
+.bf .bf-route__swap {
+  background: #fff !important;
+  color: var(--ink) !important;
+  border-color: var(--line-strong) !important;
+}
+
+/* ── Soft pink halos around photos and circles ──────────────────────────────────────────────────── */
+.home-hero ~ * img,
+.band img {
+  border-color: var(--line);
+}
+
+/* ══ Buttons: outlined, not filled ═════════════════════════════════════════════════════════════════
+   Every primary action is a white button with a thin red outline and red label; it fills in on hover/press. */
+.btn--primary,
+.bf-submit,
+.jd-submit,
+.cb-pay,
+.cb-confirm,
+.lr-cta,
+.drawer__call,
+.reviews__cta,
+.banner__cta--outline {
+  border: 1.5px solid var(--brand) !important;
+  background: #fff !important;
+  background-image: none !important;
+  color: var(--brand-ink) !important;
+  box-shadow: none !important;
+  filter: none !important;
+  text-shadow: none !important;
+}
+.btn--primary:hover:not(:disabled),
+.btn--primary:active:not(:disabled),
+.bf-submit:hover:not(:disabled),
+.jd-submit:hover:not(:disabled),
+.cb-pay:hover:not(:disabled),
+.cb-confirm:hover:not(:disabled),
+.lr-cta:hover:not(:disabled),
+.drawer__call:hover,
+.reviews__cta:hover {
+  border-color: var(--brand) !important;
+  background: var(--brand) !important;
+  color: #fff !important;
+  transform: none !important;
+}
+.btn--primary:hover:not(:disabled) *,
+.bf-submit:hover:not(:disabled) *,
+.cb-pay:hover:not(:disabled) *,
+.cb-confirm:hover:not(:disabled) *,
+.lr-cta:hover:not(:disabled) * {
+  color: inherit !important;
+}
+.btn--primary:disabled,
+.bf-submit:disabled,
+.jd-submit:disabled,
+.cb-pay:disabled,
+.cb-confirm:disabled,
+.lr-cta:disabled {
+  border-color: var(--line-strong) !important;
+  background: var(--sunken) !important;
+  color: var(--faint) !important;
+  opacity: 1 !important;
+}
+.btn--secondary {
+  border: 1.5px solid var(--line-strong);
+  background: #fff;
+  color: var(--ink);
+}
+.btn--secondary:hover:not(:disabled) {
+  border-color: var(--ink);
+  background: #fff;
+}
+
+/* Selected chips, tabs, steps: white with a red outline instead of a red block */
+.chip[aria-pressed='true'],
+.chip[aria-checked='true'],
+.lr-chip.is-on,
+.lr-day.is-on,
+.lr-hour.is-on,
+.lr-svc.is-on,
+.jd-tab.is-active,
+.lr-locate.is-on {
+  border-color: var(--brand) !important;
+  background: #fff !important;
+  color: var(--brand-ink) !important;
+  box-shadow: inset 0 0 0 1px var(--brand) !important;
+}
+.tab[aria-selected='true'] {
+  background: #fff;
+  color: var(--ink);
+}
+.flow-steps span.is-on {
+  border: 1.5px solid var(--brand);
+  background: #fff;
+  color: var(--brand-ink);
+}
+.lr-seg__thumb {
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(20 23 28 / 0.16), inset 0 -3px 0 var(--brand);
+}
+
+/* ══ Big coloured panels: white / charcoal ═════════════════════════════════════════════════════════ */
+.footer__inner {
+  background: var(--ink);
+  background-image: none;
+}
+.footer__inner::before,
+.footer__inner::after {
+  display: none;
+}
+.ticket__head {
+  border-bottom: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+}
+.eta {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--brand);
+  background: #fff;
+  color: var(--ink);
+}
+.eta * {
+  color: inherit;
+}
+
+
+/* Mobile bottom bar: the raised selected tab is a white disc with a thin red ring, not a red ball */
+.tabbar__icon::before {
+  border-color: #fff;
+  background: #fff;
+  box-shadow: 0 0 0 1.5px var(--brand), 0 6px 14px rgb(20 23 28 / 0.14);
+}

@@ -514,7 +514,7 @@
   scroll-snap-type: x proximity;
   scroll-padding-inline: var(--gutter);
   scrollbar-width: thin;
-  scrollbar-color: var(--brand) var(--sunken);
+  scrollbar-color: var(--line-strong) var(--sunken);
 }
 .vehicle {
   --wash: var(--brand-soft);
@@ -1494,7 +1494,7 @@
   background: var(--brand);
   color: #fff;
   font-weight: 800;
-  box-shadow: 0 2px 8px rgb(var(--brand-rgb) / 0.45);
+  box-shadow: 0 2px 8px rgb(20 23 28 / 0.22);
 }
 .jd-tab.is-active .icon {
   color: #fff;

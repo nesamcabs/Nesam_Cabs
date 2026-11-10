@@ -1,7 +1,7 @@
 // Review & book — step 3 of 3, in the customer reference layout. Real rules stay in charge:
 // the booking server's fare, cash/UPI payment, WhatsApp contact validation, coupon checks,
 // the terms gate and duplicate-submit protection.
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAvoid } from '../components/KeyboardAvoid';
@@ -67,6 +67,20 @@ export function ConfirmBookingScreen() {
 
   const goHome = () => navigation.navigate('Tabs', { screen: 'Book' });
   const category = categories.find((c) => c.id === categoryId) ?? categories[0] ?? null;
+  // An add-on is offered only when this vehicle has a price for it (admin → vehicle specs), exactly as on the website.
+  const addOnEntry = serverQuoteState.status === 'ready' && category ? serverQuoteState.data?.quotes.find((x) => x.categoryId === category.id && x.ok && x.fare) : undefined;
+  const carrierCharge = addOnEntry?.addOnRates?.carrierCharge ?? category?.fare.extras?.carrierCharge ?? 0;
+  const petCharge = addOnEntry?.addOnRates?.petCharge ?? 0;
+  const hasCarrier = carrierCharge > 0;
+  const hasPets = petCharge > 0;
+  const addOnsReady = serverQuoteState.status === 'ready' && !!addOnEntry;
+  useEffect(() => {
+    if (!addOnsReady) return;
+    const patch: { roofCarrier?: boolean; pets?: boolean } = {};
+    if (!hasCarrier && draft.roofCarrier) patch.roofCarrier = false;
+    if (!hasPets && draft.pets) patch.pets = false;
+    if (patch.roofCarrier !== undefined || patch.pets !== undefined) update(patch);
+  }, [addOnsReady, hasCarrier, hasPets, draft.roofCarrier, draft.pets]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!pickup || !drop || !route || !category) {
     return (
       <SafeAreaView style={styles.root} edges={['top']}>
@@ -282,11 +296,15 @@ export function ConfirmBookingScreen() {
               />
             </View>
           ) : null}
-          <View style={styles.rule} />
-          <Text style={styles.cardTitle}>Travel add-ons</Text>
-          <Checkbox checked={draft.roofCarrier} onChange={(roofCarrier) => update({ roofCarrier })} label={`Roof carrier (+${formatINR(category.fare.extras?.carrierCharge ?? 0)} per trip)`} />
-          <Checkbox checked={draft.pets} onChange={(pets) => update({ pets })} label={`Travelling with pets (+${formatINR(authoritativeEntry?.addOnRates?.petCharge ?? 0)} per trip)`} />
-          <Text style={{ color: colors.muted, fontSize: 12 }}>Selected charges are included in your total and bill, with GST as shown in the fare breakdown.</Text>
+          {hasCarrier || hasPets ? (
+            <>
+              <View style={styles.rule} />
+              <Text style={styles.cardTitle}>Travel add-ons</Text>
+              {hasCarrier ? <Checkbox checked={draft.roofCarrier} onChange={(roofCarrier) => update({ roofCarrier })} label={`Roof carrier (+${formatINR(carrierCharge)} per trip)`} /> : null}
+              {hasPets ? <Checkbox checked={draft.pets} onChange={(pets) => update({ pets })} label={`Travelling with pets (+${formatINR(petCharge)} per trip)`} /> : null}
+              <Text style={{ color: colors.muted, fontSize: 12 }}>Selected charges are included in your total and bill, with GST as shown in the fare breakdown.</Text>
+            </>
+          ) : null}
           <View style={styles.rule} />
           <Disclosure title="Email for receipt (optional)">
             <TextField label="Email address" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} placeholder="name@example.com" error={emailError || undefined} />
