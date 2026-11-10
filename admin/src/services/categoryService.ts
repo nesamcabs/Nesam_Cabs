@@ -245,6 +245,15 @@ export async function saveCategory(form: CategoryForm, existing: VehicleCategory
   }
 }
 
+/** Saves only the car image link of a category (used by the bulk image upload). */
+export async function setCategoryImage(cat: VehicleCategory, imageUrl: string): Promise<void> {
+  try {
+    await updateDoc(doc(db, COLLECTIONS.VEHICLE_CATEGORIES, cat.id), { imageUrl, updatedAt: serverTimestamp() });
+  } catch (err) {
+    throw new CategoryActionError(describeDataError(err));
+  }
+}
+
 export async function setCategoryStatus(cat: VehicleCategory, status: "Active" | "Inactive"): Promise<void> {
   // Fares come from Service & Fare Settings → Fares (by rate class), so a category no longer needs its own per-km rate to be active.
   try {

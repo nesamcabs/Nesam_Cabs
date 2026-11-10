@@ -1,4 +1,5 @@
 import CategoryMediaField from '../components/CategoryMediaField';
+import BulkCarImages from '../components/BulkCarImages';
 import { uploadCategoryMedia } from '../services/categoryMedia';
 import { useEffect, useMemo, useState } from "react";
 import { VehicleCategory, Vehicle } from "../types";
@@ -118,6 +119,7 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
+  const [showBulk, setShowBulk] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingOriginal, setEditingOriginal] = useState<VehicleCategory | null>(null);
   const [formData, setFormData] = useState(defaultFormState);
@@ -320,6 +322,7 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
   return (
     <div className={embedded ? "space-y-6" : "p-6 space-y-6"}>
       <Toast toast={toast} />
+      {showBulk ? <BulkCarImages categories={categories} onClose={() => setShowBulk(false)} onDone={(message) => showToast(message)} /> : null}
       {loadError && <ErrorBanner message={loadError} onRetry={() => setRetryKey((k) => k + 1)} />}
 
       {/* Top Action Header Bar */}
@@ -329,6 +332,14 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowBulk(true)}
+            disabled={!categories.length}
+            className="flex items-center gap-2 px-4 py-2.5 text-[13px] font-semibold text-ink bg-white border border-line rounded-lg shadow-sm hover:bg-hover transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Upload car images
+          </button>
           <button
             onClick={handleOpenAdd}
             className="flex items-center gap-2 px-4 py-2.5 text-[13px] font-semibold text-white rounded-lg shadow-sm hover:opacity-90 transition-all cursor-pointer"
@@ -503,19 +514,28 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
                         {/* Category Name & Code */}
                         <td className="px-4 py-3.5">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-brand-soft flex items-center justify-center text-[20px] shrink-0 border border-[#FEE2E2]">
-                              {cat.iconUrl || cat.imageUrl ? (
-                                <img
-                                  src={cat.iconUrl || cat.imageUrl}
-                                  alt={cat.name}
-                                  className="w-full h-full object-contain p-1 rounded-xl"
-                                  onError={(e) => {
-                                    (e.target as any).style.display = "none";
-                                  }}
-                                />
-                              ) : (
-                                cat.icon || "🚘"
-                              )}
+                            <div className="flex w-16 shrink-0 flex-col items-center gap-1">
+                              <div className="w-10 h-10 rounded-xl bg-brand-soft flex items-center justify-center text-[20px] shrink-0 border border-[#FEE2E2]">
+                                {cat.iconUrl || cat.imageUrl ? (
+                                  <img
+                                    src={cat.iconUrl || cat.imageUrl}
+                                    alt={cat.name}
+                                    className="w-full h-full object-contain p-1 rounded-xl"
+                                    onError={(e) => {
+                                      (e.target as any).style.display = "none";
+                                    }}
+                                  />
+                                ) : (
+                                  cat.icon || "🚘"
+                                )}
+                              </div>
+                              {/* The category name on a small number-plate badge, under the car. */}
+                              <span
+                                title={cat.name}
+                                className="block max-w-full truncate rounded-[3px] border border-ink bg-[#FFD84D] px-1.5 py-px text-center text-[8px] font-extrabold uppercase leading-[12px] tracking-wider text-ink"
+                              >
+                                {cat.name}
+                              </span>
                             </div>
                             <div>
                               <div className="flex items-center gap-2">
@@ -721,8 +741,8 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
                       <h4 className="text-sm font-bold">Category artwork</h4>
                       <p className="text-xs text-muted">These images appear on NESAM Cabs, PeopleTaxi and One Way Car Rentals.</p>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <CategoryMediaField label="Category icon" value={formData.iconUrl} file={iconFile} disabled={saving} onChange={(file, clear) => { setIconFile(file); if (clear) setFormData(current => ({ ...current, iconUrl: '' })); }} />
-                        <CategoryMediaField label="Car image" value={formData.imageUrl} file={carFile} disabled={saving} onChange={(file, clear) => { setCarFile(file); if (clear) setFormData(current => ({ ...current, imageUrl: '' })); }} />
+                        <CategoryMediaField label="Category icon" kind="icon" value={formData.iconUrl} file={iconFile} disabled={saving} onChange={(file, clear) => { setIconFile(file); if (clear) setFormData(current => ({ ...current, iconUrl: '' })); }} />
+                        <CategoryMediaField label="Car image" kind="car" plateText={formData.name} value={formData.imageUrl} file={carFile} disabled={saving} onChange={(file, clear) => { setCarFile(file); if (clear) setFormData(current => ({ ...current, imageUrl: '' })); }} />
                       </div>
                       {errNode('iconUrl')}{errNode('imageUrl')}
                     </section>

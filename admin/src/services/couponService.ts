@@ -84,7 +84,7 @@ export function emptyCouponDraft(categories: string[]): CouponDraft {
     code: "", name: "", description: "", termsAndConditions: "", adminBookingOnly: false, type: "Amount", value: 100, max: 100, minFare: 2000, audience: "All",
     services: [...COUPON_SERVICES], categories: [...categories], scope: "Any", city: "", dropCity: "",
     bookFrom: istInput(now), bookUntil: istInput(now + 30 * DAY), pickupFrom: istInput(now), pickupUntil: istInput(now + 60 * DAY),
-    perCustomer: 1, totalLimit: 100, allowFixed: false, allowBusiness: false, allowPeak: false, active: true, reason: "",
+    perCustomer: 1, totalLimit: 100, allowFixed: false, allowBusiness: false, allowPeak: false, active: true, reason: "New coupon",
   };
 }
 
@@ -137,7 +137,8 @@ export function validateDraft(d: CouponDraft, existing: Coupon[], editing: Coupo
   const code = d.code.trim().toUpperCase();
   if (!/^[A-Z0-9][A-Z0-9_-]{2,23}$/.test(code)) return "Use a 3–24 character coupon code: letters, numbers, underscore or hyphen.";
   if (existing.some((c) => c.id !== editing?.id && normalizeCouponCode(c.code) === code)) return "This coupon code already exists.";
-  if (d.name.trim().length < 3 || d.reason.trim().length < 5) return "Enter a name and change reason.";
+  if (d.name.trim().length < 3) return "Enter an offer name (at least 3 characters).";
+  if (d.reason.trim().length < 5) return "Enter the reason for this change (at least 5 characters).";
   if (!(Number.isFinite(d.value) && d.value > 0 && d.value <= (d.type === "Percent" ? 100 : 1000000))) return "Enter a valid discount.";
   if (d.type === "Amount" && !Number.isInteger(d.value)) return "Amount coupons use whole rupees.";
   if (d.type === "Percent" && !(Number.isInteger(d.max) && d.max > 0 && d.max <= 1000000)) return "A percentage coupon needs a maximum discount.";

@@ -117,6 +117,23 @@ function WindowField({ label, value, onChange }: { label: string; value: string;
   );
 }
 
+/** Which input a validation message is about, so the form can scroll to it and focus it. */
+function fieldFor(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes("coupon code") || m.includes("already exists") || m.includes("keeps its original")) return "cp-code";
+  if (m.includes("offer name")) return "cp-name";
+  if (m.includes("reason")) return "cp-reason";
+  if (m.includes("maximum discount")) return "cp-max";
+  if (m.includes("discount") || m.includes("whole rupees")) return "cp-value";
+  if (m.includes("minimum")) return "cp-min";
+  if (m.includes("service")) return "cp-services";
+  if (m.includes("pickup city") || m.includes("drop city")) return "cp-city";
+  if (m.includes("end date")) return "cp-window";
+  if (m.includes("overall limit")) return "cp-total";
+  if (m.includes("usage limits")) return "cp-per";
+  return "";
+}
+
 function CouponSheet({ editing, coupons, cats, cities, onClose, onDone }: { editing?: Coupon; coupons: Coupon[]; cats: VehicleCategory[]; cities: string[]; onClose: () => void; onDone: (t: string) => void }) {
   const catIds = cats.map((c) => c.id);
   const [d, setD] = useState<CouponDraft>(() => (editing ? draftOf(editing, catIds) : emptyCouponDraft(catIds)));
@@ -128,49 +145,65 @@ function CouponSheet({ editing, coupons, cats, cities, onClose, onDone }: { edit
   useEffect(() => { if (!editing && catKey) setD((x) => (x.categories.length ? x : { ...x, categories: catKey.split(",") })); }, [catKey, editing]);
   const toggle = (k: "services" | "categories", v: string) => set({ [k]: d[k].includes(v) ? d[k].filter((x) => x !== v) : [...d[k], v] } as Partial<CouponDraft>);
   const num = (v: string) => (v === "" ? NaN : Number(v));
+  // The message sits next to the Save button (always on screen); the form also jumps to the field to fix.
+  const fail = (message: string) => {
+    setError(message);
+    const el = document.getElementById(fieldFor(message));
+    if (el) {
+      el.scrollIntoView({ block: "center", behavior: "smooth" });
+      window.setTimeout(() => (el.matches("input,select,textarea") ? el : el.querySelector<HTMLElement>("input,select,button"))?.focus({ preventScroll: true }), 250);
+    }
+  };
   const save = async (e: FormEvent) => {
     e.preventDefault();
     const err = validateDraft(d, coupons, editing ?? null, cities, cats.length);
-    if (err) return setError(err);
+    if (err) return fail(err);
     setBusy(true);
     setError(null);
     try {
       await saveCoupon(d, editing ?? null, cats.map((c) => ({ id: c.id, name: c.name })));
       onDone(editing ? `${d.code.toUpperCase()} updated.` : `${d.code.toUpperCase()} created.`);
-    } catch {
-      setError("The coupon was not saved. Check your connection and Pricing access.");
+    } catch (x) {
+      const code = String((x as { code?: string })?.code ?? "");
       setBusy(false);
+      fail(
+        code.includes("permission-denied")
+          ? "You do not have permission to save coupons. Ask an admin for Pricing access."
+          : code.includes("unavailable") || code.includes("network")
+            ? "The coupon was not saved: no connection. Check your internet and try again."
+            : `The coupon was not saved${code ? ` (${code.replace("functions/", "").replace("firestore/", "")})` : ""}. Please try again.`,
+      );
     }
   };
   const Step = ({ n, t }: { n: string; t: string }) => <h3 className="ds-step-title"><span className="ds-step-num">{n}</span>{t}</h3>;
   return (
-    <Modal title={editing ? "Edit coupon" : "Create coupon"} onClose={onClose} busy={busy} size="lg" footer={<Button variant="primary" type="submit" form="coupon-form" loading={busy}>Save coupon</Button>}>
+    <Modal title={editing ? "Edit coupon" : "Create coupon"} onClose={onClose} busy={busy} size="lg" footNote={error ? <span role="alert" className="text-[12px] font-semibold" style={{ color: "#a32831" }}>{error}</span> : undefined} footer={<Button variant="primary" type="submit" form="coupon-form" loading={busy}>Save coupon</Button>}>
       <form id="coupon-form" onSubmit={save} className="grid gap-4" noValidate>
         {error && <div className="ds-error" role="alert"><Icon name="circle-alert" />{error}</div>}
         <Step n="01" t="Code & discount" />
         <div className="flex items-end gap-2">
-          <label className="ds-field flex-1"><span>Coupon code</span><input className="ds-input" maxLength={24} autoComplete="off" value={d.code} onChange={(e) => set({ code: e.target.value.toUpperCase() })} disabled={!!editing?.usedCount} /></label>
+          <label className="ds-field flex-1"><span>Coupon code</span><input id="cp-code" className="ds-input" maxLength={24} autoComplete="off" value={d.code} onChange={(e) => set({ code: e.target.value.toUpperCase() })} disabled={!!editing?.usedCount} /></label>
           <Button icon="sparkles" disabled={!!editing?.usedCount} onClick={() => { try { set({ code: generateCode(coupons) }); } catch (x) { setError((x as Error).message); } }}>Generate code</Button>
         </div>
-        <label className="ds-field"><span>Offer name</span><input className="ds-input" value={d.name} onChange={(e) => set({ name: e.target.value })} /></label>
+        <label className="ds-field"><span>Offer name</span><input id="cp-name" className="ds-input" value={d.name} onChange={(e) => set({ name: e.target.value })} /></label>
         <label className="ds-field"><span>Description</span><textarea className="ds-input" value={d.description} onChange={(e) => set({ description: e.target.value })} /></label>
         <label className="ds-field"><span>Terms & conditions</span><textarea className="ds-input" value={d.termsAndConditions} onChange={(e) => set({ termsAndConditions: e.target.value })} /></label>
         <label className="ds-check"><input type="checkbox" checked={d.adminBookingOnly} onChange={(e) => set({ adminBookingOnly: e.target.checked })} />Office bookings only</label>
         <div className="ds-form-grid">
           <label className="ds-field"><span>Discount type</span><select className="ds-select" value={d.type} onChange={(e) => set({ type: e.target.value as CouponDraft["type"] })}><option value="Amount">₹ amount</option><option value="Percent">Percentage</option></select></label>
-          <label className="ds-field"><span>{d.type === "Percent" ? "Discount · %" : "Discount · ₹"}</span><input type="number" className="ds-input" min={d.type === "Percent" ? 0.01 : 1} step={d.type === "Percent" ? 0.01 : 1} value={Number.isFinite(d.value) ? d.value : ""} onChange={(e) => set({ value: num(e.target.value) })} /></label>
-          {d.type === "Percent" && <label className="ds-field"><span>Maximum discount · ₹</span><input type="number" className="ds-input" min={1} step={1} value={Number.isFinite(d.max) ? d.max : ""} onChange={(e) => set({ max: num(e.target.value) })} /></label>}
-          <label className="ds-field"><span>Minimum eligible base fare · ₹</span><input type="number" className="ds-input" min={0} step={1} value={Number.isFinite(d.minFare) ? d.minFare : ""} onChange={(e) => set({ minFare: num(e.target.value) })} /></label>
+          <label className="ds-field"><span>{d.type === "Percent" ? "Discount · %" : "Discount · ₹"}</span><input id="cp-value" type="number" className="ds-input" min={d.type === "Percent" ? 0.01 : 1} step={d.type === "Percent" ? 0.01 : 1} value={Number.isFinite(d.value) ? d.value : ""} onChange={(e) => set({ value: num(e.target.value) })} /></label>
+          {d.type === "Percent" && <label className="ds-field"><span>Maximum discount · ₹</span><input id="cp-max" type="number" className="ds-input" min={1} step={1} value={Number.isFinite(d.max) ? d.max : ""} onChange={(e) => set({ max: num(e.target.value) })} /></label>}
+          <label className="ds-field"><span>Minimum eligible base fare · ₹</span><input id="cp-min" type="number" className="ds-input" min={0} step={1} value={Number.isFinite(d.minFare) ? d.minFare : ""} onChange={(e) => set({ minFare: num(e.target.value) })} /></label>
           <label className="ds-field"><span>Customers</span><select className="ds-select" value={d.audience} onChange={(e) => set({ audience: e.target.value as CouponDraft["audience"] })}>{AUDIENCES.map((a) => <option key={a}>{a}</option>)}</select></label>
         </div>
         <Step n="02" t="Eligibility & area" />
         <div className="ds-form-grid">
-          <fieldset className="grid gap-2"><legend className="text-[11px] font-medium text-muted mb-1">Services</legend>{COUPON_SERVICES.map((s) => <label key={s} className="ds-check"><input type="checkbox" checked={d.services.includes(s)} onChange={() => toggle("services", s)} />{serviceLabel(s)}</label>)}</fieldset>
+          <fieldset id="cp-services" className="grid gap-2"><legend className="text-[11px] font-medium text-muted mb-1">Services</legend>{COUPON_SERVICES.map((s) => <label key={s} className="ds-check"><input type="checkbox" checked={d.services.includes(s)} onChange={() => toggle("services", s)} />{serviceLabel(s)}</label>)}</fieldset>
           <fieldset className="grid gap-2 content-start"><legend className="text-[11px] font-medium text-muted mb-1">Vehicle categories</legend>{cats.map((c) => <label key={c.id} className="ds-check"><input type="checkbox" checked={d.categories.includes(c.id)} onChange={() => toggle("categories", c.id)} />{c.name}</label>)}{!cats.length && <small className="text-[11px] text-muted">No active vehicle categories. The coupon applies to every category.</small>}</fieldset>
         </div>
         <div className="ds-form-grid">
           <label className="ds-field"><span>Location scope</span><select className="ds-select" value={d.scope} onChange={(e) => set({ scope: e.target.value as CouponDraft["scope"] })}><option>Any</option><option>Pickup city</option><option>Exact route</option></select></label>
-          {d.scope !== "Any" && <label className="ds-field"><span>Pickup city</span><select className="ds-select" value={d.city} onChange={(e) => set({ city: e.target.value })}><option value="">Select city</option>{cities.map((c) => <option key={c}>{c}</option>)}</select></label>}
+          {d.scope !== "Any" && <label id="cp-city" className="ds-field"><span>Pickup city</span><select className="ds-select" value={d.city} onChange={(e) => set({ city: e.target.value })}><option value="">Select city</option>{cities.map((c) => <option key={c}>{c}</option>)}</select></label>}
           {d.scope === "Exact route" && <label className="ds-field"><span>Drop city</span><select className="ds-select" value={d.dropCity} onChange={(e) => set({ dropCity: e.target.value })}><option value="">Select city</option>{cities.map((c) => <option key={c}>{c}</option>)}</select></label>}
         </div>
         <div className="flex flex-wrap gap-x-5 gap-y-2">
@@ -179,7 +212,7 @@ function CouponSheet({ editing, coupons, cats, cities, onClose, onDone }: { edit
           <label className="ds-check"><input type="checkbox" checked={d.allowPeak} onChange={(e) => set({ allowPeak: e.target.checked })} />Allow peak-adjusted fares</label>
         </div>
         <Step n="03" t="Booking & travel windows" />
-        <div className="ds-form-grid">
+        <div id="cp-window" className="ds-form-grid">
           <WindowField label="Bookings start · IST" value={d.bookFrom} onChange={(v) => set({ bookFrom: v })} />
           <WindowField label="Bookings end · IST" value={d.bookUntil} onChange={(v) => set({ bookUntil: v })} />
           <WindowField label="Pickup dates start · IST" value={d.pickupFrom} onChange={(v) => set({ pickupFrom: v })} />
@@ -187,11 +220,11 @@ function CouponSheet({ editing, coupons, cats, cities, onClose, onDone }: { edit
         </div>
         <p className="text-[11px] text-faint">Booking time and pickup time must both qualify. End times are exclusive.</p>
         <div className="ds-form-grid">
-          <label className="ds-field"><span>Uses per customer</span><input type="number" className="ds-input" min={1} max={100} value={Number.isFinite(d.perCustomer) ? d.perCustomer : ""} onChange={(e) => set({ perCustomer: num(e.target.value) })} /></label>
-          <label className="ds-field"><span>Total confirmed uses</span><input type="number" className="ds-input" min={1} max={1000000} value={Number.isFinite(d.totalLimit) ? d.totalLimit : ""} onChange={(e) => set({ totalLimit: num(e.target.value) })} /></label>
+          <label className="ds-field"><span>Uses per customer</span><input id="cp-per" type="number" className="ds-input" min={1} max={100} value={Number.isFinite(d.perCustomer) ? d.perCustomer : ""} onChange={(e) => set({ perCustomer: num(e.target.value) })} /></label>
+          <label className="ds-field"><span>Total confirmed uses</span><input id="cp-total" type="number" className="ds-input" min={1} max={1000000} value={Number.isFinite(d.totalLimit) ? d.totalLimit : ""} onChange={(e) => set({ totalLimit: num(e.target.value) })} /></label>
         </div>
         <label className="ds-check"><input type="checkbox" checked={d.active} onChange={(e) => set({ active: e.target.checked })} />Enable coupon</label>
-        <label className="ds-field"><span>Reason for this change</span><input className="ds-input" maxLength={500} value={d.reason} onChange={(e) => set({ reason: e.target.value })} /></label>
+        <label className="ds-field"><span>Reason for this change (required)</span><input id="cp-reason" className="ds-input" maxLength={500} value={d.reason} onChange={(e) => set({ reason: e.target.value })} /></label>
         <p className="text-[11px] text-faint">Discount is rounded to whole rupees and applies to eligible base fare. Toll, parking, other actual extras and agreed partner payout are retained.</p>
       </form>
     </Modal>
