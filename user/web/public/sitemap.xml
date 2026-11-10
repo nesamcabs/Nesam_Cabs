@@ -5,7 +5,7 @@
   <!-- Homepage: NESAM Cabs Online Outstation & Drop Taxi -->
   <url>
     <loc>https://www.nesamcabs.com/</loc>
-    <lastmod>2026-11-06</lastmod>
+    <lastmod>2026-11-10</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
     <image:image>
@@ -22,7 +22,7 @@
   <!-- Booking Engine Entrypoint -->
   <url>
     <loc>https://www.nesamcabs.com/book</loc>
-    <lastmod>2026-11-06</lastmod>
+    <lastmod>2026-11-10</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.95</priority>
     <image:image>
@@ -43,7 +43,7 @@
   <!-- Special Offers & Promo Codes -->
   <url>
     <loc>https://www.nesamcabs.com/offers</loc>
-    <lastmod>2026-11-06</lastmod>
+    <lastmod>2026-11-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.80</priority>
     <image:image>
@@ -55,7 +55,7 @@
   <!-- 24/7 Customer Support & Help Desk -->
   <url>
     <loc>https://www.nesamcabs.com/support</loc>
-    <lastmod>2026-11-06</lastmod>
+    <lastmod>2026-11-10</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.70</priority>
     <image:image>
@@ -67,7 +67,7 @@
   <!-- About NESAM Cabs -->
   <url>
     <loc>https://www.nesamcabs.com/about</loc>
-    <lastmod>2026-11-06</lastmod>
+    <lastmod>2026-11-10</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.40</priority>
   </url>
@@ -75,7 +75,7 @@
   <!-- Legal, Terms of Service & Privacy Policy -->
   <url>
     <loc>https://www.nesamcabs.com/legal</loc>
-    <lastmod>2026-11-06</lastmod>
+    <lastmod>2026-11-10</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.50</priority>
   </url>
@@ -83,7 +83,7 @@
   <!-- Travel Service: One-Way Drop Taxi -->
   <url>
     <loc>https://www.nesamcabs.com/services/one-way-drop-taxi</loc>
-    <lastmod>2026-11-06</lastmod>
+    <lastmod>2026-11-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.90</priority>
     <image:image>
@@ -96,7 +96,7 @@
   <!-- Travel Service: Outstation Round Trips -->
   <url>
     <loc>https://www.nesamcabs.com/services/outstation-round-trip</loc>
-    <lastmod>2026-11-06</lastmod>
+    <lastmod>2026-11-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.90</priority>
     <image:image>
@@ -109,7 +109,7 @@
   <!-- Travel Service: Airport Transfers -->
   <url>
     <loc>https://www.nesamcabs.com/services/airport-taxi</loc>
-    <lastmod>2026-11-06</lastmod>
+    <lastmod>2026-11-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.90</priority>
     <image:image>
@@ -122,7 +122,7 @@
   <!-- Travel Service: Local Hourly Rental -->
   <url>
     <loc>https://www.nesamcabs.com/services/local-rental</loc>
-    <lastmod>2026-11-06</lastmod>
+    <lastmod>2026-11-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
     <image:image>
@@ -135,7 +135,7 @@
   <!-- Travel Service: Pilgrimage Tours -->
   <url>
     <loc>https://www.nesamcabs.com/services/pilgrimage-tours</loc>
-    <lastmod>2026-11-06</lastmod>
+    <lastmod>2026-11-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
     <image:image>
@@ -148,7 +148,7 @@
   <!-- Popular Corridor: Chennai to Pondicherry Drop Taxi -->
   <url>
     <loc>https://www.nesamcabs.com/routes/chennai-to-pondicherry</loc>
-    <lastmod>2026-11-06</lastmod>
+    <lastmod>2026-11-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.88</priority>
     <image:image>
@@ -161,7 +161,7 @@
   <!-- Popular Corridor: Chennai to Bangalore Outstation Cab -->
   <url>
     <loc>https://www.nesamcabs.com/routes/chennai-to-bangalore</loc>
-    <lastmod>2026-11-06</lastmod>
+    <lastmod>2026-11-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.88</priority>
     <image:image>
@@ -174,7 +174,7 @@
   <!-- Popular Corridor: Coimbatore to Ooty Cab -->
   <url>
     <loc>https://www.nesamcabs.com/routes/coimbatore-to-ooty</loc>
-    <lastmod>2026-11-06</lastmod>
+    <lastmod>2026-11-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.88</priority>
     <image:image>
@@ -187,7 +187,7 @@
   <!-- Popular Corridor: Madurai to Rameshwaram Pilgrimage Taxi -->
   <url>
     <loc>https://www.nesamcabs.com/routes/madurai-to-rameshwaram</loc>
-    <lastmod>2026-11-06</lastmod>
+    <lastmod>2026-11-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.88</priority>
     <image:image>
@@ -200,7 +200,7 @@
   <!-- Popular Corridor: Bangalore to Mysore Expressway Cab -->
   <url>
     <loc>https://www.nesamcabs.com/routes/bangalore-to-mysore</loc>
-    <lastmod>2026-11-06</lastmod>
+    <lastmod>2026-11-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
     <image:image>
@@ -213,7 +213,7 @@
   <!-- Popular Corridor: Trichy to Thanjavur Heritage Taxi -->
   <url>
     <loc>https://www.nesamcabs.com/routes/trichy-to-thanjavur</loc>
-    <lastmod>2026-11-06</lastmod>
+    <lastmod>2026-11-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.82</priority>
     <image:image>
@@ -226,7 +226,7 @@
   <!-- Popular Corridor: Salem to Yercaud Hill Station Taxi -->
   <url>
     <loc>https://www.nesamcabs.com/routes/salem-to-yercaud</loc>
-    <lastmod>2026-11-06</lastmod>
+    <lastmod>2026-11-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.82</priority>
     <image:image>
@@ -239,7 +239,7 @@
   <!-- Popular Corridor: Chennai to Tirupati Balaji Cab -->
   <url>
     <loc>https://www.nesamcabs.com/routes/chennai-to-tirupati</loc>
-    <lastmod>2026-11-06</lastmod>
+    <lastmod>2026-11-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
     <image:image>

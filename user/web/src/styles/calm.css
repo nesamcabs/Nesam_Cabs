@@ -2,15 +2,6 @@
    Same logo red, used far less: white surfaces, charcoal text and thin neutral lines carry the page; red stays on the
    primary call-to-action buttons, small accents (links, icons, rules) and the logo. */
 
-/* ── Hero tagline and headings: charcoal, not red ─────────────────────────────────────────────────── */
-.hero-copy h1,
-.hero-copy h1 .hero-accent,
-.hero-copy h1 .hero-accent:not(#x),
-.hero-copy h1 em {
-  color: var(--ink);
-  -webkit-text-fill-color: var(--ink);
-}
-
 /* ── Booking card tabs: white pills, red only as an underline on the one that is selected ─────────── */
 .bf-services {
   background: #f3f4f6;
@@ -150,7 +141,6 @@
 /* ══ Buttons: outlined, not filled ═════════════════════════════════════════════════════════════════
    Every primary action is a white button with a thin red outline and red label; it fills in on hover/press. */
 .btn--primary,
-.bf-submit,
 .jd-submit,
 .cb-pay,
 .cb-confirm,
@@ -168,7 +158,6 @@
 }
 .btn--primary:hover:not(:disabled),
 .btn--primary:active:not(:disabled),
-.bf-submit:hover:not(:disabled),
 .jd-submit:hover:not(:disabled),
 .cb-pay:hover:not(:disabled),
 .cb-confirm:hover:not(:disabled),
@@ -181,14 +170,12 @@
   transform: none !important;
 }
 .btn--primary:hover:not(:disabled) *,
-.bf-submit:hover:not(:disabled) *,
 .cb-pay:hover:not(:disabled) *,
 .cb-confirm:hover:not(:disabled) *,
 .lr-cta:hover:not(:disabled) * {
   color: inherit !important;
 }
 .btn--primary:disabled,
-.bf-submit:disabled,
 .jd-submit:disabled,
 .cb-pay:disabled,
 .cb-confirm:disabled,
@@ -266,4 +253,26 @@
   border-color: #fff;
   background: #fff;
   box-shadow: 0 0 0 1.5px var(--brand), 0 6px 14px rgb(20 23 28 / 0.14);
+}
+
+/* "Let's Go !" stays a solid red button (the one filled action on the booking card) */
+.bf .bf-submit,
+.bf-submit {
+  border: 1.5px solid var(--brand) !important;
+  background: var(--brand) !important;
+  background-image: none !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+.bf .bf-submit:hover:not(:disabled),
+.bf-submit:hover:not(:disabled) {
+  border-color: var(--brand-hover) !important;
+  background: var(--brand-hover) !important;
+  color: #fff !important;
+}
+.bf .bf-submit:disabled,
+.bf-submit:disabled {
+  border-color: var(--line-strong) !important;
+  background: var(--sunken) !important;
+  color: var(--faint) !important;
 }

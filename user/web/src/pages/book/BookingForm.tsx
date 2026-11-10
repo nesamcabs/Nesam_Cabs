@@ -1,7 +1,7 @@
 // The booking form on the NESAM Cabs home page: service, route, schedule and "Search Cabs".
 // Places are real coordinates (search, device location, saved/recent places, map pin); the
 // schedule follows the booking server's rules; fares are only ever priced by the server.
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { GeoPlace } from '@core/types';
 import { useCustomerData } from '@/state/customer';
@@ -469,28 +469,26 @@ export function BookingForm({
             {isRound ? (
               <div className="bf-cell bf-round-days">
                 <label className="bf-label bf-label--out" htmlFor="bf-days">
-                  Days
+                  Days <b className="bf-days__value">{days} {days === 1 ? 'day' : 'days'}</b>
                 </label>
-                <div className="bf-duration-stepper" role="group" aria-label="Trip duration">
-                  <button type="button" aria-label="Decrease trip days" disabled={days <= 1} onClick={() => { setDays((n) => Math.max(1, n - 1)); setErrors((x) => ({ ...x, retDate: '' })); }}>−</button>
-                <select
+                {/* Drag to choose how many days the trip lasts (1 to RT_MAX_DAYS); the red track shows how far. */}
+                <input
                   id="bf-days"
-                  className="bf-days__input"
+                  className="bf-days__slider"
+                  type="range"
+                  min={1}
+                  max={RT_MAX_DAYS}
+                  step={1}
                   value={days}
+                  aria-label="Trip duration in days"
+                  aria-valuetext={`${days} ${days === 1 ? 'day' : 'days'}`}
                   aria-invalid={!!errors.retDate || undefined}
+                  style={{ '--fill': `${((days - 1) / (RT_MAX_DAYS - 1)) * 100}%` } as CSSProperties}
                   onChange={(e) => {
                     setDays(Number(e.target.value));
                     setErrors((x) => ({ ...x, retDate: '' }));
                   }}
-                >
-                  {Array.from({ length: RT_MAX_DAYS }, (_, i) => i + 1).map((n) => (
-                    <option key={n} value={n}>
-                      {n} {n === 1 ? 'day' : 'days'}
-                    </option>
-                  ))}
-                </select>
-                  <button type="button" aria-label="Increase trip days" disabled={days >= RT_MAX_DAYS} onClick={() => { setDays((n) => Math.min(RT_MAX_DAYS, n + 1)); setErrors((x) => ({ ...x, retDate: '' })); }}>+</button>
-                </div>
+                />
                 <span className="bf-days__end">{date ? `Ends ${dayHint(addDaysISO(date, days - 1))}` : 'Pick a date'}</span>
                 {fieldErr('retDate')}
               </div>
