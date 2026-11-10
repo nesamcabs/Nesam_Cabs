@@ -17,7 +17,7 @@ export interface ServerQuoteState {
 /** How long a new trip waits before it is sent, so quick edits are sent once. */
 const NEW_TRIP_DELAY_MS = 120;
 /** How often an open page asks again, so a price changed by the admin shows up within seconds. */
-const REFRESH_EVERY_MS = 20_000;
+const REFRESH_EVERY_MS = 60_000;
 /** Never refresh more often than this, however many triggers fire. */
 const MIN_GAP_MS = 4_000;
 

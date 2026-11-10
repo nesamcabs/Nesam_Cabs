@@ -189,7 +189,7 @@ export function ReviewStep() {
       });
       return;
     }
-    if (blocker || submittingRef.current || !route) {
+    if (blocker || submittingRef.current) {
       return;
     }
     submittingRef.current = true;
@@ -210,7 +210,7 @@ export function ReviewStep() {
         drop,
         stops: tripType === 'Round Trip' ? draft.stops : [],
         category,
-        route,
+        route: route ?? { distanceKm: q.trip?.distanceKm ?? 0, durationMin: q.trip?.durationMin ?? 0, path: [], estimated: false },
         fare: quote,
         tripType,
         multicity: draft.multicity && tripType === 'Round Trip',

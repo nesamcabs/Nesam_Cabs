@@ -286,6 +286,10 @@ export interface VehicleCategory {
   imageUrl?: string;
   /** A car image of its own for one brand (NESAM, People Taxi, One Way Car Rentals); a brand without one uses imageUrl. */
   brandImages?: Partial<Record<'nesam' | 'people_taxi' | 'onewaycarrentals', string>>;
+  /** Brands whose site offers this category. Absent (older records) means every brand. */
+  brands?: Array<'nesam' | 'people_taxi' | 'onewaycarrentals'>;
+  /** Per-brand switch: a brand listed as Inactive hides the category on that site only. Absent means Active. */
+  brandStatus?: Partial<Record<'nesam' | 'people_taxi' | 'onewaycarrentals', 'Active' | 'Inactive'>>;
   icon?: string;
   iconUrl?: string;
   seatingCapacity: number;

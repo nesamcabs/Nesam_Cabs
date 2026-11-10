@@ -42,6 +42,13 @@ const brandImage = (d: DocumentData): string => {
   return images && typeof images === 'object' ? str((images as Record<string, unknown>)[SITE_BRAND]) : '';
 };
 
+/** Admin → Vehicle categories decides per brand which categories this site offers (older records without the list are offered everywhere). */
+const offeredOnThisSite = (d: DocumentData): boolean => {
+  if (Array.isArray(d.brands) && !d.brands.includes(SITE_BRAND)) return false;
+  const status = d.brandStatus;
+  return !(status && typeof status === 'object' && (status as Record<string, unknown>)[SITE_BRAND] === 'Inactive');
+};
+
 /** Exported for the server-parity test. */
 export function mapCategory(id: string, d: DocumentData): RideCategory | null {
   const f = d.fare && typeof d.fare === 'object' ? d.fare : {};
@@ -189,7 +196,7 @@ export function subscribeToRideCategories(cb: (cats: RideCategory[], status: Rid
   if (configuredOnly) {
     cb([], 'loading');
     return onSnapshot(query(collection(db, 'vehicle_categories'), where('status', '==', 'Active')), snap => {
-      const cats = snap.docs.map(d => mapCategory(d.id, d.data())).filter((category): category is RideCategory => !!category)
+      const cats = snap.docs.filter(d => offeredOnThisSite(d.data())).map(d => mapCategory(d.id, d.data())).filter((category): category is RideCategory => !!category)
         .sort((a, b) => a.displayOrder - b.displayOrder || a.name.localeCompare(b.name));
       cb(cats, 'ready');
     }, () => cb([], 'error'));
@@ -199,6 +206,7 @@ export function subscribeToRideCategories(cb: (cats: RideCategory[], status: Rid
     query(collection(db, 'vehicle_categories'), where('status', '==', 'Active')),
     (snap) => {
       const cats = snap.docs
+        .filter((d) => offeredOnThisSite(d.data()))
         .map((d) => mapCategory(d.id, d.data()))
         .filter((c): c is RideCategory => !!c)
         .sort((a, b) => a.displayOrder - b.displayOrder || a.name.localeCompare(b.name));

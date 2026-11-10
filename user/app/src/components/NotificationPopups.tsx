@@ -98,7 +98,7 @@ function PopupCard({
     if (n.severity === 'critical') return undefined;
     const t = setTimeout(dismiss, n.severity === 'warning' ? 9000 : 6000);
     return () => clearTimeout(t);
-  }, [n.severity]);
+  }, [n.severity]); // eslint-disable-line react-hooks/exhaustive-deps -- the timer is set once per notification
 
   const iconName = currentTone === 'green' ? 'circle-check' : currentTone === 'red' ? 'circle-x' : 'bell';
 

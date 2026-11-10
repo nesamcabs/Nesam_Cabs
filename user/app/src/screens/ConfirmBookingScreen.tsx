@@ -10,6 +10,7 @@ import { Button, Disclosure, FlowFooter, Notice, RadioCard, Sheet, Steps, TextBu
 import { Content, ScrollView } from '../components/layout';
 import { AppHeader } from '../components/brand';
 import { Checkbox } from '../components/Checkbox';
+import { CountryCodePicker } from '../components/CountryCodePicker';
 import { FareLines } from '../components/FareLines';
 import { useCustomerData } from '../context/CustomerData';
 import { useBookingDraft } from '../context/BookingDraft';
@@ -163,6 +164,7 @@ export function ConfirmBookingScreen() {
         fuelType: draft.fuelType === 'cng' ? 'cng' : undefined,
         couponCode: authoritativeEntry?.couponApplied ? promoCode : '',
         notes: composeBookingNotes({
+          customerName: someoneElse ? profile?.name : '',
           flight: tripType === 'Airport Taxi' ? flightNumber : '',
           passengerName: someoneElse ? guestName : '',
           passengerMobile: someoneElse ? guestMobile : '',
@@ -178,6 +180,8 @@ export function ConfirmBookingScreen() {
         bookingSource: 'nesam',
         brand: 'nesam',
         tripEndAt: tripType === 'Round Trip' ? draft.tripEndAt : null,
+        stops: tripType === 'Round Trip' ? draft.stops : [],
+        multicity: draft.multicity,
         rentalHours: tripType === 'Local Rental' ? draft.rentalHours : null,
         termsAccepted,
       });
@@ -247,8 +251,11 @@ export function ConfirmBookingScreen() {
           <Checkbox checked={waSame} onChange={setWaSame} label="Same WhatsApp number" />
           {!waSame ? (
             <View style={styles.waRow}>
-              <View style={{ width: 84 }}>
-                <TextField label="Code" value={waCode} onChangeText={(v) => setWaCode(v.replace(/[^\d+]/g, '').slice(0, 4))} keyboardType="phone-pad" />
+              <View style={{ width: 96 }}>
+                <Text style={styles.codeLabel}>Code</Text>
+                <View style={styles.codeBox}>
+                  <CountryCodePicker value={waCode} onChange={setWaCode} label="WhatsApp country code" />
+                </View>
               </View>
               <View style={{ flex: 1 }}>
                 <TextField label="WhatsApp number" value={waNumber} onChangeText={setWaNumber} keyboardType="phone-pad" placeholder="WhatsApp number" error={waError || undefined} />
@@ -396,6 +403,8 @@ const styles = StyleSheet.create({
   lineValue: { fontFamily: fonts.medium, fontSize: 12.5, color: colors.ink, flexShrink: 1, textAlign: 'right' },
   checks: { marginTop: 4 },
   waRow: { flexDirection: 'row', gap: 10 },
+  codeLabel: { fontFamily: fonts.medium, fontSize: 12.5, color: colors.muted, marginBottom: 6 },
+  codeBox: { minHeight: 50, borderWidth: 1, borderColor: colors.border, borderRadius: 9, justifyContent: 'center', paddingHorizontal: 10, backgroundColor: colors.white },
   rule: { height: 1, backgroundColor: colors.divider, marginVertical: 8 },
   notes: { minHeight: 76, borderWidth: 1, borderColor: colors.border, borderRadius: 6, padding: 11, fontFamily: fonts.regular, fontSize: 13, color: colors.value, textAlignVertical: 'top' },
   small: { fontFamily: fonts.regular, fontSize: 11.5, lineHeight: 17, color: '#6D7785', marginTop: 8 },

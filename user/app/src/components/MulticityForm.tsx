@@ -85,7 +85,7 @@ export function MulticityForm() {
     setTarget(null);
   };
 
-  const useCurrent = async () => {
+  const fillCurrent = async () => {
     setTarget(null);
     if (!position) return;
     const p = await reverseGeocode(position).catch(() => null);
@@ -177,7 +177,7 @@ export function MulticityForm() {
         suggestions={QUICK_CITIES}
         suggestionsLabel="Popular cities"
         near={position}
-        onUseCurrentLocation={target === 'pickup' ? () => void useCurrent() : undefined}
+        onUseCurrentLocation={target === 'pickup' ? () => void fillCurrent() : undefined}
       />
       {timeOpen ? (
         <TimePickerSheet

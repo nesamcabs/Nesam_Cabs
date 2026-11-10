@@ -9,7 +9,8 @@ import { Icon } from '../../components/Icon';
 import { useRecaptchaVerifier } from '../../components/RecaptchaVerifier';
 import { confirmOtpCode, describePhoneAuthError, sendOtpToPhone } from '../../services/authService';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
-import { formatPhone, isValidIndianMobile } from '../../utils/format';
+import { isValidIndianMobile } from '../../utils/format';
+import { CountryCodePicker } from '../../components/CountryCodePicker';
 import { colors, fonts, space } from '../../theme';
 import { setAuthIntent, type AuthIntent } from './authIntent';
 
@@ -19,6 +20,7 @@ export function AuthScreen() {
   const [step, setStep] = useState<'welcome' | 'phone' | 'otp'>('welcome');
   const [intent, setIntent] = useState<AuthIntent>('login');
   const [mobile, setMobile] = useState('');
+  const [countryCode, setCountryCode] = useState('+91');
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
   const [sending, setSending] = useState(false);
@@ -61,14 +63,17 @@ export function AuthScreen() {
     setStep('phone');
   };
 
+  const isIndia = countryCode === '+91';
+  const numberOk = isIndia ? isValidIndianMobile(mobile) : mobile.length >= 6 && mobile.length <= 14;
+
   const sendOtp = async () => {
-    if (!isValidIndianMobile(mobile)) return setError('Enter a valid 10-digit Indian mobile number.');
+    if (!numberOk) return setError(isIndia ? 'Enter a valid 10-digit Indian mobile number.' : 'Enter a valid mobile number.');
     if (!online) return setError('You’re offline. Connect to the internet to receive your OTP.');
     if (sending) return undefined;
     setError('');
     setSending(true);
     try {
-      const result = await sendOtpToPhone(`+91${mobile}`, verifier);
+      const result = await sendOtpToPhone(`${countryCode}${mobile}`, verifier);
       setConfirmation(result);
       setOtp('');
       setStep('otp');
@@ -134,23 +139,32 @@ export function AuthScreen() {
       <>
         <TextField
           label={intent === 'signup' ? 'Mobile number' : 'Registered mobile number'}
-          prefix="+91"
+          prefixNode={
+            <CountryCodePicker
+              value={countryCode}
+              onChange={(c) => {
+                setCountryCode(c);
+                setMobile('');
+                setError('');
+              }}
+            />
+          }
           value={mobile}
           onChangeText={(v) => {
-            setMobile(v.replace(/\D/g, '').slice(0, 10));
+            setMobile(v.replace(/\D/g, '').slice(0, isIndia ? 10 : 14));
             setError('');
           }}
           keyboardType="phone-pad"
           autoComplete="tel-national"
           textContentType="telephoneNumber"
-          maxLength={10}
+          maxLength={isIndia ? 10 : 14}
           placeholder="98765 43210"
           autoFocus
           returnKeyType="done"
           onSubmitEditing={() => void sendOtp()}
         />
         <Notice message={error} />
-        <Button title="Send OTP" iconRight="arrow-right" loading={sending} disabled={mobile.length !== 10 || !online} onPress={() => void sendOtp()} />
+        <Button title="Send OTP" iconRight="arrow-right" loading={sending} disabled={!numberOk || !online} onPress={() => void sendOtp()} />
         {!online ? <Text style={styles.offline}>You’re offline. Connect to the internet to receive your OTP.</Text> : null}
         <View style={styles.backRow}>
           <LinkText onPress={() => !sending && setStep('welcome')}>← Back</LinkText>
@@ -161,7 +175,7 @@ export function AuthScreen() {
 
   return frame(
     'Verify your number',
-    `Enter the 6-digit OTP sent to ${formatPhone(mobile)}.`,
+    `Enter the 6-digit OTP sent to ${countryCode} ${mobile}.`,
     <>
       <TextInput
         ref={otpRef}

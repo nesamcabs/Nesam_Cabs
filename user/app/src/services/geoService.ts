@@ -348,7 +348,7 @@ export async function getRoute(from: LatLng, to: LatLng, signal?: AbortSignal): 
   if (cached) return cached;
   try {
     try {
-      const result = await callBackend<{ origin: LatLng; destination: LatLng }, { route: RouteInfo }>('getGoogleRoute', { origin: from, destination: to }, 20000);
+      const result = await callBackend<{ origin: LatLng; destination: LatLng }, { route: RouteInfo }>('getGoogleRoute', { origin: from, destination: to }, 8000);
       if (signal?.aborted) throw signal.reason;
       if (result.route && Number.isFinite(result.route.distanceKm) && result.route.distanceKm > 0) {
         routeCache.set(key, result.route);

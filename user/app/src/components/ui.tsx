@@ -389,11 +389,12 @@ export function TextField({
   error,
   hint,
   prefix,
+  prefixNode,
   required,
   style,
   right,
   ...input
-}: TextInputProps & { label?: string; error?: string; hint?: string; prefix?: string; required?: boolean; right?: React.ReactNode }) {
+}: TextInputProps & { label?: string; error?: string; hint?: string; prefix?: string; /** A custom leading control (for example a country-code picker); replaces `prefix`. */ prefixNode?: React.ReactNode; required?: boolean; right?: React.ReactNode }) {
   const [focused, setFocused] = useState(false);
   return (
     <View style={[{ marginBottom: space.lg }, style as StyleProp<ViewStyle>]}>
@@ -404,7 +405,7 @@ export function TextField({
         </Text>
       ) : null}
       <View style={[styles.inputWrap, focused && styles.inputFocused, !!error && styles.inputError, input.editable === false && styles.inputDisabled]}>
-        {prefix ? <Text style={styles.prefix}>{prefix}</Text> : null}
+        {prefixNode ?? (prefix ? <Text style={styles.prefix}>{prefix}</Text> : null)}
         <TextInput
           placeholderTextColor={colors.faint}
           style={[styles.input, input.multiline && styles.inputMultiline]}

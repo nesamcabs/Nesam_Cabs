@@ -24,6 +24,23 @@ export const BRAND_IMAGE_BRANDS: { id: BrandImageKey; name: string }[] = [
   { id: "onewaycarrentals", name: "One Way Car Rentals" },
 ];
 
+export const ALL_BRAND_KEYS: BrandImageKey[] = BRAND_IMAGE_BRANDS.map((b) => b.id);
+
+/** Brands whose site offers a category (older records without the list are offered everywhere). */
+export const brandsOfCategory = (cat: Pick<VehicleCategory, "brands">): BrandImageKey[] =>
+  Array.isArray(cat.brands) ? cat.brands.filter((b) => ALL_BRAND_KEYS.includes(b)) : ALL_BRAND_KEYS;
+
+export const categoryOffersBrand = (cat: Pick<VehicleCategory, "brands">, brand: BrandImageKey) =>
+  brandsOfCategory(cat).includes(brand);
+
+/** What a brand's customers get: hidden everywhere when the category itself is Inactive, otherwise this brand's own switch. */
+export const categoryStatusForBrand = (cat: Pick<VehicleCategory, "status" | "brandStatus">, brand: BrandImageKey): "Active" | "Inactive" =>
+  cat.status === "Inactive" || cat.brandStatus?.[brand] === "Inactive" ? "Inactive" : "Active";
+
+/** The car picture a brand shows: its own image, else the shared one. */
+export const carImageForBrand = (cat: Pick<VehicleCategory, "brandImages" | "imageUrl">, brand: BrandImageKey) =>
+  cat.brandImages?.[brand] || cat.imageUrl || "";
+
 export type CategoryForm = Omit<VehicleCategory, "id" | "vehicleCount" | "createdAt" | "updatedAt" | "createdBy" | "fare"> & {
   fare: Required<VehicleCategoryFare>;
 };
@@ -120,6 +137,10 @@ function payloadFrom(form: CategoryForm) {
     brandImages: Object.fromEntries(
       Object.entries(form.brandImages ?? {}).filter(([, url]) => typeof url === "string" && /^https?:\/\/\S+$/i.test(url.trim())),
     ) as NonNullable<VehicleCategory["brandImages"]>,
+    brands: brandsOfCategory(form),
+    brandStatus: Object.fromEntries(
+      Object.entries(form.brandStatus ?? {}).filter(([brand, s]) => ALL_BRAND_KEYS.includes(brand as BrandImageKey) && s === "Inactive"),
+    ) as NonNullable<VehicleCategory["brandStatus"]>,
     iconUrl: (form.iconUrl || "").trim(),
     icon: form.icon || "🚘",
     seatingCapacity: form.seatingCapacity,
@@ -261,6 +282,41 @@ export async function setCategoryImage(cat: VehicleCategory, imageUrl: string, b
     // One brand's own image, or (no brand) the shared image every brand falls back to.
     const field = brand ? { [`brandImages.${brand}`]: imageUrl } : { imageUrl };
     await updateDoc(doc(db, COLLECTIONS.VEHICLE_CATEGORIES, cat.id), { ...field, updatedAt: serverTimestamp() });
+  } catch (err) {
+    throw new CategoryActionError(describeDataError(err));
+  }
+}
+
+/** Offers a category on a brand's site, or stops offering it there. Other brands are untouched. */
+export async function setCategoryBrand(cat: VehicleCategory, brand: BrandImageKey, offered: boolean): Promise<void> {
+  const current = brandsOfCategory(cat);
+  const brands = offered ? [...new Set([...current, brand])] : current.filter((b) => b !== brand);
+  try {
+    await updateDoc(doc(db, COLLECTIONS.VEHICLE_CATEGORIES, cat.id), { brands, updatedAt: serverTimestamp() });
+  } catch (err) {
+    throw new CategoryActionError(describeDataError(err));
+  }
+}
+
+/**
+ * Hides or shows a category on one brand's site only. A category that is Inactive everywhere is switched back on for this
+ * brand alone: the other brands that offer it are kept hidden so they do not appear by surprise.
+ */
+export async function setCategoryBrandStatus(cat: VehicleCategory, brand: BrandImageKey, status: "Active" | "Inactive"): Promise<void> {
+  const brandStatus: Record<string, "Inactive"> = {};
+  for (const b of ALL_BRAND_KEYS) if (cat.brandStatus?.[b] === "Inactive") brandStatus[b] = "Inactive";
+  const update: Record<string, unknown> = { updatedAt: serverTimestamp() };
+  if (status === "Inactive") brandStatus[brand] = "Inactive";
+  else {
+    delete brandStatus[brand];
+    if (cat.status === "Inactive") {
+      update.status = "Active";
+      for (const b of ALL_BRAND_KEYS) if (b !== brand) brandStatus[b] = "Inactive";
+    }
+  }
+  update.brandStatus = brandStatus;
+  try {
+    await updateDoc(doc(db, COLLECTIONS.VEHICLE_CATEGORIES, cat.id), update);
   } catch (err) {
     throw new CategoryActionError(describeDataError(err));
   }

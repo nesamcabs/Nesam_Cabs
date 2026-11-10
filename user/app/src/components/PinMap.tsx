@@ -32,7 +32,9 @@ interface Props {
 export function PinMap({ picking, target, pins, onPick }: Props) {
   const ref = useRef<MapView>(null);
   const live = useRef({ picking, onPick });
-  live.current = { picking, onPick };
+  useEffect(() => {
+    live.current = { picking, onPick };
+  });
   const programmatic = useRef(false);
 
   // Move to a place (a search result, the device location, a city chip).

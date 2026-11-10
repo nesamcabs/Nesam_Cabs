@@ -1,6 +1,5 @@
 // Web build of the Local Rentals map. react-native-maps has no web implementation, so the page falls back to its
 // search-only panel (the screen checks MAPS_ENABLED, which is false on web). This module only keeps the types in step.
-import React from 'react';
 
 export interface PinMapPin {
   lat: number;

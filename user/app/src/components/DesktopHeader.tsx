@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fonts, radius, space, type } from '../theme';
+import { colors, fonts, radius, space } from '../theme';
 import { useResponsive } from '../theme/responsive';
 
 interface DesktopHeaderProps {

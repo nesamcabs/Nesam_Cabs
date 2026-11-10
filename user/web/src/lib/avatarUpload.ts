@@ -1,7 +1,6 @@
 // Profile photo upload: downscale in a canvas, then Storage — same object path and
 // content type as the customer app (customers/{uid}/profile/avatar-{ts}.jpg).
-import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
-import { storage } from '@/platform/firebase';
+import { getAppStorage } from '@/platform/firebase';
 import { withRetry, withTimeout } from '@core/utils/retry';
 
 const MAX_INPUT_BYTES = 10 * 1024 * 1024;
@@ -40,6 +39,7 @@ export async function uploadProfilePhoto(uid: string, file: File, onProgress?: (
     if (e instanceof PhotoError) throw e;
     throw new PhotoError('That image could not be read. Try a JPG or PNG.');
   });
+  const [{ getDownloadURL, ref, uploadBytesResumable }, storage] = await Promise.all([import('firebase/storage'), getAppStorage()]);
   const objectRef = ref(storage, `customers/${uid}/profile/avatar-${Date.now()}.jpg`);
   return withRetry(
     async () => {

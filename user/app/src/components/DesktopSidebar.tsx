@@ -2,12 +2,12 @@ import React from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { colors, fonts, radius, shadows, space, type } from '../theme';
+import { colors, fonts, radius, space } from '../theme';
 import { useCustomerData } from '../context/CustomerData';
 import { useInbox } from '../context/Inbox';
 import { signOutUser } from '../services/authService';
 import { initials } from '../utils/format';
-import { SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY } from '../config/constants';
+import { SUPPORT_PHONE_DISPLAY } from '../config/constants';
 
 const LOGO = require('../../assets/logo.png') as number;
 

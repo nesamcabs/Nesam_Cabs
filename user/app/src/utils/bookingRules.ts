@@ -54,8 +54,11 @@ export const NOTES_MAX = 300;
  * One notes string for the booking server: the structured extras the app collects (flight number,
  * a different travelling passenger) come first so a cut-off only ever shortens the customer's own words.
  */
-export function composeBookingNotes(p: { flight?: string; passengerName?: string; passengerMobile?: string; notes?: string }): string {
+export function composeBookingNotes(p: { customerName?: string; flight?: string; passengerName?: string; passengerMobile?: string; notes?: string }): string {
   const parts: string[] = [];
+  // When someone else travels, the booker is named so the driver and office know who to call.
+  const booker = (p.customerName ?? '').trim();
+  if (booker) parts.push(`Booked by: ${booker}`);
   const flight = (p.flight ?? '').trim();
   if (flight) parts.push(`Flight: ${flight}`);
   const name = (p.passengerName ?? '').trim();

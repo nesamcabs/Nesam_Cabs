@@ -12,7 +12,8 @@ import { BRAND, REFERENCE, VEHICLES, getVehicleImage } from '../assets/images';
 import { Icon, TravelIcon, type IconName, type TravelGlyph } from './Icon';
 import { useInbox } from '../context/Inbox';
 import { useBookingDraft, type HomeService } from '../context/BookingDraft';
-import { Steps } from './ui';
+import { Sheet, Steps } from './ui';
+import { AiChatSheet } from './AiChatSheet';
 
 export const LOGO = REFERENCE.emblem;
 export const APP_ICON = BRAND.logo;
@@ -134,6 +135,38 @@ function HeaderAction({ icon, label, onPress, active, badge }: { icon: IconName;
   );
 }
 
+/** Help menu in the header: Ask AI, Call us, and the support tickets page (the website header's support menu). */
+function SupportMenuAction({ active }: { active: boolean }) {
+  const navigation = useNavigation();
+  const [open, setOpen] = useState(false);
+  const [chat, setChat] = useState(false);
+  const item = (icon: IconName, title: string, sub: string, onPress: () => void) => (
+    <PressableScale key={title} onPress={onPress} activeScale={0.98} style={styles.menuRow} accessibilityRole="button" accessibilityLabel={title}>
+      <View style={styles.menuIcon}>
+        <Icon name={icon} size={19} color={colors.primary} strokeWidth={2} />
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={styles.menuTitle}>{title}</Text>
+        <Text style={styles.menuSub} numberOfLines={1}>{sub}</Text>
+      </View>
+      <Icon name="chevron-right" size={17} color="#90939A" strokeWidth={2.2} />
+    </PressableScale>
+  );
+  return (
+    <>
+      <HeaderAction icon="headphones" label="Help and support" active={active || open} onPress={() => setOpen(true)} />
+      <Sheet visible={open} onClose={() => setOpen(false)} title="How can we help?">
+        <View style={{ paddingHorizontal: space.xl, paddingBottom: space.md, gap: 4 }}>
+          {item('message-circle', 'Ask AI', 'Fares, cabs, routes and policies', () => { setOpen(false); setChat(true); })}
+          {item('phone', 'Call us', SUPPORT_PHONE_DISPLAY, () => { setOpen(false); void Linking.openURL(`tel:${SUPPORT_PHONE}`); })}
+          {item('headphones', 'Help and support tickets', 'Raise or follow up a request', () => { setOpen(false); navigation.navigate('Support'); })}
+        </View>
+      </Sheet>
+      <AiChatSheet visible={chat} onClose={() => setChat(false)} />
+    </>
+  );
+}
+
 /** Notifications bell with the unread count. Needs InboxProvider, so it renders only with the header actions (signed-in screens). */
 function NotificationsAction({ active }: { active: boolean }) {
   const navigation = useNavigation();
@@ -197,12 +230,7 @@ export function AppHeader({
         ) : actions ? (
           <>
             <NotificationsAction active={active === 'alerts'} />
-            <HeaderAction
-              icon="headphones"
-              label="Help and support"
-              active={active === 'support'}
-              onPress={() => navigation.navigate('Support')}
-            />
+            <SupportMenuAction active={active === 'support'} />
           </>
         ) : null}
       </View>
@@ -389,6 +417,10 @@ export function SupportBanner() {
 }
 
 const styles = StyleSheet.create({
+  menuRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.divider },
+  menuIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  menuTitle: { fontFamily: fonts.semiBold, fontSize: 15, color: colors.value },
+  menuSub: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.muted, marginTop: 1 },
   top: {
     flexDirection: 'row',
     alignItems: 'center',

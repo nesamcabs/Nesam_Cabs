@@ -43,14 +43,18 @@ export function matchCategory(fileName: string, categories: VehicleCategory[]): 
  * Upload many car pictures at once. Each is matched to a vehicle category by its file name (changeable), then
  * written with the category name on the yellow number plate, compressed, stored, and linked to the category.
  */
-export default function BulkCarImages({ categories, onClose, onDone }: {
+export default function BulkCarImages({ categories, brand: lockedBrand, onClose, onDone }: {
   categories: VehicleCategory[];
+  /** Opened from a brand's tab: every picture is saved for that brand only and the brand cannot be changed. */
+  brand?: BrandImageKey;
   onClose: () => void;
   onDone: (message: string) => void;
 }) {
   const [rows, setRows] = useState<Row[]>([]);
   const [writePlate, setWritePlate] = useState(true);
-  const [brand, setBrand] = useState<BrandImageKey | "">("");
+  const [pickedBrand, setBrand] = useState<BrandImageKey | "">("");
+  const brand = lockedBrand ?? pickedBrand;
+  const brandName = BRAND_IMAGE_BRANDS.find((b) => b.id === lockedBrand)?.name;
   const [running, setRunning] = useState(false);
   const [finished, setFinished] = useState(false);
   const [problem, setProblem] = useState("");
@@ -139,7 +143,7 @@ export default function BulkCarImages({ categories, onClose, onDone }: {
   );
 
   return (
-    <Modal title="Upload car images" subtitle="One picture per vehicle category. Each is compressed and saved, and the category name can be written on its number plate." onClose={onClose} busy={running} size="lg" footer={footer}
+    <Modal title={brandName ? `Upload car images — ${brandName}` : "Upload car images"} subtitle={brandName ? `One picture per vehicle category, shown on the ${brandName} site only. Other brands keep their own images.` : "One picture per vehicle category. Each is compressed and saved, and the category name can be written on its number plate."} onClose={onClose} busy={running} size="lg" footer={footer}
       footNote={blocked && todo.length ? <span className="text-[12px] font-semibold" style={{ color: "#a32831" }}>Choose a different category for every picture.</span> : undefined}>
       <div className="space-y-4">
         <div
@@ -155,13 +159,15 @@ export default function BulkCarImages({ categories, onClose, onDone }: {
           <Button onClick={() => input.current?.click()} disabled={running}>Choose pictures</Button>
         </div>
 
-        <label className="flex flex-wrap items-center gap-2 text-[12px] font-semibold text-ink">
-          Save these images for
-          <select value={brand} disabled={running} onChange={(e) => setBrand(e.target.value as BrandImageKey | "")} className="rounded-lg border border-line bg-white px-2 py-1.5 text-[12px] font-semibold">
-            <option value="">All brands (shared image)</option>
-            {BRAND_IMAGE_BRANDS.map((b) => <option key={b.id} value={b.id}>{b.name} only</option>)}
-          </select>
-        </label>
+        {lockedBrand ? null : (
+          <label className="flex flex-wrap items-center gap-2 text-[12px] font-semibold text-ink">
+            Save these images for
+            <select value={pickedBrand} disabled={running} onChange={(e) => setBrand(e.target.value as BrandImageKey | "")} className="rounded-lg border border-line bg-white px-2 py-1.5 text-[12px] font-semibold">
+              <option value="">All brands (shared image)</option>
+              {BRAND_IMAGE_BRANDS.map((b) => <option key={b.id} value={b.id}>{b.name} only</option>)}
+            </select>
+          </label>
+        )}
 
         <label className="flex items-center gap-2 text-[12px] font-semibold text-ink">
           <input type="checkbox" checked={writePlate} disabled={running} onChange={(e) => setWritePlate(e.target.checked)} />

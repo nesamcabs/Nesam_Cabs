@@ -3,7 +3,6 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { FlatList, ScrollView } from '../components/layout';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAvoid } from '../components/KeyboardAvoid';
-import { useNavigation } from '@react-navigation/native';
 import { useInbox } from '../context/Inbox';
 import { EmptyState, Notice, TextButton } from '../components/ui';
 import { AppHeader } from '../components/brand';
@@ -14,7 +13,6 @@ import { describeError } from '../utils/retry';
 import { colors, fonts, space } from '../theme';
 
 export function NotificationsScreen() {
-  const navigation = useNavigation();
   const { notifications } = useInbox();
   const [filter, setFilter] = useState<NotificationCategory | 'all'>('all');
   const [error, setError] = useState('');

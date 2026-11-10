@@ -4,7 +4,7 @@
 // All click interactions have modern tactile micro-animations.
 // Website footers, marketing copy, and FAQs are cleanly omitted from the mobile application.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Linking, Pressable, ScrollView as RNScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, ScrollView as RNScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAvoid } from '../components/KeyboardAvoid';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -14,6 +14,7 @@ import { ScrollView } from '../components/layout';
 import { AppHeader, PressableScale } from '../components/brand';
 import { Icon, type IconName } from '../components/Icon';
 import { PlaceSearchModal } from '../components/PlaceSearchModal';
+import { MulticityForm } from '../components/MulticityForm';
 import { TimePickerSheet } from '../components/TimePickerSheet';
 import { useCustomerData } from '../context/CustomerData';
 import { useBookingDraft, type HomeService } from '../context/BookingDraft';
@@ -22,8 +23,6 @@ import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { LOCATION_ERROR_TEXT, reverseGeocode } from '../services/geoService';
 import {
   SCHEDULE_MAX_DAYS,
-  SUPPORT_PHONE,
-  SUPPORT_PHONE_DISPLAY,
 } from '../config/constants';
 import { scheduleProblem } from '../utils/bookingRules';
 import { POPULAR_AIRPORTS } from '../services/pricingService';
@@ -329,7 +328,7 @@ export function BookScreen() {
 
         <View style={styles.widget}>
           {isMulti ? (
-            <MulticityNotice onOneWay={() => setService('outstation')} />
+            <MulticityForm />
           ) : (
             <>
               {isAirport ? (
@@ -572,29 +571,6 @@ function PickerBox({
   );
 }
 
-/** Multicity has no booking contract on the server yet, so it is booked through the office. */
-function MulticityNotice({ onOneWay }: { onOneWay: () => void }) {
-  return (
-    <View style={{ paddingTop: 16 }}>
-      <View style={styles.multiSteps} accessible accessibilityLabel="Pickup, up to four stops and a final drop">
-        {['Pickup location', 'Stops along the way', 'Final drop'].map((t, i) => (
-          <View key={t} style={[styles.multiStep, i > 0 && styles.fieldDivider]}>
-            <View style={[styles.pin, i === 2 ? styles.pinEnd : styles.pinStart]} />
-            <Text style={styles.multiStepText}>{t}</Text>
-          </View>
-        ))}
-      </View>
-      <Notice
-        tone="info"
-        message="Multicity trips with several stops are arranged by our office for now. Call us with your stops and dates, or book each leg as a one-way trip."
-        style={{ marginTop: 14 }}
-      />
-      <Button title={`Call NESAM · ${SUPPORT_PHONE_DISPLAY}`} icon="phone" onPress={() => void Linking.openURL(`tel:${SUPPORT_PHONE}`)} />
-      <Button title="Book a one-way trip" variant="secondary" onPress={onOneWay} style={{ marginTop: 10 }} />
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.white },
   page: { paddingHorizontal: space.xl, paddingTop: space.md, paddingBottom: 40 },
@@ -668,9 +644,6 @@ const styles = StyleSheet.create({
   flightHint: { fontFamily: fonts.regular, fontSize: 11, color: colors.muted, marginTop: 5 },
   trust: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 11 },
   trustText: { fontFamily: fonts.regular, fontSize: 9.5, color: '#7F8998' },
-  multiSteps: { borderWidth: 1, borderColor: colors.divider, borderRadius: 8, paddingHorizontal: 12 },
-  multiStep: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 46 },
-  multiStepText: { fontFamily: fonts.medium, fontSize: 13.5, color: '#8A929E' },
   popular: { marginTop: 24 },
   popularTitle: { fontFamily: fonts.heading, fontSize: 20, lineHeight: 28, letterSpacing: -0.5, color: colors.text },
   caption: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: '#74808F', marginTop: 3 },

@@ -8,7 +8,7 @@ import { getApp, getApps, initializeApp, type FirebaseApp } from 'firebase/app';
 import { connectAuthEmulator, getAuth, signInWithCustomToken } from 'firebase/auth';
 import { connectFirestoreEmulator, getFirestore, initializeFirestore, memoryLocalCache, type Firestore } from 'firebase/firestore';
 import { connectFunctionsEmulator, getFunctions } from 'firebase/functions';
-import { connectStorageEmulator, getStorage } from 'firebase/storage';
+import type { FirebaseStorage } from 'firebase/storage';
 
 export const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || 'AIzaSyClCvf1FUnXb6na8UeZ_knRBTCakAVJCQs',
@@ -35,7 +35,20 @@ function createFirestore(): Firestore {
   }
 }
 export const db = createFirestore();
-export const storage = getStorage(app);
+
+/**
+ * Storage is only needed for a profile photo, so its code is downloaded then, not with the first page.
+ * (A rider who never uploads a photo never loads it.)
+ */
+let storagePromise: Promise<FirebaseStorage> | null = null;
+export const getAppStorage = (): Promise<FirebaseStorage> =>
+  (storagePromise ??= import('firebase/storage').then(({ getStorage, connectStorageEmulator }) => {
+    const instance = getStorage(app);
+    if (process.env.EXPO_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
+      connectStorageEmulator(instance, process.env.EXPO_PUBLIC_FIREBASE_EMULATOR_HOST || '127.0.0.1', Number(process.env.EXPO_PUBLIC_STORAGE_EMULATOR_PORT || 9199));
+    }
+    return instance;
+  }));
 
 // Local testing against the Firebase emulators — only when explicitly enabled
 // (never set for a production build), with a demo project id.
@@ -43,7 +56,6 @@ if (process.env.EXPO_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
   const host = process.env.EXPO_PUBLIC_FIREBASE_EMULATOR_HOST || '127.0.0.1';
   connectAuthEmulator(auth, `http://${host}:9099`, { disableWarnings: true });
   connectFirestoreEmulator(db, host, 8080);
-  connectStorageEmulator(storage, host, Number(process.env.EXPO_PUBLIC_STORAGE_EMULATOR_PORT || 9199));
   connectFunctionsEmulator(getFunctions(app), host, 5001);
   // Lets an automated test sign in with an emulator custom token.
   (globalThis as unknown as Record<string, unknown>).__nesamTestSignIn = (token: string) => signInWithCustomToken(auth, token);

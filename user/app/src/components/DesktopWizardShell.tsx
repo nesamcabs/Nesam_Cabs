@@ -1,7 +1,7 @@
 import React from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fonts, radius, shadows, space, type } from '../theme';
+import { colors, fonts, radius, shadows, space } from '../theme';
 import { useResponsive } from '../theme/responsive';
 
 const LOGO = require('../../assets/logo.png') as number;

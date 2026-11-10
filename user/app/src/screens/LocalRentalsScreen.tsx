@@ -6,7 +6,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute, type NavigationProp, type RouteProp } from '@react-navigation/native';
 import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { Button, Chip, Notice, Segmented } from '../components/ui';
 import { Icon } from '../components/Icon';
@@ -36,11 +36,10 @@ type LatLng = { lat: number; lng: number };
 
 const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const formatDay = (d: Date) => d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-const DISPOSAL_ID = 'place-local-disposal';
-const real = (p: GeoPlace | null) => (p && p.id !== DISPOSAL_ID ? p : null);
 
 export function LocalRentalsScreen() {
   const navigation = useNavigation();
+  const tabNav = useNavigation<NavigationProp<TabParamList, 'Rentals'>>();
   const route = useRoute<RouteProp<TabParamList, 'Rentals'>>();
   const { draft, update, setService } = useBookingDraft();
   const { savedPlaces } = useCustomerData();
@@ -48,12 +47,10 @@ export function LocalRentalsScreen() {
   const { online } = useNetworkStatus();
 
   const [mode, setMode] = useState<Mode>(route.params?.mode === 'hourly' ? 'hourly' : 'pickup');
-  // A saved future time is reused; anything else starts at the earliest time a rider may book.
-  const future = draft.scheduledAt && draft.scheduledAt.getTime() > Date.now() ? draft.scheduledAt : null;
   const [pickup, setPickup] = useState<GeoPlace | null>(null);
   const [drop, setDrop] = useState<GeoPlace | null>(null);
   const [hours, setHours] = useState<number | null>(draft.tripType === 'Local Rental' ? draft.rentalHours ?? null : null);
-  const [when, setWhen] = useState<Date>(() => future ?? earliestSlot());
+  const [when, setWhen] = useState<Date>(() => (draft.scheduledAt && draft.scheduledAt.getTime() > Date.now() ? draft.scheduledAt : earliestSlot()));
   const [stage, setStage] = useState<Stage>('pickup');
   const [cand, setCand] = useState<GeoPlace | null>(null);
   const [resolving, setResolving] = useState(false);
@@ -144,16 +141,6 @@ export function LocalRentalsScreen() {
     resolveAt({ lat: position.lat, lng: position.lng });
   }, [position?.lat, position?.lng]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // A link such as "Hourly Rental" from elsewhere in the app switches the tab.
-  const paramMode = route.params?.mode;
-  useEffect(() => {
-    if (paramMode && paramMode !== mode) {
-      setMode(paramMode);
-      if (paramMode === 'pickup') setDrop(null);
-      enter('pickup');
-    }
-  }, [paramMode]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // Keep the clock moving: a time that has become too soon is replaced by the new earliest one (never an error at the button).
   useEffect(() => {
     const id = setInterval(() => {
@@ -182,6 +169,8 @@ export function LocalRentalsScreen() {
     }, [back, picker, timeOpen]),
   );
 
+  const modeRef = useRef<Mode>(mode);
+  const switchModeRef = useRef<(m: Mode) => void>(() => undefined);
   const farApart = stage === 'drop' && !!pickup && !!cand && haversineKm(pickup, cand) > CITY_LIMIT_KM;
 
   const switchMode = (m: Mode) => {
@@ -192,6 +181,20 @@ export function LocalRentalsScreen() {
     if (m === 'pickup') setDrop(null);
     enter('pickup');
   };
+  useEffect(() => {
+    modeRef.current = mode;
+    switchModeRef.current = switchMode;
+  });
+
+  // A link such as "Hourly Rental" from elsewhere in the app switches the tab once, when the screen is shown.
+  const paramMode = route.params?.mode;
+  useFocusEffect(
+    useCallback(() => {
+      if (!paramMode) return;
+      if (paramMode !== modeRef.current) switchModeRef.current(paramMode);
+      tabNav.setParams({ mode: undefined });
+    }, [paramMode, tabNav]),
+  );
 
   const confirmStage = () => {
     if (!cand) return;
@@ -234,7 +237,7 @@ export function LocalRentalsScreen() {
     setResolving(false);
     flyTo(p, 0.012);
   };
-  const useMyLocation = async () => {
+  const goToMyLocation = async () => {
     const p = await locate();
     if (!p) return;
     userMoved.current = true;
@@ -330,7 +333,7 @@ export function LocalRentalsScreen() {
         suggestions={QUICK_CITIES}
         suggestionsLabel="Popular locations"
         near={picker === 'drop' ? pickup : position}
-        onUseCurrentLocation={picker === 'pickup' ? () => { setPicker(null); void useMyLocation(); } : undefined}
+        onUseCurrentLocation={picker === 'pickup' ? () => { setPicker(null); void goToMyLocation(); } : undefined}
       />
       {timeOpen ? (
         <TimePickerSheet
@@ -402,7 +405,7 @@ export function LocalRentalsScreen() {
           </View>
         ) : null}
 
-        <PressableScale onPress={() => void useMyLocation()} activeScale={0.9} style={styles.locate} accessibilityRole="button" accessibilityLabel="Use my location" disabled={locating}>
+        <PressableScale onPress={() => void goToMyLocation()} activeScale={0.9} style={styles.locate} accessibilityRole="button" accessibilityLabel="Use my location" disabled={locating}>
           <Icon name="locate-fixed" size={20} color={colors.primary} strokeWidth={2.2} />
         </PressableScale>
       </View>
