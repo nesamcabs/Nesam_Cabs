@@ -5,7 +5,7 @@ const requireAdmin = createRequire(path.resolve(__dirname,'../../admin/package.j
 const appSdk = requireAdmin('firebase/app'), authSdk = requireAdmin('firebase/auth'), fsSdk = requireAdmin('firebase/firestore'), fnSdk = requireAdmin('firebase/functions');
 const H = require('./helpers.e2e');
 const app = appSdk.initializeApp({projectId:'demo-nesam',apiKey:'fake',authDomain:'demo-nesam.firebaseapp.com'});
-const auth = authSdk.getAuth(app), db = fsSdk.getFirestore(app), functions = fnSdk.getFunctions(app);
+const auth = authSdk.getAuth(app), db = fsSdk.getFirestore(app), functions = fnSdk.getFunctions(app, 'asia-south1');
 authSdk.connectAuthEmulator(auth,'http://127.0.0.1:9099',{disableWarnings:true});
 fsSdk.connectFirestoreEmulator(db,'127.0.0.1',8080);
 fnSdk.connectFunctionsEmulator(functions,'127.0.0.1',5001);

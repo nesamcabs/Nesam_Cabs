@@ -154,7 +154,7 @@ export function ChooseStep() {
                 </>
               ) : null}
 
-              {shown.map((c) => {
+              {shown.map((c, index) => {
                 const isSelected = c.id === categoryId;
                 const cngAlt = fuelOf(c) === 'cng' ? cngOf(c) : null;
                 const fare = cngAlt ? cngAlt.fare : q.quotes.get(c.id);
@@ -188,7 +188,7 @@ export function ChooseStep() {
                     </span>
 
                     <div className="cab__photo">
-                      <img src={photo} alt={c.name} loading="lazy" />
+                      <img src={photo} alt={c.name} loading={index < 4 ? 'eager' : 'lazy'} decoding="async" fetchPriority={index < 2 ? 'high' : 'auto'} />
                     </div>
 
                     <div className="cab__info">
@@ -270,7 +270,7 @@ export function ChooseStep() {
                     <strong>{categoryName(selected)}</strong>
                     <small className="muted">{selected.seats} seats · AC</small>
                   </div>
-                  <img src={categoryPhoto(selected)} alt={selected.name} />
+                  <img src={categoryPhoto(selected)} alt={selected.name} decoding="async" />
                 </div>
               ) : (
                 <div className="sel-card__placeholder muted">Please choose a vehicle category from the list.</div>

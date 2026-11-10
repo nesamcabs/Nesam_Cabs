@@ -1,3 +1,4 @@
+import './region';
 // Profile onboarding uses the document-based rules contract. Bookings, money,
 // trip stages, penalties, verification and legal acceptance are written only by
 // these functions (see firestore.rules).

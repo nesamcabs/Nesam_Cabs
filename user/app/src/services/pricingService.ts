@@ -49,6 +49,61 @@ const offeredOnThisSite = (d: DocumentData): boolean => {
   return !(status && typeof status === 'object' && (status as Record<string, unknown>)[SITE_BRAND] === 'Inactive');
 };
 
+// ── Fast start: the last category list and its pictures are kept on this device ──────────────
+// The list is public data (the same for every visitor), so it is safe to keep. It is shown at once on a
+// repeat visit while the live list loads, and is replaced by it as soon as it arrives. Not used on the
+// native app, which has no browser storage.
+const CATEGORY_CACHE_KEY = `categories:v1:${SITE_BRAND}`;
+const CATEGORY_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+function deviceStorage(): Storage | null {
+  try {
+    return typeof document !== 'undefined' && typeof localStorage !== 'undefined' ? localStorage : null;
+  } catch {
+    return null; // storage blocked (private mode, strict settings)
+  }
+}
+
+function readCachedCategories(): RideCategory[] {
+  try {
+    const raw = deviceStorage()?.getItem(CATEGORY_CACHE_KEY);
+    if (!raw) return [];
+    const saved = JSON.parse(raw) as { at?: number; cats?: unknown };
+    if (typeof saved.at !== 'number' || Date.now() - saved.at > CATEGORY_CACHE_MAX_AGE_MS || !Array.isArray(saved.cats)) return [];
+    return (saved.cats as RideCategory[]).filter((c) => c && typeof c.id === 'string' && typeof c.name === 'string' && c.fare && typeof c.fare === 'object');
+  } catch {
+    return [];
+  }
+}
+
+function writeCachedCategories(cats: RideCategory[]): void {
+  try {
+    const store = deviceStorage();
+    if (!store) return;
+    if (cats.length) store.setItem(CATEGORY_CACHE_KEY, JSON.stringify({ at: Date.now(), cats }));
+    else store.removeItem(CATEGORY_CACHE_KEY);
+  } catch {
+    /* full or blocked: the list simply loads live next time */
+  }
+}
+
+const warmedImages = new Set<string>();
+/** Starts downloading every category picture in the background, so the cab list opens with its images already there. */
+export function warmCategoryImages(cats: RideCategory[]): void {
+  if (typeof document === 'undefined' || typeof Image === 'undefined') return;
+  const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+  if (connection?.saveData) return;
+  for (const cat of cats) {
+    for (const url of [cat.imageUrl, cat.iconUrl]) {
+      if (!url || !/^https?:\/\//i.test(url) || warmedImages.has(url)) continue;
+      warmedImages.add(url);
+      const img = new Image();
+      img.decoding = 'async';
+      img.src = url;
+    }
+  }
+}
+
 /** Exported for the server-parity test. */
 export function mapCategory(id: string, d: DocumentData): RideCategory | null {
   const f = d.fare && typeof d.fare === 'object' ? d.fare : {};
@@ -193,15 +248,20 @@ export type RideCategoryStatus = 'loading' | 'ready' | 'unavailable' | 'error';
  * fleet so online booking is ALWAYS available without waiting for Firestore config.
  */
 export function subscribeToRideCategories(cb: (cats: RideCategory[], status: RideCategoryStatus) => void, configuredOnly = false): () => void {
+  // A repeat visit shows the list saved on this device straight away (instead of the built-in defaults), then the live list.
+  const saved = readCachedCategories();
+  if (saved.length) warmCategoryImages(saved);
   if (configuredOnly) {
-    cb([], 'loading');
+    cb(saved, saved.length ? 'ready' : 'loading');
     return onSnapshot(query(collection(db, 'vehicle_categories'), where('status', '==', 'Active')), snap => {
       const cats = snap.docs.filter(d => offeredOnThisSite(d.data())).map(d => mapCategory(d.id, d.data())).filter((category): category is RideCategory => !!category)
         .sort((a, b) => a.displayOrder - b.displayOrder || a.name.localeCompare(b.name));
+      writeCachedCategories(cats);
+      warmCategoryImages(cats);
       cb(cats, 'ready');
-    }, () => cb([], 'error'));
+    }, () => { if (!saved.length) cb([], 'error'); });
   }
-  cb(SPEC_DEFAULT_CATEGORIES, 'ready');
+  cb(saved.length ? saved : SPEC_DEFAULT_CATEGORIES, 'ready');
   return onSnapshot(
     query(collection(db, 'vehicle_categories'), where('status', '==', 'Active')),
     (snap) => {
@@ -210,9 +270,11 @@ export function subscribeToRideCategories(cb: (cats: RideCategory[], status: Rid
         .map((d) => mapCategory(d.id, d.data()))
         .filter((c): c is RideCategory => !!c)
         .sort((a, b) => a.displayOrder - b.displayOrder || a.name.localeCompare(b.name));
+      writeCachedCategories(cats);
+      warmCategoryImages(cats);
       cb(cats.length ? cats : SPEC_DEFAULT_CATEGORIES, 'ready');
     },
-    () => cb(SPEC_DEFAULT_CATEGORIES, 'ready'),
+    () => cb(saved.length ? saved : SPEC_DEFAULT_CATEGORIES, 'ready'),
   );
 }
 

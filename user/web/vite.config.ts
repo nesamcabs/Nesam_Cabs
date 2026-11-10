@@ -46,7 +46,7 @@ export default defineConfig(({ mode }) => {
   const proxyFunctions = mode !== 'production' && !processEnv.EXPO_PUBLIC_API_URL && processEnv.EXPO_PUBLIC_USE_FIREBASE_EMULATORS !== 'true';
   if (proxyFunctions) processEnv.EXPO_PUBLIC_FUNCTIONS_PROXY = '/__functions';
   const functionsProxy = {
-    '/__functions': { target: `https://us-central1-${projectId}.cloudfunctions.net`, changeOrigin: true, secure: true, rewrite: (p: string) => p.replace(/^\/__functions/, '') },
+    '/__functions': { target: `https://asia-south1-${projectId}.cloudfunctions.net`, changeOrigin: true, secure: true, rewrite: (p: string) => p.replace(/^\/__functions/, '') },
   };
 
   return {

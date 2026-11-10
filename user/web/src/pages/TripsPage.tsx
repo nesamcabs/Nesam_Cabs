@@ -8,7 +8,6 @@ import { isValidLatLng } from '@core/utils/geo';
 import { paymentLabel, tabOfTrip, tripStatusChip, type TripTab } from '@core/utils/tripView';
 import { Button, EmptyState, LinkButton, Notice, PageHead } from '@/components/ui';
 import { Icon } from '@/components/Icon';
-import { RoutePoints } from '@/components/RoutePoints';
 import { TourQuotes } from '@/components/TourQuotes';
 import { vehicleArtUrl } from '@/lib/vehicleArt';
 import { useSeo } from '@/lib/seo';
@@ -25,7 +24,8 @@ const EMPTY: Record<TripTab, { title: string; text: string }> = {
   Cancelled: { title: 'No cancelled trips', text: 'Cancelled or declined bookings would appear here.' },
 };
 
-function TripCard({ trip, onCancel }: { trip: TripRecord; onCancel: (t: TripRecord) => void }) {
+/** One booking as a single compact list row; the whole row opens the trip, small actions sit underneath. */
+function TripRow({ trip, onCancel }: { trip: TripRecord; onCancel: (t: TripRecord) => void }) {
   const navigate = useNavigate();
   const { startFrom } = useBooking();
   const chip = tripStatusChip(trip);
@@ -34,57 +34,61 @@ function TripCard({ trip, onCancel }: { trip: TripRecord; onCancel: (t: TripReco
   const canCancel = trip.status !== 'Ongoing' && ['Pending', 'Approved', 'Confirmed', 'Assigned'].includes(trip.status) && cancellationQuote(trip).allowed;
   const total = trip.status === 'Completed' ? (trip.fareBreakdown?.total ?? trip.fare) + trip.tollCharges + (trip.extraCharges ?? 0) : trip.status === 'Cancelled' || trip.status === 'Rejected' ? trip.cancellationFee : trip.fare;
   const unrated = trip.status === 'Completed' && trip.rating == null;
+  const canRebook = trip.status === 'Completed' && isValidLatLng(trip.pickup) && isValidLatLng(trip.drop);
 
   return (
-    <article className="tcard">
-      <Link className="tcard__main" to={`/trips/${trip.id}`} aria-label={`Trip from ${trip.pickup.name} to ${trip.drop.name}, ${chip.label}`}>
-        <header>
-          <span className="status-chip" style={{ color: chip.fg, background: chip.bg }}>
-            {chip.label}
+    <li className="trow">
+      <Link className="trow__link" to={`/trips/${trip.id}`} aria-label={`Trip from ${trip.pickup.name} to ${trip.drop.name}, ${chip.label}`}>
+        <img className="trow__art" src={vehicleArtUrl({ name: trip.categoryName, seats: 4 })} alt="" width={56} height={37} loading="lazy" decoding="async" />
+        <span className="trow__body">
+          <strong className="trow__route">
+            <span className="trow__place">{trip.pickup.name}</span>
+            <Icon name="arrow-right" size={14} />
+            <span className="trow__place">{trip.drop.name}</span>
+          </strong>
+          <span className="trow__status">
+            <span className="status-chip" style={{ color: chip.fg, background: chip.bg }}>
+              {chip.label}
+            </span>
           </span>
-          <span className="tcard__when">
+          <span className="trow__meta">
             {trip.isScheduled && trip.status !== 'Completed' ? 'Pickup ' : ''}
-            {when ? `${formatDate(when)} · ${formatTime(when)}` : trip.date}
+            {when ? `${formatDate(when)} · ${formatTime(when)}` : trip.date} · {trip.categoryName}
+            {trip.tripType && trip.tripType !== 'One Way' ? ` · ${trip.tripType}` : ''}
           </span>
-        </header>
-        <RoutePoints compact pickup={trip.pickup.name} drop={trip.drop.name} />
-        <footer>
-          <img src={vehicleArtUrl({ name: trip.categoryName, seats: 4 })} alt="" width={72} height={47} />
-          <span className="tcard__meta">
-            {trip.categoryName} · {trip.tripType}
-            <small className={`pay-${pay.tone}`}>{pay.text}</small>
-          </span>
-          <strong className="num tcard__fare">{total > 0 || trip.status === 'Completed' ? formatINR(total) : ''}</strong>
-        </footer>
+        </span>
+        <span className="trow__end">
+          <strong className="num trow__fare">{total > 0 || trip.status === 'Completed' ? formatINR(total) : ''}</strong>
+          <small className={`pay-${pay.tone}`}>{pay.text}</small>
+        </span>
       </Link>
-      <div className="tcard__actions">
-        <LinkButton size="sm" variant="secondary" to={`/trips/${trip.id}`}>
-          {trip.status === 'Completed' ? 'Receipt & details' : 'View details'}
-        </LinkButton>
-        {unrated ? (
-          <LinkButton size="sm" variant="ghost" to={`/trips/${trip.id}`}>
-            Rate trip
-          </LinkButton>
-        ) : null}
-        {trip.status === 'Completed' && isValidLatLng(trip.pickup) && isValidLatLng(trip.drop) ? (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              startFrom(trip.pickup, trip.drop);
-              navigate('/book');
-            }}
-          >
-            Book again
-          </Button>
-        ) : null}
-        {canCancel ? (
-          <Button size="sm" variant="danger" onClick={() => onCancel(trip)}>
-            Cancel
-          </Button>
-        ) : null}
-      </div>
-    </article>
+      {unrated || canRebook || canCancel ? (
+        <div className="trow__actions">
+          {unrated ? (
+            <Link className="trow__act" to={`/trips/${trip.id}`}>
+              Rate trip
+            </Link>
+          ) : null}
+          {canRebook ? (
+            <button
+              type="button"
+              className="trow__act"
+              onClick={() => {
+                startFrom(trip.pickup, trip.drop);
+                navigate('/book');
+              }}
+            >
+              Book again
+            </button>
+          ) : null}
+          {canCancel ? (
+            <button type="button" className="trow__act trow__act--danger" onClick={() => onCancel(trip)}>
+              Cancel booking
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </li>
   );
 }
 
@@ -190,9 +194,9 @@ export function TripsPage() {
 
         <div role="tabpanel" aria-label={`${tab} trips`}>
           {tripsLoading ? (
-            <div className="trip-grid" aria-busy="true">
-              {[0, 1, 2, 3].map((i) => (
-                <div key={i} className="skeleton" style={{ height: 196 }} />
+            <div className="trip-list" aria-busy="true">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div key={i} className="skeleton" style={{ height: 84, borderRadius: 0 }} />
               ))}
             </div>
           ) : shown.length === 0 ? (
@@ -226,11 +230,11 @@ export function TripsPage() {
             </div>
           ) : (
             <>
-              <div className="trip-grid">
+              <ul className="trip-list">
                 {shown.slice(0, limit).map((t) => (
-                  <TripCard key={t.id} trip={t} onCancel={setCancelTrip} />
+                  <TripRow key={t.id} trip={t} onCancel={setCancelTrip} />
                 ))}
-              </div>
+              </ul>
               {shown.length > limit ? (
                 <div className="more">
                   <Button variant="secondary" onClick={() => setLimit((n) => n + PAGE)}>

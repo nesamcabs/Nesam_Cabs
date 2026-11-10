@@ -79,57 +79,52 @@ export function TourQuotes({ brand }: { brand: string }) {
   return (
     <section className="quotes" aria-labelledby="quotes-title">
       <h2 id="quotes-title" className="quotes__title">
-        <Icon name="route" size={18} /> Tour quote requests
+        <Icon name="route" size={16} /> Tour quote requests
       </h2>
       {error ? (
-        <Notice
-          tone="error"
-          action={
-            <Button size="sm" variant="secondary" onClick={load}>
-              Try again
-            </Button>
-          }
-        >
-          {error}
-        </Notice>
+        <p className="quotes__error" role="alert">
+          <span>{error}</span>
+          <button type="button" className="quotes__retry" onClick={load}>
+            Try again
+          </button>
+        </p>
       ) : null}
       {done ? <Notice tone="success">{done}</Notice> : null}
-      <div className="quotes__list">
-        {(rows ?? []).map((e) => {
-          const stage = stageOf(e);
-          const route = [e.pickup, ...(e.stops ?? []).map((s) => s.name), e.drop].filter(Boolean);
-          const when = e.pickupAt ? new Date(e.pickupAt) : null;
-          return (
-            <article key={e.id} className="qcard">
-              <header className="qcard__head">
-                <span className="qcard__code num">{e.code}</span>
-                <Badge tone={stage.tone}>{stage.label}</Badge>
-              </header>
-              <p className="qcard__route">{route.join(' → ')}</p>
-              <p className="qcard__meta">
-                {when ? `${formatDate(when)} · ${formatTime(when)}` : 'Pickup date to be confirmed'}
-                {e.vehicle ? ` · ${e.vehicle}` : ''}
-              </p>
-              <p className="qcard__text">{stage.text}</p>
-              {stage.priced && e.estimate != null ? (
-                <div className="qcard__price">
-                  <span>
-                    Package price <strong className="num">{formatINR(e.estimate)}</strong>
-                  </span>
-                  {e.status === 'Quote sent' ? (
-                    <Button size="sm" variant="primary" loading={busyId === e.id} onClick={() => void accept(e)}>
-                      Accept quote
-                    </Button>
-                  ) : null}
+      {rows?.length ? (
+        <ul className="trip-list">
+          {rows.map((e) => {
+            const stage = stageOf(e);
+            const route = [e.pickup, ...(e.stops ?? []).map((s) => s.name), e.drop].filter(Boolean);
+            const when = e.pickupAt ? new Date(e.pickupAt) : null;
+            const validUntil = stage.priced && e.status === 'Quote sent' && e.validUntil ? ` · Valid until ${formatDate(new Date(e.validUntil))}` : '';
+            return (
+              <li key={e.id} className="qrow">
+                <div className="qrow__main">
+                  <p className="qrow__route" title={route.join(' → ')}>{route.join(' → ')}</p>
+                  <p className="qrow__status" title={stage.text}>
+                    <Badge tone={stage.tone}>{stage.label}</Badge>
+                  </p>
+                  <p className="qrow__meta">
+                    {when ? `${formatDate(when)} · ${formatTime(when)}` : 'Pickup date to be confirmed'}
+                    {e.vehicle ? ` · ${e.vehicle}` : ''} · {e.code}
+                    {validUntil}
+                  </p>
                 </div>
-              ) : null}
-              {stage.priced && e.status === 'Quote sent' && e.validUntil ? (
-                <p className="qcard__valid">Valid until {formatDate(new Date(e.validUntil))}</p>
-              ) : null}
-            </article>
-          );
-        })}
-      </div>
+                {stage.priced && e.estimate != null ? (
+                  <div className="qrow__end">
+                    <strong className="num qrow__price">{formatINR(e.estimate)}</strong>
+                    {e.status === 'Quote sent' ? (
+                      <Button size="sm" variant="primary" loading={busyId === e.id} onClick={() => void accept(e)}>
+                        Accept
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
     </section>
   );
 }

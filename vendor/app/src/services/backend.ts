@@ -27,7 +27,7 @@ class BackendError extends Error {
 
 export async function callBackend<Req, Res>(name: string, data: Req, timeoutMs = 60000): Promise<Res> {
   if (!usesHttpApi) {
-    return (await httpsCallable<Req, Res>(getFunctions(app), name, { timeout: timeoutMs })(data)).data;
+    return (await httpsCallable<Req, Res>(getFunctions(app, 'asia-south1'), name, { timeout: timeoutMs })(data)).data;
   }
 
   const user = auth.currentUser;

@@ -27,11 +27,21 @@ import './styles/support-menu.css';
 import './styles/bookform-route.css';
 import { keepHomeBehindEveryScreen } from './lib/homeNav';
 import { installStaleVersionReload, installVersionCheck } from '@/components/RouteErrorBoundary';
+import { prefetchWhenIdle, registerDeviceCache } from '@/lib/deviceCache';
 import { App } from './App';
 
 keepHomeBehindEveryScreen();
 installStaleVersionReload();
 installVersionCheck();
+registerDeviceCache();
+prefetchWhenIdle([
+  () => import('@/pages/book/DonePage'),
+  () => import('@/pages/ride/RidePage'),
+  () => import('@/pages/TripsPage'),
+  () => import('@/pages/localTaxi/LocalTaxiPage'),
+  () => import('@/pages/localRentals/LocalRentalsPage'),
+  () => import('@/pages/AccountPage'),
+]);
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

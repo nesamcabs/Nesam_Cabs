@@ -17,7 +17,7 @@ const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? '').trim().replace(/\/+$/, '
  * call and the functions' allowed-website list (CORS) never applies. Unset in production builds and in the app.
  */
 const FN_PROXY = (process.env.EXPO_PUBLIC_FUNCTIONS_PROXY ?? '').trim();
-const callableFunctions = () => (FN_PROXY && typeof window !== 'undefined' ? getFunctions(app, `${window.location.origin}${FN_PROXY}`) : getFunctions(app));
+const callableFunctions = () => (FN_PROXY && typeof window !== 'undefined' ? getFunctions(app, `${window.location.origin}${FN_PROXY}`) : getFunctions(app, 'asia-south1'));
 
 /** True when server functions go through the HTTP API instead of Firebase callables. */
 export const usesHttpApi = API_URL.length > 0;

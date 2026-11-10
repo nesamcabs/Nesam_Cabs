@@ -25,7 +25,7 @@ const dayText = (d: Date) => `${d.getDate()} ${d.toLocaleDateString('en-IN', { m
 
 export function ChooseRideScreen() {
   const navigation = useNavigation();
-  const { draft, update, route, setRoute, routeKey, categories, adjustment, serverQuote } = useBookingDraft();
+  const { draft, update, route, setRoute, routeKey, categories, categoryStatus, adjustment, serverQuote } = useBookingDraft();
   const { pickup, drop, tripType, scheduledAt, tripEndAt, categoryId } = draft;
   const [fareFor, setFareFor] = useState<string | null>(null);
   const [routeError, setRouteError] = useState('');
@@ -123,6 +123,7 @@ export function ChooseRideScreen() {
         </View>
 
         <Notice message={routeError} />
+        {categoryStatus === 'error' ? <Notice message="We couldn’t load the available vehicles. Please check your connection and try again." style={{ marginTop: space.md }} /> : categoryStatus === 'unavailable' ? <Notice tone="warning" message={`No vehicles are configured for online booking right now. Please call ${SUPPORT_PHONE_DISPLAY}.`} style={{ marginTop: space.md }} /> : null}
 
         {/* Cab cards */}
         <Content style={{ gap: 12 }}>
@@ -203,7 +204,7 @@ export function ChooseRideScreen() {
           })}
         </Content>
 
-        <Notice message={quoteProblem} style={{ marginTop: space.md }} />
+        <Notice message={quoteProblem} onRetry={serverQuote.status === 'error' ? serverQuote.retry : undefined} style={{ marginTop: space.md }} />
         {tooFar ? <Button title={`Call NESAM · ${SUPPORT_PHONE_DISPLAY}`} icon="phone" variant="secondary" onPress={() => void Linking.openURL(`tel:${SUPPORT_PHONE}`)} style={{ marginBottom: 12 }} /> : null}
         {/* The cab list is the last content in this ScrollView, so the gap above Back / Home is set here. */}
         <View style={{ marginTop: space.md }}>

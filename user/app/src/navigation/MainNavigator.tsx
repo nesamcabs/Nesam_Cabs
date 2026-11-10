@@ -49,6 +49,7 @@ function tabActive(name?: string): 'rental' | 'account' | undefined {
 function Tabs() {
   return (
     <Tab.Navigator
+      initialRouteName="Rentals"
       tabBar={(props) => <BottomNav active={tabActive(props.state.routes[props.state.index]?.name)} />}
       screenOptions={{ headerShown: false, tabBarPosition: 'bottom' }}
     >

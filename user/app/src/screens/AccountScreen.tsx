@@ -2,7 +2,7 @@
 // Header shows the logo emblem with "Account" title right to it,
 // followed by profile details, grouped menu rows with counts, and sign out.
 import React, { useMemo, useState } from 'react';
-import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAvoid } from '../components/KeyboardAvoid';
 import { useNavigation } from '@react-navigation/native';
@@ -18,6 +18,7 @@ import { signOutUser } from '../services/authService';
 import { isActiveStatus } from '../services/rideService';
 import { formatINR, formatPhone, initials } from '../utils/format';
 import { describeError } from '../utils/retry';
+import { SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY } from '../config/constants';
 import { colors, fonts, space } from '../theme';
 
 export function AccountScreen() {
@@ -99,6 +100,7 @@ export function AccountScreen() {
           <MenuRow icon="user-round" title="My Profile" subtitle="Personal details & contact information" onPress={() => navigation.navigate('EditProfile')} />
           <MenuRow icon="map-pin" title="Saved addresses" subtitle="Your regular pickup & drop places" onPress={() => navigation.navigate('SavedPlaces')} />
           <MenuRow icon="headphones" title="Help & Support" subtitle="Get help with your journey" onPress={() => navigation.navigate('Support')} />
+          <MenuRow icon="phone" title="Call NESAM" subtitle={SUPPORT_PHONE_DISPLAY} onPress={() => void Linking.openURL(`tel:${SUPPORT_PHONE}`)} />
         </MenuGroup>
 
         <MenuGroup>

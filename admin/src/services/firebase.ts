@@ -18,7 +18,8 @@ export const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfi
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
-export const functions = getFunctions(app);
+// Same city as the database (Mumbai); see functions/src/region.ts.
+export const functions = getFunctions(app, 'asia-south1');
 
 // ── Local testing against the Firebase emulators ────────────────────────────
 // Only when VITE_USE_FIREBASE_EMULATORS=true (never set for a production build).

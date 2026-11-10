@@ -7,11 +7,17 @@ export const CATEGORY_MEDIA_MAX_BYTES = 5 * 1024 * 1024;
 export const CATEGORY_MEDIA_PICK_MAX_BYTES = 25 * 1024 * 1024;
 const EXTENSIONS: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
 
-/** Longest side, in pixels, per artwork kind: plenty for a card or a phone screen, far smaller than a camera photo. */
-const MAX_SIDE: Record<'icon' | 'car', number> = { icon: 512, car: 1280 };
-/** The encoder is asked for this quality first and steps down until the file is small enough. */
-const QUALITY_STEPS = [0.85, 0.78, 0.7, 0.6];
-const TARGET_BYTES: Record<'icon' | 'car', number> = { icon: 120 * 1024, car: 350 * 1024 };
+/**
+ * Longest side, in pixels, per artwork kind. A cab card shows a car about 300 px wide, so 1024 px stays sharp on a
+ * 3x phone screen; an icon is shown at about 24 px, so 256 px is already more than enough.
+ */
+const MAX_SIDE: Record<'icon' | 'car', number> = { icon: 256, car: 1024 };
+/**
+ * The encoder starts at a near-lossless quality and steps down only while the file is still larger than the target,
+ * so a simple picture keeps its full quality and only a heavy one is squeezed a little.
+ */
+const QUALITY_STEPS = [0.92, 0.88, 0.84, 0.8, 0.74, 0.68];
+const TARGET_BYTES: Record<'icon' | 'car', number> = { icon: 40 * 1024, car: 200 * 1024 };
 
 /** Checks a file the admin has just picked (type and a generous size limit; compression follows). */
 export function categoryMediaProblem(file: Pick<File, 'type' | 'size'>): string {
@@ -66,6 +72,36 @@ async function decode(file: File): Promise<{ source: CanvasImageSource; width: n
 
 const toBlob = (canvas: HTMLCanvasElement, type: string, quality: number) =>
   new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, quality));
+
+/**
+ * Shrinks a picture to (width, height) in halving steps. One big jump from a camera photo to a small size drops
+ * detail and looks harsh; halving each time (with high-quality smoothing) keeps edges and text crisp.
+ */
+function resizeHighQuality(source: CanvasImageSource, fromW: number, fromH: number, width: number, height: number): HTMLCanvasElement {
+  let current: CanvasImageSource = source;
+  let w = fromW;
+  let h = fromH;
+  while (w / 2 > width && h / 2 > height) {
+    w = Math.max(1, Math.round(w / 2));
+    h = Math.max(1, Math.round(h / 2));
+    const step = document.createElement('canvas');
+    step.width = w;
+    step.height = h;
+    const sctx = step.getContext('2d');
+    if (!sctx) throw new Error('This browser cannot compress images. Try Chrome or Edge.');
+    sctx.imageSmoothingQuality = 'high';
+    sctx.drawImage(current, 0, 0, w, h);
+    current = step;
+  }
+  const out = document.createElement('canvas');
+  out.width = width;
+  out.height = height;
+  const ctx = out.getContext('2d');
+  if (!ctx) throw new Error('This browser cannot compress images. Try Chrome or Edge.');
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(current, 0, 0, width, height);
+  return out;
+}
 
 export interface CompressedImage {
   file: File;
@@ -154,9 +190,9 @@ export function drawPlateText(ctx: CanvasRenderingContext2D, plate: PlateBox, te
 
 /**
  * Upload → compress → store. Shrinks a picked image in the browser before it is saved:
- *  - the longest side is limited (icon 512 px, car 1280 px),
+ *  - the longest side is limited (icon 256 px, car 1024 px) and shrunk in halving steps so it stays sharp,
  *  - it is re-encoded as WebP (keeps transparent backgrounds, far smaller than PNG/JPG),
- *  - quality steps down until the file reaches a small target size.
+ *  - quality starts near-lossless (92%) and steps down only while the file is above its target size.
  * Car images can also get the category name written on their yellow number plate.
  * If compressing would not make the file smaller (and nothing was written), the original is kept.
  */
@@ -166,13 +202,9 @@ export async function compressCategoryImage(file: File, kind: 'icon' | 'car', pl
   const decoded = await decode(file);
   try {
     const { width, height } = fitWithin(decoded.width, decoded.height, MAX_SIDE[kind]);
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
+    const canvas = resizeHighQuality(decoded.source, decoded.width, decoded.height, width, height);
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('This browser cannot compress images. Try Chrome or Edge.');
-    ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(decoded.source, 0, 0, width, height);
 
     // Car images: write the category name on the yellow number plate (before encoding, so it is part of the stored image).
     let plate: CompressedImage['plate'];
@@ -184,14 +216,17 @@ export async function compressCategoryImage(file: File, kind: 'icon' | 'car', pl
       } else plate = 'not-found';
     }
 
-    // WebP first. A browser that cannot encode WebP hands back a PNG; then a JPEG source is encoded as JPEG instead.
-    const outType = file.type === 'image/jpeg' ? 'image/jpeg' : 'image/webp';
+    // WebP for everything: much smaller than JPEG or PNG at the same look, and it keeps a transparent background.
+    // A browser that cannot encode WebP hands back a PNG instead; then a JPEG source is encoded as JPEG.
     let best: Blob | null = null;
-    for (const q of QUALITY_STEPS) {
-      const blob = await toBlob(canvas, outType, q);
-      if (!blob || !EXTENSIONS[blob.type]) continue;
-      if (!best || blob.size < best.size) best = blob;
-      if (blob.size <= TARGET_BYTES[kind]) break;
+    for (const outType of file.type === 'image/jpeg' ? ['image/webp', 'image/jpeg'] : ['image/webp']) {
+      for (const q of QUALITY_STEPS) {
+        const blob = await toBlob(canvas, outType, q);
+        if (!blob || blob.type !== outType) break; // this encoder is not available: try the next type
+        if (!best || blob.size < best.size) best = blob;
+        if (blob.size <= TARGET_BYTES[kind]) break;
+      }
+      if (best) break;
     }
     const resized = width !== decoded.width || height !== decoded.height;
     // Keep the original when it is already smaller and was not resized (nothing to gain).

@@ -24,6 +24,27 @@ export function earliestPickup(now = Date.now()): Date {
   return t;
 }
 
+/** The earliest pickup a rider can choose: the minimum lead time (30 min) after now, rounded up to the next 5 minutes. */
+export function earliestSlot(now = Date.now()): Date {
+  return new Date(Math.ceil((now + SCHEDULE_MIN_LEAD_MIN * 60000) / 300000) * 300000);
+}
+
+/**
+ * The pickup times worth offering for a day: for today only times from the earliest slot onward (the first entry is the
+ * earliest itself, for example 6:35 PM, then the usual half-hour slots after it); other days get every slot.
+ */
+export function pickupTimeOptions(date: string, slots: readonly string[], now = Date.now()): string[] {
+  const first = earliestSlot(now);
+  const out: string[] = [];
+  if (date === toDateInput(first)) out.push(toTimeInput(first));
+  for (const t of slots) {
+    const at = combineDateTime(date, t);
+    if (!at || at.getTime() <= first.getTime() || at.getTime() > now + SCHEDULE_MAX_DAYS * 86400000) continue;
+    out.push(t);
+  }
+  return out;
+}
+
 export const latestPickup = (now = Date.now()) => new Date(now + SCHEDULE_MAX_DAYS * 86400000);
 
 /** Location problems explained for a browser (the shared texts talk about phone settings). */

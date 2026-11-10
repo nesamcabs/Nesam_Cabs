@@ -4,6 +4,7 @@
 // can be re-sent no more than once a minute and five times an hour per
 // booking, and every delivery attempt is logged with its status.
 import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https';
+import { WEBHOOK_REGION } from './region';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { createHmac, randomBytes, randomInt, timingSafeEqual } from 'crypto';
 import { db } from './admin';
@@ -138,7 +139,7 @@ export const verifyCustomerCode = onCall(async (request) => {
  * in the Meta app's webhook settings with WHATSAPP_WEBHOOK_VERIFY_TOKEN; requests are
  * accepted only with a valid X-Hub-Signature-256 made with WHATSAPP_APP_SECRET.
  */
-export const whatsappWebhook = onRequest(async (req, res) => {
+export const whatsappWebhook = onRequest({ region: WEBHOOK_REGION }, async (req, res) => {
   const verifyToken = (process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN ?? '').trim();
   const secret = (process.env.WHATSAPP_APP_SECRET ?? '').trim();
   if (req.method === 'GET') {

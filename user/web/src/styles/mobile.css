@@ -383,23 +383,3 @@
   }
 }
 
-/* My trips: tour quote requests in one swipeable row */
-@media (max-width: 767.98px) {
-  .quotes__list {
-    display: flex;
-    gap: 12px;
-    margin-inline: calc(-1 * var(--gutter));
-    padding: 2px var(--gutter) 8px;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    scroll-padding-inline: var(--gutter);
-    scrollbar-width: none;
-  }
-  .quotes__list::-webkit-scrollbar {
-    display: none;
-  }
-  .quotes__list > .qcard {
-    flex: 0 0 min(86%, 340px);
-    scroll-snap-align: start;
-  }
-}

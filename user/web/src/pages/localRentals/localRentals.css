@@ -212,7 +212,15 @@
   box-shadow: 0 6px 18px rgb(15 23 42 / 0.2);
   cursor: pointer;
 }
-.lr-locate:disabled { opacity: 0.6; }
+.lr-locate:disabled { opacity: 0.6; cursor: progress; }
+.lr-locate.is-on { background: var(--brand, #1665e8); color: #fff; }
+.lr-locate.is-busy svg { animation: lr-spin 1s linear infinite; }
+@keyframes lr-spin { to { transform: rotate(360deg); } }
+
+/* The rider's own position on the Leaflet map (Google draws its own blue dot). */
+.lr-mewrap { background: none; border: 0; }
+.lr-me { display: block; width: 22px; height: 22px; box-sizing: border-box; border-radius: 50%; border: 3px solid #fff; background: #1a73e8; box-shadow: 0 0 0 0 rgb(26 115 232 / 0.45), 0 1px 4px rgb(0 0 0 / 0.35); animation: lr-me 2s ease-out infinite; }
+@keyframes lr-me { 70% { box-shadow: 0 0 0 14px rgb(26 115 232 / 0), 0 1px 4px rgb(0 0 0 / 0.35); } 100% { box-shadow: 0 0 0 0 rgb(26 115 232 / 0), 0 1px 4px rgb(0 0 0 / 0.35); } }
 
 /* ── The sheet that rises from the bottom ── */
 .lr-dock {
@@ -268,6 +276,10 @@
 .lr-dot--to { border-radius: 4px; box-shadow: 0 0 0 2px var(--lr-red); background: var(--lr-red); }
 .lr-hint, .lr-warn { margin: 10px 2px 0; font-size: 0.8125rem; line-height: 1.45; }
 .lr-hint { color: var(--muted, #5b6472); }
+.lr-perm { display: flex; align-items: center; gap: 10px; margin: 10px 2px 0; padding: 9px 10px 9px 12px; border-radius: 10px; background: var(--brand-soft, #eaf1ff); color: var(--ink, #0f172a); }
+.lr-perm.is-warn { background: var(--danger-soft, #fef1f0); color: var(--danger-ink, #b42318); }
+.lr-perm p { flex: 1; margin: 0; font-size: 0.8125rem; line-height: 1.4; font-weight: 600; }
+.lr-perm button { flex: none; min-height: 34px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--brand, #1665e8); color: #fff; font: inherit; font-size: 0.8125rem; font-weight: 700; cursor: pointer; }
 .lr-warn { padding: 9px 12px; border-radius: 10px; background: var(--danger-soft, #fef1f0); color: var(--danger-ink, #b42318); font-weight: 600; }
 
 .lr-cta {

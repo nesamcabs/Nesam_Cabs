@@ -22,7 +22,7 @@ const TS = admin.firestore.Timestamp;
 
 const FS = `http://${process.env.FIRESTORE_EMULATOR_HOST}/v1/projects/${PROJECT}/databases/(default)/documents`;
 const AUTH = `http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}`;
-const FN = `http://127.0.0.1:5001/${PROJECT}/us-central1`;
+const FN = `http://127.0.0.1:5001/${PROJECT}/asia-south1`;
 
 // ── helpers ───────────────────────────────────────────────────────────────
 

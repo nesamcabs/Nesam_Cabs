@@ -54,7 +54,7 @@ test('someone with no account, or no sign-in, is refused', async () => {
   const stranger = await call(`del_nobody_${stamp}`, 'requestAccountDeletion', {});
   assert.equal(stranger.ok, false);
   assert.equal(stranger.status, 'FAILED_PRECONDITION');
-  const r = await fetch('http://127.0.0.1:5001/demo-nesam/us-central1/requestAccountDeletion', {
+  const r = await fetch('http://127.0.0.1:5001/demo-nesam/asia-south1/requestAccountDeletion', {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ data: {} }),
   });
   assert.equal((await r.json()).error.status, 'UNAUTHENTICATED');

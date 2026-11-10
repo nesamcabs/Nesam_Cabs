@@ -60,7 +60,7 @@ if (process.env.EXPO_PUBLIC_USE_FIREBASE_EMULATORS === 'true') {
   connectAuthEmulator(auth, `http://${host}:9099`, { disableWarnings: true });
   connectFirestoreEmulator(db, host, 8080);
   connectStorageEmulator(storage, host, Number(process.env.EXPO_PUBLIC_STORAGE_EMULATOR_PORT || 9199));
-  connectFunctionsEmulator(getFunctions(app), host, 5001);
+  connectFunctionsEmulator(getFunctions(app, 'asia-south1'), host, 5001);
   // Lets an automated test (web preview) sign in with an emulator custom token.
   (globalThis as unknown as Record<string, unknown>).__nesamTestSignIn = (token: string) => signInWithCustomToken(auth, token);
 }

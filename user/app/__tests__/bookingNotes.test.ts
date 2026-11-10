@@ -18,3 +18,9 @@ describe('composeBookingNotes', () => {
     expect(out.startsWith('Flight: AI 101 | Travelling passenger: Anil Kumar, 9876543210 | x')).toBe(true);
   });
 });
+
+describe('composeBookingNotes: booker name', () => {
+  it('names the booker first when someone else travels', () => {
+    expect(composeBookingNotes({ customerName: 'Priya', passengerName: 'Anil', passengerMobile: '9876543210' })).toBe('Booked by: Priya | Travelling passenger: Anil, 9876543210');
+  });
+});
