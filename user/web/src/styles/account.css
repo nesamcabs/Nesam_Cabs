@@ -1,0 +1,101 @@
+/* Account page: profile card, refund credits and the settings lists.
+   Loaded last. Uses only the shared design tokens, so it takes the colours of whichever brand it ships in. */
+
+/* ── Layout ───────────────────────────────────────────────────────────────────────────────────────────────────── */
+.account { display: grid; gap: 18px; align-items: start; }
+.account__side { display: grid; gap: 14px; min-width: 0; }
+.account__groups { display: grid; gap: 22px; min-width: 0; max-width: 760px; }
+@media (min-width: 900px) {
+  .account { grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 28px; }
+  .account__side { position: sticky; top: calc(var(--nav-h, 72px) + 16px); }
+}
+
+/* ── Profile card ─────────────────────────────────────────────────────────────────────────────────────────────── */
+.profile-card {
+  position: relative; isolation: isolate; display: grid; justify-items: center; gap: 4px; padding: 30px 20px 22px;
+  border: 0; border-radius: 26px; overflow: hidden; text-align: center; color: #fff; background: var(--brand-gradient, var(--brand));
+  box-shadow: 0 22px 44px -22px color-mix(in srgb, var(--brand) 70%, transparent);
+}
+.profile-card::before, .profile-card::after { content: ''; position: absolute; z-index: -1; border-radius: 50%; pointer-events: none; background: rgb(255 255 255 / 0.14); }
+.profile-card::before { top: -70px; right: -50px; width: 190px; height: 190px; animation: acct-float 9s ease-in-out infinite alternate; }
+.profile-card::after { bottom: -56px; left: -44px; width: 140px; height: 140px; background: rgb(255 255 255 / 0.1); animation: acct-float 11s ease-in-out infinite alternate-reverse; }
+@keyframes acct-float { from { transform: translate3d(0, 0, 0) scale(1); } to { transform: translate3d(-14px, 12px, 0) scale(1.08); } }
+.profile-card h2 { margin: 10px 0 0; max-width: 100%; color: #fff; font-size: 1.3rem; font-weight: 800; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.profile-card p, .profile-card .muted, .profile-card .small { margin: 0; color: rgb(255 255 255 / 0.88); }
+.profile-card .truncate { max-width: 100%; }
+.profile-card__photo {
+  position: relative; display: grid; place-items: center; margin: 0; padding: 0; border: 0; border-radius: 50%; background: transparent; cursor: pointer;
+  box-shadow: 0 0 0 4px rgb(255 255 255 / 0.92), 0 14px 30px -8px rgb(0 0 0 / 0.35); transition: transform 320ms var(--ease-out, ease), box-shadow 320ms;
+}
+.profile-card__photo:hover:not(:disabled) { transform: scale(1.04) rotate(-1.5deg); }
+.profile-card__photo:active:not(:disabled) { transform: scale(0.97); }
+.profile-card__photo:disabled { cursor: progress; opacity: 0.85; }
+.profile-card__photo:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
+.profile-card__photo .avatar { display: block; border: 0; box-shadow: none; }
+.profile-card__cam { position: absolute; right: -2px; bottom: -2px; display: grid; place-items: center; width: 34px; height: 34px; border: 0; border-radius: 50%; background: #fff; color: var(--brand); box-shadow: 0 4px 12px rgb(0 0 0 / 0.28); }
+.profile-card .btn { width: 100%; margin-top: 14px; }
+.profile-card .btn--secondary { --btn-bg: #fff; --btn-fg: var(--brand-ink, var(--brand)); --btn-line: #fff; box-shadow: 0 10px 22px -10px rgb(0 0 0 / 0.4); }
+.profile-card .btn--secondary:hover:not(:disabled) { transform: translateY(-2px); }
+
+/* ── Refund credits ───────────────────────────────────────────────────────────────────────────────────────────── */
+.credit-card {
+  position: relative; overflow: hidden; display: flex; align-items: center; gap: 14px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 20px;
+  background: var(--surface, #fff); color: var(--ink); text-decoration: none; box-shadow: 0 10px 24px -16px rgb(15 23 42 / 0.35);
+  transition: transform 280ms var(--ease-out, ease), box-shadow 280ms, border-color 280ms;
+}
+.credit-card::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(110deg, transparent 35%, rgb(255 255 255 / 0.7) 50%, transparent 65%); transform: translateX(-120%); }
+.credit-card:hover { transform: translateY(-3px); border-color: var(--brand-line, var(--line)); box-shadow: 0 16px 30px -16px rgb(15 23 42 / 0.4); text-decoration: none; }
+.credit-card:hover::after { transform: translateX(120%); transition: transform 900ms ease; }
+.credit-card:active { transform: translateY(-1px) scale(0.99); }
+.credit-card:focus-visible { outline: 3px solid color-mix(in srgb, var(--brand) 40%, transparent); outline-offset: 2px; }
+.credit-card__icon { display: grid; place-items: center; flex: none; width: 46px; height: 46px; border-radius: 14px; background: color-mix(in srgb, var(--brand) 12%, #fff); color: var(--brand); }
+.credit-card__text { display: grid; flex: 1; gap: 2px; min-width: 0; }
+.credit-card__text small { color: var(--muted); font-size: 0.8rem; font-weight: 600; }
+.credit-card__text strong { color: var(--ink); font-size: 1.35rem; font-weight: 800; letter-spacing: -0.01em; }
+.credit-card > .icon:last-child { flex: none; color: var(--faint); transition: transform 240ms var(--ease-out, ease), color 200ms; }
+.credit-card:hover > .icon:last-child { transform: translateX(3px); color: var(--brand); }
+
+/* ── Settings groups and rows ─────────────────────────────────────────────────────────────────────────────────── */
+.group { display: grid; gap: 10px; min-width: 0; }
+.group > h2.eyebrow { margin: 0 0 0 4px; padding: 0; background: none; color: var(--muted); font-size: 0.74rem; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; }
+.card--list { padding: 0; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 24px -18px rgb(15 23 42 / 0.35); }
+.setting {
+  --tone: var(--brand); position: relative; display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 10px 16px; color: var(--ink);
+  font-size: 0.95rem; font-weight: 700; line-height: 1.3; text-decoration: none; transition: background 200ms; -webkit-tap-highlight-color: transparent;
+}
+.setting + .setting { border-top: 1px solid var(--line); }
+.setting--gold { --tone: var(--sun); }
+.setting--green { --tone: var(--green); }
+.setting--blue { --tone: var(--blue); }
+.setting--red { --tone: var(--danger, #b42318); }
+.setting__icon { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: 12px; background: color-mix(in srgb, var(--tone) 12%, #fff); color: var(--tone); transition: transform 260ms var(--ease-out, ease); }
+.setting__label { flex: 1 1 auto; min-width: 0; }
+.setting__value { flex: 0 1 auto; max-width: 46%; color: var(--muted); font-size: 0.85rem; font-weight: 600; text-align: right; }
+.setting > .icon:last-child { flex: none; color: var(--faint); transition: transform 240ms var(--ease-out, ease), color 200ms; }
+a.setting:hover { background: color-mix(in srgb, var(--brand) 5%, #fff); text-decoration: none; }
+a.setting:hover .setting__icon { transform: scale(1.08) rotate(-4deg); }
+a.setting:hover > .icon:last-child { transform: translateX(3px); color: var(--brand); }
+a.setting:active { background: color-mix(in srgb, var(--brand) 9%, #fff); }
+a.setting:focus-visible { outline: 3px solid color-mix(in srgb, var(--brand) 40%, transparent); outline-offset: -3px; }
+
+/* ── Log out and delete ───────────────────────────────────────────────────────────────────────────────────────── */
+.card.account__logout { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px; padding: 16px 18px; border-radius: 20px; }
+.account__logout > div { flex: 1 1 200px; min-width: 0; }
+.account__logout strong { font-size: 0.95rem; }
+.account__logout p { margin: 2px 0 0; }
+.account__logout .btn { flex: none; }
+@media (max-width: 440px) { .account__logout .btn { width: 100%; } }
+
+/* ── Entrance ─────────────────────────────────────────────────────────────────────────────────────────────────── */
+@keyframes acct-rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+/* `backwards` (not `both`): the end state is released, so hover transforms still work afterwards. */
+.account__side > *, .account__groups > .group { animation: acct-rise 560ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+.account__side > :nth-child(2) { animation-delay: 70ms; }
+.account__groups > .group:nth-child(1) { animation-delay: 120ms; }
+.account__groups > .group:nth-child(2) { animation-delay: 190ms; }
+.account__groups > .group:nth-child(3) { animation-delay: 260ms; }
+.account__groups > .group:nth-child(4) { animation-delay: 330ms; }
+.account__groups > .group:nth-child(5) { animation-delay: 400ms; }
+@media (prefers-reduced-motion: reduce) {
+  .account *, .account *::before, .account *::after { animation: none !important; transition: none !important; }
+}

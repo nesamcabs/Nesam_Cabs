@@ -12,7 +12,15 @@ import { PhotoError, uploadProfilePhoto } from '@/lib/avatarUpload';
 import { useSeo } from '@/lib/seo';
 import { useAuth } from '@/state/Auth';
 
+/** Each kind of row keeps its own icon colour, so a list reads at a glance. */
+const TONES: Record<string, string> = {
+  'saved-place': 'brand', emergency: 'red', help: 'blue', receipt: 'green', offers: 'gold', 'trip-history': 'brand',
+  support: 'blue', phone: 'green', info: 'gold', document: 'brand',
+};
+
 function Row({ icon, label, value, to, href }: { icon: string; label: string; value?: ReactNode; to?: string; href?: string }) {
+  const tone = TONES[icon] ?? 'brand';
+  const cls = `setting setting--${tone}`;
   const inner = (
     <>
       <span className="setting__icon">
@@ -25,17 +33,17 @@ function Row({ icon, label, value, to, href }: { icon: string; label: string; va
   );
   if (to)
     return (
-      <Link className="setting" to={to}>
+      <Link className={cls} to={to}>
         {inner}
       </Link>
     );
   if (href)
     return (
-      <a className="setting" href={href}>
+      <a className={cls} href={href}>
         {inner}
       </a>
     );
-  return <div className="setting">{inner}</div>;
+  return <div className={cls}>{inner}</div>;
 }
 
 export function AccountPage() {
@@ -140,7 +148,9 @@ export function AccountPage() {
             </section>
 
             <Link className="credit-card" to="/account/payments">
-              <Icon name="wallet" size={30} />
+              <span className="credit-card__icon">
+                <Icon name="wallet" size={24} />
+              </span>
               <span className="credit-card__text">
                 <small>Refund credits</small>
                 <strong className="num">{formatINR(profile.walletBalance)}</strong>

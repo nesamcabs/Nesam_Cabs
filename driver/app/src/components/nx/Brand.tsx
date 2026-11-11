@@ -6,6 +6,10 @@ import { nx } from '../../theme/nx';
 
 const EMBLEM = require('../../../assets/brand/nesam-emblem.jpg');
 
+// Full "NESAM CABS" lockup (480×154), copied from the customer app.
+const LOCKUP = require('../../../assets/brand/nesam-cabs-logo.webp');
+const LOCKUP_RATIO = 480 / 154;
+
 // The emblem JPEG has padding; the reference crops it inside a square wrapper (width 127.45%, left −13.57%, top −11.95%).
 const SOURCE = { width: 512, height: 497 };
 
@@ -20,6 +24,16 @@ export function NxBrand({ title, subtitle }: { title?: string; subtitle?: string
   const symbol = narrow ? 36 : 40;
   const imgW = symbol * 1.2745;
   const displayTitle = title || 'Home';
+
+  // Home carries the full NESAM CABS lockup (same artwork as the customer app) instead of emblem + page title.
+  if (displayTitle === 'Home') {
+    const h = narrow ? 36 : 42;
+    return (
+      <View style={styles.row} accessible accessibilityRole="header" accessibilityLabel="Home · NESAM Driver">
+        <Image source={LOCKUP} accessible={false} style={{ width: Math.round(h * LOCKUP_RATIO), height: h }} resizeMode="contain" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.row} accessible accessibilityRole="header" accessibilityLabel={`${displayTitle} · NESAM Driver`}>
