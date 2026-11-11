@@ -1,10 +1,23 @@
 // The AI travel assistant chat, shared by NESAM Cabs, One Way Car Rentals and People Taxi: each site
 // passes its own brand text (see its AiChatbot.tsx) and icon set. English and Tamil.
-import { useEffect, useRef, useState, type ComponentType, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ComponentType, type FormEvent, type ReactNode } from 'react';
 import { callFunction } from '@core/services/callables';
 import { SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY } from '@core/config/constants';
+import {
+  buildAiLeadSubmission,
+  compactTripContext,
+  detectClientConfusion,
+  validateAiLeadField,
+  validateAiLeadForm,
+  type AiLeadCustomer,
+  type AiLeadErrors,
+  type AiLeadField,
+  type AiLeadFormDraft,
+  type AiLeadTripContext,
+  type ChatLang,
+} from '@/lib/aiChatLead';
 
-export type ChatLang = 'en' | 'ta';
+export type { ChatLang };
 
 export interface ChatBrand {
   /** Sent to the server so it answers as this brand. */
@@ -25,6 +38,13 @@ interface Message {
   content: string;
   time: string;
   localOnly?: boolean;
+  canOfferLead?: boolean;
+}
+
+interface LeadCaptureState {
+  question: string;
+  reply: string;
+  reason: string;
 }
 
 /** The chat window's own words, per language. */
@@ -34,7 +54,7 @@ const UI: Record<ChatLang, Record<string, string>> = {
     groq: 'Powered by Groq AI',
     quick: 'Basic answers · AI unavailable',
     ready: 'Ask about your journey',
-    limited: 'AI is unavailable right now. These are basic travel answers; detailed follow-ups may need our support team.',
+    limited: 'AI is unavailable right now. These are basic travel answers; leave your details below if you need personal help.',
     open: 'Open AI Travel Assistant',
     close: 'Close AI Travel Assistant',
     closeChat: 'Close chat',
@@ -42,16 +62,29 @@ const UI: Record<ChatLang, Record<string, string>> = {
     send: 'Send message',
     language: 'Language',
     callLabel: 'Call support',
-    offline: "You're offline. Check your connection and try again.",
-    fail: `I couldn't reach the assistant just now. You can call our 24/7 desk on **${SUPPORT_PHONE_DISPLAY}** or use the booking form on the home page.`,
+    offline: "You're offline. Check your connection or leave your details once back online.",
+    fail: `I couldn't reach the assistant just now. Leave your phone number below for a quick callback, or call **${SUPPORT_PHONE_DISPLAY}**.`,
     busy: 'You are sending messages too quickly. Please wait a moment.',
+    leadTitle: 'Get a quick callback from our travel desk',
+    leadSub: 'Share your contact details so our team can assist you directly.',
+    leadName: 'Your name',
+    leadNamePh: 'Enter your name',
+    leadPhone: 'Mobile number',
+    leadPhonePh: '+91 98765 43210',
+    leadNotes: 'How can we help?',
+    leadNotesPh: 'Route, date, car preference or question…',
+    leadSubmit: 'Send to support team',
+    leadSending: 'Sending…',
+    leadDismiss: 'Dismiss form',
+    leadAskHuman: 'Need human help? Request callback',
+    leadFail: 'Could not submit right now. Please try again or call us directly.',
   },
   ta: {
     online: 'பயண உதவி',
     groq: 'Groq AI இயக்கம்',
     quick: 'அடிப்படை பதில்கள் · AI கிடைக்கவில்லை',
     ready: 'உங்கள் பயணம் பற்றிக் கேளுங்கள்',
-    limited: 'AI இப்போது கிடைக்கவில்லை. இவை அடிப்படை பயண பதில்கள்; கூடுதல் உதவிக்கு எங்கள் குழுவைத் தொடர்புகொள்ளுங்கள்.',
+    limited: 'AI இப்போது கிடைக்கவில்லை. தனிப்பட்ட உதவிக்கு கீழே உங்கள் விவரங்களை அனுப்பலாம்.',
     open: 'AI பயண உதவியாளரைத் திறக்க',
     close: 'AI பயண உதவியாளரை மூட',
     closeChat: 'அரட்டையை மூடு',
@@ -60,8 +93,21 @@ const UI: Record<ChatLang, Record<string, string>> = {
     language: 'மொழி',
     callLabel: 'ஆதரவை அழைக்க',
     offline: 'இணைய இணைப்பு இல்லை. இணைப்பைச் சரிபார்த்து மீண்டும் முயலவும்.',
-    fail: `உதவியாளரை இப்போது அடைய முடியவில்லை. எங்கள் 24/7 எண் **${SUPPORT_PHONE_DISPLAY}** ஐ அழைக்கவும் அல்லது முகப்புப் பக்கத்தின் புக்கிங் படிவத்தைப் பயன்படுத்தவும்.`,
+    fail: `உதவியாளரை இப்போது அடைய முடியவில்லை. கீழே உங்கள் எண்ணைப் பகிரவும் அல்லது **${SUPPORT_PHONE_DISPLAY}** ஐ அழைக்கவும்.`,
     busy: 'மிக வேகமாகச் செய்திகளை அனுப்புகிறீர்கள். சிறிது நேரம் காத்திருக்கவும்.',
+    leadTitle: 'எங்கள் பயணக் குழுவிடமிருந்து உடனடி அழைப்பைப் பெறுங்கள்',
+    leadSub: 'உங்கள் விவரங்களைப் பகிர்ந்தால் எங்கள் குழு நேரடியாக உதவும்.',
+    leadName: 'உங்கள் பெயர்',
+    leadNamePh: 'உங்கள் பெயரை உள்ளிடவும்',
+    leadPhone: 'மொபைல் எண்',
+    leadPhonePh: '+91 98765 43210',
+    leadNotes: 'என்ன உதவி வேண்டும்?',
+    leadNotesPh: 'பயண வழி, தேதி, கார் அல்லது கேள்வி…',
+    leadSubmit: 'உதவி குழுவுக்கு அனுப்பு',
+    leadSending: 'அனுப்புகிறது…',
+    leadDismiss: 'படிவத்தை மூடு',
+    leadAskHuman: 'நேரடி உதவி வேண்டுமா? கால்பேக் கேளுங்கள்',
+    leadFail: 'இப்போது அனுப்ப முடியவில்லை. மீண்டும் முயலவும் அல்லது எங்களை அழைக்கவும்.',
   },
 };
 
@@ -98,40 +144,41 @@ function inline(line: string, keyBase: string): ReactNode[] {
           {m[2]}
         </a>,
       );
-    } else out.push(m[2]);
+    } else {
+      out.push(m[2]);
+    }
     last = m.index + m[0].length;
   }
   if (last < line.length) out.push(line.slice(last));
   return out;
 }
 
-function renderChat(text: string): ReactNode[] {
-  const nodes: ReactNode[] = [];
-  let bullets: ReactNode[] = [];
-  const flush = (key: string) => {
-    if (bullets.length) nodes.push(<ul key={`ul-${key}`} className="chat-list">{bullets}</ul>);
-    bullets = [];
-  };
-  text.split('\n').forEach((raw, i) => {
-    const line = raw.trim();
-    const bullet = /^([•\-*]|\d+\.)\s+(.*)$/.exec(line);
+function renderChat(text: string): ReactNode {
+  return text.split('\n').map((raw, i) => {
+    const bullet = /^\s*[•-]\s+(.*)$/.exec(raw);
     if (bullet) {
-      bullets.push(<li key={`li-${i}`} className="chat-bullet">{inline(bullet[2]!, `b${i}`)}</li>);
-      return;
+      return (
+        <ul key={i} className="chat-list">
+          <li className="chat-bullet">
+            <span aria-hidden="true">•</span>
+            <span>{inline(bullet[1]!, `b${i}`)}</span>
+          </li>
+        </ul>
+      );
     }
-    flush(String(i));
-    if (!line) nodes.push(<div key={`sp-${i}`} className="chat-spacer" />);
-    else nodes.push(<p key={`p-${i}`} className="chat-paragraph">{inline(line, `p${i}`)}</p>);
+    if (!raw.trim()) return <div key={i} className="chat-gap" />;
+    return (
+      <p key={i} className="chat-paragraph">
+        {inline(raw, `p${i}`)}
+      </p>
+    );
   });
-  flush('end');
-  return nodes;
 }
 
-/** The assistant's sparkle mark: a drawn icon, so it looks the same on every phone (no emoji font). */
-function Sparkle({ size = 20 }: { size?: number }) {
+function Sparkle({ size = 18 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false" className="ai-glyph">
-      <path d="M10 3l2 6.2 6.2 2-6.2 2-2 6.2-2-6.2-6.2-2 6.2-2z" />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+      <path d="M12 2l2.1 5.9L20 10l-5.9 2.1L12 18l-2.1-5.9L4 10l5.9-2.1z" />
       <path d="M19 2l.9 2.1L22 5l-2.1.9L19 8l-.9-2.1L16 5l2.1-.9z" />
     </svg>
   );
@@ -146,6 +193,8 @@ export function AiChatWidget({
   open: controlledOpen,
   onOpenChange,
   hideLauncher = false,
+  customer,
+  tripContext,
 }: {
   brand: ChatBrand;
   Icon: IconComponent;
@@ -155,6 +204,10 @@ export function AiChatWidget({
   onOpenChange?: (open: boolean) => void;
   /** Drop the floating "Ask AI" button; something else opens the chat. */
   hideLauncher?: boolean;
+  /** Optional signed-in profile hints used to pre-fill callback leads. */
+  customer?: AiLeadCustomer;
+  /** Optional active trip draft shown to the AI and recorded on escalated leads. */
+  tripContext?: AiLeadTripContext;
 }) {
   const [lang, setLang] = useState<ChatLang>(readLang);
   const [innerOpen, setInnerOpen] = useState(false);
@@ -168,16 +221,51 @@ export function AiChatWidget({
   const [loading, setLoading] = useState(false);
   const [provider, setProvider] = useState('');
   const [messages, setMessages] = useState<Message[]>(() => [{ id: 'welcome', role: 'assistant', content: brand.welcome[readLang()], time: formatTime() }]);
+
+  const [leadCapture, setLeadCapture] = useState<LeadCaptureState | null>(null);
+  const [leadDraft, setLeadDraft] = useState<AiLeadFormDraft>({
+    name: customer?.name?.trim() ?? '',
+    phone: customer?.phone?.trim() ?? '',
+    notes: '',
+  });
+  const [leadTouched, setLeadTouched] = useState<Partial<Record<AiLeadField, boolean>>>({});
+  const [leadAttempted, setLeadAttempted] = useState(false);
+  const [submittingLead, setSubmittingLead] = useState(false);
+  const [leadSubmitError, setLeadSubmitError] = useState('');
+  const [honeypot, setHoneypot] = useState('');
+
+  const uidPrefix = useId();
+  const leadTitleId = `${uidPrefix}-lead-title`;
+  const leadNameId = `${uidPrefix}-lead-name`;
+  const leadPhoneId = `${uidPrefix}-lead-phone`;
+  const leadNotesId = `${uidPrefix}-lead-notes`;
+
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const leadNameRef = useRef<HTMLInputElement>(null);
+  const leadPhoneRef = useRef<HTMLInputElement>(null);
+  const leadNotesRef = useRef<HTMLTextAreaElement>(null);
   const win = useRef<HTMLDivElement>(null);
   const t = UI[lang];
+
+  // Pre-fill signed-in profile values when available without overwriting user edits.
+  useEffect(() => {
+    setLeadDraft((cur) => ({
+      name: cur.name || customer?.name?.trim() || '',
+      phone: cur.phone || customer?.phone?.trim() || '',
+      notes: cur.notes,
+    }));
+  }, [customer?.name, customer?.phone]);
 
   useEffect(() => {
     if (!open) return;
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [open, messages, loading, leadCapture]);
+
+  useEffect(() => {
+    if (!open) return;
     inputRef.current?.focus({ preventScroll: true });
-  }, [open, messages, loading]);
+  }, [open]);
 
   // On a phone the window floats above the on-screen keyboard: the keyboard's height and the visible
   // height are handed to the stylesheet, and the latest message stays in view.
@@ -220,7 +308,20 @@ export function AiChatWidget({
     setMessages((cur) => (cur.length === 1 && cur[0]!.id === 'welcome' ? [{ ...cur[0]!, content: brand.welcome[next] }] : cur));
   };
 
-  const reply = (content: string, id: string, localOnly = false) => setMessages((prev) => [...prev, { id, role: 'assistant', content, time: formatTime(), localOnly }]);
+  const reply = (content: string, id: string, localOnly = false, canOfferLead = false) =>
+    setMessages((prev) => [...prev, { id, role: 'assistant', content, time: formatTime(), localOnly, canOfferLead }]);
+
+  const openLeadForm = (question: string, replyText: string, reason: string) => {
+    setLeadCapture({ question, reply: replyText, reason });
+    setLeadDraft((cur) => ({
+      name: cur.name || customer?.name?.trim() || '',
+      phone: cur.phone || customer?.phone?.trim() || '',
+      notes: question.trim(),
+    }));
+    setLeadTouched({});
+    setLeadAttempted(false);
+    setLeadSubmitError('');
+  };
 
   const send = async (textToSend?: string) => {
     const q = (textToSend ?? input).trim();
@@ -231,29 +332,46 @@ export function AiChatWidget({
 
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
       setProvider('fallback_error');
-      reply(t.offline!, `err_${Date.now()}`, true);
+      reply(t.offline!, `err_${Date.now()}`, true, true);
+      openLeadForm(q, t.offline!, 'offline');
       return;
     }
     setLoading(true);
     console.info('[AI Chat] Sending message', { brand: brand.id, language: lang, historyLength: history.length });
+    const ctx = compactTripContext(tripContext);
     try {
       const res = await callFunction<
-        { brand: string; language: ChatLang; messages: Array<{ role: 'user' | 'assistant'; content: string }> },
-        { message: string; provider: string }
+        { brand: string; language: ChatLang; context?: AiLeadTripContext; messages: Array<{ role: 'user' | 'assistant'; content: string }> },
+        { message: string; provider: string; confused?: boolean; confusionReason?: string }
       >('chatWithBot', {
         brand: brand.id,
         language: lang,
+        ...(ctx ? { context: ctx } : {}),
         // The greeting is scripted, not part of the conversation.
         messages: history.filter((m) => m.id !== 'welcome' && !m.localOnly).slice(-20).map((m) => ({ role: m.role, content: m.content })),
       });
+      const replyText = res?.message || t.fail!;
       setProvider(res?.provider ?? '');
-      console.info('[AI Chat] Response received', { brand: brand.id, provider: res?.provider ?? 'unknown' });
-      reply(res?.message || t.fail!, `a_${Date.now()}`, res?.provider !== 'groq');
+      console.info('[AI Chat] Response received', { brand: brand.id, provider: res?.provider ?? 'unknown', confused: res?.confused });
+      const confusion = detectClientConfusion({
+        serverConfused: res?.confused,
+        confusionReason: res?.confusionReason,
+        replyText,
+        userQuery: q,
+      });
+      reply(replyText, `a_${Date.now()}`, res?.provider !== 'groq', !confusion.confused);
+      if (confusion.confused) {
+        openLeadForm(q, replyText, confusion.reason || 'ai_confused');
+      }
     } catch (err) {
       const code = (err as { code?: string })?.code ?? '';
       console.error('[AI Chat] Request failed', { brand: brand.id, code, message: (err as Error)?.message });
       setProvider('fallback_error');
-      reply(code.includes('resource-exhausted') ? t.busy! : t.fail!, `err_${Date.now()}`, true);
+      const errReply = code.includes('resource-exhausted') ? t.busy! : t.fail!;
+      reply(errReply, `err_${Date.now()}`, true, true);
+      if (!code.includes('resource-exhausted')) {
+        openLeadForm(q, errReply, 'ai_unavailable');
+      }
     } finally {
       setLoading(false);
     }
@@ -263,6 +381,75 @@ export function AiChatWidget({
     e.preventDefault();
     void send();
   };
+
+  const setField = (field: AiLeadField, value: string) => {
+    setLeadDraft((cur) => ({ ...cur, [field]: value }));
+    if (leadSubmitError) setLeadSubmitError('');
+  };
+
+  const markTouched = (field: AiLeadField) => {
+    setLeadTouched((cur) => (cur[field] ? cur : { ...cur, [field]: true }));
+  };
+
+  const fieldError = (field: AiLeadField): string | undefined => {
+    if (!leadTouched[field] && !leadAttempted) return undefined;
+    return validateAiLeadField(field, leadDraft[field], lang);
+  };
+
+  const onLeadSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!leadCapture || submittingLead) return;
+    setLeadAttempted(true);
+    setLeadSubmitError('');
+
+    const errors: AiLeadErrors = validateAiLeadForm(leadDraft, lang);
+    if (errors.name || errors.phone || errors.notes) {
+      if (errors.name) leadNameRef.current?.focus();
+      else if (errors.phone) leadPhoneRef.current?.focus();
+      else if (errors.notes) leadNotesRef.current?.focus();
+      return;
+    }
+
+    setSubmittingLead(true);
+    try {
+      const payload = buildAiLeadSubmission({
+        brandId: brand.id,
+        draft: leadDraft,
+        email: customer?.email,
+        lang,
+        aiQuestion: leadCapture.question,
+        aiReply: leadCapture.reply,
+        reason: leadCapture.reason,
+        tripContext,
+        pagePath: typeof window !== 'undefined' ? `${window.location.pathname}${window.location.search}` : undefined,
+        messages: messages.filter((m) => m.id !== 'welcome').map((m) => ({ role: m.role, content: m.content })),
+        website: honeypot,
+      });
+      const res = await callFunction<typeof payload, { id: string }>('submitSupportRequest', payload);
+      const refCode = res?.id ? res.id.slice(0, 8).toUpperCase() : '';
+      const confirmation =
+        lang === 'ta'
+          ? `நன்றி **${leadDraft.name.trim()}**! உங்கள் தகவல்${refCode ? ` (#${refCode})` : ''} எங்கள் உதவி குழுவுக்கு அனுப்பப்பட்டது. **${leadDraft.phone.trim()}** எண்ணில் விரைவில் அழைப்போம்.`
+          : `Thank you, **${leadDraft.name.trim()}**! Your request${refCode ? ` (#${refCode})` : ''} has been sent to our support desk. Our team will reach out on **${leadDraft.phone.trim()}** shortly.`;
+      setLeadCapture(null);
+      setLeadDraft((cur) => ({ ...cur, notes: '' }));
+      setLeadTouched({});
+      setLeadAttempted(false);
+      reply(confirmation, `lead_ok_${Date.now()}`, true);
+      inputRef.current?.focus({ preventScroll: true });
+    } catch (err) {
+      const message = (err as Error)?.message?.trim() || t.leadFail!;
+      setLeadSubmitError(message);
+    } finally {
+      setSubmittingLead(false);
+    }
+  };
+
+  const nameErr = fieldError('name');
+  const phoneErr = fieldError('phone');
+  const notesErr = fieldError('notes');
+  const latestUserQuestion = [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
+  const latestAssistantId = [...messages].reverse().find((m) => m.role === 'assistant')?.id;
 
   return (
     <>
@@ -324,9 +511,155 @@ export function AiChatWidget({
             {messages.map((m) => (
               <div key={m.id} className={`chat-bubble chat-bubble--${m.role}`} lang={lang === 'ta' && m.role === 'assistant' ? 'ta' : undefined}>
                 <div className="chat-bubble__content">{renderChat(m.content)}</div>
-                <span className="chat-bubble__time">{m.time}</span>
+                <div className="chat-bubble__meta">
+                  <span className="chat-bubble__time">{m.time}</span>
+                  {m.canOfferLead && m.id === latestAssistantId && !leadCapture && (
+                    <button
+                      type="button"
+                      className="ai-lead-trigger"
+                      onClick={() => openLeadForm(latestUserQuestion || m.content, m.content, 'human_requested')}
+                    >
+                      {t.leadAskHuman}
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
+
+            {leadCapture && (
+              <form className="ai-lead-card" onSubmit={onLeadSubmit} noValidate aria-labelledby={leadTitleId}>
+                <div className="ai-lead-card__head">
+                  <div>
+                    <strong id={leadTitleId} className="ai-lead-card__title">{t.leadTitle}</strong>
+                    <p className="ai-lead-card__sub">{t.leadSub}</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="ai-lead-card__dismiss"
+                    onClick={() => setLeadCapture(null)}
+                    aria-label={t.leadDismiss}
+                    title={t.leadDismiss}
+                  >
+                    <Icon name={closeIcon} size={15} />
+                  </button>
+                </div>
+
+                <input
+                  type="text"
+                  name="website"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  className="ai-lead-honeypot"
+                  aria-hidden="true"
+                  value={honeypot}
+                  onChange={(e) => setHoneypot(e.target.value)}
+                />
+
+                {leadSubmitError && (
+                  <div className="ai-lead-alert" role="alert" aria-live="assertive">
+                    <span className="ai-lead-alert__mark" aria-hidden="true">!</span>
+                    <span>{leadSubmitError}</span>
+                  </div>
+                )}
+
+                <div className="ai-lead-field">
+                  <label htmlFor={leadNameId} className="ai-lead-label">{t.leadName}</label>
+                  <input
+                    id={leadNameId}
+                    ref={leadNameRef}
+                    type="text"
+                    name="leadName"
+                    autoComplete="name"
+                    required
+                    minLength={2}
+                    maxLength={80}
+                    className={`ai-lead-control ${nameErr ? 'is-invalid' : ''}`}
+                    value={leadDraft.name}
+                    placeholder={t.leadNamePh}
+                    onChange={(e) => setField('name', e.target.value)}
+                    onBlur={() => markTouched('name')}
+                    aria-invalid={nameErr ? true : undefined}
+                    aria-describedby={nameErr ? `${leadNameId}-err` : undefined}
+                    aria-errormessage={nameErr ? `${leadNameId}-err` : undefined}
+                  />
+                  {nameErr && (
+                    <p id={`${leadNameId}-err`} className="ai-lead-error" role="alert">
+                      <span aria-hidden="true">!</span> {nameErr}
+                    </p>
+                  )}
+                </div>
+
+                <div className="ai-lead-field">
+                  <label htmlFor={leadPhoneId} className="ai-lead-label">{t.leadPhone}</label>
+                  <input
+                    id={leadPhoneId}
+                    ref={leadPhoneRef}
+                    type="tel"
+                    inputMode="tel"
+                    name="leadPhone"
+                    autoComplete="tel"
+                    required
+                    pattern="[+0-9\s()-]{10,18}"
+                    maxLength={20}
+                    className={`ai-lead-control ${phoneErr ? 'is-invalid' : ''}`}
+                    value={leadDraft.phone}
+                    placeholder={t.leadPhonePh}
+                    onChange={(e) => setField('phone', e.target.value)}
+                    onBlur={() => markTouched('phone')}
+                    aria-invalid={phoneErr ? true : undefined}
+                    aria-describedby={phoneErr ? `${leadPhoneId}-err` : undefined}
+                    aria-errormessage={phoneErr ? `${leadPhoneId}-err` : undefined}
+                  />
+                  {phoneErr && (
+                    <p id={`${leadPhoneId}-err`} className="ai-lead-error" role="alert">
+                      <span aria-hidden="true">!</span> {phoneErr}
+                    </p>
+                  )}
+                </div>
+
+                <div className="ai-lead-field">
+                  <label htmlFor={leadNotesId} className="ai-lead-label">{t.leadNotes}</label>
+                  <textarea
+                    id={leadNotesId}
+                    ref={leadNotesRef}
+                    name="leadNotes"
+                    rows={2}
+                    required
+                    minLength={4}
+                    maxLength={600}
+                    className={`ai-lead-control ai-lead-control--area ${notesErr ? 'is-invalid' : ''}`}
+                    value={leadDraft.notes}
+                    placeholder={t.leadNotesPh}
+                    onChange={(e) => setField('notes', e.target.value)}
+                    onBlur={() => markTouched('notes')}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                        e.preventDefault();
+                        e.currentTarget.form?.requestSubmit();
+                      }
+                    }}
+                    aria-invalid={notesErr ? true : undefined}
+                    aria-describedby={notesErr ? `${leadNotesId}-err` : undefined}
+                    aria-errormessage={notesErr ? `${leadNotesId}-err` : undefined}
+                  />
+                  {notesErr && (
+                    <p id={`${leadNotesId}-err`} className="ai-lead-error" role="alert">
+                      <span aria-hidden="true">!</span> {notesErr}
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  className="ai-lead-submit"
+                  disabled={submittingLead}
+                  aria-busy={submittingLead || undefined}
+                >
+                  {submittingLead ? t.leadSending : t.leadSubmit}
+                </button>
+              </form>
+            )}
+
             {loading && (
               <div className="chat-bubble chat-bubble--assistant chat-bubble--typing" aria-label="…">
                 <span className="typing-dot" />

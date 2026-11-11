@@ -12,6 +12,8 @@ interface DataTableProps {
   fitContent?: boolean;
   /** Hide the scroll helper bar (use for short tables that never overflow). */
   hideTools?: boolean;
+  /** Use tighter row padding and spacing for dense directories. */
+  compact?: boolean;
   /** Column holding the row actions; enables the "Show actions" jump when it is off-screen. */
   hasActions?: boolean;
   children: ReactNode;
@@ -21,7 +23,7 @@ interface DataTableProps {
  * The one table shell for the admin: exactly one scroll viewport, sticky header inside it, actions
  * column in normal table flow, and prev/next/"Show actions" controls when columns overflow.
  */
-export default function DataTable({ label, minWidth = 840, fixed, fitContent, hideTools, hasActions, children }: DataTableProps) {
+export default function DataTable({ label, minWidth = 840, fixed, fitContent, hideTools, compact, hasActions, children }: DataTableProps) {
   const host = useRef<HTMLDivElement>(null);
   const [state, setState] = useState({ overflow: false, atStart: true, atEnd: true });
 
@@ -85,7 +87,7 @@ export default function DataTable({ label, minWidth = 840, fixed, fitContent, hi
         tabIndex={0}
         onScroll={measure}
       >
-        <table className="ds-table" data-layout={fixed ? "fixed" : undefined} style={{ "--ds-table-min": `${minWidth}px` } as CSSProperties}>
+        <table className="ds-table" data-layout={fixed ? "fixed" : undefined} data-compact={compact ? "true" : undefined} style={{ "--ds-table-min": `${minWidth}px` } as CSSProperties}>
           {children}
         </table>
       </div>

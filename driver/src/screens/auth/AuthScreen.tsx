@@ -1,20 +1,39 @@
-// Welcome → mobile number → OTP. Native port of
-// driver/web/src/screens/AuthScreen.tsx (same flow as the Customer app).
+// Welcome → mobile number → OTP (Firebase phone auth, same flow as the Customer app), in the NESAM Driver design.
 import React, { useEffect, useRef, useState } from 'react';
-import { BackHandler, Image, StyleSheet, View } from 'react-native';
+import { BackHandler, Pressable, StyleSheet, View } from 'react-native';
 import { Text, TextInput } from '../../components/nx/Text';
 import type { ConfirmationResult } from 'firebase/auth';
-import { Button, Card, LinkText, Notice, Screen, TextField } from '../../components/ui';
+import { AuthCard, AuthFrame } from '../../components/AuthFrame';
+import { NxIcon, type NxIconName } from '../../components/nx/Icon';
+import { NxButton, NxFormError, NxInfo, NxTextButton, isHovered } from '../../components/nx/primitives';
 import { useRecaptchaVerifier } from '../../components/RecaptchaVerifier';
 import { confirmOtpCode, describePhoneAuthError, sendOtpToPhone } from '../../services/authService';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 import { formatPhone, isValidIndianMobile } from '../../utils/format';
-import { colors, space, type } from '../../theme';
+import { nx } from '../../theme/nx';
 import { setAuthIntent, type AuthIntent } from './authIntent';
 
-import logo from '../../../assets/icon.png';
-
 const RESEND_COOLDOWN_S = 30;
+
+function Choice({ icon, title, text, onPress, primary }: { icon: NxIconName; title: string; text: string; onPress: () => void; primary?: boolean }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${title}. ${text}`}
+      style={(s) => [styles.choice, primary && styles.choicePrimary, isHovered(s) && { borderColor: primary ? nx.redDark : '#D4D7DE' }, s.pressed && { opacity: 0.9 }]}
+    >
+      <View style={[styles.choiceIcon, primary && { backgroundColor: 'rgba(255,255,255,0.16)' }]}>
+        <NxIcon name={icon} size={20} color={primary ? nx.white : nx.red} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.choiceTitle, primary && { color: nx.white }]}>{title}</Text>
+        <Text style={[styles.choiceText, primary && { color: 'rgba(255,255,255,0.82)' }]}>{text}</Text>
+      </View>
+      <NxIcon name="arrow" size={18} color={primary ? nx.white : nx.muted} />
+    </Pressable>
+  );
+}
 
 export function AuthScreen() {
   const [step, setStep] = useState<'welcome' | 'phone' | 'otp'>('welcome');
@@ -101,69 +120,73 @@ export function AuthScreen() {
     return undefined;
   };
 
-  const header = (subtitle: string) => (
-    <View style={styles.brand}>
-      <Image source={logo} style={styles.logo} accessibilityIgnoresInvertColors />
-      <Text style={styles.title}>NESAM Driver</Text>
-      <Text style={styles.subtitle}>{subtitle}</Text>
-    </View>
-  );
-
   if (step === 'welcome') {
     return (
-      <Screen>
-        {header('Driver Partner App')}
-        <Card>
-          <Button title="Login" onPress={() => start('login')} />
-          <Text style={styles.helper}>I’m a registered NESAM driver</Text>
-          <Button title="Sign Up as New Driver" variant="dark" onPress={() => start('signup')} style={{ marginTop: space.lg }} />
-          <Text style={styles.helper}>Register as a new driver partner</Text>
-        </Card>
-        <Text style={styles.legal}>By continuing you agree to NESAM’s Terms & Conditions and Privacy Policy.</Text>
-      </Screen>
+      <AuthFrame>
+        <AuthCard eyebrow="NESAM Driver Partner" title="Welcome, partner." subtitle="Sign in to see your duties, trips and earnings.">
+          <View style={{ gap: 12, marginTop: 20 }}>
+            <Choice icon="user" title="Login" text="I’m a registered NESAM driver" onPress={() => start('login')} primary />
+            <Choice icon="plus" title="Sign up as a new driver" text="Register your licence and vehicle" onPress={() => start('signup')} />
+          </View>
+          {!online ? <NxInfo tone="amber">You’re offline. Connect to the internet to sign in.</NxInfo> : null}
+          <Text style={styles.terms}>By continuing you agree to NESAM’s Terms & Conditions and Privacy Policy.</Text>
+        </AuthCard>
+      </AuthFrame>
     );
   }
 
   if (step === 'phone') {
     return (
-      <Screen>
-        {header(intent === 'signup' ? 'Create your driver partner account' : 'Sign in with your mobile number')}
-        <Card>
-          <TextField
-            label={intent === 'signup' ? 'Mobile number' : 'Registered mobile number'}
-            prefix="+91"
-            value={mobile}
-            onChangeText={(v) => {
-              setMobile(v.replace(/\D/g, '').slice(0, 10));
-              setError('');
-            }}
-            keyboardType="phone-pad"
-            autoComplete="tel-national"
-            textContentType="telephoneNumber"
-            maxLength={10}
-            placeholder="98765 43210"
-            autoFocus
-            returnKeyType="done"
-            onSubmitEditing={() => void sendOtp()}
-            hint={intent === 'signup' ? 'This number becomes your driver login and is shown to customers on trips.' : undefined}
-          />
-          <Notice message={error} />
-          <Button title={sending ? 'Sending OTP…' : 'Send OTP'} loading={sending} disabled={mobile.length !== 10 || !online} onPress={() => void sendOtp()} />
-          <View style={styles.backRow}>
-            <LinkText onPress={() => !sending && setStep('welcome')}>← Back</LinkText>
+      <AuthFrame>
+        <AuthCard
+          eyebrow={intent === 'signup' ? 'New driver partner' : 'Driver sign-in'}
+          title={intent === 'signup' ? 'Create your account' : 'Sign in with your mobile'}
+          subtitle={intent === 'signup' ? 'This number becomes your driver login and is shown to customers on trips.' : 'We’ll send a 6-digit OTP to your registered number.'}
+        >
+          <Text style={styles.label}>{intent === 'signup' ? 'Mobile number' : 'Registered mobile number'}</Text>
+          <View style={[styles.phoneField, !!error && { borderColor: nx.red }]}>
+            <Text style={styles.prefix}>+91</Text>
+            <View style={styles.prefixRule} />
+            <TextInput
+              value={mobile}
+              onChangeText={(v) => {
+                setMobile(v.replace(/\D/g, '').slice(0, 10));
+                setError('');
+              }}
+              keyboardType="phone-pad"
+              autoComplete="tel-national"
+              textContentType="telephoneNumber"
+              maxLength={10}
+              placeholder="98765 43210"
+              placeholderTextColor="#A2A8B2"
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={() => void sendOtp()}
+              style={styles.phoneInput}
+              accessibilityLabel="Mobile number"
+            />
           </View>
-        </Card>
-      </Screen>
+          <NxFormError message={error} />
+          <NxButton title={sending ? 'Sending OTP…' : 'Send OTP'} trailingIcon="arrow" loading={sending} disabled={mobile.length !== 10 || !online} onPress={() => void sendOtp()} style={{ marginTop: 18 }} />
+          <View style={styles.linkRow}>
+            <NxTextButton title="Back" icon="back" color={nx.muted} disabled={sending} onPress={() => setStep('welcome')} />
+          </View>
+        </AuthCard>
+      </AuthFrame>
     );
   }
 
   return (
-    <Screen>
-      {header('Verify your mobile number')}
-      <Card>
-        <Text style={[type.body, { marginBottom: space.md }]}>
-          Enter the 6-digit OTP sent to <Text style={{ fontWeight: '800' }}>{formatPhone(mobile)}</Text>
-        </Text>
+    <AuthFrame>
+      <AuthCard
+        eyebrow="Verify your number"
+        title="Enter the OTP"
+        subtitle={
+          <>
+            Sent to <Text style={{ fontWeight: '700', color: nx.ink }}>+91 {formatPhone(mobile)}</Text>
+          </>
+        }
+      >
         <TextInput
           ref={otpRef}
           value={otp}
@@ -179,54 +202,43 @@ export function AuthScreen() {
           maxLength={6}
           editable={!verifying}
           placeholder="••••••"
-          placeholderTextColor={colors.faint}
-          style={[styles.otp, !!error && { borderColor: colors.primary }]}
+          placeholderTextColor="#B4BAC4"
+          style={[styles.otp, !!error && { borderColor: nx.red }]}
           accessibilityLabel="6-digit OTP"
         />
-        <Notice message={error} />
-        <Button title={verifying ? 'Verifying…' : 'Verify & Continue'} loading={verifying} disabled={otp.length !== 6} onPress={() => void verify(otp)} />
-        <View style={styles.resendRow}>
-          {cooldown > 0 ? (
-            <Text style={type.small}>Resend code in {cooldown}s</Text>
-          ) : (
-            <LinkText onPress={() => void sendOtp()}>{sending ? 'Resending…' : 'Resend code'}</LinkText>
-          )}
-          <LinkText
+        <NxFormError message={error} />
+        <NxButton title={verifying ? 'Verifying…' : 'Verify & Continue'} trailingIcon="arrow" loading={verifying} disabled={otp.length !== 6} onPress={() => void verify(otp)} style={{ marginTop: 18 }} />
+        <View style={[styles.linkRow, { justifyContent: 'space-between' }]}>
+          {cooldown > 0 ? <Text style={styles.cooldown}>Resend code in {cooldown}s</Text> : <NxTextButton title={sending ? 'Resending…' : 'Resend code'} icon="refresh" disabled={sending} onPress={() => void sendOtp()} />}
+          <NxTextButton
+            title="Change number"
+            color={nx.muted}
             onPress={() => {
               if (verifying) return;
               setStep('phone');
               setOtp('');
               setError('');
             }}
-          >
-            Change number
-          </LinkText>
+          />
         </View>
-      </Card>
-    </Screen>
+      </AuthCard>
+    </AuthFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  brand: { alignItems: 'center', marginTop: space.xl, marginBottom: space.xl },
-  logo: { width: 88, height: 88, borderRadius: 20, marginBottom: space.md },
-  title: { ...type.h1, textAlign: 'center' },
-  subtitle: { ...type.small, marginTop: 4, textAlign: 'center' },
-  helper: { ...type.small, textAlign: 'center', marginTop: 6 },
-  legal: { ...type.tiny, textAlign: 'center', marginTop: space.md, paddingHorizontal: space.lg },
-  backRow: { marginTop: space.lg, alignItems: 'center' },
-  otp: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    fontSize: 28,
-    fontWeight: '800',
-    letterSpacing: 12,
-    textAlign: 'center',
-    paddingVertical: 12,
-    color: colors.ink,
-    backgroundColor: colors.card,
-    marginBottom: space.md,
-  },
-  resendRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: space.lg },
+  choice: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 74, paddingHorizontal: 16, paddingVertical: 14, borderRadius: 14, borderWidth: 1, borderColor: nx.line, backgroundColor: nx.white },
+  choicePrimary: { backgroundColor: nx.tripRed, borderColor: nx.tripRed },
+  choiceIcon: { width: 42, height: 42, borderRadius: 12, backgroundColor: nx.redSoft, alignItems: 'center', justifyContent: 'center' },
+  choiceTitle: { fontSize: 14.5, fontWeight: '700', color: nx.ink },
+  choiceText: { fontSize: 12, color: nx.muted, marginTop: 2 },
+  terms: { fontSize: 11, lineHeight: 17, color: nx.muted, textAlign: 'center', marginTop: 20 },
+  label: { fontSize: 12, fontWeight: '600', color: nx.ink, marginTop: 20 },
+  phoneField: { flexDirection: 'row', alignItems: 'center', minHeight: 54, marginTop: 8, borderWidth: 1, borderColor: nx.fieldLine, borderRadius: 12, backgroundColor: nx.white, paddingHorizontal: 14 },
+  prefix: { fontSize: 16, fontWeight: '700', color: nx.red },
+  prefixRule: { width: 1, height: 24, backgroundColor: nx.line, marginHorizontal: 12 },
+  phoneInput: { flex: 1, minWidth: 0, fontSize: 17, letterSpacing: 0.6, color: nx.ink, paddingVertical: 12 },
+  linkRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 16 },
+  otp: { minHeight: 69, marginTop: 20, borderWidth: 1, borderColor: nx.fieldLine, borderRadius: 12, textAlign: 'center', fontSize: 30, fontWeight: '700', letterSpacing: 12, color: nx.ink, paddingVertical: 12, backgroundColor: nx.white },
+  cooldown: { fontSize: 12, color: nx.muted },
 });

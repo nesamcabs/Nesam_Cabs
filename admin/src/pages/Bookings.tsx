@@ -17,12 +17,35 @@ import {
 } from "../domain/officeStage";
 import { useCan } from "../components/AccessContext";
 import { Badge, Button, DataTable, EmptyState, Icon, PageHeader, TableSkeleton, toneForStatus } from "../components/ui";
+import type { IconName } from "../components/ui/Icon";
+import type { TabTone } from "../components/ui/Tabs";
 import { ListCaption, Pager, StageBar, usePaging } from "../components/ui/ListKit";
 import MenuButton, { type MenuItem } from "../components/ui/MenuButton";
 import { useNow } from "../hooks/useNow";
 import { useOperationsSettings } from "../hooks/useOperationsSettings";
 import { useOfficeData } from "../hooks/useOfficeData";
 import { bookingPickupDate, formatDate, formatTime12, isoDateIST } from "../utils/time";
+
+const STAGE_META: Record<OfficeStage, { icon: IconName; tone: TabTone }> = {
+  "New bookings": { icon: "bell-ring", tone: "orange" },
+  "To publish":   { icon: "send", tone: "amber" },
+  "Published":    { icon: "radio-tower", tone: "sky" },
+  "Accepted":     { icon: "user-round-check", tone: "indigo" },
+  "Ongoing":      { icon: "car-front", tone: "violet" },
+  "Completed":    { icon: "circle-check-big", tone: "green" },
+  "Cancelled":    { icon: "circle-x", tone: "red" },
+  "All bookings": { icon: "layers-2", tone: "slate" },
+};
+
+const TRIP_META: Record<TripTab, { icon: IconName; tone: TabTone }> = {
+  "All trips":     { icon: "layout-grid", tone: "slate" },
+  "One Way":       { icon: "arrow-right", tone: "blue" },
+  "Round Trip":    { icon: "arrow-left-right", tone: "teal" },
+  "Local Rental":  { icon: "clock", tone: "green" },
+  "Pickup & Drop": { icon: "map-pin", tone: "orange" },
+  "Multicity":     { icon: "route", tone: "violet" },
+  "Airport Taxi":  { icon: "plane", tone: "sky" },
+};
 
 type Sort = "earliest" | "latest" | "overdue";
 interface Filters {
@@ -238,8 +261,9 @@ export default function Bookings({ onSelectBooking, initialTab, onNewBooking, on
       />
 
       <StageBar
+        variant="stages"
         label="Booking status"
-        tabs={OFFICE_STAGES.map((s) => ({ id: s, label: s, count: counts[s] }))}
+        tabs={OFFICE_STAGES.map((s) => ({ id: s, label: s, count: counts[s], ...STAGE_META[s] }))}
         value={stage}
         onChange={(s) => { setStage(s); setExpanded(null); if (s !== "Accepted" && sort === "overdue") setSort("earliest"); }}
         aside={
@@ -250,8 +274,10 @@ export default function Bookings({ onSelectBooking, initialTab, onNewBooking, on
       />
 
       <StageBar
+        variant="chips"
         label="Trip type"
-        tabs={TRIP_TABS.map((t) => ({ id: t, label: displayTripType(t), count: tripCounts[t] }))}
+        prefix={<><Icon name="sliders-horizontal" size={13} /><span>Trip type</span></>}
+        tabs={TRIP_TABS.map((t) => ({ id: t, label: displayTripType(t), count: tripCounts[t], ...TRIP_META[t] }))}
         value={tripTab}
         onChange={(t) => { setTripTab(t); setExpanded(null); }}
       />

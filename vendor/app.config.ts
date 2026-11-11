@@ -15,12 +15,12 @@ const config: ExpoConfig = {
   scheme: 'nesamvendor',
   version: '1.0.0',
   platforms: ['android', 'ios', 'web'],
-  orientation: 'portrait',
+  orientation: 'default',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
-  backgroundColor: '#F7F7F7',
+  backgroundColor: '#F6F8FB',
   ios: {
-    supportsTablet: false,
+    supportsTablet: true,
     bundleIdentifier: 'com.nesamtours.vendor',
   },
   android: {
@@ -53,8 +53,8 @@ const config: ExpoConfig = {
     description: 'Manage your drivers, fleet and trips with NESAM.',
     lang: 'en-IN',
     favicon: './assets/favicon.png',
-    themeColor: '#E31E24',
-    backgroundColor: '#F7F7F7',
+    themeColor: '#C62828',
+    backgroundColor: '#F6F8FB',
   },
   plugins: [
     [
@@ -77,7 +77,7 @@ const config: ExpoConfig = {
     [
       'expo-notifications',
       {
-        color: '#E31E24',
+        color: '#C62828',
         defaultChannel: 'nesam_general',
         sounds: ['./assets/sounds/new_booking.wav', './assets/sounds/approval.wav', './assets/sounds/general.wav'],
       },

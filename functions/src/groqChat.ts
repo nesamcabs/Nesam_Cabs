@@ -126,6 +126,7 @@ Conversation rules:
 - In Tamil, translate cash as ரொக்கம் or பணம், never காசோலை (cheque).
 - Never claim to have booked, changed or cancelled a ride. Guide the rider through the app instead.
 - The booking facts below override any conflicting brand marketing claims above. Do not promise savings percentages, vehicle availability, online payments or unverified inclusions.
+- If you do not understand what the user wants, lack live or verified information to answer accurately, or the user needs a custom quote, special luggage/vehicle confirmation, complaint/refund follow-up or a human callback, end your reply on a new line with the exact token [[NEEDS_HUMAN]]. Do not add [[NEEDS_HUMAN]] for casual greetings, thanks, or clear policy/booking answers you know completely.
 ${SHARED_FACTS}
 Style: conversational answers, usually under 160 words; use bullets only when they make steps easier to follow; no markdown headings; plain **bold** only. ${LANGUAGE_RULES(lang)}`;
   if (context?.pickup || context?.drop || context?.service) {
@@ -168,7 +169,7 @@ const INTENT_WORDS: Array<[Intent, RegExp]> = [
   ['multicity', /(multi|tour|package|itinerary|munnar|ooty|kodai|rameshwaram|kanyakumari|tirupati|pilgrim|சுற்றுலா|யாத்திரை)/],
   ['oneway', /(one.?way|drop taxi|round trip|return|ஒருவழி|ஒரு வழி|சுற்றுப் ?பயண)/],
   ['vehicle', /(car|vehicle|fleet|sedan|suv|innova|crysta|ertiga|tempo|traveller|seater|கார்|வாகன|இன்னோவா)/],
-  ['fare', /(fare|price|cost|rate|charge|how much|kattanam|vilai|evlo|evvalavu|கட்டண|விலை|எவ்வளவு)/],
+  ['fare', /(fare|price|cost|\brates?\b|charge|how much|kattanam|vilai|evlo|evvalavu|கட்டண|விலை|எவ்வளவு)/],
   ['book', /(book|booking|how to|reserve|புக்|பதிவு)/],
   ['contact', /(contact|phone|number|call|help|support|whatsapp|உதவி|தொடர்பு|அழை)/],
 ];
@@ -204,7 +205,7 @@ function offlineTanglishAnswer(intent: Intent | null, name: string, call: string
   }
 }
 
-function offlineAnswer(brand: string, userQuery: string, lang: ConversationLanguage, history: ChatMessage[] = []): string {
+function offlineAnswer(brand: string, userQuery: string, lang: ConversationLanguage, history: ChatMessage[] = []): { message: string; intent: Intent | null } {
   const b = brand.toLowerCase();
   const name = b.includes('people') ? 'People Taxi' : b.includes('oneway') || b.includes('one_way') ? 'One Way Car Rentals' : 'NESAM Cabs';
   const call = `**${SUPPORT_PHONE}**`;
@@ -214,74 +215,114 @@ function offlineAnswer(brand: string, userQuery: string, lang: ConversationLangu
   if (!intent && /^(and |what about |how about |அது|மேலும்)/i.test(userQuery.trim())) {
     intent = history.slice(0, -1).reverse().filter((m) => m.role === 'user').map((m) => intentOf(m.content)).find((i) => i && i !== 'greeting' && i !== 'thanks') ?? null;
   }
-  if (lang === 'tanglish') return offlineTanglishAnswer(intent, name, call);
+  const reply = (message: string) => ({ message, intent });
+  if (lang === 'tanglish') return reply(offlineTanglishAnswer(intent, name, call));
 
   switch (intent) {
     case 'wellbeing':
-      return ta ? 'நான் உதவத் தயார்! 😊 உங்கள் பயணத்திற்கு என்ன உதவி வேண்டும்?' : "I'm here and ready to help! 😊 How are you, and what trip are you planning?";
+      return reply(ta ? 'நான் உதவத் தயார்! 😊 உங்கள் பயணத்திற்கு என்ன உதவி வேண்டும்?' : "I'm here and ready to help! 😊 How are you, and what trip are you planning?");
     case 'greeting':
-      return ta
+      return reply(ta
         ? `வணக்கம்! **${name}** உதவியாளர் இங்கே. 😊\n\nநான் உதவக்கூடியவை:\n• **கட்டணம்** மற்றும் வாகன வகைகள்\n• **ஒருவழி டிராப்**, சுற்றுப் பயணம், விமான நிலையம், உள்ளூர் வாடகை\n• **ரத்து**, பணம் செலுத்தும் முறை, பாதுகாப்பு\n\nஎங்கே பயணம் செய்ய விரும்புகிறீர்கள்?`
-        : `Hi! 😊 Where would you like to travel?`;
+        : `Hi! 😊 Where would you like to travel?`);
     case 'thanks':
-      return ta ? `மகிழ்ச்சி! வேறு ஏதாவது உதவி வேண்டுமா? 24/7 எண்: ${call}.` : `You're welcome! Anything else I can help with? We're on ${call}, 24/7.`;
+      return reply(ta ? `மகிழ்ச்சி! வேறு ஏதாவது உதவி வேண்டுமா? 24/7 எண்: ${call}.` : `You're welcome! Anything else I can help with? We're on ${call}, 24/7.`);
     case 'cancel':
-      return ta
+      return reply(ta
         ? `**ரத்து கொள்கை — ${name}**\n• பிக்கப்புக்கு **1 மணி நேரம் முன்** வரை **இலவசமாக** ரத்து செய்யலாம்.\n• அதன் பிறகு **₹100** ரத்து கட்டணம் உண்டு.\n• "My Trips" பகுதியில் உங்கள் புக்கிங்கைத் திறந்து ரத்து செய்யலாம்; கட்டணம் இருந்தால் உறுதிப்படுத்தும் முன் திரையில் தெரியும்.\n\nஉதவிக்கு: ${call}`
-        : `**Cancellation at ${name}**\n• **Free** until **1 hour before pickup**.\n• After that a **₹100** cancellation fee applies.\n• Cancel from **My Trips**; any fee is shown before you confirm.\n\nNeed help? Call ${call}.`;
+        : `**Cancellation at ${name}**\n• **Free** until **1 hour before pickup**.\n• After that a **₹100** cancellation fee applies.\n• Cancel from **My Trips**; any fee is shown before you confirm.\n\nNeed help? Call ${call}.`);
     case 'payment':
-      return ta
+      return reply(ta
         ? `**பணம் செலுத்தும் முறை**\n• புக்கிங் செய்யும்போது **எந்தப் பணமும் வசூலிக்கப்படாது**.\n• பயணம் முடிந்ததும் டிரைவரிடம் **ரொக்கமாக அல்லது UPI** மூலம் செலுத்தலாம்.\n• சுங்கம், பார்க்கிங், மாநில அனுமதிக் கட்டணங்கள் உண்மையான செலவில் இறுதி ரசீதில் சேர்க்கப்படும்.`
-        : `**Payment**\n• **Nothing is charged** when you book.\n• Pay your driver in **cash or UPI** at the end of the trip.\n• Tolls, parking and state permits are added to the final receipt at actual cost.`;
+        : `**Payment**\n• **Nothing is charged** when you book.\n• Pay your driver in **cash or UPI** at the end of the trip.\n• Tolls, parking and state permits are added to the final receipt at actual cost.`);
     case 'toll':
-      return ta
+      return reply(ta
         ? `**சுங்கம், பார்க்கிங், அனுமதிக் கட்டணம்** மேற்கோள் காட்டிய கட்டணத்தில் **சேராது**. டிரைவர் செலுத்தும் இவை உண்மையான செலவில், ரசீதுகளுடன் இறுதி ரசீதில் சேர்க்கப்படும்.`
-        : `**Tolls, parking and state permits** are **not** in the quoted fare. What the driver pays is added to your final receipt at actual cost, against receipts.`;
+        : `**Tolls, parking and state permits** are **not** in the quoted fare. What the driver pays is added to your final receipt at actual cost, against receipts.`);
     case 'boarding':
-      return ta
+      return reply(ta
         ? `**பாதுகாப்பு**\n• ஒவ்வொரு புக்கிங்குக்கும் **4 இலக்க போர்டிங் குறியீடு** உண்டு. காரில் ஏறிய பிறகே டிரைவரிடம் சொல்லுங்கள்; அது இல்லாமல் பயணம் தொடங்காது.\n• டிரைவர் ஒதுக்கப்பட்டதும் அவர் பெயர், எண், வாகன எண் உங்கள் புக்கிங் பக்கத்தில் தெரியும்.`
-        : `**Safety**\n• Every booking has a **4-digit boarding code**. Share it with the driver only once you're in the car; the trip can't start without it.\n• Once a driver is assigned, their name, number and vehicle appear on your booking page.`;
+        : `**Safety**\n• Every booking has a **4-digit boarding code**. Share it with the driver only once you're in the car; the trip can't start without it.\n• Once a driver is assigned, their name, number and vehicle appear on your booking page.`);
     case 'driver':
-      return ta
+      return reply(ta
         ? `டிரைவர் ஒதுக்கப்பட்டதும் அவர் **பெயர், தொலைபேசி எண், வாகன எண்** உங்கள் புக்கிங் பக்கத்தில் (My Trips) தெரியும். எல்லா டிரைவர்களும் சரிபார்க்கப்பட்டவர்கள்.`
-        : `Once a driver is assigned, their **name, phone number and vehicle number** appear on your booking page (My Trips). All our drivers are verified.`;
+        : `Once a driver is assigned, their **name, phone number and vehicle number** appear on your booking page (My Trips). All our drivers are verified.`);
     case 'airport':
-      return ta
+      return reply(ta
         ? `**விமான நிலைய பயணம்**\n• முகப்புப் பக்கத்தில் **Airport** தேர்வு செய்து, "To airport" அல்லது "From airport" என்பதைத் தேர்ந்தெடுங்கள்.\n• பிக்கப் / டிராப் இடம், தேதி, நேரம் உள்ளிட்டால் ஒவ்வொரு காருக்கும் கட்டணம் தெரியும்.\n• விமான நேரத்துக்கு முன்பே பதிவு செய்வது நல்லது.`
-        : `**Airport rides**\n• Choose **Airport** on the home page, then "To airport" or "From airport".\n• Enter the pickup/drop, date and time to see the fare for each car.\n• Book ahead of your flight time.`;
+        : `**Airport rides**\n• Choose **Airport** on the home page, then "To airport" or "From airport".\n• Enter the pickup/drop, date and time to see the fare for each car.\n• Book ahead of your flight time.`);
     case 'rental':
-      return ta
+      return reply(ta
         ? `**உள்ளூர் மணிநேர வாடகை**\n• நகருக்குள் டிரைவருடன் கார் — **1 முதல் 15 மணி நேரம் வரை** பேக்கேஜ்கள். கட்டணமும் சேர்க்கப்பட்ட கி.மீ அளவும் நிர்வாகம் சேமித்த அமைப்பின்படி இருக்கும்.\n• முகப்புப் பக்கத்தில் **Local Rental** தேர்வு செய்து பிக்கப் இடம் உள்ளிடுங்கள்; ஒவ்வொரு காருக்கும் பேக்கேஜ் கட்டணம் தெரியும்.`
-        : `**Local hourly rental**\n• A car with a driver inside the city: choose **1 to 15 hours**, with prices and included kilometres configured by the admin.\n• Choose **Local Rental** on the home page and enter your pickup; each car shows its package fare.`;
+        : `**Local hourly rental**\n• A car with a driver inside the city: choose **1 to 15 hours**, with prices and included kilometres configured by the admin.\n• Choose **Local Rental** on the home page and enter your pickup; each car shows its package fare.`);
     case 'multicity':
-      return ta
+      return reply(ta
         ? `**பல நகரச் சுற்றுலா (Multicity)**\n• முகப்புப் பக்கத்தில் **Multicity** தாவலைத் திறந்து, தொடக்க இடம், இடையில் நிற்கும் நகரங்கள், இறுதி இடம், தேதி, நேரம் ஆகியவற்றைக் கொடுத்து படிவத்தின் கீழுள்ள பொத்தானை அழுத்துங்கள்.\n• எங்கள் பயண மேசை வழியைக் கணக்கிட்டு உங்களுக்குக் கட்டணத்தை அனுப்பும்; ஏற்றால் புக்கிங் உறுதியாகும்.\n• உங்கள் கோரிக்கை நிலை **My Trips** இல் தெரியும்.`
-        : `**Multicity tours**\n• Open the **Multicity** tab on the home page, add your start, the cities in between, the final drop, date and time, then send the request with the button at the bottom of the form.\n• Our travel desk works out the route and sends you a price; accept it and the booking is confirmed.\n• You can follow your request under **My Trips**.`;
+        : `**Multicity tours**\n• Open the **Multicity** tab on the home page, add your start, the cities in between, the final drop, date and time, then send the request with the button at the bottom of the form.\n• Our travel desk works out the route and sends you a price; accept it and the booking is confirmed.\n• You can follow your request under **My Trips**.`);
     case 'oneway':
-      return ta
+      return reply(ta
         ? `**ஒருவழி டிராப் டாக்ஸி**: நீங்கள் செல்லும் ஒரு வழிக்கான கட்டணம் மட்டுமே; காலி வண்டி திரும்பும் கட்டணம் இல்லை. **சுற்றுப் பயணம்** (Round Trip) தேர்வு செய்தால் திரும்பும் தேதியும் நேரமும் கொடுக்க வேண்டும்.\nஉங்கள் வழிக்கான சரியான கட்டணத்தை புக்கிங் படிவத்தில் பார்க்கலாம்.`
-        : `**One-way drop taxi**: you pay for the one way you travel, with no empty return fare. For a **Round Trip** you also give the return date and time.\nYour exact fare for the route shows in the booking form.`;
+        : `**One-way drop taxi**: you pay for the one way you travel, with no empty return fare. For a **Round Trip** you also give the return date and time.\nYour exact fare for the route shows in the booking form.`);
     case 'vehicle':
-      return ta
+      return reply(ta
         ? `**வாகன வகைகள்**\n• **Sedan** — 4 பயணிகள்; தம்பதி, சிறு குடும்பம்.\n• **SUV / MPV** — 6–7 பயணிகள்; அதிக லக்கேஜ் இடம்.\n• **Innova / Innova Crysta** — 7 பயணிகள்; நீண்ட பயணத்துக்கு வசதி.\n• குழுவுக்கு **வேன் / மினி பஸ்** வகைகளும் உண்டு.\nஎல்லா வாகனங்களும் ஏசி; டிரைவர் சரிபார்க்கப்பட்டவர். உங்கள் வழிக்கு கிடைக்கும் வாகனங்களும் கட்டணமும் புக்கிங் படிவத்தில் தெரியும்.`
-        : `**Car types**\n• **Sedan** — 4 passengers; couples and small families.\n• **SUV / MPV** — 6–7 passengers; more luggage space.\n• **Innova / Innova Crysta** — 7 passengers; comfortable for long drives.\n• **Vans / mini buses** for groups.\nAll cars are air-conditioned with verified drivers. The cars available for your route, and their fares, show in the booking form.`;
+        : `**Car types**\n• **Sedan** — 4 passengers; couples and small families.\n• **SUV / MPV** — 6–7 passengers; more luggage space.\n• **Innova / Innova Crysta** — 7 passengers; comfortable for long drives.\n• **Vans / mini buses** for groups.\nAll cars are air-conditioned with verified drivers. The cars available for your route, and their fares, show in the booking form.`);
     case 'fare':
-      return ta
+      return reply(ta
         ? `**${name}** இல் **ஒவ்வொரு காருக்கும் கட்டணம் புக்கிங் செய்வதற்கு முன்பே** காட்டப்படும்; மறைமுகக் கட்டணம் இல்லை, பீக் நேர கூடுதல் கட்டணமும் இல்லை.\n\nஉங்கள் வழிக்கான கட்டணம் அறிய: முகப்புப் பக்கத்தில் **பிக்கப், டிராப், தேதி, நேரம்** உள்ளிட்டு **See fares / Search Cabs** அழுத்துங்கள்.\nசுங்கம், பார்க்கிங் தனியாக உண்மையான செலவில் சேரும். உதவிக்கு: ${call}`
-        : `At **${name}** the **fare for every car is shown before you book**, with no hidden charges and no surge pricing.\n\nTo see the fare for your route, enter **pickup, drop, date and time** on the home page and tap **See fares / Search Cabs**.\nTolls and parking are added separately at actual cost. Need a person? Call ${call}.`;
+        : `At **${name}** the **fare for every car is shown before you book**, with no hidden charges and no surge pricing.\n\nTo see the fare for your route, enter **pickup, drop, date and time** on the home page and tap **See fares / Search Cabs**.\nTolls and parking are added separately at actual cost. Need a person? Call ${call}.`);
     case 'book':
-      return ta
+      return reply(ta
         ? `**புக்கிங் செய்வது எப்படி**\n1. முகப்புப் பக்கத்தில் சேவையைத் தேர்ந்தெடுங்கள் (Outstation, Airport, Local Rental, Multicity).\n2. பிக்கப், டிராப், தேதி, நேரம் உள்ளிடுங்கள்.\n3. கார் மற்றும் கட்டணத்தைத் தேர்ந்தெடுத்து, மொபைல் எண்ணுடன் உள்நுழைந்து உறுதிப்படுத்துங்கள்.\nபுக்கிங்கின் போது பணம் வசூலிக்கப்படாது.`
-        : `**How to book**\n1. Choose a service on the home page (Outstation, Airport, Local Rental, Multicity).\n2. Enter pickup, drop, date and time.\n3. Pick a car and fare, sign in with your mobile number and confirm.\nNothing is charged at booking.`;
+        : `**How to book**\n1. Choose a service on the home page (Outstation, Airport, Local Rental, Multicity).\n2. Enter pickup, drop, date and time.\n3. Pick a car and fare, sign in with your mobile number and confirm.\nNothing is charged at booking.`);
     case 'contact':
-      return ta
+      return reply(ta
         ? `நாங்கள் 24/7 உங்களுக்கு உதவுகிறோம்!\n• **அழைக்க**: [${SUPPORT_PHONE}](tel:${SUPPORT_PHONE_TEL})\n• **WhatsApp**: [எங்களுடன் பேசுங்கள்](https://wa.me/919025099990)\n• பணம்: பயணம் முடிந்ததும் டிரைவரிடம் ரொக்கம் / UPI.`
-        : `We're here 24/7!\n• **Call**: [${SUPPORT_PHONE}](tel:${SUPPORT_PHONE_TEL})\n• **WhatsApp**: [Chat with us](https://wa.me/919025099990)\n• Payment: cash or UPI to your driver after the trip.`;
+        : `We're here 24/7!\n• **Call**: [${SUPPORT_PHONE}](tel:${SUPPORT_PHONE_TEL})\n• **WhatsApp**: [Chat with us](https://wa.me/919025099990)\n• Payment: cash or UPI to your driver after the trip.`);
     default:
-      return ta
+      return reply(ta
         ? `மன்னிக்கவும், அந்தக் கேள்வியை என்னால் சரியாகப் புரிந்துகொள்ள முடியவில்லை. இவற்றைப் பற்றிக் கேளுங்கள்:\n• **கட்டணம்**, வாகன வகைகள்\n• **ரத்து**, பணம் செலுத்துதல்\n• **விமான நிலையம்**, உள்ளூர் வாடகை, Multicity சுற்றுலா\n\nஅல்லது எங்களை அழையுங்கள்: ${call} (24/7).`
-        : `Sorry, I couldn't quite understand that. You can ask me about:\n• **Fares** and car types\n• **Cancellation** and payment\n• **Airport rides**, local rentals and **Multicity** tours\n\nOr call us on ${call}, 24/7.`;
+        : `Sorry, I couldn't quite understand that. You can ask me about:\n• **Fares** and car types\n• **Cancellation** and payment\n• **Airport rides**, local rentals and **Multicity** tours\n\nOr call us on ${call}, 24/7.`);
   }
+}
+
+const NEEDS_HUMAN_TOKEN_RE = /\s*\[{1,2}NEEDS_HUMAN\]{1,2}\s*/gi;
+const HUMAN_REQUEST_RE = /\b(human|agent|representative|executive|manager|support team|travel desk|call ?back|call me|speak to|talk to (?:someone|a person)|contact office|cust(?:omer)? ?care)\b|கால்|பேச|தொடர்பு/i;
+const UNCERTAIN_REPLY_RE = /\b(couldn'?t(?: quite)? understand|could not understand|can'?t understand|unable to (?:verify|confirm|answer|help with that)|not sure|unsure|don'?t have(?: access to)? live|do not have live|don'?t know|do not know|cannot check|cannot confirm|ask (?:the |our )?travel desk|contact (?:our |the )?(?:travel desk|team|support|office)|call us on|share your (?:contact |)details|puriyala|theriyala|purinjuka)\b|புரிந்துகொள்ள முடியவில்லை|தெரியவில்லை|உறுதிப்படுத்த|தொடர்பு கொள்ள/i;
+
+/** Strip escalation markers from the model reply and classify whether human follow-up is needed. */
+export function resolveBotConfusion(opts: {
+  rawAnswer: string;
+  userQuery: string;
+  lang: ConversationLanguage;
+  provider: string;
+  intent?: Intent | null;
+}): { message: string; confused: boolean; confusionReason?: string } {
+  const hasMarker = NEEDS_HUMAN_TOKEN_RE.test(opts.rawAnswer);
+  NEEDS_HUMAN_TOKEN_RE.lastIndex = 0;
+  let cleaned = opts.rawAnswer.replace(NEEDS_HUMAN_TOKEN_RE, '').trim();
+  if (!cleaned) {
+    cleaned = opts.lang === 'ta'
+      ? 'இதற்கு எங்கள் குழுவின் உதவி தேவை. கீழே உங்கள் விவரங்களைப் பகிர்ந்தால் விரைவில் தொடர்பு கொள்வோம்.'
+      : opts.lang === 'tanglish'
+        ? 'Idhuku enga team help venum. Keezha unga details kuduthaa seekiram call pannuvom.'
+        : 'Let me connect you with our team so we can help you directly.';
+  }
+
+  if (hasMarker) return { message: cleaned, confused: true, confusionReason: 'ai_escalated' };
+  if (HUMAN_REQUEST_RE.test(opts.userQuery) || opts.intent === 'contact') {
+    return { message: cleaned, confused: true, confusionReason: 'human_requested' };
+  }
+  if (opts.provider === 'fallback_error' && opts.intent !== 'greeting' && opts.intent !== 'wellbeing' && opts.intent !== 'thanks') {
+    return { message: cleaned, confused: true, confusionReason: 'ai_unavailable' };
+  }
+  if (opts.intent === null && opts.provider !== 'groq') {
+    return { message: cleaned, confused: true, confusionReason: 'unrecognized_intent' };
+  }
+  if (opts.provider === 'groq' && UNCERTAIN_REPLY_RE.test(cleaned)) {
+    return { message: cleaned, confused: true, confusionReason: 'ai_uncertain' };
+  }
+  return { message: cleaned, confused: false };
 }
 
 // ── Groq call ────────────────────────────────────────────────────────────────
@@ -347,7 +388,11 @@ export const chatWithBot = onCall(
 
   const apiKey = (process.env.GROQ_API_KEY ?? '').trim();
   console.info('[groqChat] request accepted', { brand, language: lang, messageCount: validMessages.length, keyConfigured: Boolean(apiKey) });
-  const offline = (provider: string, reason: string) => ({ message: offlineAnswer(brand, lastUserMessage, lang, validMessages), provider, reason, language: lang });
+  const offline = (provider: string, reason: string) => {
+    const out = offlineAnswer(brand, lastUserMessage, lang, validMessages);
+    const resolved = resolveBotConfusion({ rawAnswer: out.message, userQuery: lastUserMessage, lang, provider, intent: out.intent });
+    return { ...resolved, provider, reason, language: lang };
+  };
 
   // No Groq key: answer from the built-in knowledge instead.
   if (!apiKey) {
@@ -362,7 +407,10 @@ export const chatWithBot = onCall(
   let reason = 'provider_error';
   for (const model of [...new Set([primary, 'openai/gpt-oss-20b'])]) {
     const result = await askGroq(apiKey, model, system, validMessages);
-    if (result.answer) return { message: result.answer, provider: 'groq', model, language: lang };
+    if (result.answer) {
+      const resolved = resolveBotConfusion({ rawAnswer: result.answer, userQuery: lastUserMessage, lang, provider: 'groq' });
+      return { ...resolved, provider: 'groq', model, language: lang };
+    }
     reason = result.reason || reason;
     if (reason === 'authentication') break;
   }

@@ -20,7 +20,8 @@ import { VendorDataProvider } from './src/context/VendorData';
 import { InboxProvider } from './src/context/Inbox';
 import { LegalGate } from './src/components/LegalGate';
 import { signOutUser, subscribeToAuthUser } from './src/services/authService';
-import { subscribeToVendor, type VendorSnapshot } from './src/services/onboardingService';
+import { needsDocuments, subscribeToVendor, type VendorSnapshot } from './src/services/onboardingService';
+import { DocumentsRequiredScreen } from './src/screens/auth/DocumentsRequiredScreen';
 import { describeDataError } from './src/utils/retry';
 import { colors } from './src/theme';
 
@@ -80,6 +81,9 @@ function Root() {
   const phone = authUser.phoneNumber || vendor?.record.phone || '';
   // No vendor account yet → show self-registration entry screen.
   if (!vendor) return <RegistrationGate key={authUser.uid} phone={phone} onSignOut={signOut} />;
+  // Submitted without documents: upload them before review. (An approved partner without documents sees the
+  // workspace view-only instead — see `locked` below.)
+  if (needsDocuments(vendor.record) && status !== 'APPROVED') return <DocumentsRequiredScreen key={authUser.uid} record={vendor.record} onSignOut={signOut} />;
   if (status === 'INCOMPLETE' || status === 'CHANGES_REQUESTED' || (status === 'REJECTED' && reapplying)) {
     return <OnboardingWizard key={authUser.uid} record={vendor.record} phone={phone} onSignOut={signOut} />;
   }
@@ -91,7 +95,8 @@ function Root() {
     <LegalGate key={vendor.profile.id} role="vendor">
       <InboxProvider userId={vendor.profile.id} role="vendor" penaltyField="vendorId">
         <VendorDataProvider profile={vendor.profile} record={vendor.record}>
-          <MainNavigator onSignOut={signOut} />
+          {/* Approved but documents missing: the panel is shown view-only until they are uploaded and verified. */}
+          <MainNavigator onSignOut={signOut} locked={needsDocuments(vendor.record) ? vendor.record : null} />
         </VendorDataProvider>
       </InboxProvider>
     </LegalGate>

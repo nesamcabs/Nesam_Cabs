@@ -152,9 +152,11 @@ export default function PartnerRegistry({ kind, onOpenBooking, onNavigate, aside
       case "driver": return ["PARTNER / DL", "CONTACT", "OWN VEHICLE", "APPROVAL", "ACCOUNT / DISPUTE"];
       case "vendor-driver": return ["DRIVER / DL", "CONTACT", "LINKED VENDOR", "APPROVAL", "ACCOUNT / DISPUTE"];
       case "vendor": return ["VENDOR / ID", "CONTACT / CITY", "FLEET", "APPROVAL", "ACCOUNT / DISPUTE"];
-      case "vehicle": return ["REGISTRATION / MODEL", "CATEGORY", "LINKED PARTNER", "DOCUMENTS", "APPROVAL / ACCOUNT"];
+      case "vehicle": return ["REGISTRATION / MODEL", "CATEGORY", "LINKED PARTNER", "DOCUMENTS", "APPROVAL", "ACCOUNT"];
     }
   })();
+
+  const colWidths = kind === "vehicle" ? [44, 180, 110, 240, 110, 105, 105, 170] : [44, 220, 195, 175, 120, 140, 170];
 
   const cells = (r: PartnerRow): ReactNode[] => {
     const statusCells = [
@@ -165,14 +167,15 @@ export default function PartnerRegistry({ kind, onOpenBooking, onNavigate, aside
       const v = r.raw as unknown as Vehicle;
       const exp = [v.insuranceExpiry, v.fitnessExpiry, v.permitExpiry].filter(Boolean).some((x) => Date.parse(x!) < Date.now());
       return [
-        <div className="ds-person"><Initials name={r.name} /><div><strong>{r.name}</strong><small>{v.model || v.make || "Model not recorded"}</small></div></div>,
+        <div className="ds-person"><div><strong>{r.name}</strong><small>{v.model || v.make || "Model not recorded"}</small></div></div>,
         <strong>{v.category || "—"}</strong>,
         <>{r.linked}</>,
         <Badge tone={exp ? "red" : r.approval === "Approved" ? "green" : "amber"}>{exp ? "Expired" : r.approval === "Approved" ? "Verified" : "Pending"}</Badge>,
-        <div className="grid gap-1 text-[11px]"><span className="text-faint">Approval</span><Badge tone={toneForStatus(r.approval)}>{r.approval}</Badge><span className="text-faint">Account</span><Badge tone={toneForStatus(r.account)}>{r.account}</Badge></div>,
+        <Badge tone={toneForStatus(r.approval)}>{r.approval}</Badge>,
+        <Badge tone={toneForStatus(r.account === "Active" ? "Active" : r.account)}>{r.account}</Badge>,
       ];
     }
-    const person = <div className="ds-person"><Initials name={r.name} /><div><strong>{r.name}</strong><small>{kind === "vendor" ? r.code : r.code}</small></div></div>;
+    const person = <div className="ds-person"><div><strong>{r.name}</strong><small>{r.code}</small></div></div>;
     const contact = <><strong>{r.phone || "Not provided"}</strong><small>{r.email || "Email not supplied"}{kind === "vendor" && s(r.raw.city) ? ` · ${s(r.raw.city)}` : ""}</small></>;
     if (kind === "vendor") {
       const f = fleetOf(r.id);
@@ -205,9 +208,9 @@ export default function PartnerRegistry({ kind, onOpenBooking, onNavigate, aside
         <strong>{filtered.length} records · {sel.ids.size} selected</strong>
         <Button variant="ghost" size="sm" icon="rotate-ccw" disabled={!q && account === "All" && tab === "All" && !sel.ids.size} onClick={() => { setQ(""); setAccount("All"); setTab("All"); sel.clear(); }}>Clear filters</Button>
       </div>
-      {rows === null ? <div className="ds-panel"><TableSkeleton rows={4} cols={5} /></div> : filtered.length === 0 ? <div className="ds-panel"><EmptyState /></div> : (
-        <DataTable label={cfg.plural} minWidth={1060} fixed hasActions>
-          <colgroup><col style={{ width: 44 }} /><col style={{ width: 240 }} /><col style={{ width: 190 }} /><col style={{ width: 170 }} /><col style={{ width: 120 }} /><col style={{ width: 140 }} /><col style={{ width: 160 }} /></colgroup>
+      {rows === null ? <div className="ds-panel"><TableSkeleton rows={4} cols={head.length} /></div> : filtered.length === 0 ? <div className="ds-panel"><EmptyState /></div> : (
+        <DataTable label={cfg.plural} minWidth={1060} fixed compact hasActions>
+          <colgroup>{colWidths.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
           <thead><tr>
             <th className="ds-check-cell"><input type="checkbox" aria-label="Select visible records" checked={shown.length > 0 && shown.every((r) => sel.has(r.id))} onChange={(e) => sel.setAll(shown.map((r) => r.id), e.target.checked)} /></th>
             {head.map((h) => <th key={h}>{h}</th>)}

@@ -2,22 +2,29 @@
 // Submitting creates the application already submitted for NESAM's review; the vendors/{uid}
 // listener in App.tsx then shows the "under review" screen.
 import React, { useState } from 'react';
-import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { KeyboardAvoid } from '../../components/KeyboardAvoid';
+import { Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { registerVendorWithVehicle } from '../../services/onboardingService';
+import { AUTH, AuthCard, AuthFrame } from '../../components/shell/AuthFrame';
+import { Btn, Feedback, Notice } from '../../components/kit/core';
+import { registerVendorWithVehicle, RoleConflictError } from '../../services/onboardingService';
 import { SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY } from '../../config/constants';
 import { displayPlate, isPlate, normalizePlate } from '../../utils/fleet';
 import { describeDataError } from '../../utils/retry';
-import { Button, Card, Notice, TextField } from '../../components/ui';
-import { colors, radius, space, type } from '../../theme';
+import { colors, fontFamily } from '../../theme';
+
+const STEPS: [string, string][] = [
+  ['Register your first vehicle', 'Just the number on the plate.'],
+  ['NESAM reviews your application', 'We verify the vehicle and call you if anything else is needed.'],
+  ['Start accepting duties', 'Add drivers and vehicles, then accept duties at the payout shown.'],
+];
 
 export function RegistrationGate({ phone, onSignOut }: { phone: string; onSignOut: () => void }) {
   const [plate, setPlate] = useState('');
   const [touched, setTouched] = useState(false);
+  const [focused, setFocused] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [conflict, setConflict] = useState('');
 
   const invalid = !isPlate(plate);
   const fieldError = touched && invalid ? 'Enter the registration number as printed on the plate, e.g. TN 01 AB 1234.' : '';
@@ -27,95 +34,104 @@ export function RegistrationGate({ phone, onSignOut }: { phone: string; onSignOu
     if (invalid || busy) return;
     setBusy(true);
     setError('');
+    setConflict('');
     try {
       await registerVendorWithVehicle(phone, plate);
       // vendors/{uid} listener in App.tsx fires and routes to the account status screen.
     } catch (e) {
-      setError(describeDataError(e));
+      if (e instanceof RoleConflictError) setConflict(e.message);
+      else setError(e instanceof Error && (e as { code?: string }).code === 'failed-precondition' ? e.message : describeDataError(e));
       setBusy(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.root} edges={['top']}>
-      <KeyboardAvoid>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <View style={styles.hero}>
-            <View style={styles.heroIcon}>
-              <Ionicons name="car" size={40} color={colors.white} />
+    <AuthFrame>
+      <AuthCard eyebrow="New fleet partner" title="Become a NESAM partner" subtitle="Sign up with your vehicle number. That is all we need to start your application.">
+        <View style={styles.steps}>
+          {STEPS.map(([title, text], i) => (
+            <View key={title} style={styles.step}>
+              <View style={[styles.stepDot, i === 0 && styles.stepDotOn]}><Text style={[styles.stepNum, i === 0 && { color: colors.white }]}>{i + 1}</Text></View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.stepTitle}>{title}</Text>
+                <Text style={styles.stepText}>{text}</Text>
+              </View>
             </View>
-            <Text style={[type.h1, styles.heroTitle]}>Become a NESAM fleet partner</Text>
-            <Text style={[type.body, styles.heroSub]}>Sign up with your vehicle number. That is all we need to start your application.</Text>
-          </View>
+          ))}
+        </View>
 
-          <Card style={styles.stepsCard}>
-            <TextField
-              label="Vehicle registration number"
-              required
-              value={plate}
-              onChangeText={(t) => setPlate(t.toUpperCase())}
-              autoCapitalize="characters"
-              autoCorrect={false}
-              placeholder="TN 01 AB 1234"
-              error={fieldError}
-              hint="As printed on the number plate."
-              returnKeyType="done"
-              onSubmitEditing={() => void register()}
-              style={{ marginBottom: 0 }}
-            />
-          </Card>
+        <Text style={styles.label}>Vehicle registration number</Text>
+        <View style={[styles.field, focused && styles.fieldFocus, !!fieldError && { borderColor: colors.primary }]}>
+          <Ionicons name="car-sport-outline" size={20} color={colors.primary} />
+          <View style={styles.rule} />
+          <TextInput
+            value={plate}
+            onChangeText={(t) => { setPlate(t.toUpperCase().slice(0, 14)); setError(''); }}
+            onFocus={() => setFocused(true)}
+            onBlur={() => { setFocused(false); if (plate) setTouched(true); }}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            placeholder="TN 01 AB 1234"
+            placeholderTextColor="#A2A8B2"
+            returnKeyType="done"
+            onSubmitEditing={() => void register()}
+            style={styles.input}
+            accessibilityLabel="Vehicle registration number"
+          />
+          {!invalid ? <Ionicons name="checkmark-circle" size={20} color={colors.success} /> : null}
+        </View>
+        {fieldError ? <Text style={styles.fieldError}>{fieldError}</Text> : <Text style={styles.hint}>As printed on the number plate.</Text>}
 
-          <View style={styles.noteBox}>
-            <Ionicons name="information-circle-outline" size={16} color={colors.primary} />
-            <Text style={[type.small, { flex: 1, color: colors.ink }]}>
-              NESAM reviews your application and verifies the vehicle before bookings, drivers, vehicles and wallet become active. We will contact you on {phone} if anything else is needed.
-            </Text>
-          </View>
+        <View style={styles.who}>
+          <Ionicons name="phone-portrait-outline" size={15} color={AUTH.muted} />
+          <Text style={styles.whoText}>
+            Registering as <Text style={styles.strong}>{phone}</Text>
+            {!invalid ? <Text> · Vehicle <Text style={styles.strong}>{displayPlate(normalizePlate(plate))}</Text></Text> : null}
+          </Text>
+        </View>
 
-          <View style={styles.phoneRow}>
-            <Ionicons name="phone-portrait-outline" size={14} color={colors.muted} />
-            <Text style={[type.tiny, { color: colors.muted }]}>
-              Registering as <Text style={{ fontWeight: '700', color: colors.ink }}>{phone}</Text>
-              {!invalid ? <Text> · Vehicle <Text style={{ fontWeight: '700', color: colors.ink }}>{displayPlate(normalizePlate(plate))}</Text></Text> : null}
-            </Text>
-          </View>
+        <Feedback tone="error" message={error} />
+        {conflict ? (
+          <Notice tone="red" icon="person-circle-outline" title="This number already has a NESAM account" text={conflict} style={{ marginBottom: 12 }}
+            action={<Btn kind="secondary" small icon="log-out-outline" title="Sign out and use another number" onPress={onSignOut} />} />
+        ) : null}
+        <Btn title={busy ? 'Submitting…' : 'Submit application'} iconRight="arrow-forward" busy={busy} full onPress={() => void register()} style={styles.cta} />
 
-          {error ? <Notice message={error} style={{ marginBottom: space.md }} onRetry={() => void register()} /> : null}
-
-          <Button title={busy ? 'Submitting…' : 'Register vehicle'} loading={busy} onPress={() => void register()} style={styles.cta} />
-
-          <View style={styles.footer}>
-            <Button title={`Need help? Call ${SUPPORT_PHONE_DISPLAY}`} variant="secondary" onPress={() => void Linking.openURL(`tel:${SUPPORT_PHONE}`)} />
-            <Button title="Sign out" variant="ghost" onPress={onSignOut} style={{ marginTop: space.sm }} />
-          </View>
-        </ScrollView>
-      </KeyboardAvoid>
-    </SafeAreaView>
+        <View style={styles.links}>
+          <Pressable onPress={() => void Linking.openURL(`tel:${SUPPORT_PHONE}`)} accessibilityRole="button" hitSlop={8} style={styles.link}>
+            <Ionicons name="call-outline" size={15} color={colors.primary} />
+            <Text style={[styles.linkText, { color: colors.primary }]}>Help · {SUPPORT_PHONE_DISPLAY}</Text>
+          </Pressable>
+          <Pressable onPress={onSignOut} accessibilityRole="button" hitSlop={8} style={styles.link}>
+            <Ionicons name="log-out-outline" size={15} color={AUTH.muted} />
+            <Text style={[styles.linkText, { color: AUTH.muted }]}>Sign out</Text>
+          </Pressable>
+        </View>
+      </AuthCard>
+    </AuthFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: space.lg, paddingBottom: space.xxl },
-  hero: { alignItems: 'center', marginVertical: space.lg },
-  heroIcon: {
-    width: 80, height: 80, borderRadius: 40,
-    backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center',
-    marginBottom: space.md,
-    shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
-  },
-  heroTitle: { textAlign: 'center', marginBottom: space.xs },
-  heroSub: { textAlign: 'center', color: colors.muted, paddingHorizontal: space.md },
-  stepsCard: { padding: space.md, marginBottom: space.md },
-  noteBox: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: space.sm,
-    backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: colors.primaryBorder,
-    borderRadius: radius.md, padding: space.md, marginBottom: space.md,
-  },
-  phoneRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    justifyContent: 'center', marginBottom: space.md,
-  },
-  cta: { marginBottom: space.sm },
-  footer: { marginTop: space.md },
+  steps: { marginTop: 18, gap: 14, padding: 16, borderRadius: 14, backgroundColor: '#F8F9FB', borderWidth: 1, borderColor: AUTH.line },
+  step: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  stepDot: { width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: '#D8DFE9', backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
+  stepDotOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  stepNum: { fontFamily, fontSize: 12, fontWeight: '700', color: AUTH.muted },
+  stepTitle: { fontFamily, fontSize: 13.5, fontWeight: '600', color: AUTH.ink },
+  stepText: { fontFamily, fontSize: 12, lineHeight: 18, color: AUTH.muted, marginTop: 2 },
+  label: { fontFamily, fontSize: 12, fontWeight: '600', color: AUTH.ink, marginTop: 22 },
+  field: { flexDirection: 'row', alignItems: 'center', minHeight: 54, marginTop: 8, borderWidth: 1, borderColor: AUTH.fieldLine, borderRadius: 12, backgroundColor: colors.white, paddingHorizontal: 14 },
+  fieldFocus: { borderColor: '#B9C3D1', shadowColor: colors.primary, shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 0 } },
+  rule: { width: 1, height: 24, backgroundColor: AUTH.line, marginHorizontal: 12 },
+  input: { flex: 1, minWidth: 0, fontFamily, fontSize: 17, letterSpacing: 1, color: AUTH.ink, paddingVertical: 12 },
+  hint: { fontFamily, fontSize: 11.5, color: AUTH.muted, marginTop: 6 },
+  fieldError: { fontFamily, fontSize: 12, color: colors.primaryDark, marginTop: 6, lineHeight: 18 },
+  who: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 16, marginBottom: 12 },
+  whoText: { fontFamily, fontSize: 12, color: AUTH.muted, flex: 1 },
+  strong: { fontWeight: '700', color: AUTH.ink },
+  cta: { marginTop: 4, minHeight: 50, borderRadius: 12 },
+  links: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, flexWrap: 'wrap', gap: 10 },
+  link: { flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 32 },
+  linkText: { fontFamily, fontSize: 13, fontWeight: '600' },
 });

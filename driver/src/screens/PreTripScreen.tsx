@@ -12,7 +12,7 @@ import type { RootStackParamList } from '../navigation/types';
 import { useDriverData } from '../context/DriverData';
 import { NxScreen } from '../components/nx/Shell';
 import { NxIcon, NxIconName } from '../components/nx/Icon';
-import { NxButton, NxEmpty, NxField, NxFormError, NxInfo, NxPanel, nxText } from '../components/nx/primitives';
+import { NxBackLink, NxBadge, NxButton, NxEmpty, NxField, NxFormError, NxInfo, NxPanel, isHovered, nxText } from '../components/nx/primitives';
 import { ActionError } from '../services/callables';
 import { getCurrentPosition } from '../services/locationService';
 import {
@@ -36,12 +36,7 @@ const SLOT_ICON: Record<Slot, NxIconName> = { selfie: 'user', front: 'car', rear
 const SUBJECT: Record<Slot, string> = { selfie: 'selfie', front: 'vehicle front', rear: 'vehicle rear', interior: 'dashboard' };
 
 function BackToTrip({ onPress }: { onPress: () => void }) {
-  return (
-    <Pressable style={styles.back} onPress={onPress} accessibilityRole="button" accessibilityLabel="Back to the trip">
-      <NxIcon name="back" size={16} color={nx.muted} />
-      <Text style={styles.backText}>Trip</Text>
-    </Pressable>
-  );
+  return <NxBackLink label="Trip" onPress={onPress} />;
 }
 
 export function PreTripScreen({ route, navigation }: Props) {
@@ -59,7 +54,7 @@ export function PreTripScreen({ route, navigation }: Props) {
   // The evidence is taken first; the trip can only move on to Navigate / Reached Pickup once it is accepted.
   if (!trip || (trip.subStatus !== 'Not Started' && trip.subStatus !== 'Reached Pickup')) {
     return (
-      <NxScreen tabs={false}>
+      <NxScreen maxWidth={600} phoneHeading={false}>
         <BackToTrip onPress={toTrip} />
         <NxEmpty
           icon="trip"
@@ -72,7 +67,7 @@ export function PreTripScreen({ route, navigation }: Props) {
   }
   if (trip.verificationSubmitted) {
     return (
-      <NxScreen tabs={false}>
+      <NxScreen maxWidth={600} phoneHeading={false}>
         <BackToTrip onPress={toTrip} />
         <NxEmpty
           icon="check"
@@ -119,29 +114,42 @@ export function PreTripScreen({ route, navigation }: Props) {
   const capturingIndex = capturing ? SLOTS.findIndex((s) => s.slot === capturing) : -1;
 
   return (
-    <NxScreen tabs={false}>
+    <NxScreen maxWidth={600} phoneHeading={false}>
       <BackToTrip onPress={toTrip} />
       <Text style={styles.meta}>{trip.bookingId}</Text>
-      <Text style={nxText.routeTitle}>Vehicle photo check</Text>
+      <Text style={nxText.routeTitle}>Before you start</Text>
       <Text style={[nxText.copy, { marginTop: 8 }]}>
         Take your live selfie and the vehicle photos, one at a time, then enter the starting odometer reading. This safety check is required before the trip can start.
       </Text>
-      <NxInfo tone="amber">Take each photo now with the camera, following the instruction shown. Photos from the gallery or screenshots are not accepted, and every photo is checked by NESAM.</NxInfo>
+      <NxInfo tone="amber" icon="camera">Take each photo now with the camera, following the instruction shown. Photos from the gallery or screenshots are not accepted, and every photo is checked by NESAM.</NxInfo>
 
       <NxPanel style={{ marginTop: 18 }}>
+        <View style={styles.panelTop}>
+          <NxBadge label="Confirmed duty" tone="green" icon="check" />
+          <Text style={nxText.small}>
+            {Object.keys(photos).length} of {SLOTS.length} photos
+          </Text>
+        </View>
+        <View style={styles.pickupSummary}>
+          <NxIcon name="pin" size={19} color={nx.red} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={nxText.small}>Pickup</Text>
+            <Text style={styles.pickupAddr}>{trip.pickup.address || '—'}</Text>
+          </View>
+        </View>
         {SLOTS.map((s, i) => (
           <View style={styles.check} key={s.slot}>
             <View style={styles.thumb}>
-              {photos[s.slot] ? <Image source={{ uri: photos[s.slot] }} style={styles.thumbImg} accessibilityLabel={`${s.label} photo`} /> : <NxIcon name={SLOT_ICON[s.slot]} size={20} color={nx.muted} />}
+              {photos[s.slot] ? <Image source={{ uri: photos[s.slot] }} style={styles.thumbImg} accessibilityLabel={`${s.label} photo`} /> : <NxIcon name={SLOT_ICON[s.slot]} size={22} color={nx.muted} />}
             </View>
-            <View style={{ flex: 1 }}>
+            <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={styles.step}>STEP {i + 1}</Text>
               <Text style={styles.title}>{s.label}</Text>
               <Text style={[nxText.small, photos[s.slot] && { color: nx.green }]}>{photos[s.slot] ? 'Captured live' : s.hint}</Text>
             </View>
             {session ? (
               <Pressable
-                style={[styles.action, busy && { opacity: 0.4 }]}
+                style={(st) => [styles.action, busy && { opacity: 0.4 }, isHovered(st) && { opacity: 0.75 }]}
                 disabled={busy}
                 onPress={() => {
                   setError('');
@@ -346,9 +354,12 @@ function CaptureModal({ session, slot, index, onClose, onDone }: { session: Capt
 const styles = StyleSheet.create({
   back: { flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 44, alignSelf: 'flex-start' },
   backText: { fontSize: 14, color: nx.muted },
-  meta: { fontSize: 11, letterSpacing: 0.3, color: nx.tripMuted, marginBottom: 5 },
-  check: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: nx.line },
-  thumb: { width: 48, height: 52, borderRadius: 10, backgroundColor: nx.page, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  meta: { fontSize: 11, letterSpacing: 0.3, color: nx.tripMuted, marginBottom: 5, marginTop: 4 },
+  panelTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  pickupSummary: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 12, marginTop: 16, marginBottom: 4, borderTopWidth: 1, borderBottomWidth: 1, borderColor: nx.line },
+  pickupAddr: { fontSize: 12.5, fontWeight: '600', color: nx.tripInk, marginTop: 3 },
+  check: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: nx.line },
+  thumb: { width: 49, height: 49, borderRadius: 12, backgroundColor: nx.page, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   thumbImg: { width: '100%', height: '100%' },
   step: { fontSize: 9.5, letterSpacing: 0.8, color: nx.tripMuted },
   title: { fontSize: 12.5, fontWeight: '700', color: nx.tripInk, marginVertical: 2 },
@@ -356,11 +367,11 @@ const styles = StyleSheet.create({
   actionText: { fontSize: 11, fontWeight: '700', color: nx.red },
   cameraOnly: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 18 },
   modal: { flex: 1, backgroundColor: nx.page },
-  modalBody: { flex: 1, paddingHorizontal: 17, paddingTop: 8, paddingBottom: 16 },
+  modalBody: { flex: 1, width: '100%', maxWidth: 600, alignSelf: 'center', paddingHorizontal: 17, paddingTop: 8, paddingBottom: 16 },
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, marginTop: 4 },
-  live: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: nx.statusBg, borderRadius: 14, paddingVertical: 5, paddingHorizontal: 10 },
-  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: nx.statusGreen },
-  liveText: { fontSize: 10.5, fontWeight: '700', color: nx.statusGreen },
+  live: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: nx.redSoft, borderRadius: 7, paddingVertical: 5, paddingHorizontal: 8 },
+  liveDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: nx.red },
+  liveText: { fontSize: 11, fontWeight: '600', color: nx.red },
   permission: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, padding: 20 },
   frame: { width: '100%', backgroundColor: '#192025', borderRadius: 18, overflow: 'hidden', marginTop: 19, marginBottom: 12 },
   frameSelfie: { aspectRatio: 4 / 5, maxHeight: '58%' },

@@ -41,7 +41,7 @@ export function NxDialog({ visible, onClose, eyebrow, title, children, footer, l
               <NxIcon name="close" size={17} color={nx.ink} />
             </Pressable>
           </View>
-          <ScrollView style={styles.body} contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+          <ScrollView style={styles.body} contentContainerStyle={{ paddingHorizontal: 22, paddingVertical: 20 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
             {children}
           </ScrollView>
           {footer ? <View style={styles.footer}>{footer}</View> : null}
@@ -56,11 +56,11 @@ const styles = StyleSheet.create({
   fill: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 15, paddingVertical: 12 },
   backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: nx.backdrop },
   card: { width: '100%', maxWidth: 460, maxHeight: '88%', backgroundColor: nx.white, borderRadius: nxRadius.dialog, overflow: 'hidden' },
-  header: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingHorizontal: 20, paddingTop: 18, paddingBottom: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: nx.line },
-  eyebrow: { fontSize: 10, letterSpacing: 1.6, fontWeight: '700', color: nx.muted, marginBottom: 4 },
-  title: { fontSize: 18, fontWeight: '700', letterSpacing: -0.3, color: nx.ink },
+  header: { flexDirection: 'row', alignItems: 'flex-start', gap: 15, paddingHorizontal: 22, paddingTop: 21, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: nx.line },
+  eyebrow: { fontSize: 10, letterSpacing: 1.35, fontWeight: '700', color: nx.muted, marginBottom: 4, textTransform: 'uppercase' },
+  title: { fontSize: 19, fontWeight: '700', letterSpacing: -0.5, color: nx.ink },
   close: { width: 33, height: 33, borderRadius: 17, backgroundColor: nx.page, alignItems: 'center', justifyContent: 'center' },
   // flexShrink lets the body give up height (and scroll) when the card hits maxHeight, so the footer is never clipped.
   body: { flexGrow: 0, flexShrink: 1 },
-  footer: { padding: 20, paddingTop: 14, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: nx.line, gap: 10 },
+  footer: { paddingHorizontal: 22, paddingTop: 16, paddingBottom: 20, borderTopWidth: 1, borderTopColor: nx.line, gap: 10 },
 });

@@ -376,13 +376,35 @@ service cloud.firestore {
     // already submitted for review (PENDING_APPROVAL) and listing at least one vehicle. Only the
     // owner-writable keys may be present, so approval, review, commission and wallet fields can
     // never be set at sign-up; staff approval still decides whether the account is usable.
+    // Business registration + identity proof, and the fleet's RC, insurance, FC, permit and vehicle photo (the same test
+    // as the Partner app's vendorDocsComplete and functions/src/claims.ts). Approval by NESAM is the verification.
+    function vendorDocsComplete(d) {
+      return d.get('documents', null) is map
+             && d.documents.get('businessRegistration', {}).get('files', []).size() > 0
+             && d.documents.get('identityProof', {}).get('files', []).size() > 0
+             && d.get('fleet', null) is map
+             && d.fleet.get('rcFiles', []).size() > 0
+             && d.fleet.get('insuranceFiles', []).size() > 0
+             && d.fleet.get('fcFiles', []).size() > 0
+             && d.fleet.get('permitFiles', []).size() > 0
+             && d.fleet.get('vehiclePhotos', []).size() > 0;
+    }
+    // Approved / submitted without documents: the owner may only reopen the application to upload them.
+    function vendorReopenForDocumentsOk() {
+      return resource.data.status in ['APPROVED', 'Approved', 'Active', 'PENDING_APPROVAL']
+             && !vendorDocsComplete(resource.data)
+             && onlyChanges(['status', 'updatedAt'])
+             && request.resource.data.status in ['CHANGES_REQUESTED', 'INCOMPLETE'];
+    }
     function vendorSelfCreateOk() {
       let d = request.resource.data;
       return authPhone() != ''
              && d.keys().hasOnly(vendorOwnerKeys())
              && d.uid == uid() && d.role == 'vendor' && d.phone == authPhone()
-             && d.status == 'PENDING_APPROVAL'
-             && d.submittedAt == request.time && d.createdAt == request.time
+             // A sign-up starts as a draft (documents are uploaded next); older app versions submit straight away.
+             && ((d.status == 'INCOMPLETE' && d.get('submittedAt', null) == null)
+                 || (d.status == 'PENDING_APPROVAL' && d.submittedAt == request.time))
+             && d.createdAt == request.time
              && d.fleet is map && d.fleet.vehicles is list
              && d.fleet.vehicles.size() > 0 && d.fleet.vehicles.size() <= 100
              && !exists(docPath('customers', uid()))
@@ -407,6 +429,8 @@ service cloud.firestore {
                             // Draft / corrections, optionally submitting.
                             (vendorEditableStatus(resource.data.status)
                              && (unchanged('status') || vendorSubmitOk()))
+                            // Documents missing: reopen the application to upload them (goes back to NESAM review).
+                         || vendorReopenForDocumentsOk()
                             // Approved: contact details only — legal names stay fixed.
                          || (isApprovedVendorStatus(resource.data.status)
                              && unchanged('status')

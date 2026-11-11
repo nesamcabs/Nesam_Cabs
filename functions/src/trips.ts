@@ -239,6 +239,15 @@ export const advanceTrip = onCall({ timeoutSeconds: 60 }, async (request) => {
       bookingId, bookingCode: label, cta: { label: 'Open trip', page: 'booking-detail', bookingId }, push: to === 'Trip Ended', sentBy: driver.uid,
     };
     pushes.push({ id: notifyInTx(tx, admin), input: admin });
+    // The vendor whose driver runs this duty follows it live in the Partner app (Bookings → On Trip).
+    if (b.assignedVendorId) {
+      const v: NotifyInput = {
+        recipientType: 'vendor', recipientId: String(b.assignedVendorId), category: 'trips', severity: to === 'Trip Ended' ? 'success' : 'info', sound: 'general',
+        title: to === 'Reached Pickup' ? 'Driver at pickup' : to === 'Trip Started' ? 'Trip started' : 'Trip completed', message: `${adminMsg} ${formatDateTime12(new Date())}`,
+        bookingId, bookingCode: label, cta: { label: 'Open booking', page: 'trips', bookingId }, push: to !== 'Reached Pickup', sentBy: driver.uid,
+      };
+      pushes.push({ id: notifyInTx(tx, v), input: v });
+    }
     if (b.customerId) {
       const c: NotifyInput = {
         recipientType: 'customer', brand: b.brand, recipientId: b.customerId, category: 'trips', severity: 'info', sound: 'general', push: true, sentBy: driver.uid,

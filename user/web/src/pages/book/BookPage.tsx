@@ -1,18 +1,20 @@
 import { serviceSlogan } from '@/lib/serviceSlogan';
 import { ReviewsSection, CatalogSection } from '@/components/PublicContentSections';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
-import type { TripType } from '@core/types';
+import type { GeoPlace, TripType } from '@core/types';
 import { useCustomerData } from '@core/context/CustomerData';
 import { useAuth } from '@/state/Auth';
 import { useBooking } from '@/state/Booking';
+import { useMinWidth } from '@/lib/hooks';
 import { useSeo } from '@/lib/seo';
 import { useExitGuard } from '@/lib/exitGuard';
 import { scrollToBookingForm } from '@/lib/scrollToForm';
 import { HOME_SEO } from '@/seo/pages';
 import { Icon } from '@/components/Icon';
-import { parseService, serviceOfTrip, type ServiceId } from '@/lib/services';
+import { isLocalRentals, parseService, serviceOfTrip, type ServiceId } from '@/lib/services';
 import { BookingForm } from './BookingForm';
+import { HeroRentalMap } from './HeroRentalMap';
 import { ChooseStep } from './ChooseStep';
 import { ReviewStep } from './ReviewStep';
 import {
@@ -91,12 +93,15 @@ function Home() {
   const rawService = params.get('service');
   const tripParam = params.get('trip');
   const navigate = useNavigate();
+  const isDesktop = useMinWidth(900);
+  const [pinTarget, setPinTarget] = useState<'pickup' | 'drop'>('pickup');
 
-  // Local Rentals open as a full-screen map with a sheet from the bottom, not as the inline form.
+  // On phones and narrow screens, Local Rentals opens the full-screen map sheet; on desktop it stays anchored in the hero.
   useEffect(() => {
+    if (isDesktop) return;
     const s = parseService(rawService);
     if (s === 'rental' || s === 'pickup') navigate(`/local-rentals?mode=${s === 'pickup' ? 'pickup' : 'hourly'}`, { replace: true });
-  }, [rawService, navigate]);
+  }, [rawService, navigate, isDesktop]);
 
   // Parse service, mapping legacy 'one-way' / 'round-trip' to 'outstation'
   const service: ServiceId = parseService(rawService) ?? serviceOfTrip(draft.tripType);
@@ -134,7 +139,14 @@ function Home() {
   const onService = useCallback(
     (s: ServiceId) => {
       if (s === 'rental' || s === 'pickup') {
-        navigate(`/local-rentals?mode=${s === 'pickup' ? 'pickup' : 'hourly'}`);
+        if (!isDesktop) {
+          navigate(`/local-rentals?mode=${s === 'pickup' ? 'pickup' : 'hourly'}`);
+          return;
+        }
+        if (s === 'pickup' && draft.drop?.id === 'place-local-disposal') {
+          update({ drop: null });
+        }
+        setParams({ service: s }, { replace: true });
         return;
       }
       if (s === 'outstation') {
@@ -143,7 +155,7 @@ function Home() {
         setParams({ service: s }, { replace: true });
       }
     },
-    [setParams, outstationTrip, navigate],
+    [setParams, outstationTrip, navigate, isDesktop, draft.drop?.id, update],
   );
 
   const onOutstationTrip = useCallback(
@@ -193,11 +205,44 @@ function Home() {
     scrollToConsole();
   };
 
+  const showHeroMap = isDesktop && isLocalRentals(service);
+  const localDrop = draft.drop?.id === 'place-local-disposal' ? null : draft.drop;
+
+  useEffect(() => {
+    if (service === 'rental') setPinTarget('pickup');
+    else if (service === 'pickup') {
+      if (draft.drop?.id === 'place-local-disposal') {
+        update({ drop: null });
+        setPinTarget(draft.pickup ? 'drop' : 'pickup');
+      } else {
+        setPinTarget(draft.pickup && !draft.drop ? 'drop' : 'pickup');
+      }
+    }
+  }, [service]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const onPickPlace = useCallback(
+    (field: 'pickup' | 'drop', place: GeoPlace) => {
+      update(field === 'pickup' ? { pickup: place } : { drop: place });
+    },
+    [update],
+  );
+
   return (
     <div className="home">
       <div className="wrap home__wrap">
-        <div className="home-hero">
-          <HeroCopy service={service} trip={outstationTrip} />
+        <div className={`home-hero ${showHeroMap ? 'home-hero--map' : ''}`}>
+          {showHeroMap ? (
+            <HeroRentalMap
+              mode={service === 'pickup' ? 'pickup' : 'rental'}
+              pickup={draft.pickup}
+              drop={localDrop}
+              pinTarget={pinTarget}
+              onPinTargetChange={setPinTarget}
+              onPickPlace={onPickPlace}
+            />
+          ) : (
+            <HeroCopy service={service} trip={outstationTrip} />
+          )}
           <BookingForm
             service={service}
             onService={onService}

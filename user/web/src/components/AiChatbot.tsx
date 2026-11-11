@@ -1,6 +1,7 @@
 // NESAM Cabs AI travel guide. The chat itself is shared (AiChatWidget); this is this site's wording and icons.
 import { AiChatWidget, type ChatBrand } from './AiChatWidget';
 import { Icon } from './Icon';
+import type { AiLeadCustomer, AiLeadTripContext } from '@/lib/aiChatLead';
 
 const BRAND: ChatBrand = {
   id: 'nesam',
@@ -17,8 +18,8 @@ const BRAND: ChatBrand = {
   placeholder: { en: 'Ask about fares, cabs, routes…', ta: 'கட்டணம், கார், வழி பற்றிக் கேளுங்கள்…' },
 };
 
-export function AiChatbot({ open, onOpenChange, hideLauncher }: { open?: boolean; onOpenChange?: (open: boolean) => void; hideLauncher?: boolean } = {}) {
-  return <AiChatWidget brand={BRAND} Icon={Icon} closeIcon="xmark" open={open} onOpenChange={onOpenChange} hideLauncher={hideLauncher} />;
+export function AiChatbot({ open, onOpenChange, hideLauncher, customer, tripContext }: { open?: boolean; onOpenChange?: (open: boolean) => void; hideLauncher?: boolean; customer?: AiLeadCustomer; tripContext?: AiLeadTripContext } = {}) {
+  return <AiChatWidget brand={BRAND} Icon={Icon} closeIcon="xmark" open={open} onOpenChange={onOpenChange} hideLauncher={hideLauncher} customer={customer} tripContext={tripContext} />;
 }
 
 export default AiChatbot;

@@ -35,6 +35,7 @@ import {
   EDITABLE_STATUSES,
   getVendorKyc,
   missingSections,
+  vehicleDocsMissing,
   saveBusinessAccountStep,
   saveDocumentsStep,
   saveFleetStep,
@@ -495,13 +496,13 @@ function DocumentsStep({
 
 // ── Step 2: fleet ────────────────────────────────────────────────────────────
 
-/** Each vehicle is added with its registration number only; RC, insurance, FC, permit and a front photo are optional extras. */
+/** Each vehicle needs its RC, insurance, FC, permit and a front photo (with validity dates); NESAM verifies them before approval. */
 function FleetStep({ record, onNext, onBack }: { record: VendorRecord; onNext: () => void; onBack: () => void }) {
   const saved = useMemo(() => record.fleet?.vehicles ?? [], [record.fleet]);
   const [vehicles, setVehicles] = useState<FleetVehicleDoc[]>(saved);
   const [draft, setDraft] = useState<FleetVehicleDoc>(emptyVehicle());
   const [adding, setAdding] = useState(saved.length === 0);
-  const [moreDocs, setMoreDocs] = useState(false);
+  const [editing, setEditing] = useState(''); // plate of a saved vehicle being completed
   const [errors, setErrors] = useState<VehicleErrors>({});
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
@@ -528,14 +529,28 @@ function FleetStep({ record, onNext, onBack }: { record: VendorRecord; onNext: (
   const resetEditor = () => {
     setDraft(emptyVehicle());
     setErrors({});
-    setMoreDocs(false);
+    setStepError('');
+    setEditing('');
+  };
+
+  /** Opens a saved vehicle (e.g. the one from sign-up) to upload its missing documents. */
+  const completeVehicle = (v: FleetVehicleDoc) => {
+    setVehicles((list) => list.filter((x) => x.registrationNumber !== v.registrationNumber));
+    setDraft(v);
+    setEditing(v.registrationNumber);
+    setErrors({});
+    setStepError('');
+    setAdding(true);
   };
 
   const addVehicle = () => {
     const e = validateVehicle(draft, { others: vehicles.map((v) => normalizePlate(v.registrationNumber)) });
     setErrors(e);
     if (Object.keys(e).length || uploading) return;
-    setVehicles((list) => [...list, { ...draft, registrationNumber: plate, source: 'manual' }]);
+    const missingDocs = vehicleDocsMissing(draft);
+    if (missingDocs.length) { setStepError(`Upload the vehicle's ${missingDocs.join(', ')} to continue.`); return; }
+    if (!draft.insuranceUpto || !draft.fitnessUpto || !draft.permitUpto) { setStepError('Enter the insurance, FC and permit validity dates.'); return; }
+    setVehicles((list) => [...list, { ...draft, registrationNumber: plate, source: draft.source || 'manual' }]);
     resetEditor();
     setAdding(false);
   };
@@ -544,6 +559,8 @@ function FleetStep({ record, onNext, onBack }: { record: VendorRecord; onNext: (
     setStepError('');
     if (!vehicles.length) { setStepError('Add at least one vehicle.'); return; }
     if (adding && draft.registrationNumber.trim()) { setStepError('Finish adding the vehicle you started, or clear it, before continuing.'); return; }
+    const incomplete = vehicles.find((v) => vehicleDocsMissing(v).length);
+    if (incomplete) { setStepError(`${displayPlate(incomplete.registrationNumber)} is missing ${vehicleDocsMissing(incomplete).join(', ')}. Tap "Upload documents" on the vehicle.`); return; }
     if (uploading || saving) return;
     setSaving(true);
     setSaveError('');
@@ -566,7 +583,11 @@ function FleetStep({ record, onNext, onBack }: { record: VendorRecord; onNext: (
             {[v.make, v.model].filter(Boolean).length ? <Text style={type.small}>{[v.make, v.model].filter(Boolean).join(' ')}</Text> : null}
             {v.category ? <Text style={type.tiny}>{v.category === 'Premium SUV' ? 'Innova Crysta' : v.category}</Text> : null}
           </View>
-          <Badge label="NESAM will verify" tone="warning" />
+          {vehicleDocsMissing(v).length ? (
+            <Text style={styles.remove} onPress={() => completeVehicle(v)} accessibilityRole="button" accessibilityLabel={`Upload documents for ${displayPlate(v.registrationNumber)}`}>
+              Upload documents
+            </Text>
+          ) : <Badge label="Documents added" tone="success" />}
           <Text
             style={styles.remove}
             onPress={() => setVehicles((list) => list.filter((x) => x.registrationNumber !== v.registrationNumber))}
@@ -580,7 +601,8 @@ function FleetStep({ record, onNext, onBack }: { record: VendorRecord; onNext: (
 
       {adding ? (
         <View style={styles.editor}>
-          <Text style={[type.h3, { marginBottom: space.sm }]}>{vehicles.length ? 'Add another vehicle' : 'Add a vehicle'}</Text>
+          <Text style={[type.h3, { marginBottom: space.sm }]}>{editing ? `Documents for ${displayPlate(editing)}` : vehicles.length ? 'Add another vehicle' : 'Add a vehicle'}</Text>
+          <Text style={[type.small, { marginBottom: space.md }]}>RC, insurance, FC, permit and a front photo with the number plate are required. NESAM verifies them before approval.</Text>
           <TextField
             label="Registration number"
             required
@@ -593,13 +615,7 @@ function FleetStep({ record, onNext, onBack }: { record: VendorRecord; onNext: (
             hint="As printed on the number plate. NESAM verifies the vehicle during review."
           />
 
-          <Button
-            title={moreDocs ? 'Hide vehicle documents' : 'Add vehicle documents (optional)'}
-            variant="ghost"
-            onPress={() => setMoreDocs((v) => !v)}
-            style={{ marginBottom: space.sm }}
-          />
-          {moreDocs ? (
+          {(
             <>
               <FileUploadField label="RC (registration certificate)" category="vehicle_rc" files={draft.rcFiles} onChange={setFiles('rcFiles')} persistedPaths={persisted} onBusyChange={onRc} max={2} />
               <FileUploadField label="Insurance" category="vehicle_insurance" files={draft.insuranceFiles} onChange={setFiles('insuranceFiles')} persistedPaths={persisted} onBusyChange={onIns} max={2} />
@@ -610,12 +626,12 @@ function FleetStep({ record, onNext, onBack }: { record: VendorRecord; onNext: (
               <DateField label="Permit valid till" value={draft.permitUpto} onChange={(d) => setDraft((x) => ({ ...x, permitUpto: d }))} minimumDate={new Date()} />
               <FileUploadField label="Vehicle front (with plate)" hint="Clear photo showing the number plate · JPG/PNG/WEBP" category="vehicle_photos" files={draft.frontPhotoFiles} onChange={setFiles('frontPhotoFiles')} persistedPaths={persisted} onBusyChange={onFront} max={1} />
             </>
-          ) : null}
+          )}
           <View style={styles.nav}>
-            {vehicles.length ? (
-              <Button title="Cancel" variant="secondary" onPress={() => { setAdding(false); resetEditor(); }} style={{ flex: 1 }} />
+            {vehicles.length || editing ? (
+              <Button title="Cancel" variant="secondary" onPress={() => { if (editing) setVehicles((l) => [...l, draft]); setAdding(false); resetEditor(); }} style={{ flex: 1 }} />
             ) : null}
-            <Button title={uploading ? 'Uploading…' : 'Add vehicle'} disabled={uploading} onPress={addVehicle} style={{ flex: 2 }} />
+            <Button title={uploading ? 'Uploading…' : editing ? 'Save vehicle' : 'Add vehicle'} disabled={uploading} onPress={addVehicle} style={{ flex: 2 }} />
           </View>
         </View>
       ) : (
@@ -677,20 +693,18 @@ function ReviewStep({ record, onEdit, onBack }: { record: VendorRecord; onEdit: 
         <Row label="IFSC" value={p?.ifsc ?? ''} />
         <Row label="UPI" value={p?.upiId || '—'} />
       </ReviewSection>
-      {d ? (
-        <ReviewSection id="documents" missing={missing} flagged={flaggedNow} onEdit={onEdit}>
-          <Row label="Business registration" value={`${d.businessRegistration.type} — ${d.businessRegistration.number}`} />
-          <Row label="Identity proof" value={`${d.identityProof.type} — ${d.identityProof.maskedNumber}`} />
-          <Row label="Documents uploaded" value={`${d.businessRegistration.files.length + d.identityProof.files.length} file(s)`} />
-        </ReviewSection>
-      ) : null}
+      <ReviewSection id="documents" missing={missing} flagged={flaggedNow} onEdit={onEdit}>
+        <Row label="Business registration" value={d ? `${d.businessRegistration.type} — ${d.businessRegistration.number}` : ''} />
+        <Row label="Identity proof" value={d ? `${d.identityProof.type} — ${d.identityProof.maskedNumber}` : ''} />
+        <Row label="Documents uploaded" value={d ? `${d.businessRegistration.files.length + d.identityProof.files.length} file(s)` : ''} />
+      </ReviewSection>
       <ReviewSection id="fleet" missing={missing} flagged={flaggedNow} onEdit={onEdit}>
         <Row label="Vehicles" value={f?.vehicles?.length ? `${f.vehicles.length}` : ''} />
         {(f?.vehicles ?? []).map((v) => (
           <Row
             key={v.registrationNumber}
             label={v.registrationNumber}
-            value={[v.make, v.model].filter(Boolean).join(' ') || v.category || 'NESAM will verify the vehicle'}
+            value={vehicleDocsMissing(v).length ? `Missing ${vehicleDocsMissing(v).join(', ')}` : 'RC, insurance, FC, permit & photo added'}
           />
         ))}
       </ReviewSection>

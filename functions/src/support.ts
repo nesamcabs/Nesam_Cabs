@@ -20,8 +20,52 @@ import { rateLimited } from './http/util';
 import { requirePermission, text } from './shared';
 
 const bad = (m: string) => new HttpsError('invalid-argument', m);
-const CATEGORIES = ['Booking help', 'Change or cancel a booking', 'Fare or payment', 'Refund', 'Driver or vehicle', 'Lost item', 'Safety concern', 'Account deletion', 'Feedback', 'Corporate / business travel', 'Partner with us', 'Other'];
+const CATEGORIES = ['Booking help', 'Change or cancel a booking', 'Fare or payment', 'Refund', 'Driver or vehicle', 'Lost item', 'Safety concern', 'Account deletion', 'Feedback', 'Corporate / business travel', 'Partner with us', 'AI assistant lead', 'Other'];
 const PHONE_RE = /^\+?[0-9\s-]{10,16}$/;
+
+export interface AiLeadRecord {
+  question?: string;
+  reply?: string;
+  reason?: string;
+  language?: string;
+  pagePath?: string;
+  tripContext?: { pickup?: string; drop?: string; service?: string };
+  messages?: Array<{ role: 'user' | 'assistant'; content: string }>;
+}
+
+/** Extract sanitized structured context when a lead originates from an AI chat handoff. */
+export function parseAiLead(input: Record<string, unknown>): AiLeadRecord | undefined {
+  const raw = (input.aiLead && typeof input.aiLead === 'object' ? input.aiLead : {}) as Record<string, unknown>;
+  const question = text(raw.question ?? input.aiQuestion, 600);
+  const reply = text(raw.reply ?? input.aiReply, 800);
+  const reason = text(raw.reason ?? input.aiConfusionReason, 60);
+  const language = text(raw.language, 20);
+  const pagePath = text(raw.pagePath, 160);
+  const tripRaw = (raw.tripContext && typeof raw.tripContext === 'object' ? raw.tripContext : {}) as Record<string, unknown>;
+  const pickup = text(tripRaw.pickup, 150);
+  const drop = text(tripRaw.drop, 150);
+  const service = text(tripRaw.service, 80);
+  const tripContext = pickup || drop || service ? { ...(pickup ? { pickup } : {}), ...(drop ? { drop } : {}), ...(service ? { service } : {}) } : undefined;
+  const messages = Array.isArray(raw.messages)
+    ? raw.messages
+        .filter((m): m is { role: unknown; content: unknown } => !!m && typeof m === 'object')
+        .filter((m) => m.role === 'user' || m.role === 'assistant')
+        .map((m) => ({ role: m.role as 'user' | 'assistant', content: text(m.content, 500) }))
+        .filter((m) => m.content)
+        .slice(-6)
+    : [];
+
+  const out: AiLeadRecord = {
+    ...(question ? { question } : {}),
+    ...(reply ? { reply } : {}),
+    ...(reason ? { reason } : {}),
+    ...(language ? { language } : {}),
+    ...(pagePath ? { pagePath } : {}),
+    ...(tripContext ? { tripContext } : {}),
+    ...(messages.length ? { messages } : {}),
+  };
+  return Object.keys(out).length ? out : undefined;
+}
 
 export const submitSupportRequest = onCall({ timeoutSeconds: 30, cors: PUBLIC_CALLABLE_ORIGINS }, async (request) => {
   const input = (request.data ?? {}) as Record<string, unknown>;
@@ -33,9 +77,12 @@ export const submitSupportRequest = onCall({ timeoutSeconds: 30, cors: PUBLIC_CA
 
   const brand = brandOf(text(input.brand, 40) || 'nesam');
   const categoryIn = text(input.category, 80);
-  const category = CATEGORIES.includes(categoryIn) ? categoryIn : categoryIn ? 'Other' : 'Booking help';
-  const message = text(input.message ?? input.description, 2000);
-  if (message.length < 10) throw bad('Tell us a little more (at least 10 characters).');
+  const sourceIn = text(input.source, 30);
+  const isAiLead = sourceIn === 'ai-chat' || categoryIn === 'AI assistant lead';
+  const category = CATEGORIES.includes(categoryIn) ? categoryIn : isAiLead ? 'AI assistant lead' : categoryIn ? 'Other' : 'Booking help';
+  const aiLead = isAiLead ? parseAiLead(input) : undefined;
+  const message = text(input.message ?? input.description, 2000) || (isAiLead ? (aiLead?.question ?? '') : '');
+  if (message.length < (isAiLead ? 3 : 10)) throw bad('Tell us a little more (at least 10 characters).');
   const bookingId = text(input.bookingId, 40).toUpperCase();
 
   let name = text(input.name, 80);
@@ -54,6 +101,7 @@ export const submitSupportRequest = onCall({ timeoutSeconds: 30, cors: PUBLIC_CA
   if (email && !EMAIL_RE.test(email)) throw bad('Enter a valid email address.');
   if (phone && !PHONE_RE.test(phone)) throw bad('Enter a valid phone number.');
 
+  const source = sourceIn === 'ai-chat' ? 'ai-chat' : customer?.exists ? (sourceIn || 'customer-app') : 'website-contact';
   const ref = db.collection('support_tickets').doc();
   const stamp = FieldValue.serverTimestamp();
   await db.runTransaction(async (tx) => {
@@ -61,19 +109,33 @@ export const submitSupportRequest = onCall({ timeoutSeconds: 30, cors: PUBLIC_CA
       ...(customer?.exists ? { customerId: uid } : {}),
       customerName: name, customerPhone: phone, customerEmail: email,
       category, bookingId, description: message, brand: brand.id,
-      source: customer?.exists ? (text(input.source, 30) || 'customer-app') : 'website-contact',
+      source,
+      ...(aiLead ? { aiLead } : {}),
       status: 'Open', createdAt: stamp, updatedAt: stamp,
     });
-    auditInTx(tx, { action: 'support_request_created', entity: 'support_ticket', entityId: ref.id, performedBy: uid || 'visitor', performedByName: name, role: customer?.exists ? 'customer' : 'system', next: { category, brand: brand.id } });
+    auditInTx(tx, { action: 'support_request_created', entity: 'support_ticket', entityId: ref.id, performedBy: uid || 'visitor', performedByName: name, role: customer?.exists ? 'customer' : 'system', next: { category, brand: brand.id, source } });
   });
+
+  const extraRows: [string, string][] = [];
+  if (aiLead?.question) extraRows.push(['Customer asked AI', aiLead.question]);
+  if (aiLead?.reply) extraRows.push(['AI reply', aiLead.reply]);
+  if (aiLead?.tripContext) {
+    const t = aiLead.tripContext;
+    const summary = [t.service, t.pickup && t.drop ? `${t.pickup} -> ${t.drop}` : t.pickup || t.drop].filter(Boolean).join(' · ');
+    if (summary) extraRows.push(['Trip context', summary]);
+  }
+  if (aiLead?.reason) extraRows.push(['Escalation trigger', aiLead.reason]);
 
   await Promise.all([
     notify({
       recipientType: 'admin', recipientId: 'admin', category: 'general', severity: category === 'Safety concern' ? 'warning' : 'info', sound: 'general', push: true,
-      title: `${brand.name} support request`, message: `${category} · ${name || 'Website visitor'}${bookingId ? ` · ${bookingId}` : ''}`,
+      title: isAiLead ? `${brand.name} AI lead` : `${brand.name} support request`,
+      message: isAiLead
+        ? `${name || 'Website visitor'}${phone ? ` · ${phone}` : ''}${aiLead?.question ? ` · "${aiLead.question.slice(0, 70)}"` : ''}`
+        : `${category} · ${name || 'Website visitor'}${bookingId ? ` · ${bookingId}` : ''}`,
       cta: { label: 'Open support', page: 'support' }, sentBy: uid || 'visitor',
     }).catch((err) => console.warn('support notify failed', err)),
-    mailOfficeSupport({ ticketId: ref.id, brand, name, email, phone, category, bookingId, message, signedIn: !!customer?.exists }).catch((err) => console.warn('support office mail failed', err)),
+    mailOfficeSupport({ ticketId: ref.id, brand, name, email, phone, category, bookingId, message, signedIn: !!customer?.exists, ...(extraRows.length ? { extraRows } : {}) }).catch((err) => console.warn('support office mail failed', err)),
     email ? (async () => {
       const mail = renderEmail(brand, {
         title: 'We have received your request',

@@ -1,10 +1,25 @@
 import { useRef, type KeyboardEvent, type ReactNode } from "react";
+import Icon, { type IconName } from "./Icon";
+
+export type TabTone =
+  | "orange"
+  | "amber"
+  | "sky"
+  | "indigo"
+  | "violet"
+  | "green"
+  | "red"
+  | "slate"
+  | "blue"
+  | "teal";
 
 export interface TabItem<T extends string> {
   id: T;
   label: ReactNode;
   count?: number;
   disabled?: boolean;
+  icon?: IconName;
+  tone?: TabTone;
 }
 
 interface TabsProps<T extends string> {
@@ -47,10 +62,13 @@ export default function Tabs<T extends string>({ tabs, value, onChange, label, c
           aria-selected={t.id === value}
           tabIndex={t.id === value ? 0 : -1}
           disabled={t.disabled}
+          data-tone={t.tone}
+          data-zero={t.count === 0 ? "true" : undefined}
           className="ds-tab"
           onClick={() => onChange(t.id)}
         >
-          {t.label}
+          {t.icon && <Icon name={t.icon} size={14} className="ds-tab-icon" />}
+          <span className="ds-tab-label">{t.label}</span>
           {typeof t.count === "number" && <span className="ds-tab-count">{t.count}</span>}
         </button>
       ))}

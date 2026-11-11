@@ -1261,3 +1261,183 @@ button.tabbar__link--button {
 @media (prefers-reduced-motion: reduce) { .tabbar__img, .tabbar__icon::before { transition: none; } .tabbar__link.is-active .tabbar__img { animation: none; } }
 /* Icon and label sit close together. */
 .tabbar__icon { margin-bottom: -4px; }
+
+/* ── AI Chat: Inline Lead Capture (when confused or callback requested) ── */
+.chat-bubble__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ai-lead-trigger {
+  padding: 2px 8px;
+  border-radius: 9999px;
+  border: 1px solid var(--brand-line, #cbd5e1);
+  background: var(--brand-soft, #f8fafc);
+  color: var(--brand-ink, var(--brand));
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+.ai-lead-trigger:hover { opacity: 0.85; }
+.ai-lead-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 13px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--brand-line, #cbd5e1);
+  background: #ffffff;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.07);
+}
+.ai-lead-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ai-lead-card__title {
+  display: block;
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.3;
+}
+.ai-lead-card__sub {
+  margin: 3px 0 0;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: #475569;
+}
+.ai-lead-card__dismiss {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 0;
+  background: #f1f5f9;
+  color: #475569;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.ai-lead-card__dismiss:hover { background: #e2e8f0; color: #0f172a; }
+.ai-lead-honeypot {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.ai-lead-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ai-lead-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #1e293b;
+}
+.ai-lead-control {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 38px;
+  padding: 8px 11px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #0f172a;
+  font-family: inherit;
+  font-size: 13px;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.ai-lead-control--area {
+  min-height: 58px;
+  resize: vertical;
+  line-height: 1.4;
+}
+.ai-lead-control:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+  border-color: var(--brand);
+  background: #ffffff;
+}
+.ai-lead-control:user-valid {
+  border-color: #16a34a;
+}
+.ai-lead-control.is-invalid,
+.ai-lead-control:user-invalid {
+  border-color: #dc2626;
+  background: #fef2f2;
+}
+.ai-lead-error {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #b91c1c;
+}
+.ai-lead-error span {
+  display: inline-grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.ai-lead-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid #fca5a5;
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.ai-lead-alert__mark {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.ai-lead-submit {
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  border: 0;
+  background: var(--brand);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+.ai-lead-submit:hover:not(:disabled) { opacity: 0.92; }
+.ai-lead-submit:disabled { opacity: 0.6; cursor: progress; }
+@media (max-width: 767.98px) {
+  .ai-chat-input,
+  .ai-lead-control { font-size: 16px; }
+}

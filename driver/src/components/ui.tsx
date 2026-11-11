@@ -6,6 +6,7 @@ import { SafeAreaView, Edge } from 'react-native-safe-area-context';
 import { KeyboardAvoid } from './KeyboardAvoid';
 import { colors, radius, space, type } from '../theme';
 import { initials } from '../utils/format';
+import { NxBrand } from './nx/Brand';
 
 // ── Layout ──────────────────────────────────────────────────────────────────
 
@@ -30,7 +31,7 @@ export function Screen({
       keyboardShouldPersistTaps="handled"
       refreshControl={refreshControl}
     >
-      {children}
+      <View style={styles.column}>{children}</View>
     </ScrollView>
   ) : (
     <View style={[{ flex: 1 }, padded && styles.padded]}>{children}</View>
@@ -253,8 +254,9 @@ export function Notice({
 export function FullScreenLoader({ label }: { label?: string }) {
   return (
     <View style={styles.center}>
-      <ActivityIndicator size="large" color={colors.primary} />
-      {label ? <Text style={[type.small, { marginTop: space.md }]}>{label}</Text> : null}
+      <NxBrand size="large" />
+      <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: space.xl }} />
+      <Text style={[type.small, { marginTop: space.md }]}>{label ?? 'Loading NESAM Driver…'}</Text>
     </View>
   );
 }
@@ -343,6 +345,7 @@ export function Sheet({
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   padded: { padding: space.lg },
+  column: { width: '100%', maxWidth: 720, alignSelf: 'center' },
   footer: {
     padding: space.lg,
     backgroundColor: colors.card,
@@ -354,76 +357,80 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: space.lg,
-    marginBottom: space.md,
+    padding: 20,
+    marginBottom: space.lg,
+    shadowColor: '#162033',
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
   },
   sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: space.sm, marginTop: space.sm },
-  sectionTitle: { fontSize: 12, fontWeight: '800', color: colors.muted, letterSpacing: 0.6, textTransform: 'uppercase' },
+  sectionTitle: { fontSize: 10, fontWeight: '700', color: colors.muted, letterSpacing: 1.35, textTransform: 'uppercase' },
   row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, gap: space.md },
   rowLabel: { flex: 1, fontSize: 13, color: colors.muted },
   rowValue: { flexShrink: 1, fontSize: 13, color: colors.ink, fontWeight: '600', textAlign: 'right' },
-  bold: { fontWeight: '800', color: colors.ink, fontSize: 15 },
+  bold: { fontWeight: '700', color: colors.ink, fontSize: 15 },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border, marginVertical: space.sm },
   btn: {
-    minHeight: 48,
-    paddingHorizontal: space.lg,
-    borderRadius: radius.md,
+    minHeight: 46,
+    paddingHorizontal: 15,
+    borderRadius: 10,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
   },
-  btnSmall: { minHeight: 36, paddingHorizontal: space.md, borderRadius: radius.sm },
-  btnDisabled: { opacity: 0.5 },
-  btnPressed: { opacity: 0.85 },
-  btnText: { fontSize: 15, fontWeight: '700' },
-  btnTextSmall: { fontSize: 13 },
-  link: { color: colors.primary, fontWeight: '700', fontSize: 13 },
+  btnSmall: { minHeight: 38, paddingHorizontal: space.md, borderRadius: 9 },
+  btnDisabled: { opacity: 0.48 },
+  btnPressed: { opacity: 0.88 },
+  btnText: { fontSize: 13, fontWeight: '700' },
+  btnTextSmall: { fontSize: 12 },
+  link: { color: colors.primary, fontWeight: '700', fontSize: 12.5 },
   fieldLabel: { ...type.label, marginBottom: 6 },
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
+    borderColor: '#D8DFE9',
+    borderRadius: 10,
     paddingHorizontal: space.md,
-    minHeight: 48,
+    minHeight: 46,
   },
   inputError: { borderColor: colors.primary },
-  inputDisabled: { backgroundColor: '#F3F4F6' },
-  prefix: { color: colors.primary, fontWeight: '800', marginRight: space.sm, fontSize: 15 },
+  inputDisabled: { backgroundColor: colors.bg },
+  prefix: { color: colors.primary, fontWeight: '700', marginRight: space.sm, fontSize: 15 },
   input: { flex: 1, fontSize: 15, color: colors.ink, paddingVertical: 10 },
   errorText: { color: colors.primaryDark, fontSize: 12, marginTop: 4 },
   hint: { color: colors.muted, fontSize: 12, marginTop: 4 },
-  segment: { flexDirection: 'row', backgroundColor: '#EEEEEE', borderRadius: radius.md, padding: 3 },
+  segment: { flexDirection: 'row', backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 3 },
   segmentItem: { flex: 1, paddingVertical: 9, alignItems: 'center', borderRadius: radius.sm },
   segmentOn: { backgroundColor: colors.card, elevation: 1 },
-  segmentText: { fontSize: 13, fontWeight: '700', color: colors.muted },
+  segmentText: { fontSize: 12, fontWeight: '600', color: colors.muted },
   segmentTextOn: { color: colors.ink },
   chip: {
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: radius.pill,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: colors.border,
     marginRight: space.sm,
     marginBottom: space.sm,
   },
   chipOn: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
-  chipText: { fontSize: 13, fontWeight: '600', color: colors.text },
-  chipTextOn: { color: colors.primary, fontWeight: '800' },
+  chipText: { fontSize: 12.5, fontWeight: '600', color: colors.text },
+  chipTextOn: { color: colors.primary, fontWeight: '700' },
   notice: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderRadius: radius.md,
+    borderRadius: 10,
     padding: space.md,
     marginBottom: space.md,
     gap: space.sm,
   },
-  noticeText: { flex: 1, fontSize: 13, fontWeight: '600', lineHeight: 18 },
+  noticeText: { flex: 1, fontSize: 12.5, fontWeight: '500', lineHeight: 19 },
   noticeRetry: { fontSize: 13, fontWeight: '800', textDecorationLine: 'underline' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg, padding: space.xl },
   empty: {
@@ -436,10 +443,10 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { ...type.h3, textAlign: 'center' },
   emptyMsg: { ...type.small, textAlign: 'center', marginTop: 4 },
-  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill, alignSelf: 'flex-start' },
-  badgeText: { fontSize: 11, fontWeight: '800' },
+  badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, alignSelf: 'flex-start' },
+  badgeText: { fontSize: 10.5, fontWeight: '700' },
   avatar: { backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { color: colors.primary, fontWeight: '800' },
+  avatarText: { color: colors.primary, fontWeight: '700' },
   sheetBackdrop: { flex: 1, backgroundColor: colors.overlay },
   sheet: {
     backgroundColor: colors.card,

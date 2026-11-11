@@ -1,17 +1,19 @@
-// My Trips: upcoming, completed and cancelled duties (reference "My Trips"). Opens the trip flow for any of them.
+// My Trips (reference "My Trips"): upcoming, completed and cancelled duties. Every card opens the trip page.
 import React, { useState } from 'react';
-import { CancelledRequestCard } from '../components/nx/Cancellation';
 import { StyleSheet, View } from 'react-native';
-import { Text } from '../components/nx/Text';
-import { useNow } from '../hooks/useNow';
 import { useNavigation } from '@react-navigation/native';
+import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import { Text } from '../components/nx/Text';
+import { CancelledRequestCard } from '../components/nx/Cancellation';
+import { useNow } from '../hooks/useNow';
 import { useDriverData } from '../context/DriverData';
 import { NxScreen } from '../components/nx/Shell';
-import { NxColumns } from '../components/nx/layout';
-import { NxIcon } from '../components/nx/Icon';
-import { NxBadge, NxButton, NxEmpty, NxPanel, NxPills, placeName } from '../components/nx/primitives';
+import { NxGrid } from '../components/nx/layout';
+import { NxBadge, NxButton, NxEmpty, NxNote, NxPanel, NxPills, placeName } from '../components/nx/primitives';
 import { TripCard } from '../components/nx/TripCard';
 import { payoutLabel, tripWhen } from '../components/nx/tripFormat';
+import { goTab } from '../navigation/navItems';
+import type { TabParamList } from '../navigation/types';
 import type { TripDetails } from '../types/driver';
 import { tripEarningStatus } from '../utils/ledger';
 import { formatINR } from '../utils/format';
@@ -19,20 +21,64 @@ import { formatDate } from '../utils/time';
 import { nx } from '../theme/nx';
 
 type Tab = 'upcoming' | 'completed' | 'cancelled';
-const SETTLED: Record<string, string> = { pending: 'Awaiting payment', available: 'In wallet', cancelled: 'Reversed' };
+const SETTLED: Record<string, string> = { pending: 'Settlement pending', available: 'Settled', cancelled: 'Reversed' };
 
-export function TripsScreen() {
+export function TripsScreen({ route }: Partial<BottomTabScreenProps<TabParamList, 'Trip'>>) {
   const navigation = useNavigation();
   const { upcomingTrips, completedTrips, cancelledTrips, ledger, cancellations } = useDriverData();
   const released = cancellations.filter((r) => r.status === 'Approved' && !cancelledTrips.some((t) => t.id === r.bookingId));
-  const [tab, setTab] = useState<Tab>('upcoming');
+  const wanted = route?.params?.tab;
+  const [tab, setTab] = useState<Tab>(wanted ?? 'upcoming');
+  const [seen, setSeen] = useState(wanted);
+  // A Home tile can ask for a tab; follow it each time it changes.
+  if (wanted !== seen) {
+    setSeen(wanted);
+    if (wanted) setTab(wanted);
+  }
   const now = useNow();
   const open = (t: TripDetails) => navigation.navigate('TripFlow', { bookingId: t.id });
 
+  let body: React.ReactNode;
+  if (tab === 'upcoming') {
+    body = upcomingTrips.length ? (
+      <NxGrid columns={2} gap={18}>
+        {upcomingTrips.map((t) => (
+          <TripCard key={t.id} trip={t} now={now} onOpen={() => open(t)} />
+        ))}
+      </NxGrid>
+    ) : (
+      <NxEmpty icon="trip" title="No upcoming duties" message="Accepted duties will appear here." action={<NxButton title="Browse duties" onPress={() => goTab('Home')} />} />
+    );
+  } else if (tab === 'completed') {
+    body = completedTrips.length ? (
+      <NxGrid columns={2} gap={18}>
+        {completedTrips.map((t) => (
+          <CompletedCard key={t.id} trip={t} status={tripEarningStatus(ledger, t.id)} onOpen={() => open(t)} />
+        ))}
+      </NxGrid>
+    ) : (
+      <NxEmpty icon="check" title="No completed trips yet" message="Finished trips and their settlement status will appear here." />
+    );
+  } else {
+    body =
+      cancelledTrips.length || released.length ? (
+        <NxGrid columns={2} gap={18}>
+          {cancelledTrips.map((t) => (
+            <CancelledCard key={t.id} trip={t} onOpen={() => open(t)} />
+          ))}
+          {released.map((r) => (
+            <CancelledRequestCard key={r.id} request={r} />
+          ))}
+        </NxGrid>
+      ) : (
+        <NxEmpty icon="shield" title="No cancelled duties" message="Admin-approved cancellations will appear here." />
+      );
+  }
+
   return (
-    <NxScreen title="My Trips" subtitle="Duty History & Schedule">
+    <NxScreen>
       <NxPills<Tab>
-        scroll
+        fill
         label="Trip list"
         value={tab}
         onChange={setTab}
@@ -42,35 +88,8 @@ export function TripsScreen() {
           { value: 'cancelled', label: `Cancelled (${cancelledTrips.length + released.length})` },
         ]}
       />
-      {tab === 'upcoming' ? (
-        upcomingTrips.length ? (
-          <NxColumns>{upcomingTrips.map((t) => <TripCard key={t.id} trip={t} now={now} onOpen={() => open(t)} />)}</NxColumns>
-        ) : (
-          <NxEmpty
-            icon="trip"
-            title="No upcoming duties"
-            message="Accepted duties will appear here."
-            action={<NxButton title="Browse duties" onPress={() => navigation.navigate('Tabs', { screen: 'Home' })} />}
-          />
-        )
-      ) : tab === 'cancelled' ? (
-        cancelledTrips.length || released.length ? (
-          <NxColumns>
-            {cancelledTrips.map((t) => <CancelledCard key={t.id} trip={t} onOpen={() => open(t)} />)}
-            {released.map((r) => <CancelledRequestCard key={r.id} request={r} />)}
-          </NxColumns>
-        ) : (
-          <NxEmpty icon="shield" title="No cancelled duties" message="Admin-approved cancellations will appear here." />
-        )
-      ) : completedTrips.length ? (
-        <NxColumns>{completedTrips.map((t) => <CompletedCard key={t.id} trip={t} status={tripEarningStatus(ledger, t.id)} onOpen={() => open(t)} />)}</NxColumns>
-      ) : (
-        <NxEmpty icon="check" title="No completed trips yet" message="Finished trips and their settlement status will appear here." />
-      )}
-      <View style={styles.note}>
-        <NxIcon name="info" size={14} color={nx.muted} />
-        <Text style={styles.noteText}>Duty changes and cancellations are handled by NESAM. Call the office from Help if you need a change.</Text>
-      </View>
+      {body}
+      <NxNote>Duty changes and cancellation requests are reviewed by NESAM. Call the office from Help if you need a change.</NxNote>
     </NxScreen>
   );
 }
@@ -82,17 +101,17 @@ function CompletedCard({ trip, status, onOpen }: { trip: TripDetails; status: st
   return (
     <NxPanel style={styles.card}>
       <View style={styles.meta}>
-        <Text style={styles.metaDate}>{date}</Text>
+        <Text style={styles.metaText}>{date}</Text>
         <NxBadge label={badge} tone={settled || trip.fleetTrip ? 'green' : 'amber'} />
       </View>
-      <Text style={styles.route}>
+      <Text style={styles.route} numberOfLines={2}>
         {placeName(trip.pickup.address)} → {placeName(trip.drop.address)}
       </Text>
       <Text style={styles.info}>{trip.bookingId} · Completed</Text>
       <View style={styles.bottom}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.metaDate}>{trip.fleetTrip ? 'Paid by your fleet' : settled ? 'Driver earnings credited' : 'Driver payout'}</Text>
-          <Text style={styles.amount} numberOfLines={1}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={styles.metaText}>{trip.fleetTrip ? 'Paid by your fleet' : settled ? 'Driver earnings credited' : 'Driver payout under review'}</Text>
+          <Text style={styles.amount} numberOfLines={1} adjustsFontSizeToFit>
             {payoutLabel(trip)}
           </Text>
         </View>
@@ -107,19 +126,19 @@ function CancelledCard({ trip, onOpen }: { trip: TripDetails; onOpen: () => void
   return (
     <NxPanel style={styles.card}>
       <View style={styles.meta}>
-        <Text style={styles.metaDate}>
+        <Text style={styles.metaText}>
           {when.date}
           {when.time ? ` · ${when.time}` : ''}
         </Text>
         <NxBadge label="Cancelled" tone="neutral" />
       </View>
-      <Text style={styles.route}>
+      <Text style={styles.route} numberOfLines={2}>
         {placeName(trip.pickup.address)} → {placeName(trip.drop.address)}
       </Text>
       <Text style={styles.info}>{trip.bookingId}</Text>
       <View style={styles.bottom}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.metaDate}>Cancelled by NESAM</Text>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={styles.metaText}>Cancelled by NESAM</Text>
           <Text style={styles.amount}>{formatINR(0)}</Text>
         </View>
         <NxButton title="View details" trailingIcon="arrow" variant="secondary" compact onPress={onOpen} />
@@ -129,13 +148,11 @@ function CancelledCard({ trip, onOpen }: { trip: TripDetails; onOpen: () => void
 }
 
 const styles = StyleSheet.create({
-  card: { padding: 17, marginBottom: 12, borderRadius: 15 },
-  meta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
-  metaDate: { fontSize: 11, color: nx.muted },
-  route: { fontSize: 15, fontWeight: '700', letterSpacing: -0.4, color: nx.ink, marginTop: 8 },
-  info: { fontSize: 11, color: nx.muted, marginTop: 7 },
-  bottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 14 },
-  amount: { fontSize: 20, fontWeight: '800', letterSpacing: -0.5, color: nx.ink },
-  note: { flexDirection: 'row', alignItems: 'flex-start', gap: 5, marginTop: 4 },
-  noteText: { flex: 1, fontSize: 11, lineHeight: 19.8, color: nx.muted },
+  card: { padding: 20, marginBottom: 0, flex: 1 },
+  meta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
+  metaText: { fontSize: 11.5, color: nx.muted },
+  route: { fontSize: 15.5, fontWeight: '700', letterSpacing: -0.4, color: nx.ink, marginTop: 10 },
+  info: { fontSize: 11.5, color: nx.muted, marginTop: 6 },
+  bottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderTopWidth: 1, borderTopColor: nx.lineSoft, paddingTop: 13, marginTop: 15 },
+  amount: { fontSize: 20, fontWeight: '700', letterSpacing: -0.5, color: nx.ink, marginTop: 2 },
 });

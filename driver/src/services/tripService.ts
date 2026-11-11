@@ -3,6 +3,7 @@
  * the time, records where it happened and ignores a repeated tap. The app never
  * writes a trip's status or step itself.
  */
+import { CLIENT_PLATFORM } from './platform';
 import { callFunction, newId } from './callables';
 import type { TollReceipt, TripSubStatus } from '../types/driver';
 
@@ -25,7 +26,7 @@ export function advanceTrip(args: { bookingId: string; to: TripStep; location?: 
     bookingId: args.bookingId,
     to: args.to,
     location: fixOf(args.location),
-    platform: 'android',
+    platform: CLIENT_PLATFORM,
     requestId: args.requestId,
     ...(args.endOdometer !== undefined ? { endOdometer: args.endOdometer } : {}),
     ...(args.totalKm !== undefined ? { totalKm: args.totalKm } : {}),
@@ -38,14 +39,15 @@ export function advanceTrip(args: { bookingId: string; to: TripStep; location?: 
  * assigned driver from 8 hours before pickup, and logs every request. Raw numbers are never stored.
  */
 export const revealCustomerContact = (bookingId: string) =>
-  callFunction<unknown, { phone: string; name: string }>('getCustomerContact', { bookingId, platform: 'android' });
+  callFunction<unknown, { phone: string; name: string }>('getCustomerContact', { bookingId, platform: CLIENT_PLATFORM });
 
 export const verifyBoarding = (bookingId: string, otp: string) => callFunction<unknown, { ok: boolean }>('verifyBoarding', { bookingId, otp });
 
 export interface CollectionInput {
   bookingId: string;
   amount: number;
-  method: 'Cash' | 'UPI' | 'Bank Transfer';
+  /** One of the methods recordPayment accepts (settings/payment_methods, Cash / UPI / Bank Transfer by default). */
+  method: string;
   reference: string;
   notes?: string;
   requestId: string;

@@ -111,7 +111,7 @@ export default function Customers({ onNavigate }: { onNavigate?: (page: string, 
         <Button variant="ghost" size="sm" icon="rotate-ccw" disabled={!filtersOn && !sel.ids.size} onClick={() => { setQ(""); setGroup("All"); sel.clear(); }}>Clear filters</Button>
       </div>
       {customers.rows === null ? <div className="ds-panel"><TableSkeleton rows={5} cols={5} /></div> : filtered.length === 0 ? <div className="ds-panel"><EmptyState /></div> : (
-        <DataTable label="Customers" minWidth={980} fixed hasActions>
+        <DataTable label="Customers" minWidth={980} fixed compact hasActions>
           <colgroup><col style={{ width: 44 }} /><col style={{ width: 260 }} /><col style={{ width: 200 }} /><col style={{ width: 200 }} /><col style={{ width: 110 }} /><col style={{ width: 200 }} /></colgroup>
           <thead><tr>
             <th className="ds-check-cell"><input type="checkbox" aria-label="Select visible records" checked={shown.length > 0 && shown.every((c) => sel.has(c.id))} onChange={(e) => sel.setAll(shown.map((c) => c.id), e.target.checked)} /></th>
@@ -124,7 +124,7 @@ export default function Customers({ onNavigate }: { onNavigate?: (page: string, 
               return (
                 <tr key={c.id}>
                   <td className="ds-check-cell"><input type="checkbox" aria-label={`Select ${c.name}`} checked={sel.has(c.id)} onChange={() => sel.toggle(c.id)} /></td>
-                  <td><div className="ds-person"><Initials name={c.name || "?"} /><div><strong>{c.name}</strong><Badge tone={GROUP_TONE[g]}>{g}</Badge><small>{customerCode(c)}</small></div></div></td>
+                  <td><div className="ds-person ds-person-split"><div><strong>{c.name}</strong><small>{customerCode(c)}</small></div><Badge tone={GROUP_TONE[g]}>{g}</Badge></div></td>
                   <td><strong>{c.phone}</strong><small>{emailOf(c) || "Email not supplied"}</small></td>
                   <td><strong>{s.completed} completed trips</strong><small>{lastCompleted.get(c.id) ? refDateTime(lastCompleted.get(c.id)!) : "No completed trips"}</small></td>
                   <td><Badge tone={toneForStatus(isActive(c.status) ? "Active" : c.status)}>{isActive(c.status) ? "Active" : c.status}</Badge></td>

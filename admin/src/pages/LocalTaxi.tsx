@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { Button } from "../components/ui";
+import { Button, Icon } from "../components/ui";
 import { ConfirmDialog, ErrorBanner, Toast, useToast } from "../components/Feedback";
-import { MAP_ATTRIBUTION, MAP_TILE_URL } from "../services/geoService";
+import { MAP_ATTRIBUTION, MAP_TILE_URL, placeDetail, placeLabel, searchPlaces, type PlaceResult } from "../services/geoService";
 import { CLASS_LABEL, useTariff, type Tariff } from "../services/tariffService";
 import { classLabel, currentFareRupees, currentLocalFare, fareFromLocalFare, localCities, osmBoundary, tariffClassOf } from "../services/localTaxiSetup";
 import { subscribeDrivers, subscribeVehicleCategories } from "../services/adminFirestoreService";
@@ -30,45 +30,315 @@ const Field = ({ label, hint, children }: { label: string; hint?: string; childr
 );
 const inputCls = "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[13px] text-slate-900 focus:border-blue-500 focus:outline-none";
 
-// ── Zone map editor ────────────────────────────────────────────────────────────────────────────────────────────────
-function ZoneMap({ points, onChange, others, readOnly }: { points: Position[]; onChange: (p: Position[]) => void; others: { id: string; name: string; ring: Position[] }[]; readOnly: boolean }) {
+// ── Zone map editor helpers & interactive Leaflet map ───────────────────────────────────────────────────────────────
+type MapMode = "draw" | "remove";
+type FlyTarget = { lat: number; lng: number; zoom: number; seq: number };
+const roundCoord = (n: number) => Number(n.toFixed(6));
+
+function boundaryStats(pts: Position[]): { widthKm: number; heightKm: number; areaKm2: number } | null {
+  if (pts.length < 3) return null;
+  let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
+  for (const [lng, lat] of pts) {
+    if (lng < minLng) minLng = lng;
+    if (lng > maxLng) maxLng = lng;
+    if (lat < minLat) minLat = lat;
+    if (lat > maxLat) maxLat = lat;
+  }
+  const midLat = (minLat + maxLat) / 2;
+  const kx = 111.32 * Math.cos((midLat * Math.PI) / 180);
+  const ky = 110.57;
+  let shoelace = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const [x1, y1] = pts[i]!;
+    const [x2, y2] = pts[(i + 1) % pts.length]!;
+    shoelace += ((x1 - minLng) * kx) * ((y2 - minLat) * ky) - ((x2 - minLng) * kx) * ((y1 - minLat) * ky);
+  }
+  return {
+    widthKm: Math.round((maxLng - minLng) * kx * 10) / 10,
+    heightKm: Math.round((maxLat - minLat) * ky * 10) / 10,
+    areaKm2: Math.round(Math.abs(shoelace / 2) * 10) / 10,
+  };
+}
+
+function circleBoundary(lat: number, lng: number, radiusKm = 5, sides = 12): Position[] {
+  const dLat = radiusKm / 110.574;
+  const dLng = radiusKm / (111.32 * Math.cos((lat * Math.PI) / 180));
+  return Array.from({ length: sides }, (_, i) => {
+    const a = (2 * Math.PI * i) / sides;
+    return [roundCoord(lng + dLng * Math.cos(a)), roundCoord(lat + dLat * Math.sin(a))] as Position;
+  });
+}
+
+function MapPlaceSearch({
+  near,
+  disabled,
+  onPick,
+}: {
+  near: () => [number, number];
+  disabled: boolean;
+  onPick: (place: PlaceResult) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<PlaceResult[]>([]);
+  const [open, setOpen] = useState(false);
+  const nearRef = useRef(near);
+  nearRef.current = near;
+
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 3 || disabled) { setResults([]); setOpen(false); return undefined; }
+    const ac = new AbortController();
+    const timer = window.setTimeout(() => {
+      const [lat, lng] = nearRef.current();
+      void searchPlaces(q, { lat, lng }, ac.signal)
+        .then((rows) => { if (!ac.signal.aborted) { setResults(rows); setOpen(rows.length > 0); } })
+        .catch(() => { if (!ac.signal.aborted) setResults([]); });
+    }, 240);
+    return () => { ac.abort(); window.clearTimeout(timer); };
+  }, [query, disabled]);
+
+  const choose = (p: PlaceResult) => {
+    onPick(p);
+    setQuery(placeLabel(p));
+    setOpen(false);
+  };
+
+  return (
+    <div className="lt-search-box">
+      <Icon name="search" size={14} className="lt-search-icon" />
+      <input
+        type="text"
+        className="lt-search-input"
+        value={query}
+        disabled={disabled}
+        onChange={(e) => setQuery(e.target.value)}
+        onFocus={() => { if (results.length) setOpen(true); }}
+        onBlur={() => window.setTimeout(() => setOpen(false), 160)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && results[0]) { e.preventDefault(); choose(results[0]); }
+          else if (e.key === "Escape") setOpen(false);
+        }}
+        placeholder="Jump map to city or area (e.g. Salem)…"
+        aria-label="Search city or landmark to center map"
+      />
+      {query ? (
+        <button type="button" className="lt-search-clear" aria-label="Clear map search" onClick={() => { setQuery(""); setResults([]); setOpen(false); }}>
+          <Icon name="x" size={13} />
+        </button>
+      ) : null}
+      {open && results.length > 0 ? (
+        <ul className="lt-search-drop" role="listbox" aria-label="Place suggestions">
+          {results.map((p) => {
+            const sub = placeDetail(p);
+            return (
+              <li key={p.id}>
+                <button type="button" className="lt-search-opt" onMouseDown={(e) => { e.preventDefault(); choose(p); }}>
+                  <span className="lt-search-opt-title">{placeLabel(p)}</span>
+                  {sub ? <span className="lt-search-opt-sub">{sub}</span> : null}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+function ZoneMap({
+  points,
+  onCommit,
+  others,
+  readOnly,
+  mode,
+  fitSeq,
+  flyTo,
+  onCenterChange,
+}: {
+  points: Position[];
+  onCommit: (p: Position[]) => void;
+  others: { id: string; name: string; ring: Position[] }[];
+  readOnly: boolean;
+  mode: MapMode;
+  fitSeq: number;
+  flyTo: FlyTarget | null;
+  onCenterChange?: (center: [number, number]) => void;
+}) {
   const host = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
   const layer = useRef<L.LayerGroup | null>(null);
-  const fitted = useRef(false);
-  const latest = useRef({ points, onChange, readOnly });
-  latest.current = { points, onChange, readOnly };
+  const preview = useRef<L.LayerGroup | null>(null);
+  const draggingRef = useRef(false);
+  const lastFitSeq = useRef(0);
+  const lastFlySeq = useRef(0);
+  const latest = useRef({ points, onCommit, readOnly, mode, onCenterChange });
+  latest.current = { points, onCommit, readOnly, mode, onCenterChange };
 
   useEffect(() => {
     if (!host.current || map.current) return undefined;
     const m = L.map(host.current).setView(ERODE_VIEW, 12);
     L.tileLayer(MAP_TILE_URL, { attribution: MAP_ATTRIBUTION, maxZoom: 19 }).addTo(m);
+    L.control.scale({ imperial: false, position: "bottomleft" }).addTo(m);
     layer.current = L.layerGroup().addTo(m);
+    preview.current = L.layerGroup().addTo(m);
+
+    const syncCenter = () => {
+      const c = m.getCenter();
+      latest.current.onCenterChange?.([c.lat, c.lng]);
+    };
+    syncCenter();
+    m.on("moveend", syncCenter);
+
     m.on("click", (e: L.LeafletMouseEvent) => {
-      const { points: p, onChange: set, readOnly: ro } = latest.current;
-      if (!ro) set([...p, [Number(e.latlng.lng.toFixed(6)), Number(e.latlng.lat.toFixed(6))]]);
+      const { points: p, onCommit: commit, readOnly: ro, mode: curMode } = latest.current;
+      if (ro || curMode !== "draw" || draggingRef.current) return;
+      commit([...p, [roundCoord(e.latlng.lng), roundCoord(e.latlng.lat)]]);
     });
+
+    m.on("mousemove", (e: L.LeafletMouseEvent) => {
+      const pg = preview.current;
+      if (!pg) return;
+      pg.clearLayers();
+      const { points: p, readOnly: ro, mode: curMode } = latest.current;
+      if (ro || curMode !== "draw" || p.length === 0 || draggingRef.current) return;
+      const lastPt = p[p.length - 1]!;
+      const cursor: [number, number] = [e.latlng.lat, e.latlng.lng];
+      L.polyline([[lastPt[1], lastPt[0]], cursor], { color: "#2563eb", weight: 2, dashArray: "6 6", opacity: 0.9, interactive: false }).addTo(pg);
+      if (p.length >= 2) {
+        const firstPt = p[0]!;
+        L.polyline([cursor, [firstPt[1], firstPt[0]]], { color: "#64748b", weight: 1.5, dashArray: "4 6", opacity: 0.7, interactive: false }).addTo(pg);
+      }
+    });
+
+    m.on("mouseout", () => preview.current?.clearLayers());
     map.current = m;
     return () => { m.remove(); map.current = null; };
   }, []);
+
+  useEffect(() => {
+    const m = map.current;
+    if (!m) return;
+    const cl = m.getContainer().classList;
+    cl.toggle("lt-map--draw", !readOnly && mode === "draw");
+    cl.toggle("lt-map--remove", !readOnly && mode === "remove");
+    if (readOnly || mode !== "draw") preview.current?.clearLayers();
+  }, [mode, readOnly]);
 
   useEffect(() => {
     const g = layer.current;
     const m = map.current;
     if (!g || !m) return;
     g.clearLayers();
-    for (const o of others) L.polygon(o.ring.map(([lng, lat]) => [lat, lng] as [number, number]), { color: "#94a3b8", weight: 1, fillOpacity: 0.08, dashArray: "4" }).bindTooltip(`${o.name} (other zone)`).addTo(g);
-    if (points.length >= 3) L.polygon(points.map(([lng, lat]) => [lat, lng] as [number, number]), { color: "#1d4ed8", weight: 2, fillOpacity: 0.15 }).addTo(g);
-    else if (points.length === 2) L.polyline(points.map(([lng, lat]) => [lat, lng] as [number, number]), { color: "#1d4ed8", weight: 2 }).addTo(g);
-    points.forEach(([lng, lat], i) => {
-      const mk = L.circleMarker([lat, lng], { radius: 6, color: "#1d4ed8", fillColor: i === 0 ? "#16a34a" : "#fff", fillOpacity: 1, weight: 2 }).addTo(g);
-      mk.bindTooltip(`Point ${i + 1}${readOnly ? "" : " — click to remove"}`);
-      if (!readOnly) mk.on("click", (ev) => { L.DomEvent.stopPropagation(ev); const { points: p, onChange: set } = latest.current; set(p.filter((_, k) => k !== i)); });
-    });
-    if (!fitted.current && points.length >= 3) { m.fitBounds(L.latLngBounds(points.map(([lng, lat]) => [lat, lng] as [number, number])), { padding: [30, 30] }); fitted.current = true; }
-  }, [points, others, readOnly]);
+    preview.current?.clearLayers();
 
-  return <div ref={host} className="h-[420px] w-full rounded-xl border border-slate-300" aria-label="Zone map" />;
+    for (const o of others) {
+      L.polygon(o.ring.map(([lng, lat]) => [lat, lng] as [number, number]), { color: "#94a3b8", weight: 1.5, fillOpacity: 0.08, dashArray: "4", interactive: false }).addTo(g);
+    }
+
+    const working: [number, number][] = points.map(([lng, lat]) => [lat, lng]);
+    const poly = points.length >= 3 ? L.polygon(working, { color: "#1d4ed8", weight: 2.5, fillOpacity: 0.16, interactive: false }).addTo(g) : null;
+    const openLine = points.length === 2 ? L.polyline(working, { color: "#1d4ed8", weight: 2.5, interactive: false }).addTo(g) : null;
+
+    // Click or drag '+' midpoint handles to insert extra corners smoothly along edges
+    if (!readOnly && mode === "draw" && points.length >= 2 && points.length <= 50) {
+      const edgeCount = points.length >= 3 ? points.length : 1;
+      for (let i = 0; i < edgeCount; i++) {
+        const a = points[i]!;
+        const b = points[(i + 1) % points.length]!;
+        const midLat = (a[1] + b[1]) / 2;
+        const midLng = (a[0] + b[0]) / 2;
+        const mid = L.marker([midLat, midLng], {
+          draggable: true,
+          icon: L.divIcon({ className: "lt-mid-wrap", html: '<span class="lt-mid" aria-hidden="true">+</span>', iconSize: [24, 24], iconAnchor: [12, 12] }),
+        }).addTo(g);
+        mid.bindTooltip("Click or drag to insert corner");
+        mid.on("click", (ev) => {
+          L.DomEvent.stopPropagation(ev);
+          const { points: p, onCommit: commit } = latest.current;
+          const next = [...p];
+          next.splice(i + 1, 0, [roundCoord(midLng), roundCoord(midLat)]);
+          commit(next);
+        });
+        mid.on("dragstart", () => { draggingRef.current = true; preview.current?.clearLayers(); });
+        mid.on("drag", (ev) => {
+          const ll = (ev.target as L.Marker).getLatLng();
+          const draft = [...working];
+          draft.splice(i + 1, 0, [ll.lat, ll.lng]);
+          poly?.setLatLngs(draft);
+          openLine?.setLatLngs(draft);
+        });
+        mid.on("dragend", (ev) => {
+          const ll = (ev.target as L.Marker).getLatLng();
+          const { points: p, onCommit: commit } = latest.current;
+          const next = [...p];
+          next.splice(i + 1, 0, [roundCoord(ll.lng), roundCoord(ll.lat)]);
+          commit(next);
+          window.setTimeout(() => { draggingRef.current = false; }, 0);
+        });
+      }
+    }
+
+    points.forEach(([lng, lat], i) => {
+      const roleClass = i === 0 ? " lt-vtx--first" : i === points.length - 1 ? " lt-vtx--last" : "";
+      const wrapClass = `lt-vtx-wrap${mode === "remove" && !readOnly ? " lt-vtx--remove" : ""}`;
+      const mk = L.marker([lat, lng], {
+        draggable: !readOnly && mode === "draw",
+        icon: L.divIcon({ className: wrapClass, html: `<span class="lt-vtx${roleClass}" aria-hidden="true"></span>`, iconSize: [26, 26], iconAnchor: [13, 13] }),
+      }).addTo(g);
+
+      const tag = i === 0 ? " (Start)" : i === points.length - 1 ? " (Latest)" : "";
+      mk.bindTooltip(readOnly ? `Point ${i + 1}` : mode === "remove" ? `Point ${i + 1} — click to remove` : `Point ${i + 1}${tag} — drag to move · right-click to remove`);
+
+      mk.on("click", (ev) => {
+        L.DomEvent.stopPropagation(ev);
+        const { points: p, onCommit: commit, readOnly: ro, mode: curMode } = latest.current;
+        if (!ro && curMode === "remove") commit(p.filter((_, k) => k !== i));
+      });
+      if (!readOnly && mode === "draw") {
+        mk.on("contextmenu", (ev) => {
+          L.DomEvent.stopPropagation(ev);
+          L.DomEvent.preventDefault(ev.originalEvent);
+          const { points: p, onCommit: commit } = latest.current;
+          commit(p.filter((_, k) => k !== i));
+        });
+        mk.on("dragstart", () => { draggingRef.current = true; preview.current?.clearLayers(); });
+        mk.on("drag", (ev) => {
+          const ll = (ev.target as L.Marker).getLatLng();
+          working[i] = [ll.lat, ll.lng];
+          poly?.setLatLngs(working);
+          openLine?.setLatLngs(working);
+        });
+        mk.on("dragend", (ev) => {
+          const ll = (ev.target as L.Marker).getLatLng();
+          const { points: p, onCommit: commit } = latest.current;
+          commit(p.map((pt, k) => (k === i ? [roundCoord(ll.lng), roundCoord(ll.lat)] : pt)));
+          window.setTimeout(() => { draggingRef.current = false; }, 0);
+        });
+      }
+    });
+  }, [points, others, readOnly, mode]);
+
+  useEffect(() => {
+    const m = map.current;
+    if (!m || fitSeq === lastFitSeq.current) return;
+    lastFitSeq.current = fitSeq;
+    if (points.length >= 2) {
+      m.fitBounds(L.latLngBounds(points.map(([lng, lat]) => [lat, lng] as [number, number])), { padding: [36, 36], maxZoom: 15 });
+    } else if (points.length === 1) {
+      m.setView([points[0]![1], points[0]![0]], 14);
+    } else {
+      m.setView(ERODE_VIEW, 12);
+    }
+  }, [fitSeq, points]);
+
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !flyTo || flyTo.seq === lastFlySeq.current) return;
+    lastFlySeq.current = flyTo.seq;
+    m.flyTo([flyTo.lat, flyTo.lng], flyTo.zoom, { duration: 0.65 });
+  }, [flyTo]);
+
+  return <div ref={host} className="lt-map-canvas" aria-label="Zone map" />;
 }
 
 const ringOf = (z: LtZone): Position[] | null => {
@@ -86,7 +356,13 @@ function ZonesTab({ zones, categories, tariff, toast }: { zones: LtZone[]; categ
   const [cats, setCats] = useState<string[]>([]);
   const [cash, setCash] = useState(false);
   const [dispatch, setDispatch] = useState<DispatchPolicy>(DEFAULT_DISPATCH);
-  const [points, setPoints] = useState<Position[]>([]);
+  const [boundary, setBoundary] = useState<{ past: Position[][]; present: Position[]; future: Position[][] }>({ past: [], present: [], future: [] });
+  const points = boundary.present;
+  const [mapMode, setMapMode] = useState<MapMode>("draw");
+  const [fitSeq, setFitSeq] = useState(0);
+  const [flyTo, setFlyTo] = useState<FlyTarget | null>(null);
+  const mapCenterRef = useRef<[number, number]>(ERODE_VIEW);
+  const [mapNotice, setMapNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<{ zone: LtZone; to: "active" | "inactive" } | null>(null);
   const [history, setHistory] = useState<AuditRow[] | null>(null);
@@ -94,12 +370,54 @@ function ZonesTab({ zones, categories, tariff, toast }: { zones: LtZone[]; categ
   const [quick, setQuick] = useState("");
   const [osmBusy, setOsmBusy] = useState(false);
 
+  const commitPoints = (next: Position[], opt?: { fit?: boolean; notice?: string }) => {
+    setBoundary((s) => ({ past: [...s.past.slice(-49), s.present], present: next, future: [] }));
+    if (opt?.fit) setFitSeq((n) => n + 1);
+    setMapNotice(opt?.notice ?? "");
+  };
+
+  const undo = () => {
+    setBoundary((s) => {
+      if (!s.past.length) return s;
+      const prev = s.past[s.past.length - 1]!;
+      return { past: s.past.slice(0, -1), present: prev, future: [s.present, ...s.future] };
+    });
+    setMapNotice("Reverted last boundary change.");
+  };
+
+  const redo = () => {
+    setBoundary((s) => {
+      if (!s.future.length) return s;
+      const next = s.future[0]!;
+      return { past: [...s.past.slice(-49), s.present], present: next, future: s.future.slice(1) };
+    });
+    setMapNotice("Restored boundary change.");
+  };
+
+  const clearBoundary = () => {
+    if (!points.length) return;
+    const count = points.length;
+    commitPoints([], { notice: `Cleared ${count} point${count === 1 ? "" : "s"} — use Undo or Ctrl+Z to restore.` });
+    if (mapMode === "remove") setMapMode("draw");
+    toast(`Cleared ${count} boundary point${count === 1 ? "" : "s"}. Click Undo or press Ctrl+Z to restore.`);
+  };
+
+  const dropCircle = () => {
+    const [lat, lng] = mapCenterRef.current;
+    commitPoints(circleBoundary(lat, lng, 5, 12), {
+      fit: true,
+      notice: "Dropped a 5 km radius starter circle. Drag any handle to match city roads.",
+    });
+    setMapMode("draw");
+  };
+
   /** Fill the map with the outline OpenStreetMap holds for the zone's name. The admin must still check it before going live. */
   const loadOsm = async () => {
     setOsmBusy(true); setError("");
     try {
       const b = await osmBoundary(name.trim() || "Erode");
-      setPoints(b.points);
+      commitPoints(b.points, { fit: true, notice: `Loaded ${b.points.length} corner points from OpenStreetMap.` });
+      setMapMode("draw");
       toast(`Loaded ${b.points.length} points from ${b.source}: ${b.title.split(",").slice(0, 2).join(",")}, about ${b.widthKm} × ${b.heightKm} km${b.parts > 1 ? `, largest of ${b.parts} parts` : ""}. ${Math.max(b.widthKm, b.heightKm) > 20 ? "That is larger than a city: trim it to the city limits on the map. " : ""}It is community map data, not an official survey: check it before activating.`, Math.max(b.widthKm, b.heightKm) > 20 ? "error" : "success");
     } catch (e) { setError(msg(e)); } finally { setOsmBusy(false); }
   };
@@ -131,12 +449,36 @@ function ZonesTab({ zones, categories, tariff, toast }: { zones: LtZone[]; categ
   };
 
   useEffect(() => {
-    if (editing === "new") { setName(""); setTimezone("Asia/Kolkata"); setCats([]); setCash(false); setDispatch(DEFAULT_DISPATCH); setPoints([]); }
-    else if (current) { setName(current.name); setTimezone(current.timezone); setCats(current.categoryIds); setCash(current.cashEnabled); setDispatch(current.dispatch); setPoints(ringOf(current) ?? []); }
-    setError(""); setHistory(null);
+    if (editing === "new") { setName(""); setTimezone("Asia/Kolkata"); setCats([]); setCash(false); setDispatch(DEFAULT_DISPATCH); setBoundary({ past: [], present: [], future: [] }); setFitSeq((n) => n + 1); }
+    else if (current) { setName(current.name); setTimezone(current.timezone); setCats(current.categoryIds); setCash(current.cashEnabled); setDispatch(current.dispatch); setBoundary({ past: [], present: ringOf(current) ?? [], future: [] }); setFitSeq((n) => n + 1); }
+    setMapMode("draw"); setMapNotice(""); setError(""); setHistory(null);
   }, [editing, current?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const multi = !!current?.boundary && !ringOf(current);
+  const stats = useMemo(() => boundaryStats(points), [points]);
+
+  useEffect(() => {
+    if (!points.length && mapMode === "remove") setMapMode("draw");
+  }, [points.length, mapMode]);
+
+  useEffect(() => {
+    if (!editing || multi) return undefined;
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        if (e.shiftKey) redo(); else undo();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") {
+        e.preventDefault();
+        redo();
+      } else if (e.key === "Escape" && mapMode === "remove") {
+        setMapMode("draw");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [editing, multi, mapMode]); // eslint-disable-line react-hooks/exhaustive-deps
   const others = useMemo(() => zones.filter((z) => z.id !== current?.id).flatMap((z) => { const r = ringOf(z); return r ? [{ id: z.id, name: z.name, ring: r }] : []; }), [zones, current?.id]);
   const num = (k: keyof DispatchPolicy, label: string, hint: string) => (
     <Field label={label} hint={hint}><input className={inputCls} type="number" min={0} value={dispatch[k]} onChange={(e) => setDispatch({ ...dispatch, [k]: Number(e.target.value) })} /></Field>
@@ -211,19 +553,138 @@ function ZonesTab({ zones, categories, tariff, toast }: { zones: LtZone[]; categ
             {num("quoteTtlSeconds", "Quote valid (s)", "Fare lock time.")}
           </div>
 
-          <div>
-            <div className="mb-1 flex items-center justify-between">
-              <div className="text-[12px] font-semibold text-slate-600">Boundary {current ? `(version ${current.boundaryVersion || "–"})` : ""}</div>
-              <div className="flex gap-2">
-                <Button size="sm" loading={osmBusy} onClick={() => void loadOsm()} disabled={multi}>Load outline from OpenStreetMap</Button>
-                <Button size="sm" onClick={() => setPoints(points.slice(0, -1))} disabled={multi || !points.length}>Undo last point</Button>
-                <Button size="sm" onClick={() => setPoints([])} disabled={multi || !points.length}>Clear</Button>
+          <div className="space-y-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="text-[13px] font-semibold text-slate-800">Boundary {current ? <span className="font-normal text-slate-500">(v{current.boundaryVersion || "–"})</span> : null}</div>
+                {points.length === 0 ? (
+                  <span className="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-600">0 points · Click map to draw</span>
+                ) : points.length < 3 ? (
+                  <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-800">{points.length} point{points.length === 1 ? "" : "s"} · Add {3 - points.length} more</span>
+                ) : stats ? (
+                  <span className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${Math.max(stats.widthKm, stats.heightKm) > 20 ? "border-amber-200 bg-amber-50 text-amber-800" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>
+                    {points.length} pts · ~{stats.widthKm} × {stats.heightKm} km ({stats.areaKm2} km²)
+                  </span>
+                ) : null}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Button size="sm" icon="globe" loading={osmBusy} onClick={() => void loadOsm()} disabled={multi} title="Fetch city outline from OpenStreetMap using the zone name">
+                  OSM outline
+                </Button>
+                <Button size="sm" icon="circle-plus" onClick={dropCircle} disabled={multi} title="Drop a 5 km starter circle around the current map center">
+                  5 km circle
+                </Button>
+
+                <div className="lt-history-group" role="group" aria-label="Boundary history and reset">
+                  <Button
+                    size="sm"
+                    icon="undo-2"
+                    className="lt-btn-undo"
+                    onClick={undo}
+                    disabled={multi || !boundary.past.length}
+                    disabledReason={boundary.past.length ? undefined : "Nothing to undo"}
+                    title="Undo last boundary edit (Ctrl+Z)"
+                  >
+                    Undo{boundary.past.length ? <span className="lt-btn-badge">{boundary.past.length}</span> : null}
+                  </Button>
+                  <Button
+                    size="sm"
+                    icon="redo-2"
+                    iconOnly
+                    onClick={redo}
+                    disabled={multi || !boundary.future.length}
+                    aria-label="Redo boundary edit"
+                    title={boundary.future.length ? "Redo boundary edit (Ctrl+Y)" : "Nothing to redo"}
+                  />
+                  <span className="lt-history-sep" aria-hidden="true" />
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    icon="trash-2"
+                    className="lt-btn-clear"
+                    onClick={clearBoundary}
+                    disabled={multi || !points.length}
+                    disabledReason={points.length ? undefined : "No boundary points to clear"}
+                    title="Remove all boundary points (can be undone with Ctrl+Z)"
+                  >
+                    Clear
+                  </Button>
+                </div>
               </div>
             </div>
-            {multi ? <p className="mb-2 rounded-lg bg-amber-50 p-2 text-[12px] text-amber-800">This zone has several areas or holes. It is shown on the map but can only be changed by uploading a new boundary through support.</p> : null}
-            <ZoneMap points={points} onChange={setPoints} others={others} readOnly={multi} />
-            <p className="mt-1 text-[12px] text-slate-500">Click the map to add corner points in order (green = first). Click a point to remove it. Use the official, verified boundary: the system never guesses one. Points exactly on the edge count as inside. {points.length ? `${points.length} point(s).` : ""}</p>
-            <p className="text-[12px] text-slate-500">Rule: pickup and drop must be inside. The road route may briefly leave the area; that is allowed and does not change the fare.</p>
+
+            {multi ? <p className="rounded-lg bg-amber-50 p-2 text-[12px] text-amber-800">This zone has several areas or holes. It is shown on the map but can only be changed by uploading a new boundary through support.</p> : null}
+
+            <div className="lt-zone-card">
+              <div className="lt-zone-toolbar">
+                <MapPlaceSearch
+                  near={() => mapCenterRef.current}
+                  disabled={multi}
+                  onPick={(p) => setFlyTo((prev) => ({ lat: p.lat, lng: p.lng, zoom: p.kind === "city" ? 13 : 15, seq: (prev?.seq ?? 0) + 1 }))}
+                />
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="lt-mode-group" role="group" aria-label="Map editing mode">
+                    <button
+                      type="button"
+                      className="lt-mode-btn"
+                      data-mode="draw"
+                      aria-pressed={mapMode === "draw"}
+                      disabled={multi}
+                      onClick={() => setMapMode("draw")}
+                    >
+                      <Icon name="pencil" size={13} />
+                      <span>Add &amp; drag</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="lt-mode-btn"
+                      data-mode="remove"
+                      aria-pressed={mapMode === "remove"}
+                      disabled={multi || !points.length}
+                      onClick={() => setMapMode("remove")}
+                    >
+                      <Icon name="eraser" size={13} />
+                      <span>Remove points</span>
+                    </button>
+                  </div>
+
+                  <Button
+                    size="sm"
+                    icon="maximize-2"
+                    onClick={() => setFitSeq((n) => n + 1)}
+                    disabled={!points.length}
+                    title="Zoom map to fit the drawn boundary"
+                  >
+                    Fit view
+                  </Button>
+                </div>
+              </div>
+
+              <ZoneMap
+                points={points}
+                onCommit={(next) => commitPoints(next)}
+                others={others}
+                readOnly={multi}
+                mode={mapMode}
+                fitSeq={fitSeq}
+                flyTo={flyTo}
+                onCenterChange={(c) => { mapCenterRef.current = c; }}
+              />
+
+              <div className="lt-legend">
+                <span className="lt-legend-item"><span className="lt-swatch lt-swatch--start" aria-hidden="true" /> Start corner</span>
+                <span className="lt-legend-item"><span className="lt-swatch lt-swatch--last" aria-hidden="true" /> Latest corner</span>
+                <span className="lt-legend-item"><span className="lt-swatch lt-swatch--mid" aria-hidden="true">+</span> Split edge</span>
+                <span className="text-slate-500">Drag corners to reshape · Right-click a corner (or use <b>Remove points</b>) to delete</span>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[12px] text-slate-500">
+              <span>Rule: both pickup and drop must fall inside the verified boundary (edge points count as inside; brief route detours are allowed).</span>
+              <span role="status" aria-live="polite" className="font-medium text-blue-700">{mapNotice}</span>
+            </div>
           </div>
 
           {error ? <ErrorBanner message={error} /> : null}

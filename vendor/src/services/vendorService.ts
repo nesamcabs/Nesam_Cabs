@@ -230,6 +230,30 @@ export function mapVendorBooking(id: string, d: DocumentData): VendorBooking {
     cancellationRequest: d.cancellationRequest && d.cancellationRequest.partyType === 'vendor'
       ? { requestId: str(d.cancellationRequest.requestId), status: str(d.cancellationRequest.status), quotedPenalty: num(d.cancellationRequest.quotedPenalty) }
       : null,
+    trip: {
+      assignedAt: toDate(d.assignedAt),
+      reachedPickupAt: toDate(d.reachedPickupAt),
+      boardingVerifiedAt: toDate(d.boardingVerifiedAt),
+      startedAt: toDate(d.tripStartedAt) ?? toDate(d.startedAt),
+      endedAt: toDate(d.tripEndedAt) ?? (str(d.status) === 'Completed' ? toDate(d.completedAt) : null),
+      startOdometer: num(d.startOdometer),
+      endOdometer: num(d.endOdometer),
+      totalKm: num(d.totalKm) || num(d.finalFare?.totalKm),
+      extraKm: num(d.finalFare?.extraKm),
+      tolls: Array.isArray(d.tolls) ? (d.tolls as DocumentData[]).map((t) => ({ name: str(t?.name) || 'Toll', amount: num(t?.amount) })).filter((t) => t.amount > 0) : [],
+      finalFare: num(d.finalFare?.finalFare),
+      distanceFlagged: !!d.distanceDiscrepancy,
+      vehicleCheck: str(d.vehicleVerification?.status),
+    },
+    payment: d.paymentSummary && typeof d.paymentSummary === 'object'
+      ? {
+          amountDue: num(d.paymentSummary.amountDue),
+          partnerCashHeld: num(d.paymentSummary.partnerCashHeld),
+          companyCollected: num(d.paymentSummary.companyCollected),
+          balanceDue: num(d.paymentSummary.balanceDue),
+          status: str(d.paymentSummary.status),
+        }
+      : null,
   };
 }
 
@@ -359,12 +383,24 @@ export function buildDispatchRequest(booking: { id: string }, driver: FleetDrive
 }
 
 /** Why a driver can't take this trip right now ('' when they can). */
-export function dispatchBlocker(driver: FleetDriver, bookings: VendorBooking[], forBookingId: string): string {
+/**
+ * Why a driver can never be dispatched (not approved / suspended). Other duties do not block here: the server
+ * (vendorAssignDriver → assertScheduleFree) refuses only duties whose times overlap, so one driver can hold several
+ * duties on different days. dispatchNote says which duties the driver already holds.
+ */
+export function dispatchBlocker(driver: FleetDriver, _bookings: VendorBooking[], _forBookingId: string): string {
   if (driver.approvalStatus !== 'Approved') return `${driver.name} is not approved by NESAM yet.`;
   if (driver.fleetStatus === 'Suspended') return `${driver.name} is suspended in your fleet.`;
-  const busy = bookings.find((b) => b.id !== forBookingId && b.driverId === driver.id && (b.status === 'Assigned' || b.status === 'Ongoing'));
-  if (busy) return `${driver.name} is already on trip ${busy.bookingId}.`;
   return '';
+}
+
+/** The other duties a driver already holds (informational; the server checks the times). */
+export function dispatchNote(driver: FleetDriver, bookings: VendorBooking[], forBookingId: string): string {
+  const held = bookings.filter((b) => b.id !== forBookingId && b.driverId === driver.id && (b.status === 'Assigned' || b.status === 'Ongoing'));
+  if (!held.length) return '';
+  const running = held.find((b) => b.status === 'Ongoing');
+  if (running) return `On trip ${running.bookingId} now${held.length > 1 ? ` · ${held.length - 1} more duty` : ''}`;
+  return `Also assigned to ${held.map((b) => b.bookingId).slice(0, 2).join(', ')}${held.length > 2 ? ` +${held.length - 2}` : ''}`;
 }
 
 export async function dispatchDriver(

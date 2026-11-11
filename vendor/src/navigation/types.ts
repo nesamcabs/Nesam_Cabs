@@ -1,28 +1,37 @@
-import type { NavigatorScreenParams } from '@react-navigation/native';
-
-/** `add` carries a timestamp so "Add …" from another screen opens the sheet every time, not only the first. */
-export type TabParamList = {
-  Bookings: undefined;
-  /** `tab` opens Vehicles or Drivers; `add` (a timestamp) asks that list to open its add sheet. */
-  Fleet: { tab?: 'Vehicles' | 'Drivers'; add?: number } | undefined;
-  Trips: undefined;
-  Earnings: undefined;
-  Wallet: undefined;
-};
+// Every NESAM Partner page. The five sections (Bookings · Fleet · Trips · Earnings · Wallet) sit in the sidebar on wide
+// screens and the bottom bar on phones; Helpdesk and Profile sit in the header.
+export type FleetTab = 'Vehicles' | 'Drivers';
+export type BookingTab = 'Accepted' | 'Upcoming' | 'On Trip' | 'Completed' | 'Cancelled';
+export type WalletTab = 'All' | 'Trips' | 'Payments' | 'Penalties' | 'Payouts';
 
 export type RootStackParamList = {
-  Tabs: NavigatorScreenParams<TabParamList> | undefined;
-  Requests: undefined;
-  Alerts: undefined;
-  Penalties: undefined;
+  Trips: undefined;
+  Bookings: { tab?: BookingTab } | undefined;
+  Fleet: { tab?: FleetTab } | undefined;
+  Earnings: undefined;
+  Wallet: { tab?: WalletTab } | undefined;
+
+  MyBids: undefined;
+  Duty: { id: string };
+  Booking: { id: string };
+  Assign: { id: string };
+
+  FleetAdd: { kind: 'vehicle' | 'driver' };
+  Vehicle: { id: string };
+  Driver: { id: string };
+  Linking: undefined;
   Documents: undefined;
-  Profile: undefined;
-  Agreements: undefined;
-  /** Profile (My Business and account settings). */
-  Account: undefined;
+
+  Penalty: { id: string };
   Helpdesk: undefined;
-  BookingDetail: { id: string };
+  Account: undefined;
+  Business: undefined;
+  Agreements: undefined;
+  Alerts: undefined;
 };
+
+export type RouteName = keyof RootStackParamList;
+export type Section = 'Bookings' | 'Fleet' | 'Trips' | 'Earnings' | 'Wallet';
 
 declare global {
   // React Navigation's documented global typing hook.

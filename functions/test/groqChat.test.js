@@ -35,6 +35,13 @@ test('chat validates requests, answers basic questions and preserves Groq conver
     const luggageFollowup = await chatWithBot.run(request([user('naan chennai to madurai 5 peru porom'), { role: 'assistant', content: 'Luggage evlo?' }, user('3 bag iruku, ippo sollu')]));
     assert.equal(luggageFollowup.language, 'tanglish');
 
+    // Confusion / escalation detection
+    const greetingNotConfused = await chatWithBot.run(request([user('hai hai')]));
+    assert.equal(greetingNotConfused.confused, false);
+    const unknownOffline = await chatWithBot.run(request([user('do you issue monthly corporate GST invoices for shuttle contracts?')]));
+    assert.equal(unknownOffline.confused, true);
+    assert.equal(unknownOffline.confusionReason, 'unrecognized_intent');
+
     process.env.GROQ_API_KEY = 'test-key';
     const messages = [user('Chennai to Madurai, 6 passengers'), { role: 'assistant', content: 'Do you have luggage?' }, user('Yes, three bags')];
     let calls = [];
@@ -46,6 +53,27 @@ test('chat validates requests, answers basic questions and preserves Groq conver
     assert.equal(live.provider, 'groq');
     assert.deepEqual(calls[0].messages.slice(1), messages);
     assert.match(calls[0].messages[0].content, /Never repeat the welcome/);
+    assert.match(calls[0].messages[0].content, /\[\[NEEDS_HUMAN\]\]/);
+    assert.equal(live.confused, false);
+
+    global.fetch = async () => ({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: 'Please leave your contact details so our team can quote your 5-day corporate tour.\n[[NEEDS_HUMAN]]' } }] }),
+    });
+    const escalated = await chatWithBot.run(request([user('need 12 tempo travellers for corporate summit')], { brand: 'people_taxi' }));
+    assert.equal(escalated.confused, true);
+    assert.equal(escalated.confusionReason, 'ai_escalated');
+    assert.ok(!escalated.message.includes('NEEDS_HUMAN'));
+
+    global.fetch = async (_url, options) => {
+      calls.push(JSON.parse(options.body));
+      return {
+        ok: true,
+        json: async () => ({ choices: [{ message: { content: 'Enter pickup and drop on the home page to book your ride.' } }] }),
+      };
+    };
+    const clearLive = await chatWithBot.run(request([user('how do I book a one way cab?')], { brand: 'onewaycarrentals' }));
+    assert.equal(clearLive.confused, false);
 
     calls = [];
     await chatWithBot.run(request([user('naan epdi book pannurathu')]));
@@ -60,6 +88,7 @@ test('chat validates requests, answers basic questions and preserves Groq conver
     };
     const authFailure = await chatWithBot.run(request([user('hello')]));
     assert.equal(authFailure.reason, 'authentication');
+    assert.equal(authFailure.confused, false);
     assert.equal(calls.length, 1);
 
     calls = [];
@@ -70,7 +99,10 @@ test('chat validates requests, answers basic questions and preserves Groq conver
     assert.equal((await chatWithBot.run(request([user('what cars?')]))).provider, 'groq');
     assert.equal(calls.length, 2);
     global.fetch = async () => { throw new Error('connection failed'); };
-    assert.equal((await chatWithBot.run(request([user('payment')]))).reason, 'network');
+    const netFail = await chatWithBot.run(request([user('payment')]));
+    assert.equal(netFail.reason, 'network');
+    assert.equal(netFail.confused, true);
+    assert.equal(netFail.confusionReason, 'ai_unavailable');
   } finally {
     global.fetch = oldFetch;
     if (oldKey === undefined) delete process.env.GROQ_API_KEY;

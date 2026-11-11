@@ -15,11 +15,12 @@ import {
   TextInputProps,
   View,
   ViewStyle,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView, Edge } from 'react-native-safe-area-context';
 import { KeyboardAvoid, useKeyboardHeight } from './KeyboardAvoid';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radius, space, type } from '../theme';
+import { colors, fontFamily, radius, space, type } from '../theme';
 import { initials } from '../utils/format';
 
 // ── Layout ──────────────────────────────────────────────────────────────────
@@ -268,6 +269,7 @@ export function Notice({
 export function FullScreenLoader({ label }: { label?: string }) {
   return (
     <View style={styles.center}>
+      <Image source={require('../../assets/brand/partner-banner.png')} style={{ width: 238, height: 80, marginBottom: space.xl }} resizeMode="contain" accessibilityLabel="NESAM Partner" />
       <ActivityIndicator size="large" color={colors.primary} />
       {label ? <Text style={[type.small, { marginTop: space.md }]}>{label}</Text> : null}
     </View>
@@ -332,24 +334,31 @@ export function Sheet({
   // (reported above the navigation bar, which the sheet's bottom safe-area padding already clears). The sheet and its
   // scroll body may shrink, so the focused field and the actions stay reachable by scrolling. iOS keeps KeyboardAvoidingView.
   const keyboardHeight = useKeyboardHeight();
+  // Wide screens (tablet, desktop browser) get a centred dialog; phones a bottom sheet — as in the reference.
+  const { width } = useWindowDimensions();
+  const dialog = width >= 801;
+  const header = (
+    <View style={styles.sheetHeader}>
+      <Text style={styles.sheetTitle} numberOfLines={2} accessibilityRole="header">
+        {title}
+      </Text>
+      {dismissible ? (
+        <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" hitSlop={8} style={styles.sheetClose}>
+          <Ionicons name="close" size={18} color="#8A97A7" />
+        </Pressable>
+      ) : null}
+    </View>
+  );
   return (
-    <Modal visible={visible} transparent animationType="slide" statusBarTranslucent onRequestClose={dismissible ? onClose : () => undefined}>
-      <View style={[styles.sheetBackdrop, { paddingBottom: Platform.OS === 'android' ? keyboardHeight : 0 }]}>
-        <Pressable style={{ flex: 1 }} onPress={dismissible ? onClose : undefined} accessibilityLabel="Close" />
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.sheetShrink}>
-          <SafeAreaView edges={['bottom']} style={[styles.sheet, styles.sheetShrink]}>
-            <View style={styles.sheetHandle} />
-            <View style={styles.sheetHeader}>
-              <Text style={type.h2} numberOfLines={2}>
-                {title}
-              </Text>
-              {dismissible ? (
-                <Text style={styles.sheetClose} onPress={onClose} accessibilityRole="button">
-                  Close
-                </Text>
-              ) : null}
-            </View>
-            <ScrollView style={styles.sheetShrink} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: space.lg }}>
+    <Modal visible={visible} transparent animationType={dialog ? 'fade' : 'slide'} statusBarTranslucent onRequestClose={dismissible ? onClose : () => undefined}>
+      <View style={[styles.sheetBackdrop, dialog && styles.dialogBackdrop, { paddingBottom: Platform.OS === 'android' ? keyboardHeight : 0 }]}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={dismissible ? onClose : undefined} accessibilityLabel="Close" />
+        {!dialog ? <View style={{ flex: 1 }} pointerEvents="none" /> : null}
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.sheetShrink, dialog && styles.dialogWrap]}>
+          <SafeAreaView edges={dialog ? [] : ['bottom']} style={[styles.sheet, styles.sheetShrink, dialog && styles.dialog]}>
+            {!dialog ? <View style={styles.sheetHandle} /> : null}
+            {header}
+            <ScrollView style={styles.sheetShrink} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.sheetBody}>
               {children}
             </ScrollView>
           </SafeAreaView>
@@ -473,11 +482,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: space.lg,
     marginBottom: space.md,
-    shadowColor: '#1B2632',
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 1,
   },
   sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: space.sm, marginTop: space.sm },
   sectionTitle: { fontSize: 12, fontWeight: '700', color: colors.muted, letterSpacing: 0.6, textTransform: 'uppercase' },
@@ -489,7 +493,7 @@ const styles = StyleSheet.create({
   btn: {
     minHeight: 48,
     paddingHorizontal: space.lg,
-    borderRadius: radius.md,
+    borderRadius: 10,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -498,27 +502,27 @@ const styles = StyleSheet.create({
   btnSmall: { minHeight: 36, paddingHorizontal: space.md, borderRadius: radius.sm },
   btnDisabled: { opacity: 0.5 },
   btnPressed: { opacity: 0.85 },
-  btnText: { fontSize: 15, fontWeight: '600' },
+  btnText: { fontSize: 14, fontWeight: '600', fontFamily },
   btnTextSmall: { fontSize: 13 },
   link: { color: colors.primary, fontWeight: '700', fontSize: 13 },
-  fieldLabel: { ...type.label, marginBottom: 6 },
+  fieldLabel: { fontSize: 12, fontWeight: '500', color: '#61758D', marginBottom: 7, fontFamily },
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
+    borderColor: '#D9E2ED',
+    borderRadius: 10,
     paddingHorizontal: space.md,
     minHeight: 48,
   },
   inputError: { borderColor: colors.primary },
   inputDisabled: { backgroundColor: '#F3F4F6' },
   prefix: { color: colors.primary, fontWeight: '800', marginRight: space.sm, fontSize: 15 },
-  input: { flex: 1, fontSize: 15, color: colors.ink, paddingVertical: 10 },
+  input: { flex: 1, minWidth: 0, fontSize: 14, color: '#334E6B', paddingVertical: 11, fontFamily },
   errorText: { color: colors.primaryDark, fontSize: 12, marginTop: 4 },
   hint: { color: colors.muted, fontSize: 12, marginTop: 4 },
-  segment: { flexDirection: 'row', backgroundColor: '#EEEEEE', borderRadius: radius.md, padding: 3 },
+  segment: { flexDirection: 'row', backgroundColor: '#EEF2F6', borderRadius: 10, padding: 3 },
   segmentItem: { flex: 1, paddingVertical: 9, alignItems: 'center', borderRadius: radius.sm },
   segmentOn: { backgroundColor: colors.card, elevation: 1 },
   segmentText: { fontSize: 13, fontWeight: '700', color: colors.muted },
@@ -533,19 +537,19 @@ const styles = StyleSheet.create({
     marginRight: space.sm,
     marginBottom: space.sm,
   },
-  chipOn: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
+  chipOn: { backgroundColor: colors.primarySoft, borderColor: colors.primaryBorder },
   chipText: { fontSize: 13, fontWeight: '600', color: colors.text },
   chipTextOn: { color: colors.primary, fontWeight: '800' },
   notice: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderRadius: radius.md,
-    padding: space.md,
+    borderRadius: 10,
+    padding: 13,
     marginBottom: space.md,
     gap: space.sm,
   },
-  noticeText: { flex: 1, fontSize: 13, fontWeight: '600', lineHeight: 18 },
+  noticeText: { flex: 1, fontSize: 12.5, fontWeight: '500', lineHeight: 19, fontFamily },
   noticeRetry: { fontSize: 13, fontWeight: '800', textDecorationLine: 'underline' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg, padding: space.xl },
   empty: {
@@ -562,18 +566,22 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: 11.5, fontWeight: '700' },
   avatar: { backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
   avatarText: { color: colors.primary, fontWeight: '800' },
-  sheetBackdrop: { flex: 1, backgroundColor: colors.overlay, paddingTop: 40 },
+  sheetBackdrop: { flex: 1, backgroundColor: colors.overlay, paddingTop: 24 },
+  dialogBackdrop: { alignItems: 'center', justifyContent: 'center', padding: 25 },
+  dialogWrap: { width: '100%', maxWidth: 570, alignItems: 'stretch' },
   sheetShrink: { flexShrink: 1 },
   sheet: {
     backgroundColor: colors.card,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    paddingHorizontal: space.lg,
-    maxHeight: '90%',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '92%',
   },
+  dialog: { borderRadius: radius.xl, maxHeight: '100%', shadowColor: '#283747', shadowOpacity: 0.16, shadowRadius: 40, shadowOffset: { width: 0, height: 25 }, elevation: 12 },
   sheetHandle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, marginTop: space.sm },
-  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: space.md, gap: space.md },
-  sheetClose: { color: colors.muted, fontWeight: '700', fontSize: 14, padding: 4 },
+  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 17, paddingHorizontal: 22, gap: space.md, borderBottomWidth: 1, borderBottomColor: colors.border },
+  sheetTitle: { flex: 1, fontSize: 18, fontWeight: '600', color: colors.ink, letterSpacing: -0.35, fontFamily },
+  sheetClose: { width: 32, height: 32, borderRadius: 9, backgroundColor: '#F6F8FA', alignItems: 'center', justifyContent: 'center' },
+  sheetBody: { paddingHorizontal: 22, paddingTop: 20, paddingBottom: 24 },
   stat: { flexGrow: 1, flexBasis: '46%', backgroundColor: colors.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, paddingVertical: 12, paddingHorizontal: 14 },
   statValue: { fontSize: 20, fontWeight: '700', letterSpacing: -0.3 },
   statLabel: { fontSize: 12, color: colors.muted, marginTop: 2 },

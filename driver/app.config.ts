@@ -18,7 +18,7 @@ const config: ExpoConfig = {
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
-  backgroundColor: '#F7F7F7',
+  backgroundColor: '#F6F7F9',
   ios: {
     supportsTablet: false,
     bundleIdentifier: 'com.nesamtours.driver',
@@ -55,15 +55,15 @@ const config: ExpoConfig = {
     description: 'Accept trips, navigate and manage your earnings with NESAM.',
     lang: 'en-IN',
     favicon: './assets/favicon.png',
-    themeColor: '#E31E24',
-    backgroundColor: '#F7F7F7',
+    themeColor: '#D82035',
+    backgroundColor: '#F6F7F9',
   },
   plugins: [
     [
       'expo-splash-screen',
       {
         image: './assets/splash-icon.png',
-        imageWidth: 180,
+        imageWidth: 260,
         resizeMode: 'contain',
         backgroundColor: '#FFFFFF',
       },

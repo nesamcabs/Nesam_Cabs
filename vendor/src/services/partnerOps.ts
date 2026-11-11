@@ -11,6 +11,8 @@ export interface OperationsConfig {
   missedAssignmentPenalty: number;
   cancellation: { lastMinuteHours: number; lastMinuteCharge: number; graceHours: number; afterGraceCharge: number };
   supportPhone: string;
+  /** Seconds after publication before vendors may accept or bid (settings/operations.dutyRelease); 0 = immediately. */
+  vendorReleaseSeconds: number;
 }
 
 export interface PartnerRequestRecord {
@@ -60,6 +62,13 @@ export function mapOperations(d: DocumentData | undefined): OperationsConfig {
     missedAssignmentPenalty: rupees(d?.missedAssignmentPenalty, 500),
     cancellation: { lastMinuteHours: hours(c.lastMinuteHours, 4), lastMinuteCharge: rupees(c.lastMinuteCharge, 1000), graceHours: hours(c.graceHours, 4), afterGraceCharge: rupees(c.afterGraceCharge, 500) },
     supportPhone: s(d?.supportPhone) || '+919025099990',
+    // Same reading as functions/src/release.ts releaseConfigOf: waves are off unless enabled.
+    vendorReleaseSeconds: (() => {
+      const r = (d?.dutyRelease ?? {}) as Record<string, unknown>;
+      if (r.enabled !== true) return 0;
+      const v = r.vendorsSeconds;
+      return typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 3600 ? v : 180;
+    })(),
   };
 }
 

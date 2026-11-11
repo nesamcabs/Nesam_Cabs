@@ -3,15 +3,31 @@ import Button from "./Button";
 import Tabs, { type TabItem } from "./Tabs";
 
 /** Stage tabs with an optional action on the right (reference "or-stage-bar"). */
-export function StageBar<T extends string>({ tabs, value, onChange, label, aside }: {
+export type StageBarVariant = "default" | "stages" | "chips";
+
+export function StageBar<T extends string>({
+  tabs,
+  value,
+  onChange,
+  label,
+  aside,
+  prefix,
+  variant = "default",
+  className = "",
+}: {
   tabs: ReadonlyArray<TabItem<T>>;
   value: T;
   onChange: (id: T) => void;
   label: string;
   aside?: ReactNode;
+  prefix?: ReactNode;
+  variant?: StageBarVariant;
+  className?: string;
 }) {
+  const mod = variant === "default" ? "" : ` ds-stage-bar--${variant}`;
   return (
-    <div className="ds-stage-bar">
+    <div className={`ds-stage-bar${mod}${className ? ` ${className}` : ""}`}>
+      {prefix && <div className="ds-stage-prefix">{prefix}</div>}
       <Tabs tabs={tabs} value={value} onChange={onChange} label={label} className="ds-stage-tabs" />
       {aside && <div className="ds-stage-aside">{aside}</div>}
     </div>

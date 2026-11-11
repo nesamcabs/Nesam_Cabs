@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Sheet } from './ui';
-import { Feedback, PButton } from './partner';
+import { Btn as PButton, Feedback } from './kit/core';
 import { createDuesPayment, getDuesSummary, verifyDuesPayment, type DuesOrder, type DuesOutcome, type DuesSummary } from '../services/partnerOps';
 import { formatINR } from '../utils/format';
 import { colors, space } from '../theme';
@@ -67,6 +67,8 @@ export function DuesPaymentSheet({ onClose, onDone }: { onClose: () => void; onD
     catch (e) { setError(friendly((e as Error).message)); }
     finally { setLoading(false); }
   }, []);
+  // Fetch the server's dues summary once when the sheet opens.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load(); }, [load]);
 
   const pay = async () => {
@@ -119,7 +121,7 @@ export function DuesPaymentSheet({ onClose, onDone }: { onClose: () => void; onD
             <Text style={styles.note}>You have no confirmed dues to pay right now.</Text>
           )}
           <Feedback tone="error" message={error} />
-          {payable > 0 ? <PButton title={`Pay ${formatINR(payable)}`} icon="arrow-forward" busy={busy} full onPress={() => void pay()} /> : <PButton title="Close" style="secondary" full onPress={onClose} />}
+          {payable > 0 ? <PButton title={`Pay ${formatINR(payable)}`} icon="arrow-forward" busy={busy} full onPress={() => void pay()} /> : <PButton title="Close" kind="secondary" full onPress={onClose} />}
           <Text style={[styles.note, { textAlign: 'center', marginTop: space.md }]}>Secure payment by Razorpay · UPI, cards and net banking.</Text>
         </>
       )}

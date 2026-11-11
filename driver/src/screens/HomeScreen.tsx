@@ -1,137 +1,84 @@
-// Home: the next / current trip and the duties open for the driver to accept (reference "Dashboard").
-// Data, presence and accept logic are the app's existing ones (DriverData, usePresence, acceptMarketplaceTrip).
-import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { Text } from '../components/nx/Text';
+// Home (reference "Dashboard"): today at a glance, the next / current trip and the duties open to accept.
+import React, { useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useDriverData } from '../context/DriverData';
 import { NxScreen, useShell } from '../components/nx/Shell';
-import { NxDialog } from '../components/nx/Dialog';
-import { NxIcon } from '../components/nx/Icon';
-import { NxBadge, NxButton, NxEmpty, NxField, NxFormError, NxInfo, NxPanel, NxRouteStack, NxSectionHeading, NxTextButton, nxText } from '../components/nx/primitives';
+import { NxGrid, NxTwoPane, useLayout } from '../components/nx/layout';
+import { NxBadge, NxButton, NxEmpty, NxInfo, NxMetric, NxNote, NxPanel, NxSectionHeading, NxSelectButton, NxTextButton } from '../components/nx/primitives';
 import { TripCard } from '../components/nx/TripCard';
-import { kmText, offerWhen, tripIsActive } from '../components/nx/tripFormat';
+import { DateFilterDialog, DutyCard, DutyDialog, useDutyFeed } from '../components/nx/Duties';
+import { tripIsActive } from '../components/nx/tripFormat';
 import { usePresence } from '../hooks/usePresence';
-import { NxTwoPane, useLayout } from '../components/nx/layout';
 import { useNow } from '../hooks/useNow';
-import { acceptMarketplaceTrip, DriverActionError, submitDutyBid, withdrawDutyBid } from '../services/driverService';
+import { goTab } from '../navigation/navItems';
 import type { MarketplaceOffer } from '../types/driver';
-import { categoryMatches } from '../utils/earnings';
 import { formatINR } from '../utils/format';
-import { describeError } from '../utils/retry';
+import { Text } from '../components/nx/Text';
 import { nx } from '../theme/nx';
+
+/** Home shows the first few duties; the Duties page lists them all. */
+const HOME_DUTY_LIMIT = 4;
 
 export function HomeScreen() {
   const navigation = useNavigation();
   const { notify } = useShell();
-  const { account, activeTrip, nextTrip, upcomingTrips, completedTrips, offers, offersError, bookingsError, deviceWarning, earnings, wallet } = useDriverData();
-  const { wide } = useLayout();
+  const { account, activeTrip, nextTrip, upcomingTrips, completedTrips, offersError, bookingsError, deviceWarning, earnings, wallet } = useDriverData();
   const { driver, vehicle } = account;
   const presence = usePresence(notify);
+  const { dashboard } = useLayout();
   const fleet = !!driver.vendorId;
   const now = useNow();
-  const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [dateFilter, setDateFilter] = useState('all');
   const [filterOpen, setFilterOpen] = useState(false);
   const [detail, setDetail] = useState<MarketplaceOffer | null>(null);
-  const [bidRate, setBidRate] = useState('');
-  const [bidNote, setBidNote] = useState('');
-  const [bidError, setBidError] = useState('');
-  const [bidBusy, setBidBusy] = useState(false);
-  const bidOnly = detail?.mode === 'bid_review';
-
-  const matching = useMemo(() => offers.filter((o) => categoryMatches(o.vehicleCategory, vehicle.vehicleType)), [offers, vehicle.vehicleType]);
-  const pool = showAll ? offers : matching;
-  const dates = useMemo(() => [...new Set(pool.map((o) => offerWhen(o).key).filter(Boolean))], [pool]);
-  const visible = pool.filter((o) => dateFilter === 'all' || offerWhen(o).key === dateFilter);
-  const active = nextTrip ? tripIsActive(nextTrip) : false;
+  const feed = useDutyFeed(showAll, dateFilter);
   const hasActive = !!activeTrip;
+  const current = nextTrip ? tripIsActive(nextTrip) : false;
+  const canBrowse = !fleet && presence.online && !hasActive;
 
-  const accept = async (offer: MarketplaceOffer) => {
-    if (activeTrip) {
-      notify('error', 'You already have an active trip.');
-      return;
-    }
-    setAcceptingId(offer.id);
-    try {
-      await acceptMarketplaceTrip(driver, vehicle.vehicleNumber, offer);
-      setDetail(null);
-      notify('ok', 'Trip accepted! Drive to the pickup; take the vehicle photos before you start the trip.');
-    } catch (e) {
-      notify('error', e instanceof DriverActionError ? e.message : describeError(e, 'This trip is no longer available.'));
-    } finally {
-      setAcceptingId(null);
-    }
-  };
-
-  const openDetail = (o: MarketplaceOffer) => {
-    setDetail(o);
-    setBidRate(o.offeredPayout > 0 ? String(o.offeredPayout) : '');
-    setBidNote('');
-    setBidError('');
-  };
-
-  // Duties NESAM reviews bids on cannot be accepted outright (the server refuses); the driver sends a counter amount.
-  const sendBid = async () => {
-    if (!detail) return;
-    const rate = Number(bidRate);
-    if (!Number.isFinite(rate) || rate <= 0 || Math.abs(rate * 100 - Math.round(rate * 100)) > 1e-6) return setBidError('Enter your counter amount in rupees (up to 2 decimals).');
-    setBidError('');
-    setBidBusy(true);
-    try {
-      await submitDutyBid(detail, rate, bidNote);
-      setDetail(null);
-      notify('ok', 'Bid sent. NESAM reviews bids and will notify you if it is accepted.');
-    } catch (e) {
-      notify('error', e instanceof DriverActionError ? e.message : describeError(e, 'Your bid could not be sent.'));
-    } finally {
-      setBidBusy(false);
-    }
-    return undefined;
-  };
-
-  const withdrawBid = async () => {
-    if (!detail) return;
-    setBidBusy(true);
-    try {
-      await withdrawDutyBid(detail);
-      setDetail(null);
-      notify('ok', 'Your bid was withdrawn.');
-    } catch (e) {
-      notify('error', e instanceof DriverActionError ? e.message : describeError(e, 'Your bid could not be withdrawn.'));
-    } finally {
-      setBidBusy(false);
-    }
-  };
-
-  // The at-a-glance figures the previous dashboard carried; each opens the screen that explains it.
-  const goTab = (screen: 'Trip' | 'Earnings' | 'Wallet' | 'Marketplace') => {
-    if (screen === 'Earnings') {
-      navigation.navigate('Tabs', { screen: 'Profile', params: { openSection: 'earnings' } } as never);
-      return;
-    }
-    navigation.navigate('Tabs', { screen } as never);
-  };
   const metrics = (
-    <View style={styles.metrics} accessibilityLabel="Today at a glance">
-      {fleet ? (
-        <Metric label="Earnings" value="Paid by your fleet" foot={`${driver.vendorName || 'Your fleet operator'} settles your pay`} onPress={() => goTab('Trip')} accent small />
-      ) : (
-        <Metric label="Today’s earnings" value={formatINR(earnings.todayEarnings)} foot={`Credited, incl. tolls · 7 days ${formatINR(earnings.thisWeekEarnings)}`} onPress={() => goTab('Earnings')} accent />
-      )}
-      <Metric label="Completed trips" value={String(completedTrips.length)} foot={driver.rating != null ? `Rating ★ ${driver.rating.toFixed(1)}` : 'No ratings yet'} onPress={() => goTab('Trip')} />
-      {fleet ? null : <Metric label="Wallet balance" value={formatINR(wallet.available)} foot="Available to withdraw" onPress={() => goTab('Wallet')} />}
-      <Metric label="Upcoming trips" value={String(upcomingTrips.length).padStart(2, '0')} foot="Your confirmed duties" onPress={() => goTab('Trip')} />
+    <View style={{ marginBottom: 26 }} accessibilityLabel="Today at a glance">
+      <NxGrid columns={dashboard ? 4 : 2} phoneColumns={2} gap={dashboard ? 14 : 10}>
+        {fleet ? (
+          <NxMetric label="Earnings" value="Paid by fleet" foot={`${driver.vendorName || 'Your fleet'} settles your pay`} icon="chart" accent small />
+        ) : (
+          <NxMetric label="Today’s earnings" value={formatINR(earnings.todayEarnings)} foot={`7 days ${formatINR(earnings.thisWeekEarnings)}`} icon="chart" accent onPress={() => goTab('Earnings')} />
+        )}
+        <NxMetric label="Completed trips" value={String(completedTrips.length).padStart(2, '0')} foot={driver.rating != null ? `Rating ★ ${driver.rating.toFixed(1)}` : 'No ratings yet'} icon="check" onPress={() => goTab('Trip', { tab: 'completed' })} />
+        {fleet ? (
+          <NxMetric label="Vehicle" value={vehicle.vehicleNumber || 'Assigned by fleet'} foot={vehicle.vehicleType || 'Fleet vehicle'} icon="car" small />
+        ) : (
+          <NxMetric label="Wallet balance" value={formatINR(wallet.available)} foot="View settlement details" icon="wallet" onPress={() => goTab('Wallet')} />
+        )}
+        <NxMetric label="Upcoming trips" value={String(upcomingTrips.length).padStart(2, '0')} foot="Your confirmed duties" icon="calendar" onPress={() => goTab('Trip', { tab: 'upcoming' })} />
+      </NxGrid>
     </View>
   );
 
-  const openTrip = (id: string) => navigation.navigate('TripFlow', { bookingId: id });
-  const detailCannot = !presence.online ? (bidOnly ? 'Go online to bid' : 'Go online to accept') : hasActive ? 'You already have an active trip' : '';
+  const nextSection = (
+    <>
+      <NxSectionHeading
+        title={current ? 'Your current trip' : 'Your next trip'}
+        right={<NxTextButton title={`My Trips (${upcomingTrips.length})`} trailingIcon="chevron" onPress={() => goTab('Trip')} />}
+      />
+      {nextTrip ? (
+        <TripCard trip={nextTrip} now={now} onOpen={() => navigation.navigate('TripFlow', { bookingId: nextTrip.id })} />
+      ) : (
+        <NxEmpty
+          icon="check"
+          title={completedTrips.length ? 'All assigned trips completed' : 'No active assigned trips'}
+          message={fleet ? 'Your fleet operator assigns your duties. They appear here instantly.' : 'Browse available duties or review your trip history.'}
+          action={<NxButton title="View trip history" variant="secondary" onPress={() => goTab('Trip', { tab: 'completed' })} />}
+        />
+      )}
+    </>
+  );
 
   let duties: React.ReactNode;
   if (fleet) {
-    duties = <NxEmpty icon="car" title="Trips come from your fleet" message={`${driver.vendorName || 'Your fleet operator'} takes marketplace trips and assigns them to you. Assigned trips appear on this screen.`} />;
+    duties = <NxEmpty icon="car" title="Trips come from your fleet" message={`${driver.vendorName || 'Your fleet operator'} takes duties and assigns them to you. Assigned trips appear on this screen.`} />;
   } else if (!presence.online) {
     duties = (
       <NxEmpty
@@ -143,272 +90,92 @@ export function HomeScreen() {
     );
   } else if (hasActive) {
     duties = <NxEmpty icon="trip" title="Finish your current trip" message="New duties appear here once you complete it." />;
-  } else if (!visible.length) {
+  } else if (!feed.visible.length) {
     duties = (
       <NxEmpty
         icon="trip"
-        title={pool.length ? 'No duties on this date' : 'You’re all caught up.'}
-        message={pool.length ? 'Choose another date to see open duties.' : 'New duties appear here instantly — stay online.'}
+        title={feed.pool.length ? 'No duties on this date' : 'You’re all caught up.'}
+        message={feed.pool.length ? 'Choose another date to see open duties.' : 'New duties appear here instantly — stay online.'}
+        action={feed.pool.length ? <NxButton title="Show all dates" variant="secondary" onPress={() => setDateFilter('all')} /> : undefined}
       />
     );
   } else {
-    duties = visible.map((o) => {
-      const w = offerWhen(o);
-      const mismatch = !categoryMatches(o.vehicleCategory, vehicle.vehicleType);
-      return (
-        <NxPanel key={o.id} style={styles.duty}>
-          <View style={styles.dutyMeta}>
-            <View style={styles.dutyDate}>
-              <NxIcon name="calendar" size={13} color={nx.muted} />
-              <Text style={styles.dutyDateText} numberOfLines={1}>
-                {w.date}
-                {w.time ? ` · ${w.time}` : ''}
-              </Text>
-            </View>
-            <NxBadge label={o.mode === 'bid_review' ? 'Bid' : o.vehicleCategory || 'Any vehicle'} tone={mismatch ? 'amber' : 'neutral'} />
-            {o.addOns?.roofCarrier || o.addOns?.pets ? <NxBadge label={[o.addOns?.roofCarrier ? 'Roof carrier required' : '', o.addOns?.pets ? 'Pet travel' : ''].filter(Boolean).join(' / ')} tone="amber" /> : null}
-          </View>
-          <NxRouteStack pickup={o.pickup.address} drop={o.drop.address} />
-          <View style={styles.dutyInfo}>
-            <View style={styles.fact}>
-              <NxIcon name="car" size={13} color={nx.muted} />
-              <Text style={styles.factText}>{vehicle.vehicleType}</Text>
-            </View>
-            {o.distanceKm > 0 ? (
-              <View style={styles.fact}>
-                <NxIcon name="distance" size={13} color={nx.muted} />
-                <Text style={styles.factText}>{kmText(o.distanceKm)}</Text>
-              </View>
-            ) : null}
-          </View>
-          {mismatch ? <NxInfo tone="amber">Booked as {o.vehicleCategory} — accept only if your vehicle qualifies</NxInfo> : null}
-          <View style={styles.dutyBottom}>
-            <View>
-              <Text style={nxText.small}>Driver payout</Text>
-              <Text style={styles.dutyPayout}>{formatINR(o.offeredPayout)}</Text>
-            </View>
-            <NxButton title="View details" trailingIcon="arrow" variant={mismatch ? 'secondary' : 'soft'} compact onPress={() => openDetail(o)} />
-          </View>
-        </NxPanel>
-      );
-    });
+    duties = (
+      <>
+        {feed.visible.slice(0, HOME_DUTY_LIMIT).map((o) => (
+          <DutyCard key={o.id} offer={o} onOpen={() => setDetail(o)} />
+        ))}
+        {feed.visible.length > HOME_DUTY_LIMIT ? <NxButton title={`View all ${feed.visible.length} duties`} variant="secondary" trailingIcon="arrow" onPress={() => goTab('Marketplace')} /> : null}
+      </>
+    );
   }
 
+  const dutiesSection = (
+    <>
+      <NxSectionHeading
+        title="Available duties"
+        badge={fleet ? undefined : <NxBadge label={`${canBrowse ? feed.visible.length : 0} open`} tone="red" />}
+        caption={fleet ? 'Assigned by your fleet operator' : showAll ? 'All open duties' : `Duties eligible for your ${vehicle.vehicleType || 'vehicle'}`}
+        right={
+          fleet ? null : (
+            <NxSelectButton
+              label={dateFilter === 'all' ? 'All dates' : dateFilter}
+              disabled={!canBrowse}
+              onPress={() => setFilterOpen(true)}
+              accessibilityLabel={`Filter duties by pickup date: ${dateFilter === 'all' ? 'all dates' : dateFilter}`}
+            />
+          )
+        }
+      />
+      {offersError ? <NxInfo tone="red" style={styles.flush}>{offersError}</NxInfo> : null}
+      {duties}
+      {canBrowse ? (
+        <NxNote>
+          Payouts are shown before you accept. Toll, parking & state tax are extra, as applicable.{' '}
+          <Text
+            style={styles.link}
+            onPress={() => {
+              setShowAll((v) => !v);
+              setDateFilter('all');
+            }}
+            accessibilityRole="button"
+          >
+            {showAll ? 'Only my category' : `Show all duties (${feed.all.length})`}
+          </Text>
+        </NxNote>
+      ) : null}
+    </>
+  );
+
   return (
-    <NxScreen title="Home" subtitle="Duty Dashboard">
+    <NxScreen>
       {driver.docStatus === 'Rejected' ? (
-        <NxPanel>
-          <NxSectionHeading title="Document update required" caption={driver.rejectionReason || 'Some of your updated documents were not accepted. Please upload them again.'} right={<NxBadge label="Action needed" tone="red" icon="info" />} />
+        <NxPanel style={{ borderColor: '#F7CDD3' }}>
+          <NxSectionHeading
+            title="Document update required"
+            caption={driver.rejectionReason || 'Some of your updated documents were not accepted. Please upload them again.'}
+            right={<NxBadge label="Action needed" tone="red" icon="alert" />}
+          />
           <NxButton title="Update documents" trailingIcon="arrow" onPress={() => navigation.navigate('UpdateDocuments')} />
         </NxPanel>
       ) : null}
-      {deviceWarning ? <NxInfo tone="amber" style={{ marginTop: 0, marginBottom: 16 }}>{deviceWarning}</NxInfo> : null}
-      {bookingsError ? <NxInfo tone="red" style={{ marginTop: 0, marginBottom: 16 }}>{bookingsError}</NxInfo> : null}
-
-      {wide ? metrics : null}
-      <NxTwoPane
-        left={
-          <>
-      <NxSectionHeading
-        title={active ? 'Your current trip' : 'Your next trip'}
-        right={<NxTextButton title={`My Trips (${upcomingTrips.length})`} trailingIcon="chevron" onPress={() => navigation.navigate('Tabs', { screen: 'Trip' })} />}
-      />
-      {nextTrip ? (
-        <TripCard trip={nextTrip} now={now} onOpen={() => openTrip(nextTrip.id)} />
-      ) : (
-        <NxEmpty
-          icon="check"
-          title={completedTrips.length ? 'All assigned trips completed' : 'No active assigned trips'}
-          message="Browse available duties or review your trip history."
-          action={<NxButton title="View trip history" variant="secondary" onPress={() => navigation.navigate('Tabs', { screen: 'Trip' })} />}
-        />
-      )}
-
-          </>
-        }
-        right={
-          <>
-      <NxSectionHeading
-        title="Available duties"
-        badge={<NxBadge label={`${fleet || !presence.online || hasActive ? 0 : visible.length} open`} tone="red" />}
-        caption={showAll ? 'All open duties' : `Duties eligible for your ${vehicle.vehicleType}`}
-        right={
-          !fleet ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <NxTextButton
-                title="Marketplace"
-                trailingIcon="arrow"
-                onPress={() => navigation.navigate('Tabs', { screen: 'Marketplace' } as never)}
-              />
-              <Pressable
-                onPress={() => setFilterOpen(true)}
-                disabled={!presence.online || hasActive}
-                style={[styles.filter, (!presence.online || hasActive) && { opacity: 0.5 }]}
-                accessibilityRole="button"
-                accessibilityLabel={`Filter duties by pickup date: ${dateFilter === 'all' ? 'all dates' : dateFilter}`}
-              >
-                <Text style={styles.filterText} numberOfLines={1}>
-                  {dateFilter === 'all' ? 'All dates' : dateFilter}
-                </Text>
-                <NxIcon name="chevron" size={12} color={nx.muted} />
-              </Pressable>
-            </View>
-          ) : null
-        }
-      />
-      {offersError ? <NxInfo tone="red" style={{ marginTop: 0, marginBottom: 12 }}>{offersError}</NxInfo> : null}
-      {duties}
-      {!fleet && presence.online && !hasActive ? (
-        <View style={styles.listNote}>
-          <NxIcon name="info" size={14} color={nx.muted} />
-          <Text style={styles.listNoteText}>
-            Payouts are shown before you accept. Tolls, parking and state tax are paid by the customer at actual cost.{' '}
-            <Text
-              style={{ color: nx.red, fontWeight: '700' }}
-              onPress={() => {
-                setShowAll((v) => !v);
-                setDateFilter('all');
-              }}
-              accessibilityRole="button"
-            >
-              {showAll ? 'Only my category' : `Show all duties (${offers.length})`}
-            </Text>
-          </Text>
-        </View>
+      {driver.fleetSuspended ? (
+        <NxInfo tone="red" icon="alert" style={styles.flushBottom}>
+          {driver.vendorName || 'Your fleet operator'} has put you on hold. You will not get new duties until they reactivate you — please contact them.
+        </NxInfo>
       ) : null}
-          </>
-        }
-      />
-      {wide ? null : <View style={{ marginTop: 22 }}>{metrics}</View>}
-
-      <NxDialog visible={filterOpen} onClose={() => setFilterOpen(false)} eyebrow="AVAILABLE DUTIES" title="Filter by pickup date">
-        {['all', ...dates].map((d) => (
-          <Pressable
-            key={d}
-            style={styles.option}
-            onPress={() => {
-              setDateFilter(d);
-              setFilterOpen(false);
-            }}
-            accessibilityRole="radio"
-            accessibilityState={{ selected: dateFilter === d }}
-          >
-            <Text style={[styles.optionText, dateFilter === d && { color: nx.red }]}>{d === 'all' ? 'All dates' : d}</Text>
-            {dateFilter === d ? <NxIcon name="check" size={16} color={nx.red} /> : null}
-          </Pressable>
-        ))}
-      </NxDialog>
-
-      <NxDialog
-        visible={detail !== null}
-        onClose={() => setDetail(null)}
-        eyebrow={detail?.bookingId ?? ''}
-        title="Available duty"
-        locked={acceptingId !== null || bidBusy}
-        footer={
-          bidOnly ? (
-            <>
-              <NxButton title={bidBusy ? 'Sending…' : detailCannot || 'Send bid for review'} trailingIcon="check" loading={bidBusy} disabled={!!detailCannot} onPress={() => void sendBid()} />
-              <NxTextButton title="Withdraw my earlier bid" onPress={() => void withdrawBid()} />
-              <Text style={styles.footnote}>NESAM reviews bids. The duty is assigned to you only if your bid is accepted.</Text>
-            </>
-          ) : (
-            <>
-              <NxButton
-                title={acceptingId !== null ? 'Accepting…' : detailCannot || 'Accept duty'}
-                trailingIcon="check"
-                loading={acceptingId !== null}
-                disabled={!!detailCannot}
-                onPress={() => detail && void accept(detail)}
-              />
-              <Text style={styles.footnote}>Accepting assigns this duty to you right away.</Text>
-            </>
-          )
-        }
-      >
-        {detail ? (
-          <>
-            <View style={styles.payoutBox}>
-              <Text style={{ fontSize: 12, color: nx.red }}>{bidOnly ? 'NESAM offer' : 'Your payout'}</Text>
-              <Text style={styles.payoutBoxValue}>{formatINR(detail.offeredPayout)}</Text>
-            </View>
-            <NxRouteStack pickup={detail.pickup.address} drop={detail.drop.address} />
-            <View style={{ marginTop: 6 }}>
-              <Line label="Pickup date" value={offerWhen(detail).date} />
-              {offerWhen(detail).time ? <Line label="Pickup time" value={`${offerWhen(detail).time} IST`} /> : null}
-              <Line label="Vehicle / route" value={`${detail.vehicleCategory || 'Any vehicle'}${detail.distanceKm > 0 ? ` · ${kmText(detail.distanceKm)} estimate` : ''}`} />
-            </View>
-            {bidOnly ? (
-              <>
-                <NxField label="Your counter amount (₹)" value={bidRate} onChangeText={(t) => { setBidRate(t.replace(/[^\d.]/g, '').slice(0, 9)); setBidError(''); }} keyboardType="decimal-pad" />
-                <NxField label="Note for NESAM (optional)" value={bidNote} onChangeText={(t) => setBidNote(t.slice(0, 300))} multiline />
-                <NxFormError message={bidError} />
-              </>
-            ) : null}
-            <NxInfo>Toll, parking and state tax are paid by the customer at actual cost. Record tolls with their receipt at the end of the trip.</NxInfo>
-            {!categoryMatches(detail.vehicleCategory, vehicle.vehicleType) ? (
-              <NxInfo tone="amber">
-                Booked as {detail.vehicleCategory}. Accept only if your {vehicle.vehicleType} qualifies.
-              </NxInfo>
-            ) : null}
-            {hasActive ? <NxInfo tone="amber">You already have an active trip. Finish it before accepting another.</NxInfo> : null}
-          </>
-        ) : null}
-      </NxDialog>
+      {deviceWarning ? <NxInfo tone="amber" icon="shield" style={styles.flushBottom}>{deviceWarning}</NxInfo> : null}
+      {bookingsError ? <NxInfo tone="red" style={styles.flushBottom}>{bookingsError}</NxInfo> : null}
+      {metrics}
+      <NxTwoPane left={nextSection} right={dutiesSection} />
+      <DutyDialog offer={detail} onClose={() => setDetail(null)} />
+      <DateFilterDialog visible={filterOpen} onClose={() => setFilterOpen(false)} dates={feed.dates} value={dateFilter} onChange={setDateFilter} />
     </NxScreen>
   );
 }
 
-function Metric({ label, value, foot, onPress, accent, small }: { label: string; value: string; foot: string; onPress: () => void; accent?: boolean; small?: boolean }) {
-  return (
-    <Pressable style={styles.metric} onPress={onPress} accessibilityRole="button" accessibilityLabel={`${label}: ${value}. ${foot}`}>
-      <Text style={styles.metricLabel} numberOfLines={1}>
-        {label}
-      </Text>
-      <Text style={[styles.metricValue, accent && { color: nx.red }, small && { fontSize: 15 }]} numberOfLines={2}>
-        {value}
-      </Text>
-      <Text style={styles.metricFoot} numberOfLines={2}>
-        {foot}
-      </Text>
-    </Pressable>
-  );
-}
-
-function Line({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.line}>
-      <Text style={styles.lineLabel}>{label}</Text>
-      <Text style={styles.lineValue}>{value}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 18 },
-  metric: { flexGrow: 1, flexBasis: 150, minWidth: 140, backgroundColor: nx.white, borderWidth: 1, borderColor: nx.line, borderRadius: 14, padding: 15, gap: 6 },
-  metricLabel: { fontSize: 12, color: nx.muted },
-  metricValue: { fontSize: 22, fontWeight: '700', letterSpacing: -0.3, color: nx.ink },
-  metricFoot: { fontSize: 11, color: '#838894' },
-  duty: { padding: 17, marginBottom: 12, borderRadius: 15 },
-  dutyMeta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
-  dutyDate: { flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 1 },
-  dutyDateText: { fontSize: 11, color: nx.muted },
-  dutyInfo: { flexDirection: 'row', gap: 12, marginTop: 7 },
-  fact: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  factText: { fontSize: 11, color: nx.muted },
-  dutyBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginTop: 14 },
-  dutyPayout: { fontSize: 20, fontWeight: '800', letterSpacing: -0.5, color: nx.ink },
-  filter: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 34, maxWidth: 130, paddingHorizontal: 9, borderRadius: 8, borderWidth: 1, borderColor: nx.line, backgroundColor: nx.white },
-  filterText: { fontSize: 10.5, color: '#626875', flexShrink: 1 },
-  listNote: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: 4 },
-  listNoteText: { flex: 1, fontSize: 11, lineHeight: 19.8, color: nx.muted },
-  option: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 48, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: nx.line },
-  optionText: { fontSize: 13.5, fontWeight: '600', color: nx.ink },
-  footnote: { fontSize: 11, color: nx.muted, textAlign: 'center' },
-  payoutBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: nx.redSoft, borderRadius: 14, padding: 16, marginBottom: 4 },
-  payoutBoxValue: { fontSize: 24, fontWeight: '800', letterSpacing: -0.6, color: nx.red },
-  line: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: nx.line },
-  lineLabel: { fontSize: 12, color: nx.muted },
-  lineValue: { flexShrink: 1, fontSize: 12.5, fontWeight: '700', color: nx.ink, textAlign: 'right' },
+  flush: { marginTop: 0, marginBottom: 12 },
+  flushBottom: { marginTop: 0, marginBottom: 16 },
+  link: { color: nx.red, fontWeight: '700' },
 });

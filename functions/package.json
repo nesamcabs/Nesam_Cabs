@@ -7,7 +7,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "test": "npm run build && node --test test/rentalHours.test.js test/rentalPackageBuilder.test.js test/bookingAddOns.test.js test/addOnInvoice.test.js test/groqChat.test.js test/roundTripStops.test.js test/tariff.test.js test/multicitySnapshot.test.js test/serviceRules.test.js test/paymentWiring.test.js test/advanceBooking.test.js test/http.test.js test/partnerOps.test.js test/businessPricing.test.js && npm run test:e2e",
+    "test": "npm run build && node --test test/rentalHours.test.js test/rentalPackageBuilder.test.js test/bookingAddOns.test.js test/addOnInvoice.test.js test/groqChat.test.js test/supportAiLead.test.js test/roundTripStops.test.js test/tariff.test.js test/multicitySnapshot.test.js test/serviceRules.test.js test/paymentWiring.test.js test/advanceBooking.test.js test/http.test.js test/partnerOps.test.js test/businessPricing.test.js && npm run test:e2e",
     "build:watch": "tsc --watch",
     "serve": "npm run build && firebase emulators:start --only functions,firestore,auth,storage",
     "shell": "npm run build && firebase functions:shell",

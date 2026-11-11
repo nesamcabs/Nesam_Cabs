@@ -1,10 +1,11 @@
 /* eslint-disable import/first, @typescript-eslint/no-require-imports -- jest.mock() calls must precede the imports they replace, and mocks need require() */
-// Render smoke tests for the redesigned screens. There is no device in CI, so these mount every screen with sample data
+// Render smoke tests for the NESAM Driver screens. There is no device in CI, so these mount every screen with sample data
 // (a missing field or a bad import throws here instead of on a driver's phone) and exercise the logic the redesign added:
 // the slide-to-confirm control and the trip stages.
 import React from 'react';
 import renderer, { act } from 'react-test-renderer';
 import type { DriverAccount, TripDetails } from '../src/types/driver';
+import { Image, StyleSheet } from 'react-native';
 
 const HOUR = 3600000;
 const at = (h: number) => new Date(Date.now() + h * HOUR);
@@ -31,7 +32,11 @@ let mockBookings: TripDetails[] = [];
 let mockActiveTrip: TripDetails | null = null;
 let mockRules: { startWindowMs: number; pickupRadiusKm: number } | null = null;
 
-jest.mock('@react-navigation/native', () => ({ useNavigation: () => ({ navigate: jest.fn(), goBack: jest.fn(), canGoBack: () => true }) }));
+jest.mock('@react-navigation/native', () => ({
+  useNavigation: () => ({ navigate: jest.fn(), goBack: jest.fn(), canGoBack: () => true }),
+  createNavigationContainerRef: () => ({ isReady: () => false, addListener: () => () => undefined, getCurrentRoute: () => undefined, getRootState: () => undefined, navigate: jest.fn(), dispatch: jest.fn() }),
+  StackActions: { popToTop: () => ({ type: 'POP_TO_TOP' }) },
+}));
 jest.mock('react-native-safe-area-context', () => {
   const R = require('react');
   const { View } = require('react-native');
@@ -101,8 +106,8 @@ import { ProfileScreen } from '../src/screens/ProfileScreen';
 import { NotificationsScreen } from '../src/screens/NotificationsScreen';
 import { NxSwipe } from '../src/components/nx/Swipe';
 import { ShellProvider } from '../src/components/nx/Shell';
-import { NxTabBar } from '../src/components/nx/TabBar';
 import { NxBrand } from '../src/components/nx/Brand';
+import { navItemsFor, navOwner } from '../src/navigation/navItems';
 
 const mountedTrees: renderer.ReactTestRenderer[] = [];
 afterEach(() => {
@@ -147,8 +152,7 @@ describe('tab screens render', () => {
     const text = textOf(mount(<HomeScreen />));
     expect(text).toContain('Your next trip');
     expect(text).toContain('Available duties');
-    expect(text).toContain('Open trip');
-    expect(text).not.toContain('Start Trip');
+    expect(text).toContain('Start trip');
     expect(text).toContain('Finish your current trip');
   });
 
@@ -173,49 +177,36 @@ describe('tab screens render', () => {
   it('Earnings, Wallet, Profile and Notifications render their sections', () => {
     expect(textOf(mount(<EarningsScreen />))).toContain('Pending settlement review');
     const wallet = textOf(mount(<WalletScreen />));
-    expect(wallet).toContain('AVAILABLE TO WITHDRAW');
+    expect(wallet).toContain('AVAILABLE WALLET BALANCE');
     expect(wallet).toContain('₹8,450');
     expect(textOf(mount(<ProfileScreen />))).toContain('Document verification');
-    expect(textOf(mount(<ProfileScreen />))).toContain('Earnings & settlements');
-    expect(textOf(mount(<NotificationsScreen />))).toContain('Driver updates');
+    expect(textOf(mount(<ProfileScreen />))).toContain('Contact & payout account');
+    expect(textOf(mount(<NotificationsScreen />))).toContain('New duty');
   });
 
   it('MarketplaceScreen renders open duties and bidding for driver', () => {
+    mockActiveTrip = null;
     const text = textOf(mount(<MarketplaceScreen />));
-    expect(text).toContain('Marketplace');
-    expect(text).toContain('Sedan only');
+    expect(text).toContain('Sedan (');
     expect(text).toContain('All categories');
-    expect(text).toContain('Bid Duty');
+    expect(text).toContain('Bid duty');
     expect(text).toContain('Place bid');
   });
 
-  it('NxBrand displays page heading on the right of logo and hides NESAM / DRIVER wordmarks', () => {
-    const headerWithTitle = textOf(mount(<NxBrand title="Marketplace" subtitle="Open duties" />));
-    expect(headerWithTitle).toContain('Marketplace');
-    expect(headerWithTitle).toContain('Open duties');
-    expect(headerWithTitle).not.toContain('NESAM');
-    expect(headerWithTitle).not.toContain('DRIVER');
+  it('NxBrand shows the NESAM DRIVER banner, and only the emblem on the tablet rail', () => {
+    const full = mount(<NxBrand />).root.findByProps({ accessibilityLabel: 'NESAM Driver' });
+    const rail = mount(<NxBrand iconOnly />).root.findByProps({ accessibilityLabel: 'NESAM Driver' });
+    const imageWidth = (t: renderer.ReactTestInstance) => StyleSheet.flatten(t.findByType(Image).props.style).width as number;
+    expect(imageWidth(full)).toBeGreaterThan(imageWidth(rail) * 2);
   });
 
-  it('NxTabBar renders 5 tabs with Home as dominant middle action', () => {
-    const state: any = {
-      index: 2,
-      routes: [
-        { key: 'm1', name: 'Marketplace' },
-        { key: 't1', name: 'Trip' },
-        { key: 'h1', name: 'Home' },
-        { key: 'w1', name: 'Wallet' },
-        { key: 'p1', name: 'Profile' },
-      ],
-    };
-    const nav: any = { emit: jest.fn(() => ({ defaultPrevented: false })), navigate: jest.fn() };
-    const tabTree = mount(<NxTabBar state={state} navigation={nav} descriptors={{} as any} insets={{} as any} />);
-    const tabText = textOf(tabTree);
-    expect(tabText).toContain('Marketplace');
-    expect(tabText).toContain('My Trips');
-    expect(tabText).toContain('Home');
-    expect(tabText).toContain('Wallet');
-    expect(tabText).toContain('Profile');
+  it('navigation: owner-drivers get every page, fleet drivers only theirs; trip pages highlight My Trips', () => {
+    expect(navItemsFor(false).map((i) => i.id)).toEqual(['Home', 'Marketplace', 'Trip', 'Earnings', 'Wallet', 'Profile']);
+    expect(navItemsFor(false).filter((i) => i.phone)).toHaveLength(5);
+    expect(navItemsFor(true).map((i) => i.id)).toEqual(['Home', 'Trip', 'Profile']);
+    expect(navOwner('TripFlow')).toBe('Trip');
+    expect(navOwner('PreTrip')).toBe('Trip');
+    expect(navOwner('Notifications')).toBeNull();
   });
 });
 

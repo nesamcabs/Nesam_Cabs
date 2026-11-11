@@ -37,6 +37,12 @@ export interface DriverProfile {
   docStatus: DocumentStatus;
   rejectionReason?: string;
   presenceStatus: DriverStatus;
+  /** The fleet operator has put this driver on hold (vendor fleet panel); NESAM stops giving them duties. */
+  fleetSuspended: boolean;
+  /** Account hold set by NESAM staff: Suspended / Inactive / Dispute hold / Permanent block / Reactivation pending ('' when active). */
+  holdLabel: string;
+  holdReason: string;
+  holdUntil?: Date;
 }
 
 export interface IdentityDetails {

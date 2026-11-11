@@ -28,10 +28,27 @@ const label = (b: DocumentData, id: string) => text(b.bookingId) || id;
 
 type Caller = { kind: 'driver'; uid: string; data: DocumentData } | { kind: 'vendor'; uid: string; data: DocumentData };
 
+const filesOf = (v: unknown): number => (Array.isArray(v) ? v.length : 0);
+/**
+ * Business registration + identity proof, and the fleet's RC, insurance, FC, permit and vehicle photo — the same test as
+ * firestore.rules vendorDocsComplete and the Partner app. Approval by NESAM after upload is the verification.
+ */
+export function vendorDocsComplete(v: DocumentData): boolean {
+  const d = (v.documents ?? {}) as DocumentData;
+  const f = (v.fleet ?? {}) as DocumentData;
+  return filesOf(d.businessRegistration?.files) > 0 && filesOf(d.identityProof?.files) > 0
+    && filesOf(f.rcFiles) > 0 && filesOf(f.insuranceFiles) > 0 && filesOf(f.fcFiles) > 0 && filesOf(f.permitFiles) > 0 && filesOf(f.vehiclePhotos) > 0;
+}
+
 async function partyOf(uid: string | undefined): Promise<Caller> {
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.');
   const [d, v] = await Promise.all([db.doc(`drivers/${uid}`).get(), db.doc(`vendors/${uid}`).get()]);
-  if (v.exists && approved(v.data()!.status)) return { kind: 'vendor', uid, data: v.data()! };
+  if (v.exists && approved(v.data()!.status)) {
+    if (!vendorDocsComplete(v.data()!)) {
+      throw new HttpsError('failed-precondition', 'Upload your business and vehicle documents in the Partner app. Duties unlock once NESAM verifies them.', { code: 'documents-required' });
+    }
+    return { kind: 'vendor', uid, data: v.data()! };
+  }
   if (d.exists) {
     const p = d.data()!;
     // Vendor employee drivers receive trips from their vendor; they never browse, claim or bid.

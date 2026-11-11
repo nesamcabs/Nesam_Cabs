@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAvoid } from '../components/KeyboardAvoid';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NxIcon } from '../components/nx/Icon';
+import { NxBrand } from '../components/nx/Brand';
 import type { ApprovalStatus, DetectedVehicle, RegistrationData, VehicleCategory, VehicleLookupResult } from '../types/driver';
 import { Badge, Button, Card, Notice, Row, TextField } from '../components/ui';
 import { DateField, OptionChips, PhotoField, displayDate } from '../components/forms';
@@ -283,6 +284,11 @@ export function RegistrationScreen({ uid, mode, initial, currentStatus, rejectio
     <SafeAreaView style={styles.root} edges={mode === 'update' ? [] : ['top']}>
       <KeyboardAvoid>
       <ScrollView ref={scrollRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        {mode !== 'update' ? (
+          <View style={styles.brandRow}>
+            <NxBrand size="small" />
+          </View>
+        ) : null}
         {mode !== 'update' ? (
           <View style={styles.header}>
             <View style={{ flex: 1 }}>
@@ -570,15 +576,16 @@ function ReviewSection({ title, onEdit, children }: { title: string; onEdit: () 
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: space.lg, paddingBottom: space.xxl },
+  content: { width: '100%', maxWidth: 760, alignSelf: 'center', padding: space.lg, paddingBottom: space.xxl },
+  brandRow: { paddingBottom: space.lg, marginBottom: space.lg, borderBottomWidth: 1, borderBottomColor: colors.border },
   header: { flexDirection: 'row', alignItems: 'center', gap: space.sm, marginBottom: space.md },
-  stepper: { flexDirection: 'row', backgroundColor: colors.card, borderRadius: radius.md, padding: space.sm, marginBottom: space.md, borderWidth: 1, borderColor: colors.border },
+  stepper: { flexDirection: 'row', backgroundColor: colors.card, borderRadius: radius.lg, paddingVertical: 14, paddingHorizontal: space.sm, marginBottom: space.lg, borderWidth: 1, borderColor: colors.border },
   stepItem: { flex: 1, alignItems: 'center', gap: 4 },
   stepDot: { width: 26, height: 26, borderRadius: 13, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card },
   stepDotActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   stepDotDone: { backgroundColor: colors.success, borderColor: colors.success },
-  stepNum: { fontSize: 12, fontWeight: '800', color: colors.muted },
-  stepLabel: { fontSize: 10, fontWeight: '700', color: colors.muted },
+  stepNum: { fontSize: 12, fontWeight: '700', color: colors.muted },
+  stepLabel: { fontSize: 11, fontWeight: '600', color: colors.muted },
   sectionTitle: { ...type.h3, marginBottom: space.md },
   detecting: { flexDirection: 'row', alignItems: 'center', gap: space.sm, marginBottom: space.md },
   detected: { borderWidth: 1, borderColor: colors.success, backgroundColor: colors.successSoft, borderRadius: radius.md, padding: space.md, marginBottom: space.md },
@@ -588,7 +595,7 @@ const styles = StyleSheet.create({
   reviewPhoto: { width: 52, height: 52, borderRadius: 12 },
   reviewSection: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: space.md, marginBottom: space.md },
   reviewTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  edit: { color: colors.primary, fontWeight: '800' },
+  edit: { color: colors.primary, fontWeight: '700' },
   consent: { flexDirection: 'row', alignItems: 'center', gap: space.md, backgroundColor: colors.bg, borderRadius: radius.md, padding: space.md, marginBottom: space.md },
   fixHint: { color: colors.primaryDark, fontSize: 12, fontWeight: '700', textAlign: 'right', marginBottom: space.sm },
   nav: { flexDirection: 'row', gap: space.sm, marginTop: space.sm },

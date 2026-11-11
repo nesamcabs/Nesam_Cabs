@@ -17,6 +17,7 @@ import type {
   AdminReview,
   BusinessInfo,
   FleetDetails,
+  FleetVehicleDoc,
   OnboardingSection,
   PayoutDetails,
   PayoutSummary,
@@ -148,9 +149,16 @@ export function subscribeToVendor(
   onData: (snap: VendorSnapshot | null) => void,
   onError: (error: unknown) => void,
 ): () => void {
+  // Whether the server has ever confirmed the document. A brand-new sign-up is applied locally before the server
+  // accepts it; if the security rules then reject it the local copy is rolled back. Emitting that unconfirmed copy would
+  // unmount the sign-up screen (losing the error) and remount it empty, so it is held back until the server confirms.
+  let confirmed = false;
   return onSnapshot(
     doc(db, VENDORS, uid),
+    { includeMetadataChanges: true },
     (snap) => {
+      if (snap.exists() && !snap.metadata.hasPendingWrites) confirmed = true;
+      if (snap.exists() && snap.metadata.hasPendingWrites && !confirmed) return;
       if (!snap.exists()) {
         // A cache miss while offline looks like "no document" — wait for the
         // server rather than sending an existing vendor back to onboarding.
@@ -300,13 +308,55 @@ export async function saveFleetStep(record: VendorRecord, fleet: FleetDetails): 
 }
 
 /** Returns the sections that are still missing required data. */
+/** The documents every vehicle needs before NESAM can verify the partner. */
+export const VEHICLE_DOC_LABELS: [keyof Pick<FleetVehicleDoc, 'rcFiles' | 'insuranceFiles' | 'fitnessFiles' | 'permitFiles' | 'frontPhotoFiles'>, string][] = [
+  ['rcFiles', 'RC'],
+  ['insuranceFiles', 'Insurance'],
+  ['fitnessFiles', 'Fitness (FC)'],
+  ['permitFiles', 'Permit'],
+  ['frontPhotoFiles', 'Vehicle photo'],
+];
+
+/** Labels of the documents a vehicle is still missing (empty = complete). */
+export function vehicleDocsMissing(v: FleetVehicleDoc): string[] {
+  return VEHICLE_DOC_LABELS.filter(([k]) => !(v[k]?.length)).map(([, label]) => label);
+}
+
+/**
+ * Business registration + identity proof, and the RC, insurance, FC, permit and vehicle photo of the fleet. The same
+ * test runs in firestore.rules (vendorDocsComplete) and in the duty functions (functions/src/claims.ts), so a partner
+ * without verified documents cannot take or bid on duties.
+ */
+export function vendorDocsComplete(record: Pick<VendorRecord, 'documents' | 'fleet'>): boolean {
+  const d = record.documents;
+  const f = record.fleet;
+  return !!d?.businessRegistration?.files?.length && !!d?.identityProof?.files?.length
+    && !!f?.rcFiles?.length && !!f?.insuranceFiles?.length && !!f?.fcFiles?.length && !!f?.permitFiles?.length && !!f?.vehiclePhotos?.length;
+}
+
+/** Approved (or awaiting approval) but documents missing: the partner must upload them before using the workspace. */
+export const needsDocuments = (record: VendorRecord) => (record.status === 'APPROVED' || record.status === 'PENDING_APPROVAL') && !vendorDocsComplete(record);
+
 export function missingSections(record: VendorRecord): OnboardingSection[] {
   const missing: OnboardingSection[] = [];
   if (!record.business?.businessName || !record.business?.vendorName) missing.push('business');
   if (!record.payoutSummary?.bankLast4) missing.push('payout');
-  // documents step adds identity/business docs (not hard-required for legacy resubmissions)
-  if (!fleetIsComplete(record.fleet)) missing.push('fleet');
+  if (!record.documents?.businessRegistration?.files?.length || !record.documents?.identityProof?.files?.length) missing.push('documents');
+  if (!fleetIsComplete(record.fleet) || (record.fleet?.vehicles ?? []).some((v) => vehicleDocsMissing(v).length > 0)) missing.push('fleet');
   return missing;
+}
+
+/**
+ * Reopens an application whose documents are missing so the partner can upload them (firestore.rules lets the owner
+ * make only this status change). It then goes back to NESAM for verification before duties can be taken.
+ */
+export async function reopenForDocuments(record: VendorRecord): Promise<void> {
+  const uid = requireUid();
+  if (!needsDocuments(record)) throw new Error('Your documents are already on file.');
+  await withTimeout(updateDoc(doc(db, VENDORS, uid), {
+    status: (record.status === 'APPROVED' ? 'CHANGES_REQUESTED' : 'INCOMPLETE') as VendorStatus,
+    updatedAt: serverTimestamp(),
+  }));
 }
 
 // ── Sign-up with a vehicle number ───────────────────────────────────────────
@@ -325,8 +375,9 @@ export function buildVendorSignupRecord(uid: string, phone: string, registration
     uid,
     role: 'vendor' as const,
     phone,
-    status: 'PENDING_APPROVAL' as VendorStatus,
-    onboardingStep: 4,
+    // Starts as a draft: the partner uploads business and vehicle documents in the wizard, then submits for review.
+    status: 'INCOMPLETE' as VendorStatus,
+    onboardingStep: 0,
     business: { vendorName: '', businessName: '', email: '', altPhone: '', address: EMPTY_ADDRESS, operatingCity: '', operatingAreas: [] as string[], estimatedFleetSize: 1 },
     documents: null,
     fleet: buildFleetDetails([vehicleFromPlate(plate)]),
@@ -338,16 +389,51 @@ export function buildVendorSignupRecord(uid: string, phone: string, registration
     name: label,
     contactPerson: '',
     owner: '',
-    submittedAt: serverTimestamp(),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
 }
 
+/** Thrown when this mobile number already belongs to another kind of NESAM account (one number = one role). */
+export class RoleConflictError extends Error {
+  constructor(public readonly role: 'customer' | 'driver', message: string) {
+    super(message);
+    this.name = 'RoleConflictError';
+  }
+}
+
+async function existingRole(uid: string): Promise<'customer' | 'driver' | null> {
+  const [c, d] = await Promise.all([
+    getDoc(doc(db, 'customers', uid)).catch(() => null),
+    getDoc(doc(db, 'drivers', uid)).catch(() => null),
+  ]);
+  if (d?.exists()) return 'driver';
+  if (c?.exists()) return 'customer';
+  return null;
+}
+
+const roleConflictMessage = (role: 'customer' | 'driver', phone: string) =>
+  role === 'driver'
+    ? `${phone} is already registered as a NESAM driver. A fleet partner account needs a different mobile number — sign out and use your business number, or call the NESAM office to convert this account.`
+    : `${phone} is already used for a NESAM customer account (booking app). A fleet partner account needs a different mobile number — sign out and use your business number, or call the NESAM office.`;
+
 export async function registerVendorWithVehicle(phone: string, registration: string): Promise<void> {
   const uid = requireUid();
   if (!isPlate(registration)) throw new Error('Enter a valid registration number (e.g. TN 01 AB 1234).');
-  await withTimeout(setDoc(doc(db, VENDORS, uid), buildVendorSignupRecord(uid, phone, registration)));
+  // firestore.rules (vendorSelfCreateOk) refuses a vendor sign-up for a number that already has a customer or driver
+  // account; say so up front instead of letting the write fail.
+  const before = await existingRole(uid);
+  if (before) throw new RoleConflictError(before, roleConflictMessage(before, phone));
+  try {
+    await withTimeout(setDoc(doc(db, VENDORS, uid), buildVendorSignupRecord(uid, phone, registration)));
+  } catch (e) {
+    if ((e as { code?: string })?.code === 'permission-denied') {
+      const role = await existingRole(uid);
+      if (role) throw new RoleConflictError(role, roleConflictMessage(role, phone));
+      throw Object.assign(new Error('NESAM could not open a partner account for this number. Please call the NESAM office and we will set it up for you.'), { code: 'failed-precondition' });
+    }
+    throw e;
+  }
 }
 
 // ── Registration request → one-time invitation (legacy; kept for back-compat) ─

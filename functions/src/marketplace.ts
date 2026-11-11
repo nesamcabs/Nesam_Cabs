@@ -26,6 +26,7 @@ import { sendCustomerMessage } from './customerComms';
 import { AdminAccess } from './permissions';
 import { loadPrivatePricing, withPrivatePricing } from './pricingPrivate';
 import { approved, requirePermission, text, requireDuty, requireAction } from './shared';
+import { assignByFor } from './partnerOps';
 
 export const docId = (v: unknown, what: string): string => {
   if (typeof v !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(v)) throw new HttpsError('invalid-argument', `Invalid ${what}.`);
@@ -273,8 +274,8 @@ export const assignVendor = onCall({ timeoutSeconds: 60 }, async (request) => {
   const pushes: { id: string; input: NotifyInput }[] = [];
   const out = await db.runTransaction(async (tx) => {
     pushes.length = 0;
-    const [snap, m, v, policy, bids, privatePricing] = await Promise.all([
-      tx.get(ref), tx.get(market), tx.get(db.doc(`vendors/${vendorId}`)), loadCommissionPolicy(tx), tx.get(market.collection('bids')), loadPrivatePricing(tx, bookingId),
+    const [snap, m, v, policy, bids, privatePricing, ops] = await Promise.all([
+      tx.get(ref), tx.get(market), tx.get(db.doc(`vendors/${vendorId}`)), loadCommissionPolicy(tx), tx.get(market.collection('bids')), loadPrivatePricing(tx, bookingId), tx.get(db.doc('settings/operations')),
     ]);
     if (!snap.exists) throw new HttpsError('not-found', 'Booking not found.');
     const b = snap.data()!;
@@ -290,6 +291,8 @@ export const assignVendor = onCall({ timeoutSeconds: 60 }, async (request) => {
       status: 'Confirmed', assignedVendorId: vendorId, assignedVendorName: vendorName, vendorPayout: payout.amount, payoutSource: payout.source,
       ...(payout.commission ? { commission: payout.commission } : {}),
       fulfilmentRoute: 'vendor', confirmedAt: stamp, assignedVendorAt: stamp,
+      // Driver + vehicle must be confirmed by this time, as for a duty the vendor accepted itself (Partner app "Assign by").
+      assignBy: Timestamp.fromMillis(assignByFor(Date.now(), pickupInstant(b)?.getTime() ?? null, ops.data())),
       lastAssignment: { action: 'assign_vendor', by: admin.uid, byName: admin.name, reason, at: Timestamp.now() }, assignmentChanges: FieldValue.increment(1), updatedAt: stamp,
     });
     // Close any published offer so partners cannot still claim or bid on it.
@@ -368,9 +371,14 @@ export const awardMarketplaceBid = onCall({ timeoutSeconds: 60 }, async (request
       });
       tx.update(market, { status: 'Assigned', assignedDriverId: bid.driverId, assignedDriverName: text(driver.name), acceptedBidId: bidId, updatedAt: stamp });
     } else {
-      const vendor = await tx.get(db.doc(`vendors/${bid.vendorId}`));
+      const [vendor, ops] = await Promise.all([tx.get(db.doc(`vendors/${bid.vendorId}`)), tx.get(db.doc('settings/operations'))]);
       if (!vendor.exists || !approved(vendor.data()!.status)) throw new HttpsError('failed-precondition', 'Vendor is not approved.');
-      tx.update(booking, { status: 'Confirmed', assignedVendorId: bid.vendorId, assignedVendorName: text(bid.vendorName), vendorPayout: payout, payoutSource: 'bid', fulfilmentRoute: 'marketplace', confirmedAt: stamp, updatedAt: stamp });
+      tx.update(booking, {
+        status: 'Confirmed', assignedVendorId: bid.vendorId, assignedVendorName: text(bid.vendorName), vendorPayout: payout, payoutSource: 'bid', fulfilmentRoute: 'marketplace',
+        confirmedAt: stamp, acceptedAt: stamp, assignedVendorAt: stamp, updatedAt: stamp,
+        // The vendor consented to this when bidding: confirm driver + vehicle by this time (Partner app "Assign by").
+        assignBy: Timestamp.fromMillis(assignByFor(Date.now(), pickupInstant(bk)?.getTime() ?? null, ops.data())),
+      });
       tx.update(market, { status: 'Assigned', assignedVendorId: bid.vendorId, assignedVendorName: text(bid.vendorName), acceptedBidId: bidId, updatedAt: stamp });
     }
     for (const other of bids.docs) tx.update(other.ref, { status: other.id === bidId ? 'Accepted' : 'Rejected', reviewedAt: stamp });

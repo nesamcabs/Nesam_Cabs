@@ -7,6 +7,7 @@
  */
 import { ref, uploadBytes } from 'firebase/storage';
 import { storage } from '../config/firebase';
+import { CLIENT_PLATFORM } from './platform';
 import { callFunction } from './callables';
 import { uriToBlob } from './storageService';
 import type { Fix } from './tripService';
@@ -33,7 +34,7 @@ export interface Challenge {
   storagePath: string;
 }
 
-export const createCaptureSession = (bookingId: string) => callFunction<unknown, CaptureSession>('createCaptureSession', { bookingId, platform: 'android' });
+export const createCaptureSession = (bookingId: string) => callFunction<unknown, CaptureSession>('createCaptureSession', { bookingId, platform: CLIENT_PLATFORM });
 
 export const getSlotChallenge = (sessionId: string, slot: Slot) => callFunction<unknown, Challenge>('getSlotChallenge', { sessionId, slot });
 

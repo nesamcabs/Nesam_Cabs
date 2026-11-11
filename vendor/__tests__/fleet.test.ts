@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { buildFleetDetails, displayPlate, emptyVehicle, fleetIsComplete, isPlate, normalizePlate, validateVehicle, vehicleFromPlate } from '../src/utils/fleet';
-import { buildVendorSignupRecord, missingSections } from '../src/services/onboardingService';
+import { buildVendorSignupRecord, missingSections, vehicleDocsMissing, vendorDocsComplete } from '../src/services/onboardingService';
 import type { FleetVehicleDoc, VendorRecord } from '../src/types/vendor';
 
 const vehicle = (plate = 'TN01AB1234'): FleetVehicleDoc => vehicleFromPlate(plate);
@@ -42,24 +42,34 @@ describe('fleet: a vehicle needs only its registration number', () => {
     expect(fleetIsComplete(buildFleetDetails([{ ...emptyVehicle(), registrationNumber: 'BAD' }]))).toBe(false);
   });
 
-  it('missing sections for a resumed application: business, account details, fleet', () => {
+  it('missing sections: business, account details, business documents and vehicle documents', () => {
     const base: VendorRecord = { uid: 'v1', phone: '+919800000001', status: 'INCOMPLETE', onboardingStep: 0, business: null, documents: null, fleet: null, payoutSummary: null, review: null, submittedAt: null };
-    expect(missingSections(base).sort()).toEqual(['business', 'fleet', 'payout']);
+    expect(missingSections(base).sort()).toEqual(['business', 'documents', 'fleet', 'payout']);
+    const file = (path: string) => ({ path, name: path, contentType: 'application/pdf', size: 1 }) as never;
+    const documented = { ...vehicle(), rcFiles: [file('rc')], insuranceFiles: [file('ins')], fitnessFiles: [file('fc')], permitFiles: [file('permit')], frontPhotoFiles: [file('photo')] };
     const done: VendorRecord = {
       ...base,
       business: { vendorName: 'Ravi', businessName: 'Sri Balaji', email: '', altPhone: '', address: { line1: '', line2: '', city: '', state: '', pincode: '' } },
       payoutSummary: { accountHolderName: 'Ravi', bankLast4: '9012', ifsc: 'SBIN0001234', upiId: '' },
+      documents: { businessRegistration: { type: 'GST', number: '33ABCDE1234F1Z5', files: [file('gst')] }, identityProof: { type: 'PAN', maskedNumber: '••••234F', files: [file('pan')] } },
       fleet: buildFleetDetails([vehicle()]),
     };
-    expect(missingSections(done)).toEqual([]);
+    // A vehicle known only by its plate is not enough: RC, insurance, FC, permit and a photo are required.
+    expect(missingSections(done)).toEqual(['fleet']);
+    expect(vehicleDocsMissing(vehicle())).toEqual(['RC', 'Insurance', 'Fitness (FC)', 'Permit', 'Vehicle photo']);
+    const complete = { ...done, fleet: buildFleetDetails([documented]) };
+    expect(missingSections(complete)).toEqual([]);
+    expect(vendorDocsComplete(complete)).toBe(true);
+    expect(vendorDocsComplete(done)).toBe(false);
   });
 });
 
 describe('sign-up with a vehicle number', () => {
   const record = buildVendorSignupRecord('uid1', '+919876543210', 'tn 01 ab 1234');
 
-  it('creates an application that is already submitted for review, with the one vehicle', () => {
-    expect(record).toMatchObject({ uid: 'uid1', role: 'vendor', phone: '+919876543210', status: 'PENDING_APPROVAL', fleetSize: 1, totalFleetSize: 1 });
+  it('creates a draft application with the one vehicle; documents are uploaded before review', () => {
+    expect(record).toMatchObject({ uid: 'uid1', role: 'vendor', phone: '+919876543210', status: 'INCOMPLETE', fleetSize: 1, totalFleetSize: 1 });
+    expect('submittedAt' in record).toBe(false);
     expect(record.fleet.plates).toEqual(['TN01AB1234']);
     expect(record.fleet.vehicles).toHaveLength(1);
     expect(record.fleet.vehicles[0]).toMatchObject({ registrationNumber: 'TN01AB1234', source: 'manual' });

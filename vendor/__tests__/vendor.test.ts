@@ -5,6 +5,7 @@ import {
   canDispatch,
   defaultVehicleForDriver,
   dispatchBlocker,
+  dispatchNote,
   isEligibleVehicle,
   mapFleetDriver,
   mapMarketTrip,
@@ -146,8 +147,11 @@ describe('dispatch rules & vehicle resolution', () => {
     expect(dispatchBlocker(approved, [], 'b1')).toBe('');
     expect(dispatchBlocker(mapFleetDriver('d2', { name: 'X', status: 'Pending' }), [], 'b1')).toMatch(/not approved/);
     expect(dispatchBlocker(mapFleetDriver('d3', { name: 'Y', status: 'Approved', fleetStatus: 'Suspended' }), [], 'b1')).toMatch(/suspended/);
+    // Other duties do not block: the server refuses only overlapping times, so the app shows them as a note.
     const busy = [booking('b2', { status: 'Ongoing', assignedDriverId: 'd1' })];
-    expect(dispatchBlocker(approved, busy, 'b1')).toMatch(/already on trip/);
+    expect(dispatchBlocker(approved, busy, 'b1')).toBe('');
+    expect(dispatchNote(approved, busy, 'b1')).toMatch(/On trip/);
+    expect(dispatchNote(approved, [], 'b1')).toBe('');
     expect(dispatchBlocker(approved, [booking('b1', { status: 'Assigned', assignedDriverId: 'd1' })], 'b1')).toBe('');
   });
 

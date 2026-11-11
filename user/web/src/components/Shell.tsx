@@ -457,6 +457,7 @@ export function Shell() {
   useDockInset();
   const { unreadCount } = useInbox();
   const { profile } = useCustomerData();
+  const { draft } = useBooking();
   const { openLoginModal } = useAuth();
   const { online, recovered } = useOnline();
   const location = useLocation();
@@ -594,7 +595,13 @@ export function Shell() {
       {!isFlow ? <BottomNav /> : null}
       <SideDrawer open={menuOpen} onClose={() => setMenuOpen(false)} brand={<Brand />} />
       {/* Support lives in the header (Ask AI / Call us): no floating buttons to cover fares or actions. */}
-      <AiChatbot open={aiOpen} onOpenChange={setAiOpen} hideLauncher />
+      <AiChatbot
+        open={aiOpen}
+        onOpenChange={setAiOpen}
+        hideLauncher
+        customer={profile ? { name: profile.name, phone: profile.phone, email: profile.email } : undefined}
+        tripContext={{ pickup: draft.pickup?.name, drop: draft.drop?.name, service: draft.multicity ? 'Multicity' : draft.tripType }}
+      />
     </div>
   );
 }

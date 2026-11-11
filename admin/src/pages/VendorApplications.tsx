@@ -428,9 +428,19 @@ function VendorReviewDrawer({ vendor, onClose }: { vendor: VendorDoc; onClose: (
   const d = vendor.documents;
   const f = vendor.fleet;
   const p = vendor.payoutSummary;
-  // Spec page 13: business details, account details and fleet documentation. Applications made
-  // before that onboarding also carry `documents`; it is no longer required.
-  const incomplete = !b || !f || !p || !(f.vehicles?.length || f.rcFiles?.length);
+  // Approval is the verification: business details, bank details, business registration + identity proof, and the fleet's
+  // RC, insurance, FC, permit and vehicle photo must all be on file (same test as firestore.rules vendorDocsComplete and
+  // the duty functions, which refuse partners without them).
+  const docGaps = [
+    !d?.businessRegistration?.files?.length && "business registration",
+    !d?.identityProof?.files?.length && "identity proof",
+    !f?.rcFiles?.length && "vehicle RC",
+    !f?.insuranceFiles?.length && "insurance",
+    !f?.fcFiles?.length && "fitness certificate",
+    !f?.permitFiles?.length && "permit",
+    !f?.vehiclePhotos?.length && "vehicle photo",
+  ].filter(Boolean) as string[];
+  const incomplete = !b || !f || !p || !f.vehicles?.length || docGaps.length > 0;
 
   const act = async (action: ReviewAction) => {
     if ((action === "request_changes" || action === "reject" || action === "suspend") && note.trim().length < 5) {
@@ -441,7 +451,10 @@ function VendorReviewDrawer({ vendor, onClose }: { vendor: VendorDoc; onClose: (
       setError("Select at least one section the vendor needs to fix.");
       return;
     }
-    if (action === "approve" && incomplete && !window.confirm("This application is missing sections. Approve anyway?")) return;
+    if (action === "approve" && incomplete) {
+      setError(`Cannot approve: ${docGaps.length ? `missing ${docGaps.join(", ")}` : "business, bank or vehicle details are missing"}. Use "Request changes" so the vendor uploads them.`);
+      return;
+    }
     setBusy(action);
     setError("");
     try {
@@ -668,6 +681,9 @@ function VendorReviewDrawer({ vendor, onClose }: { vendor: VendorDoc; onClose: (
                     </button>
                     <Btn action="approve" label="✓ Approve vendor" tone="green" />
                   </>
+                )}
+                {s === "APPROVED" && docGaps.length > 0 && (
+                  <span className="text-[12px] font-semibold text-orange-700 self-center">Documents missing ({docGaps.join(", ")}) — duties are locked until the vendor uploads them and you approve again.</span>
                 )}
                 {s === "APPROVED" && (
                   <button onClick={() => setMode("suspend")} className="px-4 py-2 text-[12px] font-bold border border-line text-body rounded-lg hover:bg-hover">

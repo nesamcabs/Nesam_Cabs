@@ -1,19 +1,56 @@
-// Welcome → mobile number → OTP. Native port of
-// vendor/web/src/screens/VendorLoginScreen.tsx (same flow as the Customer app).
+// Welcome → mobile number → OTP (Firebase phone auth, same flow as the Driver and Customer apps), in the NESAM Driver
+// sign-in design: brand panel on wide screens, choice tiles, +91 field and a single large OTP box.
 import React, { useEffect, useRef, useState } from 'react';
-import { BackHandler, Image, StyleSheet, Text, TextInput, View } from 'react-native';
+import { BackHandler, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { ConfirmationResult } from 'firebase/auth';
-import { Button, Card, LinkText, Notice, Screen, TextField } from '../../components/ui';
+import { AUTH, AuthCard, AuthFrame } from '../../components/shell/AuthFrame';
+import { Btn, Feedback, Notice, type IconName } from '../../components/kit/core';
 import { useRecaptchaVerifier } from '../../components/RecaptchaVerifier';
 import { confirmOtpCode, describePhoneAuthError, sendOtpToPhone } from '../../services/authService';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 import { formatPhone, isValidIndianMobile } from '../../utils/format';
-import { colors, space, type } from '../../theme';
+import { colors, fontFamily } from '../../theme';
 import { setAuthIntent, type AuthIntent } from './authIntent';
 
-import logo from '../../../assets/icon.png';
-
 const RESEND_COOLDOWN_S = 30;
+
+function Choice({ icon, title, text, onPress, primary }: { icon: IconName; title: string; text: string; onPress: () => void; primary?: boolean }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${title}. ${text}`}
+      style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
+        styles.choice,
+        primary && styles.choicePrimary,
+        hovered && { borderColor: primary ? colors.primaryDark : '#D4D7DE' },
+        hovered && primary && { backgroundColor: colors.primaryDark },
+        pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] },
+      ]}
+    >
+      <View style={[styles.choiceIcon, primary && { backgroundColor: 'rgba(255,255,255,0.16)' }]}>
+        <Ionicons name={icon} size={20} color={primary ? colors.white : colors.primary} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.choiceTitle, primary && { color: colors.white }]}>{title}</Text>
+        <Text style={[styles.choiceText, primary && { color: 'rgba(255,255,255,0.82)' }]}>{text}</Text>
+      </View>
+      <Ionicons name="arrow-forward" size={18} color={primary ? colors.white : AUTH.muted} />
+    </Pressable>
+  );
+}
+
+function LinkButton({ title, icon, onPress, muted, disabled }: { title: string; icon?: IconName; onPress: () => void; muted?: boolean; disabled?: boolean }) {
+  const color = muted ? AUTH.muted : colors.primary;
+  return (
+    <Pressable onPress={disabled ? undefined : onPress} accessibilityRole="button" accessibilityState={{ disabled: !!disabled }} hitSlop={8}
+      style={({ pressed }) => [styles.link, (pressed || disabled) && { opacity: 0.6 }]}>
+      {icon ? <Ionicons name={icon} size={15} color={color} /> : null}
+      <Text style={[styles.linkText, { color }]}>{title}</Text>
+    </Pressable>
+  );
+}
 
 export function AuthScreen() {
   const [step, setStep] = useState<'welcome' | 'phone' | 'otp'>('welcome');
@@ -25,6 +62,7 @@ export function AuthScreen() {
   const [verifying, setVerifying] = useState(false);
   const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(null);
   const [cooldown, setCooldown] = useState(0);
+  const [focused, setFocused] = useState(false);
   const otpRef = useRef<TextInput>(null);
   const verifier = useRecaptchaVerifier();
   const { online } = useNetworkStatus();
@@ -38,17 +76,8 @@ export function AuthScreen() {
   // Android back steps backwards through the flow instead of leaving the app.
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (step === 'otp' && !verifying) {
-        setStep('phone');
-        setOtp('');
-        setError('');
-        return true;
-      }
-      if (step === 'phone' && !sending) {
-        setStep('welcome');
-        setError('');
-        return true;
-      }
+      if (step === 'otp' && !verifying) { setStep('phone'); setOtp(''); setError(''); return true; }
+      if (step === 'phone' && !sending) { setStep('welcome'); setError(''); return true; }
       return false;
     });
     return () => sub.remove();
@@ -100,69 +129,68 @@ export function AuthScreen() {
     return undefined;
   };
 
-  const header = (subtitle: string) => (
-    <View style={styles.brand}>
-      <Image source={logo} style={styles.logo} accessibilityIgnoresInvertColors />
-      <Text style={styles.title}>NESAM Fleet Partner</Text>
-      <Text style={styles.subtitle}>{subtitle}</Text>
-    </View>
-  );
-
   if (step === 'welcome') {
     return (
-      <Screen>
-        {header('Fleet Partner App')}
-        <Card>
-          <Button title="Login" onPress={() => start('login')} />
-          <Text style={styles.helper}>I’m a registered NESAM fleet partner</Text>
-          <Button title="Apply as a Fleet Partner" variant="dark" onPress={() => start('signup')} style={{ marginTop: space.lg }} />
-          <Text style={styles.helper}>Onboard your travel agency / fleet</Text>
-        </Card>
-        <Text style={styles.legal}>By continuing you agree to NESAM’s Terms & Conditions and Privacy Policy.</Text>
-      </Screen>
+      <AuthFrame>
+        <AuthCard eyebrow="NESAM Fleet Partner" title="Welcome, partner." subtitle="Sign in to manage your duties, drivers, vehicles and earnings.">
+          <View style={{ gap: 12, marginTop: 20 }}>
+            <Choice icon="person-outline" title="Login" text="I’m a registered NESAM fleet partner" onPress={() => start('login')} primary />
+            <Choice icon="add" title="Sign up as a fleet partner" text="Onboard your travel agency or fleet" onPress={() => start('signup')} />
+          </View>
+          {!online ? <Notice tone="amber" icon="cloud-offline-outline" title="You’re offline" text="Connect to the internet to sign in." style={{ marginTop: 16 }} /> : null}
+          <Text style={styles.terms}>By continuing you agree to NESAM’s Terms & Conditions and Privacy Policy.</Text>
+        </AuthCard>
+      </AuthFrame>
     );
   }
 
   if (step === 'phone') {
     return (
-      <Screen>
-        {header(intent === 'signup' ? 'Start your fleet partner application' : 'Sign in with your mobile number')}
-        <Card>
-          <TextField
-            label={intent === 'signup' ? 'Mobile number' : 'Registered mobile number'}
-            prefix="+91"
-            value={mobile}
-            onChangeText={(v) => {
-              setMobile(v.replace(/\D/g, '').slice(0, 10));
-              setError('');
-            }}
-            keyboardType="phone-pad"
-            autoComplete="tel-national"
-            textContentType="telephoneNumber"
-            maxLength={10}
-            placeholder="98765 43210"
-            autoFocus
-            returnKeyType="done"
-            onSubmitEditing={() => void sendOtp()}
-            hint={intent === 'signup' ? 'This number becomes your fleet partner login.' : undefined}
-          />
-          <Notice message={error} />
-          <Button title={sending ? 'Sending OTP…' : 'Send OTP'} loading={sending} disabled={mobile.length !== 10 || !online} onPress={() => void sendOtp()} />
-          <View style={styles.backRow}>
-            <LinkText onPress={() => !sending && setStep('welcome')}>← Back</LinkText>
+      <AuthFrame>
+        <AuthCard
+          eyebrow={intent === 'signup' ? 'New fleet partner' : 'Partner sign-in'}
+          title={intent === 'signup' ? 'Create your account' : 'Sign in with your mobile'}
+          subtitle={intent === 'signup' ? 'This number becomes your fleet partner login. NESAM uses it for duty and settlement updates.' : 'We’ll send a 6-digit OTP to your registered number.'}
+        >
+          <Text style={styles.label}>{intent === 'signup' ? 'Mobile number' : 'Registered mobile number'}</Text>
+          <View style={[styles.phoneField, focused && styles.fieldFocus, !!error && { borderColor: colors.primary }]}>
+            <Text style={styles.prefix}>+91</Text>
+            <View style={styles.prefixRule} />
+            <TextInput
+              value={mobile}
+              onChangeText={(v) => { setMobile(v.replace(/\D/g, '').slice(0, 10)); setError(''); }}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              keyboardType="phone-pad"
+              autoComplete="tel-national"
+              textContentType="telephoneNumber"
+              maxLength={10}
+              placeholder="98765 43210"
+              placeholderTextColor="#A2A8B2"
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={() => void sendOtp()}
+              style={styles.phoneInput}
+              accessibilityLabel="Mobile number"
+            />
           </View>
-        </Card>
-      </Screen>
+          <Feedback tone="error" message={error} />
+          <Btn title={sending ? 'Sending OTP…' : 'Send OTP'} iconRight="arrow-forward" busy={sending} disabled={mobile.length !== 10 || !online} full onPress={() => void sendOtp()} style={styles.cta} />
+          <View style={styles.linkRow}>
+            <LinkButton title="Back" icon="arrow-back" muted disabled={sending} onPress={() => setStep('welcome')} />
+          </View>
+        </AuthCard>
+      </AuthFrame>
     );
   }
 
   return (
-    <Screen>
-      {header('Verify your mobile number')}
-      <Card>
-        <Text style={[type.body, { marginBottom: space.md }]}>
-          Enter the 6-digit OTP sent to <Text style={{ fontWeight: '800' }}>{formatPhone(mobile)}</Text>
-        </Text>
+    <AuthFrame>
+      <AuthCard
+        eyebrow="Verify your number"
+        title="Enter the OTP"
+        subtitle={<>Sent to <Text style={{ fontWeight: '700', color: AUTH.ink }}>+91 {formatPhone(mobile)}</Text></>}
+      >
         <TextInput
           ref={otpRef}
           value={otp}
@@ -172,60 +200,48 @@ export function AuthScreen() {
             setError('');
             if (digits.length === 6) void verify(digits);
           }}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           keyboardType="number-pad"
           autoComplete="sms-otp"
           textContentType="oneTimeCode"
           maxLength={6}
           editable={!verifying}
           placeholder="••••••"
-          placeholderTextColor={colors.faint}
-          style={[styles.otp, !!error && { borderColor: colors.primary }]}
+          placeholderTextColor="#B4BAC4"
+          style={[styles.otp, focused && styles.fieldFocus, !!error && { borderColor: colors.primary }]}
           accessibilityLabel="6-digit OTP"
         />
-        <Notice message={error} />
-        <Button title={verifying ? 'Verifying…' : 'Verify & Continue'} loading={verifying} disabled={otp.length !== 6} onPress={() => void verify(otp)} />
-        <View style={styles.resendRow}>
-          {cooldown > 0 ? (
-            <Text style={type.small}>Resend code in {cooldown}s</Text>
-          ) : (
-            <LinkText onPress={() => void sendOtp()}>{sending ? 'Resending…' : 'Resend code'}</LinkText>
-          )}
-          <LinkText
-            onPress={() => {
-              if (verifying) return;
-              setStep('phone');
-              setOtp('');
-              setError('');
-            }}
-          >
-            Change number
-          </LinkText>
+        <Feedback tone="error" message={error} />
+        <Btn title={verifying ? 'Verifying…' : 'Verify & Continue'} iconRight="arrow-forward" busy={verifying} disabled={otp.length !== 6} full onPress={() => void verify(otp)} style={styles.cta} />
+        <View style={[styles.linkRow, { justifyContent: 'space-between' }]}>
+          {cooldown > 0
+            ? <Text style={styles.cooldown}>Resend code in {cooldown}s</Text>
+            : <LinkButton title={sending ? 'Resending…' : 'Resend code'} icon="refresh" disabled={sending} onPress={() => void sendOtp()} />}
+          <LinkButton title="Change number" muted onPress={() => { if (verifying) return; setStep('phone'); setOtp(''); setError(''); }} />
         </View>
-      </Card>
-    </Screen>
+      </AuthCard>
+    </AuthFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  brand: { alignItems: 'center', marginTop: space.xl, marginBottom: space.xl },
-  logo: { width: 88, height: 88, borderRadius: 20, marginBottom: space.md },
-  title: { ...type.h1, textAlign: 'center' },
-  subtitle: { ...type.small, marginTop: 4, textAlign: 'center' },
-  helper: { ...type.small, textAlign: 'center', marginTop: 6 },
-  legal: { ...type.tiny, textAlign: 'center', marginTop: space.md, paddingHorizontal: space.lg },
-  backRow: { marginTop: space.lg, alignItems: 'center' },
-  otp: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    fontSize: 28,
-    fontWeight: '800',
-    letterSpacing: 12,
-    textAlign: 'center',
-    paddingVertical: 12,
-    color: colors.ink,
-    backgroundColor: colors.card,
-    marginBottom: space.md,
-  },
-  resendRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: space.lg },
+  choice: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 74, paddingHorizontal: 16, paddingVertical: 14, borderRadius: 14, borderWidth: 1, borderColor: AUTH.line, backgroundColor: colors.white },
+  choicePrimary: { backgroundColor: colors.primary, borderColor: colors.primary },
+  choiceIcon: { width: 42, height: 42, borderRadius: 12, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  choiceTitle: { fontFamily, fontSize: 14.5, fontWeight: '700', color: AUTH.ink },
+  choiceText: { fontFamily, fontSize: 12, color: AUTH.muted, marginTop: 2 },
+  terms: { fontFamily, fontSize: 11, lineHeight: 17, color: AUTH.muted, textAlign: 'center', marginTop: 20 },
+  label: { fontFamily, fontSize: 12, fontWeight: '600', color: AUTH.ink, marginTop: 20 },
+  phoneField: { flexDirection: 'row', alignItems: 'center', minHeight: 54, marginTop: 8, marginBottom: 4, borderWidth: 1, borderColor: AUTH.fieldLine, borderRadius: 12, backgroundColor: colors.white, paddingHorizontal: 14 },
+  fieldFocus: { borderColor: '#B9C3D1', shadowColor: colors.primary, shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 0 } },
+  prefix: { fontFamily, fontSize: 16, fontWeight: '700', color: colors.primary },
+  prefixRule: { width: 1, height: 24, backgroundColor: AUTH.line, marginHorizontal: 12 },
+  phoneInput: { flex: 1, minWidth: 0, fontFamily, fontSize: 17, letterSpacing: 0.6, color: AUTH.ink, paddingVertical: 12 },
+  cta: { marginTop: 14, minHeight: 50, borderRadius: 12 },
+  linkRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 16 },
+  link: { flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 32 },
+  linkText: { fontFamily, fontSize: 13, fontWeight: '600' },
+  otp: { minHeight: 69, marginTop: 20, marginBottom: 4, borderWidth: 1, borderColor: AUTH.fieldLine, borderRadius: 12, textAlign: 'center', fontFamily, fontSize: 30, fontWeight: '700', letterSpacing: 12, color: AUTH.ink, paddingVertical: 12, backgroundColor: colors.white },
+  cooldown: { fontFamily, fontSize: 12, color: AUTH.muted },
 });

@@ -1,10 +1,12 @@
-// Poppins, bundled with the app (assets/fonts, SIL Open Font License 1.1). No network font loading, so it works offline.
-// Custom fonts on Android and iOS are chosen by family name, not by fontWeight, so each weight is its own family.
+// Poppins and the NESAM wordmark face, bundled with the app (assets/fonts, assets/brand; Poppins is SIL OFL 1.1). No network
+// font loading, so it works offline. Custom fonts on Android and iOS are chosen by family name, not by fontWeight, so each
+// weight is its own family.
 export const POPPINS_FILES = {
   Poppins_400Regular: require('../../assets/fonts/Poppins_400Regular.ttf'),
   Poppins_500Medium: require('../../assets/fonts/Poppins_500Medium.ttf'),
   Poppins_600SemiBold: require('../../assets/fonts/Poppins_600SemiBold.ttf'),
   Poppins_700Bold: require('../../assets/fonts/Poppins_700Bold.ttf'),
+  NesamWordmark: require('../../assets/brand/nesam-wordmark.ttf'),
 };
 
 export const POPPINS = {

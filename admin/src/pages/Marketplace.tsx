@@ -194,18 +194,18 @@ export default function Marketplace({ onSelectBooking }: MarketplaceProps) {
   }, [trips, statusFilter, search]);
 
   return (
-    <div className="p-4 md:p-6 space-y-5 max-w-7xl mx-auto">
+    <div className="w-full min-w-0 space-y-5">
       <Toast toast={toast} />
 
       {/* Header and Title */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
+        <div className="flex-1 min-w-[260px]">
           <h1 className="text-xl md:text-2xl font-bold text-ink">Open Trip Marketplace</h1>
           <p className="text-sm text-muted mt-0.5">
             Publish approved bookings to eligible independent drivers and partner vendors, review bids, and award assignments. Approving a booking does not publish it — you publish it here or from the booking.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={() => setShowPostingForm((prev) => !prev)}
@@ -328,7 +328,7 @@ export default function Marketplace({ onSelectBooking }: MarketplaceProps) {
       {/* Filter and Search Bar */}
       <div className="bg-white rounded-xl border border-line shadow-xs p-3.5 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-[280px]">
-          <div className="relative flex-1 min-w-[200px] max-w-md">
+          <div className="relative flex-1 min-w-[200px] max-w-2xl">
             <input
               type="search"
               value={search}
@@ -529,7 +529,7 @@ export default function Marketplace({ onSelectBooking }: MarketplaceProps) {
                       )}
 
                       {bids.length > 0 && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                           {bids.map((b) => {
                             const bStatus = b.status || "Pending Review";
                             const statusCls = BID_STATUS_STYLE[bStatus] || "bg-gray-100 text-gray-700 border-gray-200";

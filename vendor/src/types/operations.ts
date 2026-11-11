@@ -81,6 +81,40 @@ export interface VendorBooking {
   assignBy: Date | null;
   driverResponse: { viewedAt: Date | null; acknowledgedAt: Date | null } | null;
   cancellationRequest: { requestId: string; status: string; quotedPenalty: number } | null;
+  /** What the assigned driver's app recorded, stage by stage (functions/src/trips.ts advanceTrip / verifyBoarding). */
+  trip: TripProgress;
+  /** Collections recorded on the booking (bookings/{id}.paymentSummary); null before any is recorded. */
+  payment: BookingPayment | null;
+}
+
+export interface TripProgress {
+  assignedAt: Date | null;
+  reachedPickupAt: Date | null;
+  boardingVerifiedAt: Date | null;
+  startedAt: Date | null;
+  endedAt: Date | null;
+  startOdometer: number;
+  endOdometer: number;
+  /** Total kilometres the driver entered at trip end. */
+  totalKm: number;
+  extraKm: number;
+  tolls: { name: string; amount: number }[];
+  /** Final customer fare after the trip (0 until the trip ends). */
+  finalFare: number;
+  /** The entered kilometres and the odometer disagree; the office reviews it. */
+  distanceFlagged: boolean;
+  /** Vehicle photo check before the start: 'Submitted' when done. */
+  vehicleCheck: string;
+}
+
+export interface BookingPayment {
+  amountDue: number;
+  /** Received directly by your driver / business (cash, UPI to the partner): adjusted at settlement. */
+  partnerCashHeld: number;
+  /** Received by NESAM (advance, company UPI, gateway). */
+  companyCollected: number;
+  balanceDue: number;
+  status: string;
 }
 
 export type VehicleStatus = 'Active' | 'Maintenance' | 'Inactive';

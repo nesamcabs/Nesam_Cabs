@@ -1,95 +1,39 @@
 import React from 'react';
-import { Image, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { Text } from './Text';
-import { POPPINS } from '../../theme/fonts';
-import { nx } from '../../theme/nx';
+import { Image, StyleSheet, View } from 'react-native';
 
-const EMBLEM = require('../../../assets/brand/nesam-emblem.jpg');
+// Artwork from docs/images/driver.png, cut out onto a transparent background (assets/brand). The banner's
+// "DRIVER" line is black, so it is only placed on light surfaces (white cards, the light top bar and sidebar).
+const BANNER = require('../../../assets/brand/nesam-driver-banner.webp');
+const EMBLEM = require('../../../assets/brand/nesam-driver-emblem.webp');
+const BANNER_RATIO = 1200 / 386;
 
-// Full "NESAM CABS" lockup (480×154), copied from the customer app.
-const LOCKUP = require('../../../assets/brand/nesam-cabs-logo.webp');
-const LOCKUP_RATIO = 480 / 154;
+/** The round NESAM emblem (tablet rail, loaders, small badges). */
+export function NxEmblem({ size = 44 }: { size?: number }) {
+  return <Image source={EMBLEM} accessible={false} resizeMode="contain" style={[styles.shrink, { width: size, height: size }]} />;
+}
 
-// The emblem JPEG has padding; the reference crops it inside a square wrapper (width 127.45%, left −13.57%, top −11.95%).
-const SOURCE = { width: 512, height: 497 };
+const HEIGHTS = { small: 34, regular: 44, large: 62, hero: 84 } as const;
 
 /**
- * Top bar header lockup:
- * Displays the emblem logo on the left, hides brand name & driver wordmarks,
- * and renders the active page heading and optional subtitle directly to the right of the logo.
+ * The NESAM DRIVER banner (emblem + wordmark + "DRIVER"). `iconOnly` shows just the emblem (tablet rail);
+ * `size` sets the banner height, `height` overrides it.
  */
-export function NxBrand({ title, subtitle }: { title?: string; subtitle?: string }) {
-  const { width } = useWindowDimensions();
-  const narrow = width <= 360;
-  const symbol = narrow ? 36 : 40;
-  const imgW = symbol * 1.2745;
-  const displayTitle = title || 'Home';
-
-  // Home carries the full NESAM CABS lockup (same artwork as the customer app) instead of emblem + page title.
-  if (displayTitle === 'Home') {
-    const h = narrow ? 36 : 42;
+export function NxBrand({ size = 'regular', iconOnly = false, height }: { size?: keyof typeof HEIGHTS; iconOnly?: boolean; height?: number }) {
+  const h = height ?? HEIGHTS[size];
+  if (iconOnly) {
     return (
-      <View style={styles.row} accessible accessibilityRole="header" accessibilityLabel="Home · NESAM Driver">
-        <Image source={LOCKUP} accessible={false} style={{ width: Math.round(h * LOCKUP_RATIO), height: h }} resizeMode="contain" />
+      <View accessible accessibilityRole="image" accessibilityLabel="NESAM Driver">
+        <NxEmblem size={Math.round(h * 1.05)} />
       </View>
     );
   }
-
   return (
-    <View style={styles.row} accessible accessibilityRole="header" accessibilityLabel={`${displayTitle} · NESAM Driver`}>
-      <View style={[styles.emblemWrapper, { width: symbol, height: symbol }]}>
-        <Image
-          source={EMBLEM}
-          accessible={false}
-          style={{
-            position: 'absolute',
-            width: imgW,
-            height: imgW * (SOURCE.height / SOURCE.width),
-            left: -symbol * 0.1357,
-            top: -symbol * 0.1195,
-          }}
-          resizeMode="contain"
-        />
-      </View>
-      <View style={styles.headingWrap}>
-        <Text
-          style={[
-            styles.title,
-            narrow && { fontSize: 16, lineHeight: 20 },
-          ]}
-          numberOfLines={1}
-          maxFontSizeMultiplier={1.2}
-        >
-          {displayTitle}
-        </Text>
-        {subtitle && !narrow ? (
-          <Text style={styles.subtitle} numberOfLines={1} maxFontSizeMultiplier={1.15}>
-            {subtitle}
-          </Text>
-        ) : null}
-      </View>
+    <View accessible accessibilityRole="image" accessibilityLabel="NESAM Driver" style={styles.shrink}>
+      <Image source={BANNER} accessible={false} resizeMode="contain" style={{ height: h, width: Math.round(h * BANNER_RATIO), maxWidth: '100%' }} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, marginRight: 6 },
-  emblemWrapper: { borderRadius: 10, overflow: 'hidden', backgroundColor: nx.white, borderWidth: 1, borderColor: '#EDF1F5' },
-  headingWrap: { flex: 1, minWidth: 0, justifyContent: 'center' },
-  title: {
-    color: '#0F172A',
-    fontFamily: POPPINS.bold,
-    fontSize: 18,
-    fontWeight: '700',
-    letterSpacing: -0.3,
-    lineHeight: 22,
-    includeFontPadding: false,
-  },
-  subtitle: {
-    color: '#64748B',
-    fontFamily: POPPINS.medium,
-    fontSize: 10.5,
-    marginTop: 1,
-    includeFontPadding: false,
-  },
+  shrink: { flexShrink: 0 },
 });

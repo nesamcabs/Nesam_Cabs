@@ -352,7 +352,6 @@ export function BookingForm({
             <div className="bf-route__cell">
               {locationField('pickup', service === 'rental' ? 'Pickup location' : service === 'airport' && direction === 'from' ? 'Pickup airport' : 'Pickup location')}
               {fieldErr('pickup')}
-              {service === 'rental' ? <p className="bf-hint">Pick your city, then search an address or drop the pin where the cab and driver should meet you.</p> : null}
             </div>
             {(service === 'outstation' && outstationTrip !== 'Round Trip') || service === 'local' || service === 'pickup' ? (
               <button
@@ -392,7 +391,6 @@ export function BookingForm({
                 {locationField('drop', service === 'airport' && direction === 'to' ? 'Drop airport' : 'Drop location')}
                 {fieldErr('drop')}
                 {service === 'local' ? <p className="bf-hint">Local Taxi is for a pickup and drop inside the same city.</p> : null}
-                {service === 'pickup' ? <p className="bf-hint">Pickup & Drop is for a trip inside one city. Choose both places on the map, then the date and time.</p> : null}
               </div>
             ) : null}
           </div>

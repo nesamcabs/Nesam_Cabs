@@ -36,6 +36,7 @@ export interface SupportMail {
   bookingId: string;
   message: string;
   signedIn: boolean;
+  extraRows?: [string, string][];
 }
 
 /** A support request or contact form. Replies from the office go straight to the customer. */
@@ -43,6 +44,7 @@ export function mailOfficeSupport(t: SupportMail): Promise<MailResult> {
   return office(t.brand, `[${t.brand.name}] ${t.category} — ${t.name || 'Website visitor'}`, 'New support request', [t.message], [
     ['Reference', t.ticketId], ['Brand', t.brand.name], ['Topic', t.category], ['Name', t.name], ['Email', t.email], ['Phone', t.phone],
     ['Booking ID', t.bookingId], ['Signed in', t.signedIn ? 'Yes (customer account)' : 'No (website visitor)'],
+    ...(t.extraRows ?? []),
   ], t.email || undefined);
 }
 

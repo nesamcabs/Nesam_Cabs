@@ -169,6 +169,20 @@ export function fallbackName(phone: string): string {
   return digits.length >= 4 ? `Driver ••${digits.slice(-4)}` : 'NESAM Driver';
 }
 
+/** The account hold staff set from the admin partner registry (accountStatus + the latest statusHistory reason + holdUntil). */
+function holdOf(data: DocumentData): Pick<DriverProfile, 'fleetSuspended' | 'holdLabel' | 'holdReason' | 'holdUntil'> {
+  const account = str(data.accountStatus);
+  const history = Array.isArray(data.statusHistory) ? (data.statusHistory as Record<string, unknown>[]) : [];
+  const last = history.length ? history[history.length - 1] : undefined;
+  const until = toDate(data.holdUntil);
+  return {
+    fleetSuspended: data.fleetStatus === 'Suspended',
+    holdLabel: account && account !== 'Active' ? account : data.status === 'Suspended' ? 'Suspended' : '',
+    holdReason: last && last.to !== 'Active' ? str(last.reason) : '',
+    holdUntil: until && until.getTime() > Date.now() ? until : undefined,
+  };
+}
+
 export function mapDriverDoc(uid: string, data: DocumentData): DriverAccount {
   const approval = APPROVAL_VALUES.includes(data.status) ? (data.status as ApprovalStatus) : 'Pending';
   const docStatus = DOC_VALUES.includes(data.docStatus) ? (data.docStatus as DocumentStatus) : 'Pending';
@@ -199,6 +213,7 @@ export function mapDriverDoc(uid: string, data: DocumentData): DriverAccount {
     docStatus,
     rejectionReason: data.rejectionReason || undefined,
     presenceStatus: presence,
+    ...holdOf(data),
   };
 
   const li = data.licenseInfo || {};
@@ -622,6 +637,24 @@ export async function saveTripTolls(bookingId: string, tolls: TollReceipt[]): Pr
     WRITE_TIMEOUT_MS,
   );
   settleBooking(bookingId);
+}
+
+/** Manual collection methods the server accepts when settings/payment_methods names none (functions/src/domain/bookingFlow.ts). */
+export const DEFAULT_PAYMENT_METHODS = ['Cash', 'UPI', 'Bank Transfer'];
+
+/** The same list recordPayment checks against: settings/payment_methods.enabled minus 'Gateway', else the defaults. */
+export function parsePaymentMethods(d: Record<string, unknown> | undefined): string[] {
+  const list = d?.enabled;
+  const extra = Array.isArray(list) ? list.filter((m: unknown): m is string => typeof m === 'string' && m.length > 0 && m.length <= 30 && m !== 'Gateway') : [];
+  return extra.length ? extra : [...DEFAULT_PAYMENT_METHODS];
+}
+
+export function subscribeToPaymentMethods(callback: (methods: string[]) => void) {
+  return onSnapshot(
+    doc(db, 'settings', 'payment_methods'),
+    (snap) => callback(parsePaymentMethods(snap.data())),
+    () => callback([...DEFAULT_PAYMENT_METHODS]),
+  );
 }
 
 /** Live position for the customer's tracking view (allowed while Assigned/Ongoing). */

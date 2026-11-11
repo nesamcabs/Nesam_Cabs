@@ -1,8 +1,11 @@
+// The approved driver's workspace: the responsive frame (sidebar / rail / bottom bar) around one stack whose first page
+// holds the workspace pages. Trip, camera, notification and document pages open above it, inside the same frame.
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import type { RootStackParamList, TabParamList } from './types';
 import { navigationRef } from './navigationRef';
+import { goTab } from './navItems';
 import { useDriverData } from '../context/DriverData';
 import { HomeScreen } from '../screens/HomeScreen';
 import MarketplaceScreen from '../screens/MarketplaceScreen';
@@ -20,9 +23,10 @@ import { PenaltyAckModal } from '../components/PenaltyAckModal';
 import { markNotificationRead } from '../services/driverService';
 import { onPushOpened } from '../services/notificationService';
 import type { DriverNotification } from '../types/driver';
-import { colors } from '../theme';
-import { NxTabBar } from '../components/nx/TabBar';
+import { nx } from '../theme/nx';
+import { POPPINS } from '../theme/fonts';
 import { ShellProvider } from '../components/nx/Shell';
+import { AppFrame } from '../components/nx/AppFrame';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -30,20 +34,18 @@ const Tab = createBottomTabNavigator<TabParamList>();
 const SignOutCtx = createContext<() => void>(() => undefined);
 export const useSignOut = () => useContext(SignOutCtx);
 
-function Tabs() {
+/** The workspace pages. Their navigation is drawn by AppFrame, so the tab navigator's own bar is hidden. */
+function Pages() {
   const { account } = useDriverData();
-  // A vendor's employee drives assigned trips only: no commission, wallet or payout screens.
-  const fleetDriver = !!account.driver.vendorId;
+  // A vendor's employee drives assigned trips only: no marketplace, commission, wallet or payout pages.
+  const fleet = !!account.driver.vendorId;
   return (
-    <Tab.Navigator
-      initialRouteName="Home"
-      screenOptions={{ headerShown: false }}
-      tabBar={(props) => <NxTabBar {...props} />}
-    >
-      <Tab.Screen name="Marketplace" component={MarketplaceScreen} />
-      <Tab.Screen name="Trip" component={TripsScreen} />
+    <Tab.Navigator initialRouteName="Home" backBehavior="history" screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: nx.page } }} tabBar={() => null}>
       <Tab.Screen name="Home" component={HomeScreen} />
-      {fleetDriver ? null : <Tab.Screen name="Wallet" component={WalletScreen} />}
+      {fleet ? null : <Tab.Screen name="Marketplace" component={MarketplaceScreen} />}
+      <Tab.Screen name="Trip" component={TripsScreen} />
+      {fleet ? null : <Tab.Screen name="Earnings" component={EarningsScreen} />}
+      {fleet ? null : <Tab.Screen name="Wallet" component={WalletScreen} />}
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
@@ -78,19 +80,21 @@ function openPage(page: string, tripId?: string) {
   switch (page) {
     case 'dashboard':
     case 'home':
-      return navigationRef.navigate('Tabs', { screen: 'Home' });
+      return goTab('Home');
     case 'marketplace':
-      return navigationRef.navigate('Tabs', { screen: 'Marketplace' });
+      return goTab('Marketplace');
     case 'trip':
     case 'trips':
     case 'booking-detail':
-      return tripId ? navigationRef.navigate('TripFlow', { bookingId: tripId }) : navigationRef.navigate('Tabs', { screen: 'Trip' });
+      return tripId ? navigationRef.navigate('TripFlow', { bookingId: tripId }) : goTab('Trip');
     case 'earnings':
-      return navigationRef.navigate('Tabs', { screen: 'Profile', params: { openSection: 'earnings' } });
+      return goTab('Earnings');
     case 'wallet':
-      return navigationRef.navigate('Tabs', { screen: 'Wallet' });
+      return goTab('Wallet');
     case 'profile':
-      return navigationRef.navigate('Tabs', { screen: 'Profile' });
+    case 'penalties':
+    case 'links':
+      return goTab('Profile');
     default:
       return navigationRef.navigate('Notifications');
   }
@@ -134,15 +138,26 @@ export function MainNavigator({ onSignOut }: { onSignOut: () => void }) {
   return (
     <SignOutCtx.Provider value={onSignOut}>
       <ShellProvider>
-        <Stack.Navigator screenOptions={{ headerTintColor: colors.ink, headerTitleStyle: { fontWeight: '800' }, headerShadowVisible: false }}>
-          <Stack.Screen name="Tabs" component={Tabs} options={{ headerShown: false }} />
-          <Stack.Screen name="Marketplace" component={MarketplaceScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="Earnings" component={EarningsScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="TripFlow" component={TripFlowScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="PreTrip" component={PreTripScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="UpdateDocuments" component={UpdateDocumentsScreen} options={{ title: 'Update documents' }} />
-        </Stack.Navigator>
+        <AppFrame>
+          <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: nx.page }, animation: 'fade_from_bottom' }}>
+            <Stack.Screen name="Tabs" component={Pages} />
+            <Stack.Screen name="TripFlow" component={TripFlowScreen} />
+            <Stack.Screen name="PreTrip" component={PreTripScreen} />
+            <Stack.Screen name="Notifications" component={NotificationsScreen} />
+            <Stack.Screen
+              name="UpdateDocuments"
+              component={UpdateDocumentsScreen}
+              options={{
+                headerShown: true,
+                title: 'Update documents',
+                headerTintColor: nx.ink,
+                headerShadowVisible: false,
+                headerStyle: { backgroundColor: nx.white },
+                headerTitleStyle: { fontFamily: POPPINS.bold, fontSize: 17 },
+              }}
+            />
+          </Stack.Navigator>
+        </AppFrame>
         <TripAutoFocus />
         <LocationSharing />
         <WorkspaceOverlays />

@@ -4,6 +4,7 @@ import {
   subscribeToCollection,
   updateFirestoreDocument,
 } from "../services/adminFirestoreService";
+import { brandMetaOfTicket, isAiLeadTicket, parseTicketAiLead, telHref } from "../domain/supportLeads";
 
 const SUPPORT_COLLECTION = "support_tickets";
 
@@ -49,14 +50,18 @@ export default function SupportTickets() {
   };
 
   const filtered = displayTickets.filter((t) => {
+    const ai = isAiLeadTicket(t) ? parseTicketAiLead(t) : null;
+    const brand = brandMetaOfTicket(t);
+    const q = search.toLowerCase();
     const matchSearch =
       search === "" ||
-      (t.id && t.id.toLowerCase().includes(search.toLowerCase())) ||
-      (t.customerName &&
-        t.customerName.toLowerCase().includes(search.toLowerCase())) ||
-      (t.description &&
-        t.description.toLowerCase().includes(search.toLowerCase())) ||
-      (t.message && t.message.toLowerCase().includes(search.toLowerCase()));
+      (t.id && t.id.toLowerCase().includes(q)) ||
+      (t.customerName && t.customerName.toLowerCase().includes(q)) ||
+      (t.customerPhone && t.customerPhone.toLowerCase().includes(q)) ||
+      brand.label.toLowerCase().includes(q) ||
+      (ai?.question && ai.question.toLowerCase().includes(q)) ||
+      (t.description && t.description.toLowerCase().includes(q)) ||
+      (t.message && t.message.toLowerCase().includes(q));
     const matchStatus = statusFilter === "All" || t.status === statusFilter;
     return matchSearch && matchStatus;
   });
@@ -180,10 +185,21 @@ export default function SupportTickets() {
                   {t.id}
                 </td>
                 <td className="px-4 py-3 font-semibold text-ink">
-                  {t.customerName || "Customer"}
+                  <div>{t.customerName || "Customer"}</div>
+                  {t.customerPhone && <div className="text-[11px] font-normal text-muted">{t.customerPhone}</div>}
                 </td>
                 <td className="px-4 py-3 text-muted">
-                  {t.category || "General"}
+                  <div>{t.category || "General"}</div>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold bg-surface-2 text-ink border border-line">
+                      {brandMetaOfTicket(t).label}
+                    </span>
+                    {isAiLeadTicket(t) && (
+                      <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                        AI Lead
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-muted max-w-[220px] truncate">
                   {t.description || t.message || "—"}
@@ -257,6 +273,28 @@ export default function SupportTickets() {
             </div>
 
             <div className="space-y-3 text-[13px]">
+              <div className="flex flex-wrap gap-2 items-center">
+                <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-surface-2 text-ink border border-line">
+                  {brandMetaOfTicket(selected).label}
+                </span>
+                {isAiLeadTicket(selected) && (
+                  <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                    AI Lead
+                  </span>
+                )}
+              </div>
+              {selected.customerPhone && (
+                <div>
+                  <span className="font-semibold text-muted text-[11px] uppercase tracking-wide">
+                    Phone
+                  </span>
+                  <div className="mt-0.5">
+                    <a className="text-brand font-semibold hover:underline" href={telHref(selected.customerPhone)}>
+                      {selected.customerPhone}
+                    </a>
+                  </div>
+                </div>
+              )}
               {selected.category && (
                 <div>
                   <span className="font-semibold text-muted text-[11px] uppercase tracking-wide">
@@ -273,6 +311,23 @@ export default function SupportTickets() {
                   {selected.description || selected.message || "—"}
                 </div>
               </div>
+              {(() => {
+                const ai = parseTicketAiLead(selected);
+                if (!ai) return null;
+                return (
+                  <div className="rounded-lg border border-line bg-surface-2 p-3 space-y-1.5 text-[12px]">
+                    {ai.question && (
+                      <div><strong className="text-ink">Asked AI:</strong> <span className="text-body">{ai.question}</span></div>
+                    )}
+                    {ai.reply && (
+                      <div><strong className="text-ink">AI Reply:</strong> <span className="text-muted">{ai.reply}</span></div>
+                    )}
+                    {ai.tripLabel && (
+                      <div><strong className="text-ink">Trip context:</strong> <span className="text-body">{ai.tripLabel}</span></div>
+                    )}
+                  </div>
+                );
+              })()}
               {selected.bookingId && (
                 <div>
                   <span className="font-semibold text-muted text-[11px] uppercase tracking-wide">
