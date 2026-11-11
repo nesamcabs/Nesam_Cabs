@@ -1,15 +1,17 @@
-// This rider's notifications, subscribed once per session. New arrivals (after the
-// first load) also raise a toast; nothing is invented to fill the list.
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+// This rider's notifications, subscribed once per session. Every new arrival (after the first load) is queued for the
+// header popup (components/HeaderNotice), one at a time; nothing is invented to fill the list.
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { subscribeToNotifications } from '@core/services/partnerNotifications';
 import type { PartnerNotification } from '@core/types/notifications';
-import { useNavigate } from 'react-router-dom';
-import { useToasts } from './Toasts';
 
 interface InboxValue {
   notifications: PartnerNotification[];
   loaded: boolean;
   unreadCount: number;
+  /** The newest unseen arrival, shown in the header popup; null when there is nothing to show. */
+  live: PartnerNotification | null;
+  /** Hide the current popup (the next queued arrival, if any, follows). */
+  dismissLive: () => void;
 }
 
 const Ctx = createContext<InboxValue | null>(null);
@@ -39,13 +41,14 @@ export function InboxProvider({ userId, children }: { userId?: string | null; ch
   const [notifications, setNotifications] = useState<PartnerNotification[]>([]);
   const [loaded, setLoaded] = useState(false);
   const seen = useRef<Set<string> | null>(null);
-  const { push } = useToasts();
-  const navigate = useNavigate();
+  const [queue, setQueue] = useState<PartnerNotification[]>([]);
+  const dismissLive = useCallback(() => setQueue((q) => q.slice(1)), []);
 
   useEffect(() => {
     seen.current = null;
     if (!userId) {
       setNotifications([]);
+      setQueue([]);
       setLoaded(true);
       return undefined;
     }
@@ -57,17 +60,25 @@ export function InboxProvider({ userId, children }: { userId?: string | null; ch
         seen.current = new Set(list.map((n) => n.id));
         return;
       }
+      const fresh: PartnerNotification[] = [];
       for (const n of list) {
         if (seen.current.has(n.id)) continue;
         seen.current.add(n.id);
-        // "Booking confirmed" is already shown full-screen by the confirmation animation, so it gets no toast.
-        if (!n.read && n.popup && n.title !== 'Booking confirmed') {
-          push({ title: n.title, message: n.message, tone: n.severity === 'critical' || n.severity === 'warning' ? 'warning' : 'info', action: { label: n.ctaLabel || 'Open', run: () => navigate(pathForPage(n.ctaPage)) } });
-        }
+        if (!n.read) fresh.push(n);
       }
+      // Oldest first, so the popups follow the order they arrived in.
+      if (fresh.length) setQueue((q) => [...q, ...fresh.sort((a, b) => a.createdAtMs - b.createdAtMs)].slice(-10));
     }, { role: 'customer', site: 'nesam' });
-  }, [userId, push, navigate]);
+  }, [userId]);
 
-  const value = useMemo<InboxValue>(() => ({ notifications, loaded, unreadCount: notifications.filter((n) => !n.read).length }), [notifications, loaded]);
+  // A popup whose notification was read elsewhere (e.g. on the Notifications page) is skipped.
+  const live = queue.find((q) => !notifications.find((n) => n.id === q.id)?.read) ?? null;
+  useEffect(() => {
+    if (queue.length && queue[0] !== live) setQueue((q) => (live ? q.slice(q.indexOf(live)) : []));
+  }, [queue, live]);
+  const value = useMemo<InboxValue>(
+    () => ({ notifications, loaded, unreadCount: notifications.filter((n) => !n.read).length, live, dismissLive }),
+    [notifications, loaded, live, dismissLive],
+  );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

@@ -5,6 +5,7 @@
 // Authentication › Settings › Authorized domains (localhost is there by default).
 import {
   RecaptchaVerifier,
+  initializeRecaptchaConfig,
   onAuthStateChanged,
   signInWithPhoneNumber,
   signOut as firebaseSignOut,
@@ -14,6 +15,15 @@ import {
 import { auth } from '@/platform/firebase';
 
 let activeVerifier: RecaptchaVerifier | null = null;
+
+// When reCAPTCHA Enterprise is switched on for phone sign-in (Firebase console › Authentication › Settings ›
+// reCAPTCHA), the SDK checks the request with an invisible score instead of the picture challenge. Loading the project's
+// reCAPTCHA settings first lets it use that path; with Enterprise off this does nothing and the invisible v2 check stays.
+let recaptchaConfig: Promise<void> | null = null;
+function loadRecaptchaConfig(): Promise<void> {
+  recaptchaConfig ??= initializeRecaptchaConfig(auth).catch(() => undefined);
+  return recaptchaConfig;
+}
 
 function getFreshContainer(): HTMLElement {
   const existing = document.getElementById('recaptcha-container');
@@ -76,6 +86,7 @@ function logPhoneAuthError(stage: 'send' | 'confirm', error: unknown): void {
 }
 
 export async function sendOtpToPhone(phoneE164: string): Promise<ConfirmationResult> {
+  await loadRecaptchaConfig();
   const verifier = createFreshRecaptchaVerifier();
   try {
     return await signInWithPhoneNumber(auth, phoneE164, verifier);

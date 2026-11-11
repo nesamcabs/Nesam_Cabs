@@ -103,11 +103,18 @@ function Root() {
   );
 }
 
+// Browser tab title. React Navigation's default reads the current screen, which is undefined until navigation is
+// ready (sign-in, loading) — Chrome then showed "undefined".
+const documentTitle = {
+  formatter: (options: { title?: unknown } | undefined) =>
+    typeof options?.title === 'string' && options.title ? `${options.title} · NESAM Vendor` : 'NESAM Vendor',
+};
+
 export default function App() {
   return (
     <SafeAreaProvider>
       <RecaptchaProvider>
-        <NavigationContainer ref={navigationRef} theme={navTheme}>
+        <NavigationContainer ref={navigationRef} theme={navTheme} documentTitle={documentTitle}>
           <StatusBar style="dark" />
           <Root />
           <NetworkBanner />

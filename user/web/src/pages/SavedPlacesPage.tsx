@@ -113,11 +113,6 @@ export function SavedPlacesPage() {
         <PageHead
           eyebrow="Account"
           title="Saved places"
-          back={
-            <Link to="/account" className="back-link">
-              <Icon name="arrow-left" size={18} /> Account
-            </Link>
-          }
         >
           Home, work and the places you go often — one tap when booking.
         </PageHead>
@@ -162,16 +157,6 @@ export function SavedPlacesPage() {
       <PageHead
         eyebrow="Account"
         title="Saved places"
-        back={
-          <Link to="/account" className="back-link">
-            <Icon name="arrow-left" size={18} /> Account
-          </Link>
-        }
-        actions={
-          <Button icon="add" onClick={() => setAdding(true)}>
-            Add place
-          </Button>
-        }
       >
         Home, work and the places you go often — one tap when booking.
       </PageHead>
@@ -208,6 +193,17 @@ export function SavedPlacesPage() {
                 </button>
               </li>
             ))}
+            <li>
+              <button type="button" className="saved saved--add" onClick={() => setAdding(true)}>
+                <span className="saved__icon">
+                  <Icon name="add" size={20} />
+                </span>
+                <span className="saved__text">
+                  <strong>Add a place</strong>
+                  <small className="muted">Home, work or anywhere you go often</small>
+                </span>
+              </button>
+            </li>
           </ul>
         )}
       </div>

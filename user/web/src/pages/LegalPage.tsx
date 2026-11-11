@@ -59,11 +59,6 @@ export function LegalPage() {
       <PageHead
         eyebrow="Account"
         title="Terms, privacy and policies"
-        back={
-          <Link to="/account" className="back-link">
-            <Icon name="arrow-left" size={18} /> Account
-          </Link>
-        }
       >
         The agreements and policies that apply when you ride with NESAM Cabs.
       </PageHead>

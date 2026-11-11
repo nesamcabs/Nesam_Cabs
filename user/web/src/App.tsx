@@ -1,5 +1,5 @@
 import { lazy, useEffect, useRef, type ReactNode } from 'react';
-import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { CustomerDataProvider } from '@core/context/CustomerData';
 import { Shell } from '@/components/Shell';
 import { EmptyState, LinkButton, PageLoader } from '@/components/ui';
@@ -31,6 +31,7 @@ const LocalTaxiRidePage = page(() => import('@/pages/localTaxi/LocalTaxiRidePage
 const NotificationsPage = page(() => import('@/pages/NotificationsPage'), 'NotificationsPage');
 const AccountPage = page(() => import('@/pages/AccountPage'), 'AccountPage');
 const EditProfilePage = page(() => import('@/pages/EditProfilePage'), 'EditProfilePage');
+const EmergencyContactPage = page(() => import('@/pages/EmergencyContactPage'), 'EmergencyContactPage');
 const SavedPlacesPage = page(() => import('@/pages/SavedPlacesPage'), 'SavedPlacesPage');
 const PaymentsPage = page(() => import('@/pages/PaymentsPage'), 'PaymentsPage');
 const OffersPage = page(() => import('@/pages/OffersPage'), 'OffersPage');
@@ -122,8 +123,8 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route element={<Shell />}>
-        {/* Open the Local Pickup & Drop screen by default when the app starts. */}
-        <Route index element={<Navigate to="/local-rentals?mode=pickup" replace />} />
+        {/* The site opens on the booking home with Local Pickup & Drop selected: on desktop the booking form sits beside the map; phones get the full-screen map sheet. */}
+        <Route index element={<BookPage step="plan" defaultService="pickup" />} />
         <Route path="/book" element={<BookPage step="plan" />} />
         <Route path="/book/ride" element={<BookPage step="choose" />} />
         <Route path="/book/confirm" element={<BookPage step="review" />} />
@@ -137,6 +138,7 @@ export function AppRoutes() {
         <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/account" element={<AccountPage />} />
         <Route path="/account/edit" element={<EditProfilePage />} />
+        <Route path="/account/emergency" element={<EmergencyContactPage />} />
         <Route path="/account/places" element={<SavedPlacesPage />} />
         <Route path="/account/payments" element={<PaymentsPage />} />
         <Route path="/offers" element={<OffersPage />} />

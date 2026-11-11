@@ -5,7 +5,7 @@ import { KeyboardAvoid } from '../components/KeyboardAvoid';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 import { useCustomerData } from '../context/CustomerData';
-import { Button, Chip, Notice, TextField } from '../components/ui';
+import { Button, Notice, TextField } from '../components/ui';
 import { ScrollView } from '../components/layout';
 import { AppHeader } from '../components/brand';
 import { Icon } from '../components/Icon';
@@ -14,7 +14,6 @@ import { formatPhone, isValidEmail, isValidIndianMobile, isValidName, localMobil
 import { describeError } from '../utils/retry';
 import { colors, fonts, space } from '../theme';
 
-const LANGUAGES = ['English', 'தமிழ் (Tamil)', 'हिन्दी (Hindi)'];
 
 type Props = NativeStackScreenProps<RootStackParamList, 'EditProfile'>;
 
@@ -23,7 +22,6 @@ export function EditProfileScreen({ navigation }: Props) {
   const [name, setName] = useState(profile.name);
   const [email, setEmail] = useState(profile.email);
   const [emergency, setEmergency] = useState(localMobile(profile.emergencyContact));
-  const [language, setLanguage] = useState(profile.language || 'English');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const saved = useRef(false);
@@ -31,8 +29,7 @@ export function EditProfileScreen({ navigation }: Props) {
   const dirty =
     name.trim() !== profile.name ||
     email.trim().toLowerCase() !== profile.email ||
-    emergency !== localMobile(profile.emergencyContact) ||
-    language !== (profile.language || 'English');
+    emergency !== localMobile(profile.emergencyContact);
 
   // Hardware back / header back with unsaved edits asks before discarding.
   useEffect(
@@ -60,7 +57,6 @@ export function EditProfileScreen({ navigation }: Props) {
         name,
         email: email.toLowerCase(),
         emergencyContact: emergency ? `+91 ${emergency}` : '',
-        language,
       });
       saved.current = true;
       navigation.goBack();
@@ -104,12 +100,6 @@ export function EditProfileScreen({ navigation }: Props) {
             maxLength={10}
             hint="Receives an alert if SOS is triggered during a trip."
           />
-          <Text style={styles.label}>Preferred language</Text>
-          <View style={styles.langRow}>
-            {LANGUAGES.map((l) => (
-              <Chip key={l} label={l} active={language === l} onPress={() => setLanguage(l)} />
-            ))}
-          </View>
           <Notice message={error} style={{ marginTop: space.lg }} />
           <Button title="Save changes" loading={busy} disabled={!dirty} onPress={() => void save()} style={{ marginTop: space.lg }} />
         </View>
@@ -124,5 +114,4 @@ const styles = StyleSheet.create({
   page: { paddingHorizontal: space.xl, paddingTop: space.md, paddingBottom: space.xxl },
   card: { borderWidth: 1, borderColor: '#E8E3DC', borderRadius: 6, padding: 18, backgroundColor: colors.white },
   label: { fontFamily: fonts.regular, fontSize: 11.5, color: '#66615A', marginBottom: 8 },
-  langRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
 });

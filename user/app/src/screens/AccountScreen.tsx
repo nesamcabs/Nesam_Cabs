@@ -4,7 +4,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AccessibilityInfo, Alert, Animated, Easing, Image, Linking, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { KeyboardAvoid } from '../components/KeyboardAvoid';
 import { useNavigation } from '@react-navigation/native';
 import { useCustomerData } from '../context/CustomerData';
@@ -63,51 +62,6 @@ function Rise({ delay = 0, style, children }: { delay?: number; style?: StylePro
   return <Animated.View style={[style, { opacity: v, transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }] }]}>{children}</Animated.View>;
 }
 
-/** A soft decorative disc that drifts slowly behind the hero content. */
-function Disc({ size, top, right, bottom, left, alpha, duration }: { size: number; top?: number; right?: number; bottom?: number; left?: number; alpha: number; duration: number }) {
-  const [t] = useState(() => new Animated.Value(0));
-  useEffect(() => {
-    let alive = true;
-    let loop: Animated.CompositeAnimation | undefined;
-    AccessibilityInfo.isReduceMotionEnabled()
-      .catch(() => false)
-      .then((reduce) => {
-        if (!alive || reduce) return;
-        loop = Animated.loop(
-          Animated.sequence([
-            Animated.timing(t, { toValue: 1, duration, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-            Animated.timing(t, { toValue: 0, duration, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-          ]),
-        );
-        loop.start();
-      });
-    return () => {
-      alive = false;
-      loop?.stop();
-    };
-  }, [t, duration]);
-  return (
-    <Animated.View
-      pointerEvents="none"
-      style={{
-        position: 'absolute',
-        top,
-        right,
-        bottom,
-        left,
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        backgroundColor: `rgba(255,255,255,${alpha})`,
-        transform: [
-          { translateX: t.interpolate({ inputRange: [0, 1], outputRange: [0, -14] }) },
-          { translateY: t.interpolate({ inputRange: [0, 1], outputRange: [0, 12] }) },
-          { scale: t.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) },
-        ],
-      }}
-    />
-  );
-}
 
 /** One settings row: tinted icon tile, label, optional right-hand value or count, chevron. */
 function SettingRow({
@@ -254,22 +208,10 @@ export function AccountScreen() {
       ],
     );
 
+  // A compact profile row: photo, name, phone / email and an edit button.
   const hero = (
     <Rise>
       <View style={styles.hero}>
-        <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" preserveAspectRatio="none" pointerEvents="none">
-          <Defs>
-            <LinearGradient id="acctHero" x1="0" y1="0" x2="1" y2="1">
-              <Stop offset="0" stopColor={colors.primary} />
-              <Stop offset="0.6" stopColor={colors.primaryDark} />
-              <Stop offset="1" stopColor="#B3141A" />
-            </LinearGradient>
-          </Defs>
-          <Rect x="0" y="0" width="100%" height="100%" fill="url(#acctHero)" />
-        </Svg>
-        <Disc size={190} top={-70} right={-50} alpha={0.14} duration={9000} />
-        <Disc size={140} bottom={-56} left={-44} alpha={0.1} duration={11000} />
-
         <Pressable
           onPress={() => void changePhoto()}
           disabled={photoBusy != null}
@@ -285,29 +227,30 @@ export function AccountScreen() {
             </View>
           )}
           <View style={styles.cam}>
-            <Icon name="camera" size={16} color={colors.primary} />
+            <Icon name="camera" size={11} color={colors.white} />
           </View>
         </Pressable>
 
-        <Text style={styles.heroName} numberOfLines={2}>
-          {profile.name}
-        </Text>
-        <Text style={styles.heroLine}>{formatPhone(profile.phone)}</Text>
-        {profile.email ? (
-          <Text style={styles.heroLine} numberOfLines={1}>
-            {profile.email}
+        <View style={styles.heroInfo}>
+          <Text style={styles.heroName} numberOfLines={1}>
+            {profile.name}
           </Text>
-        ) : null}
-        {photoBusy != null ? <Text style={styles.heroLine}>Uploading photo… {photoBusy}%</Text> : null}
+          <Text style={styles.heroLine} numberOfLines={1}>{formatPhone(profile.phone)}</Text>
+          {photoBusy != null ? (
+            <Text style={styles.heroLine} numberOfLines={1}>Uploading photo… {photoBusy}%</Text>
+          ) : profile.email ? (
+            <Text style={styles.heroLine} numberOfLines={1}>{profile.email}</Text>
+          ) : null}
+        </View>
 
         <Pressable
           onPress={() => navigation.navigate('EditProfile')}
           accessibilityRole="button"
           accessibilityLabel="Edit profile"
-          style={({ pressed }) => [styles.heroBtn, pressed && { backgroundColor: '#F7F5F2' }]}
+          hitSlop={6}
+          style={({ pressed }) => [styles.heroBtn, pressed && { backgroundColor: colors.primarySoft }]}
         >
-          <Icon name="pencil" size={17} color={colors.primary} />
-          <Text style={styles.heroBtnText}>Edit profile</Text>
+          <Icon name="pencil" size={16} color={colors.primary} />
         </Pressable>
       </View>
     </Rise>
@@ -338,7 +281,6 @@ export function AccountScreen() {
       <Group title="Profile & places" delay={120}>
         <SettingRow icon="map-pin" tone="brand" label="Saved places" onPress={() => navigation.navigate('SavedPlaces')} />
         <SettingRow icon="triangle-alert" tone="red" label="Emergency contact" value={profile.emergencyContact || 'Not set'} onPress={() => navigation.navigate('EditProfile')} />
-        <SettingRow icon="languages" tone="blue" label="Language" value={profile.language || 'English'} onPress={() => navigation.navigate('EditProfile')} />
       </Group>
 
       <Group title="Payments & offers" delay={190}>
@@ -421,71 +363,55 @@ const styles = StyleSheet.create({
 
   // Profile hero
   hero: {
-    alignItems: 'center',
-    gap: 4,
-    paddingTop: 30,
-    paddingBottom: 22,
-    paddingHorizontal: 20,
-    borderRadius: 26,
-    overflow: 'hidden',
-    backgroundColor: colors.primary,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 18 },
-    shadowOpacity: 0.28,
-    shadowRadius: 22,
-    elevation: 6,
-  },
-  photoRing: {
-    width: 112,
-    height: 112,
-    borderRadius: 56,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.28,
-    shadowRadius: 14,
-    elevation: 6,
-  },
-  photo: { width: 104, height: 104, borderRadius: 52, backgroundColor: colors.border },
-  photoInitials: { backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
-  photoInitialsText: { fontFamily: fonts.semiBold, fontSize: 38, color: colors.primary },
-  cam: {
-    position: 'absolute',
-    right: -2,
-    bottom: -2,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.white,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.28,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  heroName: { marginTop: 10, maxWidth: '100%', textAlign: 'center', fontFamily: fonts.extraBold, fontSize: 21, lineHeight: 28, letterSpacing: -0.2, color: colors.white },
-  heroLine: { maxWidth: '100%', textAlign: 'center', fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: 'rgba(255,255,255,0.88)' },
-  heroBtn: {
-    alignSelf: 'stretch',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    minHeight: 48,
-    marginTop: 14,
-    borderRadius: 14,
+    gap: 12,
+    paddingVertical: 12,
+    paddingLeft: 14,
+    paddingRight: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
     backgroundColor: colors.white,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 4,
   },
-  heroBtnText: { fontFamily: fonts.semiBold, fontSize: 15, color: colors.primary },
+  photoRing: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.primarySoft,
+  },
+  photo: { width: 50, height: 50, borderRadius: 25, backgroundColor: colors.border },
+  photoInitials: { backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  photoInitialsText: { fontFamily: fonts.semiBold, fontSize: 19, color: colors.primary },
+  cam: {
+    position: 'absolute',
+    right: -3,
+    bottom: -3,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    borderWidth: 2,
+    borderColor: colors.white,
+  },
+  heroInfo: { flex: 1, minWidth: 0, gap: 1 },
+  heroName: { fontFamily: fonts.extraBold, fontSize: 16, lineHeight: 21, letterSpacing: -0.1, color: colors.ink },
+  heroLine: { fontFamily: fonts.semiBold, fontSize: 12.5, lineHeight: 18, color: colors.muted },
+  heroBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.white,
+  },
 
   // Refund credits
   credit: {

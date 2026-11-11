@@ -87,7 +87,7 @@ function HeroCopy({ service, trip }: { service: ServiceId; trip: 'One Way' | 'Ro
   );
 }
 
-function Home() {
+function Home({ defaultService }: { defaultService?: ServiceId }) {
   const { draft, update } = useBooking();
   const [params, setParams] = useSearchParams();
   const rawService = params.get('service');
@@ -99,12 +99,12 @@ function Home() {
   // On phones and narrow screens, Local Rentals opens the full-screen map sheet; on desktop it stays anchored in the hero.
   useEffect(() => {
     if (isDesktop) return;
-    const s = parseService(rawService);
+    const s = parseService(rawService) ?? defaultService;
     if (s === 'rental' || s === 'pickup') navigate(`/local-rentals?mode=${s === 'pickup' ? 'pickup' : 'hourly'}`, { replace: true });
-  }, [rawService, navigate, isDesktop]);
+  }, [rawService, defaultService, navigate, isDesktop]);
 
   // Parse service, mapping legacy 'one-way' / 'round-trip' to 'outstation'
-  const service: ServiceId = parseService(rawService) ?? serviceOfTrip(draft.tripType);
+  const service: ServiceId = parseService(rawService) ?? defaultService ?? serviceOfTrip(draft.tripType);
 
   // Determine outstation trip ('One Way' | 'Round Trip')
   const outstationTrip: 'One Way' | 'Round Trip' =
@@ -269,7 +269,8 @@ function Home() {
   );
 }
 
-export function BookPage({ step }: { step: BookStep }) {
+/** `defaultService` is the service shown when the URL names none (the site root opens on Local Pickup & Drop). */
+export function BookPage({ step, defaultService }: { step: BookStep; defaultService?: ServiceId }) {
   useExitGuard(step === 'plan');
   useSeo(
     step === 'plan'
@@ -301,6 +302,6 @@ export function BookPage({ step }: { step: BookStep }) {
 
   if (step === 'choose') return <ChooseStep />;
   if (step === 'review') return <ReviewStep />;
-  return <Home />;
+  return <Home defaultService={defaultService} />;
 }
 export default BookPage;

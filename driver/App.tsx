@@ -8,6 +8,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
+import { PAGE_TITLES } from './src/navigation/navItems';
 import type { User } from 'firebase/auth';
 import { RecaptchaProvider } from './src/components/RecaptchaVerifier';
 import { NetworkBanner } from './src/components/NetworkBanner';
@@ -159,11 +160,20 @@ function Root() {
   );
 }
 
+// Browser tab title. React Navigation's default reads the current screen, which is undefined until navigation is
+// ready (sign-in, loading) — Chrome then showed "undefined".
+const documentTitle = {
+  formatter: (options: { title?: unknown } | undefined, route: { name: string } | undefined) => {
+    const page = (typeof options?.title === 'string' && options.title) || (route ? PAGE_TITLES[route.name]?.[0] : '');
+    return page ? `${page} · NESAM Driver` : 'NESAM Driver';
+  },
+};
+
 export default function App() {
   return (
     <SafeAreaProvider>
       <RecaptchaProvider>
-        <NavigationContainer ref={navigationRef} theme={navTheme}>
+        <NavigationContainer ref={navigationRef} theme={navTheme} documentTitle={documentTitle}>
           <StatusBar style="dark" />
           <Root />
           <NetworkBanner />

@@ -143,11 +143,6 @@ export function TripsPage() {
       <PageHead
         eyebrow="Your journeys"
         title="My trips"
-        actions={
-          <LinkButton variant="primary" to="/book" icon="car">
-            Book a ride
-          </LinkButton>
-        }
       >
         Track what’s coming up and find receipts for what you’ve taken.
       </PageHead>

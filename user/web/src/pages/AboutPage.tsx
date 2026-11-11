@@ -24,11 +24,6 @@ export function AboutPage() {
       <PageHead
         eyebrow="Company"
         title="About NESAM Cabs"
-        back={
-          <Link to="/account" className="back-link">
-            <Icon name="arrow-left" size={18} /> Account
-          </Link>
-        }
       >
         Outstation cabs and one-way drops across Tamil Nadu, Bangalore and Pondicherry.
       </PageHead>

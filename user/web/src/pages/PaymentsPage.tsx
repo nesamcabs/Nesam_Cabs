@@ -16,17 +16,7 @@ export function PaymentsPage() {
   if (!profile) {
     return (
       <>
-        <PageHead
-          eyebrow="Account"
-          title="Payments"
-          back={
-            <Link to="/account" className="back-link">
-              <Icon name="arrow-left" size={18} /> Account
-            </Link>
-          }
-        >
-          What each trip cost, what you’ve paid and any refunds.
-        </PageHead>
+        <PageHead title="Payments" />
         <div className="page">
           <div className="card card--center">
             <EmptyState
@@ -54,42 +44,35 @@ export function PaymentsPage() {
 
   return (
     <>
-      <PageHead
-        eyebrow="Account"
-        title="Payments"
-        back={
-          <Link to="/account" className="back-link">
-            <Icon name="arrow-left" size={18} /> Account
-          </Link>
-        }
-      >
-        What each trip cost, what you’ve paid and any refunds.
-      </PageHead>
+      <PageHead title="Payments" />
 
       <div className="page">
-        <section className="tiles" aria-label="Summary">
-          <div className="tile tile--dark">
-            <Icon name="wallet" size={28} />
-            <p className="eyebrow">Refund credits</p>
-            <strong className="num">{formatINR(profile.walletBalance)}</strong>
-            <p className="small">
-              {refunds.length ? `${refunds.length} refund${refunds.length === 1 ? '' : 's'} recorded on cancelled bookings.` : 'Refunds for cancelled bookings appear here when they are recorded.'}
-            </p>
+        <section className="pay-summary" aria-label="Payment summary">
+          <div className="pay-summary__item">
+            <span className="pay-summary__icon"><Icon name="wallet" size={18} /></span>
+            <span className="pay-summary__text">
+              <small>Refund credits</small>
+              <strong className="num">{formatINR(profile.walletBalance)}</strong>
+            </span>
           </div>
-          <div className="tile">
-            <Icon name="success" size={28} />
-            <p className="eyebrow">Completed trips</p>
-            <strong className="num">{paidTrips}</strong>
-            <p className="small muted">Receipts are kept with each trip.</p>
+          <div className="pay-summary__item">
+            <span className="pay-summary__icon pay-summary__icon--green"><Icon name="success" size={18} /></span>
+            <span className="pay-summary__text">
+              <small>Completed trips</small>
+              <strong className="num">{paidTrips}</strong>
+            </span>
           </div>
-          <div className="tile">
-            <Icon name="receipt" size={28} />
-            <p className="eyebrow">Payments to date</p>
-            <strong className="num">{rows.length}</strong>
-            <p className="small muted">Completed and cancelled bookings with a charge.</p>
+          <div className="pay-summary__item">
+            <span className="pay-summary__icon pay-summary__icon--blue"><Icon name="receipt" size={18} /></span>
+            <span className="pay-summary__text">
+              <small>Payments</small>
+              <strong className="num">{rows.length}</strong>
+            </span>
           </div>
         </section>
-        <PolicyLinks ids={['payment', 'refund']} />
+        <p className="pay-note">
+          {refunds.length ? `${refunds.length} refund${refunds.length === 1 ? '' : 's'} recorded on cancelled bookings. ` : ''}Receipts are kept with each trip.
+        </p>
 
         {rows.length === 0 ? (
           <div className="card card--center">
@@ -143,6 +126,9 @@ export function PaymentsPage() {
             })}
           </ul>
         )}
+        <div className="pay-policies">
+          <PolicyLinks ids={['payment', 'refund']} />
+        </div>
       </div>
     </>
   );

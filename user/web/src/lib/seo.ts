@@ -225,8 +225,10 @@ export function updateSeo({
 /**
  * Hook to manage page titles, meta descriptions, canonical URLs, robots directives, and JSON-LD structured data.
  */
-export function useSeo(props: SeoProps): void {
+/** `null` leaves the page's tags alone (e.g. the account content shown inside the profile drawer). */
+export function useSeo(props: SeoProps | null): void {
   useEffect(() => {
+    if (!props) return undefined;
     updateSeo(props);
     return () => {
       // Clean up dynamic schema on unmount
@@ -234,14 +236,14 @@ export function useSeo(props: SeoProps): void {
       if (el) el.remove();
     };
   }, [
-    props.title,
-    props.description,
-    props.keywords,
-    props.canonical,
-    props.noindex,
-    props.ogImage,
-    props.ogImageAlt,
-    JSON.stringify(props.breadcrumbs),
-    JSON.stringify(props.schema),
+    props?.title,
+    props?.description,
+    props?.keywords,
+    props?.canonical,
+    props?.noindex,
+    props?.ogImage,
+    props?.ogImageAlt,
+    JSON.stringify(props?.breadcrumbs),
+    JSON.stringify(props?.schema),
   ]);
 }

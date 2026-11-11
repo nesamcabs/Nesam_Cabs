@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import type { SupportTicket } from '@core/types';
 import { useCustomerData } from '@core/context/CustomerData';
 import { SUPPORT_CATEGORIES, submitSupportTicket, subscribeToSupportTickets } from '@core/services/userService';
-import { SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY } from '@core/config/constants';
 import { describeError } from '@core/utils/retry';
 import { Badge, Button, EmptyState, FieldShell, Notice, PageHead, TextArea, TextField } from '@/components/ui';
 import { FAQS } from '@/pages/book/content';
@@ -14,16 +13,27 @@ import { SUPPORT_SEO } from '@/seo/pages';
 import { PolicyLinks } from '@/pages/PolicySections';
 
 type Tab = 'help' | 'ticket' | 'mine';
+const OTHER = '__other';
+const MAX_DESCRIPTION = 2000;
+
+/** Shortcuts to the pages that answer most questions without a ticket. */
+const QUICK: { icon: string; title: string; text: string; to: string }[] = [
+  { icon: 'trip-history', title: 'My trips', text: 'Track, change or cancel a booking', to: '/trips' },
+  { icon: 'receipt', title: 'Payments & refunds', text: 'Receipts, refund credits and charges', to: '/account/payments' },
+  { icon: 'document', title: 'Policies', text: 'Cancellation, refund and safety', to: '/legal' },
+];
 
 export function SupportPage() {
   useSeo(SUPPORT_SEO);
   const [params] = useSearchParams();
   const initialBooking = params.get('booking') ?? '';
-  const { profile } = useCustomerData();
+  const { profile, trips } = useCustomerData();
   const { openLoginModal } = useAuth();
   const [tab, setTab] = useState<Tab>(initialBooking ? 'ticket' : 'help');
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [category, setCategory] = useState(SUPPORT_CATEGORIES[0]!);
+  const recent = useMemo(() => trips.slice(0, 15), [trips]);
+  const [bookingChoice, setBookingChoice] = useState(initialBooking ? (recent.some((t) => t.bookingId === initialBooking) ? initialBooking : OTHER) : '');
   const [bookingId, setBookingId] = useState(initialBooking);
   const [description, setDescription] = useState('');
   const [sending, setSending] = useState(false);
@@ -36,6 +46,8 @@ export function SupportPage() {
     return subscribeToSupportTickets(profile.uid, setTickets, (e) => setListError(describeError(e, 'We couldn’t load your tickets.')));
   }, [profile?.uid]);
 
+  const openCount = tickets.filter((t) => t.status !== 'Resolved' && t.status !== 'Closed').length;
+
   const submit = async () => {
     if (!profile) {
       openLoginModal({ title: 'Sign in to raise ticket' });
@@ -46,73 +58,120 @@ export function SupportPage() {
     setSending(true);
     setError('');
     try {
-      await submitSupportTicket(profile, { category, bookingId, description }, 'nesam');
+      const related = bookingChoice === OTHER ? bookingId.trim() : bookingChoice;
+      await submitSupportTicket(profile, { category, bookingId: related, description }, 'nesam');
       setDescription('');
       setBookingId('');
+      setBookingChoice('');
       setSubmitted(true);
       setTab('mine');
     } catch (e) {
-      setError(describeError(e, 'We couldn’t submit your ticket. Please try again or call support.'));
+      setError(describeError(e, 'We couldn’t submit your ticket. Please try again.'));
     } finally {
       setSending(false);
     }
   };
 
-  const tabs: { id: Tab; label: string }[] = [
-    { id: 'help', label: 'Help' },
-    { id: 'ticket', label: 'Raise a ticket' },
-    { id: 'mine', label: `My tickets (${tickets.length})` },
-  ];
-
   return (
     <>
-      <PageHead eyebrow="We’re here to help" title="Help and support">
-        Answers, a direct line to NESAM Cabs, and a way to raise an issue with a trip.
-      </PageHead>
+      <PageHead title="Help and support" />
 
-      <div className="page">
-        <div className="tabs" role="tablist" aria-label="Support sections">
-          {tabs.map((t) => (
-            <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className="tab" onClick={() => setTab(t.id)}>
-              {t.label}
-            </button>
-          ))}
+      <div className="page support-page">
+        <div className="seg" role="tablist" aria-label="Support sections">
+          <button type="button" role="tab" aria-selected={tab === 'help'} className="seg__btn" onClick={() => setTab('help')}>
+            <Icon name="help" size={16} /> Help
+          </button>
+          <button type="button" role="tab" aria-selected={tab === 'ticket'} className="seg__btn" onClick={() => setTab('ticket')}>
+            <Icon name="edit" size={16} /> New ticket
+          </button>
+          <button type="button" role="tab" aria-selected={tab === 'mine'} className="seg__btn" onClick={() => setTab('mine')}>
+            <Icon name="support" size={16} /> My tickets
+            {openCount ? <span className="seg__count">{openCount}</span> : null}
+          </button>
         </div>
 
-        <div className="support">
-          <div className="support__main" role="tabpanel">
-            {tab === 'help' ? (
-              <div className="faq faq--grid">
-                {FAQS.map((f) => (
-                  <details key={f.q} className="faq__item">
-                    <summary>
-                      <span>{f.q}</span>
-                      <Icon name="chevron-down" size={20} />
-                    </summary>
-                    <p>{f.a}</p>
-                  </details>
-                ))}
-              </div>
-            ) : null}
+        <div role="tabpanel">
+          {tab === 'help' ? (
+            <div className="support-help">
+              <section aria-label="Quick help">
+                <h2 className="support-title">Quick help</h2>
+                <div className="quick-help">
+                  {QUICK.map((q) => (
+                    <Link key={q.to} to={q.to} className="quick-help__item">
+                      <span className="quick-help__icon"><Icon name={q.icon} size={20} /></span>
+                      <span className="quick-help__text">
+                        <strong>{q.title}</strong>
+                        <small>{q.text}</small>
+                      </span>
+                      <Icon name="chevron-right" size={16} />
+                    </Link>
+                  ))}
+                  <button type="button" className="quick-help__item" onClick={() => setTab('ticket')}>
+                    <span className="quick-help__icon"><Icon name="support" size={20} /></span>
+                    <span className="quick-help__text">
+                      <strong>Raise a ticket</strong>
+                      <small>Report an issue with a trip or payment</small>
+                    </span>
+                    <Icon name="chevron-right" size={16} />
+                  </button>
+                </div>
+              </section>
 
-            {tab === 'ticket' ? (
-              <form
-                className="card form-card"
-                noValidate
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  void submit();
-                }}
-              >
-                <FieldShell label="What’s it about?">
+              <section aria-label="Frequently asked questions">
+                <h2 className="support-title">Frequently asked questions</h2>
+                <div className="card faq-list">
+                  {FAQS.map((f) => (
+                    <details key={f.q} className="faq-list__item">
+                      <summary>
+                        <span>{f.q}</span>
+                        <Icon name="chevron-down" size={18} />
+                      </summary>
+                      <p>{f.a}</p>
+                    </details>
+                  ))}
+                </div>
+              </section>
+            </div>
+          ) : null}
+
+          {tab === 'ticket' ? (
+            <form
+              className="card ticket-form"
+              noValidate
+              onSubmit={(e) => {
+                e.preventDefault();
+                void submit();
+              }}
+            >
+              <div className="ticket-form__head">
+                <h2>Raise a ticket</h2>
+                <p>Tell us what went wrong. Our team replies here, in My tickets.</p>
+              </div>
+              <FieldShell label="Topic">
+                {({ id }) => (
+                  <select id={id} className="select" value={category} onChange={(e) => setCategory(e.target.value)}>
+                    {SUPPORT_CATEGORIES.map((c) => (
+                      <option key={c}>{c}</option>
+                    ))}
+                  </select>
+                )}
+              </FieldShell>
+              {recent.length ? (
+                <FieldShell label="Related booking">
                   {({ id }) => (
-                    <select id={id} className="select" value={category} onChange={(e) => setCategory(e.target.value)}>
-                      {SUPPORT_CATEGORIES.map((c) => (
-                        <option key={c}>{c}</option>
+                    <select id={id} className="select" value={bookingChoice} onChange={(e) => setBookingChoice(e.target.value)}>
+                      <option value="">Not about a booking</option>
+                      {recent.map((t) => (
+                        <option key={t.id} value={t.bookingId}>
+                          {t.bookingId} · {t.pickup.name} → {t.drop.name}
+                        </option>
                       ))}
+                      <option value={OTHER}>Another booking ID…</option>
                     </select>
                   )}
                 </FieldShell>
+              ) : null}
+              {!recent.length || bookingChoice === OTHER ? (
                 <TextField
                   label={
                     <>
@@ -121,92 +180,81 @@ export function SupportPage() {
                   }
                   value={bookingId}
                   onChange={(e) => setBookingId(e.target.value)}
-                  placeholder="e.g. NT-1042"
+                  placeholder="e.g. NTT-2026-000062"
                   autoComplete="off"
                 />
-                <TextArea label="Describe the issue" value={description} onChange={(e) => setDescription(e.target.value.slice(0, 2000))} hint="Tell us what happened and when." placeholder="What went wrong?" />
-                {error ? <Notice tone="error">{error}</Notice> : null}
-                <div className="form-actions">
-                  <Button type="submit" loading={sending}>
-                    Submit ticket
-                  </Button>
+              ) : null}
+              <TextArea
+                label="What happened?"
+                value={description}
+                onChange={(e) => setDescription(e.target.value.slice(0, MAX_DESCRIPTION))}
+                hint={`Include the date and time if it is about a trip. ${description.length}/${MAX_DESCRIPTION}`}
+                placeholder="Describe the issue"
+              />
+              {error ? <Notice tone="error">{error}</Notice> : null}
+              <Button type="submit" block loading={sending} icon="send">
+                Submit ticket
+              </Button>
+            </form>
+          ) : null}
+
+          {tab === 'mine' ? (
+            <div className="stack">
+              {submitted ? <Notice tone="success">Your ticket was submitted. Our team will get back to you here.</Notice> : null}
+              {listError ? <Notice tone="error">{listError}</Notice> : null}
+              {!profile ? (
+                <div className="card card--center">
+                  <EmptyState
+                    art="support"
+                    title="Sign in to view tickets"
+                    action={
+                      <Button variant="primary" onClick={() => openLoginModal({ title: 'Sign in to view tickets' })}>
+                        Sign in
+                      </Button>
+                    }
+                  >
+                    Sign in with your mobile number to view tickets you’ve raised.
+                  </EmptyState>
                 </div>
-              </form>
-            ) : null}
+              ) : tickets.length === 0 ? (
+                <div className="card card--center">
+                  <EmptyState
+                    art="support"
+                    title="No tickets yet"
+                    action={
+                      <Button variant="secondary" onClick={() => setTab('ticket')}>
+                        Raise a ticket
+                      </Button>
+                    }
+                  >
+                    Tickets you raise will be tracked here.
+                  </EmptyState>
+                </div>
+              ) : (
+                <ul className="card card--list ticket-list">
+                  {tickets.map((t) => (
+                    <li key={t.id} className="ticket-list__item">
+                      <div className="ticket-list__head">
+                        <strong>{t.category || 'Support request'}</strong>
+                        <Badge tone={t.status === 'Resolved' || t.status === 'Closed' ? 'green' : t.status === 'In Progress' ? 'blue' : 'amber'} dot>
+                          {t.status}
+                        </Badge>
+                      </div>
+                      <p>{t.description}</p>
+                      <small>
+                        {t.createdAt}
+                        {t.bookingId ? ` · Booking ${t.bookingId}` : ''}
+                      </small>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ) : null}
+        </div>
 
-            {tab === 'mine' ? (
-              <div className="stack">
-                {submitted ? <Notice tone="success">Your ticket was submitted. Our team will get back to you.</Notice> : null}
-                {listError ? <Notice tone="error">{listError}</Notice> : null}
-                {!profile ? (
-                  <div className="card card--center">
-                    <EmptyState
-                      art="support"
-                      title="Sign in to view tickets"
-                      action={
-                        <Button variant="primary" onClick={() => openLoginModal({ title: 'Sign in to view tickets' })}>
-                          Sign in
-                        </Button>
-                      }
-                    >
-                      Sign in with your mobile number to view tickets you’ve raised.
-                    </EmptyState>
-                  </div>
-                ) : tickets.length === 0 ? (
-                  <div className="card card--center">
-                    <EmptyState
-                      art="support"
-                      title="No tickets yet"
-                      action={
-                        <Button variant="secondary" onClick={() => setTab('ticket')}>
-                          Raise a ticket
-                        </Button>
-                      }
-                    >
-                      Tickets you raise will be tracked here.
-                    </EmptyState>
-                  </div>
-                ) : (
-                  <ul className="card card--list">
-                    {tickets.map((t) => (
-                      <li key={t.id} className="ticket">
-                        <div className="ticket__head">
-                          <strong>{t.category || 'Support request'}</strong>
-                          <Badge tone={t.status === 'Resolved' || t.status === 'Closed' ? 'green' : t.status === 'In Progress' ? 'blue' : 'amber'} dot>
-                            {t.status}
-                          </Badge>
-                        </div>
-                        <p>{t.description}</p>
-                        <small className="muted">
-                          {t.createdAt}
-                          {t.bookingId ? ` · Booking ${t.bookingId}` : ''}
-                        </small>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            ) : null}
-          </div>
-
-          <aside className="support__aside">
-            <section className="contact-card">
-              <img src="/website-images/web/photography/trust-support.webp" alt="" width={724} height={543} loading="lazy" />
-              <div className="contact-card__body">
-                <h2>Talk to NESAM Cabs</h2>
-                <p>Need help with a ride in progress? Call us — we’re here around the clock.</p>
-                <a className="btn btn--primary btn--block" href={`tel:${SUPPORT_PHONE}`}>
-                  <Icon name="phone" /> Call {SUPPORT_PHONE_DISPLAY}
-                </a>
-                {tab !== 'ticket' ? (
-                  <Button variant="secondary" block onClick={() => setTab('ticket')}>
-                    Raise a ticket
-                  </Button>
-                ) : null}
-                <PolicyLinks lead="Customer policies:" ids={['cancellation', 'refund', 'safety', 'privacy']} />
-              </div>
-            </section>
-          </aside>
+        <div className="support-policies">
+          <PolicyLinks lead="Customer policies:" ids={['cancellation', 'refund', 'safety', 'privacy']} />
         </div>
       </div>
     </>

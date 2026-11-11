@@ -14,6 +14,8 @@ import { Icon } from './Icon';
 import { RideBanner } from './RideBanner';
 import { RouteErrorBoundary } from '@/components/RouteErrorBoundary';
 import { SideDrawer } from './SideDrawer';
+import { HeaderNotice } from './HeaderNotice';
+import { useBackToHome } from '@/lib/backToHome';
 import { AiChatbot } from './AiChatbot';
 import { ALL_ROUTES } from '@/pages/routes/routesData';
 
@@ -41,7 +43,6 @@ import airportIcon from '@/assets/nav/airport-taxi.webp';
 import multicityIcon from '@/assets/nav/multicity.webp';
 import outstationIcon from '@/assets/nav/outstation.webp';
 import rentalIcon from '@/assets/nav/local-rentals.webp';
-import profileIcon from '@/assets/nav/profile.webp';
 
 /** Desktop header links. Account lives in the profile menu there. On phones the bottom bar holds the four
     services, and the header holds Notifications. Account and My trips are in the side menu. */
@@ -69,7 +70,7 @@ function BottomNav() {
   // Local Taxi has its own pages (/local-taxi…): keep its tab lit there instead of leaving the bar looking like Outstation.
   const onLocal = /^\/local-taxi(\/|$)/.test(location.pathname);
   const onRentals = /^\/local-rentals(\/|$)/.test(location.pathname);
-  const current: ServiceId | null = profilePicked ? null : onLocal ? 'local' : onRentals ? (params.get('mode') === 'pickup' ? 'pickup' : 'rental') : onHome ? (parseService(params.get('service')) ?? serviceOfTrip(draft.tripType)) : null;
+  const current: ServiceId | null = profilePicked ? null : onLocal ? 'local' : onRentals ? (params.get('mode') === 'pickup' ? 'pickup' : 'rental') : onHome ? (parseService(params.get('service')) ?? (location.pathname === '/' ? 'pickup' : serviceOfTrip(draft.tripType))) : null;
 
   return (
     <nav className="tabbar" aria-label="Services">
@@ -81,36 +82,24 @@ function BottomNav() {
           <span className="tabbar__label">{SHORT_LABEL[s.id] ?? s.label}</span>
         </Link>
       ))}
-      <ProfileTab picked={profilePicked} onPick={() => setProfilePicked(true)} />
+      <TripsTab picked={profilePicked} onPick={() => setProfilePicked(true)} />
     </nav>
   );
 }
 
-/** The fifth slot of the phone bottom bar: the account page when signed in, the sign-in sheet otherwise. */
-function ProfileTab({ picked, onPick }: { picked: boolean; onPick: () => void }) {
-  const { profile } = useCustomerData();
-  const { openLoginModal } = useAuth();
+/** The fifth slot of the phone bottom bar: My trips (the profile lives in the side drawer, opened from the header). */
+function TripsTab({ picked, onPick }: { picked: boolean; onPick: () => void }) {
   const location = useLocation();
-  const on = /^\/account(\/|$)/.test(location.pathname);
-  const inner = (
-    <>
-      <span className="tabbar__icon">
-        <img className="tabbar__img" src={profileIcon} alt="" width={44} height={44} draggable={false} />
-      </span>
-      <span className="tabbar__label">Profile</span>
-    </>
-  );
-  if (profile) {
-    return (
-      <Link to="/account" onClick={onPick} className={`tabbar__link ${on || picked ? 'is-active' : ''}`} aria-current={on ? 'page' : undefined}>
-        {inner}
-      </Link>
-    );
-  }
+  const on = /^\/trips(\/|$)/.test(location.pathname);
   return (
-    <button type="button" className={`tabbar__link tabbar__link--button ${picked ? 'is-active' : ''}`} onClick={() => { onPick(); openLoginModal({ title: 'Sign in to NESAM Cabs' }); }}>
-      {inner}
-    </button>
+    <Link to="/trips" onClick={onPick} className={`tabbar__link ${on || picked ? 'is-active' : ''}`} aria-current={on ? 'page' : undefined}>
+      <span className="tabbar__icon">
+        <span className="tabbar__trips" aria-hidden="true">
+          <Icon name="trip-history" size={24} />
+        </span>
+      </span>
+      <span className="tabbar__label">My trips</span>
+    </Link>
   );
 }
 
@@ -455,7 +444,8 @@ function useDockInset() {
 
 export function Shell() {
   useDockInset();
-  const { unreadCount } = useInbox();
+  const { unreadCount, live } = useInbox();
+  useBackToHome();
   const { profile } = useCustomerData();
   const { draft } = useBooking();
   const { openLoginModal } = useAuth();
@@ -472,7 +462,8 @@ export function Shell() {
   const [hasScrolled, setHasScrolled] = useState(false);
   // Desktop always shows the header; only phones and tablets tuck it away until the page is scrolled.
   const isDesktop = useMinWidth(900);
-  const headerHidden = isLanding && !hasScrolled && !isDesktop;
+  // A new notification brings the header into view (it shows in place of the header contents).
+  const headerHidden = isLanding && !hasScrolled && !isDesktop && !live;
 
   useEffect(() => {
     const updateHeader = () => setHasScrolled(window.scrollY > 48);
@@ -509,9 +500,9 @@ export function Shell() {
         </div>
       ) : null}
 
-      <header className={`topbar ${headerHidden ? 'topbar--hidden' : ''}`} inert={headerHidden} aria-hidden={headerHidden || undefined}>
+      <header className={`topbar ${headerHidden ? 'topbar--hidden' : ''} ${live ? 'topbar--notice' : ''}`} inert={headerHidden} aria-hidden={headerHidden || undefined}>
         <div className="topbar__inner">
-          <button type="button" className="menu-btn" aria-label="Open menu" aria-haspopup="dialog" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}>
+          <button type="button" className="menu-btn" aria-label="Open profile" aria-haspopup="dialog" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}>
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true" focusable="false">
               <path d="M4 7h16M4 12h16M4 17h16" />
             </svg>
@@ -573,6 +564,7 @@ export function Shell() {
               </>
             )}
           </div>
+          <HeaderNotice />
         </div>
       </header>
 

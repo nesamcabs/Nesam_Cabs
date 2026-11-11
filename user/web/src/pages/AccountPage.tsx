@@ -2,11 +2,11 @@ import { useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useCustomerData } from '@core/context/CustomerData';
 import { updateCustomerProfile } from '@core/services/userService';
-import { COMPANY_LEGAL_NAME, SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY } from '@core/config/constants';
+import { COMPANY_LEGAL_NAME } from '@core/config/constants';
 import { formatINR, formatPhone } from '@core/utils/format';
 import { describeError } from '@core/utils/retry';
 import { callFunction } from '@core/services/callables';
-import { Avatar, Button, Dialog, EmptyState, LinkButton, Notice, PageHead } from '@/components/ui';
+import { Avatar, Button, Dialog, EmptyState, Notice, PageHead } from '@/components/ui';
 import { Icon } from '@/components/Icon';
 import { PhotoError, uploadProfilePhoto } from '@/lib/avatarUpload';
 import { useSeo } from '@/lib/seo';
@@ -46,8 +46,10 @@ function Row({ icon, label, value, to, href }: { icon: string; label: string; va
   return <div className={cls}>{inner}</div>;
 }
 
-export function AccountPage() {
-  useSeo({ title: 'My Account', noindex: true });
+/** `drawer`: shown inside the profile side drawer (no page heading or page padding). */
+export function AccountPage({ variant = 'page' }: { variant?: 'page' | 'drawer' }) {
+  useSeo(variant === 'page' ? { title: 'My Account', noindex: true } : null);
+  const inDrawer = variant === 'drawer';
   const { profile } = useCustomerData();
   const { signOut, openLoginModal } = useAuth();
   const file = useRef<HTMLInputElement>(null);
@@ -77,30 +79,31 @@ export function AccountPage() {
   };
 
   if (!profile) {
-    return (
+    const signedOut = (
       <>
-        <PageHead eyebrow="Your NESAM Cabs account" title="Account">
-          Your details, saved places, payments and help.
-        </PageHead>
-        <div className="page">
-          <div className="card card--center">
-            <EmptyState
-              art="welcome"
-              title="Sign in to your account"
-              action={
-                <Button variant="primary" onClick={() => openLoginModal({ title: 'Sign in to account' })}>
-                  Sign in
-                </Button>
-              }
-            >
-              Sign in to manage your profile, saved addresses and payment options.
-            </EmptyState>
-          </div>
-          <div className="card card--list" style={{ marginTop: 16 }}>
-            <Row icon="info" label="About NESAM Cabs" to="/about" />
-                <Row icon="document" label="Terms, privacy & customer policies" to="/legal" />
-          </div>
+        <div className="card card--center">
+          <EmptyState
+            art="welcome"
+            title="Sign in to your account"
+            action={
+              <Button variant="primary" onClick={() => openLoginModal({ title: 'Sign in to account' })}>
+                Sign in
+              </Button>
+            }
+          >
+            Sign in to manage your profile, saved addresses and payment options.
+          </EmptyState>
         </div>
+        <div className="card card--list" style={{ marginTop: 16 }}>
+          <Row icon="info" label="About NESAM Cabs" to="/about" />
+          <Row icon="document" label="Terms, privacy & customer policies" to="/legal" />
+        </div>
+      </>
+    );
+    return inDrawer ? <div className="account account--drawer">{signedOut}</div> : (
+      <>
+        <PageHead title="Account" />
+        <div className="page">{signedOut}</div>
       </>
     );
   }
@@ -120,105 +123,93 @@ export function AccountPage() {
     }
   };
 
-  return (
+  const body = (
     <>
-      <PageHead eyebrow="Your NESAM Cabs account" title="Account">
-        Your details, saved places, payments and help.
-      </PageHead>
-      <div className="page">
         {error ? <Notice tone="error">{error}</Notice> : null}
 
-        <div className="account">
+        <div className={`account ${inDrawer ? 'account--drawer' : ''}`}>
           <aside className="account__side">
-            <section className="card profile-card">
+            <section className="profile-card" aria-label="Your profile">
               <button type="button" className="profile-card__photo" onClick={() => file.current?.click()} disabled={progress != null} aria-label="Change profile photo">
-                <Avatar name={profile.name} photoUrl={profile.photoUrl} size={104} />
+                <Avatar name={profile.name} photoUrl={profile.photoUrl} size={52} />
                 <span className="profile-card__cam">
-                  <Icon name={progress != null ? 'document-upload' : 'camera'} size={16} />
+                  <Icon name={progress != null ? 'document-upload' : 'camera'} size={12} />
                 </span>
               </button>
               <input ref={file} type="file" accept="image/*" hidden onChange={(e) => void onFile(e.target.files?.[0])} />
-              <h2>{profile.name}</h2>
-              <p className="muted">{formatPhone(profile.phone)}</p>
-              {profile.email ? <p className="muted small truncate">{profile.email}</p> : null}
-              {progress != null ? <p className="small muted">Uploading photo… {progress}%</p> : null}
-              <LinkButton block variant="secondary" to="/account/edit" icon="edit">
-                Edit profile
-              </LinkButton>
+              <div className="profile-card__info">
+                <h2 className="truncate">{profile.name}</h2>
+                <p className="truncate">{formatPhone(profile.phone)}</p>
+                {progress != null ? <p className="truncate">Uploading photo… {progress}%</p> : profile.email ? <p className="truncate">{profile.email}</p> : null}
+              </div>
+              <Link className="profile-card__edit" to="/account/edit" aria-label="Edit profile" title="Edit profile">
+                <Icon name="edit" size={17} />
+              </Link>
             </section>
 
-            <Link className="credit-card" to="/account/payments">
-              <span className="credit-card__icon">
-                <Icon name="wallet" size={24} />
-              </span>
-              <span className="credit-card__text">
-                <small>Refund credits</small>
-                <strong className="num">{formatINR(profile.walletBalance)}</strong>
-              </span>
-              <Icon name="chevron-right" size={20} />
+            {/* Refund credits live on the Payments page; the drawer stays a short menu. */}
+            {inDrawer ? null : (
+            <Link className="credit-row" to="/account/payments">
+              <Icon name="wallet" size={18} />
+              <span>Refund credits</span>
+              <strong className="num">{formatINR(profile.walletBalance)}</strong>
+              <Icon name="chevron-right" size={16} />
             </Link>
+            )}
           </aside>
 
           <div className="account__groups">
-            <section className="group" aria-labelledby="g-profile">
-              <h2 id="g-profile" className="eyebrow">
-                Profile &amp; places
-              </h2>
+            <section className="group" aria-labelledby="g-account">
+              <h2 id="g-account" className="group__title">Account</h2>
               <div className="card card--list">
+                <Row icon="profile" label="Personal details" to="/account/edit" />
                 <Row icon="saved-place" label="Saved places" to="/account/places" />
-                <Row icon="emergency" label="Emergency contact" value={profile.emergencyContact || 'Not set'} to="/account/edit" />
-                <Row icon="help" label="Language" value={profile.language || 'English'} to="/account/edit" />
+                <Row icon="emergency" label="Emergency contact" value={profile.emergencyContact || 'Not set'} to="/account/emergency" />
               </div>
             </section>
-            <section className="group" aria-labelledby="g-pay">
-              <h2 id="g-pay" className="eyebrow">
-                Payments &amp; offers
-              </h2>
+            <section className="group" aria-labelledby="g-trips">
+              <h2 id="g-trips" className="group__title">Trips &amp; payments</h2>
               <div className="card card--list">
+                <Row icon="trip-history" label="My trips" to="/trips" />
                 <Row icon="receipt" label="Payments and refunds" to="/account/payments" />
                 <Row icon="offers" label="Offers" to="/offers" />
-                <Row icon="trip-history" label="My trips" to="/trips" />
               </div>
             </section>
             <section className="group" aria-labelledby="g-help">
-              <h2 id="g-help" className="eyebrow">
-                Help
-              </h2>
+              <h2 id="g-help" className="group__title">Help</h2>
               <div className="card card--list">
-                <Row icon="support" label="Help and support tickets" to="/support" />
-                <Row icon="phone" label="Call NESAM Cabs" value={SUPPORT_PHONE_DISPLAY} href={`tel:${SUPPORT_PHONE}`} />
+                <Row icon="support" label="Help and support" to="/support" />
                 <Row icon="info" label="About NESAM Cabs" to="/about" />
-                <Row icon="document" label="Terms, privacy & customer policies" to="/legal" />
+                <Row icon="document" label="Terms & policies" to="/legal" />
               </div>
             </section>
             <section className="group" aria-label="Session">
-              <h2 className="eyebrow">Session</h2>
-              <div className="card account__logout">
-                <div>
-                  <strong>Log out of this browser</strong>
-                  <p className="muted small">{COMPANY_LEGAL_NAME}</p>
-                </div>
-                <Button variant="danger" icon="logout" onClick={() => setConfirm(true)}>
-                  Log out
-                </Button>
-              </div>
-            </section>
-            <section className="group" aria-label="Delete account">
-              <h2 className="eyebrow">Privacy</h2>
-              <div className="card account__logout">
-                <div>
-                  <strong>Delete my account</strong>
-                  <p className="muted small">Ask us to erase your account and personal data.</p>
-                </div>
-                <Button variant="secondary" onClick={() => setDeleteAsk(true)}>
-                  Request deletion
-                </Button>
+              <div className="card card--list">
+                <button type="button" className="setting setting--action" onClick={() => setConfirm(true)}>
+                  <span className="setting__icon"><Icon name="logout" size={18} /></span>
+                  <span className="setting__label">Log out</span>
+                </button>
+                <button type="button" className="setting setting--danger" onClick={() => setDeleteAsk(true)}>
+                  <span className="setting__icon"><Icon name="trash" size={18} /></span>
+                  <span className="setting__label">Delete my account</span>
+                </button>
               </div>
               {deleteResult ? <Notice tone={deleteResult.tone}>{deleteResult.text}</Notice> : null}
+              <p className="account__legal">{COMPANY_LEGAL_NAME}</p>
             </section>
           </div>
         </div>
-      </div>
+    </>
+  );
+
+  return (
+    <>
+      {inDrawer ? body : (
+        <>
+          <PageHead title="Account" />
+          <div className="page">{body}</div>
+        </>
+      )}
 
       {deleteAsk ? (
         <Dialog

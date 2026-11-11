@@ -690,14 +690,18 @@ export function PageHead({
   actions?: ReactNode;
   back?: ReactNode;
 }) {
+  // No visible page titles: the screen itself says what it is. The title stays as a hidden heading for screen readers
+  // and search engines; a back link, step label or actions passed in still show in a slim row.
+  const step = eyebrow && /^Step \d/.test(eyebrow) ? eyebrow : '';
+  const extras = children && typeof children !== 'string' ? children : null;
+  if (!back && !step && !extras && !actions) return <h1 className="sr-only">{title}</h1>;
   return (
-    <header className="page-head">
+    <header className="page-head page-head--slim">
       {back}
       <div className="page-head__text">
-        {eyebrow && /^Step \d/.test(eyebrow) ? <p className="eyebrow">{eyebrow}</p> : null}
-        <h1>{title}</h1>
-        {/* Plain-text subtitles are left out for a cleaner page; links and buttons passed in still show. */}
-        {children && typeof children !== 'string' ? <div className="page-head__sub">{children}</div> : null}
+        {step ? <p className="eyebrow">{step}</p> : null}
+        <h1 className="sr-only">{title}</h1>
+        {extras ? <div className="page-head__sub">{extras}</div> : null}
       </div>
       {actions ? <div className="page-head__actions">{actions}</div> : null}
     </header>

@@ -6,7 +6,7 @@ import 'leaflet/dist/leaflet.css';
 // It only collects the trip. The vehicles and fares come from the same booking steps as every other service, and the server
 // prices them, so nothing here can change what a rider is charged.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import type { GeoPlace } from '@core/types';
 import { reverseGeocode } from '@core/services/geoService';
 import { scheduleProblem } from '@core/utils/bookingRules';
@@ -18,7 +18,7 @@ import { useBooking } from '@/state/Booking';
 import { useAuth } from '@/state/Auth';
 import { saveDraft, RENTAL_PACKAGE_HOURS } from '@/lib/draft';
 import { setPendingReturn } from '@/lib/pendingReturn';
-import { useDeviceLocation, useOnline } from '@/lib/hooks';
+import { useDeviceLocation, useMinWidth, useOnline } from '@/lib/hooks';
 import { LOCATION_HELP, combineDateTime, earliestSlot, latestPickup, pickupTimeOptions, toDateInput, toTimeInput } from '@/lib/schedule';
 import { useSeo } from '@/lib/seo';
 import { QUICK_CITIES } from '@/pages/book/content';
@@ -285,7 +285,18 @@ function PinMap(props: { picking: boolean; target: Target | null; pins: Pin[]; s
 }
 
 // ── The page ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
+/**
+ * Phones book Local Rentals on this full-screen map sheet. Desktop books them on the home page, where the
+ * booking form sits beside the map, so a desktop visit here (old link, bookmark, a back button) goes there.
+ */
 export function LocalRentalsPage() {
+  const isDesktop = useMinWidth(900);
+  const [params] = useSearchParams();
+  if (isDesktop) return <Navigate to={`/book?service=${params.get('mode') === 'hourly' ? 'rental' : 'pickup'}`} replace />;
+  return <LocalRentalsSheet />;
+}
+
+function LocalRentalsSheet() {
   useSeo({ title: 'Local Rentals', noindex: true });
   const navigate = useNavigate();
   const [params] = useSearchParams();
