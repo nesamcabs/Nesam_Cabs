@@ -43,6 +43,28 @@ function collectIds(...sources: unknown[]): string[] {
   return [...out].slice(0, 3);
 }
 
+/**
+ * Why Firebase refused a sign-in token, in words a partner can act on. Each reason is a coarse, safe label:
+ *   token-expired     the token is out of date: sign in again (the app also retries once with a fresh token)
+ *   token-revoked     the account's sign-in was revoked
+ *   project-mismatch  the token belongs to a different Firebase project than this API's service account (a deployment setting)
+ *   no-credentials    this API has no service account to verify tokens with (a deployment setting)
+ *   token-rejected    anything else
+ */
+function tokenRejection(err: unknown): { message: string; reason: string } {
+  const code = String((err as { code?: string })?.code ?? '');
+  const detail = String((err as Error)?.message ?? '');
+  if (code === 'auth/id-token-expired') return { reason: 'token-expired', message: 'Your session has expired. Please sign in again.' };
+  if (code === 'auth/id-token-revoked' || code === 'auth/user-disabled') return { reason: 'token-revoked', message: 'This sign-in is no longer valid. Please sign in again.' };
+  if (/incorrect "aud"|incorrect "iss"|issued for a different/i.test(detail)) {
+    return { reason: 'project-mismatch', message: 'The server is set up for a different NESAM project than this app. Please tell NESAM support. (Reference: project-mismatch)' };
+  }
+  if (/credential|project id|GOOGLE_CLOUD_PROJECT/i.test(detail)) {
+    return { reason: 'no-credentials', message: 'The server could not verify your sign-in because it is not fully set up. Please tell NESAM support. (Reference: no-credentials)' };
+  }
+  return { reason: 'token-rejected', message: 'The server could not verify your sign-in. Please sign out and sign in again. (Reference: token-rejected)' };
+}
+
 export async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
   const incomingRequestId = header(req, 'x-client-request-id');
   const requestId = /^[A-Za-z0-9_-]{1,128}$/.test(incomingRequestId) ? incomingRequestId : `server-${Date.now().toString(36)}`;
@@ -72,8 +94,11 @@ export async function handler(req: ApiRequest, res: ApiResponse): Promise<void> 
   if (bearer) {
     try {
       decoded = await getAuth().verifyIdToken(bearer);
-    } catch {
-      return sendError(res, 401, 'unauthenticated', 'Your session has expired. Please sign in again.');
+    } catch (err) {
+      const { message, reason } = tokenRejection(err);
+      // The real cause goes to the server log (never the token itself); the client gets a coarse reason to act on.
+      console.warn('[api] sign-in token rejected', { requestId, name, reason, code: (err as { code?: string })?.code, detail: String((err as Error)?.message ?? '').slice(0, 160) });
+      return sendError(res, 401, 'unauthenticated', message, { reason });
     }
     if (rateLimited(decoded.uid)) return sendError(res, 429, 'resource-exhausted', 'Too many requests. Please wait a moment.');
   } else if (!PUBLIC_CALLABLES.has(name)) {

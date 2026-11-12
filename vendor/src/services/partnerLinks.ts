@@ -35,6 +35,10 @@ export interface PartnerLink {
   blockedReason: string;
   rejectedReason: string;
   officeHelp: boolean;
+  /** Booked duties (booking document ids) that stop the move until they are reassigned. */
+  blockedBookingIds: string[];
+  /** When the one-time code was last sent (a code is valid for 5 minutes; a new one can be asked for after 1 minute). */
+  codeSentAt: Date | null;
   createdAt: Date | null;
   updatedAt: Date | null;
 }
@@ -66,12 +70,18 @@ export function mapLink(id: string, d: Record<string, unknown>): PartnerLink {
     blockedReason: str(d.blockedReason),
     rejectedReason: str(d.rejectedReason),
     officeHelp: d.officeHelp === true,
+    blockedBookingIds: Array.isArray(d.blockedBookingIds) ? (d.blockedBookingIds as unknown[]).filter((x): x is string => typeof x === 'string') : [],
+    codeSentAt: dateOf(otp.sentAt),
     createdAt: dateOf(d.createdAt),
     updatedAt: dateOf(d.updatedAt),
   };
 }
 
 export const linkIsOpen = (l: Pick<PartnerLink, 'status'>) => l.status === 'Awaiting OTP' || l.status === 'Office review';
+
+/** How long a code works and how soon a new one can be asked for (functions/src/partnerLinks.ts). */
+export const CODE_TTL_MS = 5 * 60000;
+export const RESEND_COOLDOWN_S = 60;
 
 /** Requests this vendor made (toVendorId) and ones that take a record away from it (fromVendorId). */
 export function subscribeToMyLinks(vendorId: string, cb: (links: PartnerLink[]) => void, onError: (message: string) => void): () => void {

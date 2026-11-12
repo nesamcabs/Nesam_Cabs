@@ -1,6 +1,7 @@
 // Non-callable HTTP entry points: health check, WhatsApp delivery webhook and the cron jobs
 // that replace the Firebase scheduler / Firestore triggers.
 import { createHmac } from 'crypto';
+import { getApp } from 'firebase-admin/app';
 import { FieldValue } from 'firebase-admin/firestore';
 import { db } from '../admin';
 import { runUnassignedAlerts, clearResolvedFlags } from '../scheduler';
@@ -10,7 +11,15 @@ import { ApiRequest, ApiResponse, apiHeaders, cronAuthorized, header, safeEqual,
 
 export async function health(_req: ApiRequest, res: ApiResponse): Promise<void> {
   apiHeaders(res);
-  sendJson(res, 200, { ok: true, time: new Date().toISOString() });
+  // The Firebase project this API verifies sign-ins for (a public identifier): it must equal the project the apps sign in to.
+  let projectId = '';
+  try {
+    projectId = String(getApp().options.projectId ?? '');
+  } catch {
+    /* not initialised */
+  }
+  const serviceAccount = Boolean((process.env.NESAM_SERVICE_ACCOUNT ?? process.env.FIREBASE_SERVICE_ACCOUNT ?? '').trim());
+  sendJson(res, 200, { ok: true, time: new Date().toISOString(), auth: { projectId, serviceAccount } });
 }
 
 async function readRawBody(req: ApiRequest, limit = 1_000_000): Promise<Buffer> {

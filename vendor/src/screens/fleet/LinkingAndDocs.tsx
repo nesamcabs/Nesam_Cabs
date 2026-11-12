@@ -20,25 +20,45 @@ import { CodePanel, fromLabel, linkText, linkTone } from './sheets';
 import { VEHICLE_DOCS } from './logic';
 import { colors, fontFamily } from '../../theme';
 
-type LinkTab = 'open' | 'away' | 'history';
+type LinkTab = 'action' | 'review' | 'away' | 'history';
 
 export function LinkingScreen() {
   const navigation = useNavigation();
-  const { links, profile } = useVendorData();
-  const [tab, setTab] = useState<LinkTab>('open');
-  const open = links.filter((l) => l.toVendorId === profile.id && linkIsOpen(l));
+  const { links, profile, bookings, errors } = useVendorData();
+  const [picked, setPicked] = useState<LinkTab | null>(null);
+
+  const mineLinks = links.filter((l) => l.toVendorId === profile.id);
+  // Needs action: I asked and a code is waiting to be entered.   With the office: I asked and the office is deciding.
+  const action = mineLinks.filter((l) => l.status === 'Awaiting OTP');
+  const review = mineLinks.filter((l) => l.status === 'Office review');
+  // Leaving my fleet: someone asked to take one of my drivers or vehicles.
   const away = links.filter((l) => l.fromVendorId === profile.id && l.toVendorId !== profile.id && linkIsOpen(l));
-  const history = links.filter((l) => !linkIsOpen(l));
-  const list = tab === 'open' ? open : tab === 'away' ? away : history;
+  // History: everything I asked for that is closed, plus the records that really left my fleet (not other people's declined or cancelled asks).
+  const history = links.filter((l) => !linkIsOpen(l) && (l.toVendorId === profile.id || l.status === 'Completed'));
+
+  // Open on the first tab that has something, until the vendor picks one.
+  const tab: LinkTab = picked ?? (action.length ? 'action' : away.length ? 'away' : review.length ? 'review' : 'action');
+  const list = { action, review, away, history }[tab];
+  const empty: Record<LinkTab, [string, string]> = {
+    action: ['Nothing is waiting for you', 'When you add a driver or vehicle already on NESAM, a code request appears here until you enter it.'],
+    review: ['Nothing is with the office', 'Requests the NESAM office is checking appear here, with the reason.'],
+    away: ['Nobody is taking a driver or car from you', 'If another fleet asks for one of yours, you will see it here and can reassign its duties.'],
+    history: ['No past requests', 'Completed, declined and cancelled requests are kept here.'],
+  };
 
   return (
     <Page title="Linking requests" subtitle="Permanent IDs and attachment changes.">
       <Notice tone="neutral" icon="link-outline" title="One permanent ID for every driver and vehicle" text="Linking a driver or vehicle already on NESAM needs a code from the person concerned, or office verification. Previous duty history and settlements are retained." />
-      <Tabs value={tab} onChange={setTab} items={[{ id: 'open', label: 'Needs action', count: open.length }, { id: 'away', label: 'Leaving my fleet', count: away.length }, { id: 'history', label: 'History', count: history.length }]} />
+      {errors.links ? <Notice tone="red" title="Linking requests could not load" text={errors.links} style={{ marginTop: 12 }} /> : null}
+      <Tabs value={tab} onChange={setPicked} items={[
+        { id: 'action', label: 'Needs action', count: action.length },
+        { id: 'review', label: 'With office', count: review.length },
+        { id: 'away', label: 'Leaving my fleet', count: away.length },
+        { id: 'history', label: 'History', count: history.length },
+      ]} />
       {list.length === 0 ? (
-        <Empty icon="link-outline" title={tab === 'open' ? 'Nothing is waiting' : tab === 'away' ? 'Nobody is taking a driver or car from you' : 'No past requests'}
-          text={tab === 'open' ? 'When you add a driver or vehicle already on NESAM, the request and its code appear here.' : 'Completed and declined requests are kept here.'}
-          action={tab === 'open' ? (
+        <Empty icon="link-outline" title={empty[tab][0]} text={empty[tab][1]}
+          action={tab === 'action' ? (
             <Inline style={{ gap: 10, justifyContent: 'center' }}>
               <Btn kind="secondary" small icon="person-add-outline" title="Add driver" onPress={() => navigation.navigate('FleetAdd', { kind: 'driver' })} />
               <Btn kind="secondary" small icon="car-outline" title="Add vehicle" onPress={() => navigation.navigate('FleetAdd', { kind: 'vehicle' })} />
@@ -48,6 +68,9 @@ export function LinkingScreen() {
         <Grid>
           {list.map((l) => {
             const mine = l.toVendorId === profile.id;
+            const closed = !linkIsOpen(l);
+            // Booked duties of mine that hold up a move: reassign them so the request can finish.
+            const holding = l.blockedBookingIds.map((id) => bookings.find((b) => b.id === id)).filter((b): b is NonNullable<typeof b> => !!b);
             return (
               <Panel key={l.id} style={{ flexGrow: 1 }}>
                 <Between><Small>{l.kind === 'driver' ? 'Driver' : 'Vehicle'} · {l.id.slice(0, 8).toUpperCase()}</Small><Badge label={linkText[l.status]} tone={linkTone[l.status]} /></Between>
@@ -58,9 +81,18 @@ export function LinkingScreen() {
                     <Small>{l.kind === 'driver' ? (l.subjectKind === 'owner_driver' ? 'Owner-driver joins a fleet' : 'Driver changes fleet') : 'Vehicle attachment'}</Small>
                   </View>
                 </View>
-                <KV rows={[['From', fromLabel(l)], ['To', l.toVendorName], ['Requested', dayTime(l.createdAt)], l.method ? ['Finished by', l.method] : null]} />
-                {!mine && l.status !== 'Completed' ? <Notice tone="amber" title={`${l.toVendorName} asked to take this from your fleet`} text="The office will check with you if anything is open." style={{ marginTop: 12 }} /> : null}
-                {!mine && l.status === 'Completed' ? <Notice tone="neutral" title={`Moved to ${l.toVendorName}`} style={{ marginTop: 12 }} /> : null}
+                <KV rows={[['From', fromLabel(l)], ['To', l.toVendorName], ['Requested', dayTime(l.createdAt)], closed ? ['Closed', dayTime(l.updatedAt)] : null, l.method ? ['Finished by', l.method] : null]} />
+                {!mine && !closed ? (
+                  <Notice tone="amber" icon="swap-horizontal-outline" title={`${l.toVendorName} asked to take this from your fleet`}
+                    text={l.blockedReason || 'Reassign any booked duties of this record first; the NESAM office finishes the move once nothing is open.'} style={{ marginTop: 12 }} />
+                ) : null}
+                {!mine && !closed && holding.length ? (
+                  <View style={{ marginTop: 10, gap: 8 }}>
+                    <Small>Reassign these duties so it can move:</Small>
+                    {holding.map((b) => <Btn key={b.id} kind="secondary" small icon="ticket-outline" title={`${b.bookingId} · ${b.driverName || b.vehicleNumber || 'open duty'}`} onPress={() => navigation.navigate('Booking', { id: b.id })} />)}
+                  </View>
+                ) : null}
+                {!mine && l.status === 'Completed' ? <Notice tone="neutral" title={`Moved to ${l.toVendorName}`} text="It is no longer in your fleet. Its earlier duties and settlements stay in your records." style={{ marginTop: 12 }} /> : null}
                 {mine ? <View style={{ marginTop: 14 }}><CodePanel link={l} /></View> : null}
               </Panel>
             );

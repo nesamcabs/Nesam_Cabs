@@ -25,15 +25,15 @@ class BackendError extends Error {
   }
 }
 
-export async function callBackend<Req, Res>(name: string, data: Req, timeoutMs = 60000): Promise<Res> {
-  if (!usesHttpApi) {
-    return (await httpsCallable<Req, Res>(getFunctions(app, 'asia-south1'), name, { timeout: timeoutMs })(data)).data;
-  }
+interface ApiPayload<Res> {
+  data?: Res;
+  error?: { code?: string; message?: string; details?: unknown };
+}
 
-  const user = auth.currentUser;
-  if (!user) throw new BackendError('unauthenticated', 'Sign in required.');
-  const token = await user.getIdToken();
+/** Reasons the server gives for a rejected sign-in that a fresh token cannot fix (a deployment setting, not a stale token). */
+const FINAL_REASONS = new Set(['token-revoked', 'project-mismatch', 'no-credentials']);
 
+async function post<Res>(name: string, data: unknown, token: string, timeoutMs: number): Promise<{ response: Response; payload: ApiPayload<Res> }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   let response: Response;
@@ -50,15 +50,34 @@ export async function callBackend<Req, Res>(name: string, data: Req, timeoutMs =
   } finally {
     clearTimeout(timer);
   }
-
-  let payload: { data?: Res; error?: { code?: string; message?: string; details?: unknown } } = {};
+  let payload: ApiPayload<Res> = {};
   try {
     payload = await response.json();
   } catch {
     /* non-JSON error page (gateway timeout etc.) */
   }
+  return { response, payload };
+}
+
+export async function callBackend<Req, Res>(name: string, data: Req, timeoutMs = 60000): Promise<Res> {
+  if (!usesHttpApi) {
+    return (await httpsCallable<Req, Res>(getFunctions(app, 'asia-south1'), name, { timeout: timeoutMs })(data)).data;
+  }
+
+  const user = auth.currentUser;
+  if (!user) throw new BackendError('unauthenticated', 'Your session has expired. Please sign in again.');
+
+  let { response, payload } = await post<Res>(name, data, await user.getIdToken(), timeoutMs);
+  // A rejected token is usually just stale (a long-open tab, a clock that drifted): ask Firebase for a fresh one and try once more.
+  const rejected = response.status === 401 && payload.error?.code === 'unauthenticated';
+  const reason = (payload.error?.details as { reason?: string } | undefined)?.reason ?? '';
+  if (rejected && !FINAL_REASONS.has(reason)) {
+    ({ response, payload } = await post<Res>(name, data, await user.getIdToken(true), timeoutMs));
+  }
+
   if (!response.ok || payload.error) {
     const code = payload.error?.code ?? (response.status === 401 ? 'unauthenticated' : response.status === 504 ? 'deadline-exceeded' : 'internal');
+    if (code === 'unauthenticated') console.warn('[api] sign-in rejected by the server', { name, status: response.status, reason: (payload.error?.details as { reason?: string } | undefined)?.reason });
     throw new BackendError(code, payload.error?.message ?? 'The server could not complete the request.', payload.error?.details);
   }
   return payload.data as Res;

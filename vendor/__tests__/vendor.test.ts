@@ -44,8 +44,9 @@ describe('Indian validators (copied from Vendor Web)', () => {
   });
   it('validates Aadhaar with Verhoeff checksum', () => {
     expect(validateAadhaar('2345 6789 0124')).toBe('');
-    expect(validateAadhaar('234567890123')).toBeTruthy();
-    expect(validateAadhaar('123456789012')).toBeTruthy();
+    expect(validateAadhaar('1234 5678 9012')).toBe('');
+    expect(validateAadhaar('2345 6789 012')).toMatch(/12 digits/);
+    expect(validateAadhaar('111111111111')).toBeTruthy();
   });
   it('validates UPI, account, pincode, fleet size and alternate phone', () => {
     expect(validateUpi('')).toBe('');

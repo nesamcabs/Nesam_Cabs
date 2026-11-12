@@ -51,13 +51,15 @@ interface VendorDataValue {
   links: PartnerLink[];
   /** Requests this vendor still has to act on (a code to enter, or waiting for the office). */
   openLinks: PartnerLink[];
+  /** Requests this vendor made that are waiting for its own action: a code to enter. */
+  actionLinks: PartnerLink[];
   payouts: VendorPayoutRequest[];
   /** The server wallet (wallets/vendor_{uid}); the app never computes a balance. */
   wallet: WalletDetails;
   ledger: LedgerRecord[];
   /** Earnings the server credited this month. */
   monthEarnings: number;
-  errors: { bookings: string; market: string; bids: string; wallet: string };
+  errors: { bookings: string; market: string; bids: string; wallet: string; links: string };
   /** Cancellation, bank and renewal requests sent to the office. */
   requests: PartnerRequestRecord[];
   deposit: SecurityDeposit | null;
@@ -86,7 +88,7 @@ export function VendorDataProvider({ profile, record, children }: { profile: Ven
   const [payouts, setPayouts] = useState<VendorPayoutRequest[]>([]);
   const [wallet, setWallet] = useState<WalletDetails>(EMPTY_WALLET);
   const [ledger, setLedger] = useState<LedgerRecord[]>([]);
-  const [errors, setErrors] = useState({ bookings: '', market: '', bids: '', wallet: '' });
+  const [errors, setErrors] = useState({ bookings: '', market: '', bids: '', wallet: '', links: '' });
 
   useEffect(() => subscribeToFleetVehicles(vendorId, setVehicles), [vendorId]);
   useEffect(() => subscribeToFleetDrivers(vendorId, setDrivers), [vendorId]);
@@ -134,7 +136,18 @@ export function VendorDataProvider({ profile, record, children }: { profile: Ven
   useEffect(() => subscribeToDeposit(vendorId, setDeposit), [vendorId]);
   useEffect(() => subscribeToSettlementDues(vendorId, setDues), [vendorId]);
   useEffect(() => subscribeToOperations(setOps), []);
-  useEffect(() => subscribeToMyLinks(vendorId, setLinks, () => undefined), [vendorId]);
+  useEffect(
+    () =>
+      subscribeToMyLinks(
+        vendorId,
+        (l) => {
+          setLinks(l);
+          setErrors((e) => (e.links ? { ...e, links: '' } : e));
+        },
+        (message) => setErrors((e) => ({ ...e, links: message })),
+      ),
+    [vendorId],
+  );
   useEffect(() => subscribeToVendorPayouts(vendorId, setPayouts), [vendorId]);
   useEffect(
     () =>
@@ -167,6 +180,7 @@ export function VendorDataProvider({ profile, record, children }: { profile: Ven
       invites,
       links,
       openLinks: links.filter((l) => linkIsOpen(l) && l.toVendorId === vendorId),
+      actionLinks: links.filter((l) => l.status === 'Awaiting OTP' && l.toVendorId === vendorId),
       payouts,
       wallet,
       ledger,

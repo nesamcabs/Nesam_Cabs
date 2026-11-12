@@ -57,7 +57,7 @@ export function FleetScreen() {
         meta={`${shown} ${vehicles ? (shown === 1 ? 'vehicle' : 'vehicles') : shown === 1 ? 'driver' : 'drivers'}`}
         action={
           <Inline style={{ gap: 18 }}>
-            <TextLink title={d.openLinks.length ? `Linking requests (${d.openLinks.length})` : 'Linking requests'} onPress={() => navigation.navigate('Linking')} />
+            <TextLink title={d.actionLinks.length ? `Linking requests (${d.actionLinks.length})` : 'Linking requests'} onPress={() => navigation.navigate('Linking')} />
             <TextLink title="Documents" onPress={() => navigation.navigate('Documents')} />
           </Inline>
         }

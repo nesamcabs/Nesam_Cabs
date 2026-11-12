@@ -44,6 +44,8 @@ import {
 } from '../../services/onboardingService';
 import {
   digitsOnly,
+  fixMessage,
+  groupAadhaar,
   hasErrors,
   normalizeSpaces,
   validateAccountNumber,
@@ -312,7 +314,7 @@ function BusinessAccountStep({
 
       <Text style={[type.h3, { marginVertical: space.sm }]}>Bank account for settlements</Text>
       <TextField label="Account holder name" required value={form.accountHolderName} onChangeText={set('accountHolderName')} error={err('accountHolderName')} hint="Exactly as printed on your passbook / cheque" />
-      <TextField label="Account number" required value={form.accountNumber} onChangeText={(v) => set('accountNumber')(digitsOnly(v).slice(0, 18))} error={err('accountNumber')} keyboardType="number-pad" secureTextEntry autoComplete="off" />
+      <TextField label="Account number" required value={form.accountNumber} onChangeText={(v) => set('accountNumber')(digitsOnly(v).slice(0, 18))} error={err('accountNumber')} keyboardType="number-pad" autoComplete="off" />
       <TextField
         label="Confirm account number"
         required
@@ -328,7 +330,7 @@ function BusinessAccountStep({
       <Text style={[type.tiny, { marginBottom: space.md }]}>
         Account details are stored in a restricted record visible only to you and the NESAM finance team. After approval, changes require re-verification by support.
       </Text>
-      {submitted && hasErrors(errors) ? <Notice message="Please fix the highlighted fields." /> : null}
+      {submitted && hasErrors(errors) ? <Notice message={fixMessage(errors)} /> : null}
       <Notice message={saveError} onRetry={saveError ? () => void submit() : undefined} />
       <Button title={saving ? 'Saving…' : 'Save & continue'} loading={saving} onPress={() => void submit()} />
     </View>
@@ -458,7 +460,8 @@ function DocumentsStep({
       <TextField
         label={`${idDef.label} number`}
         required
-        value={idNumber}
+        value={idType === 'AADHAAR' ? groupAadhaar(idNumber) : idNumber}
+        keyboardType={idType === 'AADHAAR' ? 'number-pad' : 'default'}
         onChangeText={(v) => {
           if (idType === 'AADHAAR') setIdNumber(digitsOnly(v).slice(0, 12));
           else if (idType === 'PAN') setIdNumber(v.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10));
@@ -468,8 +471,7 @@ function DocumentsStep({
         placeholder={idDef.placeholder}
         autoCapitalize="characters"
         autoCorrect={false}
-        secureTextEntry={idType === 'AADHAAR'}
-        hint={idType === 'AADHAAR' ? 'Stored securely — only the last 4 digits are shown' : undefined}
+        hint={idType === 'AADHAAR' ? 'Stored securely — only the last 4 digits are shown afterwards' : undefined}
       />
       <FileUploadField
         label={`${idDef.label} (front & back)`}
@@ -483,7 +485,7 @@ function DocumentsStep({
         max={2}
       />
 
-      {submitted && hasErrors(errors) ? <Notice message="Please fix the highlighted fields." /> : null}
+      {submitted && hasErrors(errors) ? <Notice message={fixMessage(errors)} /> : null}
       {uploading ? <Notice tone="info" message="Upload in progress — please wait before saving." /> : null}
       <Notice message={saveError} onRetry={saveError ? () => void submit() : undefined} />
       <View style={styles.nav}>

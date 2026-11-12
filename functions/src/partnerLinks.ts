@@ -261,6 +261,19 @@ async function applyLink(linkId: string, actor: Actor, opts: CompleteOptions) {
   await pushAfterCommit(pushes);
 }
 
+/**
+ * Tells the vendor that currently holds the driver / vehicle that another fleet has asked to take it, or that open duties
+ * are holding the move up. It is how that vendor learns to reassign duties (Fleet → Linking requests → Leaving my fleet).
+ */
+async function tellCurrentOwner(link: { fromVendorId?: unknown; toVendorName?: unknown; subjectLabel?: unknown; kind?: unknown }, title: string, message: string, severity: 'info' | 'warning' = 'info') {
+  const owner = text(link.fromVendorId);
+  if (!owner) return;
+  await notify({
+    recipientType: 'vendor', recipientId: owner, category: 'approvals', severity, sound: 'general', push: true,
+    title, message: text(message, 220), cta: { label: 'Open', page: 'links' },
+  }).catch(() => null);
+}
+
 /** Records why a request cannot finish automatically and hands it to staff. */
 async function sendToOffice(linkId: string, actor: Actor, reason: string, extra: Record<string, unknown> = {}) {
   const ref = db.doc(`partner_links/${linkId}`);
@@ -353,12 +366,14 @@ async function createLink(kind: Kind, subjectId: string, toVendorId: string, toV
     await linkRef.collection('events').add({ type: 'created', actorId: actor.id, actorRole: actor.role, actorName: actor.name, reason: receiver ? 'office assisted' : 'no last-trip driver', at: FieldValue.serverTimestamp() });
     await audit({ action: kind === 'driver' ? 'driver_link_requested' : 'vehicle_link_requested', entity: kind, entityId: subjectId, performedBy: actor.id, performedByName: actor.name, role: actor.role, next: { toVendorId }, meta: { linkId: linkRef.id } });
     await notify({ recipientType: 'admin', recipientId: 'admin', category: 'approvals', severity: 'warning', sound: 'general', push: true, title: 'Partner link needs review', message: `${subjectLabel} → ${toVendorName}`, cta: { label: 'Review', page: 'partner-links' }, sentBy: actor.id }).catch(() => null);
+    await tellCurrentOwner(base, kind === 'driver' ? 'A fleet asked to add your driver' : 'A fleet asked to take your vehicle', `${toVendorName} asked to take ${subjectLabel}. Reassign any booked duties so it can move.`);
     return { linkId: linkRef.id, status: 'Office review' as const, delivered: false, existing: false as const };
   }
 
   await linkRef.set({ ...base, status: 'Awaiting OTP', otp: { delivered: false } });
   await linkRef.collection('events').add({ type: 'created', actorId: actor.id, actorRole: actor.role, actorName: actor.name, at: FieldValue.serverTimestamp() });
   await audit({ action: kind === 'driver' ? 'driver_link_requested' : 'vehicle_link_requested', entity: kind, entityId: subjectId, performedBy: actor.id, performedByName: actor.name, role: actor.role, next: { toVendorId }, meta: { linkId: linkRef.id } });
+  await tellCurrentOwner(base, kind === 'driver' ? 'A fleet asked to add your driver' : 'A fleet asked to take your vehicle', `${toVendorName} asked to take ${subjectLabel}. Reassign any booked duties so it can move.`);
   const message = kind === 'driver'
     ? `NESAM: ${toVendorName} wants to add you as a driver.`
     : `NESAM: ${toVendorName} wants to link vehicle ${subjectLabel} to their fleet.`;
@@ -456,6 +471,7 @@ export const verifyPartnerLinkOtp = onCall({ timeoutSeconds: 60 }, async (reques
   } catch (err) {
     if (err instanceof Blocked) {
       await sendToOffice(linkId, actor, err.message, { blockedBookingIds: err.bookingIds });
+      if (err.bookingIds.length) await tellCurrentOwner(link, 'Reassign duties to release a ' + (link.kind === 'driver' ? 'driver' : 'vehicle'), `${text(link.subjectLabel, 60)} cannot move to ${text(link.toVendorName, 60)} until its booked duties are reassigned. ${err.message}`, 'warning');
       return { status: 'Office review', completed: false, message: `Code confirmed, but ${err.message}` };
     }
     throw err;

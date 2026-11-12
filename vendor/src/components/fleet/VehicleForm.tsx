@@ -11,6 +11,7 @@ import { addVehicle, newVehicleId, updateVehicleDocuments, VendorActionError, ty
 import type { FleetVehicle } from '../../types/operations';
 import { describeDataError } from '../../utils/retry';
 import { isPlate } from '../../utils/fleet';
+import { fixMessage } from '../../utils/validation';
 import { FLEET_CATEGORIES, FUEL_TYPES } from '../../config/constants';
 import { colors, space, type } from '../../theme';
 
@@ -72,7 +73,7 @@ export function VehicleForm({
 
   const save = async () => {
     setSubmitted(true);
-    if (Object.values(errors).some(Boolean)) return setError('Please fix the highlighted fields.');
+    if (Object.values(errors).some(Boolean)) return setError(fixMessage(errors as Record<string, string>));
     if (uploads > 0) return setError('Please wait for uploads to finish.');
     setBusy(true);
     setError('');

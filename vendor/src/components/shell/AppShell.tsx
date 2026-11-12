@@ -23,9 +23,9 @@ const NAV: Record<Section, { on: IconName; off: IconName; label: string }> = {
 };
 
 function useBadges(): Partial<Record<Section, number>> {
-  const { awaitingDispatch, openLinks } = useVendorData();
+  const { awaitingDispatch, actionLinks } = useVendorData();
   const { unacknowledged } = useInbox();
-  return { Bookings: awaitingDispatch.length, Fleet: openLinks.length, Wallet: unacknowledged.length };
+  return { Bookings: awaitingDispatch.length, Fleet: actionLinks.length, Wallet: unacknowledged.length };
 }
 
 /**

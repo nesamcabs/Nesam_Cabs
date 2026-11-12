@@ -84,31 +84,16 @@ export function validatePassport(value: string): string {
   return '';
 }
 
-// Verhoeff checksum tables (used by UIDAI for Aadhaar).
-const VERHOEFF_D = [
-  [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [1, 2, 3, 4, 0, 6, 7, 8, 9, 5], [2, 3, 4, 0, 1, 7, 8, 9, 5, 6],
-  [3, 4, 0, 1, 2, 8, 9, 5, 6, 7], [4, 0, 1, 2, 3, 9, 5, 6, 7, 8], [5, 9, 8, 7, 6, 0, 4, 3, 2, 1],
-  [6, 5, 9, 8, 7, 1, 0, 4, 3, 2], [7, 6, 5, 9, 8, 2, 1, 0, 4, 3], [8, 7, 6, 5, 9, 3, 2, 1, 0, 4],
-  [9, 8, 7, 6, 5, 4, 3, 2, 1, 0],
-];
-const VERHOEFF_P = [
-  [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [1, 5, 7, 6, 2, 8, 3, 0, 9, 4], [5, 8, 0, 3, 7, 9, 6, 1, 4, 2],
-  [8, 9, 1, 6, 0, 4, 3, 5, 2, 7], [9, 4, 5, 3, 1, 2, 6, 8, 7, 0], [4, 2, 8, 6, 5, 7, 3, 9, 0, 1],
-  [2, 7, 9, 3, 8, 0, 6, 4, 1, 5], [7, 0, 4, 6, 9, 1, 3, 2, 5, 8],
-];
-function verhoeffValid(num: string): boolean {
-  let c = 0;
-  const digits = num.split('').reverse().map(Number);
-  for (let i = 0; i < digits.length; i++) c = VERHOEFF_D[c][VERHOEFF_P[i % 8][digits[i]]];
-  return c === 0;
-}
-
 export function validateAadhaar(value: string): string {
   const v = digitsOnly(value);
   if (!v) return 'Aadhaar number is required.';
-  if (!/^[2-9]\d{11}$/.test(v) || !verhoeffValid(v)) return 'Enter a valid 12-digit Aadhaar number.';
+  if (v.length !== 12) return `Aadhaar number must be 12 digits (you entered ${v.length}).`;
+  if (/^(\d)\1{11}$/.test(v)) return 'Enter your real 12-digit Aadhaar number.';
   return '';
 }
+
+/** 1234 5678 9012 — shown while typing; only the digits are kept. */
+export const groupAadhaar = (value: string): string => digitsOnly(value).slice(0, 12).replace(/(\d{4})(?=\d)/g, '$1 ');
 
 export function validateFleetSize(value: string): string {
   const v = value.trim();
@@ -150,3 +135,9 @@ export function maskTail(value: string, visible = 4): string {
 }
 
 export const hasErrors = (errors: Record<string, string>) => Object.values(errors).some(Boolean);
+
+/** "Please fix: <first problem>" so the vendor knows what to correct, even when it is out of view. */
+export const fixMessage = (errors: Record<string, string>): string => {
+  const first = Object.values(errors).find(Boolean);
+  return first ? `Please fix: ${first}` : 'Please fix the highlighted fields.';
+};

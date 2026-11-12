@@ -11,7 +11,7 @@ import { plate } from '../../components/kit/format';
 import { flash } from '../../components/kit/flash';
 import { setVehicleAvailability, submitVehicleRenewal } from '../../services/partnerOps';
 import { assignVehicle, VendorActionError } from '../../services/vendorService';
-import { askOfficeForHelp, cancelLink, resendLinkCode, verifyLinkCode, type LinkStatus, type PartnerLink } from '../../services/partnerLinks';
+import { CODE_TTL_MS, RESEND_COOLDOWN_S, askOfficeForHelp, cancelLink, resendLinkCode, verifyLinkCode, type LinkStatus, type PartnerLink } from '../../services/partnerLinks';
 import type { FleetDriver, FleetVehicle } from '../../types/operations';
 import { describeDataError } from '../../utils/retry';
 import { colors, fontFamily } from '../../theme';
@@ -183,7 +183,14 @@ export function CodePanel({ link, testCode }: { link: PartnerLink; testCode?: st
   const [busy, setBusy] = useState<'' | 'verify' | 'resend' | 'help' | 'cancel'>('');
   const [error, setError] = useState('');
   const [shownCode, setShownCode] = useState(testCode);
-  const [cool, setCool] = useState(0);
+  // A new code can be asked for 60 s after the last one went out (the server enforces it); start from when it was sent.
+  const [cool, setCool] = useState(() => (link.codeSentAt ? Math.max(0, RESEND_COOLDOWN_S - Math.floor((Date.now() - link.codeSentAt.getTime()) / 1000)) : 0));
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 10000);
+    return () => clearInterval(t);
+  }, []);
+  const expired = link.status === 'Awaiting OTP' && !!link.codeSentAt && now - link.codeSentAt.getTime() > CODE_TTL_MS;
   useEffect(() => {
     if (cool <= 0) return undefined;
     const t = setTimeout(() => setCool((c) => c - 1), 1000);
@@ -200,7 +207,8 @@ export function CodePanel({ link, testCode }: { link: PartnerLink; testCode?: st
   const resend = () => run('resend', async () => {
     const r = await resendLinkCode(link.id);
     setShownCode(r.testCode); setCool(60);
-    flash(r.delivered ? 'A new code was sent.' : 'The code could not be delivered. Ask the office to help.', r.delivered ? 'ok' : 'error');
+    setNow(Date.now());
+    flash(r.delivered ? `A new code was sent.${typeof r.sendsLeft === 'number' && r.sendsLeft >= 0 ? ` ${r.sendsLeft} more can be sent this hour.` : ''}` : 'The code could not be delivered. Ask the office to help.', r.delivered ? 'ok' : 'error');
   });
   const help = () => run('help', async () => { await askOfficeForHelp(link.id, 'Could not get the code'); flash('The NESAM office will help you finish this.'); });
   const cancel = () => Alert.alert('Cancel this request?', 'Any code already sent stops working.', [
@@ -216,7 +224,7 @@ export function CodePanel({ link, testCode }: { link: PartnerLink; testCode?: st
     <View style={{ marginTop: 12 }}>
       <TextField label="6-digit verification code" value={code} onChangeText={(t) => setCode(t.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad" maxLength={6} textContentType="oneTimeCode" placeholder="••••••" />
       {shownCode ? <Small style={{ marginTop: -6, marginBottom: 8 }}>Local test only — code {shownCode}</Small> : null}
-      <Btn title="Verify & link" icon="shield-checkmark" busy={busy === 'verify'} disabled={code.length !== 6} full onPress={() => void verify()} />
+      <Btn title="Verify & link" icon="shield-checkmark" busy={busy === 'verify'} disabled={code.length !== 6 || expired} full onPress={() => void verify()} />
     </View>
   );
 
@@ -225,8 +233,12 @@ export function CodePanel({ link, testCode }: { link: PartnerLink; testCode?: st
       {link.status === 'Office review' ? (
         <Notice tone="amber" title="Office verification pending" text={`${link.blockedReason || 'The NESAM office is checking this request.'} You will get a notification when it is decided.`} />
       ) : (
+        expired ? (
+          <Notice tone="amber" icon="time-outline" title="This code has expired" text="A code works for 5 minutes. Send a new code to continue." />
+        ) : (
         <Notice tone="blue" icon="chatbubble-ellipses-outline" title={link.codeDelivered ? `Code sent to ${who}${link.receiverPhoneMask ? ` (${link.receiverPhoneMask})` : ''}` : `The code could not be delivered to ${who}`}
           text={link.codeDelivered ? `Ask ${driverKind ? 'them' : 'the driver'} to read the 6-digit code to you and enter it below. It works for 5 minutes.` : 'Send it again, or ask the NESAM office to help.'} />
+        )
       )}
       {link.status === 'Awaiting OTP' || (!link.consent && !link.otpVerified && link.hasReceiver) ? entry : null}
       <View style={styles.linkActions}>
