@@ -10,6 +10,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   BackHandler,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -460,7 +461,8 @@ function DocumentsStep({
       <TextField
         label={`${idDef.label} number`}
         required
-        value={idType === 'AADHAAR' ? groupAadhaar(idNumber) : idNumber}
+        // Spaces are added only in the browser: rewriting the text while typing makes Android's input jump the cursor.
+        value={idType === 'AADHAAR' && Platform.OS === 'web' ? groupAadhaar(idNumber) : idNumber}
         keyboardType={idType === 'AADHAAR' ? 'number-pad' : 'default'}
         onChangeText={(v) => {
           if (idType === 'AADHAAR') setIdNumber(digitsOnly(v).slice(0, 12));

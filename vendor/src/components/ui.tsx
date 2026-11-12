@@ -18,7 +18,8 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView, Edge } from 'react-native-safe-area-context';
-import { KeyboardAvoid, useKeyboardHeight } from './KeyboardAvoid';
+import { KeyboardAvoid } from './KeyboardAvoid';
+import { useWindowWidth } from '../theme/responsive';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontFamily, radius, space, type } from '../theme';
 import { initials } from '../utils/format';
@@ -333,9 +334,8 @@ export function Sheet({
   // Edge-to-edge Android does not resize the window for the keyboard, so the sheet is lifted by the keyboard height
   // (reported above the navigation bar, which the sheet's bottom safe-area padding already clears). The sheet and its
   // scroll body may shrink, so the focused field and the actions stay reachable by scrolling. iOS keeps KeyboardAvoidingView.
-  const keyboardHeight = useKeyboardHeight();
   // Wide screens (tablet, desktop browser) get a centred dialog; phones a bottom sheet — as in the reference.
-  const { width } = useWindowDimensions();
+  const width = useWindowWidth();
   const dialog = width >= 801;
   const header = (
     <View style={styles.sheetHeader}>
@@ -351,10 +351,10 @@ export function Sheet({
   );
   return (
     <Modal visible={visible} transparent animationType={dialog ? 'fade' : 'slide'} statusBarTranslucent onRequestClose={dismissible ? onClose : () => undefined}>
-      <View style={[styles.sheetBackdrop, dialog && styles.dialogBackdrop, { paddingBottom: Platform.OS === 'android' ? keyboardHeight : 0 }]}>
+      <KeyboardAvoid style={styles.sheetBackdrop} innerStyle={dialog ? styles.dialogBackdrop : undefined}>
         <Pressable style={StyleSheet.absoluteFill} onPress={dismissible ? onClose : undefined} accessibilityLabel="Close" />
         {!dialog ? <View style={{ flex: 1 }} pointerEvents="none" /> : null}
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.sheetShrink, dialog && styles.dialogWrap]}>
+        <View style={[styles.sheetShrink, dialog && styles.dialogWrap]}>
           <SafeAreaView edges={dialog ? [] : ['bottom']} style={[styles.sheet, styles.sheetShrink, dialog && styles.dialog]}>
             {!dialog ? <View style={styles.sheetHandle} /> : null}
             {header}
@@ -362,8 +362,8 @@ export function Sheet({
               {children}
             </ScrollView>
           </SafeAreaView>
-        </KeyboardAvoidingView>
-      </View>
+        </View>
+      </KeyboardAvoid>
     </Modal>
   );
 }

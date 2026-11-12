@@ -10,7 +10,7 @@
 // Inside a tab screen it adds nothing at rest (the tab bar already clears the gesture area); on a stack screen it clears the
 // navigation bar; with the keyboard open it lifts the content to sit directly above the keyboard.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Keyboard, KeyboardAvoidingView, Platform, StyleProp, View, ViewStyle, useWindowDimensions } from 'react-native';
+import { Dimensions, Keyboard, KeyboardAvoidingView, Platform, StyleProp, View, ViewStyle, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { bottomClearance } from '../utils/keyboardAvoid';
 
@@ -29,18 +29,19 @@ export function useKeyboardHeight(): number {
   return height;
 }
 
-export function KeyboardAvoid({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
+/** `style` is the outer box; `innerStyle` the inner one that is lifted (a dialog's backdrop centres its content there). */
+export function KeyboardAvoid({ children, style, innerStyle }: { children: React.ReactNode; style?: StyleProp<ViewStyle>; innerStyle?: StyleProp<ViewStyle> }) {
   if (Platform.OS !== 'android') {
     return (
-      <KeyboardAvoidingView style={[{ flex: 1 }, style]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={[{ flex: 1 }, style, innerStyle]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {children}
       </KeyboardAvoidingView>
     );
   }
-  return <AndroidAvoid style={style}>{children}</AndroidAvoid>;
+  return <AndroidAvoid style={style} innerStyle={innerStyle}>{children}</AndroidAvoid>;
 }
 
-function AndroidAvoid({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
+function AndroidAvoid({ children, style, innerStyle }: { children: React.ReactNode; style?: StyleProp<ViewStyle>; innerStyle?: StyleProp<ViewStyle> }) {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const keyboardHeight = useKeyboardHeight();
@@ -54,16 +55,20 @@ function AndroidAvoid({ children, style }: { children: React.ReactNode; style?: 
     });
   }, []);
 
-  // Re-measure when the keyboard opens/closes or the insets change; onLayout covers a tab bar appearing or the window changing.
+  // Re-measure when the keyboard opens/closes or the insets change, and once more after Android has finished moving things
+  // (the window may resize a moment after the keyboard event). onLayout covers a tab bar appearing or the window changing.
   useEffect(() => {
     measure();
+    const t = setTimeout(measure, 120);
+    return () => clearTimeout(t);
   }, [measure, keyboardHeight, insets.bottom, windowHeight]);
 
-  const padding = viewBottom === null ? 0 : bottomClearance({ viewBottom, windowHeight, insetBottom: insets.bottom, keyboardHeight });
+  const screenHeight = Dimensions.get('screen').height;
+  const padding = viewBottom === null ? 0 : bottomClearance({ viewBottom, windowHeight, insetBottom: insets.bottom, keyboardHeight, screenHeight });
 
   return (
     <View ref={ref} collapsable={false} onLayout={measure} style={[{ flex: 1 }, style]}>
-      <View style={{ flex: 1, paddingBottom: padding }}>{children}</View>
+      <View style={[{ flex: 1 }, innerStyle, { paddingBottom: padding }]}>{children}</View>
     </View>
   );
 }

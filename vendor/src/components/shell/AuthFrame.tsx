@@ -64,7 +64,7 @@ export function AuthFrame({ children }: { children: React.ReactNode }) {
               </View>
             </View>
           ) : null}
-          <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.scroll, split && { justifyContent: 'center' }]} keyboardShouldPersistTaps="handled">
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.scroll, split && { justifyContent: 'center' }]} keyboardShouldPersistTaps="always" keyboardDismissMode="none" removeClippedSubviews={false}>
             <View style={styles.formCol}>
               {split ? null : <View style={styles.phoneBrand}><PartnerBrand size={1.25} /></View>}
               {children}

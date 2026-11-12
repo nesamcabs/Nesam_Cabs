@@ -35,6 +35,13 @@ describe('bottomClearance', () => {
     expect(bottomClearance({ viewBottom: 800, windowHeight, insetBottom: 0, keyboardHeight: 280 })).toBe(280);
   });
 
+  it('a window Android already shrank for the keyboard is not lifted a second time', () => {
+    // screen 800, keyboard 300 + 24 bar: the window is now 476 high and the container ends at its bottom edge.
+    expect(bottomClearance({ viewBottom: 476, windowHeight: 476, screenHeight: 800, insetBottom, keyboardHeight: 300 })).toBe(0);
+    // ...while an unshrunk window (edge-to-edge) still needs the full lift.
+    expect(bottomClearance({ viewBottom: 800, windowHeight: 800, screenHeight: 800, insetBottom, keyboardHeight: 300 })).toBe(324);
+  });
+
   it('ignores bad measurements instead of moving content off screen', () => {
     expect(bottomClearance({ viewBottom: NaN, windowHeight, insetBottom, keyboardHeight: 300 })).toBe(0);
     expect(bottomClearance({ viewBottom: 800, windowHeight: 0, insetBottom, keyboardHeight: 300 })).toBe(0);

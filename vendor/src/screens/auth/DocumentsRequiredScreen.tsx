@@ -4,6 +4,7 @@
 //   • DocumentsRequiredScreen — application submitted without documents: a full sign-in style screen.
 import React, { useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AUTH, AuthCard, AuthFrame } from '../../components/shell/AuthFrame';
@@ -74,7 +75,8 @@ function Links({ onSignOut, short }: { onSignOut: () => void; short?: boolean })
 /** Card over the view-only workspace of an approved partner whose documents are missing. */
 export function VerificationLock({ record, onSignOut }: { record: VendorRecord; onSignOut: () => void }) {
   const insets = useSafeAreaInsets();
-  const { wide, height } = useLayout();
+  const { wide } = useLayout();
+  const { height } = useWindowDimensions();
   const [open, setOpen] = useState(false);
   const { busy, error, start } = useReopen(record);
   const d = record.documents;

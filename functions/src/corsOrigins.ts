@@ -34,6 +34,8 @@ export const PUBLIC_CALLABLE_ORIGINS: string[] = [
   'https://www.peopletaxi.in',
   'https://peopletaxi.in',
 
+  'https://peopletaxi.vercel.app',
+
   // ── Local development (Vite dev server defaults, and the three sites' own ports) ──
   'http://localhost:5173',
   'http://localhost:5174',
@@ -44,4 +46,14 @@ export const PUBLIC_CALLABLE_ORIGINS: string[] = [
   ...Array.from({ length: 16 }, (_, i) => `http://localhost:${8080 + i}`).filter((o) => o !== 'http://localhost:8084' && o !== 'http://localhost:8086'),
   'http://localhost:8084',
   'http://localhost:8086',
+];
+
+/**
+ * Vercel gives every deployment of a customer site its own address (`<project>-<hash>-<team>.vercel.app`, and
+ * `<project>-git-<branch>-<team>.vercel.app` per branch), so these cannot be listed one by one. `*` stands for one
+ * DNS label (letters, digits, dashes). Used by the HTTP API only; the browser never gets a credential from CORS.
+ */
+export const PUBLIC_ORIGIN_PATTERNS: string[] = [
+  'https://peopletaxi-*-nesam1.vercel.app',
+  'https://onewaycarrentals-*-nesam1.vercel.app',
 ];

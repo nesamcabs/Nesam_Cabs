@@ -1,7 +1,7 @@
 // Small, dependency-free helpers shared by the HTTP (Vercel) entry points.
 import type { IncomingMessage, ServerResponse } from 'http';
 import { timingSafeEqual } from 'crypto';
-import { PUBLIC_CALLABLE_ORIGINS } from '../corsOrigins';
+import { PUBLIC_CALLABLE_ORIGINS, PUBLIC_ORIGIN_PATTERNS } from '../corsOrigins';
 
 /** The parts of Vercel's Node request helpers these handlers use. */
 export interface ApiRequest extends IncomingMessage {
@@ -35,9 +35,10 @@ export { header };
 function originAllowed(origin: string, list: string[]): boolean {
   return list.some((rule) => {
     if (rule === origin) return true;
-    // "https://*.example.com" matches any single-level subdomain.
-    const m = /^(https?:\/\/)\*\.(.+)$/.exec(rule);
-    return !!m && origin.startsWith(m[1]!) && origin.endsWith(`.${m[2]}`) && !origin.slice(m[1]!.length, -m[2]!.length - 1).includes('.');
+    if (!rule.includes('*')) return false;
+    // "https://*.example.com" or "https://site-*-team.vercel.app": each `*` matches exactly one DNS label.
+    const pattern = rule.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[a-z0-9-]+');
+    return new RegExp(`^${pattern}$`, 'i').test(origin);
   });
 }
 
@@ -51,7 +52,7 @@ export function applyCors(req: IncomingMessage, res: ApiResponse): void {
   const origin = header(req, 'origin');
   // The public customer domains are always allowed, so a site added there never depends on the env var being updated.
   const fromEnv = (process.env.ALLOWED_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
-  const list = [...PUBLIC_CALLABLE_ORIGINS, ...fromEnv];
+  const list = [...PUBLIC_CALLABLE_ORIGINS, ...PUBLIC_ORIGIN_PATTERNS, ...fromEnv];
   res.setHeader('Vary', 'Origin');
   if (origin && originAllowed(origin, list)) {
     res.setHeader('Access-Control-Allow-Origin', origin);

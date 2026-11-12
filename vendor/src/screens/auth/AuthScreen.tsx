@@ -64,8 +64,17 @@ export function AuthScreen() {
   const [cooldown, setCooldown] = useState(0);
   const [focused, setFocused] = useState(false);
   const otpRef = useRef<TextInput>(null);
+  const phoneRef = useRef<TextInput>(null);
   const verifier = useRecaptchaVerifier();
   const { online } = useNetworkStatus();
+
+  // Focus after the next auth step has mounted and finished its initial layout.
+  // Native autoFocus can race with Android's window/keyboard resize on entry.
+  useEffect(() => {
+    if (step !== 'phone') return;
+    const timer = setTimeout(() => phoneRef.current?.focus(), 350);
+    return () => clearTimeout(timer);
+  }, [step]);
 
   useEffect(() => {
     if (cooldown <= 0) return undefined;
@@ -157,6 +166,7 @@ export function AuthScreen() {
             <Text style={styles.prefix}>+91</Text>
             <View style={styles.prefixRule} />
             <TextInput
+              ref={phoneRef}
               value={mobile}
               onChangeText={(v) => { setMobile(v.replace(/\D/g, '').slice(0, 10)); setError(''); }}
               onFocus={() => setFocused(true)}
@@ -167,7 +177,7 @@ export function AuthScreen() {
               maxLength={10}
               placeholder="98765 43210"
               placeholderTextColor="#A2A8B2"
-              autoFocus
+              blurOnSubmit={false}
               returnKeyType="done"
               onSubmitEditing={() => void sendOtp()}
               style={styles.phoneInput}
