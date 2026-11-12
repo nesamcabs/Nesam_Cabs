@@ -51,3 +51,4 @@ export { ltCheckServiceability, ltGetQuotes, ltCreateRide, ltCancellationQuote, 
 export { ltSetAvailability, ltUpdateLocation, ltRespondOffer, ltDriverAdvance } from './localTaxi/driverFns';
 export { ltCreatePaymentOrder, ltVerifyPayment } from './localTaxi/payFns';
 export { ltDispatchSweep } from './localTaxi/sweep';
+export { onVendorApplicationSubmitted } from './vendorOnboarding';

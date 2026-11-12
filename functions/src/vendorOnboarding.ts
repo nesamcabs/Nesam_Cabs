@@ -8,6 +8,7 @@
 // Only the SHA-256 of the token is stored, so a database reader cannot use an
 // invitation. A token works for one phone number, once, before it expires.
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { createHash, randomBytes } from 'crypto';
 import { db } from './admin';
@@ -18,6 +19,22 @@ import { requirePermission, text, requireAction } from './shared';
 
 const DEFAULT_VALID_HOURS = 72;
 const MAX_VALID_HOURS = 168;
+
+/** Direct portal signups and resubmissions must reach the office too. */
+export const onVendorApplicationSubmitted = onDocumentWritten({ document: 'vendors/{vendorId}', retry: true }, async (event) => {
+  const after = event.data?.after.data();
+  const before = event.data?.before.data();
+  if (!after || after.status !== 'PENDING_APPROVAL') return;
+  if (before?.status === 'PENDING_APPROVAL') return;
+  const phone = text(after.phone, 30);
+  await notify({
+    recipientType: 'admin', recipientId: 'admin', category: 'approvals', severity: 'info', sound: 'general',
+    title: 'Vendor application submitted',
+    message: `${phone || 'A fleet partner'} submitted a vendor application. Review and approve it under Vendors.`,
+    cta: { label: 'Review vendor', page: 'vendors' },
+    dedupeKey: `vendor_application_${event.params.vendorId}_${event.id}`, push: true,
+  });
+});
 
 export const hashInvitationToken = (token: string): string => createHash('sha256').update(token).digest('hex');
 
