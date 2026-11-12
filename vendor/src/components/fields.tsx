@@ -3,7 +3,7 @@ import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'r
 import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { chooseFileSource } from './FileUploadField';
-import { PickerError, pickDocument, pickPhoto, uploadVehicleDocument } from '../services/storageService';
+import { PickerError, describePickerError, pickUploadFile, uploadVehicleDocument } from '../services/storageService';
 import { describeDataError } from '../utils/retry';
 import { colors, radius, space, type } from '../theme';
 
@@ -86,17 +86,15 @@ export function SingleDocField({
 
   const pick = async () => {
     if (progress != null) return;
-    const source = await chooseFileSource(label);
-    if (!source) return;
     setUploadError('');
     try {
-      const file = source === 'document' ? await pickDocument() : await pickPhoto(source);
+      const file = await pickUploadFile(() => chooseFileSource(label));
       if (!file) return;
       setProgress(0);
       onBusyChange?.(true);
       onChange(await uploadVehicleDocument(vehicleId, kind, file, setProgress));
     } catch (e) {
-      setUploadError(e instanceof PickerError ? e.message : describeDataError(e));
+      setUploadError(e instanceof PickerError ? e.message : (e as { code?: string })?.code ? describeDataError(e) : describePickerError(e));
     } finally {
       setProgress(null);
       onBusyChange?.(false);

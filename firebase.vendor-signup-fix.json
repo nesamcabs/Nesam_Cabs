@@ -1,0 +1,5 @@
+{
+  "firestore": {
+    "rules": "firestore.vendor-signup-fixed.rules"
+  }
+}

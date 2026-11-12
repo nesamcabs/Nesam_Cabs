@@ -5,6 +5,7 @@
 //
 //   vendors/{uid}/onboarding/{category}/{ts}_{rand}_{name}   onboarding documents
 //   vendors/{uid}/vehicles/{vehicleId}/{kind}-{ts}.{ext}       fleet vehicle documents
+import { Platform } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
@@ -39,6 +40,97 @@ function guessMime(name: string): string {
   return ext === 'pdf' ? 'application/pdf' : ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : '';
 }
 
+export type UploadSource = 'document' | 'camera' | 'library';
+
+/**
+ * Browser file chooser for the web build. It must open straight from the tap that started it: browsers refuse a file
+ * picker that is opened after a dialog or a permission prompt. On phones the chooser itself offers Camera, Photos and
+ * Files. Large photos are shrunk to a JPEG so they stay within the upload limit.
+ */
+function pickFromBrowser(): Promise<LocalFile | null> {
+  return new Promise((resolve, reject) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*,application/pdf';
+    input.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;pointer-events:none';
+    let settled = false;
+    const finish = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      input.remove();
+      fn();
+    };
+    input.addEventListener('cancel', () => finish(() => resolve(null)));
+    input.addEventListener('change', () => {
+      const chosen = input.files?.[0];
+      if (!chosen) return finish(() => resolve(null));
+      fromBrowserFile(chosen).then(
+        (file) => finish(() => resolve(file)),
+        (e) => finish(() => reject(e)),
+      );
+    });
+    document.body.appendChild(input);
+    input.click();
+  });
+}
+
+async function fromBrowserFile(file: File): Promise<LocalFile> {
+  const mime = file.type || guessMime(file.name);
+  const isImage = /^image\//.test(mime);
+  if (isImage) {
+    try {
+      const bitmap = await createImageBitmap(file);
+      const scale = Math.min(1, 1800 / Math.max(bitmap.width, bitmap.height));
+      if (scale < 1 || file.size > 2 * 1024 * 1024) {
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(bitmap.width * scale);
+        canvas.height = Math.round(bitmap.height * scale);
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+          bitmap.close?.();
+          const blob = await new Promise<Blob | null>((done) => canvas.toBlob(done, 'image/jpeg', 0.85));
+          if (blob) {
+            const base = (file.name || `photo-${Date.now()}`).replace(/\.[a-z0-9]+$/i, '');
+            return { uri: URL.createObjectURL(blob), name: `${base}.jpg`, mimeType: 'image/jpeg', size: blob.size };
+          }
+        }
+      }
+      bitmap.close?.();
+    } catch {
+      /* a format the browser cannot decode: upload the file as it is */
+    }
+  }
+  return { uri: URL.createObjectURL(file), name: file.name || 'document', mimeType: mime, size: file.size };
+}
+
+/**
+ * Pick a file to upload. On the web the browser's own chooser opens at once; on Android / iOS `chooseSource` asks
+ * whether to pick a file, take a photo or open the gallery. Null when cancelled.
+ */
+export async function pickUploadFile(chooseSource: () => Promise<UploadSource | null>): Promise<LocalFile | null> {
+  if (Platform.OS === 'web') return pickFromBrowser();
+  const source = await chooseSource();
+  if (!source) return null;
+  return source === 'document' ? pickDocument() : pickPhoto(source);
+}
+
+/** A type the upload rules accept: fixes "image/jpg" and "application/octet-stream" using the file name. */
+function normalizeMime(mime: string | undefined | null, name: string): string {
+  const m = (mime || '').toLowerCase();
+  if (m === 'image/jpg') return 'image/jpeg';
+  if (ALLOWED_TYPES.test(m)) return m;
+  return guessMime(name) || m;
+}
+
+/** What went wrong while choosing a file, in words the vendor can act on. */
+export function describePickerError(e: unknown): string {
+  if (e instanceof PickerError) return e.message;
+  const reason = e instanceof Error ? e.message.trim() : '';
+  console.warn('[upload] file could not be read', e);
+  return reason && reason.length < 100 ? `Couldn’t read that file (${reason}). Try again, or choose a JPG, PNG or PDF.` : 'Couldn’t read that file. Try again, or choose a JPG, PNG or PDF.';
+}
+
 /** System document picker (PDF / JPG / PNG / WEBP). Null when cancelled. */
 export async function pickDocument(): Promise<LocalFile | null> {
   const result = await DocumentPicker.getDocumentAsync({
@@ -48,16 +140,20 @@ export async function pickDocument(): Promise<LocalFile | null> {
   });
   if (result.canceled || !result.assets?.length) return null;
   const a = result.assets[0]!;
-  return { uri: a.uri, name: a.name || 'document', mimeType: a.mimeType || guessMime(a.name || ''), size: a.size ?? 0 };
+  const name = a.name || 'document';
+  // Some Android file providers report no size; read it from the file instead of treating the file as empty.
+  let size = a.size ?? 0;
+  if (!size) size = await uriToBlob(a.uri).then((b) => b.size, () => 0);
+  return { uri: a.uri, name, mimeType: normalizeMime(a.mimeType, name), size };
 }
 
-/** Camera or gallery photo, compressed to a JPEG. Null when cancelled. */
+/** Camera or gallery photo, compressed to a JPEG when possible. Null when cancelled. */
 export async function pickPhoto(source: 'camera' | 'library'): Promise<LocalFile | null> {
   if (source === 'camera') {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) {
       throw new PickerError(
-        perm.canAskAgain ? 'Camera permission is needed to take a photo.' : 'Camera access is turned off for NESAM Vendor. Enable it in Settings › Apps › NESAM Vendor › Permissions.',
+        perm.canAskAgain ? 'Camera permission is needed to take a photo.' : 'Camera access is turned off for NESAM Partner. Enable it in Settings › Apps › NESAM Partner › Permissions.',
       );
     }
   }
@@ -65,15 +161,23 @@ export async function pickPhoto(source: 'camera' | 'library'): Promise<LocalFile
   const result = source === 'camera' ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
   if (result.canceled || !result.assets?.length) return null;
   const asset = result.assets[0]!;
-  const ctx = ImageManipulator.ImageManipulator.manipulate(asset.uri);
-  if (Math.max(asset.width || 0, asset.height || 0) > 1800) {
-    if ((asset.width || 0) >= (asset.height || 0)) ctx.resize({ width: 1800 });
-    else ctx.resize({ height: 1800 });
-  }
-  const saved = await (await ctx.renderAsync()).saveAsync({ format: ImageManipulator.SaveFormat.JPEG, compress: 0.82 });
-  const blob = await uriToBlob(saved.uri);
   const base = (asset.fileName || `photo-${Date.now()}`).replace(/\.[a-z0-9]+$/i, '');
-  return { uri: saved.uri, name: `${base}.jpg`, mimeType: 'image/jpeg', size: blob.size };
+  try {
+    const ctx = ImageManipulator.ImageManipulator.manipulate(asset.uri);
+    if (Math.max(asset.width || 0, asset.height || 0) > 1800) {
+      if ((asset.width || 0) >= (asset.height || 0)) ctx.resize({ width: 1800 });
+      else ctx.resize({ height: 1800 });
+    }
+    const saved = await (await ctx.renderAsync()).saveAsync({ format: ImageManipulator.SaveFormat.JPEG, compress: 0.82 });
+    const blob = await uriToBlob(saved.uri);
+    return { uri: saved.uri, name: `${base}.jpg`, mimeType: 'image/jpeg', size: blob.size };
+  } catch (e) {
+    // Shrinking failed (unusual format, low memory): upload the photo as it is rather than losing the pick.
+    console.warn('[upload] photo could not be compressed; using the original', e);
+    const name = asset.fileName || `${base}.jpg`;
+    const size = asset.fileSize || (await uriToBlob(asset.uri).then((b) => b.size, () => 0));
+    return { uri: asset.uri, name, mimeType: normalizeMime(asset.mimeType, name) || 'image/jpeg', size };
+  }
 }
 
 export function uriToBlob(uri: string): Promise<Blob> {

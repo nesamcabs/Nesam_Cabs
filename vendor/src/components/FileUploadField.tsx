@@ -9,7 +9,7 @@ import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'rea
 import { Ionicons } from '@expo/vector-icons';
 import type { StoredFile } from '../types/vendor';
 import { MAX_FILES_PER_FIELD, type UploadCategory } from '../config/onboarding';
-import { PickerError, deleteVendorFile, pickDocument, pickPhoto, uploadVendorFile, type LocalFile, type UploadHandle } from '../services/storageService';
+import { PickerError, deleteVendorFile, describePickerError, pickUploadFile, uploadVendorFile, type LocalFile, type UploadHandle } from '../services/storageService';
 import { describeDataError } from '../utils/retry';
 import { colors, radius, space, type } from '../theme';
 
@@ -105,13 +105,11 @@ export function FileUploadField({
       setLocalError(`You can upload up to ${max} files here.`);
       return;
     }
-    const source = await chooseFileSource(label);
-    if (!source) return;
     try {
-      const file = source === 'document' ? await pickDocument() : await pickPhoto(source);
+      const file = await pickUploadFile(() => chooseFileSource(label));
       if (file) start(file, `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
     } catch (e) {
-      setLocalError(e instanceof PickerError ? e.message : 'Couldn’t open the picker.');
+      setLocalError(describePickerError(e));
     }
   };
 

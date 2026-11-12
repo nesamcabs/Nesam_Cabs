@@ -18,7 +18,7 @@ const TONES: Record<string, string> = {
   support: 'blue', phone: 'green', info: 'gold', document: 'brand',
 };
 
-function Row({ icon, label, value, to, href }: { icon: string; label: string; value?: ReactNode; to?: string; href?: string }) {
+function Row({ icon, label, value, to, href, onPress }: { icon: string; label: string; value?: ReactNode; to?: string; href?: string; onPress?: () => void }) {
   const tone = TONES[icon] ?? 'brand';
   const cls = `setting setting--${tone}`;
   const inner = (
@@ -28,9 +28,15 @@ function Row({ icon, label, value, to, href }: { icon: string; label: string; va
       </span>
       <span className="setting__label">{label}</span>
       {value ? <span className="setting__value truncate">{value}</span> : null}
-      {to || href ? <Icon name="chevron-right" size={18} /> : null}
+      {to || href || onPress ? <Icon name="chevron-right" size={18} /> : null}
     </>
   );
+  if (onPress)
+    return (
+      <button type="button" className={`${cls} setting--button`} onClick={onPress}>
+        {inner}
+      </button>
+    );
   if (to)
     return (
       <Link className={cls} to={to}>
@@ -46,8 +52,10 @@ function Row({ icon, label, value, to, href }: { icon: string; label: string; va
   return <div className={cls}>{inner}</div>;
 }
 
-/** `drawer`: shown inside the profile side drawer (no page heading or page padding). */
-export function AccountPage({ variant = 'page' }: { variant?: 'page' | 'drawer' }) {
+export type ProfileEditView = 'details' | 'emergency';
+
+/** `drawer`: shown inside the profile side drawer (no page heading or page padding); `onEdit` opens an edit form in place. */
+export function AccountPage({ variant = 'page', onEdit }: { variant?: 'page' | 'drawer'; onEdit?: (view: ProfileEditView) => void }) {
   useSeo(variant === 'page' ? { title: 'My Account', noindex: true } : null);
   const inDrawer = variant === 'drawer';
   const { profile } = useCustomerData();
@@ -142,9 +150,15 @@ export function AccountPage({ variant = 'page' }: { variant?: 'page' | 'drawer' 
                 <p className="truncate">{formatPhone(profile.phone)}</p>
                 {progress != null ? <p className="truncate">Uploading photo… {progress}%</p> : profile.email ? <p className="truncate">{profile.email}</p> : null}
               </div>
-              <Link className="profile-card__edit" to="/account/edit" aria-label="Edit profile" title="Edit profile">
-                <Icon name="edit" size={17} />
-              </Link>
+              {onEdit ? (
+                <button type="button" className="profile-card__edit" onClick={() => onEdit('details')} aria-label="Edit profile" title="Edit profile">
+                  <Icon name="edit" size={17} />
+                </button>
+              ) : (
+                <Link className="profile-card__edit" to="/account/edit" aria-label="Edit profile" title="Edit profile">
+                  <Icon name="edit" size={17} />
+                </Link>
+              )}
             </section>
 
             {/* Refund credits live on the Payments page; the drawer stays a short menu. */}
@@ -162,9 +176,7 @@ export function AccountPage({ variant = 'page' }: { variant?: 'page' | 'drawer' 
             <section className="group" aria-labelledby="g-account">
               <h2 id="g-account" className="group__title">Account</h2>
               <div className="card card--list">
-                <Row icon="profile" label="Personal details" to="/account/edit" />
-                <Row icon="saved-place" label="Saved places" to="/account/places" />
-                <Row icon="emergency" label="Emergency contact" value={profile.emergencyContact || 'Not set'} to="/account/emergency" />
+                <Row icon="emergency" label="Emergency contact" value={profile.emergencyContact || 'Not set'} {...(onEdit ? { onPress: () => onEdit('emergency') } : { to: '/account/emergency' })} />
               </div>
             </section>
             <section className="group" aria-labelledby="g-trips">

@@ -14,8 +14,8 @@ import { colors, fontFamily } from '../../theme';
 
 const STEPS: [string, string][] = [
   ['Register your first vehicle', 'Just the number on the plate.'],
-  ['NESAM reviews your application', 'We verify the vehicle and call you if anything else is needed.'],
-  ['Start accepting duties', 'Add drivers and vehicles, then accept duties at the payout shown.'],
+  ['Complete your application', 'Add your business details and upload the required vehicle documents.'],
+  ['Submit for NESAM approval', 'After approval, add your drivers and start accepting duties.'],
 ];
 
 export function RegistrationGate({ phone, onSignOut }: { phone: string; onSignOut: () => void }) {
@@ -95,7 +95,7 @@ export function RegistrationGate({ phone, onSignOut }: { phone: string; onSignOu
           <Notice tone="red" icon="person-circle-outline" title="This number already has a NESAM account" text={conflict} style={{ marginBottom: 12 }}
             action={<Btn kind="secondary" small icon="log-out-outline" title="Sign out and use another number" onPress={onSignOut} />} />
         ) : null}
-        <Btn title={busy ? 'Submitting…' : 'Submit application'} iconRight="arrow-forward" busy={busy} full onPress={() => void register()} style={styles.cta} />
+        <Btn title={busy ? 'Creating account…' : 'Continue to application'} iconRight="arrow-forward" busy={busy} full onPress={() => void register()} style={styles.cta} />
 
         <View style={styles.links}>
           <Pressable onPress={() => void Linking.openURL(`tel:${SUPPORT_PHONE}`)} accessibilityRole="button" hitSlop={8} style={styles.link}>

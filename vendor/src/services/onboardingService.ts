@@ -419,18 +419,22 @@ const roleConflictMessage = (role: 'customer' | 'driver', phone: string) =>
 
 export async function registerVendorWithVehicle(phone: string, registration: string): Promise<void> {
   const uid = requireUid();
+  const user = auth.currentUser!;
+  await user.getIdToken(true);
+  const verifiedPhone = user.phoneNumber;
+  if (!verifiedPhone) throw Object.assign(new Error('Verify your mobile number again before creating your partner account.'), { code: 'failed-precondition' });
   if (!isPlate(registration)) throw new Error('Enter a valid registration number (e.g. TN 01 AB 1234).');
   // firestore.rules (vendorSelfCreateOk) refuses a vendor sign-up for a number that already has a customer or driver
   // account; say so up front instead of letting the write fail.
   const before = await existingRole(uid);
   if (before) throw new RoleConflictError(before, roleConflictMessage(before, phone));
   try {
-    await withTimeout(setDoc(doc(db, VENDORS, uid), buildVendorSignupRecord(uid, phone, registration)));
+    await withTimeout(setDoc(doc(db, VENDORS, uid), buildVendorSignupRecord(uid, verifiedPhone, registration)));
   } catch (e) {
     if ((e as { code?: string })?.code === 'permission-denied') {
       const role = await existingRole(uid);
       if (role) throw new RoleConflictError(role, roleConflictMessage(role, phone));
-      throw Object.assign(new Error('NESAM could not open a partner account for this number. Please call the NESAM office and we will set it up for you.'), { code: 'failed-precondition' });
+      throw Object.assign(new Error('Account creation was blocked by the server security rules. Your application has not been submitted. Please contact NESAM support to check the vendor registration configuration.'), { code: 'failed-precondition' });
     }
     throw e;
   }

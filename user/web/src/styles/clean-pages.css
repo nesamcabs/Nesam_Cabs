@@ -231,3 +231,42 @@ body > div > div:has(> iframe[title*='challenge' i]) {
 .simple-form__icon { display: grid; place-items: center; flex: none; width: 42px; height: 42px; border-radius: 12px; background: var(--danger-soft, #fff1f0); color: var(--danger, #b42318); }
 .simple-form__head h2 { margin: 0; color: var(--ink); font-size: 1.05rem; font-weight: 800; }
 .simple-form__head p { margin: 2px 0 0; color: var(--muted); font-size: 0.84rem; line-height: 1.45; }
+
+/* ── Profile drawer: edit forms open in place and widen the drawer ───────────────────────────────────── */
+.drawer--profile .drawer__panel { transition: width 240ms var(--ease-out, ease); }
+.drawer--profile .drawer__panel--wide { width: min(96vw, 440px); }
+.drawer--profile .drawer__head { gap: 8px; }
+.drawer__back { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border: 0; border-radius: 11px; background: var(--sunken, #f1f4f8); color: var(--ink); cursor: pointer; }
+.drawer__back:hover { background: var(--brand-soft, #eef3ff); color: var(--brand); }
+.drawer__title { flex: 1; min-width: 0; color: var(--ink); font-size: 1rem; font-weight: 800; }
+.drawer--profile .simple-form { max-width: none; padding: 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface, #fff); }
+.simple-form__lead { display: flex; align-items: flex-start; gap: 8px; margin: 0; color: var(--muted); font-size: 0.86rem; line-height: 1.45; }
+.simple-form__lead .icon { flex: none; margin-top: 1px; color: var(--danger, #b42318); }
+.simple-form-wrap { max-width: 520px; margin: 0 auto; padding: 18px; border: 1px solid var(--line); border-radius: 16px; box-shadow: none; }
+.simple-form-wrap .simple-form { padding: 0; border: 0; }
+.setting--button { width: 100%; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
+.setting--button:hover { background: color-mix(in srgb, var(--brand) 5%, #fff); }
+
+/* ── About ───────────────────────────────────────────────────────────────────────────────────────────── */
+.about { display: grid; gap: 18px; max-width: 640px; margin: 0 auto; }
+.about-hero { padding: 20px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface, #fff); }
+.about-hero__eyebrow { margin: 0; color: var(--muted); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+.about-hero h2 { margin: 4px 0 8px; color: var(--brand); font-size: 1.6rem; font-weight: 900; letter-spacing: -0.02em; }
+.about-hero > p:not(.about-hero__eyebrow) { margin: 0; color: var(--ink-2, var(--ink)); font-size: 0.92rem; line-height: 1.6; }
+.about-facts { display: grid; gap: 12px; margin: 18px 0 0; padding: 16px 0 0; border-top: 1px solid var(--line); list-style: none; }
+@media (min-width: 560px) { .about-facts { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.about-facts li { display: flex; align-items: flex-start; gap: 10px; }
+.about-facts__icon { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 10px; background: var(--brand-soft, #f3f6ff); color: var(--brand); }
+.about-facts strong { display: block; color: var(--ink); font-size: 0.86rem; font-weight: 800; }
+.about-facts small { display: block; margin-top: 1px; color: var(--muted); font-size: 0.78rem; line-height: 1.4; }
+.about-section { display: grid; gap: 8px; }
+.about-section .card--list { border: 1px solid var(--line); border-radius: 14px; box-shadow: none; }
+.about-row { display: flex; align-items: center; gap: 12px; min-height: 54px; padding: 8px 14px; color: var(--ink); text-decoration: none; transition: background 160ms; }
+.about-row + .about-row { border-top: 1px solid var(--line); }
+.about-row:hover { background: color-mix(in srgb, var(--brand) 5%, #fff); text-decoration: none; }
+.about-row__icon { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 10px; background: var(--brand-soft, #f3f6ff); color: var(--brand); }
+.about-row__text { display: grid; flex: 1; min-width: 0; gap: 1px; }
+.about-row__text strong { overflow-wrap: anywhere; font-size: 0.9rem; font-weight: 700; }
+.about-row__text small { color: var(--muted); font-size: 0.78rem; line-height: 1.4; }
+.about-row > .icon:last-child { flex: none; color: var(--faint); }
+.about-legal { margin: 4px 0 0; color: var(--faint); font-size: 0.74rem; text-align: center; }
