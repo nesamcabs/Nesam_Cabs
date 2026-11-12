@@ -7,6 +7,7 @@ import { describeError } from '@core/utils/retry';
 import { Badge, Button, EmptyState, FieldShell, Notice, PageHead, TextArea, TextField } from '@/components/ui';
 import { FAQS } from '@/pages/book/content';
 import { Icon } from '@/components/Icon';
+import { DeleteAccountCard } from '@/components/DeleteAccount';
 import { useAuth } from '@/state/Auth';
 import { useSeo } from '@/lib/seo';
 import { SUPPORT_SEO } from '@/seo/pages';
@@ -131,6 +132,13 @@ export function SupportPage() {
                   ))}
                 </div>
               </section>
+
+              {profile ? (
+                <section aria-label="Account">
+                  <h2 className="support-title">Account</h2>
+                  <DeleteAccountCard />
+                </section>
+              ) : null}
             </div>
           ) : null}
 

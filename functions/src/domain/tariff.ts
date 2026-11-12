@@ -1,4 +1,6 @@
 import { withBookedAddOnFare } from './bookingAddOns';
+import { withNightAllowanceFare, type NightAllowanceCharge } from './nightAllowance';
+import { withPlatformFeeFare, type PlatformFeeCharge } from './platformFee';
 import { gstComponents, withFareGst, validGstRule, type FareGstPolicies, type GstSnapshot } from './gst';
 // Confirmed customer tariffs and normal partner rates (Tariff & Operations v2.0, 09 Oct 2026).
 //
@@ -564,6 +566,10 @@ export interface PartnerNormalRate {
 
 export interface PricingSnapshot {
   bookingAddOns?: import('./bookingAddOns').BookingAddOnCharges;
+  /** Night allowance billed for a pickup between 11 PM and 6 AM (see domain/nightAllowance.ts). */
+  nightAllowance?: NightAllowanceCharge;
+  /** Platform fee billed on this booking (see domain/platformFee.ts); kept as booked when the final fare is worked out. */
+  platformFee?: PlatformFeeCharge;
   gst?: GstSnapshot;
   /** True when the configured fare already contained GST (GST was extracted from it, not added on top). */
   gstInFare?: boolean;
@@ -1100,7 +1106,7 @@ export interface FinalResult {
  */
 export function finalizeFare(i: FinalInput): FinalResult {
   const result = finalizeFareWithoutAddOns(i);
-  return { ...result, fare: withBookedAddOnFare(result.fare, i.pricing.bookingAddOns) };
+  return { ...result, fare: withPlatformFeeFare(withNightAllowanceFare(withBookedAddOnFare(result.fare, i.pricing.bookingAddOns), i.pricing.nightAllowance), i.pricing.platformFee) };
 }
 
 function finalizeFareWithoutAddOns(i: FinalInput): FinalResult {

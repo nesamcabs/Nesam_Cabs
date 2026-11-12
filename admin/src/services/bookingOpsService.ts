@@ -126,6 +126,13 @@ export interface FareAdjustmentInput {
 }
 export const saveFareAdjustment = (i: FareAdjustmentInput) => callFunction<FareAdjustmentInput, { version: number }>("saveFareAdjustment", i);
 
+export interface PlatformFeeInput {
+  /** Per service: outstation, local, rental, airport, multicity. */
+  services: Record<string, { enabled: boolean; percent: number; min: number; cap: number }>;
+  expectedVersion?: number;
+}
+export const savePlatformFee = (i: PlatformFeeInput) => callFunction<PlatformFeeInput, { version: number }>("savePlatformFee", i);
+
 export interface IssuePenaltyInput {
   party: "Driver" | "Vendor";
   partyId: string;

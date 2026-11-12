@@ -328,6 +328,8 @@ function LocalRentalsSheet() {
   // The plan sheet can be pulled down to its button so the whole map shows.
   const [peek, setPeek] = useState(false);
   const [error, setError] = useState('');
+  /** Shown when the device could only give a rough position (Wi-Fi / network), so a wrong-looking pin is explained. */
+  const [approx, setApprox] = useState('');
   const [sheetH, setSheetH] = useState(240);
   const seq = useRef(0);
   const resolveToken = useRef(0);
@@ -336,7 +338,6 @@ function LocalRentalsSheet() {
 
   const picking = stage !== 'when';
   const steps = mode === 'hourly' ? 2 : 3;
-  const stepNo = stage === 'pickup' ? 1 : stage === 'drop' ? 2 : steps;
 
   const flyTo = useCallback((ll: LatLng, zoom = 16) => setTarget({ lat: ll.lat, lng: ll.lng, zoom, n: ++seq.current }), []);
 
@@ -424,6 +425,7 @@ function LocalRentalsSheet() {
   };
 
   const confirmStage = () => {
+    setApprox('');
     if (!cand) return;
     if (stage === 'pickup') {
       setPickup(cand);
@@ -452,8 +454,10 @@ function LocalRentalsSheet() {
     flyTo(p, 16);
   };
   const useMyLocation = async () => {
+    setApprox('');
     const p = await locate();
     if (!p) return;
+    if (p.accuracy > 1000) setApprox(`Your device gave only an approximate location (about ${p.accuracy >= 10000 ? `${Math.round(p.accuracy / 1000)} km` : `${(p.accuracy / 1000).toFixed(1)} km`}). Move the map to place the pin exactly.`);
     flyTo({ lat: p.lat, lng: p.lng });
     if (stage === 'when') return; // the trip is already set; just show the rider where they are
     userMoved.current = true;
@@ -629,15 +633,14 @@ function LocalRentalsSheet() {
       <div className="lr-dock" ref={dock}>
         {stage !== 'when' ? (
           <section key={stage} className="lr-sheet" aria-label={stage === 'drop' ? 'Set drop location' : 'Set pickup location'}>
-            <span className="lr-grip" aria-hidden="true" />
-            <p className="lr-step">Step {stepNo} of {steps}</p>
+            {modeSeg}
+            {approx && !locating ? <p className="lr-hint" role="status">{approx}</p> : null}
             {locating ? <p className="lr-hint" role="status">Finding your current location…</p> : askLocation ? (
               <div className={`lr-perm ${locationError || permission === 'denied' || permission === 'blocked' ? 'is-warn' : ''}`} role={locationError ? 'alert' : 'status'}>
                 <p>{locationNote}</p>
                 {secure ? <button type="button" onClick={() => void useMyLocation()}>{permission === 'prompt' && !locationError ? 'Allow location' : 'Try again'}</button> : null}
               </div>
             ) : null}
-            <h2>{stage === 'drop' ? 'Where should we drop you?' : mode === 'hourly' ? 'Where should the car meet you?' : 'Where should we pick you up?'}</h2>
             <div className="lr-row">
             <div className={`lr-addr ${resolving ? 'is-busy' : ''}`}>
               <span className={`lr-dot lr-dot--${stage === 'drop' ? 'to' : 'from'}`} aria-hidden="true" />
@@ -658,7 +661,6 @@ function LocalRentalsSheet() {
               {resolving ? 'Finding address…' : stage === 'drop' ? 'Confirm drop' : 'Confirm pickup'}
             </button>
             </div>
-            {modeSeg}
             {farApart ? <p className="lr-warn" role="alert">Pickup &amp; Drop is for trips inside one city. For a longer trip choose Outstation.</p> : null}
             {stage === 'drop' ? <button type="button" className="lr-link" onClick={() => enter('pickup')}>Change pickup</button> : null}
           </section>
@@ -667,6 +669,7 @@ function LocalRentalsSheet() {
             <button type="button" className="lr-gripbtn" aria-label={peek ? 'Show the trip details' : 'Show more of the map'} aria-expanded={!peek} onClick={() => setPeek((p) => !p)} />
             <p className="lr-step">Step {steps} of {steps}</p>
             <h2>{mode === 'hourly' ? 'Plan your rental' : 'Plan your trip'}</h2>
+            {modeSeg}
 
             <div className="lr-body">
             <div className="lr-trip">
@@ -683,7 +686,6 @@ function LocalRentalsSheet() {
                 </button>
               ) : null}
             </div>
-            {modeSeg}
 
             {mode === 'hourly' ? (
               <div className="lr-hourly-plan">

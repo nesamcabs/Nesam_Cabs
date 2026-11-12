@@ -107,8 +107,6 @@ export function AdditionalCharges({ lines, policy, footnote }: { lines: FareLine
 
       {chips.length ? (
         <div className="addl__group">
-          <strong className="addl__group-title">Extra Charges</strong>
-          <span className="addl__group-sub">Actual amount payable separately</span>
           <ul className="addl__chips">
             {chips.map((l) => {
               const actuals = l.amount === null && (!l.detail || /at actuals/i.test(l.detail));

@@ -270,3 +270,16 @@ body > div > div:has(> iframe[title*='challenge' i]) {
 .about-row__text small { color: var(--muted); font-size: 0.78rem; line-height: 1.4; }
 .about-row > .icon:last-child { flex: none; color: var(--faint); }
 .about-legal { margin: 4px 0 0; color: var(--faint); font-size: 0.74rem; text-align: center; }
+
+/* Profile edit forms expand in place inside the drawer, under the pencil / the Emergency contact row. */
+.drawer--profile .inline-edit { margin-top: 8px; animation: inline-edit-in 200ms var(--ease-out, ease); transform-origin: top; }
+.drawer--profile .card--list .inline-edit { margin: 0; padding: 4px 10px 12px; }
+.drawer--profile .setting--button > .icon:last-child { transition: transform 200ms var(--ease-out, ease); }
+.drawer--profile .setting--button[aria-expanded='true'] > .icon:last-child { transform: rotate(90deg); }
+@keyframes inline-edit-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .drawer--profile .inline-edit { animation: none; } }
+
+/* "Delete my account" lives at the bottom of Help and support. */
+.delete-account { border-radius: 14px; box-shadow: none; border: 1px solid var(--line); }
+.delete-account .setting { min-height: 48px; padding: 6px 14px; gap: 12px; font-size: 0.9rem; font-weight: 650; color: var(--danger, #b42318); }
+.delete-account .setting__icon { width: 30px; height: 30px; border-radius: 9px; background: var(--danger-soft, #fff1f0); color: var(--danger, #b42318); }

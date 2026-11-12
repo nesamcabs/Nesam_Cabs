@@ -17,6 +17,7 @@ import { formatDate, formatDateTime12, formatTime12 } from './domain/time';
 import { GeoPlace, TripType } from './domain/types';
 import { loadCommissionPolicy } from './commission';
 import { effectiveAdjustment, loadFareAdjustment } from './fareConfig';
+import { loadPlatformFee } from './platformFeeConfig';
 import { adjustPartner, assertBookable, assertWithinLimits, availabilityFields, evaluateRules, loadServiceRules, partnerPayoutRupees, ruleServiceText } from './serviceRules';
 import { createContactInTx, maskPhone } from './contacts';
 import { customerFareContext, loadTariffConfig, priceBooking, rentalHoursOf, tariffClassOf, trustedCustomerPlace } from './quote';
@@ -114,7 +115,7 @@ export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (requ
   const wantsCoupon = Boolean(normalizeCode(text(input.couponCode, 50)));
   const result = await db.runTransaction(async (tx) => {
     pushes.length = 0; // the callback can retry; only the committed attempt may push
-    const [previous, customer, categories, coupons, history, policy, adjustmentDoc, tariff, servicesSnap] = await Promise.all([
+    const [previous, customer, categories, coupons, history, policy, adjustmentDoc, tariff, servicesSnap, platformFee] = await Promise.all([
       tx.get(ref), tx.get(db.doc(`customers/${uid}`)),
       tx.get(db.collection('vehicle_categories').where('status', '==', 'Active')),
       wantsCoupon ? tx.get(db.collection('coupons')) : Promise.resolve(null),
@@ -123,6 +124,7 @@ export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (requ
       loadFareAdjustment(tx),
       loadTariffConfig(tx),
       tx.get(db.collection('services')),
+      loadPlatformFee(tx),
     ]);
     if (!customer.exists || !approved(customer.data()!.status)) throw new HttpsError('permission-denied', 'Your account is not active.');
     if (previous.exists) {
@@ -189,7 +191,7 @@ export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (requ
     const recipientState = recipientGstState(customer.data());
     const fuel = input.fuelType === 'cng' ? ('cng' as const) : undefined;
     if (fuel && category.cngEnabled !== true) throw new HttpsError('failed-precondition', 'CNG is not offered on this vehicle.');
-    const priceInput = { addOns: bookingAddOnsOf(input.addOns ?? input.tripExtras), fuel, boardingState, recipientState, recipientAddressState: recipientAddressState(customer.data()), category, route: pricingRoute, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, rentalHours: tripType === 'Local Rental' ? rentalHoursOf(input.rentalHours) : null, brand: bookingBrand, fixedRoutes, localCityId, serviceId, multicity };
+    const priceInput = { addOns: bookingAddOnsOf(input.addOns ?? input.tripExtras), fuel, boardingState, recipientState, recipientAddressState: recipientAddressState(customer.data()), category, route: pricingRoute, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, rentalHours: tripType === 'Local Rental' ? rentalHoursOf(input.rentalHours) : null, brand: bookingBrand, fixedRoutes, localCityId, serviceId, multicity, platformFee };
     const beforeDiscount = priceBooking(priceInput);
     // The percentage commission only prices duties still on the category engine; confirmed
     // tariff duties carry fixed partner rates, so no commission is required (or invented).

@@ -1,17 +1,13 @@
 // The profile drawer, opened by the header's menu button: the compact profile row and the account menu (the same
-// content as /account). Tapping the pencil or Emergency contact widens the drawer and shows that edit form in place,
-// with a way back to the menu.
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+// content as /account). Tapping the pencil or Emergency contact expands that edit form right below it, in the drawer.
+import { useEffect, useRef, type KeyboardEvent, type ReactNode } from 'react';
 import { Icon } from './Icon';
-import { AccountPage, type ProfileEditView } from '@/pages/AccountPage';
-import { EmergencyContactForm, PersonalDetailsForm } from './ProfileForms';
+import { AccountPage } from '@/pages/AccountPage';
 
 const FOCUSABLE = 'a[href],button:not([disabled]),summary,input:not([type="hidden"]):not([hidden])';
-const TITLE: Record<ProfileEditView, string> = { details: 'Edit profile', emergency: 'Emergency contact' };
 
 export function SideDrawer({ open, onClose, brand }: { open: boolean; onClose: () => void; brand: ReactNode }) {
   const panel = useRef<HTMLDivElement>(null);
-  const [view, setView] = useState<ProfileEditView | null>(null);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -22,24 +18,15 @@ export function SideDrawer({ open, onClose, brand }: { open: boolean; onClose: (
     return () => {
       document.body.style.overflow = overflow;
       previous?.focus?.();
-      setView(null);
     };
   }, [open]);
-
-  // The form's first editable field takes the focus when it opens.
-  useEffect(() => {
-    if (!view) return undefined;
-    const t = window.setTimeout(() => panel.current?.querySelector<HTMLElement>('.simple-form input:not([readonly])')?.focus(), 80);
-    return () => window.clearTimeout(t);
-  }, [view]);
 
   if (!open) return null;
 
   const onKey = (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
       e.stopPropagation();
-      if (view) setView(null);
-      else onClose();
+      onClose();
       return;
     }
     if (e.key !== 'Tab' || !panel.current) return;
@@ -59,26 +46,15 @@ export function SideDrawer({ open, onClose, brand }: { open: boolean; onClose: (
   return (
     <div className="drawer drawer--profile" onKeyDown={onKey}>
       <div className="drawer__backdrop" onClick={onClose} />
-      <div className={`drawer__panel ${view ? 'drawer__panel--wide' : ''}`} role="dialog" aria-modal="true" aria-label={view ? TITLE[view] : 'Profile'} ref={panel}>
+      <div className="drawer__panel" role="dialog" aria-modal="true" aria-label="Profile" ref={panel}>
         <div className="drawer__head">
-          {view ? (
-            <>
-              <button type="button" className="drawer__back" onClick={() => setView(null)} aria-label="Back to profile menu">
-                <Icon name="arrow-left" size={18} />
-              </button>
-              <strong className="drawer__title">{TITLE[view]}</strong>
-            </>
-          ) : (
-            <span onClick={onClose}>{brand}</span>
-          )}
+          <span onClick={onClose}>{brand}</span>
           <button type="button" className="drawer__close" onClick={onClose} aria-label="Close profile" data-autofocus>
             <Icon name="close" size={18} />
           </button>
         </div>
         <div className="drawer__body">
-          {view === 'details' ? <PersonalDetailsForm onDone={() => setView(null)} onCancel={() => setView(null)} /> : null}
-          {view === 'emergency' ? <EmergencyContactForm onDone={() => setView(null)} onCancel={() => setView(null)} /> : null}
-          {view ? null : <AccountPage variant="drawer" onEdit={setView} />}
+          <AccountPage variant="drawer" onClose={onClose} />
         </div>
       </div>
     </div>

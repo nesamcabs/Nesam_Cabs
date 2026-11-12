@@ -57,6 +57,56 @@ function once(options: PositionOptions): Promise<LocationObject> {
   });
 }
 
+/** A fix this accurate (metres) is used at once. */
+const GOOD_ACCURACY_M = 60;
+/** After the first fix arrives, how long to wait for a more accurate one before using the best so far. */
+const SETTLE_MS = 2500;
+/** The longest "find my location" ever waits. */
+const HARD_TIMEOUT_MS = 12000;
+/** A fix newer than this and good enough is reused instead of asking the device again. */
+const FRESH_MS = 15000;
+
+/**
+ * The best position the device can give quickly. A quick network / cached fix usually arrives within a second or two but
+ * can be kilometres off, while the GPS fix is accurate but slow. Both are requested together; the first fix starts a short
+ * window for a better one, and the most accurate fix seen in that time wins. Waits at most HARD_TIMEOUT_MS.
+ */
+function bestFix(): Promise<LocationObject> {
+  return new Promise((resolve, reject) => {
+    if (!supported()) return reject(new Error('Geolocation is not available.'));
+    let best: GeolocationPosition | null = null;
+    let lastError: unknown = null;
+    let settle: ReturnType<typeof setTimeout> | undefined;
+    let watchId: number | null = null;
+    let done = false;
+    const accuracyOf = (p: GeolocationPosition) => (p.coords.accuracy > 0 ? p.coords.accuracy : Infinity);
+    const finish = (p: GeolocationPosition | null, err?: unknown) => {
+      if (done) return;
+      done = true;
+      clearTimeout(settle);
+      clearTimeout(hard);
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      if (p) resolve(toObject(p));
+      else reject(err ?? Object.assign(new Error('Timed out while finding your location.'), { code: 3 }));
+    };
+    const onFix = (p: GeolocationPosition) => {
+      if (done) return;
+      if (!best || accuracyOf(p) < accuracyOf(best)) best = p;
+      if (accuracyOf(best) <= GOOD_ACCURACY_M) return finish(best);
+      if (settle === undefined) settle = setTimeout(() => finish(best), SETTLE_MS);
+    };
+    const onError = (e: GeolocationPositionError) => {
+      if (e.code === 1) return finish(null, e); // permission denied: nothing more to wait for
+      lastError = e;
+    };
+    const hard = setTimeout(() => finish(best, lastError), HARD_TIMEOUT_MS);
+    // Quick, possibly coarse fix (network / cached) …
+    navigator.geolocation.getCurrentPosition(onFix, onError, { enableHighAccuracy: false, maximumAge: 60000, timeout: HARD_TIMEOUT_MS });
+    // … and the accurate GPS fix, which replaces it as soon as it is better.
+    watchId = navigator.geolocation.watchPosition(onFix, onError, { enableHighAccuracy: true, maximumAge: 0, timeout: HARD_TIMEOUT_MS });
+  });
+}
+
 export async function getForegroundPermissionsAsync(): Promise<PermissionResponse> {
   if (!supported()) return { status: PermissionStatus.DENIED, granted: false, canAskAgain: false };
   try {
@@ -72,7 +122,7 @@ export async function getForegroundPermissionsAsync(): Promise<PermissionRespons
 export async function requestForegroundPermissionsAsync(): Promise<PermissionResponse> {
   try {
     // The browser shows its own prompt on the first position request.
-    await once({ enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
+    await once({ enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 });
     return { status: PermissionStatus.GRANTED, granted: true, canAskAgain: true };
   } catch (err) {
     const code = (err as { code?: number }).code;
@@ -87,7 +137,8 @@ export async function hasServicesEnabledAsync(): Promise<boolean> {
 }
 
 export function getCurrentPositionAsync(options?: { accuracy?: Accuracy }): Promise<LocationObject> {
-  return once({ enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
+  if (last && Date.now() - last.timestamp <= FRESH_MS && (last.coords.accuracy ?? Infinity) <= GOOD_ACCURACY_M) return Promise.resolve(last);
+  return bestFix();
 }
 
 export async function getLastKnownPositionAsync(options?: { maxAge?: number }): Promise<LocationObject | null> {

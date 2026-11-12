@@ -1,13 +1,13 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useCustomerData } from '@core/context/CustomerData';
 import { updateCustomerProfile } from '@core/services/userService';
 import { COMPANY_LEGAL_NAME } from '@core/config/constants';
 import { formatINR, formatPhone } from '@core/utils/format';
 import { describeError } from '@core/utils/retry';
-import { callFunction } from '@core/services/callables';
 import { Avatar, Button, Dialog, EmptyState, Notice, PageHead } from '@/components/ui';
 import { Icon } from '@/components/Icon';
+import { EmergencyContactForm, PersonalDetailsForm } from '@/components/ProfileForms';
 import { PhotoError, uploadProfilePhoto } from '@/lib/avatarUpload';
 import { useSeo } from '@/lib/seo';
 import { useAuth } from '@/state/Auth';
@@ -18,7 +18,7 @@ const TONES: Record<string, string> = {
   support: 'blue', phone: 'green', info: 'gold', document: 'brand',
 };
 
-function Row({ icon, label, value, to, href, onPress }: { icon: string; label: string; value?: ReactNode; to?: string; href?: string; onPress?: () => void }) {
+function Row({ icon, label, value, to, href, onPress, expanded }: { icon: string; label: string; value?: ReactNode; to?: string; href?: string; onPress?: () => void; expanded?: boolean }) {
   const tone = TONES[icon] ?? 'brand';
   const cls = `setting setting--${tone}`;
   const inner = (
@@ -33,7 +33,7 @@ function Row({ icon, label, value, to, href, onPress }: { icon: string; label: s
   );
   if (onPress)
     return (
-      <button type="button" className={`${cls} setting--button`} onClick={onPress}>
+      <button type="button" className={`${cls} setting--button`} onClick={onPress} {...(expanded === undefined ? {} : { 'aria-expanded': expanded })}>
         {inner}
       </button>
     );
@@ -52,10 +52,10 @@ function Row({ icon, label, value, to, href, onPress }: { icon: string; label: s
   return <div className={cls}>{inner}</div>;
 }
 
-export type ProfileEditView = 'details' | 'emergency';
+type ProfileEditView = 'details' | 'emergency';
 
-/** `drawer`: shown inside the profile side drawer (no page heading or page padding); `onEdit` opens an edit form in place. */
-export function AccountPage({ variant = 'page', onEdit }: { variant?: 'page' | 'drawer'; onEdit?: (view: ProfileEditView) => void }) {
+/** `drawer`: shown inside the profile side drawer (no page heading or page padding); its edit forms open in place, under the item tapped. */
+export function AccountPage({ variant = 'page', onClose }: { variant?: 'page' | 'drawer'; onClose?: () => void }) {
   useSeo(variant === 'page' ? { title: 'My Account', noindex: true } : null);
   const inDrawer = variant === 'drawer';
   const { profile } = useCustomerData();
@@ -64,27 +64,14 @@ export function AccountPage({ variant = 'page', onEdit }: { variant?: 'page' | '
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [confirm, setConfirm] = useState(false);
-  const [deleteAsk, setDeleteAsk] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteResult, setDeleteResult] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
-
-  const requestDeletion = async () => {
-    if (deleting) return;
-    setDeleting(true);
-    setDeleteResult(null);
-    try {
-      const r = await callFunction<{ role: string }, { alreadyOpen: boolean; liveBookings: number; reference: string }>('requestAccountDeletion', { role: 'customer' });
-      setDeleteResult({
-        tone: 'success',
-        text: `${r.alreadyOpen ? 'Your request is already with our team.' : 'Request received.'} Reference ${r.reference}. We will confirm by phone or email${r.liveBookings ? `. ${r.liveBookings} booking(s) are still open and must be completed or cancelled first` : ''}.`,
-      });
-    } catch (e) {
-      setDeleteResult({ tone: 'error', text: describeError(e, 'The request was not sent. Please try again.') });
-    } finally {
-      setDeleting(false);
-      setDeleteAsk(false);
-    }
-  };
+  // Drawer only: the edit form currently open in place (one at a time).
+  const [editing, setEditing] = useState<ProfileEditView | null>(null);
+  const toggleEdit = (view: ProfileEditView) => setEditing((now) => (now === view ? null : view));
+  useEffect(() => {
+    if (!editing) return undefined;
+    const t = window.setTimeout(() => document.querySelector<HTMLElement>('.inline-edit input:not([readonly])')?.focus(), 80);
+    return () => window.clearTimeout(t);
+  }, [editing]);
 
   if (!profile) {
     const signedOut = (
@@ -94,7 +81,7 @@ export function AccountPage({ variant = 'page', onEdit }: { variant?: 'page' | '
             art="welcome"
             title="Sign in to your account"
             action={
-              <Button variant="primary" onClick={() => openLoginModal({ title: 'Sign in to account' })}>
+              <Button variant="primary" onClick={() => { onClose?.(); openLoginModal({ title: 'Sign in to account' }); }}>
                 Sign in
               </Button>
             }
@@ -147,11 +134,11 @@ export function AccountPage({ variant = 'page', onEdit }: { variant?: 'page' | '
               <input ref={file} type="file" accept="image/*" hidden onChange={(e) => void onFile(e.target.files?.[0])} />
               <div className="profile-card__info">
                 <h2 className="truncate">{profile.name}</h2>
-                <p className="truncate">{formatPhone(profile.phone)}</p>
-                {progress != null ? <p className="truncate">Uploading photo… {progress}%</p> : profile.email ? <p className="truncate">{profile.email}</p> : null}
+                {inDrawer ? null : <p className="truncate">{formatPhone(profile.phone)}</p>}
+                {progress != null ? <p className="truncate">Uploading photo… {progress}%</p> : profile.email && !inDrawer ? <p className="truncate">{profile.email}</p> : null}
               </div>
-              {onEdit ? (
-                <button type="button" className="profile-card__edit" onClick={() => onEdit('details')} aria-label="Edit profile" title="Edit profile">
+              {inDrawer ? (
+                <button type="button" className={`profile-card__edit ${editing === 'details' ? 'is-open' : ''}`} onClick={() => toggleEdit('details')} aria-label="Edit profile" aria-expanded={editing === 'details'} title="Edit profile">
                   <Icon name="edit" size={17} />
                 </button>
               ) : (
@@ -160,6 +147,11 @@ export function AccountPage({ variant = 'page', onEdit }: { variant?: 'page' | '
                 </Link>
               )}
             </section>
+            {inDrawer && editing === 'details' ? (
+              <div className="inline-edit">
+                <PersonalDetailsForm onDone={() => setEditing(null)} onCancel={() => setEditing(null)} />
+              </div>
+            ) : null}
 
             {/* Refund credits live on the Payments page; the drawer stays a short menu. */}
             {inDrawer ? null : (
@@ -176,7 +168,12 @@ export function AccountPage({ variant = 'page', onEdit }: { variant?: 'page' | '
             <section className="group" aria-labelledby="g-account">
               <h2 id="g-account" className="group__title">Account</h2>
               <div className="card card--list">
-                <Row icon="emergency" label="Emergency contact" value={profile.emergencyContact || 'Not set'} {...(onEdit ? { onPress: () => onEdit('emergency') } : { to: '/account/emergency' })} />
+                <Row icon="emergency" label="Emergency contact" value={profile.emergencyContact || 'Not set'} {...(inDrawer ? { onPress: () => toggleEdit('emergency'), expanded: editing === 'emergency' } : { to: '/account/emergency' })} />
+                {inDrawer && editing === 'emergency' ? (
+                  <div className="inline-edit">
+                    <EmergencyContactForm onDone={() => setEditing(null)} onCancel={() => setEditing(null)} />
+                  </div>
+                ) : null}
               </div>
             </section>
             <section className="group" aria-labelledby="g-trips">
@@ -201,13 +198,8 @@ export function AccountPage({ variant = 'page', onEdit }: { variant?: 'page' | '
                   <span className="setting__icon"><Icon name="logout" size={18} /></span>
                   <span className="setting__label">Log out</span>
                 </button>
-                <button type="button" className="setting setting--danger" onClick={() => setDeleteAsk(true)}>
-                  <span className="setting__icon"><Icon name="trash" size={18} /></span>
-                  <span className="setting__label">Delete my account</span>
-                </button>
               </div>
-              {deleteResult ? <Notice tone={deleteResult.tone}>{deleteResult.text}</Notice> : null}
-              <p className="account__legal">{COMPANY_LEGAL_NAME}</p>
+              <p className="account__legal">© {COMPANY_LEGAL_NAME.replace(/NESAM/g, 'Nesam')}</p>
             </section>
           </div>
         </div>
@@ -222,27 +214,6 @@ export function AccountPage({ variant = 'page', onEdit }: { variant?: 'page' | '
           <div className="page">{body}</div>
         </>
       )}
-
-      {deleteAsk ? (
-        <Dialog
-          title="Delete your account?"
-          onClose={() => setDeleteAsk(false)}
-          footer={
-            <>
-              <Button variant="secondary" onClick={() => setDeleteAsk(false)}>
-                Keep my account
-              </Button>
-              <Button variant="danger" loading={deleting} onClick={() => void requestDeletion()}>
-                Request deletion
-              </Button>
-            </>
-          }
-        >
-          <p className="muted">
-            We will verify the request, settle anything still open (bookings, payments) and then delete your account and personal data. Records we must keep by law, such as invoices, are retained. This cannot be undone once it is processed.
-          </p>
-        </Dialog>
-      ) : null}
 
       {confirm ? (
         <Dialog

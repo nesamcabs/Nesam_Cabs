@@ -92,6 +92,8 @@ export interface RideCategory {
   displayOrder: number;
   /** CNG may be chosen for this category (set per category in admin; it also needs a CNG rate card for its class). */
   cngEnabled?: boolean;
+  /** Night allowance in rupees for each brand (pickup 11 PM – 6 AM), set in admin on the vehicle category. Absent / 0 = none. */
+  nightAllowanceByBrand?: Record<string, number>;
 }
 
 export interface FareBreakdown {
@@ -101,6 +103,8 @@ export interface FareBreakdown {
   distanceFare: number;
   timeFare: number;
   nightCharge: number;
+  /** Platform fee included in the taxable amount (before GST); absent when there is none. */
+  platformFee?: number;
   driverAllowance: number;
   minimumFareAdjustment: number;
   /** Pre-GST difference from an admin-authorised fare override (see bookings.fareOverride). */

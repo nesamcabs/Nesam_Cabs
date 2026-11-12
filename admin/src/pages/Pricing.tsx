@@ -1,6 +1,7 @@
 import DateTime12Input from "../components/DateTime12Input";
 import FareGstSettings from '../components/FareGstSettings';
 import FareAdjustmentCard from '../components/FareAdjustmentCard';
+import PlatformFeeCard from '../components/PlatformFeeCard';
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { MasterLocation, TravelService, VehicleCategory } from "../types";
 import { subscribeLocations, subscribeServices, subscribeVehicleCategories } from "../services/adminFirestoreService";
@@ -26,7 +27,7 @@ import { directoryCities, directoryZones } from "../domain/placeDirectory";
 import DisplayMarkupCard from "../components/DisplayMarkupCard";
 import { refDateTime } from "../domain/officeStage";
 
-type Tab = "Brand & service fares" | "Booking availability" | "Cab types" | "Pricing rules" | "GST calculation";
+type Tab = "Brand & service fares" | "Booking availability" | "Cab types" | "Pricing rules" | "GST calculation" | "Platform fee";
 type Sel = { state: string; city: string; area: string };
 const locationKey = (value: string) => value.trim().toLocaleLowerCase();
 const stateKey = (value: string) => {
@@ -248,6 +249,7 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
     { title: "Fares", items: [
       { key: "base", label: "Fares", hint: "Customer price, partner pay, CNG and extra charges", icon: "calculator", on: !inlineKind && tab === "Brand & service fares", go: () => changeTab("Brand & service fares") },
       { key: "tax", label: "GST & tax", hint: "How GST is worked out and shown", icon: "files", on: !inlineKind && tab === "GST calculation", go: () => changeTab("GST calculation") },
+      { key: "platformFee", label: "Platform fee", hint: "A common fee on bookings, by service", icon: "wallet", on: !inlineKind && tab === "Platform fee", go: () => changeTab("Platform fee") },
       { key: "fixed", label: "Fixed route fares", hint: "An agreed fare for one route", icon: "route", on: inlineKind === "fixed", go: () => setSheet({ kind: "fixed" }), disabledReason: fixedOff },
       { key: "rules", label: "Booking rules", hint: "Availability, cabs and pricing rules", icon: "toggle-right", on: !inlineKind && isRuleSection, go: () => {
         setCabSection("Customer cab rules");
@@ -269,7 +271,8 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
     : TARIFF_CLASSES.map((cls) => ({ key: cls, label: CLASS_LABEL[cls], cls, shared: false, cng: false }));
   // Only the chosen vehicle is on; when none was chosen yet, the first vehicle of the current class.
   const selectedVehicle = vehicleChoices.find((v) => v.key === fareCategory && v.cls === fareClass) ?? vehicleChoices.find((v) => v.cls === fareClass);
-  const showScope = inlineKind !== "history" && !(tab === "Cab types" && cabSection === "Vehicle categories" && !inlineKind);
+  // The platform fee is one common setting for every brand, so the brand / service picker is not shown for it.
+  const showScope = inlineKind !== "history" && !(tab === "Cab types" && cabSection === "Vehicle categories" && !inlineKind) && !(tab === "Platform fee" && !inlineKind);
   // Where a setting applies (brand, service, fuel, vehicle) is chosen in the side menu; the page itself only repeats the rule in one line.
   const scopeNav = showScope ? (
     <div className="fs-nav__group fs-nav__scope">
@@ -359,6 +362,7 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
         {fareFuel !== "cng" || !fuelApplies ? <ExtraChargeRulesCard /> : null}
         <DisplayMarkupCard scope={fareScope} />
       </div>}
+      {tab === "Platform fee" && <PlatformFeeCard />}
       {tab === "GST calculation" && <div>
         <FareGstSettings key={fareScope.brand + ":" + fareScope.service} scope={fareScope} onDirtyChange={value => { gstDirty.current = value; }} onBusyChange={value => { gstBusy.current = value; }} />
       </div>}
