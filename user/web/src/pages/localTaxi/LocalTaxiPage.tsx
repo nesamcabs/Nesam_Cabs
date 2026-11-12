@@ -9,7 +9,8 @@ import { Button, Dialog, Notice, PageHead, Spinner } from '@/components/ui';
 import { Icon } from '@/components/Icon';
 import { LocationPicker, type PickerConfig } from '@/components/LocationPicker';
 import { useSeo } from '@/lib/seo';
-import { useOnline } from '@/lib/hooks';
+import { useDeviceLocation, useOnline } from '@/lib/hooks';
+import { reverseGeocode } from '@core/services/geoService';
 import { vehicleArtUrl } from '@/lib/vehicleArt';
 import { useAuth } from '@/state/Auth';
 import { useBooking } from '@/state/Booking';
@@ -47,6 +48,14 @@ export function LocalTaxiPage() {
   const { state: auth, openLoginModal } = useAuth();
   const { draft, update } = useBooking();
   const [pickup, setPickup] = useState<GeoPlace | null>(PREVIEW ? PREVIEW_PICKUP : draft.pickup);
+  // With no pickup chosen yet, the device location is the default pickup.
+  const { position } = useDeviceLocation(true, true);
+  const pickupFromGps = useRef(false);
+  useEffect(() => {
+    if (PREVIEW || !position || pickupFromGps.current || pickup) return;
+    pickupFromGps.current = true;
+    void reverseGeocode(position).then((p) => setPickup((now) => now ?? { ...p, type: 'current' }));
+  }, [position, pickup]);
   const [drop, setDrop] = useState<GeoPlace | null>(PREVIEW ? PREVIEW_DROP : draft.drop);
   const [picker, setPicker] = useState<'pickup' | 'drop' | null>(null);
   const [avail, setAvail] = useState<Serviceability | null>(null);

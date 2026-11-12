@@ -131,6 +131,9 @@ export interface PlatformFeeInput {
   services: Record<string, { enabled: boolean; percent: number; min: number; cap: number }>;
   expectedVersion?: number;
 }
+export interface NightAllowanceInput { enabled: boolean; amount: number; expectedVersion?: number }
+export const saveNightAllowance = (i: NightAllowanceInput) => callFunction<NightAllowanceInput, { version: number }>("saveNightAllowance", i);
+
 export const savePlatformFee = (i: PlatformFeeInput) => callFunction<PlatformFeeInput, { version: number }>("savePlatformFee", i);
 
 export interface IssuePenaltyInput {

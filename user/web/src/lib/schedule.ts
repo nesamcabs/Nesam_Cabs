@@ -29,6 +29,12 @@ export function earliestSlot(now = Date.now()): Date {
   return new Date(Math.ceil((now + SCHEDULE_MIN_LEAD_MIN * 60000) / 300000) * 300000);
 }
 
+/** The default pickup: today, 30 minutes from now (rounded up to the next 5 minutes). Past midnight it is the next day's date. */
+export function defaultPickup(now = Date.now()): { date: string; time: string } {
+  const at = earliestSlot(now);
+  return { date: toDateInput(at), time: toTimeInput(at) };
+}
+
 /**
  * The pickup times worth offering for a day: for today only times from the earliest slot onward (the first entry is the
  * earliest itself, for example 6:35 PM, then the usual half-hour slots after it); other days get every slot.

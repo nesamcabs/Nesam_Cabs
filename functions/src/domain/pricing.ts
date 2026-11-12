@@ -1,5 +1,4 @@
 import { gstComponents } from './gst';
-import { nightAllowanceByBrandOf } from './nightAllowance';
 import { taxableFromInclusivePaise } from './tariff';
 // Authoritative fare policy. Client calculations are previews only.
 import { AppliedCoupon, Coupon, DiscountDetail, FareBreakdown, GeoPlace, RideCategory, RouteInfo, TripType } from './types';
@@ -62,7 +61,6 @@ export function mapCategory(id: string, d: Record<string, any>): RideCategory | 
     },
     displayOrder: num(d.displayOrder, 99),
     cngEnabled: d.cngEnabled === true,
-    nightAllowanceByBrand: nightAllowanceByBrandOf(d.nightAllowanceByBrand),
   };
 }
 

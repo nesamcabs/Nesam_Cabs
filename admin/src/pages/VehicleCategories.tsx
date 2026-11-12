@@ -42,7 +42,7 @@ type FormTab = "basic" | "specs";
 
 const TAB_FIELDS: Record<FormTab, CategoryField[]> = {
   basic: ["name", "code", "imageUrl", "iconUrl"],
-  specs: ["seatingCapacity", "recommendedPassengers", "displayOrder", "fare.carrierCharge", "nightAllowanceByBrand"],
+  specs: ["seatingCapacity", "recommendedPassengers", "displayOrder", "fare.carrierCharge"],
 };
 
 const FIELD_LABELS: Partial<Record<CategoryField, string>> = {
@@ -58,7 +58,6 @@ const FIELD_LABELS: Partial<Record<CategoryField, string>> = {
   "fare.perKmRate": "Per-km rate",
   "fare.minimumFare": "Minimum fare",
   "fare.driverAllowance": "Driver allowance",
-  nightAllowanceByBrand: "Night allowance",
   "fare.nightAllowance": "Night allowance",
   "fare.outstationPerKmRate": "Outstation per-km rate",
   "fare.outstationDriverBattaPerDay": "Outstation driver batta",
@@ -80,7 +79,6 @@ const defaultFormState = {
   brandImages: {} as Partial<Record<BrandImageKey, string>>,
   brands: [] as BrandImageKey[],
   brandStatus: {} as Partial<Record<BrandImageKey, "Active" | "Inactive">>,
-  nightAllowanceByBrand: {} as Partial<Record<BrandImageKey, number | "">>,
   iconUrl: "",
   icon: "🚘",
   seatingCapacity: 0,
@@ -118,9 +116,6 @@ const toForm = (f: typeof defaultFormState): CategoryForm => ({
   brandImages: { ...f.brandImages },
   brands: [...f.brands],
   brandStatus: { ...f.brandStatus },
-  nightAllowanceByBrand: Object.fromEntries(
-    Object.entries(f.nightAllowanceByBrand).map(([brand, amount]) => [brand, Number(amount) || 0]),
-  ) as CategoryForm["nightAllowanceByBrand"],
   iconUrl: f.iconUrl,
   icon: f.icon,
   seatingCapacity: f.seatingCapacity,
@@ -267,7 +262,6 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
         brandImages: { ...(cat.brandImages ?? {}) },
         brands: brandsOfCategory(cat),
         brandStatus: { ...(cat.brandStatus ?? {}) },
-        nightAllowanceByBrand: { ...(cat.nightAllowanceByBrand ?? {}) },
         iconUrl: cat.iconUrl || "",
         icon: cat.icon || "🚘",
         seatingCapacity: cat.seatingCapacity || 0,
@@ -1032,24 +1026,6 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
                           </label>
                         ))}
                       </div>
-                    </section>
-                    <section className="rounded-lg border border-line p-4 space-y-3">
-                      <h3 className="font-bold text-sm">Night allowance — {brandName}</h3>
-                      <p className="text-xs text-muted">Added automatically to a {brandName} booking whose pickup is between 11:00 PM and 6:00 AM (India time) and shown to the customer in the fare breakup. It follows the booking's GST setting, like the roof carrier charge. Leave it empty or 0 for no night allowance.</p>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <label className="block text-xs font-semibold">Night allowance (INR / trip)
-                          <input type="number" min="0" max="100000" step="0.01" inputMode="decimal" placeholder="0"
-                            value={formData.nightAllowanceByBrand[brand] ?? ''}
-                            onChange={(e) => setFormData(current => {
-                              const next = { ...current.nightAllowanceByBrand };
-                              if (e.target.value === '') delete next[brand]; else next[brand] = Number(e.target.value);
-                              return { ...current, nightAllowanceByBrand: next };
-                            })}
-                            className="mt-1 w-full p-2.5 border border-line rounded-lg" />
-                        </label>
-                      </div>
-                      {formData.brands.includes(brand) ? null : <p className="text-xs text-amber-700">This category is not offered on {brandName}, so the amount is not used.</p>}
-                      {errNode('nightAllowanceByBrand')}
                     </section>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>

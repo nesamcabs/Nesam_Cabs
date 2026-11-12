@@ -27,7 +27,7 @@ export function buildFareBreakup(category: RideCategory, fare: FareBreakdown, ou
       : `${fare.distanceKm} KM booked, within the included KM`,
   });
   if (fare.timeFare > 0) add({ key: 'time', label: 'Time charge', amount: fare.timeFare, treatment: 'included', detail: `${fare.durationMin} min at ${rupees(fare.perMinuteRate)}/min` });
-  if (fare.nightCharge > 0) add({ key: 'night', label: 'Night charge', amount: fare.nightCharge, treatment: 'included', detail: 'Pickup between 10:00 PM and 06:00 AM' });
+  if (fare.nightCharge > 0) add({ key: 'night', label: 'Night allowance', amount: fare.nightCharge, treatment: 'included', detail: 'Pickup between 11:00 PM and 6:00 AM' });
   add(outstation
     ? { key: 'driverAllowance', label: 'Driver allowance', amount: fare.driverAllowance, treatment: 'included', detail: 'Outstation trip — included in the fare' }
     : { key: 'driverAllowance', label: 'Driver allowance', amount: null, treatment: 'not_applicable', detail: 'Not applicable to local trips' });
@@ -44,6 +44,7 @@ export function buildFareBreakup(category: RideCategory, fare: FareBreakdown, ou
       detail: d?.type === 'percentage' ? `${d.value}% discount` : d?.type === 'fixed' ? `Flat ${rupees(d.value)} discount` : 'Promo discount',
     });
   }
+  if (fare.platformFee && fare.platformFee > 0) add({ key: 'platformFee', label: 'Platform fee', amount: fare.platformFee, treatment: 'included', detail: 'Added to the fare' });
   add({ key: 'gst', label: 'GST', amount: fare.gst, treatment: 'included', detail: 'Added on top of the fare; included in the total payable' });
 
   // Charges outside the package.
@@ -80,7 +81,7 @@ export function linesFromBreakdown(fare: FareBreakdown): FareLine[] {
   lines.push({ key: 'base', label: 'Base fare', amount: fare.baseFare, treatment: 'included', detail: '' });
   add('distance', 'Distance charge', fare.distanceFare, `${fare.distanceKm} KM at ${rupees(fare.perKmRate)}/KM`);
   add('time', 'Time charge', fare.timeFare, `${fare.durationMin} min`);
-  add('night', 'Night charge', fare.nightCharge);
+  add('night', 'Night allowance', fare.nightCharge);
   add('driverAllowance', 'Driver allowance', fare.driverAllowance, 'Outstation trip');
   add('minimum', 'Minimum fare top-up', fare.minimumFareAdjustment);
   if (fare.globalAdjustment) add('adjustment', fare.globalAdjustment.name || 'Fare adjustment', fare.globalAdjustment.amount);
@@ -88,6 +89,7 @@ export function linesFromBreakdown(fare: FareBreakdown): FareLine[] {
   add('carrierAddon', 'Roof carrier', fare.addOns?.carrierCharge ?? 0);
   add('petAddon', 'Pet travel', fare.addOns?.petCharge ?? 0);
   add('discount', 'Discount', -fare.discount);
+  add('platformFee', 'Platform fee', fare.platformFee ?? 0);
   lines.push({ key: 'gst', label: 'GST', amount: fare.gst, treatment: 'included', detail: '' });
   return lines;
 }

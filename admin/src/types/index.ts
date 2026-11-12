@@ -288,8 +288,6 @@ export interface VehicleCategory {
   brandImages?: Partial<Record<'nesam' | 'people_taxi' | 'onewaycarrentals', string>>;
   /** Brands whose site offers this category. Absent (older records) means every brand. */
   brands?: Array<'nesam' | 'people_taxi' | 'onewaycarrentals'>;
-  /** Night allowance in rupees for each brand (pickup between 11 PM and 6 AM). A brand with no amount is not charged one. */
-  nightAllowanceByBrand?: Partial<Record<'nesam' | 'people_taxi' | 'onewaycarrentals', number>>;
   /** Per-brand switch: a brand listed as Inactive hides the category on that site only. Absent means Active. */
   brandStatus?: Partial<Record<'nesam' | 'people_taxi' | 'onewaycarrentals', 'Active' | 'Inactive'>>;
   icon?: string;

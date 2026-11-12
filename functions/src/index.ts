@@ -13,6 +13,7 @@ export { approveBooking, rejectBooking, cancelBooking, updateRefund, assignDrive
 export { recordPayment, voidPayment, onBookingMoneyChange } from './bookingPayments';
 export { saveFareAdjustment } from './fareConfig';
 export { savePlatformFee } from './platformFeeConfig';
+export { saveNightAllowance } from './nightAllowanceConfig';
 export { saveServiceRule, setServiceRuleStatus } from './serviceRules';
 export { issuePenalty, transitionPenalty, acknowledgePenalty, disputePenalty } from './penalties';
 export { requestDutyCancellation, submitPartnerRequest, decidePartnerRequest, acknowledgeAssignment, setVehicleAvailability, createWalletRecharge, verifyWalletRecharge, getDuesSummary, createDuesPayment, verifyDuesPayment, setSecurityDeposit, requestDepositRefund } from './partnerOps';

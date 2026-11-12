@@ -1,7 +1,7 @@
 // Multicity tour form for NESAM Cabs: pickup, any number of cities along the way, the final drop, and the departure and
 // return schedule. "Let's Go" turns it into a booking draft (a Round Trip through those cities, priced from the Multicity
 // rates) and opens the normal flow: cabs with their fares, review, then Confirm booking.
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ClockIcon } from '@/components/CabParts';
 import { useNavigate } from 'react-router-dom';
 import type { GeoPlace } from '@core/types';
@@ -13,8 +13,9 @@ import { useBooking } from '@/state/Booking';
 import { setPendingReturn } from '@/lib/pendingReturn';
 import { saveDraft } from '@/lib/draft';
 import { loadMulticityDraft, multicityInstant, validMulticityDate, validMulticityPlace, type MulticityDraft } from '@core/utils/multicityDraft';
-import { useOnline } from '@/lib/hooks';
-import { combineDateTime, latestPickup, toDateInput } from '@/lib/schedule';
+import { useDeviceLocation, useOnline } from '@/lib/hooks';
+import { reverseGeocode } from '@core/services/geoService';
+import { combineDateTime, defaultPickup, latestPickup, toDateInput } from '@/lib/schedule';
 import { Button } from '@/components/ui';
 import { Icon } from '@/components/Icon';
 import { LocationPicker, type PickerConfig } from '@/components/LocationPicker';
@@ -50,6 +51,14 @@ const dayHint = (iso: string): string => {
   return diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow' : d.toLocaleDateString('en-IN', { weekday: 'long' });
 };
 
+/** A form with no pickup time chosen (or one that can no longer be booked) starts at today, 30 minutes from now. */
+function withDefaultSchedule(s: StoredMulticityState): StoredMulticityState {
+  const at = s.date && s.time ? combineDateTime(s.date, s.time) : null;
+  if (at && !scheduleProblem(at)) return s;
+  const next = defaultPickup();
+  return { ...s, date: next.date, time: next.time };
+}
+
 export function MulticityForm() {
   const { state: auth, openLoginModal } = useAuth();
   const { savedPlaces, trips } = useCustomerData();
@@ -57,7 +66,17 @@ export function MulticityForm() {
   const navigate = useNavigate();
   const { draft, update } = useBooking();
 
-  const [state, setState] = useState<StoredMulticityState>(loadStoredState);
+  const [state, setState] = useState<StoredMulticityState>(() => withDefaultSchedule(loadStoredState()));
+  // The device location becomes the pickup by default, unless one was chosen.
+  const { position } = useDeviceLocation(true, true);
+  const pickupFromGps = useRef(false);
+  useEffect(() => {
+    if (!position || pickupFromGps.current || state.pickup) return;
+    pickupFromGps.current = true;
+    void reverseGeocode(position).then((p) => {
+      setState((s) => (s.pickup ? s : { ...s, pickup: { ...p, type: 'current' } }));
+    });
+  }, [position, state.pickup]);
   const [pickerTarget, setPickerTarget] = useState<'pickup' | 'drop' | string | null>(null);
   const [timeFor, setTimeFor] = useState<'pickup' | 'return' | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});

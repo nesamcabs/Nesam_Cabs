@@ -53,11 +53,7 @@ export type CategoryField =
   | "seatingCapacity"
   | "recommendedPassengers"
   | "displayOrder"
-  | "nightAllowanceByBrand"
   | `fare.${keyof VehicleCategoryFare}`;
-
-/** The most a night allowance can be, in rupees. */
-export const NIGHT_ALLOWANCE_MAX = 100000;
 
 export const FARE_FIELD_LIMITS: Record<keyof VehicleCategoryFare, number> = {
   baseFare: 100000,
@@ -119,13 +115,6 @@ export function validateCategory(
   if (!Number.isInteger(form.displayOrder ?? 1) || (form.displayOrder ?? 1) < 1) {
     errors.displayOrder = "Display order must be a whole number of 1 or more.";
   }
-  for (const [brand, amount] of Object.entries(form.nightAllowanceByBrand ?? {})) {
-    if (typeof amount !== "number" || !Number.isFinite(amount) || amount < 0 || amount > NIGHT_ALLOWANCE_MAX) {
-      const name = BRAND_IMAGE_BRANDS.find((b) => b.id === brand)?.name ?? brand;
-      errors.nightAllowanceByBrand = `${name} night allowance must be between 0 and ${NIGHT_ALLOWANCE_MAX.toLocaleString("en-IN")}.`;
-      break;
-    }
-  }
   for (const [key, max] of Object.entries(FARE_FIELD_LIMITS) as [keyof VehicleCategoryFare, number][]) {
     const value = form.fare[key];
     if (typeof value !== "number") continue;
@@ -152,12 +141,6 @@ function payloadFrom(form: CategoryForm) {
     brandStatus: Object.fromEntries(
       Object.entries(form.brandStatus ?? {}).filter(([brand, s]) => ALL_BRAND_KEYS.includes(brand as BrandImageKey) && s === "Inactive"),
     ) as NonNullable<VehicleCategory["brandStatus"]>,
-    // Only brands that offer this category, and only amounts above zero (nothing set = no night allowance).
-    nightAllowanceByBrand: Object.fromEntries(
-      Object.entries(form.nightAllowanceByBrand ?? {})
-        .filter(([brand, amount]) => brandsOfCategory(form).includes(brand as BrandImageKey) && typeof amount === "number" && amount > 0)
-        .map(([brand, amount]) => [brand, Math.round((amount as number) * 100) / 100]),
-    ) as NonNullable<VehicleCategory["nightAllowanceByBrand"]>,
     iconUrl: (form.iconUrl || "").trim(),
     icon: form.icon || "🚘",
     seatingCapacity: form.seatingCapacity,

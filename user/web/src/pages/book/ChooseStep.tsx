@@ -62,6 +62,9 @@ export function ChooseStep() {
   const breakupFor = (c: RideCategory) => {
     const alt = fuelOf(c) === 'cng' ? cngOf(c) : null;
     if (alt) return alt.breakup;
+    // The server's own breakup for this vehicle: it carries the night allowance and the platform fee when they apply.
+    const own = q.entries.get(c.id);
+    if (own?.ok && own.breakup) return own.breakup;
     if (c.id === selected?.id && q.breakup) return q.breakup;
     const f = q.quotes.get(c.id);
     return f ? buildFareBreakup(c, f, q.outstation) : null;

@@ -19,7 +19,7 @@ import { setPendingReturn } from '@/lib/pendingReturn';
 import { saveDraft, RENTAL_PACKAGE_HOURS } from '@/lib/draft';
 import { useDeviceLocation, useOnline } from '@/lib/hooks';
 import { ClockIcon, SwapIcon } from '@/components/CabParts';
-import { combineDateTime, latestPickup, toDateInput, toTimeInput } from '@/lib/schedule';
+import { combineDateTime, defaultPickup, latestPickup, toDateInput, toTimeInput } from '@/lib/schedule';
 import { LOCAL_RENTALS_LABEL, SERVICES, SERVICE_TITLE, isLocalRentals, type ServiceId } from '@/lib/services';
 import { AIRPORTS, QUICK_CITIES, isAirportPlace } from './content';
 import { MulticityForm } from './MulticityForm';
@@ -75,7 +75,7 @@ export function BookingForm({
   const { draft, update } = useBooking();
   const { state: auth, openLoginModal } = useAuth();
   const { trips, savedPlaces } = useCustomerData();
-  const { position } = useDeviceLocation(true);
+  const { position } = useDeviceLocation(true, true);
   const { online } = useOnline();
   const { pickup, drop, scheduledAt, tripEndAt, tripType } = draft;
   const isRound = service === 'outstation' && tripType === 'Round Trip';
@@ -110,8 +110,21 @@ export function BookingForm({
   }, [service, pickup?.lat, pickup?.lng]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Schedule (local date + time inputs mirrored into the draft) ─────────
-  const [date, setDate] = useState(() => (scheduledAt ? toDateInput(scheduledAt) : toDateInput(new Date())));
-  const [time, setTime] = useState(() => (scheduledAt ? toTimeInput(scheduledAt) : ''));
+  // By default: today, 30 minutes from now. A time already chosen earlier is kept while it can still be booked.
+  const keptSchedule = scheduledAt && !scheduleProblem(scheduledAt) ? scheduledAt : null;
+  const scheduleTouched = useRef(keptSchedule !== null);
+  const [date, setDate] = useState(() => (keptSchedule ? toDateInput(keptSchedule) : defaultPickup().date));
+  const [time, setTime] = useState(() => (keptSchedule ? toTimeInput(keptSchedule) : defaultPickup().time));
+  // A default nobody changed is moved forward when it is about to run out, so it never fails at "Let's Go".
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      if (scheduleTouched.current || !scheduleProblem(combineDateTime(date, time))) return;
+      const next = defaultPickup();
+      setDate(next.date);
+      setTime(next.time);
+    }, 20000);
+    return () => window.clearInterval(id);
+  }, [date, time]);
   useEffect(() => {
     const d = combineDateTime(date, time);
     if ((d?.getTime() ?? null) !== (scheduledAt?.getTime() ?? null)) update({ scheduledAt: d });
@@ -436,6 +449,7 @@ export function BookingForm({
                     }
                   }}
                   onChange={(e) => {
+                    scheduleTouched.current = true;
                     setDate(e.target.value);
                     setErrors((x) => ({ ...x, date: '', time: '' }));
                   }}
@@ -535,6 +549,7 @@ export function BookingForm({
           notBefore={null}
           onClose={() => setTimeFor(null)}
           onConfirm={(t) => {
+            scheduleTouched.current = true;
             setTime(t);
             setErrors((x) => ({ ...x, time: '' }));
             setTimeFor(null);

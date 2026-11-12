@@ -16,7 +16,7 @@ import { PlaceSuggestions } from '@/components/PlaceSuggestions';
 import { RouteMap } from '@/components/RouteMap';
 import { useBooking } from '@/state/Booking';
 import { useDeviceLocation, useOnline } from '@/lib/hooks';
-import { LOCATION_HELP, combineDateTime, earliestPickup, latestPickup, toDateInput, toTimeInput } from '@/lib/schedule';
+import { LOCATION_HELP, combineDateTime, defaultPickup, latestPickup, toDateInput, toTimeInput } from '@/lib/schedule';
 import { QUICK_CITIES } from './content';
 
 type Field = 'pickup' | 'drop';
@@ -39,7 +39,7 @@ export function PlanStep({ ui, setUi, intent }: { ui: PlanUi; setUi: Dispatch<Se
   const navigate = useNavigate();
   const { draft, update } = useBooking();
   const { trips, savedPlaces } = useCustomerData();
-  const { position, error: locError, permission, locating, locate } = useDeviceLocation(true);
+  const { position, error: locError, permission, locating, locate } = useDeviceLocation(true, true);
   const { online } = useOnline();
   const { pickup, drop, tripType, scheduledAt, tripEndAt } = draft;
 
@@ -160,13 +160,15 @@ export function PlanStep({ ui, setUi, intent }: { ui: PlanUi; setUi: Dispatch<Se
   }, [ui.pin, pinCenter?.lat, pinCenter?.lng]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Schedule ─────────────────────────────────────────────────────────────
-  const [whenDate, setWhenDate] = useState(() => (scheduledAt ? toDateInput(scheduledAt) : ''));
-  const [whenTime, setWhenTime] = useState(() => (scheduledAt ? toTimeInput(scheduledAt) : ''));
+  // By default: today, 30 minutes from now. A time already chosen earlier is kept while it can still be booked.
+  const keptSchedule = scheduledAt && !scheduleProblem(scheduledAt) ? scheduledAt : null;
+  const [whenDate, setWhenDate] = useState(() => (keptSchedule ? toDateInput(keptSchedule) : defaultPickup().date));
+  const [whenTime, setWhenTime] = useState(() => (keptSchedule ? toTimeInput(keptSchedule) : defaultPickup().time));
   // Every booking is an advance booking: a pickup date and time is always required.
   const suggestPickup = () => {
-    const d = earliestPickup(Date.now() + 25 * 60000);
-    setWhenDate(toDateInput(d));
-    setWhenTime(toTimeInput(d));
+    const next = defaultPickup();
+    setWhenDate(next.date);
+    setWhenTime(next.time);
   };
   useEffect(() => {
     const d = combineDateTime(whenDate, whenTime);

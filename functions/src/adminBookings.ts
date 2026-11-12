@@ -23,6 +23,7 @@ import { formatDate, formatDateTime12, formatTime12 } from './domain/time';
 import { FareBreakdown, GeoPlace, TripType } from './domain/types';
 import { effectiveAdjustment, loadFareAdjustment } from './fareConfig';
 import { loadPlatformFee } from './platformFeeConfig';
+import { loadNightAllowance } from './nightAllowanceConfig';
 import { adjustPartner, assertBookable, assertWithinLimits, availabilityFields, evaluateRules, loadServiceRules, partnerPayoutRupees, ruleServiceText } from './serviceRules';
 import { loadCommissionPolicy } from './commission';
 import { createContactInTx, maskPhone } from './contacts';
@@ -185,7 +186,7 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
       couponCode ? tx.get(db.collection('coupons')) : Promise.resolve(null),
       couponCode && customerId ? tx.get(db.collection('bookings').where('customerId', '==', customerId)) : Promise.resolve(null),
     ]);
-    const [previous, categories, serviceSnap, customer, policy, adjustmentDoc, tariff, fixedRoutes, servicesSnap, platformFee] = await Promise.all([
+    const [previous, categories, serviceSnap, customer, policy, adjustmentDoc, tariff, fixedRoutes, servicesSnap, platformFee, nightAllowance] = await Promise.all([
       tx.get(ref),
       tx.get(db.collection('vehicle_categories').where('status', '==', 'Active')),
       typeof input.serviceId === 'string' && input.serviceId ? tx.get(db.doc(`services/${input.serviceId}`)) : Promise.resolve(null),
@@ -197,6 +198,7 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
       tripType === 'One Way' && pickupR.source === 'master' && dropR.source === 'master' ? loadFixedRoutes(tx) : Promise.resolve([]),
       tx.get(db.collection('services')),
       loadPlatformFee(tx),
+      loadNightAllowance(tx),
     ]);
     if (previous.exists) {
       if (previous.data()!.createdBy !== admin.uid) throw new HttpsError('permission-denied', 'Request already used.');
@@ -252,7 +254,7 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
 
     const boardingState = await fareBoardingState(tariff, pickup);
     const recipientState = recipientGstState(business?.data() ?? customer?.data());
-    const priceInput = { addOns: bookingAddOnsOf(input.addOns ?? input.tripExtras), boardingState, recipientState, recipientAddressState: recipientAddressState(business?.data() ?? customer?.data()), category, route, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, adminDiscount: discountIn, localCityId, rentalHours, fixedRoutes, serviceId, businessContract:contract, brand: bookingChannel, platformFee };
+    const priceInput = { addOns: bookingAddOnsOf(input.addOns ?? input.tripExtras), boardingState, recipientState, recipientAddressState: recipientAddressState(business?.data() ?? customer?.data()), category, route, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, adminDiscount: discountIn, localCityId, rentalHours, fixedRoutes, serviceId, businessContract:contract, brand: bookingChannel, platformFee, nightAllowance };
     // Coupon: the same server checks as customer checkout (validity, usage limits, minimum fare,
     // category / service, audience) against the fare before discount; then the booking is priced with it.
     let couponDiscount = 0;

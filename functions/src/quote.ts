@@ -1,5 +1,6 @@
 import { bookingAddOnsOf, withBookingAddOns, type BookingAddOns } from './domain/bookingAddOns';
-import { withNightAllowance } from './domain/nightAllowance';
+import { withNightAllowance, type NightAllowanceConfig } from './domain/nightAllowance';
+import { loadNightAllowance } from './nightAllowanceConfig';
 import { withPlatformFee, type PlatformFeeConfig } from './domain/platformFee';
 import { loadPlatformFee } from './platformFeeConfig';
 import { fareBoardingState, recipientAddressState, recipientGstState } from './fareGstContext';
@@ -183,6 +184,8 @@ export interface PriceInput {
   multicity?: boolean;
   /** The common platform fee settings (Pricing → Platform fee). Absent = no platform fee. */
   platformFee?: PlatformFeeConfig | null;
+  /** The common night allowance setting (Pricing → Night allowance). Absent = none. */
+  nightAllowance?: NightAllowanceConfig | null;
 }
 
 export interface PriceResult {
@@ -201,7 +204,7 @@ export interface PriceResult {
  * discloses them in the breakup. The fare itself is unchanged: these are billed only for the extras actually used.
  */
 export function priceBooking(i: PriceInput): PriceResult {
-  const priced = withNightAllowance(priceBookingWithoutAddOns(i), i.pickupAt, i.category, i.brand);
+  const priced = withNightAllowance(priceBookingWithoutAddOns(i), i.pickupAt, i.nightAllowance);
   const withAddOns = withBookingAddOns(priced, i.addOns, i.category.fare.extras, i.tariff?.petCharge ?? 0);
   return withPlatformFee(withAddOns, i.platformFee, i.multicity);
 }
@@ -574,6 +577,7 @@ export const quoteBooking = onCall({ timeoutSeconds: 60, cors: PUBLIC_CALLABLE_O
       loadCommissionPolicy(),
       db.collection('services').get(),
       loadPlatformFee(),
+      loadNightAllowance(),
     ]),
   );
   const window = bookingWindowFrom((await operationsRead).data());
@@ -587,7 +591,7 @@ export const quoteBooking = onCall({ timeoutSeconds: 60, cors: PUBLIC_CALLABLE_O
   if (customer?.exists && !approved(customer.data()!.status)) throw new HttpsError('permission-denied', 'Your account is not active.');
   // A coupon is only checked for an existing customer account.
   const customerId = customer?.exists ? uid : null;
-  const [categories, tariff, adjustmentDoc, couponsRead, historyRead, serviceRules, policy, servicesSnap, platformFee] = await catalogue;
+  const [categories, tariff, adjustmentDoc, couponsRead, historyRead, serviceRules, policy, servicesSnap, platformFee, nightAllowance] = await catalogue;
   // A coupon is only checked for an existing customer account.
   const coupons = customerId ? couponsRead : null;
   const history = customerId ? historyRead : null;
@@ -608,7 +612,7 @@ export const quoteBooking = onCall({ timeoutSeconds: 60, cors: PUBLIC_CALLABLE_O
     .map(({ d, c }) => {
       const category = { ...c, tariffClass: d.data().tariffClass, dutyClass: d.data().dutyClass };
       const matched = matchAuthoritativeService(onlineMasters, { tripType, categoryId: c.id, distanceKm: route.distanceKm, pickupType: pickup.type, dropType: drop.type, context: 'customer' });
-      const base = { addOns: bookingAddOnsOf(input.addOns), boardingState, recipientState, recipientAddressState: recipientAddressState(customer?.data()), category, route: pricingRoute, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, rentalHours: tripType === 'Local Rental' ? rentalHoursOf(input.rentalHours) : null, brand, fixedRoutes, localCityId, serviceId: matched?.id ?? '', multicity, platformFee };
+      const base = { addOns: bookingAddOnsOf(input.addOns), boardingState, recipientState, recipientAddressState: recipientAddressState(customer?.data()), category, route: pricingRoute, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, rentalHours: tripType === 'Local Rental' ? rentalHoursOf(input.rentalHours) : null, brand, fixedRoutes, localCityId, serviceId: matched?.id ?? '', multicity, platformFee, nightAllowance };
       try {
         assertCatalogAvailable(onlineMasters,tripType,category.id);
         assertBookable(rules, category.name);

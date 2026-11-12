@@ -107,6 +107,8 @@ export interface FareBreakdown {
   distanceFare: number;
   timeFare: number;
   nightCharge: number;
+  /** Platform fee included in the taxable amount (before GST); absent when there is none. */
+  platformFee?: number;
   driverAllowance: number;
   minimumFareAdjustment: number;
   /** Pre-GST difference when NESAM agreed a different fare (set only by the booking server). */

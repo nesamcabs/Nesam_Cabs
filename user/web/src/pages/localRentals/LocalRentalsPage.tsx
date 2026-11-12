@@ -302,7 +302,7 @@ function LocalRentalsSheet() {
   const [params] = useSearchParams();
   const { draft, update } = useBooking();
   const { state: auth, openLoginModal } = useAuth();
-  const { position, locate, locating, error: locationError, permission } = useDeviceLocation(true);
+  const { position, locate, locating, error: locationError, permission } = useDeviceLocation(true, true);
   useEffect(() => { void locate(); }, [locate]);
   const { online } = useOnline();
 

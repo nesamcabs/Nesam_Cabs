@@ -61,7 +61,7 @@ export interface DeviceLocationState {
 }
 
 /** Live device position while mounted (`watch`, only once permission is granted), plus a one-shot `locate()`. */
-export function useDeviceLocation(watch = true): DeviceLocationState {
+export function useDeviceLocation(watch = true, autoLocate = false): DeviceLocationState {
   const [position, setPosition] = useState<DevicePosition | null>(null);
   const [error, setError] = useState<LocationError | null>(null);
   const [permission, setPermission] = useState<PermissionStateLite | 'unknown'>('unknown');
@@ -116,6 +116,14 @@ export function useDeviceLocation(watch = true): DeviceLocationState {
       if (mounted.current) setLocating(false);
     }
   }, []);
+
+  // Detect the device location by default: the browser asks once, and nothing is asked again after a refusal.
+  const autoTried = useRef(false);
+  useEffect(() => {
+    if (!autoLocate || autoTried.current || permission === 'unknown' || permission === 'denied' || permission === 'blocked') return;
+    autoTried.current = true;
+    void locate();
+  }, [autoLocate, permission, locate]);
 
   return { position, error, permission, locating, locate };
 }

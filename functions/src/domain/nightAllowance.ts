@@ -1,14 +1,22 @@
 import type { PriceResult } from '../quote';
 import { gstComponents } from './gst';
-import type { FareBreakdown, RideCategory } from './types';
+import type { FareBreakdown } from './types';
 
 // Night allowance: a fixed amount added automatically to a booking whose pickup falls between 11:00 PM and 6:00 AM (India time).
-// The amount is set by an admin for each vehicle category and each brand (Vehicle categories → edit → Night allowance), so a
-// brand or a vehicle with nothing set is never charged. Like the roof-carrier and pet add-ons it is added after the trip is
-// priced, follows the booking's GST setting, is stored in the booking's price snapshot and is kept when the final fare is worked out.
+// One common setting for every vehicle, brand and service (Pricing → Night allowance); when it is off, or has no amount, nothing
+// is charged. Like the roof-carrier and pet add-ons it is added after the trip is priced, follows the booking's GST setting, is
+// stored in the booking's price snapshot and is kept when the final fare is worked out.
 
 export const NIGHT_ALLOWANCE_START_HOUR = 23;
 export const NIGHT_ALLOWANCE_END_HOUR = 6;
+
+/** The common setting, as saved by an admin. */
+export interface NightAllowanceConfig {
+  enabled: boolean;
+  /** Rupees per booking. */
+  amount: number;
+  version: number;
+}
 
 /** What was billed for one booking. `amount` is before GST when GST is added on top, or the GST-free part when the entered amount already includes it. */
 export interface NightAllowanceCharge {
@@ -20,17 +28,16 @@ export interface NightAllowanceCharge {
 }
 
 const round = (v: number) => Math.round((v + Number.EPSILON) * 100) / 100;
-const rate = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 && v <= 100000 ? round(v) : 0);
+const MAX_RUPEES = 100000;
+const rate = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 && v <= MAX_RUPEES ? round(v) : 0);
 
-/** Night-allowance amounts keyed by brand, from a saved category (anything invalid is dropped). */
-export function nightAllowanceByBrandOf(value: unknown): Record<string, number> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
-  const out: Record<string, number> = {};
-  for (const [brand, amount] of Object.entries(value as Record<string, unknown>)) {
-    const r = rate(amount);
-    if (r > 0) out[brand] = r;
-  }
-  return out;
+export function parseNightAllowance(d: Record<string, unknown> | undefined | null): NightAllowanceConfig {
+  return { enabled: d?.enabled === true, amount: rate(d?.amount), version: typeof d?.version === 'number' ? d.version : 0 };
+}
+
+/** The amount to charge: 0 when the setting is off or empty. */
+export function nightAllowanceFor(config: NightAllowanceConfig | null | undefined): number {
+  return config && config.enabled ? rate(config.amount) : 0;
 }
 
 /** Hour of the day (0–23) in India. */
@@ -42,11 +49,6 @@ export function istHourOf(d: Date): number {
 export function isNightAllowanceTime(d: Date): boolean {
   const h = istHourOf(d);
   return h >= NIGHT_ALLOWANCE_START_HOUR || h < NIGHT_ALLOWANCE_END_HOUR;
-}
-
-/** The amount set for this vehicle category and brand; 0 when none. */
-export function nightAllowanceFor(category: Pick<RideCategory, 'nightAllowanceByBrand'>, brand?: string): number {
-  return rate(category.nightAllowanceByBrand?.[brand || 'nesam']);
 }
 
 /** Adds a night allowance to a fare: the taxable amount, GST and total all move, so every figure still adds up. */
@@ -73,14 +75,14 @@ export function withNightAllowanceFare(source: FareBreakdown, charge?: NightAllo
 const GST_KEYS = ['gst', 'cgst', 'sgst', 'utgst', 'igst'];
 
 /**
- * Applies the night allowance to a priced booking when the pickup is between 11 PM and 6 AM and the category has an amount for
- * this brand. Adds a "Night allowance" line to the breakup (above GST) and records the charge in the price snapshot.
+ * Applies the night allowance to a priced booking when the pickup is between 11 PM and 6 AM and the common setting is on.
+ * Adds a "Night allowance" line to the breakup (above GST) and records the charge in the price snapshot.
  */
-export function withNightAllowance(result: PriceResult, pickupAt: Date, category: Pick<RideCategory, 'nightAllowanceByBrand'>, brand?: string): PriceResult {
+export function withNightAllowance(result: PriceResult, pickupAt: Date, config: NightAllowanceConfig | null | undefined): PriceResult {
   if (!isNightAllowanceTime(pickupAt)) return result;
   // The older category engine may already charge its own night charge: never charge twice.
   if ((result.fare.nightCharge ?? 0) > 0) return result;
-  const configured = nightAllowanceFor(category, brand);
+  const configured = nightAllowanceFor(config);
   if (!configured) return result;
   const included = result.fare.gstDetails?.mode === 'included';
   const amount = included ? round(configured / (1 + result.fare.gstRate)) : configured;
