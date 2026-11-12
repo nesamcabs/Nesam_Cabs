@@ -18,7 +18,11 @@ export default defineConfig({
     host: '0.0.0.0',
     port: parseInt(process.env.PORT || '8443'),
     strictPort: true,
+    // The admin calls the booking server through its own address (/api/...), so the browser never makes a cross-site request and
+    // the API's allowed-websites list (CORS) cannot block it. On Vercel the same job is done by the rewrite in vercel.json.
+    proxy: { '/api': { target: 'https://nesam-travels-api.vercel.app', changeOrigin: true, secure: true } },
   },
+
   preview: {
     host: '0.0.0.0',
     port: parseInt(process.env.PORT || '8443'),

@@ -10,7 +10,12 @@
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { app, auth } from '../config/firebase';
 
-const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? '').trim().replace(/\/+$/, '');
+// The booking server. Builds always talk to it (the Firebase callables they fall back to are not deployed, so nothing that
+// needs the server would work), whether or not the build's environment variable was set; an explicit value still wins, and
+// EXPO_PUBLIC_USE_FIREBASE_EMULATORS=true keeps the local emulators in use.
+const DEFAULT_API_URL = 'https://nesam-travels-api.vercel.app';
+const configuredApiUrl = (process.env.EXPO_PUBLIC_API_URL ?? '').trim();
+const API_URL = (configuredApiUrl || (process.env.EXPO_PUBLIC_USE_FIREBASE_EMULATORS === 'true' ? '' : DEFAULT_API_URL)).replace(/\/+$/, '');
 
 /** True when server functions go through the HTTP API instead of Firebase callables. */
 export const usesHttpApi = API_URL.length > 0;

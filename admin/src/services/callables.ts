@@ -13,11 +13,14 @@ export class ActionError extends Error {
 export function describeCallError(err: unknown): string {
   const code = (err as { code?: string }).code || "";
   const message = (err as { message?: string }).message || "";
+  // The API answers "Unknown function." for something it does not have yet: the server is older than this admin panel.
+  if (code === "functions/not-found" && /unknown function/i.test(message)) return "The server does not have this feature yet. Deploy the latest API, then try again.";
   if (/^functions\/(invalid-argument|failed-precondition|permission-denied|not-found|unavailable|unauthenticated|already-exists|resource-exhausted)$/.test(code) && message) {
     return message;
   }
   if (code === "functions/deadline-exceeded") return "The server took too long to respond. Please try again.";
-  return "The server could not complete the request. Check your connection and try again.";
+  // The reference tells support (and the console) the real cause: "internal" = a server fault, "unknown" = no code at all.
+  return `The server could not complete the request. Check your connection and try again. (Ref: ${code.replace("functions/", "") || "unknown"})`;
 }
 
 /** Calls a booking-server function and turns any failure into an ActionError with a readable message. */

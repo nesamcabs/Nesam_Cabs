@@ -18,7 +18,7 @@ import { useBooking } from '@/state/Booking';
 import { useAuth } from '@/state/Auth';
 import { saveDraft, RENTAL_PACKAGE_HOURS } from '@/lib/draft';
 import { setPendingReturn } from '@/lib/pendingReturn';
-import { useDeviceLocation, useMinWidth, useOnline } from '@/lib/hooks';
+import { useDeviceLocation, useLivePickupDefault, useMinWidth, useOnline } from '@/lib/hooks';
 import { LOCATION_HELP, combineDateTime, earliestSlot, latestPickup, pickupTimeOptions, toDateInput, toTimeInput } from '@/lib/schedule';
 import { useSeo } from '@/lib/seo';
 import { QUICK_CITIES } from '@/pages/book/content';
@@ -318,6 +318,12 @@ function LocalRentalsSheet() {
   // The pickup starts at the earliest time a rider may book: 30 minutes after the device clock, rounded up to 5 minutes.
   const [date, setDate] = useState(() => toDateInput(future ?? earliestSlot()));
   const [time, setTime] = useState(() => toTimeInput(future ?? earliestSlot()));
+  // Until the rider picks a date or time, the default keeps following the clock (always 30 minutes from now).
+  const scheduleTouched = useRef(future !== null);
+  useLivePickupDefault(scheduleTouched, (next) => {
+    setDate(next.date);
+    setTime(next.time);
+  });
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [stage, setStage] = useState<Stage>('pickup');
   const [cand, setCand] = useState<GeoPlace | null>(null);
@@ -481,6 +487,7 @@ function LocalRentalsSheet() {
   const timeOptions = useMemo(() => pickupTimeOptions(date, TIME_SLOTS, nowMs), [date, nowMs]);
   const timeOk = (t: string) => !scheduleProblem(combineDateTime(date, t), nowMs);
   const pickDate = (iso: string) => {
+    scheduleTouched.current = true;
     setDate(iso);
     setError('');
     if (time && scheduleProblem(combineDateTime(iso, time))) setTime(iso === firstDay ? firstTime : '');
@@ -559,6 +566,7 @@ function LocalRentalsSheet() {
             value={time}
             onChange={(e) => {
               if (e.target.value === '__other') { setTimeOpen(true); return; }
+              scheduleTouched.current = true;
               setTime(e.target.value);
               setError('');
             }}
@@ -719,7 +727,7 @@ function LocalRentalsSheet() {
 
       {pickerFor}
       {timeOpen ? (
-        <TimePicker title="Pickup time" date={date} value={time} validate="pickup" onClose={() => setTimeOpen(false)} onConfirm={(t) => { setTime(t); setError(''); setTimeOpen(false); }} />
+        <TimePicker title="Pickup time" date={date} value={time} validate="pickup" onClose={() => setTimeOpen(false)} onConfirm={(t) => { scheduleTouched.current = true; setTime(t); setError(''); setTimeOpen(false); }} />
       ) : null}
     </div>
   );

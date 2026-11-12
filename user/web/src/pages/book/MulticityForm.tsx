@@ -13,7 +13,7 @@ import { useBooking } from '@/state/Booking';
 import { setPendingReturn } from '@/lib/pendingReturn';
 import { saveDraft } from '@/lib/draft';
 import { loadMulticityDraft, multicityInstant, validMulticityDate, validMulticityPlace, type MulticityDraft } from '@core/utils/multicityDraft';
-import { useDeviceLocation, useOnline } from '@/lib/hooks';
+import { useDeviceLocation, useLivePickupDefault, useOnline } from '@/lib/hooks';
 import { reverseGeocode } from '@core/services/geoService';
 import { combineDateTime, defaultPickup, latestPickup, toDateInput } from '@/lib/schedule';
 import { Button } from '@/components/ui';
@@ -67,6 +67,11 @@ export function MulticityForm() {
   const { draft, update } = useBooking();
 
   const [state, setState] = useState<StoredMulticityState>(() => withDefaultSchedule(loadStoredState()));
+  // Until the rider picks a date or time, the default keeps following the clock (always 30 minutes from now).
+  const scheduleTouched = useRef(false);
+  useLivePickupDefault(scheduleTouched, (next) => {
+    setState((s) => (s.date === next.date && s.time === next.time ? s : { ...s, date: next.date, time: next.time }));
+  });
   // The device location becomes the pickup by default, unless one was chosen.
   const { position } = useDeviceLocation(true, true);
   const pickupFromGps = useRef(false);
@@ -373,6 +378,7 @@ export function MulticityForm() {
                   }
                 }}
                 onChange={(e) => {
+                  scheduleTouched.current = true;
                   setState((s) => ({ ...s, date: e.target.value }));
                   setErrors((x) => ({ ...x, date: '', time: '' }));
                 }}
@@ -442,6 +448,7 @@ export function MulticityForm() {
           notBefore={null}
           onClose={() => setTimeFor(null)}
           onConfirm={(t) => {
+            scheduleTouched.current = true;
             setState((s) => ({ ...s, time: t }));
             setErrors((x) => ({ ...x, time: '' }));
             setTimeFor(null);

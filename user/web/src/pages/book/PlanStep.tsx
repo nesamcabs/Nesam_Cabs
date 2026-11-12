@@ -15,7 +15,7 @@ import { Icon } from '@/components/Icon';
 import { PlaceSuggestions } from '@/components/PlaceSuggestions';
 import { RouteMap } from '@/components/RouteMap';
 import { useBooking } from '@/state/Booking';
-import { useDeviceLocation, useOnline } from '@/lib/hooks';
+import { useDeviceLocation, useLivePickupDefault, useOnline } from '@/lib/hooks';
 import { LOCATION_HELP, combineDateTime, defaultPickup, latestPickup, toDateInput, toTimeInput } from '@/lib/schedule';
 import { QUICK_CITIES } from './content';
 
@@ -164,6 +164,12 @@ export function PlanStep({ ui, setUi, intent }: { ui: PlanUi; setUi: Dispatch<Se
   const keptSchedule = scheduledAt && !scheduleProblem(scheduledAt) ? scheduledAt : null;
   const [whenDate, setWhenDate] = useState(() => (keptSchedule ? toDateInput(keptSchedule) : defaultPickup().date));
   const [whenTime, setWhenTime] = useState(() => (keptSchedule ? toTimeInput(keptSchedule) : defaultPickup().time));
+  // Until the rider picks a date or time, the default keeps following the clock (always 30 minutes from now).
+  const scheduleTouched = useRef(keptSchedule !== null);
+  useLivePickupDefault(scheduleTouched, (next) => {
+    setWhenDate(next.date);
+    setWhenTime(next.time);
+  });
   // Every booking is an advance booking: a pickup date and time is always required.
   const suggestPickup = () => {
     const next = defaultPickup();
@@ -418,11 +424,11 @@ export function PlanStep({ ui, setUi, intent }: { ui: PlanUi; setUi: Dispatch<Se
         <div className="when" role="group" aria-label="Pickup date and time">
           <label className="when__item">
             <span>Pickup date</span>
-            <input type="date" value={whenDate} min={toDateInput(new Date())} max={toDateInput(latestPickup())} onChange={(e) => setWhenDate(e.target.value)} />
+            <input type="date" value={whenDate} min={toDateInput(new Date())} max={toDateInput(latestPickup())} onChange={(e) => { scheduleTouched.current = true; setWhenDate(e.target.value); }} />
           </label>
           <label className="when__item">
             <span>Pickup time</span>
-            <input type="time" value={whenTime} step={300} onChange={(e) => setWhenTime(e.target.value)} />
+            <input type="time" value={whenTime} step={300} onChange={(e) => { scheduleTouched.current = true; setWhenTime(e.target.value); }} />
           </label>
         </div>
 

@@ -17,7 +17,7 @@ import { useBooking } from '@/state/Booking';
 import { useAuth } from '@/state/Auth';
 import { setPendingReturn } from '@/lib/pendingReturn';
 import { saveDraft, RENTAL_PACKAGE_HOURS } from '@/lib/draft';
-import { useDeviceLocation, useOnline } from '@/lib/hooks';
+import { useDeviceLocation, useLivePickupDefault, useOnline } from '@/lib/hooks';
 import { ClockIcon, SwapIcon } from '@/components/CabParts';
 import { combineDateTime, defaultPickup, latestPickup, toDateInput, toTimeInput } from '@/lib/schedule';
 import { LOCAL_RENTALS_LABEL, SERVICES, SERVICE_TITLE, isLocalRentals, type ServiceId } from '@/lib/services';
@@ -115,16 +115,11 @@ export function BookingForm({
   const scheduleTouched = useRef(keptSchedule !== null);
   const [date, setDate] = useState(() => (keptSchedule ? toDateInput(keptSchedule) : defaultPickup().date));
   const [time, setTime] = useState(() => (keptSchedule ? toTimeInput(keptSchedule) : defaultPickup().time));
-  // A default nobody changed is moved forward when it is about to run out, so it never fails at "Let's Go".
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      if (scheduleTouched.current || !scheduleProblem(combineDateTime(date, time))) return;
-      const next = defaultPickup();
-      setDate(next.date);
-      setTime(next.time);
-    }, 20000);
-    return () => window.clearInterval(id);
-  }, [date, time]);
+  // Until the rider picks a date or time, the default keeps following the clock (always 30 minutes from now).
+  useLivePickupDefault(scheduleTouched, (next) => {
+    setDate(next.date);
+    setTime(next.time);
+  });
   useEffect(() => {
     const d = combineDateTime(date, time);
     if ((d?.getTime() ?? null) !== (scheduledAt?.getTime() ?? null)) update({ scheduledAt: d });

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { setOnlineState } from '@core/utils/network';
+import { defaultPickup } from './schedule';
 import { getCurrentPosition, getLocationPermission, watchPosition, LocationError, type DevicePosition, type PermissionStateLite } from '@core/services/geoService';
 
 /** True while the viewport is at least `px` wide. */
@@ -157,4 +158,26 @@ export function useDebounced<T>(value: T, ms: number): T {
     return () => window.clearTimeout(t);
   }, [value, ms]);
   return v;
+}
+
+/**
+ * Keeps a default pickup at "now + 30 minutes" as the clock moves: while `touched.current` is false the date and time are
+ * refreshed every few seconds (and the moment the tab is shown again). Once the rider picks a date or time they set
+ * `touched.current = true` and it never changes under them.
+ */
+export function useLivePickupDefault(touched: { current: boolean }, apply: (next: { date: string; time: string }) => void): void {
+  const applyRef = useRef(apply);
+  applyRef.current = apply;
+  useEffect(() => {
+    const tick = () => {
+      if (!touched.current) applyRef.current(defaultPickup());
+    };
+    const id = window.setInterval(tick, 10000);
+    const onVisible = () => document.visibilityState === 'visible' && tick();
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [touched]);
 }

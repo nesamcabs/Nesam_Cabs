@@ -9,6 +9,9 @@
       "distribution": "internal",
       "android": {
         "credentialsSource": "remote"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://nesam-travels-api.vercel.app"
       }
     },
     "preview": {
@@ -16,12 +19,18 @@
       "android": {
         "buildType": "apk",
         "credentialsSource": "remote"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://nesam-travels-api.vercel.app"
       }
     },
     "production": {
       "autoIncrement": true,
       "android": {
         "credentialsSource": "remote"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://nesam-travels-api.vercel.app"
       }
     }
   },

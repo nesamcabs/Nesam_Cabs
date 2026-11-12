@@ -15,7 +15,8 @@ export function describeCallError(err: unknown): string {
   const message = (err as { message?: string }).message || '';
   if (/^functions\/(invalid-argument|failed-precondition|permission-denied|not-found|unavailable|unauthenticated|already-exists|resource-exhausted)$/.test(code) && message) return message;
   if (code === 'functions/deadline-exceeded') return 'The server took too long to respond. Please try again.';
-  return 'The server could not complete the request. Check your connection and try again.';
+  // The reference names the real cause: "internal" = a server fault, "unknown" = no code at all.
+  return `The server could not complete the request. Check your connection and try again. (Ref: ${code.replace('functions/', '') || 'unknown'})`;
 }
 
 /** Calls a booking-server function; a failure becomes an ActionError with a readable message. */
