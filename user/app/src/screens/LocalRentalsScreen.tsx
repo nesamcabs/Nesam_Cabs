@@ -4,13 +4,13 @@
 // It only collects the trip. The vehicles and fares come from the same booking steps as every other service, and the server
 // prices them, so nothing here can change what a rider is charged. (Mirrors the People Taxi / website Local Rentals page.)
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BackHandler, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { BackHandler, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRoute, type NavigationProp, type RouteProp } from '@react-navigation/native';
 import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { Button, Chip, Notice, Segmented } from '../components/ui';
 import { Icon } from '../components/Icon';
-import { PressableScale } from '../components/brand';
+import { DESKTOP_NAV_MIN, DesktopTopBar, PressableScale } from '../components/brand';
 import { PlaceSearchModal } from '../components/PlaceSearchModal';
 import { TimePickerSheet } from '../components/TimePickerSheet';
 import { PinMap, type PinMapPin, type PinMapTarget } from '../components/PinMap';
@@ -324,8 +324,11 @@ export function LocalRentalsScreen() {
     />
   );
 
+  const winW = useWindowDimensions().width;
+
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
+      {winW >= DESKTOP_NAV_MIN ? <DesktopTopBar /> : null}
       <PlaceSearchModal
         visible={picker !== null}
         title={picker === 'drop' ? 'Drop location' : 'Pickup location'}

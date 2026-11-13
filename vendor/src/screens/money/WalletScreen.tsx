@@ -1,7 +1,8 @@
 // Wallet — working balance and a separate refundable deposit (reference qWalletView). Every number is the server's
 // (wallets/vendor_{uid}, wallet_ledger); the app never computes a balance. Ledger tabs: All · Trips · Payments · Penalties · Payouts.
 import React, { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../../components/kit/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useVendorData } from '../../context/VendorData';
@@ -59,7 +60,7 @@ export function WalletScreen() {
   ]);
 
   return (
-    <Page title="Wallet" subtitle="Working balance and a separate refundable deposit."
+    <Page title="Wallet"
       action={negative ? <Btn small={!wide} icon="card-outline" title="Pay dues" onPress={() => setSheet('dues')} /> : <Btn small={!wide} icon="arrow-up" title="Withdraw" disabled={withdrawable < MIN_PAYOUT} onPress={() => setSheet('payout')} />}>
       {d.errors.wallet ? <Notice tone="red" title="Wallet could not load" text={d.errors.wallet} style={{ marginBottom: 14 }} /> : null}
       <Grid columns={wide ? 2 : 1} gap={18}>
@@ -161,10 +162,10 @@ function LedgerRow({ e, last }: { e: LedgerRecord; last: boolean }) {
   const meta = ENTRY[e.type] ?? { label: e.type.replace(/_/g, ' '), tab: 'Trips' as WalletTab, icon: 'swap-horizontal' as IconName };
   const credit = e.direction === 'credit';
   const tone: Tone = meta.tab === 'Penalties' ? 'red' : meta.tab === 'Payments' ? 'green' : meta.tab === 'Payouts' ? 'blue' : 'neutral';
-  const iconBg = { red: '#FFF0EE', green: '#EDF7F1', blue: '#EEF3FB', neutral: '#F2F5F9', amber: '#FFF6E5' }[tone];
-  const iconFg = { red: '#B4533F', green: '#3D7D5E', blue: '#4D6E9C', neutral: '#647B93', amber: '#9A6A2D' }[tone];
+  const iconBg = { red: '#FFF0EE', green: '#EDF7F1', blue: '#EEF3FB', neutral: '#F6F7F9', amber: '#FFF6E5' }[tone];
+  const iconFg = { red: '#B4533F', green: '#3D7D5E', blue: '#4D6E9C', neutral: '#6F7785', amber: '#9A6A2D' }[tone];
   return (
-    <Pressable style={({ hovered }: { pressed: boolean; hovered?: boolean }) => [styles.ledger, last && { borderBottomWidth: 0 }, hovered && { backgroundColor: '#FAFBFD' }]} accessibilityLabel={`${meta.label} ${credit ? 'credit' : 'debit'} ${rupees(e.amount)}`}>
+    <Pressable style={({ hovered }: { pressed: boolean; hovered?: boolean }) => [styles.ledger, last && { borderBottomWidth: 0 }, hovered && { backgroundColor: '#FAFAFB' }]} accessibilityLabel={`${meta.label} ${credit ? 'credit' : 'debit'} ${rupees(e.amount)}`}>
       <View style={[styles.ledgerIcon, { backgroundColor: iconBg }]}><Ionicons name={meta.icon} size={17} color={iconFg} /></View>
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={styles.ledgerTitle} numberOfLines={1}>{meta.label}</Text>
@@ -213,22 +214,22 @@ function PayoutSheet({ withdrawable, onClose }: { withdrawable: number; onClose:
 
 const styles = StyleSheet.create({
   balance: { backgroundColor: colors.card, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 14, padding: 26 },
-  eyebrowLight: { fontFamily, fontSize: 10, fontWeight: '600', letterSpacing: 1.1, color: '#64778C' },
-  balanceValue: { fontFamily, fontSize: 38, fontWeight: '700', letterSpacing: -1, color: '#293C51', marginTop: 14 },
-  balanceSub: { fontFamily, fontSize: 12, color: '#60748A', marginTop: 6, lineHeight: 19 },
+  eyebrowLight: { fontFamily, fontSize: 10, fontWeight: '600', letterSpacing: 1.1, color: '#6F7785' },
+  balanceValue: { fontFamily, fontSize: 38, fontWeight: '700', letterSpacing: -1, color: '#424B5A', marginTop: 14 },
+  balanceSub: { fontFamily, fontSize: 12, color: '#6F7785', marginTop: 6, lineHeight: 19 },
   held: { fontFamily, fontSize: 11, color: '#9D8353', marginTop: 8 },
-  balanceRow: { flexDirection: 'row', gap: 12, marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#EEF1F5' },
-  miniLabel: { fontFamily, fontSize: 10.5, color: '#7A8A9D' },
-  miniValue: { fontFamily, fontSize: 14, fontWeight: '600', color: '#3A4E66', marginTop: 4 },
+  balanceRow: { flexDirection: 'row', gap: 12, marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#F1F2F5' },
+  miniLabel: { fontFamily, fontSize: 10.5, color: '#8B919C' },
+  miniValue: { fontFamily, fontSize: 14, fontWeight: '600', color: '#424B5A', marginTop: 4 },
   depositIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#EEF6F2', alignItems: 'center', justifyContent: 'center' },
-  depositValue: { fontFamily, fontSize: 28, fontWeight: '700', color: '#415D69', marginTop: 10, marginBottom: 8, letterSpacing: -0.6 },
+  depositValue: { fontFamily, fontSize: 28, fontWeight: '700', color: '#424B5A', marginTop: 10, marginBottom: 8, letterSpacing: -0.6 },
   between: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  penaltyAmount: { fontFamily, fontSize: 24, fontWeight: '700', color: '#A33A2C', marginTop: 12 },
+  penaltyAmount: { fontFamily, fontSize: 24, fontWeight: '700', color: '#B81C2A', marginTop: 12 },
   penaltyReason: { fontFamily, fontSize: 13, color: colors.ink, marginTop: 4, lineHeight: 19 },
-  payRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#EEF1F5' },
+  payRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F1F2F5' },
   payTitle: { fontFamily, fontSize: 13.5, fontWeight: '600', color: colors.ink },
-  ledger: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#EEF1F5', borderRadius: 8 },
+  ledger: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#F1F2F5', borderRadius: 8 },
   ledgerIcon: { width: 34, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  ledgerTitle: { fontFamily, fontSize: 13, fontWeight: '500', color: '#465B74' },
+  ledgerTitle: { fontFamily, fontSize: 13, fontWeight: '500', color: '#6F7785' },
   ledgerAmount: { fontFamily, fontSize: 16, fontWeight: '600' },
 });

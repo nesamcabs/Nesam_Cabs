@@ -101,7 +101,7 @@ export function SavedPlacesScreen() {
     <SafeAreaView style={styles.root} edges={['top']}>
 <KeyboardAvoid>
       <AppHeader title="Saved Addresses" onBack={() => navigation.goBack()} />
-      <ScrollView kind="narrow" contentContainerStyle={styles.page} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView footer kind="narrow" contentContainerStyle={styles.page} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <PlaceSearchModal visible={searchOpen} title="Find an address" onClose={() => setSearchOpen(false)} onSelect={setPicked} near={position} />
         <Notice message={error} />
 

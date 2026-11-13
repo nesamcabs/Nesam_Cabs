@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from './kit/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Application from 'expo-application';
 import { doc, getDoc } from 'firebase/firestore';

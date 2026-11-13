@@ -77,7 +77,7 @@ describe('sign-up with a vehicle number', () => {
   });
 
   it('only writes keys the Firestore rules let a vendor own (vendorOwnerKeys)', () => {
-    const rules = readFileSync(join(__dirname, '../../../firestore.rules'), 'utf8');
+    const rules = readFileSync(join(__dirname, '../../firestore.rules'), 'utf8');
     const block = /function vendorOwnerKeys\(\) \{\s*return \[([^\]]*)\]/.exec(rules);
     expect(block).not.toBeNull();
     const allowed = new Set([...block![1].matchAll(/'([A-Za-z]+)'/g)].map((m) => m[1]));

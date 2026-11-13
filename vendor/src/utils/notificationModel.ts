@@ -102,7 +102,7 @@ export const TONE_COLORS: Record<Tone, { bg: string; border: string; bar: string
   green: { bg: '#F0FDF4', border: '#86EFAC', bar: '#16A34A', text: '#14532D' },
   orange: { bg: '#FFF7ED', border: '#FDBA74', bar: '#F97316', text: '#7C2D12' },
   red: { bg: '#FEF2F2', border: '#FCA5A5', bar: '#DC2626', text: '#7F1D1D' },
-  purple: { bg: '#FAF5FF', border: '#D8B4FE', bar: '#9333EA', text: '#581C87' },
+  purple: { bg: '#F6F7F9', border: '#D8B4FE', bar: '#9333EA', text: '#581C87' },
   amber: { bg: '#FFFBEB', border: '#FCD34D', bar: '#F59E0B', text: '#78350F' },
-  neutral: { bg: '#FFFFFF', border: '#D1D5DB', bar: '#6B7280', text: '#1F2937' },
+  neutral: { bg: '#FFFFFF', border: '#D8DFE9', bar: '#6F7785', text: '#171B24' },
 };

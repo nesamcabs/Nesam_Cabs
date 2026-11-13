@@ -2,10 +2,10 @@
 // dynamic page heading, notification + support actions) and the modern five-item service
 // navigation (Airport · Multicity · Outstation · Local Rental · Account) with prominent middle hero.
 import React, { useEffect, useState } from 'react';
-import { Animated, Image, type ImageSourcePropType, Linking, Modal, Pressable, type PressableProps, type StyleProp, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { Animated, Image, type ImageSourcePropType, Linking, Modal, Pressable, type PressableProps, type StyleProp, StyleSheet, Text, useWindowDimensions, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useKeyboardHeight } from './KeyboardAvoid';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY } from '../config/constants';
 import { colors, fonts, radius, space } from '../theme';
 import { BRAND, NESAM, VEHICLES, getVehicleImage } from '../assets/images';
@@ -14,8 +14,13 @@ import { useInbox } from '../context/Inbox';
 import { useBookingDraft, type HomeService } from '../context/BookingDraft';
 import { useDrawer } from '../context/Drawer';
 import { useAuthGate } from '../context/AuthGate';
+import { useCustomerData } from '../context/CustomerData';
+import { initials } from '../utils/format';
 import { Steps } from './ui';
 import { AiChatSheet } from './AiChatSheet';
+
+/** From this window width the website shows its top navigation instead of the floating bottom bar. */
+export const DESKTOP_NAV_MIN = 900;
 
 export const LOGO = NESAM.emblem;
 export const APP_ICON = BRAND.logo;
@@ -188,6 +193,85 @@ export function MenuButton({ glass }: { glass?: boolean }) {
   );
 }
 
+/** The desktop header's page links; the current page is highlighted. */
+const TOP_NAV: { screen: 'Book' | 'Trips' | 'Offers' | 'Alerts'; label: string; icon: IconName; match: string[] }[] = [
+  { screen: 'Book', label: 'Book a ride', icon: 'car', match: ['Book', 'Rentals'] },
+  { screen: 'Trips', label: 'My trips', icon: 'route', match: ['Trips'] },
+  { screen: 'Offers', label: 'Offers', icon: 'tag', match: ['Offers'] },
+  { screen: 'Alerts', label: 'Notifications', icon: 'bell', match: ['Alerts'] },
+];
+
+/**
+ * The website's desktop header: menu button (opens the profile drawer), logo, the page links, then Help, the support
+ * number, the support menu and Sign in (or the profile photo) on the right. Wide windows have no floating bottom bar.
+ */
+export function DesktopTopBar() {
+  const navigation = useNavigation();
+  const route = useRoute();
+  const { width } = useWindowDimensions();
+  const { unreadCount } = useInbox();
+  const { guest, requestSignIn } = useAuthGate();
+  const drawer = useDrawer();
+  const { profile } = useCustomerData();
+  const showPhone = width >= 1100;
+  return (
+    <View style={styles.deskBar}>
+      <View style={styles.deskInner}>
+        <MenuButton />
+        <BrandMark height={40} onPress={() => navigation.navigate('Tabs', { screen: 'Book' })} />
+        <View style={styles.deskNav} accessibilityRole="menu" accessibilityLabel="Main">
+          {TOP_NAV.map((n) => {
+            const on = n.match.includes(route.name);
+            const badge = n.screen === 'Alerts' && !guest ? unreadCount : 0;
+            return (
+              <Pressable
+                key={n.screen}
+                onPress={() => (n.screen === 'Offers' ? navigation.navigate('Offers') : navigation.navigate('Tabs', { screen: n.screen }))}
+                accessibilityRole="link"
+                accessibilityState={{ selected: on }}
+                accessibilityLabel={badge ? `${n.label}, ${badge} unread` : n.label}
+                style={({ hovered }: { hovered?: boolean }) => [styles.deskLink, (on || hovered) && styles.deskLinkOn]}
+              >
+                <Icon name={n.icon} size={19} color={on ? colors.primary : colors.ink} strokeWidth={1.9} />
+                <Text style={[styles.deskLinkText, on && { color: colors.primary }]} numberOfLines={1}>
+                  {n.label}
+                </Text>
+                {badge ? (
+                  <View style={styles.deskCount}>
+                    <Text style={styles.badgeText}>{badge > 9 ? '9+' : badge}</Text>
+                  </View>
+                ) : null}
+              </Pressable>
+            );
+          })}
+        </View>
+        <View style={styles.deskRight}>
+          <Pressable onPress={() => navigation.navigate('Support')} accessibilityRole="link" accessibilityLabel="Help and support" style={({ hovered }: { hovered?: boolean }) => [styles.helpLink, hovered && styles.deskLinkOn]}>
+            <Icon name="help-circle" size={18} color={colors.ink} strokeWidth={1.9} />
+            <Text style={styles.deskLinkText}>Help</Text>
+          </Pressable>
+          {showPhone ? (
+            <Pressable onPress={() => void Linking.openURL(`tel:${SUPPORT_PHONE}`)} accessibilityRole="link" accessibilityLabel={`Call NESAM Cabs support ${SUPPORT_PHONE_DISPLAY}`} style={({ hovered }: { hovered?: boolean }) => [styles.helpLink, hovered && styles.deskLinkOn]}>
+              <Icon name="phone" size={18} color={colors.success} strokeWidth={1.9} />
+              <Text style={styles.deskLinkText}>{SUPPORT_PHONE_DISPLAY}</Text>
+            </Pressable>
+          ) : null}
+          <SupportMenuAction />
+          {guest || !profile ? (
+            <PressableScale onPress={() => requestSignIn({ title: 'Sign in to NESAM Cabs' })} accessibilityRole="button" accessibilityLabel="Sign in" activeScale={0.94} style={styles.signIn} containerStyle={{ flexShrink: 0 }}>
+              <Text style={styles.signInText} numberOfLines={1}>Sign in</Text>
+            </PressableScale>
+          ) : (
+            <Pressable onPress={drawer?.openDrawer} accessibilityRole="button" accessibilityLabel="Open profile" style={styles.deskAvatar}>
+              {profile.photoUrl ? <Image source={{ uri: profile.photoUrl }} style={styles.deskAvatarImg} /> : <Text style={styles.deskAvatarText}>{initials(profile.name)}</Text>}
+            </Pressable>
+          )}
+        </View>
+      </View>
+    </View>
+  );
+}
+
 /**
  * The website's phone header: menu button, logo, then help and notifications on the right, over a hairline gold rule.
  * With a `title` the page heading (back button + title) follows beneath it, like the website's page heads.
@@ -208,27 +292,36 @@ export function AppHeader({
   rightAction?: React.ReactNode;
 }) {
   const navigation = useNavigation();
+  const { width } = useWindowDimensions();
+  const desktop = width >= DESKTOP_NAV_MIN;
+  const gutter = Math.max(24, Math.round((width - 1216) / 2) + 24);
   return (
     <View style={styles.headWrap}>
-      <View style={styles.top}>
-        <View style={styles.headerLeft}>
-          <MenuButton />
-          <BrandMark onPress={() => navigation.navigate('Tabs', { screen: 'Book' })} />
-        </View>
-        <View style={styles.actions}>
-          {rightAction ? (
-            rightAction
-          ) : actions ? (
-            <>
-              <SupportMenuAction active={active === 'support'} />
-              <NotificationsAction active={active === 'alerts'} />
-            </>
-          ) : null}
-        </View>
-      </View>
-      <View style={styles.goldRule} />
+      {desktop ? (
+        <DesktopTopBar />
+      ) : (
+        <>
+          <View style={styles.top}>
+            <View style={styles.headerLeft}>
+              <MenuButton />
+              <BrandMark onPress={() => navigation.navigate('Tabs', { screen: 'Book' })} />
+            </View>
+            <View style={styles.actions}>
+              {rightAction ? (
+                rightAction
+              ) : actions ? (
+                <>
+                  <SupportMenuAction active={active === 'support'} />
+                  <NotificationsAction active={active === 'alerts'} />
+                </>
+              ) : null}
+            </View>
+          </View>
+          <View style={styles.goldRule} />
+        </>
+      )}
       {title ? (
-        <View style={styles.pageHead}>
+        <View style={[styles.pageHead, desktop && { paddingHorizontal: gutter }]}>
           {onBack ? (
             <PressableScale onPress={onBack} hitSlop={8} activeScale={0.9} accessibilityRole="button" accessibilityLabel="Back" style={styles.headerBackBtn}>
               <Icon name="arrow-left" size={18} color={colors.ink} strokeWidth={2.1} />
@@ -259,15 +352,15 @@ export function BrandHeader({ right, title }: { right?: React.ReactNode; title?:
   return <MobileBrandHeader rightAction={right} title={title} />;
 }
 
-export type NavKey = HomeService | 'account';
+export type NavKey = HomeService | 'trips';
 
-/** The bottom bar: the website's four services (Outstation, Multicity, Local, Airport) and Profile. */
-const NAV_ITEMS: { key: NavKey; label: string; image: ImageSourcePropType }[] = [
+/** The bottom bar: the website's four services (Outstation, Multicity, Local, Airport) and My trips (the profile lives in the side drawer). */
+const NAV_ITEMS: { key: NavKey; label: string; image?: ImageSourcePropType; icon?: IconName }[] = [
   { key: 'outstation', label: 'Outstation', image: NESAM.navOutstation },
   { key: 'multicity', label: 'Multicity', image: NESAM.navMulticity },
   { key: 'rental', label: 'Local', image: NESAM.navLocal },
   { key: 'airport', label: 'Airport', image: NESAM.navAirport },
-  { key: 'account', label: 'Profile', image: NESAM.navProfile },
+  { key: 'trips', label: 'My trips', icon: 'route' },
 ];
 
 /** One bar item: the active one rises on a red disc, with a little pop. */
@@ -290,7 +383,13 @@ function NavItem({ item, on, onPress }: { item: (typeof NAV_ITEMS)[number]; on: 
     >
       <Animated.View style={[styles.navIcon, { transform: [{ translateY: lift }] }]}>
         <Animated.View style={[styles.navDisc, { opacity: rise, transform: [{ scale: disc }] }]} />
-        <Image source={item.image} style={styles.navImg} resizeMode="contain" accessible={false} />
+        {item.image ? (
+          <Image source={item.image} style={styles.navImg} resizeMode="contain" accessible={false} />
+        ) : (
+          <View style={styles.navGlyph}>
+            <Icon name={item.icon ?? 'route'} size={24} color={on ? colors.white : colors.primary} strokeWidth={2} />
+          </View>
+        )}
       </Animated.View>
       <Text style={[styles.navLabel, on && styles.navLabelOn]} numberOfLines={1} maxFontSizeMultiplier={1.1}>
         {item.label}
@@ -309,23 +408,23 @@ export function BottomNav({ active }: { active?: NavKey | null }) {
   const { service, setService } = useBookingDraft();
   const insets = useSafeAreaInsets();
   const keyboardOpen = useKeyboardHeight() > 0;
-  const { guest, requestSignIn } = useAuthGate();
+  const { width } = useWindowDimensions();
   const selected = active === undefined ? service : active;
-  if (keyboardOpen) return null;
+  // Wide windows use the top navigation (like the website); the floating bar is for phones and small tablets.
+  if (keyboardOpen || width >= DESKTOP_NAV_MIN) return null;
 
   return (
     <View style={[styles.dock, { paddingBottom: 16 + insets.bottom }]} pointerEvents="box-none">
-      <View style={styles.nav} accessibilityRole="tablist" accessibilityLabel="Services and profile">
+      <View style={styles.nav} accessibilityRole="tablist" accessibilityLabel="Services and my trips">
         {NAV_ITEMS.map((item) => (
           <NavItem
             key={item.key}
             item={item}
             on={selected === item.key}
             onPress={() => {
-              if (item.key === 'account') {
-                // Profile asks a guest to sign in, as on the website.
-                if (guest) requestSignIn({ title: 'Sign in to NESAM Cabs' });
-                else navigation.navigate('Tabs', { screen: 'Account' });
+              if (item.key === 'trips') {
+                // A guest sees the sign-in prompt in place of the trips page.
+                navigation.navigate('Tabs', { screen: 'Trips' });
                 return;
               }
               setService(item.key);
@@ -449,6 +548,19 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   goldRule: { height: 1, backgroundColor: colors.goldLine },
+  // Desktop header
+  deskBar: { width: '100%', backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border },
+  deskInner: { width: '100%', maxWidth: 1216, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 14, height: 68, paddingHorizontal: 24 },
+  deskNav: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginLeft: 8 },
+  deskLink: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 42, paddingHorizontal: 14, borderRadius: 999 },
+  deskLinkOn: { backgroundColor: colors.primarySoft },
+  deskLinkText: { fontFamily: fonts.semiBold, fontSize: 14.5, color: colors.ink },
+  deskCount: { minWidth: 18, height: 18, paddingHorizontal: 5, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
+  deskRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  helpLink: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 40, paddingHorizontal: 12, borderRadius: 999 },
+  deskAvatar: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: colors.primarySoft, borderWidth: 2, borderColor: colors.primarySoft },
+  deskAvatarImg: { width: 42, height: 42 },
+  deskAvatarText: { fontFamily: fonts.semiBold, fontSize: 15, color: colors.primary },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, minWidth: 0, marginRight: 8 },
   pageHead: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingTop: 14, paddingBottom: 10, backgroundColor: colors.bg },
   headerBackBtn: { width: 36, height: 36, borderRadius: 6, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
@@ -520,6 +632,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   navImg: { width: 48, height: 48 },
+  navGlyph: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primarySoft },
   navLabel: { fontFamily: fonts.bold, fontSize: 11, lineHeight: 20, color: '#101827' },
   navLabelOn: { color: colors.primary },
   back: {

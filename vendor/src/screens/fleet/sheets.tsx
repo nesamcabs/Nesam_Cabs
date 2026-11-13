@@ -1,6 +1,7 @@
 // Fleet dialogs: vehicle availability, document renewal, pairing a driver with a vehicle, and the linking-code panel.
 import React, { useEffect, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../../components/kit/Text';
 import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { useVendorData } from '../../context/VendorData';
@@ -253,7 +254,7 @@ export function CodePanel({ link, testCode }: { link: PartnerLink; testCode?: st
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 10, marginBottom: 14 },
-  pick: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48, paddingHorizontal: 12, borderWidth: 1, borderColor: '#D9E2ED', borderRadius: 10, backgroundColor: colors.white },
+  pick: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48, paddingHorizontal: 12, borderWidth: 1, borderColor: '#E7EAF0', borderRadius: 10, backgroundColor: colors.white },
   pickText: { fontFamily, fontSize: 14, color: colors.ink },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
   chip: { paddingHorizontal: 13, paddingVertical: 9, borderRadius: 9, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white },

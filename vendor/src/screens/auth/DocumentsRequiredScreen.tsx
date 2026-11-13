@@ -3,7 +3,8 @@
 //   • VerificationLock — approved partner: the panel stays visible, view-only, with this card on top.
 //   • DocumentsRequiredScreen — application submitted without documents: a full sign-in style screen.
 import React, { useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '../../components/kit/Text';
 import { useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -137,19 +138,19 @@ export function DocumentsRequiredScreen({ record, onSignOut }: { record: VendorR
 }
 
 const styles = StyleSheet.create({
-  list: { marginTop: 14, gap: 12, padding: 16, borderRadius: 14, backgroundColor: '#F8F9FB', borderWidth: 1, borderColor: AUTH.line },
+  list: { marginTop: 14, gap: 12, padding: 16, borderRadius: 14, backgroundColor: '#F6F7F9', borderWidth: 1, borderColor: AUTH.line },
   item: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   tick: { width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: AUTH.fieldLine, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
   tickDone: { backgroundColor: colors.success, borderColor: colors.success },
   itemTitle: { fontFamily, fontSize: 13.5, fontWeight: '600', color: AUTH.ink },
   itemSub: { fontFamily, fontSize: 12, lineHeight: 18, color: AUTH.muted, marginTop: 2 },
-  note: { flexDirection: 'row', alignItems: 'flex-start', gap: 9, marginTop: 16, marginBottom: 14, padding: 12, borderRadius: 10, backgroundColor: '#F0F8F2' },
-  noteText: { flex: 1, fontFamily, fontSize: 12, lineHeight: 18, color: '#3D7559' },
+  note: { flexDirection: 'row', alignItems: 'flex-start', gap: 9, marginTop: 16, marginBottom: 14, padding: 12, borderRadius: 10, backgroundColor: '#E9F7EF' },
+  noteText: { flex: 1, fontFamily, fontSize: 12, lineHeight: 18, color: '#167A50' },
   links: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, flexWrap: 'wrap', gap: 10 },
   link: { flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 32 },
   linkText: { fontFamily, fontSize: 13, fontWeight: '600' },
   lockWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center', paddingHorizontal: 12 },
-  lockCard: { width: '100%', maxWidth: 580, backgroundColor: colors.white, borderRadius: 18, borderWidth: 1, borderColor: AUTH.line, shadowColor: '#162033', shadowOpacity: 0.18, shadowRadius: 30, shadowOffset: { width: 0, height: 12 }, elevation: 14 },
+  lockCard: { width: '100%', maxWidth: 580, backgroundColor: colors.white, borderRadius: 18, borderWidth: 1, borderColor: AUTH.line, shadowColor: '#171B24', shadowOpacity: 0.18, shadowRadius: 30, shadowOffset: { width: 0, height: 12 }, elevation: 14 },
   lockHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   lockIcon: { width: 42, height: 42, borderRadius: 12, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
   lockEyebrow: { fontFamily, fontSize: 9.5, fontWeight: '700', letterSpacing: 1.2, color: colors.primary },

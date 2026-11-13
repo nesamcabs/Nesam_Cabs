@@ -1,7 +1,8 @@
 // One page of the workspace: the heading (title, subtitle, action; a back arrow on detail pages) and a centred, padded scroll body
 // that follows the reference's breakpoints. DetailGrid puts the summary panel beside the main stack on wide screens.
 import React from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { Text } from '../kit/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useRoute } from '@react-navigation/native';
 import { KeyboardAvoid } from '../KeyboardAvoid';
@@ -43,11 +44,15 @@ export function Page({
         keyboardShouldPersistTaps="handled"
         refreshControl={onRefresh ? <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} /> : undefined}
       >
-        <View style={[styles.inner, { paddingHorizontal: gutter, paddingTop: wide ? 22 : 16 }]}>
+        <View style={[styles.inner, { paddingHorizontal: gutter, paddingTop: wide ? 6 : 16 }]}>
           {title ? <PageHeading title={title} subtitle={subtitle} action={action} back={controls && !SECTION_PAGES.includes(route.name)} /> : null}
           <View style={maxWidth ? { maxWidth, width: '100%' } : undefined}>{children}</View>
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>NESAM · {COMPANY_LEGAL_NAME}</Text>
+          <View style={[styles.footer, !wide && { justifyContent: 'center' }]}>
+            <View style={styles.footerLeft}>
+              <Ionicons name="shield-checkmark-outline" size={12} color="#989DA6" />
+              <Text style={styles.footerText}>{COMPANY_LEGAL_NAME.toUpperCase()}</Text>
+            </View>
+            {wide ? <Text style={styles.footerText}>Made for every mile.</Text> : null}
           </View>
         </View>
       </ScrollView>
@@ -60,8 +65,8 @@ export function PageHeading({ title, subtitle, action, back }: { title: string; 
   return (
     <View style={styles.heading}>
       {back ? (
-        <Pressable onPress={goBack} accessibilityRole="button" accessibilityLabel="Back" hitSlop={8} style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [styles.back, (pressed || hovered) && { backgroundColor: '#EEF2F7' }]}>
-          <Ionicons name="arrow-back" size={19} color="#52657B" />
+        <Pressable onPress={goBack} accessibilityRole="button" accessibilityLabel="Back" hitSlop={8} style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [styles.back, (pressed || hovered) && { backgroundColor: '#F1F2F5' }]}>
+          <Ionicons name="arrow-back" size={19} color="#6F7785" />
         </Pressable>
       ) : null}
       <View style={{ flex: 1, minWidth: 0 }}>
@@ -92,8 +97,9 @@ const styles = StyleSheet.create({
   inner: { width: '100%', maxWidth: 1360, alignSelf: 'center' },
   back: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: -1, marginLeft: -6 },
   heading: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, marginBottom: 18 },
-  h1: { fontFamily, fontSize: 27, fontWeight: '700', letterSpacing: -0.8, color: colors.ink, lineHeight: 34 },
-  sub: { fontFamily, fontSize: 12.5, color: '#68788C', marginTop: 5, lineHeight: 19 },
-  footer: { marginTop: 36, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#E6EBF1', alignItems: 'center' },
-  footerText: { fontFamily, fontSize: 11, color: '#9AA5B2', textAlign: 'center' },
+  h1: { fontFamily, fontSize: 27, fontWeight: '700', letterSpacing: -0.9, color: colors.ink, lineHeight: 34 },
+  sub: { fontFamily, fontSize: 12.5, color: colors.muted, marginTop: 3, lineHeight: 19 },
+  footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 28, marginBottom: 4 },
+  footerLeft: { flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 1 },
+  footerText: { fontSize: 10, color: '#989DA6', letterSpacing: 0.2 },
 });

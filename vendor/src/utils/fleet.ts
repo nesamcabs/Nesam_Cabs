@@ -7,6 +7,9 @@ import type { FleetDetails, FleetVehicleDoc } from '../types/vendor';
 /** Plate as printed, with or without spaces/hyphens. */
 export const normalizePlate = (v: string) => v.toUpperCase().replace(/[^A-Z0-9]/g, '');
 
+/** A driving licence number: two state letters then the licence digits, in any common spacing (e.g. TN01 20110012345). */
+export const normalizeLicence = (v: string) => v.toUpperCase().replace(/[\s-]/g, '');
+export const isLicence = (v: string) => /^[A-Z]{2}[A-Z0-9]{7,18}$/.test(normalizeLicence(v));
 export const isPlate = (v: string) => {
   const n = normalizePlate(v);
   return (n.length >= 6 && /^[A-Z]{2}\d{1,2}[A-Z]{0,3}\d{1,4}$/.test(n)) || /^\d{2}BH\d{4}[A-Z]{1,2}$/.test(n);

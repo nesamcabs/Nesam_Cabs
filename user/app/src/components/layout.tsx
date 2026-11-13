@@ -16,6 +16,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { useResponsive, type ContentKind } from '../theme/responsive';
+import { SiteFooter } from './SiteFooter';
 
 /** Style that centres a block and caps its width for the current window. */
 export function useContentStyle(kind: ContentKind = 'wide'): ViewStyle {
@@ -90,14 +91,23 @@ export function DesktopCol({
 
 type LayoutProps = { kind?: ContentKind };
 
-export const ScrollView = forwardRef<RNScrollView, ScrollViewProps & LayoutProps>(function ScrollView(
-  { kind = 'wide', contentContainerStyle, ...props },
+export const ScrollView = forwardRef<RNScrollView, ScrollViewProps & LayoutProps & { /** End the page with the website footer on wide windows. */ footer?: boolean }>(function ScrollView(
+  { kind = 'wide', contentContainerStyle, footer, children, ...props },
   ref,
 ) {
   const content = useContentStyle(kind);
   // Horizontal scrollers (chip rows, tab strips) are not page content.
-  if (props.horizontal) return <RNScrollView ref={ref} contentContainerStyle={contentContainerStyle} {...props} />;
-  return <RNScrollView ref={ref} contentContainerStyle={[content, contentContainerStyle]} {...props} />;
+  if (props.horizontal) return <RNScrollView ref={ref} contentContainerStyle={contentContainerStyle} {...props}>{children}</RNScrollView>;
+  if (footer) {
+    // The page keeps its centred column; the footer spans the full width beneath it.
+    return (
+      <RNScrollView ref={ref} contentContainerStyle={styles.withFooter} {...props}>
+        <View style={[content, styles.grow, contentContainerStyle]}>{children}</View>
+        <SiteFooter />
+      </RNScrollView>
+    );
+  }
+  return <RNScrollView ref={ref} contentContainerStyle={[content, contentContainerStyle]} {...props}>{children}</RNScrollView>;
 });
 
 type ResponsiveFlatListProps<T> = FlatListProps<T> &
@@ -106,10 +116,12 @@ type ResponsiveFlatListProps<T> = FlatListProps<T> &
     multiColumn?: boolean;
     /** Upper bound for `multiColumn` (default 2). */
     maxColumns?: number;
+    /** End the list with the website footer on wide windows. */
+    footer?: boolean;
   };
 
 function FlatListInner<T>(
-  { kind, multiColumn = false, maxColumns = 2, contentContainerStyle, columnWrapperStyle, renderItem, numColumns, ...props }: ResponsiveFlatListProps<T>,
+  { kind, multiColumn = false, maxColumns = 2, footer, contentContainerStyle, columnWrapperStyle, renderItem, numColumns, ...props }: ResponsiveFlatListProps<T>,
   ref: React.ForwardedRef<RNFlatList<T>>,
 ) {
   const r = useResponsive();
@@ -131,6 +143,7 @@ function FlatListInner<T>(
       renderItem={wrapped}
       columnWrapperStyle={cols > 1 ? [styles.columns, columnWrapperStyle] : undefined}
       contentContainerStyle={[content, contentContainerStyle]}
+      {...(footer ? { ListFooterComponent: <SiteFooter breakout /> } : {})}
     />
   );
 }
@@ -163,6 +176,8 @@ export function Grid({ children, columns, gap = 12, style }: { children: React.R
 }
 
 const styles = StyleSheet.create({
+  withFooter: { flexGrow: 1 },
+  grow: { flexGrow: 1 },
   cell: { flex: 1, minWidth: 0 },
   columns: { gap: 12 },
 });

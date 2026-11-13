@@ -1,16 +1,19 @@
-// The NESAM Partner workspace frame (docs/NESAM_Vendor.html): a full-width header (brand, notifications, 24/7 Helpdesk,
-// Profile), then a sidebar on screens ≥ 801 px or a bottom bar on phones, around the page that is open.
+// The NESAM Partner workspace frame, laid out like the NESAM Driver app: a labelled sidebar on desktop (brand, workspace
+// navigation, support card, profile), an icon rail on tablets and a brand bar + bottom navigation on phones. The page that is
+// open sits beside / between them, so the navigation never moves while pages change.
 import React, { useEffect, useRef } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useVendorData } from '../../context/VendorData';
 import { useInbox } from '../../context/Inbox';
 import { goSection, navigationRef, sectionOf, SECTIONS, useCurrentRoute } from '../../navigation/navigationRef';
 import type { Section } from '../../navigation/types';
-import { colors, fontFamily } from '../../theme';
+import { colors } from '../../theme';
 import { useLayout } from '../../theme/responsive';
 import { FlashHost } from '../kit/flash';
+import { initials } from '../kit/format';
+import { Text } from '../kit/Text';
 import { PartnerBanner } from './PartnerBanner';
 import type { IconName } from '../kit/core';
 
@@ -21,6 +24,8 @@ const NAV: Record<Section, { on: IconName; off: IconName; label: string }> = {
   Earnings: { on: 'stats-chart', off: 'stats-chart-outline', label: 'Earnings' },
   Wallet: { on: 'wallet', off: 'wallet-outline', label: 'Wallet' },
 };
+
+type Hover = { pressed: boolean; hovered?: boolean };
 
 function useBadges(): Partial<Record<Section, number>> {
   const { awaitingDispatch, actionLinks } = useVendorData();
@@ -47,17 +52,17 @@ export function AppShell({ children, lock = null }: { children: React.ReactNode;
   }, [locked]);
   return (
     <View style={styles.root}>
-      <View ref={frame} style={{ flex: 1 }} pointerEvents={locked ? 'none' : 'auto'}
+      <View ref={frame} style={styles.frame} pointerEvents={locked ? 'none' : 'auto'}
         accessibilityElementsHidden={locked} importantForAccessibility={locked ? 'no-hide-descendants' : 'auto'}>
-        <Header current={current} route={route} />
-        <View style={styles.body}>
-          {layout.wide ? <Sidebar current={current} width={layout.sidebarWidth} /> : null}
+        {layout.wide ? <Sidebar current={current} width={layout.sidebarWidth} rail={layout.rail} /> : null}
+        <View style={styles.workspace}>
+          <Topbar current={current} route={route} />
           <View style={styles.main}>
             {children}
             <FlashHost />
           </View>
+          {!layout.wide ? <BottomBar current={current} /> : null}
         </View>
-        {!layout.wide ? <BottomBar current={current} /> : null}
       </View>
       {locked ? (
         <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
@@ -69,30 +74,49 @@ export function AppShell({ children, lock = null }: { children: React.ReactNode;
   );
 }
 
-function Header({ current, route }: { current: string; route: string }) {
+// ── Top bar ─────────────────────────────────────────────────────────────────
+
+function IconButton({ icon, label, onPress, dot, active, color, size = 40 }: { icon: IconName; label: string; onPress: () => void; dot?: boolean; active?: boolean; color?: string; size?: number }) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label}
+      style={({ hovered }: Hover) => [styles.iconBtn, { width: size, height: size }, active && styles.iconBtnOn, hovered && !active && { backgroundColor: colors.bg }]}>
+      <Ionicons name={icon} size={19} color={color ?? (active ? colors.primary : colors.ink)} />
+      {dot ? <View style={styles.dot} /> : null}
+    </Pressable>
+  );
+}
+
+/**
+ * Phones: the brand with the bell, help and profile buttons. Wider screens: just the buttons, right-aligned over the page
+ * (the sidebar already carries the brand), lined up with the page content.
+ */
+function Topbar({ current, route }: { current: string; route: string }) {
   const insets = useSafeAreaInsets();
-  const { wide, compact } = useLayout();
+  const { wide, compact, gutter } = useLayout();
   const { unreadCount, unacknowledged } = useInbox();
   const dot = unreadCount > 0 || unacknowledged.length > 0;
-  return (
-    <View style={[styles.header, { paddingTop: insets.top, height: (wide ? 74 : 68) + insets.top }, !wide && { paddingHorizontal: compact ? 12 : 16 }]}>
-      <Pressable style={styles.brand} onPress={() => goSection('Trips')} accessibilityRole="button" accessibilityLabel="NESAM Partner — Trips">
-        <PartnerBanner height={wide ? 52 : compact ? 36 : 42} />
-      </Pressable>
-      <View style={[styles.actions, !wide && { gap: 6 }]}>
-        <Pressable onPress={openAlerts} style={[styles.bell, !wide && { width: 40, height: 42 }]} accessibilityRole="button" accessibilityLabel={dot ? 'Notifications, unread' : 'Notifications'}>
-          <View style={styles.bellIcon}><Ionicons name="notifications-outline" size={20} color={route === 'Alerts' ? colors.primary : '#4C5664'} /></View>
-          {dot ? <View style={styles.dot} /> : null}
+  const size = compact ? 37 : 40;
+  const alerts = route === 'Alerts';
+  const actions = (
+    <View style={[styles.actions, compact && { gap: 5 }]}>
+      <IconButton icon="notifications-outline" label={dot ? 'Notifications, unread' : 'Notifications'} onPress={openAlerts} dot={dot} active={alerts} size={size} />
+      <IconButton icon="headset-outline" label="24/7 Helpdesk" onPress={() => goSection('Helpdesk')} active={current === 'Helpdesk'} color={colors.primary} size={size} />
+      {wide ? null : <IconButton icon="person-circle-outline" label="Profile and My Business" onPress={() => goSection('Account')} active={current === 'Account' && !alerts} size={size} />}
+    </View>
+  );
+  if (!wide) {
+    return (
+      <View style={[styles.phoneBar, { paddingTop: insets.top + 12, paddingHorizontal: gutter, minHeight: 64 + insets.top }]}>
+        <Pressable style={styles.brandLink} onPress={() => goSection('Trips')} accessibilityRole="button" accessibilityLabel="NESAM Partner — Trips">
+          <PartnerBanner height={compact ? 32 : 38} />
         </Pressable>
-        <Pressable onPress={() => goSection('Helpdesk')} style={[styles.pill, !wide && styles.mobileBtn, current === 'Helpdesk' && styles.pillOn]} accessibilityRole="button" accessibilityLabel="24/7 Helpdesk">
-          <Ionicons name="headset-outline" size={wide ? 18 : 17} color={current === 'Helpdesk' ? colors.primary : '#596777'} />
-          <Text style={[styles.pillText, !wide && styles.mobileText, current === 'Helpdesk' && { color: colors.primary }]}>{wide ? '24/7 Helpdesk' : '24/7'}</Text>
-        </Pressable>
-        <Pressable onPress={() => goSection('Account')} style={[styles.pill, !wide && styles.mobileBtn, current === 'Account' && route !== 'Alerts' && styles.pillOn]} accessibilityRole="button" accessibilityLabel="Profile and My Business">
-          <Ionicons name="person-circle-outline" size={wide ? 19 : 17} color={current === 'Account' && route !== 'Alerts' ? colors.primary : '#596777'} />
-          <Text style={[styles.pillText, !wide && styles.mobileText, current === 'Account' && route !== 'Alerts' && { color: colors.primary }]}>Profile</Text>
-        </Pressable>
+        {actions}
       </View>
+    );
+  }
+  return (
+    <View style={[styles.wideBar, { paddingTop: insets.top }]}>
+      <View style={[styles.wideBarInner, { paddingHorizontal: gutter }]}>{actions}</View>
     </View>
   );
 }
@@ -102,51 +126,97 @@ function openAlerts() {
   if (navigationRef.isReady()) navigationRef.navigate('Alerts');
 }
 
-function Sidebar({ current, width }: { current: string; width: number }) {
+// ── Sidebar / rail ──────────────────────────────────────────────────────────
+
+function Avatar({ name, size = 35 }: { name: string; size?: number }) {
+  return (
+    <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2 }]} accessibilityElementsHidden>
+      <Text style={[styles.avatarText, { fontSize: Math.round(size * 0.34) }]}>{initials(name)}</Text>
+    </View>
+  );
+}
+
+function Sidebar({ current, width, rail }: { current: string; width: number; rail: boolean }) {
+  const insets = useSafeAreaInsets();
   const { profile } = useVendorData();
   const badges = useBadges();
+  const compact = width < 200;
+  const name = profile.companyName || 'Fleet partner';
   return (
-    <View style={[styles.sidebar, { width }]} accessibilityRole="menu" accessibilityLabel="Main navigation">
-      <View style={{ gap: 6 }}>
+    <View style={[styles.sidebar, { width, paddingTop: 30 + insets.top, paddingBottom: 22 + insets.bottom, paddingHorizontal: rail ? 12 : compact ? 14 : 20 }]} accessibilityRole="menu" accessibilityLabel="Main navigation">
+      <Pressable onPress={() => goSection('Trips')} accessibilityRole="button" accessibilityLabel="NESAM Partner — Trips" style={rail ? styles.brandRail : [styles.brand, compact && { marginLeft: 4 }]}>
+        {rail ? <Image source={require('../../../assets/icon.png')} style={styles.brandIcon} accessibilityIgnoresInvertColors /> : <PartnerBanner height={compact ? 40 : 46} />}
+      </Pressable>
+      {rail ? null : <Text style={styles.caption}>YOUR WORKSPACE</Text>}
+      <View style={styles.nav}>
         {SECTIONS.map((sec) => {
           const on = current === sec;
           const n = badges[sec] ?? 0;
+          const tint = on ? colors.primary : colors.muted;
           return (
-            <Pressable key={sec} onPress={() => goSection(sec)} accessibilityRole="menuitem" accessibilityState={{ selected: on }} accessibilityLabel={NAV[sec].label}
-              style={({ hovered }: { pressed: boolean; hovered?: boolean }) => [styles.side, on && styles.sideOn, hovered && !on && { backgroundColor: '#F7F9FB' }]}>
-              {on ? <View style={styles.sideBar} /> : null}
-              <Ionicons name={on ? NAV[sec].on : NAV[sec].off} size={21} color={on ? '#BA2424' : '#637389'} />
-              <Text style={[styles.sideText, on && styles.sideTextOn]} numberOfLines={1}>{NAV[sec].label}</Text>
-              {n ? <View style={styles.count}><Text style={styles.countText}>{n > 99 ? '99+' : n}</Text></View> : null}
+            <Pressable key={sec} onPress={() => goSection(sec)} accessibilityRole="menuitem" accessibilityState={{ selected: on }}
+              accessibilityLabel={n ? `${NAV[sec].label}, ${n}` : NAV[sec].label}
+              style={({ hovered }: Hover) => [styles.navBtn, rail && styles.navBtnRail, on ? styles.navBtnOn : hovered && { backgroundColor: colors.bg }]}>
+              <Ionicons name={on ? NAV[sec].on : NAV[sec].off} size={20} color={tint} />
+              {rail ? null : <Text style={[styles.navLabel, { color: tint }]} numberOfLines={1}>{NAV[sec].label}</Text>}
+              {!rail && n ? <View style={[styles.count, on && { backgroundColor: colors.white }]}><Text style={[styles.countText, on && { color: colors.primary }]}>{n > 99 ? '99+' : n}</Text></View> : null}
+              {rail && n ? <View style={styles.railDot} /> : null}
             </Pressable>
           );
         })}
       </View>
-      <View style={styles.sideAccount}>
-        <Text style={styles.sideCompany} numberOfLines={2}>{profile.companyName || 'Fleet partner'}</Text>
-        <Text style={styles.sideId} numberOfLines={1}>NSM-VN-{profile.id.slice(0, 6).toUpperCase()}</Text>
-        <View style={styles.verified}><Ionicons name="shield-checkmark" size={12} color={colors.success} /><Text style={styles.verifiedText}>Verified partner</Text></View>
-      </View>
+      <View style={{ flex: 1, minHeight: 24 }} />
+      {rail ? (
+        <View style={{ alignItems: 'center' }}>
+          <IconButton icon="headset-outline" label="Contact NESAM support" onPress={() => goSection('Helpdesk')} color={colors.primary} size={44} />
+        </View>
+      ) : (
+        <View style={styles.supportBox}>
+          <Ionicons name="headset-outline" size={20} color={colors.primary} />
+          <Text style={styles.supportTitle}>We’re here for you.</Text>
+          <Text style={styles.supportText}>Get help with your duties or payments.</Text>
+          <Pressable onPress={() => goSection('Helpdesk')} accessibilityRole="button" accessibilityLabel="Contact NESAM support" style={({ hovered }: Hover) => [styles.supportLink, hovered && { opacity: 0.75 }]}>
+            <Text style={styles.supportLinkText}>Contact NESAM</Text>
+            <Ionicons name="arrow-forward" size={14} color={colors.primary} />
+          </Pressable>
+        </View>
+      )}
+      <Pressable onPress={() => goSection('Account')} accessibilityRole="button" accessibilityLabel={`${name}, open profile`}
+        style={({ hovered }: Hover) => [styles.profile, rail && { justifyContent: 'center', paddingHorizontal: 0 }, hovered && { opacity: 0.85 }]}>
+        <Avatar name={name} />
+        {rail ? null : (
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={styles.profileName} numberOfLines={1}>{name}</Text>
+            <View style={styles.verified}>
+              <Ionicons name="shield-checkmark" size={11} color={colors.success} />
+              <Text style={styles.verifiedText} numberOfLines={1}>Verified partner</Text>
+            </View>
+          </View>
+        )}
+      </Pressable>
     </View>
   );
 }
+
+// ── Phone bottom bar ────────────────────────────────────────────────────────
 
 function BottomBar({ current }: { current: string }) {
   const insets = useSafeAreaInsets();
   const badges = useBadges();
   return (
-    <View style={[styles.bottom, { paddingBottom: Math.max(insets.bottom, 6) }]} accessibilityRole="tablist" accessibilityLabel="Mobile navigation">
+    <View style={[styles.bottom, { paddingBottom: 8 + insets.bottom, paddingLeft: 8 + insets.left, paddingRight: 8 + insets.right }]} accessibilityRole="tablist" accessibilityLabel="Mobile navigation">
       {SECTIONS.map((sec) => {
         const on = current === sec;
         const n = badges[sec] ?? 0;
+        const tint = on ? colors.primary : colors.muted;
         return (
-          <Pressable key={sec} onPress={() => goSection(sec)} style={styles.bottomItem} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={NAV[sec].label}>
-            {on ? <View style={styles.bottomBar} /> : null}
+          <Pressable key={sec} onPress={() => goSection(sec)} style={styles.bottomItem} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={n ? `${NAV[sec].label}, ${n}` : NAV[sec].label}>
+            {on ? <View style={styles.bottomIndicator} /> : null}
             <View>
-              <Ionicons name={on ? NAV[sec].on : NAV[sec].off} size={22} color={on ? colors.primary : '#718198'} />
+              <Ionicons name={on ? NAV[sec].on : NAV[sec].off} size={21} color={tint} />
               {n ? <View style={styles.bottomCount}><Text style={styles.countText}>{n > 9 ? '9+' : n}</Text></View> : null}
             </View>
-            <Text style={[styles.bottomText, on && { color: colors.primary, fontWeight: '600' }]} numberOfLines={1}>{NAV[sec].label}</Text>
+            <Text style={[styles.bottomText, { color: tint }]} numberOfLines={1} maxFontSizeMultiplier={1.15}>{NAV[sec].label}</Text>
           </Pressable>
         );
       })}
@@ -154,40 +224,50 @@ function BottomBar({ current }: { current: string }) {
   );
 }
 
-const shadow = Platform.select({ web: { boxShadow: '0 -6px 18px rgba(38,53,72,0.06)' } as object, default: { elevation: 8 } });
-
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  veil: { backgroundColor: 'rgba(246,248,251,0.28)' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingHorizontal: 30, backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border, zIndex: 10 },
-  brand: { flexDirection: 'row', alignItems: 'center', gap: 9, minHeight: 44, flexShrink: 1 },
-  actions: { flexDirection: 'row', alignItems: 'center', gap: 9 },
-  bell: { width: 40, height: 40, borderRadius: 11, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white },
-  bellIcon: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  dot: { position: 'absolute', right: 9, top: 8, width: 7, height: 7, borderRadius: 4, backgroundColor: colors.primary, borderWidth: 1, borderColor: colors.white },
-  pill: { flexDirection: 'row', alignItems: 'center', gap: 7, minHeight: 40, paddingHorizontal: 11, borderRadius: 11, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white },
-  pillOn: { backgroundColor: '#FFF1EE', borderColor: colors.primaryBorder },
-  pillText: { fontFamily, fontSize: 12, fontWeight: '500', color: '#596777' },
-  mobileBtn: { flexDirection: 'column', gap: 1, height: 42, minHeight: 42, minWidth: 44, width: undefined, paddingHorizontal: 6, justifyContent: 'center', alignItems: 'center', borderRadius: 10 },
-  mobileText: { fontSize: 8.5 },
-  body: { flex: 1, flexDirection: 'row', minHeight: 0 },
-  main: { flex: 1, minWidth: 0 },
-  sidebar: { backgroundColor: colors.white, borderRightWidth: 1, borderRightColor: colors.border, paddingTop: 26, paddingHorizontal: 12, paddingBottom: 20, justifyContent: 'space-between' },
-  side: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 50, paddingHorizontal: 15, borderRadius: 9 },
-  sideOn: { backgroundColor: '#FFF0EF' },
-  sideBar: { position: 'absolute', left: 0, top: 14, bottom: 14, width: 3, borderRadius: 2, backgroundColor: colors.primary },
-  sideText: { flex: 1, fontFamily, fontSize: 13, color: '#637389', fontWeight: '500' },
-  sideTextOn: { color: '#BA2424', fontWeight: '600' },
-  count: { minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  countText: { color: colors.white, fontSize: 10, fontWeight: '700', fontFamily },
-  sideAccount: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 18, paddingHorizontal: 8, gap: 5 },
-  sideCompany: { fontFamily, fontSize: 13, fontWeight: '600', color: colors.ink },
-  sideId: { fontFamily, fontSize: 10.5, color: colors.muted },
-  verified: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
-  verifiedText: { fontFamily, fontSize: 10.5, color: colors.success, fontWeight: '500' },
-  bottom: { flexDirection: 'row', backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 4, paddingHorizontal: 6, ...shadow },
-  bottomItem: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4, minHeight: 60, paddingVertical: 6 },
-  bottomBar: { position: 'absolute', top: -4, width: 22, height: 3, borderRadius: 3, backgroundColor: colors.primary },
-  bottomText: { fontFamily, fontSize: 10.5, color: '#718198' },
+  frame: { flex: 1, flexDirection: 'row', backgroundColor: colors.bg },
+  veil: { backgroundColor: 'rgba(246,247,249,0.28)' },
+  workspace: { flex: 1, minWidth: 0 },
+  main: { flex: 1, minHeight: 0 },
+  // top bar
+  phoneBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingBottom: 12, backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border, zIndex: 10 },
+  brandLink: { flexShrink: 1, minHeight: 40, justifyContent: 'center' },
+  wideBar: { backgroundColor: colors.bg, zIndex: 10 },
+  wideBarInner: { width: '100%', maxWidth: 1360, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', minHeight: 66, paddingTop: 14, paddingBottom: 4 },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: 7, flexShrink: 0 },
+  iconBtn: { borderRadius: 12, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  iconBtnOn: { backgroundColor: colors.primarySoft, borderColor: colors.primaryBorder },
+  dot: { position: 'absolute', top: 9, right: 10, width: 9, height: 9, borderRadius: 5, backgroundColor: colors.primary, borderWidth: 2, borderColor: colors.white },
+  // sidebar
+  sidebar: { backgroundColor: colors.white, borderRightWidth: 1, borderRightColor: colors.border },
+  brand: { marginLeft: 2, marginBottom: 34, alignSelf: 'flex-start' },
+  brandRail: { alignItems: 'center', marginBottom: 34 },
+  brandIcon: { width: 44, height: 44, borderRadius: 12 },
+  caption: { fontSize: 10, fontWeight: '700', letterSpacing: 1.8, color: '#9599A2', paddingHorizontal: 15, marginBottom: 14 },
+  nav: { gap: 7 },
+  navBtn: { flexDirection: 'row', alignItems: 'center', gap: 13, minHeight: 48, paddingVertical: 13, paddingHorizontal: 15, borderRadius: 11 },
+  navBtnRail: { justifyContent: 'center', paddingHorizontal: 0 },
+  navBtnOn: { backgroundColor: colors.primarySoft },
+  navLabel: { flex: 1, fontSize: 13, fontWeight: '600' },
+  count: { minWidth: 22, height: 20, paddingHorizontal: 6, borderRadius: 6, backgroundColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  countText: { fontSize: 10.5, fontWeight: '700', color: colors.muted },
+  railDot: { position: 'absolute', top: 10, right: 16, width: 7, height: 7, borderRadius: 4, backgroundColor: colors.primary },
+  supportBox: { backgroundColor: colors.bg, borderRadius: 13, paddingVertical: 18, paddingHorizontal: 15, marginBottom: 22 },
+  supportTitle: { fontSize: 13, fontWeight: '700', color: colors.ink, marginTop: 9, marginBottom: 4 },
+  supportText: { fontSize: 11.5, lineHeight: 17, color: colors.muted, marginBottom: 10 },
+  supportLink: { flexDirection: 'row', alignItems: 'center', gap: 7, minHeight: 30 },
+  supportLinkText: { fontSize: 12, fontWeight: '700', color: colors.primary },
+  profile: { flexDirection: 'row', alignItems: 'center', gap: 10, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 20, paddingHorizontal: 6, marginTop: 14 },
+  profileName: { fontSize: 12.5, fontWeight: '700', color: colors.ink },
+  verified: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+  verifiedText: { fontSize: 11, color: colors.success, flexShrink: 1 },
+  avatar: { backgroundColor: '#F6E9E6', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  avatarText: { fontWeight: '700', color: '#824B3F' },
+  // phone bottom bar
+  bottom: { flexDirection: 'row', backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 },
+  bottomItem: { flex: 1, minWidth: 0, alignItems: 'center', gap: 4, paddingTop: 6, paddingBottom: 4, minHeight: 50 },
+  bottomIndicator: { position: 'absolute', top: -9, width: 24, height: 3, borderBottomLeftRadius: 4, borderBottomRightRadius: 4, backgroundColor: colors.primary },
+  bottomText: { fontSize: 11, fontWeight: '600' },
   bottomCount: { position: 'absolute', right: -10, top: -5, minWidth: 17, height: 17, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: colors.white },
 });

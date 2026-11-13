@@ -38,7 +38,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const TITLES: Record<keyof RootStackParamList, string> = {
   Trips: 'Trips', Bookings: 'Bookings', Fleet: 'Fleet', Earnings: 'Earnings', Wallet: 'Wallet', MyBids: 'My bids', Duty: 'Duty details',
   Booking: 'Booking details', Assign: 'Assign driver', FleetAdd: 'Add to fleet', Vehicle: 'Vehicle details', Driver: 'Driver details',
-  Linking: 'Linking requests', Documents: 'Documents & verification', Penalty: 'Penalty notice', Helpdesk: '24/7 Helpdesk', Account: 'Profile',
+  Linking: 'Swap vehicle or driver', Documents: 'Documents & verification', Penalty: 'Penalty notice', Helpdesk: '24/7 Helpdesk', Account: 'Profile',
   Business: 'Business & contact', Agreements: 'Agreements', Alerts: 'Notifications',
 };
 

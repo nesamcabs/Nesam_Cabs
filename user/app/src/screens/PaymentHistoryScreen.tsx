@@ -28,6 +28,7 @@ export function PaymentHistoryScreen() {
 <KeyboardAvoid>
       <AppHeader title="Payments & Refunds" onBack={() => navigation.goBack()} />
       <FlatList
+        footer
         data={rows}
         kind="narrow"
         keyExtractor={(t) => t.id}

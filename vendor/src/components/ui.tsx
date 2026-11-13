@@ -1,27 +1,12 @@
 // Shared UI primitives for the NESAM Vendor app.
 import React from 'react';
-import {
-  ActivityIndicator,
-  Image,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleProp,
-  StyleSheet,
-  Text,
-  TextInput,
-  TextInputProps,
-  View,
-  ViewStyle,
-  useWindowDimensions,
-} from 'react-native';
+import { ActivityIndicator, Image, Modal, Platform, Pressable, ScrollView, StyleProp, StyleSheet, TextInputProps, View, ViewStyle } from 'react-native';
+import { Text, TextInput } from './kit/Text';
 import { SafeAreaView, Edge } from 'react-native-safe-area-context';
 import { KeyboardAvoid } from './KeyboardAvoid';
 import { useWindowWidth } from '../theme/responsive';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fontFamily, radius, space, type } from '../theme';
+import { breakpoints, colors, fontFamily, radius, space, type } from '../theme';
 import { initials } from '../utils/format';
 
 // ── Layout ──────────────────────────────────────────────────────────────────
@@ -234,7 +219,7 @@ export function Chip({ label, active, onPress }: { label: string; active?: boole
 type NoticeTone = 'error' | 'info' | 'success' | 'warning';
 const NOTICE: Record<NoticeTone, { bg: string; border: string; fg: string }> = {
   error: { bg: colors.primarySoft, border: colors.primaryBorder, fg: colors.primaryDark },
-  info: { bg: colors.infoSoft, border: '#C9D8F0', fg: colors.info },
+  info: { bg: colors.infoSoft, border: '#E7EAF0', fg: colors.info },
   success: { bg: colors.successSoft, border: colors.successBorder, fg: colors.success },
   warning: { bg: colors.warningSoft, border: colors.warningBorder, fg: colors.warning },
 };
@@ -289,7 +274,7 @@ export function EmptyState({ title, message, action }: { title: string; message?
 
 export function Badge({ label, tone = 'neutral' }: { label: string; tone?: 'neutral' | 'success' | 'warning' | 'danger' | 'info' | 'brand' }) {
   const map = {
-    neutral: { bg: '#F0F1F4', fg: '#596072' },
+    neutral: { bg: '#F1F2F5', fg: '#6F7785' },
     success: { bg: colors.successSoft, fg: colors.success },
     warning: { bg: colors.warningSoft, fg: colors.warning },
     danger: { bg: colors.primarySoft, fg: colors.danger },
@@ -336,7 +321,7 @@ export function Sheet({
   // scroll body may shrink, so the focused field and the actions stay reachable by scrolling. iOS keeps KeyboardAvoidingView.
   // Wide screens (tablet, desktop browser) get a centred dialog; phones a bottom sheet — as in the reference.
   const width = useWindowWidth();
-  const dialog = width >= 801;
+  const dialog = width >= breakpoints.wide;
   const header = (
     <View style={styles.sheetHeader}>
       <Text style={styles.sheetTitle} numberOfLines={2} accessibilityRole="header">
@@ -344,17 +329,17 @@ export function Sheet({
       </Text>
       {dismissible ? (
         <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" hitSlop={8} style={styles.sheetClose}>
-          <Ionicons name="close" size={18} color="#8A97A7" />
+          <Ionicons name="close" size={18} color="#8B919C" />
         </Pressable>
       ) : null}
     </View>
   );
   return (
     <Modal visible={visible} transparent animationType={dialog ? 'fade' : 'slide'} statusBarTranslucent onRequestClose={dismissible ? onClose : () => undefined}>
-      <KeyboardAvoid style={styles.sheetBackdrop} innerStyle={dialog ? styles.dialogBackdrop : undefined}>
+      <KeyboardAvoid style={styles.sheetBackdrop} innerStyle={dialog ? styles.dialogBackdrop : undefined} keyboardOnly={!dialog}>
         <Pressable style={StyleSheet.absoluteFill} onPress={dismissible ? onClose : undefined} accessibilityLabel="Close" />
         {!dialog ? <View style={{ flex: 1 }} pointerEvents="none" /> : null}
-        <View style={[styles.sheetShrink, dialog && styles.dialogWrap]}>
+        <View style={[styles.sheetShrink, dialog ? styles.dialogWrap : styles.sheetCap]}>
           <SafeAreaView edges={dialog ? [] : ['bottom']} style={[styles.sheet, styles.sheetShrink, dialog && styles.dialog]}>
             {!dialog ? <View style={styles.sheetHandle} /> : null}
             {header}
@@ -451,7 +436,7 @@ export function MenuRow({ icon, label, value, onPress, danger }: { icon: React.C
   return (
     <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [styles.menuRow, pressed && { backgroundColor: colors.bg }]}>
       <View style={[styles.menuIcon, danger && { backgroundColor: colors.primarySoft }]}>
-        <Ionicons name={icon} size={20} color={danger ? colors.danger : '#4B5160'} />
+        <Ionicons name={icon} size={20} color={danger ? colors.danger : '#424B5A'} />
       </View>
       <Text style={[styles.menuLabel, danger && { color: colors.danger }]} numberOfLines={1}>
         {label}
@@ -505,24 +490,24 @@ const styles = StyleSheet.create({
   btnText: { fontSize: 14, fontWeight: '600', fontFamily },
   btnTextSmall: { fontSize: 13 },
   link: { color: colors.primary, fontWeight: '700', fontSize: 13 },
-  fieldLabel: { fontSize: 12, fontWeight: '500', color: '#61758D', marginBottom: 7, fontFamily },
+  fieldLabel: { fontSize: 12, fontWeight: '500', color: '#6F7785', marginBottom: 7, fontFamily },
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#D9E2ED',
+    borderColor: '#E7EAF0',
     borderRadius: 10,
     paddingHorizontal: space.md,
     minHeight: 48,
   },
   inputError: { borderColor: colors.primary },
-  inputDisabled: { backgroundColor: '#F3F4F6' },
+  inputDisabled: { backgroundColor: '#F6F7F9' },
   prefix: { color: colors.primary, fontWeight: '800', marginRight: space.sm, fontSize: 15 },
-  input: { flex: 1, minWidth: 0, fontSize: 14, color: '#334E6B', paddingVertical: 11, fontFamily },
+  input: { flex: 1, minWidth: 0, fontSize: 14, color: '#424B5A', paddingVertical: 11, fontFamily },
   errorText: { color: colors.primaryDark, fontSize: 12, marginTop: 4 },
   hint: { color: colors.muted, fontSize: 12, marginTop: 4 },
-  segment: { flexDirection: 'row', backgroundColor: '#EEF2F6', borderRadius: 10, padding: 3 },
+  segment: { flexDirection: 'row', backgroundColor: '#F1F2F5', borderRadius: 10, padding: 3 },
   segmentItem: { flex: 1, paddingVertical: 9, alignItems: 'center', borderRadius: radius.sm },
   segmentOn: { backgroundColor: colors.card, elevation: 1 },
   segmentText: { fontSize: 13, fontWeight: '700', color: colors.muted },
@@ -531,9 +516,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: radius.pill,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F6F7F9',
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: '#F6F7F9',
     marginRight: space.sm,
     marginBottom: space.sm,
   },
@@ -566,35 +551,37 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: 11.5, fontWeight: '700' },
   avatar: { backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
   avatarText: { color: colors.primary, fontWeight: '800' },
-  sheetBackdrop: { flex: 1, backgroundColor: colors.overlay, paddingTop: 24 },
+  // The page behind is dimmed and (on the web) blurred; native has no backdrop blur without an extra module.
+  sheetBackdrop: { flex: 1, backgroundColor: colors.overlay, paddingTop: 24, ...(Platform.OS === 'web' ? ({ backdropFilter: 'blur(5px)', WebkitBackdropFilter: 'blur(5px)' } as object) : null) },
+  // A phone sheet never opens full-screen: the page stays visible above it.
+  sheetCap: { maxHeight: '86%' },
   dialogBackdrop: { alignItems: 'center', justifyContent: 'center', padding: 25 },
-  dialogWrap: { width: '100%', maxWidth: 570, alignItems: 'stretch' },
+  dialogWrap: { width: '100%', maxWidth: 570, maxHeight: '90%', alignItems: 'stretch' },
   sheetShrink: { flexShrink: 1 },
   sheet: {
     backgroundColor: colors.card,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '92%',
   },
-  dialog: { borderRadius: radius.xl, maxHeight: '100%', shadowColor: '#283747', shadowOpacity: 0.16, shadowRadius: 40, shadowOffset: { width: 0, height: 25 }, elevation: 12 },
+  dialog: { borderRadius: radius.xl, maxHeight: '100%', shadowColor: '#424B5A', shadowOpacity: 0.16, shadowRadius: 40, shadowOffset: { width: 0, height: 25 }, elevation: 12 },
   sheetHandle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, marginTop: space.sm },
   sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 17, paddingHorizontal: 22, gap: space.md, borderBottomWidth: 1, borderBottomColor: colors.border },
   sheetTitle: { flex: 1, fontSize: 18, fontWeight: '600', color: colors.ink, letterSpacing: -0.35, fontFamily },
-  sheetClose: { width: 32, height: 32, borderRadius: 9, backgroundColor: '#F6F8FA', alignItems: 'center', justifyContent: 'center' },
+  sheetClose: { width: 32, height: 32, borderRadius: 9, backgroundColor: '#F6F7F9', alignItems: 'center', justifyContent: 'center' },
   sheetBody: { paddingHorizontal: 22, paddingTop: 20, paddingBottom: 24 },
   stat: { flexGrow: 1, flexBasis: '46%', backgroundColor: colors.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, paddingVertical: 12, paddingHorizontal: 14 },
   statValue: { fontSize: 20, fontWeight: '700', letterSpacing: -0.3 },
   statLabel: { fontSize: 12, color: colors.muted, marginTop: 2 },
   pillRow: { gap: 8, paddingHorizontal: space.lg, paddingVertical: space.sm },
   pill: { flexDirection: 'row', alignItems: 'center', gap: 7, minHeight: 40, paddingHorizontal: 15, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
-  pillOn: { backgroundColor: '#20242E', borderColor: '#20242E' },
-  pillText: { fontSize: 13, fontWeight: '600', color: '#596072' },
-  pillCount: { minWidth: 20, height: 20, paddingHorizontal: 6, borderRadius: 10, backgroundColor: '#F0F1F4', alignItems: 'center', justifyContent: 'center' },
-  pillCountText: { fontSize: 11, fontWeight: '700', color: '#596072' },
+  pillOn: { backgroundColor: '#171B24', borderColor: '#171B24' },
+  pillText: { fontSize: 13, fontWeight: '600', color: '#6F7785' },
+  pillCount: { minWidth: 20, height: 20, paddingHorizontal: 6, borderRadius: 10, backgroundColor: '#F1F2F5', alignItems: 'center', justifyContent: 'center' },
+  pillCountText: { fontSize: 11, fontWeight: '700', color: '#6F7785' },
   route: { marginVertical: space.sm, paddingLeft: 4 },
   routeStop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  routeDot: { width: 12, height: 12, borderWidth: 2, borderColor: '#576274', backgroundColor: colors.card, marginTop: 4 },
-  routeLine: { width: 0, height: 14, marginLeft: 5, borderLeftWidth: 1, borderLeftColor: '#C6CCD7', borderStyle: 'dashed' },
+  routeDot: { width: 12, height: 12, borderWidth: 2, borderColor: '#6F7785', backgroundColor: colors.card, marginTop: 4 },
+  routeLine: { width: 0, height: 14, marginLeft: 5, borderLeftWidth: 1, borderLeftColor: '#D8DFE9', borderStyle: 'dashed' },
   routeName: { fontSize: 15, fontWeight: '600', color: colors.ink },
   menuRow: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: space.lg, minHeight: 58, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   menuIcon: { width: 36, height: 36, borderRadius: 11, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' },

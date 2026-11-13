@@ -257,12 +257,12 @@ export function uploadVendorFile(category: UploadCategory, file: LocalFile, onPr
 }
 
 /** Fleet vehicle document (RC / insurance / fitness / permit). Returns its download URL. */
-export async function uploadVehicleDocument(vehicleId: string, kind: string, file: LocalFile, onProgress: (pct: number) => void): Promise<string> {
+export async function uploadVehicleDocument(vehicleId: string, kind: string, file: LocalFile, onProgress: (pct: number) => void, folder: 'vehicles' | 'drivers' = 'vehicles'): Promise<string> {
   const uid = auth.currentUser?.uid;
   if (!uid) throw Object.assign(new Error('Your session has expired. Please sign in again.'), { code: 'unauthenticated' });
   const ext = file.mimeType === 'application/pdf' ? 'pdf' : file.mimeType === 'image/png' ? 'png' : file.mimeType === 'image/webp' ? 'webp' : 'jpg';
-  const path = `vendors/${uid}/vehicles/${vehicleId.replace(/[^A-Za-z0-9_-]/g, '')}/${kind}-${Date.now()}.${ext}`;
-  await upload(path, file, onProgress, `vehicle_${kind}`).promise;
+  const path = `vendors/${uid}/${folder}/${vehicleId.replace(/[^A-Za-z0-9_-]/g, '')}/${kind}-${Date.now()}.${ext}`;
+  await upload(path, file, onProgress, `${folder === 'drivers' ? 'driver' : 'vehicle'}_${kind}`).promise;
   return withRetry(() => getDownloadURL(ref(storage, path)));
 }
 

@@ -1,6 +1,7 @@
 // Marketplace duty row (the reference's q-duty-row) and the accept / bid dialogs used on Trips, Duty details and My bids.
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../../components/kit/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useVendorData } from '../../context/VendorData';
@@ -46,7 +47,7 @@ export function assignByIfAcceptedNow(t: MarketTrip, windowH: number, beforeH: n
 export function ExtraTag() {
   return (
     <View style={styles.extra}>
-      <Ionicons name="receipt-outline" size={14} color="#8597AA" />
+      <Ionicons name="receipt-outline" size={14} color="#8B919C" />
       <Text style={styles.extraText}>Toll, parking & state permit<Text style={styles.extraStrong}> · paid separately on receipts</Text></Text>
     </View>
   );
@@ -90,7 +91,7 @@ export function DutyRow({ trip: t, bid, onAction }: { trip: MarketTrip; bid?: Ve
         : t.mode === 'bid_review' ? <Small style={{ textAlign: 'center', flex: row ? undefined : 1 }}>Bidding closed</Small> : null}
       {opensAt ? (
         <View style={[styles.opens, !row && { flex: 1 }]}>
-          <Ionicons name="time-outline" size={15} color="#8A6A35" />
+          <Ionicons name="time-outline" size={15} color="#946000" />
           <Text style={styles.opensText}>Opens to vendors at {timeText(new Date(opensAt))}</Text>
         </View>
       ) : null}
@@ -124,7 +125,7 @@ export function DutyRow({ trip: t, bid, onAction }: { trip: MarketTrip; bid?: Ve
         {bid ? (
           <View style={styles.bidCaption}>
             <Ionicons name="create-outline" size={16} color={colors.info} />
-            <Text style={styles.bidText}>Your bid {rupees(bid.vendorCounterRate)} · <Text style={{ color: '#647B95' }}>{bid.autoAcceptConsent ? 'Awaiting NESAM review' : 'Update to confirm allocation terms'}</Text></Text>
+            <Text style={styles.bidText}>Your bid {rupees(bid.vendorCounterRate)} · <Text style={{ color: '#6F7785' }}>{bid.autoAcceptConsent ? 'Awaiting NESAM review' : 'Update to confirm allocation terms'}</Text></Text>
           </View>
         ) : null}
         {!row ? actions : null}
@@ -173,8 +174,8 @@ export function AcceptDialog({ trip, onClose, onDone }: { trip: MarketTrip; onCl
       </View>
       <KV rows={[['Pickup', marketPickup(trip) ? dayTime(marketPickup(trip)) : trip.travelDate || '—'], ['Vehicle category', trip.vehicleCategory || '—'], trip.distanceKm ? ['Included distance', `${Math.round(trip.distanceKm)} km`] : null]} />
       <View style={styles.obligation}>
-        <View style={styles.obRow}><Ionicons name="time-outline" size={17} color="#7B8FA5" /><Text style={styles.obText}>Assign driver & vehicle by<Text style={styles.obStrong}>{'\n'}{dayTime(by)}</Text></Text></View>
-        <View style={styles.obRow}><Ionicons name="alert-circle-outline" size={17} color="#7B8FA5" /><Text style={styles.obText}>Missed assignment deadline<Text style={styles.obStrong}>{'\n'}{rupees(d.ops.missedAssignmentPenalty)} penalty after office review</Text></Text></View>
+        <View style={styles.obRow}><Ionicons name="time-outline" size={17} color="#8B919C" /><Text style={styles.obText}>Assign driver & vehicle by<Text style={styles.obStrong}>{'\n'}{dayTime(by)}</Text></Text></View>
+        <View style={styles.obRow}><Ionicons name="alert-circle-outline" size={17} color="#8B919C" /><Text style={styles.obText}>Missed assignment deadline<Text style={styles.obStrong}>{'\n'}{rupees(d.ops.missedAssignmentPenalty)} penalty after office review</Text></Text></View>
       </View>
       {fleetWarning(trip, d.vehicles, d.drivers) ? <Notice tone="red" icon="car-outline" title="Check your fleet first" text={`${fleetWarning(trip, d.vehicles, d.drivers)} Missing the assignment deadline leads to a ${rupees(d.ops.missedAssignmentPenalty)} penalty.`} style={{ marginBottom: 10 }} /> : null}
       <Check checked={agree} onChange={setAgree} label="I accept this duty at the payout shown and will confirm a verified driver and vehicle before the deadline." />
@@ -214,9 +215,9 @@ export function BidDialog({ trip, onClose, onDone }: { trip: MarketTrip; onClose
         <Text style={styles.offerValue}>{trip.offeredPayout > 0 ? rupees(trip.offeredPayout) : '—'}</Text>
       </View>
       <TextField label="Your total payout quote (₹)" value={amount} onChangeText={(v) => setAmount(v.replace(/\D/g, '').slice(0, 7))} keyboardType="number-pad" placeholder={trip.offeredPayout ? `e.g. ${Math.round(trip.offeredPayout * 1.15)}` : 'e.g. 1800'} />
-      {validUntil ? <View style={styles.valid}><Ionicons name="time-outline" size={15} color="#6A7E95" /><Text style={styles.validText}>Valid until {dayTime(new Date(validUntil))}</Text></View> : null}
+      {validUntil ? <View style={styles.valid}><Ionicons name="time-outline" size={15} color="#6F7785" /><Text style={styles.validText}>Valid until {dayTime(new Date(validUntil))}</Text></View> : null}
       <View style={styles.obligation}>
-        <View style={styles.obRow}><Ionicons name="time-outline" size={17} color="#7B8FA5" /><Text style={styles.obText}>Assignment window<Text style={styles.obStrong}>{'\n'}{d.ops.assignmentWindowHours} hours after NESAM allocates it</Text></Text></View>
+        <View style={styles.obRow}><Ionicons name="time-outline" size={17} color="#8B919C" /><Text style={styles.obText}>Assignment window<Text style={styles.obStrong}>{'\n'}{d.ops.assignmentWindowHours} hours after NESAM allocates it</Text></Text></View>
         <Text style={styles.windowHelp}>Confirm at least {d.ops.assignBeforePickupHours} hour before pickup where possible. Missing the window: {rupees(d.ops.missedAssignmentPenalty)} after office review.</Text>
       </View>
       {fleetWarning(trip, d.vehicles, d.drivers) ? <Notice tone="amber" icon="car-outline" title="Check your fleet first" text={fleetWarning(trip, d.vehicles, d.drivers)} style={{ marginBottom: 12 }} /> : null}
@@ -274,33 +275,33 @@ const styles = StyleSheet.create({
   duty: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 13, marginBottom: 14 },
   dutyRow: { flexDirection: 'row', gap: 24, paddingVertical: 22, paddingHorizontal: 24, alignItems: 'stretch' },
   pickupCol: { width: 92, paddingTop: 4, borderRightWidth: 1, borderRightColor: '#E3EAF2', paddingRight: 12 },
-  pickupLine: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingBottom: 12, marginBottom: 14, borderBottomWidth: 1, borderBottomColor: '#E9EEF5' },
-  pickupTime: { fontFamily, fontSize: 14, fontWeight: '600', color: '#3F536C' },
-  pickupLabel: { fontFamily, fontSize: 11, color: '#75849A', marginTop: 2 },
+  pickupLine: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingBottom: 12, marginBottom: 14, borderBottomWidth: 1, borderBottomColor: '#F1F2F5' },
+  pickupTime: { fontFamily, fontSize: 14, fontWeight: '600', color: '#424B5A' },
+  pickupLabel: { fontFamily, fontSize: 11, color: '#8B919C', marginTop: 2 },
   topLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 9, marginBottom: 10 },
-  code: { fontFamily, fontSize: 10.5, color: '#6E8199', letterSpacing: 0.15 },
+  code: { fontFamily, fontSize: 10.5, color: '#6F7785', letterSpacing: 0.15 },
   rate: { marginTop: 15, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', gap: 8, columnGap: 15 },
   rateMobile: { justifyContent: 'space-between' },
-  rateLabel: { fontFamily, fontSize: 12, color: '#6E7E92' },
-  rateValue: { fontFamily, fontSize: 25, fontWeight: '700', color: '#283E58', letterSpacing: -0.5 },
+  rateLabel: { fontFamily, fontSize: 12, color: '#6F7785' },
+  rateValue: { fontFamily, fontSize: 25, fontWeight: '700', color: '#424B5A', letterSpacing: -0.5 },
   bidCaption: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 10, flexWrap: 'wrap' },
   bidText: { fontFamily, fontSize: 12, color: '#426B9C', flexShrink: 1, lineHeight: 19 },
   actions: { justifyContent: 'center', gap: 10 },
-  opens: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 46, paddingHorizontal: 12, borderRadius: 10, backgroundColor: '#FFF8E9', borderWidth: 1, borderColor: '#F0E5CB' },
-  opensText: { fontFamily, fontSize: 12, color: '#8A6A35', fontWeight: '500' },
+  opens: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 46, paddingHorizontal: 12, borderRadius: 10, backgroundColor: '#FFF5DE', borderWidth: 1, borderColor: '#F3DFAE' },
+  opensText: { fontFamily, fontSize: 12, color: '#946000', fontWeight: '500' },
   extra: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 11, flexWrap: 'wrap' },
-  extraText: { fontFamily, fontSize: 11, color: '#697B90', lineHeight: 18, flexShrink: 1 },
+  extraText: { fontFamily, fontSize: 11, color: '#6F7785', lineHeight: 18, flexShrink: 1 },
   extraStrong: { color: '#426E91', fontWeight: '500' },
-  offer: { padding: 17, borderWidth: 1, borderColor: '#E0E8F2', backgroundColor: '#F7F9FC', borderRadius: 10, marginTop: 16, marginBottom: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14 },
-  offerLabel: { fontFamily, fontSize: 12, color: '#697F97' },
-  offerValue: { fontFamily, fontSize: 23, fontWeight: '700', color: '#334E6B', letterSpacing: -0.5 },
-  explainer: { fontFamily, fontSize: 12.5, lineHeight: 20, color: '#63768D', marginTop: 12 },
+  offer: { padding: 17, borderWidth: 1, borderColor: '#E0E8F2', backgroundColor: '#F6F7F9', borderRadius: 10, marginTop: 16, marginBottom: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14 },
+  offerLabel: { fontFamily, fontSize: 12, color: '#6F7785' },
+  offerValue: { fontFamily, fontSize: 23, fontWeight: '700', color: '#424B5A', letterSpacing: -0.5 },
+  explainer: { fontFamily, fontSize: 12.5, lineHeight: 20, color: '#6F7785', marginTop: 12 },
   valid: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: -6, marginBottom: 12 },
-  validText: { fontFamily, fontSize: 11.5, color: '#6A7E95' },
-  obligation: { borderWidth: 1, borderColor: '#E0E7EF', backgroundColor: '#F8FAFC', borderRadius: 10, padding: 15, marginVertical: 14, gap: 12 },
+  validText: { fontFamily, fontSize: 11.5, color: '#6F7785' },
+  obligation: { borderWidth: 1, borderColor: '#E0E7EF', backgroundColor: '#F6F7F9', borderRadius: 10, padding: 15, marginVertical: 14, gap: 12 },
   obRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 9 },
-  obText: { fontFamily, flex: 1, fontSize: 11.5, lineHeight: 18, color: '#718398' },
-  obStrong: { fontSize: 12.5, color: '#3C5672', fontWeight: '600' },
-  windowHelp: { fontFamily, fontSize: 11.5, lineHeight: 19, color: '#718399' },
+  obText: { fontFamily, flex: 1, fontSize: 11.5, lineHeight: 18, color: '#6F7785' },
+  obStrong: { fontSize: 12.5, color: '#6F7785', fontWeight: '600' },
+  windowHelp: { fontFamily, fontSize: 11.5, lineHeight: 19, color: '#8B919C' },
   dialogActions: { flexDirection: 'row', gap: 10, marginTop: 18 },
 });

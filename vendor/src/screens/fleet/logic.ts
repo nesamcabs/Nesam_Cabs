@@ -4,7 +4,7 @@ import type { Tone } from '../../components/kit/core';
 import { daysUntil } from '../../utils/wallet';
 import { EXPIRY_WARNING_DAYS } from '../../config/constants';
 
-export type DocState = 'Verified' | 'Expiring soon' | 'Expired' | 'Review pending' | 'Rejected';
+export type DocState = 'Verified' | 'Expiring soon' | 'Expired' | 'Waiting for approval' | 'Rejected';
 
 export const VEHICLE_DOCS: { key: 'insuranceExpiry' | 'permitExpiry' | 'fitnessExpiry'; label: string }[] = [
   { key: 'insuranceExpiry', label: 'Insurance' },
@@ -22,7 +22,7 @@ export function nextExpiry(v: FleetVehicle): { label: string; date: string; days
 
 export function vehicleDocState(v: FleetVehicle): DocState {
   if (v.docStatus === 'Rejected') return 'Rejected';
-  if (v.docStatus !== 'Approved') return 'Review pending';
+  if (v.docStatus !== 'Approved') return 'Waiting for approval';
   const n = nextExpiry(v);
   if (n && n.days < 0) return 'Expired';
   if (n && n.days <= EXPIRY_WARNING_DAYS) return 'Expiring soon';
@@ -31,7 +31,7 @@ export function vehicleDocState(v: FleetVehicle): DocState {
 
 export function driverDocState(d: FleetDriver): DocState {
   if (d.approvalStatus === 'Rejected' || d.docStatus === 'Rejected') return 'Rejected';
-  if (d.approvalStatus !== 'Approved') return 'Review pending';
+  if (d.approvalStatus !== 'Approved') return 'Waiting for approval';
   const days = daysUntil(d.licenseExpiry);
   if (days !== null && days < 0) return 'Expired';
   if (days !== null && days <= EXPIRY_WARNING_DAYS) return 'Expiring soon';
@@ -43,8 +43,8 @@ export const docTone = (s: DocState): Tone => (s === 'Verified' ? 'green' : s ==
 export const vehicleStatusLabel = (v: FleetVehicle) => (v.status === 'Active' ? 'In service' : v.status);
 export const vehicleStatusTone = (v: FleetVehicle): Tone => (v.status === 'Active' ? 'neutral' : v.status === 'Maintenance' ? 'amber' : 'neutral');
 
-export const VEHICLE_FILTERS = ['All', 'In service', 'Maintenance', 'Inactive', 'Verified', 'Review pending', 'Expiring soon', 'Expired', 'Rejected'] as const;
-export const DRIVER_FILTERS = ['All', 'Active', 'Suspended', 'On trip', 'Verified', 'Review pending', 'Expiring soon', 'Expired', 'Rejected'] as const;
+export const VEHICLE_FILTERS = ['All', 'In service', 'Maintenance', 'Inactive', 'Verified', 'Waiting for approval', 'Expiring soon', 'Expired', 'Rejected'] as const;
+export const DRIVER_FILTERS = ['All', 'Active', 'Suspended', 'On trip', 'Verified', 'Waiting for approval', 'Expiring soon', 'Expired', 'Rejected'] as const;
 
 export function vehicleMatches(v: FleetVehicle, q: string, filter: string): boolean {
   const query = q.trim().toLowerCase().replace(/\s+/g, '');

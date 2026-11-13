@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './kit/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { PartnerNotification } from '../types/notifications';
 import { CATEGORY_LABEL, TONE_COLORS, toneOf } from '../utils/notificationModel';
@@ -98,14 +99,14 @@ const styles = StyleSheet.create({
   content: { flex: 1, padding: space.md },
   top: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   chip: { fontSize: 10, fontWeight: '900', borderWidth: 1, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1, overflow: 'hidden' },
-  time: { flex: 1, fontSize: 11, color: '#4B5563' },
-  x: { fontSize: 16, fontWeight: '800', color: '#374151', paddingHorizontal: 4 },
+  time: { flex: 1, fontSize: 11, color: '#6F7785' },
+  x: { fontSize: 16, fontWeight: '800', color: '#424B5A', paddingHorizontal: 4 },
   title: { fontSize: 15, fontWeight: '800', marginTop: 4 },
-  message: { fontSize: 13, color: '#1F2937', marginTop: 2 },
-  ref: { fontSize: 11, color: '#4B5563', marginTop: 4 },
+  message: { fontSize: 13, color: '#171B24', marginTop: 2 },
+  ref: { fontSize: 11, color: '#6F7785', marginTop: 4 },
   actions: { flexDirection: 'row', gap: space.sm, marginTop: space.sm },
   cta: { paddingHorizontal: space.md, paddingVertical: space.sm, borderRadius: radius.sm },
   ctaText: { color: '#fff', fontWeight: '800', fontSize: 13 },
-  dismiss: { paddingHorizontal: space.md, paddingVertical: space.sm, borderRadius: radius.sm, borderWidth: 1, borderColor: '#9CA3AF', backgroundColor: 'rgba(255,255,255,0.7)' },
-  dismissText: { color: '#1F2937', fontWeight: '700', fontSize: 13 },
+  dismiss: { paddingHorizontal: space.md, paddingVertical: space.sm, borderRadius: radius.sm, borderWidth: 1, borderColor: '#A9AEB8', backgroundColor: 'rgba(255,255,255,0.7)' },
+  dismissText: { color: '#171B24', fontWeight: '700', fontSize: 13 },
 });

@@ -53,7 +53,7 @@ export function SettingsScreen() {
     <SafeAreaView style={styles.root} edges={['top']}>
 <KeyboardAvoid>
       <AppHeader title="Settings" onBack={() => navigation.goBack()} />
-      <ScrollView kind="narrow" contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
+      <ScrollView footer kind="narrow" contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
         <Card>
           <Row label="Language" value={profile.language || 'English'} />
         </Card>

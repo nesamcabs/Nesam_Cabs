@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from './kit/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { PartnerPenalty } from '../types/notifications';
 import { acknowledgePenalty, disputePenalty } from '../services/partnerNotifications';
@@ -127,8 +128,8 @@ const styles = StyleSheet.create({
   headSub: { color: '#FEE2E2', fontSize: 13, marginTop: 2 },
   body: { padding: space.lg },
   amountBox: { alignItems: 'center', backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA', borderRadius: radius.md, paddingVertical: space.md, marginBottom: space.md },
-  amountLabel: { fontSize: 11, fontWeight: '800', color: '#B91C1C' },
-  amount: { fontSize: 30, fontWeight: '900', color: '#B91C1C' },
+  amountLabel: { fontSize: 11, fontWeight: '800', color: '#B81C2A' },
+  amount: { fontSize: 30, fontWeight: '900', color: '#B81C2A' },
   fieldLabel: { fontSize: 11, fontWeight: '800', color: colors.muted },
   fieldValue: { fontSize: 14, color: colors.ink },
   fine: { fontSize: 12, color: colors.muted, marginBottom: space.sm },

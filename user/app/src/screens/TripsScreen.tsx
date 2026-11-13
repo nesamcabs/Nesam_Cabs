@@ -54,6 +54,7 @@ export function TripsScreen() {
       <CancelRideSheet key={cancelTrip?.id ?? 'none'} trip={cancelTrip} onClose={() => setCancelTrip(null)} />
       <AppHeader title="My Bookings" />
       <FlatList
+        footer
         data={shown}
         kind="narrow"
         keyExtractor={(t) => t.id}

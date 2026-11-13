@@ -4,13 +4,14 @@
 // All click interactions have modern tactile micro-animations.
 // Website footers, marketing copy, and FAQs are cleanly omitted from the mobile application.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Pressable, ScrollView as RNScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { Image, type ImageSourcePropType, Pressable, ScrollView as RNScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAvoid } from '../components/KeyboardAvoid';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { Notice } from '../components/ui';
-import { MenuButton, NotificationsAction, PressableScale, SupportMenuAction } from '../components/brand';
+import { DESKTOP_NAV_MIN, DesktopTopBar, MenuButton, NotificationsAction, PressableScale, SupportMenuAction } from '../components/brand';
+import { SiteFooter } from '../components/SiteFooter';
 import { GoButton, LocationField, PillTabs, RouteRail, ScheduleCell } from '../components/BookForm';
 import { Icon } from '../components/Icon';
 import { serviceSlogan } from '../utils/serviceSlogan';
@@ -20,7 +21,7 @@ import { PlaceSearchModal } from '../components/PlaceSearchModal';
 import { MulticityForm } from '../components/MulticityForm';
 import { TimePickerSheet } from '../components/TimePickerSheet';
 import { useCustomerData } from '../context/CustomerData';
-import { useBookingDraft } from '../context/BookingDraft';
+import { useBookingDraft, type HomeService } from '../context/BookingDraft';
 import { useDeviceLocation } from '../hooks/useDeviceLocation';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { LOCATION_ERROR_TEXT, reverseGeocode } from '../services/geoService';
@@ -36,6 +37,14 @@ import { haversineKm, isValidLatLng } from '../utils/geo';
 import { colors, fonts, space } from '../theme';
 import { HEROES, NESAM } from '../assets/images';
 import { useRideFocus } from '../navigation/MainNavigator';
+
+/** The service switcher inside the booking card on wide windows (phones use the floating bottom bar). */
+const DESKTOP_SERVICES: { key: HomeService; label: string; image: ImageSourcePropType }[] = [
+  { key: 'outstation', label: 'Outstation', image: NESAM.navOutstation },
+  { key: 'multicity', label: 'Multicity', image: NESAM.navMulticity },
+  { key: 'rental', label: 'Local', image: NESAM.navLocal },
+  { key: 'airport', label: 'Airport', image: NESAM.navAirport },
+];
 
 type Field = 'pickup' | 'drop';
 type Picker = Field | { stop: number | 'new' };
@@ -237,8 +246,11 @@ export function BookScreen() {
   const dockPad = useDockPad();
   const { guest, requestSignIn } = useAuthGate();
   const { width: screenW, height: screenH } = useWindowDimensions();
+  // Wide windows get the website's desktop header, footer and two-column hero; phones keep the floating bar.
+  const desktop = screenW >= DESKTOP_NAV_MIN;
+  const wide = screenW >= 1000;
   // The hero logo scales down on short phones so the whole form stays in one view.
-  const logoW = Math.min(304, Math.round(screenW * 0.78), Math.round((screenH - dockPad) * 0.4));
+  const logoW = desktop ? 300 : Math.min(304, Math.round(screenW * 0.78), Math.round((screenH - dockPad) * 0.4));
   const fieldLabel = (f: Field) => (airportField === f ? (f === 'drop' ? 'Drop airport' : 'Pickup airport') : f === 'pickup' ? 'Pickup location' : 'Drop location');
   const pickerTitle = picker === null ? '' : typeof picker === 'object' ? (picker.stop === 'new' ? 'Add itinerary stop' : `Edit stop ${picker.stop + 1}`) : fieldLabel(picker);
 
@@ -290,14 +302,16 @@ export function BookScreen() {
             />
           ) : null}
 
+          {desktop ? <DesktopTopBar /> : null}
           <RNScrollView
             ref={scroller}
-            contentContainerStyle={[styles.page, { paddingBottom: 12 + dockPad }]}
+            contentContainerStyle={[styles.page, desktop && styles.pageDesktop, { paddingBottom: 12 + dockPad }]}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
             bounces={false}
             overScrollMode="never"
           >
+            {desktop ? null : (
             <View style={styles.topRow}>
               <MenuButton glass />
               <View style={{ flex: 1 }} />
@@ -309,7 +323,10 @@ export function BookScreen() {
                 </View>
               )}
             </View>
+            )}
 
+            <View style={[desktop && styles.main, wide && styles.mainWide]}>
+              <View style={wide ? styles.leftCol : undefined}>
             <View style={styles.hero}>
               <Image source={NESAM.logo} style={{ width: logoW, height: logoW / 3.05 }} resizeMode="contain" accessibilityLabel="NESAM Cabs" />
               {headline || subline ? (
@@ -342,8 +359,33 @@ export function BookScreen() {
                 <Icon name="chevron-right" size={18} color={colors.success} strokeWidth={2.2} />
               </PressableScale>
             ) : null}
-
+              </View>
+              <View style={wide ? styles.rightCol : desktop ? styles.midCol : undefined}>
             <View style={styles.card}>
+              {desktop ? (
+                <View style={styles.services} accessibilityRole="tablist" accessibilityLabel="Services">
+                  {DESKTOP_SERVICES.map((sv) => {
+                    const on = service === sv.key;
+                    return (
+                      <Pressable
+                        key={sv.key}
+                        accessibilityRole="tab"
+                        accessibilityState={{ selected: on }}
+                        onPress={() => {
+                          setService(sv.key);
+                          navigation.navigate('Tabs', { screen: sv.key === 'rental' ? 'Rentals' : 'Book' });
+                        }}
+                        style={({ hovered }: { hovered?: boolean }) => [styles.serviceTab, (on || hovered) && styles.serviceTabOn, on && styles.serviceTabActive]}
+                      >
+                        <Image source={sv.image} style={styles.serviceImg} resizeMode="contain" accessible={false} />
+                        <Text style={[styles.serviceText, on && { color: colors.primary }]} numberOfLines={1}>
+                          {sv.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ) : null}
               {service === 'outstation' ? (
                 <PillTabs<TripType>
                   options={[
@@ -457,6 +499,9 @@ export function BookScreen() {
             </View>
 
             {locError && !pickup && !isMulti ? <Notice tone="info" message={locationHint} style={{ marginTop: space.md }} /> : null}
+              </View>
+            </View>
+            {desktop ? <SiteFooter /> : null}
           </RNScrollView>
         </KeyboardAvoid>
       </SafeAreaView>
@@ -472,6 +517,18 @@ const styles = StyleSheet.create({
   topRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 6, minHeight: 50 },
   glass: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.92)', alignItems: 'center', justifyContent: 'center' },
   hero: { alignItems: 'center', gap: 6, paddingTop: 2, paddingBottom: 14 },
+  pageDesktop: { paddingHorizontal: 0 },
+  services: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  serviceTab: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 48, paddingHorizontal: 6, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white },
+  serviceTabOn: { backgroundColor: colors.primarySoft },
+  serviceTabActive: { borderColor: colors.primary },
+  serviceImg: { width: 28, height: 28 },
+  serviceText: { fontFamily: fonts.bold, fontSize: 13, color: colors.ink },
+  main: { width: '100%', maxWidth: 1216, alignSelf: 'center', paddingHorizontal: 32, paddingTop: 28, paddingBottom: 12 },
+  mainWide: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 64, minHeight: 560 },
+  leftCol: { flex: 1, minWidth: 0 },
+  rightCol: { width: 540, flexShrink: 0 },
+  midCol: { width: '100%', maxWidth: 640, alignSelf: 'center' },
   slogan: { fontFamily: fonts.bold, fontSize: 18, lineHeight: 23, letterSpacing: -0.1, textAlign: 'center', color: colors.primary },
   sloganAccent: { color: '#0B1D46' },
   sloganBig: { fontSize: 25, lineHeight: 31 },

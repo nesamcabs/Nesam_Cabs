@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './kit/Text';
 import { colors, radius, space } from '../theme';
 
 /** A labelled tick box with a large touch target. */

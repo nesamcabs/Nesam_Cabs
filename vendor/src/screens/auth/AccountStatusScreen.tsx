@@ -1,6 +1,7 @@
 // Pending / rejected / suspended (native port of vendor/web AccountStatusScreen.tsx matching NESAM_Complete_UX).
 import React, { useState } from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../../components/kit/Text';
 import { Ionicons } from '@expo/vector-icons';
 import type { VendorRecord } from '../../types/vendor';
 import { SECTION_LABELS } from '../../config/onboarding';

@@ -68,7 +68,7 @@ export function SupportScreen({ route, navigation }: Props) {
     <SafeAreaView style={styles.root} edges={['top']}>
 <KeyboardAvoid>
       <AppHeader title="Help & Support" active="support" onBack={() => navigation.goBack()} />
-      <ScrollView kind="narrow" contentContainerStyle={styles.page} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView footer kind="narrow" contentContainerStyle={styles.page} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <SupportBanner />
         <Button
           title="WhatsApp NESAM"

@@ -104,6 +104,15 @@ async function lastTripDriver(vehicleId: string): Promise<{ id: string; name: st
   return null;
 }
 
+/** A driver that really goes with a vehicle: the one assigned to it, whose profile names it, or who drove it last. */
+async function driverGoesWithVehicle(vehicleId: string, vehicle: DocumentData, driverId: string, driver: DocumentData): Promise<boolean> {
+  if (text(vehicle.assignedDriverId) === driverId) return true;
+  const key = plateKey(vehicle.vehicleNumber);
+  if (key && plateKey(driver.vehicleNumber) === key) return true;
+  const last = await lastTripDriver(vehicleId);
+  return !!last && last.id === driverId;
+}
+
 async function findDriverByPhone(phone: unknown) {
   const digits = String(phone ?? '').replace(/\D/g, '');
   // Accept an Indian local number or its +91 form; never look up an unrelated number by truncating arbitrary prefixes.
@@ -326,16 +335,48 @@ export const findPartnerVehicle = onCall(async (request) => {
     db.collection('partner_links').where('subjectId', '==', doc.id).where('status', 'in', [...OPEN_STATUSES]).get(),
   ]);
   const existing = open.docs.find((x) => x.data().kind === 'vehicle' && x.data().toVendorId === request.auth!.uid);
+  // Who registered it: the owning business and its contact number, masked (the full number is never sent).
+  const holder = !mine && text(v.vendorId) ? await db.doc(`vendors/${text(v.vendorId)}`).get() : null;
+  const hv = holder?.exists ? holder.data()! : null;
+  const holderPhone = hv ? toDigits(text(hv.phone, 20)).slice(-10) : '';
+  const created = v.createdAt && typeof v.createdAt.toDate === 'function' ? (v.createdAt.toDate() as Date).toISOString().slice(0, 10) : '';
+  // Optionally check a driver the partner names: is it a NESAM driver, and does it go with this vehicle? (details shown before any code is sent)
+  let driverCheck: Record<string, unknown> | undefined;
+  if (request.data?.driverPhone && !mine) {
+    try {
+      const driver = await findDriverByPhone(request.data.driverPhone);
+      if (!driver) driverCheck = { found: false, matches: false };
+      else {
+        const d = driver.data();
+        driverCheck = {
+          found: true, matches: await driverGoesWithVehicle(doc.id, v, driver.id, d), driverId: driver.id, name: firstName(d.name),
+          phoneMask: mask.phone(toDigits(text(d.phone, 20)).slice(-10)), approved: approved(d.status),
+          fleet: text(d.vendorId) ? await ownerLabel(text(d.vendorId)) : 'Owner-driver', vehicle: text(d.vehicleNumber, 20),
+        };
+      }
+    } catch (e) {
+      driverCheck = { found: false, matches: false, error: e instanceof HttpsError ? e.message : 'The driver could not be checked.' };
+    }
+  }
   return {
     found: true, vehicleId: doc.id, plate: displayPlate(plateKey(v.vehicleNumber)), model: [text(v.make, 40), text(v.model, 40)].filter(Boolean).join(' '), category: text(v.category, 60),
     owner, mine, verified: v.docStatus === 'Approved', onHold: HOLD_STATUSES.includes(text(v.status)), openDuties: duties.length,
     otpReceiver: last ? { name: firstName(last.name), phoneMask: mask.phone(toDigits(last.phone).slice(-10)) } : null, pendingLinkId: existing?.id ?? '',
+    // Complete details of the registration (everything a fleet needs to recognise its own car).
+    make: text(v.make, 40), modelName: text(v.model, 40), year: text(v.year, 8), color: text(v.color, 30), fuelType: text(v.fuelType, 20),
+    seats: Number(v.seatingCapacity) || 0, registeredOn: created, docStatus: text(v.docStatus, 20),
+    insuranceExpiry: text(v.insuranceExpiry, 12), permitExpiry: text(v.permitExpiry, 12), fitnessExpiry: text(v.fitnessExpiry, 12),
+    registeredBy: mine ? 'Your fleet' : owner, registeredByPhoneMask: holderPhone ? mask.phone(holderPhone) : '',
+    registeredByContact: hv ? firstName(text(hv.contactPerson || hv.owner, 80)) : '',
+    // Whether anyone is on record to confirm a move (the assigned driver or the last-trip driver).
+    driverOnRecord: !!text(v.assignedDriverId) || !!last,
+    driverCheck,
   };
 });
 
 // ── requests ──────────────────────────────────────────────────────────────
 
-async function createLink(kind: Kind, subjectId: string, toVendorId: string, toVendorName: string, actor: Actor, sendCode: boolean) {
+async function createLink(kind: Kind, subjectId: string, toVendorId: string, toVendorName: string, actor: Actor, sendCode: boolean, receiverOverride: { id: string; name: string; phone: string } | null = null) {
   const subject = await db.doc(`${kind === 'driver' ? 'drivers' : 'vehicles'}/${subjectId}`).get();
   if (!subject.exists) throw new HttpsError('not-found', kind === 'driver' ? 'Driver not found.' : 'Vehicle not found.');
   const s = subject.data()!;
@@ -349,7 +390,7 @@ async function createLink(kind: Kind, subjectId: string, toVendorId: string, toV
   const subjectLabel = kind === 'driver' ? text(s.name, 80) || 'Driver' : displayPlate(plateKey(s.vehicleNumber));
   let receiver: { id: string; name: string; phone: string } | null = null;
   if (kind === 'driver') receiver = { id: subject.id, name: text(s.name, 80), phone: text(s.phone, 20) };
-  else receiver = await lastTripDriver(subject.id);
+  else receiver = receiverOverride ?? await lastTripDriver(subject.id);
 
   const linkRef = db.collection('partner_links').doc();
   const base = {
@@ -399,7 +440,18 @@ export const requestVehicleLink = onCall(async (request) => {
   const vendor = await requireApprovedVendor(request.auth?.uid);
   const doc = await findVehicleByPlate(plateKey(request.data?.plate));
   if (!doc) throw new HttpsError('not-found', 'That vehicle is not on NESAM yet. Add it as a new vehicle.');
-  return createLink('vehicle', doc.id, vendor.id, vendor.name, { role: 'vendor', id: vendor.id, name: vendor.name }, request.data?.office !== true);
+  // The partner names the driver who confirms the move; that driver must really go with the vehicle, and gets the code.
+  let receiver: { id: string; name: string; phone: string } | null = null;
+  if (request.data?.driverPhone) {
+    const driver = await findDriverByPhone(request.data.driverPhone);
+    if (!driver) throw new HttpsError('not-found', 'No NESAM driver uses that number.');
+    if (!(await driverGoesWithVehicle(doc.id, doc.data(), driver.id, driver.data()))) {
+      throw new HttpsError('failed-precondition', 'This driver is not linked to that vehicle, so they cannot confirm the move.');
+    }
+    const phone = text(driver.data().phone, 20);
+    receiver = { id: driver.id, name: text(driver.data().name, 80), phone };
+  }
+  return createLink('vehicle', doc.id, vendor.id, vendor.name, { role: 'vendor', id: vendor.id, name: vendor.name }, request.data?.office !== true, receiver);
 });
 
 /** Staff start a request for a vendor (assisted linking). `sendOtp:false` goes straight to the office queue. */

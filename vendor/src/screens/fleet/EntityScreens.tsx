@@ -1,6 +1,7 @@
 // Vehicle details and Driver details: identity, document validity, service status, pairing, availability and renewals.
 import React, { useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
+import { Text } from '../../components/kit/Text';
 import { useRoute, type RouteProp } from '@react-navigation/native';
 import { useVendorData } from '../../context/VendorData';
 import { DetailGrid, Page } from '../../components/shell/Page';
@@ -141,7 +142,7 @@ export function DriverScreen() {
         </View>
         <Inline style={{ marginTop: 14 }}>
           <Badge label={suspended ? 'Suspended' : 'Active'} tone={suspended ? 'red' : 'neutral'} />
-          <Badge label={x.approvalStatus === 'Approved' ? 'Approved by NESAM' : x.approvalStatus || 'Review pending'} tone={x.approvalStatus === 'Approved' ? 'green' : 'amber'} />
+          <Badge label={x.approvalStatus === 'Approved' ? 'Approved by NESAM' : x.approvalStatus || 'Waiting for approval'} tone={x.approvalStatus === 'Approved' ? 'green' : 'amber'} />
           {x.presenceStatus ? <Badge label={x.presenceStatus} tone={x.presenceStatus === 'Online' ? 'green' : 'neutral'} /> : null}
         </Inline>
         <KV rows={[['Driving licence', x.licenseNumber || '—'], ['Paired vehicle', x.assignedVehicleNumber ? plate(x.assignedVehicleNumber) : 'None'], ['Documents', x.docStatus || '—'], ['Completed duties', String(completed)]]} />
@@ -178,6 +179,6 @@ const styles = StyleSheet.create({
   person: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 16 },
   plate: { fontFamily, fontSize: 21, fontWeight: '600', color: colors.ink, marginBottom: 4, letterSpacing: -0.2 },
   status: { fontFamily, fontSize: 20, fontWeight: '600', color: colors.ink, marginTop: 10, marginBottom: 4 },
-  docRow: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#EEF1F5' },
+  docRow: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F1F2F5' },
   docLabel: { fontFamily, fontSize: 13, fontWeight: '500', color: colors.ink, marginBottom: 2 },
 });

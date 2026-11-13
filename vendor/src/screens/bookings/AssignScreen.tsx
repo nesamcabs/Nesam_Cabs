@@ -1,7 +1,8 @@
 // Assign driver (reference sAssignment): Driver → Vehicle → Review & confirm, with the agreed payout beside it on wide
 // screens. The server (vendorAssignDriver) re-checks driver approval, vehicle documents and schedule clashes before assigning.
 import React, { useState } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
+import { Text } from '../../components/kit/Text';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useVendorData } from '../../context/VendorData';
 import { DetailGrid, Page } from '../../components/shell/Page';
@@ -102,7 +103,7 @@ export function AssignScreen() {
             <Text style={[kit.h2, { fontSize: 19, marginTop: 10 }]}>Choose the vehicle</Text>
             <Small style={{ marginTop: 8, marginBottom: 16 }}>Choose an approved, in-service {b.vehicleCategory || 'vehicle'} for this duty.</Small>
             {driver ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 13, borderRadius: 9, backgroundColor: '#F3F7FB', marginBottom: 14 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 13, borderRadius: 9, backgroundColor: '#F6F7F9', marginBottom: 14 }}>
                 <Avatar name={driver.name} size={30} tone="blue" />
                 <Text style={{ fontFamily, fontSize: 12.5, color: '#4D6A89', flex: 1 }}>{driver.name}</Text>
                 <Btn kind="text" title="Change" onPress={() => setStep(1)} />
@@ -125,7 +126,7 @@ export function AssignScreen() {
               <PairBox icon={<Avatar name={driver?.name ?? '?'} size={34} tone="blue" />} label="Driver" title={driver?.name ?? 'Not selected'} sub={driver ? driver.phone : ''} />
               <PairBox icon={<CarImage category={vehicle?.category ?? ''} model={vehicle?.model} width={48} height={30} />} label="Vehicle" title={vehicle ? plate(vehicle.vehicleNumber) : 'Not selected'} sub={vehicle ? [vehicle.model, vehicle.category].filter(Boolean).join(' · ') : ''} />
             </View>
-            <View style={{ marginTop: 18, padding: 16, borderWidth: 1, borderColor: '#E0E7EF', borderRadius: 10, backgroundColor: '#F8FAFC' }}>
+            <View style={{ marginTop: 18, padding: 16, borderWidth: 1, borderColor: '#E0E7EF', borderRadius: 10, backgroundColor: '#F6F7F9' }}>
               <Text style={[kit.h2, { fontSize: 13.5 }]}>Duty terms & penalty details</Text>
               <KV rows={[
                 ['Agreed vendor payout', rupees(payoutOf(b))],
@@ -143,7 +144,7 @@ export function AssignScreen() {
           </>
         )}
         <Feedback tone="error" message={error} />
-        <View style={{ flexDirection: 'row', gap: 10, marginTop: 18, borderTopWidth: 1, borderTopColor: '#EEF1F5', paddingTop: 18 }}>
+        <View style={{ flexDirection: 'row', gap: 10, marginTop: 18, borderTopWidth: 1, borderTopColor: '#F1F2F5', paddingTop: 18 }}>
           {step > 1 ? <Btn kind="secondary" icon="arrow-back" title="Back" onPress={() => { setError(''); setStep(step - 1); }} /> : null}
           {step < 3
             ? <Btn title={step === 1 ? 'Continue to vehicle' : 'Review assignment'} iconRight="arrow-forward" onPress={next} style={{ flex: 1 }} />
@@ -173,11 +174,11 @@ export function AssignScreen() {
 
 function PairBox({ icon, label, title, sub }: { icon: React.ReactNode; label: string; title: string; sub: string }) {
   return (
-    <View style={{ flexGrow: 1, flexBasis: 220, flexDirection: 'row', alignItems: 'flex-start', gap: 11, backgroundColor: '#F6F8FC', borderWidth: 1, borderColor: '#E6ECF4', borderRadius: 10, padding: 15 }}>
+    <View style={{ flexGrow: 1, flexBasis: 220, flexDirection: 'row', alignItems: 'flex-start', gap: 11, backgroundColor: '#F6F7F9', borderWidth: 1, borderColor: '#E6ECF4', borderRadius: 10, padding: 15 }}>
       {icon}
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={{ fontFamily, fontSize: 11, color: '#6C8097' }}>{label}</Text>
-        <Text style={{ fontFamily, fontSize: 14, fontWeight: '600', color: '#3A5673', marginTop: 4 }} numberOfLines={1}>{title}</Text>
+        <Text style={{ fontFamily, fontSize: 11, color: '#6F7785' }}>{label}</Text>
+        <Text style={{ fontFamily, fontSize: 14, fontWeight: '600', color: '#424B5A', marginTop: 4 }} numberOfLines={1}>{title}</Text>
         {sub ? <Text style={{ fontFamily, fontSize: 11, color: colors.muted, marginTop: 2 }} numberOfLines={1}>{sub}</Text> : null}
       </View>
     </View>

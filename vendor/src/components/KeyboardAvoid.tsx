@@ -30,7 +30,7 @@ export function useKeyboardHeight(): number {
 }
 
 /** `style` is the outer box; `innerStyle` the inner one that is lifted (a dialog's backdrop centres its content there). */
-export function KeyboardAvoid({ children, style, innerStyle }: { children: React.ReactNode; style?: StyleProp<ViewStyle>; innerStyle?: StyleProp<ViewStyle> }) {
+export function KeyboardAvoid({ children, style, innerStyle, keyboardOnly }: { children: React.ReactNode; style?: StyleProp<ViewStyle>; innerStyle?: StyleProp<ViewStyle>; keyboardOnly?: boolean }) {
   if (Platform.OS !== 'android') {
     return (
       <KeyboardAvoidingView style={[{ flex: 1 }, style, innerStyle]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -38,10 +38,10 @@ export function KeyboardAvoid({ children, style, innerStyle }: { children: React
       </KeyboardAvoidingView>
     );
   }
-  return <AndroidAvoid style={style} innerStyle={innerStyle}>{children}</AndroidAvoid>;
+  return <AndroidAvoid style={style} innerStyle={innerStyle} keyboardOnly={keyboardOnly}>{children}</AndroidAvoid>;
 }
 
-function AndroidAvoid({ children, style, innerStyle }: { children: React.ReactNode; style?: StyleProp<ViewStyle>; innerStyle?: StyleProp<ViewStyle> }) {
+function AndroidAvoid({ children, style, innerStyle, keyboardOnly }: { children: React.ReactNode; style?: StyleProp<ViewStyle>; innerStyle?: StyleProp<ViewStyle>; keyboardOnly?: boolean }) {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const keyboardHeight = useKeyboardHeight();
@@ -64,7 +64,7 @@ function AndroidAvoid({ children, style, innerStyle }: { children: React.ReactNo
   }, [measure, keyboardHeight, insets.bottom, windowHeight]);
 
   const screenHeight = Dimensions.get('screen').height;
-  const padding = viewBottom === null ? 0 : bottomClearance({ viewBottom, windowHeight, insetBottom: insets.bottom, keyboardHeight, screenHeight });
+  const padding = viewBottom === null ? 0 : bottomClearance({ viewBottom, windowHeight, insetBottom: insets.bottom, keyboardHeight, screenHeight, keyboardOnly });
 
   return (
     <View ref={ref} collapsable={false} onLayout={measure} style={[{ flex: 1 }, style]}>

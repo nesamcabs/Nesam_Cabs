@@ -120,7 +120,7 @@ export function BookingDetailScreen() {
       ) : (
         <Notice tone="neutral" icon="receipt-outline" title="Final accounts after the trip" text="Cash reported by the driver is adjusted only after office verification." style={{ marginTop: 16 }} />
       )}
-      <View style={{ marginTop: 18, borderTopWidth: 1, borderTopColor: '#EEF1F5', paddingTop: 14 }}>
+      <View style={{ marginTop: 18, borderTopWidth: 1, borderTopColor: '#F1F2F5', paddingTop: 14 }}>
         <H2 style={{ fontSize: 13 }}>Included & extra costs</H2>
         <Small style={{ marginTop: 6 }}>{b.includedKm ? `${b.includedKm} km included. ` : ''}Toll, parking and state tax are extra and reimbursed against office-approved receipts.</Small>
         <TextLink title="Accepted duty terms" onPress={() => setSheet('terms')} />
@@ -153,7 +153,7 @@ export function BookingDetailScreen() {
 function CancellationStatus({ r }: { r: PartnerRequestRecord }) {
   const declined = r.status === 'Declined';
   return (
-    <Panel style={{ borderColor: '#F0E5CB' }}>
+    <Panel style={{ borderColor: '#F3DFAE' }}>
       <Between><H2>{declined ? 'Cancellation request declined' : 'Cancellation under review'}</H2><Badge label={declined ? 'Declined' : 'Pending'} tone="amber" /></Between>
       <Small style={{ marginTop: 8 }}>{declined ? 'This duty remains assigned. No cancellation charge has been deducted.' : 'The duty remains assigned until the office approves. Call NESAM if the pickup is approaching.'}</Small>
       <KV rows={[['Reason', r.reasonLabel], ['Requested', dayTime(r.requestedAt)], [declined ? 'Cancellation charge' : 'Potential charge', rupees(declined ? 0 : r.quotedPenalty)], r.adminReason ? ['Office remarks', r.adminReason] : null]} />

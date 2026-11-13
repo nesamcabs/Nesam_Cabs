@@ -1,7 +1,8 @@
 // The duty as the assigned driver runs it in the NESAM Driver app — assigned, acknowledged, reached pickup, customer
 // boarded (OTP), trip started, completed — and, once it ends, the kilometres, tolls and collections recorded.
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '../../components/kit/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { Badge, Between, H2, KV, Notice, Panel, Small } from '../../components/kit/core';
 import { dayTime, rupees, timeText } from '../../components/kit/format';
@@ -54,7 +55,7 @@ export function TripTimeline({ b }: { b: VendorBooking }) {
                 {i < steps.length - 1 ? <View style={[styles.line, s.done && { backgroundColor: '#BFDCCB' }]} /> : null}
               </View>
               <View style={{ flex: 1, paddingBottom: i < steps.length - 1 ? 16 : 0 }}>
-                <Text style={[styles.title, !s.done && !on && { color: '#8492A4' }, on && { color: colors.primary }]}>{s.title}</Text>
+                <Text style={[styles.title, !s.done && !on && { color: '#8B919C' }, on && { color: colors.primary }]}>{s.title}</Text>
                 {s.at ? <Text style={styles.at}>{dayTime(s.at)}</Text> : on ? <Text style={[styles.at, { color: colors.primary }]}>{live || st === 'Upcoming' ? 'Next' : 'Waiting'}</Text> : null}
                 {s.sub ? <Text style={styles.sub}>{s.sub}</Text> : null}
               </View>
@@ -108,16 +109,16 @@ function duration(a: Date, b: Date): string {
 }
 
 const styles = StyleSheet.create({
-  live: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FFECEA', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 },
+  live: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FFF0F2', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 },
   liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.primary },
-  liveText: { fontFamily, fontSize: 10.5, fontWeight: '700', color: '#B42323' },
+  liveText: { fontFamily, fontSize: 10.5, fontWeight: '700', color: '#B81C2A' },
   row: { flexDirection: 'row', gap: 12 },
   rail: { width: 22, alignItems: 'center' },
-  dot: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: '#D3DCE7', backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
+  dot: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: '#E7EAF0', backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
   dotDone: { backgroundColor: colors.success, borderColor: colors.success },
   dotOn: { borderColor: colors.primary, borderWidth: 2 },
   line: { flex: 1, width: 2, backgroundColor: '#E3E9F1', marginVertical: 2 },
   title: { fontFamily, fontSize: 13.5, fontWeight: '600', color: colors.ink, marginTop: 1 },
   at: { fontFamily, fontSize: 11.5, color: colors.muted, marginTop: 2 },
-  sub: { fontFamily, fontSize: 11.5, color: '#7A8A9D', marginTop: 2 },
+  sub: { fontFamily, fontSize: 11.5, color: '#8B919C', marginTop: 2 },
 });

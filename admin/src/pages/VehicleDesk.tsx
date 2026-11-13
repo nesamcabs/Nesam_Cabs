@@ -675,6 +675,30 @@ function VehicleDetailModal({
           </div>
         </div>
 
+        {(v.photoUrl || v.roofCarrier || v.roofCarrierPhotoUrl || v.fuelType === "CNG") && (
+          <div>
+            <h4 className="text-[12px] font-bold text-gray-900 mb-2">Photos</h4>
+            <div className="space-y-2">
+              {[
+                { label: "Vehicle photo", url: v.photoUrl, show: true },
+                { label: "Roof carrier photo", url: v.roofCarrierPhotoUrl, show: !!v.roofCarrier || v.fuelType === "CNG", note: v.roofCarrier ? "Roof carrier fitted" : "CNG vehicle — roof carrier not declared" },
+              ].filter((p) => p.show).map((p) => (
+                <div key={p.label} className="p-3 bg-gray-50 rounded-xl border border-gray-100 flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <span className="font-bold text-gray-900 block">{p.label}</span>
+                    {p.note ? <span className="text-[10px] text-gray-500">{p.note}</span> : null}
+                  </div>
+                  {p.url ? (
+                    <a href={p.url} target="_blank" rel="noopener noreferrer" className="text-[11px] font-semibold text-brand hover:underline">Open file</a>
+                  ) : (
+                    <span className="text-[11px] text-gray-400">No file</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {v.docStatus !== "Approved" && blockers.length > 0 && !rejecting && (
           <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800">
             <strong>Cannot approve yet:</strong>

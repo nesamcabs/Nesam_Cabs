@@ -1,7 +1,8 @@
 // 24/7 Helpdesk — office support and duty requests (reference vHelpdesk): call the office, quick requests, and the
 // vendor's cancellation / bank-change / renewal requests with the office's decision.
 import React, { useState } from 'react';
-import { Linking, StyleSheet, Text, View } from 'react-native';
+import { Linking, StyleSheet, View } from 'react-native';
+import { Text } from '../../components/kit/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useVendorData } from '../../context/VendorData';
@@ -27,7 +28,7 @@ export function HelpdeskScreen() {
   const list = filter === 'Pending' ? pending : d.requests.filter((r) => r.status !== 'Pending');
 
   return (
-    <Page title="24/7 Helpdesk" subtitle="Office support and duty requests.">
+    <Page title="24/7 Helpdesk">
       <View style={[styles.support, !wide && { flexWrap: 'wrap' }]}>
         <View style={styles.supportIcon}><Ionicons name="headset-outline" size={23} color={colors.primary} /></View>
         <View style={{ flex: 1, minWidth: 180 }}>

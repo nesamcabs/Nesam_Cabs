@@ -138,6 +138,40 @@ export interface VehicleLookup {
   openDuties?: number;
   otpReceiver?: { name: string; phoneMask: string } | null;
   pendingLinkId?: string;
+  // Full registration details (newer servers; older ones omit them and the panel simply shows less).
+  make?: string;
+  modelName?: string;
+  year?: string;
+  color?: string;
+  fuelType?: string;
+  seats?: number;
+  registeredOn?: string;
+  docStatus?: string;
+  insuranceExpiry?: string;
+  permitExpiry?: string;
+  fitnessExpiry?: string;
+  /** The business that registered it, and its contact (name and masked mobile number). */
+  registeredBy?: string;
+  registeredByContact?: string;
+  registeredByPhoneMask?: string;
+  /** Anyone on record who can confirm a move: the assigned driver or the last-trip driver. */
+  driverOnRecord?: boolean;
+  /** Present when a driver's number was sent with the lookup. */
+  driverCheck?: DriverCheck;
+}
+
+/** The driver a partner named for a vehicle swap: is it a NESAM driver, and does it go with that vehicle? */
+export interface DriverCheck {
+  found: boolean;
+  matches: boolean;
+  driverId?: string;
+  name?: string;
+  phoneMask?: string;
+  approved?: boolean;
+  /** The fleet the driver works for now ("Owner-driver" when none). */
+  fleet?: string;
+  vehicle?: string;
+  error?: string;
 }
 
 export interface LinkRequestResult {
@@ -160,6 +194,8 @@ export const findDriver = async (phone: string): Promise<DriverLookup> => {
   return result;
 };
 export const findVehicle = (plate: string) => callFunction<{ plate: string }, VehicleLookup>('findPartnerVehicle', { plate });
+/** The same lookup plus a check of the driver whose number was typed (shown before any code is sent). */
+export const checkVehicleDriver = (plate: string, driverPhone: string) => callFunction<{ plate: string; driverPhone: string }, VehicleLookup>('findPartnerVehicle', { plate, driverPhone });
 export const requestDriverLink = async (phone: string, office = false): Promise<LinkRequestResult> => {
   const result = await callFunction<unknown, LinkRequestResult>('requestDriverLink', { phone, office });
   if (!result || typeof result.linkId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(result.linkId)) {
@@ -167,7 +203,8 @@ export const requestDriverLink = async (phone: string, office = false): Promise<
   }
   return result;
 };
-export const requestVehicleLink = (plate: string, office = false) => callFunction<unknown, LinkRequestResult>('requestVehicleLink', { plate, office });
+/** Ask to move a vehicle to this fleet. `driverPhone` is the driver who confirms with a code; `office` asks NESAM to verify instead. */
+export const requestVehicleLink = (plate: string, office = false, driverPhone = '') => callFunction<unknown, LinkRequestResult>('requestVehicleLink', { plate, office, ...(driverPhone ? { driverPhone } : {}) });
 export const verifyLinkCode = (linkId: string, code: string) => callFunction<unknown, { status: LinkStatus; completed: boolean; message: string }>('verifyPartnerLinkOtp', { linkId, code });
 export const resendLinkCode = (linkId: string) => callFunction<unknown, { delivered: boolean; error?: string; testCode?: string; sendsLeft: number }>('resendPartnerLinkOtp', { linkId });
 export const askOfficeForHelp = (linkId: string, note = '') => callFunction<unknown, { status: LinkStatus }>('requestPartnerLinkHelp', { linkId, note });

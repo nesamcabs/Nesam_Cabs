@@ -459,6 +459,9 @@ export function mapVehicle(id: string, d: DocumentData): FleetVehicle {
     fitnessDocUrl: str(d.fitnessDocUrl),
     permitExpiry: str(d.permitExpiry),
     statePermitDocUrl: str(d.statePermitDocUrl),
+    photoUrl: str(d.photoUrl),
+    roofCarrier: d.roofCarrier === true,
+    roofCarrierPhotoUrl: str(d.roofCarrierPhotoUrl),
   };
 }
 
@@ -595,7 +598,15 @@ export function subscribeToInvites(vendorId: string, cb: (i: DriverInviteRecord[
         snap.docs
           .map((d) => {
             const x = d.data();
-            return { phone: d.id, name: str(x.name), vehicleAssignment: str(x.vehicleAssignment), createdAt: toDate(x.createdAt) };
+            return {
+              phone: d.id,
+              name: str(x.name),
+              vehicleAssignment: str(x.vehicleAssignment),
+              createdAt: toDate(x.createdAt),
+              approval: x.preApproved === true ? ('Approved' as const) : x.approvalStatus === 'Rejected' ? ('Rejected' as const) : ('Pending' as const),
+              rejectionReason: str(x.rejectionReason),
+              licenseNumber: str(x.licenseNumber),
+            };
           })
           .sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0)),
       ),
@@ -604,13 +615,15 @@ export function subscribeToInvites(vendorId: string, cb: (i: DriverInviteRecord[
 }
 
 /** Pre-registers a driver by phone (doc id = +91XXXXXXXXXX). Never pre-approved. */
-export async function inviteDriver(vendor: VendorIdentity, mobile10: string, vehicleNumber: string): Promise<void> {
+export async function inviteDriver(vendor: VendorIdentity, mobile10: string, vehicleNumber: string, name = '', licence?: { number: string; photoUrl: string; selfieUrl: string }): Promise<void> {
   if (!/^[6-9]\d{9}$/.test(mobile10)) throw new VendorActionError('invalid-phone', 'Enter a valid 10-digit mobile number.');
   const phone = `+91${mobile10}`;
   try {
     await withTimeout(
       setDoc(doc(db, 'driver_invites', phone), {
         phone,
+        name: name.trim().slice(0, 80),
+        ...(licence ? { licenseNumber: licence.number.toUpperCase().replace(/[\s-]/g, ''), licenseDocUrl: licence.photoUrl, selfieUrl: licence.selfieUrl } : {}),
         vendorId: vendor.id,
         vendorName: vendor.companyName,
         vehicleAssignment: vehicleNumber.trim().toUpperCase() || null,

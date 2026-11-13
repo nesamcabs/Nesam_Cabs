@@ -77,26 +77,12 @@ function installShare(): void {
   };
 }
 
-function installFonts(): void {
-  // Inter for the interface and Manrope for the NESAM wordmark, as in the design reference.
-  for (const href of ['https://fonts.googleapis.com', 'https://fonts.gstatic.com']) {
-    const pre = document.createElement('link');
-    pre.rel = 'preconnect';
-    pre.href = href;
-    if (href.includes('gstatic')) pre.crossOrigin = 'anonymous';
-    document.head.appendChild(pre);
-  }
-  const link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@800&display=swap';
-  document.head.appendChild(link);
-}
 
 function installLayout(): void {
   const style = document.createElement('style');
   style.id = 'nesam-web-layout';
   style.textContent = `
-    html, body { background: #F6F8FB; overscroll-behavior: none; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    html, body { background: #F6F7F9; overscroll-behavior: none; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
     body { overflow: hidden; }
     /* 100dvh tracks the visible area on phones whose address bar collapses. */
     html, body, #root { height: 100%; }
@@ -106,7 +92,7 @@ function installLayout(): void {
     input, textarea, select { min-width: 0; }
     /* Keyboard users get a visible focus ring; mouse and touch users do not. */
     :focus { outline: none; }
-    :focus-visible:not(input):not(textarea):not(select) { outline: 3px solid rgba(198,40,40,0.35); outline-offset: 2px; }
+    :focus-visible:not(input):not(textarea):not(select) { outline: 3px solid rgba(216,32,53,0.35); outline-offset: 2px; }
     @media (prefers-reduced-motion: reduce) { * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
   `;
   document.head.appendChild(style);
@@ -116,6 +102,5 @@ installAlert();
 installLinking();
 installShare();
 if (typeof document !== 'undefined') {
-  installFonts();
-  installLayout();
+    installLayout();
 }

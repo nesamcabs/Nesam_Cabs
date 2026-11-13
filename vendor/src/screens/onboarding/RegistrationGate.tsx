@@ -2,7 +2,8 @@
 // Submitting creates the application already submitted for NESAM's review; the vendors/{uid}
 // listener in App.tsx then shows the "under review" screen.
 import React, { useState } from 'react';
-import { Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../../components/kit/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { AUTH, AuthCard, AuthFrame } from '../../components/shell/AuthFrame';
 import { Btn, Feedback, Notice } from '../../components/kit/core';
@@ -72,7 +73,7 @@ export function RegistrationGate({ phone, onSignOut }: { phone: string; onSignOu
             autoCapitalize="characters"
             autoCorrect={false}
             placeholder="TN 01 AB 1234"
-            placeholderTextColor="#A2A8B2"
+            placeholderTextColor="#A9AEB8"
             returnKeyType="done"
             onSubmitEditing={() => void register()}
             style={styles.input}
@@ -113,16 +114,16 @@ export function RegistrationGate({ phone, onSignOut }: { phone: string; onSignOu
 }
 
 const styles = StyleSheet.create({
-  steps: { marginTop: 18, gap: 14, padding: 16, borderRadius: 14, backgroundColor: '#F8F9FB', borderWidth: 1, borderColor: AUTH.line },
+  steps: { marginTop: 18, gap: 14, padding: 16, borderRadius: 14, backgroundColor: '#F6F7F9', borderWidth: 1, borderColor: AUTH.line },
   step: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  stepDot: { width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: '#D8DFE9', backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
+  stepDot: { width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: '#E7EAF0', backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
   stepDotOn: { backgroundColor: colors.primary, borderColor: colors.primary },
   stepNum: { fontFamily, fontSize: 12, fontWeight: '700', color: AUTH.muted },
   stepTitle: { fontFamily, fontSize: 13.5, fontWeight: '600', color: AUTH.ink },
   stepText: { fontFamily, fontSize: 12, lineHeight: 18, color: AUTH.muted, marginTop: 2 },
   label: { fontFamily, fontSize: 12, fontWeight: '600', color: AUTH.ink, marginTop: 22 },
   field: { flexDirection: 'row', alignItems: 'center', minHeight: 54, marginTop: 8, borderWidth: 1, borderColor: AUTH.fieldLine, borderRadius: 12, backgroundColor: colors.white, paddingHorizontal: 14 },
-  fieldFocus: { borderColor: '#B9C3D1', shadowColor: colors.primary, shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 0 } },
+  fieldFocus: { borderColor: '#C3C8D0', shadowColor: colors.primary, shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 0 } },
   rule: { width: 1, height: 24, backgroundColor: AUTH.line, marginHorizontal: 12 },
   input: { flex: 1, minWidth: 0, fontFamily, fontSize: 17, letterSpacing: 1, color: AUTH.ink, paddingVertical: 12 },
   hint: { fontFamily, fontSize: 11.5, color: AUTH.muted, marginTop: 6 },

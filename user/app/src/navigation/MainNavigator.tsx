@@ -44,13 +44,13 @@ interface RideFocus {
 const RideFocusCtx = createContext<RideFocus>({ dismiss: () => undefined, undismiss: () => undefined });
 export const useRideFocus = () => useContext(RideFocusCtx);
 
-// The website's floating bar (Outstation · Multicity · Local · Airport · Profile) sits under every tab page. The
-// service tabs follow the service chosen on the booking form; Profile lights up on the account page; My Bookings and
+// The website's floating bar (Outstation · Multicity · Local · Airport · My trips) sits under every tab page. The
+// service tabs follow the service chosen on the booking form; My trips lights up on the trips page; the profile and
 // Notifications belong to none of them (they open from the side menu and the header).
-function tabActive(name?: string): 'rental' | 'account' | null | undefined {
+function tabActive(name?: string): 'rental' | 'trips' | null | undefined {
   if (name === 'Book') return undefined;
   if (name === 'Rentals') return 'rental';
-  if (name === 'Account') return 'account';
+  if (name === 'Trips') return 'trips';
   return null;
 }
 

@@ -24,14 +24,16 @@ export interface BottomClearanceInput {
    * has already shrunk for the keyboard (adjustResize) must not be lifted a second time. Defaults to the window height.
    */
   screenHeight?: number;
+  /** The content already pads for the navigation bar itself (e.g. a bottom sheet's safe-area padding): lift for the keyboard only. */
+  keyboardOnly?: boolean;
 }
 
-export function bottomClearance({ viewBottom, windowHeight, insetBottom, keyboardHeight, screenHeight }: BottomClearanceInput): number {
+export function bottomClearance({ viewBottom, windowHeight, insetBottom, keyboardHeight, screenHeight, keyboardOnly }: BottomClearanceInput): number {
   if (![viewBottom, windowHeight, insetBottom, keyboardHeight].every(Number.isFinite) || windowHeight <= 0) return 0;
   const screen = screenHeight !== undefined && Number.isFinite(screenHeight) && screenHeight > 0 ? screenHeight : windowHeight;
   const gapToWindowBottom = Math.max(0, windowHeight - viewBottom);
   // With the keyboard open it covers the navigation bar, so only the keyboard matters.
-  const underBars = keyboardHeight > 0 ? 0 : Math.max(0, insetBottom - gapToWindowBottom);
+  const underBars = keyboardHeight > 0 || keyboardOnly ? 0 : Math.max(0, insetBottom - gapToWindowBottom);
   const keyboardTop = screen - (keyboardHeight + insetBottom);
   const underKeyboard = keyboardHeight > 0 ? Math.max(0, viewBottom - keyboardTop) : 0;
   const clearance = Math.max(underBars, underKeyboard);

@@ -38,7 +38,7 @@ function open({ value, mode = 'date', minimumDate, maximumDate, onChange }: Open
     if (maximumDate) input.max = toDateValue(maximumDate);
   }
   input.style.cssText =
-    'width:100%;box-sizing:border-box;min-height:46px;padding:0 12px;font:600 16px inherit;border:1px solid #E5E7EB;border-radius:12px;background:#fff;color:#111;';
+    'width:100%;box-sizing:border-box;min-height:46px;padding:0 12px;font:600 16px inherit;border:1px solid #E7EAF0;border-radius:12px;background:#fff;color:#111;';
 
   const hint = document.createElement('div');
   hint.style.cssText = 'margin-top:6px;min-height:16px;font-size:12px;color:#D92D20;';

@@ -7,17 +7,8 @@
 // Progress is persisted to vendors/{uid} after every step so the application
 // can be resumed on any device; admin-flagged sections are highlighted in orange.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  BackHandler,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, BackHandler, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Text } from '../../components/kit/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAvoid } from '../../components/KeyboardAvoid';
 import { Ionicons } from '@expo/vector-icons';

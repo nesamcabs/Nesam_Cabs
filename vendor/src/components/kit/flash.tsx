@@ -1,6 +1,7 @@
 // Confirmation shown at the top of the workspace after an action (the reference's v-feedback), wherever the user lands next.
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './Text';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontFamily } from '../../theme';
 
@@ -44,7 +45,7 @@ export function FlashHost() {
 
 const styles = StyleSheet.create({
   host: { position: 'absolute', left: 0, right: 0, top: 12, alignItems: 'center', paddingHorizontal: 14, zIndex: 50 },
-  toast: { flexDirection: 'row', alignItems: 'center', gap: 10, maxWidth: 620, width: '100%', borderWidth: 1, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14, shadowColor: '#283747', shadowOpacity: 0.12, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 6 },
+  toast: { flexDirection: 'row', alignItems: 'center', gap: 10, maxWidth: 620, width: '100%', borderWidth: 1, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14, shadowColor: '#424B5A', shadowOpacity: 0.12, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 6 },
   ok: { backgroundColor: '#F2FAF5', borderColor: '#CFE7D8' },
   err: { backgroundColor: '#FFF5F3', borderColor: '#F1CFC8' },
   text: { flex: 1, fontSize: 13, fontWeight: '500', lineHeight: 19, fontFamily },

@@ -345,6 +345,9 @@ export interface Vehicle {
   fitnessDocUrl?: string;
   permitExpiry?: string;
   statePermitDocUrl?: string;
+  photoUrl?: string;
+  roofCarrier?: boolean;
+  roofCarrierPhotoUrl?: string;
   createdAt?: any;
   updatedAt?: any;
   // Legacy prototype fields (read-only).

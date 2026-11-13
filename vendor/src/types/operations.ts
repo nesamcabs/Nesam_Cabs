@@ -144,6 +144,11 @@ export interface FleetVehicle {
   fitnessDocUrl: string;
   permitExpiry: string;
   statePermitDocUrl: string;
+  /** Optional photo of the vehicle (vehicles/{id}.photoUrl). */
+  photoUrl?: string;
+  /** A roof carrier is fitted (offered for 6-passenger and CNG vehicles) and its photo. */
+  roofCarrier?: boolean;
+  roofCarrierPhotoUrl?: string;
 }
 
 export interface FleetDriver {
@@ -169,6 +174,10 @@ export interface DriverInviteRecord {
   name: string;
   vehicleAssignment: string;
   createdAt: Date | null;
+  /** NESAM's decision on a driver the vendor added: Pending until the office approves (or rejects with a reason). */
+  approval: 'Pending' | 'Approved' | 'Rejected';
+  rejectionReason: string;
+  licenseNumber: string;
 }
 
 export interface VendorPayoutRequest {

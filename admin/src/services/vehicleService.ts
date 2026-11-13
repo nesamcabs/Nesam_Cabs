@@ -76,6 +76,10 @@ export interface FleetVehicle {
   fitnessDocUrl: string;
   permitExpiry: string;
   statePermitDocUrl: string;
+  /** Photos from the vendor panel's Add vehicle form. */
+  photoUrl?: string;
+  roofCarrier?: boolean;
+  roofCarrierPhotoUrl?: string;
 }
 
 const text = (v: unknown) => (typeof v === "string" ? v.trim() : "");
@@ -115,6 +119,9 @@ export function mapVehicle(v: Vehicle): FleetVehicle {
     fitnessDocUrl: text(v.fitnessDocUrl),
     permitExpiry: text(v.permitExpiry),
     statePermitDocUrl: text(v.statePermitDocUrl),
+    photoUrl: text(v.photoUrl),
+    roofCarrier: v.roofCarrier === true,
+    roofCarrierPhotoUrl: text(v.roofCarrierPhotoUrl),
   };
 }
 

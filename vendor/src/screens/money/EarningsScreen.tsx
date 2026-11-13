@@ -1,13 +1,14 @@
 // Earnings — duty payouts, verified collections and statements (reference qEarnings + duty statement).
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../../components/kit/Text';
 import { useVendorData } from '../../context/VendorData';
 import { useInbox } from '../../context/Inbox';
 import { Page } from '../../components/shell/Page';
 import { Sheet } from '../../components/ui';
 import { Badge, Btn, Empty, Grid, Inline, KV, Notice, Small, Tabs, TextLink } from '../../components/kit/core';
 import { dayTime, firstPart, rupees, signed } from '../../components/kit/format';
-import { goSection, navigationRef } from '../../navigation/navigationRef';
+import { navigationRef } from '../../navigation/navigationRef';
 import { payoutOf, SETTLEMENT_LABEL } from '../bookings/logic';
 import { ExtraTag } from '../trips/parts';
 import { colors, fontFamily } from '../../theme';
@@ -36,20 +37,19 @@ export function EarningsScreen() {
   const due = b ? d.dues.find((x) => x.id === b.id) ?? null : null;
   const fines = b ? penalties.filter((p) => p.bookingId === b.id && p.status === 'Deducted').reduce((s, p) => s + p.amount, 0) : 0;
   const totals = [
-    ['Total vendor payout', completed.reduce((s, x) => s + (payoutOf(x) ?? 0), 0), 'Completed duties'],
-    ['Verified fare collected', d.dues.reduce((s, x) => s + x.collectedByPartner, 0), 'Retained by your drivers'],
-    ['Net trip adjustment', d.dues.reduce((s, x) => s + x.amount, 0), 'Posted to wallet / bank'],
-    ['Earned this month', d.monthEarnings, 'Credited by NESAM'],
+    ['Vendor payout', completed.reduce((s, x) => s + (payoutOf(x) ?? 0), 0), 'Completed duties'],
+    ['Fare collected', d.dues.reduce((s, x) => s + x.collectedByPartner, 0), 'Held by your drivers'],
+    ['Trip adjustment', d.dues.reduce((s, x) => s + x.amount, 0), 'Wallet / bank'],
+    ['This month', d.monthEarnings, 'Credited by NESAM'],
   ] as const;
 
   return (
-    <Page title="Earnings" subtitle="Duty payouts, verified collections and statements."
-      action={<Btn kind="secondary" small={!wide} icon="wallet-outline" title="Wallet" onPress={() => goSection('Wallet')} />}>
-      <Grid columns={wide ? 4 : 2} gap={12}>
+    <Page>
+      <Grid columns={wide ? 4 : 2} gap={10}>
         {totals.map(([k, v, sub]) => (
           <View key={k} style={styles.tile}>
             <Text style={styles.tileLabel} numberOfLines={1}>{k}</Text>
-            <Text style={[styles.tileValue, v < 0 && { color: colors.danger }]} numberOfLines={1} adjustsFontSizeToFit>{k === 'Net trip adjustment' ? signed(v) : rupees(v)}</Text>
+            <Text style={[styles.tileValue, v < 0 && { color: colors.danger }]} numberOfLines={1} adjustsFontSizeToFit>{k === 'Trip adjustment' ? signed(v) : rupees(v)}</Text>
             <Text style={styles.tileSub} numberOfLines={1}>{sub}</Text>
           </View>
         ))}
@@ -61,7 +61,7 @@ export function EarningsScreen() {
             const g = groupOf(x.id);
             return (
               <Pressable key={x.id} onPress={() => setOpen(x.id)} accessibilityRole="button" accessibilityLabel={`Statement ${x.bookingId}`}
-                style={({ hovered }: { pressed: boolean; hovered?: boolean }) => [styles.row, hovered && { borderColor: '#CFD9E5' }, !wide && { flexDirection: 'column', alignItems: 'stretch' }]}>
+                style={({ hovered }: { pressed: boolean; hovered?: boolean }) => [styles.row, hovered && { borderColor: '#D8DFE9' }, !wide && { flexDirection: 'column', alignItems: 'stretch' }]}>
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={styles.code}>{x.bookingId}</Text>
                   <Text style={styles.route} numberOfLines={1}>{firstPart(x.pickupAddress)} → {firstPart(x.dropAddress)}</Text>
@@ -104,12 +104,12 @@ export function EarningsScreen() {
 }
 
 const styles = StyleSheet.create({
-  tile: { flexGrow: 1, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 13, paddingVertical: 18, paddingHorizontal: 18 },
-  tileLabel: { fontFamily, fontSize: 11.5, color: '#8C98A6' },
-  tileValue: { fontFamily, fontSize: 24, fontWeight: '700', color: '#283E58', letterSpacing: -0.6, marginTop: 8 },
-  tileSub: { fontFamily, fontSize: 10.5, color: '#9AA5B2', marginTop: 4 },
+  tile: { flexGrow: 1, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14 },
+  tileLabel: { fontFamily, fontSize: 11, fontWeight: '500', color: '#6F7785' },
+  tileValue: { fontFamily, fontSize: 19, fontWeight: '700', color: '#2B3340', letterSpacing: -0.4, marginTop: 4 },
+  tileSub: { fontFamily, fontSize: 10, color: '#9AA3AF', marginTop: 2 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 18, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 13, paddingVertical: 18, paddingHorizontal: 20 },
-  rowBottom: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#EEF1F5', paddingTop: 12 },
+  rowBottom: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#F1F2F5', paddingTop: 12 },
   code: { fontFamily, fontSize: 13, fontWeight: '600', color: colors.ink },
   route: { fontFamily, fontSize: 14, color: colors.text, marginTop: 3 },
   amount: { fontFamily, fontSize: 19, fontWeight: '700', color: colors.ink },

@@ -17,6 +17,8 @@ import { bookingPickupDate, isoDateIST } from "../../utils/time";
 import { ErrorBanner, Modal, Toast, useToast } from "../Feedback";
 import { Badge, Button, DataTable, EmptyState, Icon, PageHeader, Tabs, TableSkeleton, toneForStatus } from "../ui";
 import { StageBar } from "../ui/ListKit";
+import QuickSwap from "./QuickSwap";
+import { InviteReviewDialog, inviteState, last10, useVendorInvites, type VendorInvite } from "./VendorAddedDrivers";
 import { useAccess, useAccountControl } from "../AccessContext";
 import { ExportDialog, Initials, SimplePager, useSelection, type ExportSpec } from "../ui/RecordKit";
 
@@ -98,6 +100,10 @@ export default function PartnerRegistry({ kind, onOpenBooking, onNavigate, aside
   const [profile, setProfile] = useState<string | null>(initialProfile ?? null);
   const [sheet, setSheet] = useState<{ kind: "review" | "add"; id?: string } | null>(null);
   const sel = useSelection();
+  // Drivers a vendor added from the vendor panel (driver_invites): listed here as records waiting for NESAM's approval.
+  const invites = useVendorInvites(kind === "vendor-driver");
+  const [inviteId, setInviteId] = useState<string | null>(null);
+  const [quickSwap, setQuickSwap] = useState(false);
 
   const rows = useMemo<PartnerRow[] | null>(() => {
     const src: Raw[] | null =
@@ -105,8 +111,17 @@ export default function PartnerRegistry({ kind, onOpenBooking, onNavigate, aside
       : kind === "vehicle" ? (data.vehicles as unknown as Raw[])
       : (data.drivers as unknown as Raw[]).filter((d) => (kind === "vendor-driver" ? !!s(d.vendorId) : !s(d.vendorId)));
     if (data.bookings === null && !src.length) return null;
-    return src.map((r) => rowOf(kind, r, data.vendorById)).sort((a, b) => a.name.localeCompare(b.name));
-  }, [kind, data.vendors, data.vehicles, data.drivers, data.vendorById, data.bookings]);
+    const list = src.map((r) => rowOf(kind, r, data.vendorById));
+    if (kind === "vendor-driver") {
+      // A driver who has signed in already has a real record, so only the ones still waiting to sign in are added here.
+      const signedUp = new Set((data.drivers as unknown as Raw[]).map((d) => last10(s(d.phone))));
+      for (const i of invites) {
+        if (signedUp.has(last10(i.phone || i.id))) continue;
+        list.push({ id: `invite:${i.id}`, kind, name: i.name || "New driver", code: i.licenseNumber || i.id, phone: i.phone || i.id, email: "", linked: i.vendorName || data.vendorById.get(i.vendorId || "")?.companyName || "", linkedId: i.vendorId || "", approval: inviteState(i), account: "Active", dispute: "None", raw: { ...i, __invite: true } as unknown as Raw });
+      }
+    }
+    return list.sort((a, b) => a.name.localeCompare(b.name));
+  }, [kind, data.vendors, data.vehicles, data.drivers, data.vendorById, data.bookings, invites]);
 
   const all = rows ?? [];
   const inTab = (r: PartnerRow) => tab === "All" || (tab === "Suspended" ? r.account === "Suspended" : r.approval === tab);
@@ -193,7 +208,7 @@ export default function PartnerRegistry({ kind, onOpenBooking, onNavigate, aside
     <div className="ds-page-body">
       <Toast toast={toast} />
       {data.error && <ErrorBanner message={data.error} />}
-      <PageHeader title={cfg.title} actions={<>{aside}<Button icon="download" onClick={() => setExporting(true)}>Export data</Button>{cfg.add && <Button variant="primary" icon="plus" onClick={() => setSheet({ kind: "add" })}>{cfg.add}</Button>}</>} />
+      <PageHeader title={cfg.title} actions={<>{aside}<Button icon="download" onClick={() => setExporting(true)}>Export data</Button>{(kind === "vendor-driver" || kind === "vehicle") && <Button icon="arrow-left-right" onClick={() => setQuickSwap(true)}>{kind === "vehicle" ? "Swap vehicle" : "Swap driver"}</Button>}{cfg.add && <Button variant="primary" icon="plus" onClick={() => setSheet({ kind: "add" })}>{cfg.add}</Button>}</>} />
       <StageBar label="Approval" tabs={tabs} value={tab} onChange={(t) => { setTab(t); setPage(1); }} />
       <div className="ds-filterbar" role="search">
         <div className="ds-search" style={{ flex: "1 1 320px" }}>
@@ -220,7 +235,9 @@ export default function PartnerRegistry({ kind, onOpenBooking, onNavigate, aside
             <tr key={r.id} className="ds-row-stripe" data-tone={isHold(r.account) ? "red" : r.approval === "Approved" ? undefined : "amber"}>
               <td className="ds-check-cell"><input type="checkbox" aria-label={`Select ${r.name}`} checked={sel.has(r.id)} onChange={() => sel.toggle(r.id)} /></td>
               {cells(r).map((c, i) => <td key={i}>{c}</td>)}
-              <td className="ds-actions"><div><Button size="sm" onClick={() => setProfile(r.id)}>View</Button><Button size="sm" variant="ghost" onClick={() => setSheet({ kind: "review", id: r.id })}>Review</Button></div></td>
+              {r.raw.__invite
+                ? <td className="ds-actions"><div><Button size="sm" variant="primary" onClick={() => setInviteId(r.id.slice(7))}>Review</Button></div></td>
+                : <td className="ds-actions"><div><Button size="sm" onClick={() => setProfile(r.id)}>View</Button><Button size="sm" variant="ghost" onClick={() => setSheet({ kind: "review", id: r.id })}>Review</Button></div></td>}
             </tr>
           ))}</tbody>
         </DataTable>
@@ -230,6 +247,8 @@ export default function PartnerRegistry({ kind, onOpenBooking, onNavigate, aside
       {exporting && <ExportDialog spec={spec} all={all} filtered={filtered} selected={all.filter((r) => sel.has(r.id))} filters={{ tab, account, q }} onClose={() => setExporting(false)} />}
       {current && <PartnerProfile row={current} onClose={() => setProfile(null)} onOpenBooking={onOpenBooking} onNavigate={onNavigate} onReview={() => setSheet({ kind: "review", id: current.id })} onToast={show} />}
       {sheet?.kind === "review" && reviewing && <ReviewSheet row={reviewing} onClose={() => setSheet(null)} onDone={(t) => { setSheet(null); show(t); }} />}
+      {inviteId && invites.some((i) => i.id === inviteId) ? <InviteReviewDialog invite={invites.find((i) => i.id === inviteId) as VendorInvite} onClose={() => setInviteId(null)} onDone={(t) => { setInviteId(null); show(t); }} /> : null}
+      {quickSwap && (kind === "vendor-driver" || kind === "vehicle") ? <QuickSwap kind={kind} onClose={() => setQuickSwap(false)} onDone={(t) => { setQuickSwap(false); show(t); }} /> : null}
       {sheet?.kind === "add" && <AddSheet kind={kind} onClose={() => setSheet(null)} onDone={(t) => { setSheet(null); show(t); }} />}
     </div>
   );

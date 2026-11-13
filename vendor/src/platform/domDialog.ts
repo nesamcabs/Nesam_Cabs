@@ -23,8 +23,8 @@ export interface DialogOptions {
 }
 
 const BRAND = '#E31E24';
-const INK = '#111111';
-const MUTED = '#6B7280';
+const INK = '#171B24';
+const MUTED = '#6F7785';
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, css: string, text?: string): HTMLElementTagNameMap[K] {
@@ -51,7 +51,7 @@ export function showDialog(options: DialogOptions): () => void {
   card.setAttribute('aria-modal', 'true');
   card.setAttribute('aria-label', title);
   card.appendChild(el('div', `font-size:17px;font-weight:800;color:${INK};line-height:1.3;`, title));
-  if (message) card.appendChild(el('div', `margin-top:8px;font-size:14px;color:#374151;line-height:1.45;white-space:pre-wrap;`, message));
+  if (message) card.appendChild(el('div', `margin-top:8px;font-size:14px;color:#424B5A;line-height:1.45;white-space:pre-wrap;`, message));
   if (content) {
     const wrap = el('div', 'margin-top:14px;');
     wrap.appendChild(content);
@@ -90,7 +90,7 @@ export function showDialog(options: DialogOptions): () => void {
   const buttonEls = buttons.map((b) => {
     const isPrimary = b.style !== 'cancel';
     const color = b.style === 'destructive' ? '#D92D20' : isPrimary ? '#fff' : MUTED;
-    const bg = b.style === 'destructive' ? '#FEF2F2' : isPrimary ? BRAND : '#F3F4F6';
+    const bg = b.style === 'destructive' ? '#FEF2F2' : isPrimary ? BRAND : '#F6F7F9';
     const node = el(
       'button',
       `flex:${buttons.length > 2 ? 'none' : '1'};min-height:44px;padding:0 16px;border:0;border-radius:12px;cursor:pointer;font:700 14px ${FONT};color:${color};background:${bg};`,

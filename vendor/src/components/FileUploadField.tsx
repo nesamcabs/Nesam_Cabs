@@ -5,7 +5,8 @@
 // submission, and the saved record still references them); unsaved uploads
 // that are removed are cleaned up best-effort.
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './kit/Text';
 import { Ionicons } from '@expo/vector-icons';
 import type { StoredFile } from '../types/vendor';
 import { MAX_FILES_PER_FIELD, type UploadCategory } from '../config/onboarding';

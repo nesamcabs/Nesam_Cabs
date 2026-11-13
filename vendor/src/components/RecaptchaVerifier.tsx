@@ -7,7 +7,8 @@
 // Only Google / Firebase hosts may load inside it; it is a verification step,
 // not an app screen.
 import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './kit/Text';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { firebaseConfig } from '../config/firebase';

@@ -1,7 +1,8 @@
 // Fleet — "Drivers and vehicles. One permanent ID each." (reference vVehicles): Vehicles / Drivers tabs with counts,
 // search + status filter, linking and document shortcuts, and a card per vehicle or driver. Pending invitations show under Drivers.
 import React, { useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../../components/kit/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useVendorData } from '../../context/VendorData';
@@ -36,6 +37,15 @@ export function FleetScreen() {
   const invites = !vehicles && filter === 'All' && !search ? d.invites : [];
   const shown = vehicles ? vList.length : dList.length + invites.length;
   const switchTab = (t: FleetTab) => { setTab(t); setFilter('All'); };
+  const tabItems = [{ id: 'Vehicles' as const, label: 'Vehicles', count: d.vehicles.length }, { id: 'Drivers' as const, label: 'Drivers', count: d.drivers.length + d.invites.length }];
+  const noun = vehicles ? 'vehicle' : 'driver';
+  // Add and Swap: the same size as the tabs (46 high), side by side; on desktop they sit at the right end of the tab row.
+  const actions = (
+    <View style={[styles.actionRow, wide && { width: 380, marginBottom: 0 }]}>
+      <ActionTile icon="add" label={`Add ${noun}`} onPress={() => navigation.navigate('FleetAdd', { kind: vehicles ? 'vehicle' : 'driver' })} />
+      <ActionTile icon="swap-horizontal" label={`Swap ${noun}`} count={d.actionLinks.length} onPress={() => navigation.navigate('Linking')} />
+    </View>
+  );
 
   const revoke = (phone: string) => Alert.alert('Withdraw invitation?', `${formatPhone(phone)} will no longer be linked to your fleet when they register.`, [
     { text: 'Keep', style: 'cancel' },
@@ -43,25 +53,20 @@ export function FleetScreen() {
   ]);
 
   return (
-    <Page
-      title="Fleet"
-      subtitle="Drivers and vehicles. One permanent ID each."
-      action={<Btn small={!wide} icon="add" title={vehicles ? 'Add vehicle' : 'Add driver'} onPress={() => navigation.navigate('FleetAdd', { kind: vehicles ? 'vehicle' : 'driver' })} />}
-    >
-      <Tabs value={tab} onChange={switchTab} style={{ marginTop: 0 }} items={[{ id: 'Vehicles', label: 'Vehicles', count: d.vehicles.length }, { id: 'Drivers', label: 'Drivers', count: d.drivers.length + d.invites.length }]} />
+    <Page>
+      {wide ? (
+        <Tabs value={tab} onChange={switchTab} style={{ marginTop: 0, marginBottom: 16 }} items={tabItems} action={actions} />
+      ) : (
+        <>
+          <Tabs value={tab} onChange={switchTab} fill style={{ marginTop: 0, marginBottom: 10 }} items={tabItems} />
+          {actions}
+        </>
+      )}
       <Toolbar>
         <SearchBox value={search} onChange={setSearch} placeholder={vehicles ? 'Registration, Car ID or model' : 'Name, mobile, DL or Driver ID'} />
         <Dropdown label="Fleet status" icon="funnel-outline" value={filter} onChange={setFilter} options={(vehicles ? VEHICLE_FILTERS : DRIVER_FILTERS).map((x) => ({ value: x, label: x === 'All' ? 'All statuses' : x }))} style={{ minWidth: 170 }} />
       </Toolbar>
-      <SectionLine
-        meta={`${shown} ${vehicles ? (shown === 1 ? 'vehicle' : 'vehicles') : shown === 1 ? 'driver' : 'drivers'}`}
-        action={
-          <Inline style={{ gap: 18 }}>
-            <TextLink title={d.actionLinks.length ? `Linking requests (${d.actionLinks.length})` : 'Linking requests'} onPress={() => navigation.navigate('Linking')} />
-            <TextLink title="Documents" onPress={() => navigation.navigate('Documents')} />
-          </Inline>
-        }
-      />
+      <SectionLine meta={`${shown} ${vehicles ? (shown === 1 ? 'vehicle' : 'vehicles') : shown === 1 ? 'driver' : 'drivers'}`} />
       {shown === 0 ? (
         <Empty icon={vehicles ? 'car-sport-outline' : 'people-outline'}
           title={search || filter !== 'All' ? `No matching ${vehicles ? 'vehicles' : 'drivers'}` : vehicles ? 'No vehicles in your fleet yet' : 'No drivers in your fleet yet'}
@@ -75,23 +80,45 @@ export function FleetScreen() {
                 ...dList.map((x) => <DriverCard key={x.id} x={x} />),
                 ...invites.map((i) => (
                   <Panel key={i.phone} style={{ flexGrow: 1 }}>
-                    <Between><Text style={styles.eyebrow}>INVITATION</Text><Badge label="Invitation pending" tone="amber" /></Between>
+                    <Between>
+                      <Text style={styles.eyebrow}>NEW DRIVER</Text>
+                      <Badge label={i.approval === 'Approved' ? 'Approved' : i.approval === 'Rejected' ? 'Rejected' : 'Waiting for approval'} tone={i.approval === 'Approved' ? 'green' : i.approval === 'Rejected' ? 'red' : 'amber'} />
+                    </Between>
                     <View style={styles.person}>
                       <Avatar name={i.name || i.phone.slice(-4)} size={44} />
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.name}>{i.name || 'Invited driver'}</Text>
+                        <Text style={styles.name}>{i.name || 'New driver'}</Text>
                         <Small>{formatPhone(i.phone)}</Small>
                       </View>
                     </View>
-                    <Small style={{ marginTop: 12 }}>Joins your fleet after signing up in the NESAM Driver app with this number.{i.vehicleAssignment ? ` Suggested vehicle ${plate(i.vehicleAssignment)}.` : ''}</Small>
+                    {i.licenseNumber ? <Text style={styles.docDate}>DL · {i.licenseNumber}</Text> : null}
+                    <Small style={{ marginTop: 12 }}>
+                      {i.approval === 'Approved' ? 'Approved by NESAM. The driver joins your fleet after signing in to the NESAM Driver app with this number.'
+                        : i.approval === 'Rejected' ? i.rejectionReason || 'NESAM could not approve this driver. Withdraw and add the driver again with correct details.'
+                        : 'NESAM is verifying the licence and selfie. You will see the driver here once approved.'}
+                    </Small>
                     <View style={{ flex: 1 }} />
-                    <Between style={{ marginTop: 14 }}><Small>Login pending</Small><TextLink title="Withdraw" icon="close" onPress={() => revoke(i.phone)} /></Between>
+                    <Between style={{ marginTop: 14 }}><Small>{i.approval === 'Approved' ? 'Waiting for sign-in' : i.approval === 'Rejected' ? 'Not approved' : 'Awaiting NESAM approval'}</Small><TextLink title={i.approval === 'Rejected' ? 'Remove' : 'Withdraw'} icon="close" onPress={() => revoke(i.phone)} /></Between>
                   </Panel>
                 )),
               ]}
         </Grid>
       )}
     </Page>
+  );
+}
+
+/** One of the two actions under the tabs (Add · Swap): outlined, equal width, the same height and radius as the tabs. */
+function ActionTile({ icon, label, count, onPress }: { icon: React.ComponentProps<typeof Ionicons>['name']; label: string; count?: number; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={count ? `${label}, ${count} awaiting action` : label}
+      style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [styles.tile, (pressed || hovered) && { backgroundColor: colors.primarySoft, borderColor: colors.primaryBorder }]}>
+      <View>
+        <Ionicons name={icon} size={19} color={colors.primary} />
+        {count ? <View style={styles.tileDot}><Text style={styles.tileDotText}>{count > 9 ? '9+' : count}</Text></View> : null}
+      </View>
+      <Text style={styles.tileLabel} numberOfLines={1}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -118,7 +145,7 @@ function VehicleCard({ v }: { v: FleetVehicle }) {
       <Text style={styles.docDate}>{v.docStatus === 'Rejected' ? v.rejectionReason || 'Upload a new document for review.' : n ? `${n.label} valid until ${displayDate(n.date)}` : 'Document verification pending'}</Text>
       <View style={{ flex: 1 }} />
       <Between style={{ marginTop: 14 }}>
-        <View style={styles.paired}><Ionicons name="person-outline" size={14} color="#718092" /><Small lines={1}>{v.assignedDriverName || 'No paired driver'}</Small></View>
+        <View style={styles.paired}><Ionicons name="person-outline" size={14} color="#6F7785" /><Small lines={1}>{v.assignedDriverName || 'No paired driver'}</Small></View>
         <TextLink title="View details" onPress={() => navigation.navigate('Vehicle', { id: v.id })} />
       </Between>
     </Panel>
@@ -147,7 +174,7 @@ function DriverCard({ x }: { x: FleetDriver }) {
       </Inline>
       <View style={{ flex: 1 }} />
       <Between style={{ marginTop: 14 }}>
-        <View style={styles.paired}><Ionicons name="car-outline" size={14} color="#718092" /><Small lines={1}>{x.assignedVehicleNumber ? plate(x.assignedVehicleNumber) : 'No paired vehicle'}</Small></View>
+        <View style={styles.paired}><Ionicons name="car-outline" size={14} color="#6F7785" /><Small lines={1}>{x.assignedVehicleNumber ? plate(x.assignedVehicleNumber) : 'No paired vehicle'}</Small></View>
         <TextLink title="View details" onPress={() => navigation.navigate('Driver', { id: x.id })} />
       </Between>
     </Panel>
@@ -155,11 +182,16 @@ function DriverCard({ x }: { x: FleetDriver }) {
 }
 
 const styles = StyleSheet.create({
-  eyebrow: { fontFamily, fontSize: 10, fontWeight: '600', letterSpacing: 1, color: '#7B8DA2' },
-  kind: { fontFamily, fontSize: 10.5, color: '#8B98A8' },
+  actionRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  tile: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, minHeight: 46, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.white },
+  tileDot: { position: 'absolute', top: -7, right: -10, minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 4, backgroundColor: colors.primary, borderWidth: 1.5, borderColor: colors.white, alignItems: 'center', justifyContent: 'center' },
+  tileDotText: { fontFamily, fontSize: 9, fontWeight: '700', color: colors.white, lineHeight: 11 },
+  tileLabel: { fontFamily, fontSize: 13.5, fontWeight: '600', color: colors.ink, flexShrink: 1 },
+  eyebrow: { fontFamily, fontSize: 10, fontWeight: '600', letterSpacing: 1, color: '#8B919C' },
+  kind: { fontFamily, fontSize: 10.5, color: '#8B919C' },
   carHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 14 },
   plate: { fontFamily, fontSize: 17, fontWeight: '600', color: colors.ink, letterSpacing: 0.2, marginBottom: 4 },
-  docDate: { fontFamily, fontSize: 11, color: '#8B97A6', marginTop: 10, lineHeight: 18 },
+  docDate: { fontFamily, fontSize: 11, color: '#8B919C', marginTop: 10, lineHeight: 18 },
   person: { flexDirection: 'row', alignItems: 'center', gap: 13, marginTop: 18 },
   name: { fontFamily, fontSize: 16, fontWeight: '600', color: colors.ink, marginBottom: 3 },
   paired: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },

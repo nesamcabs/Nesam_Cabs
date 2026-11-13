@@ -1,7 +1,8 @@
 // Business & contact (approved vendors may update contact details only — firestore.rules), Agreements accepted,
 // and Alerts (notifications by category, each opening the page it is about).
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../../components/kit/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useVendorData } from '../../context/VendorData';
 import { useInbox } from '../../context/Inbox';
@@ -131,7 +132,7 @@ export function AlertsScreen() {
   const unread = (c: NotificationCategory | 'all') => notifications.filter((n) => !n.read && (c === 'all' || n.category === c)).length;
   const markAll = () => { notifications.filter((n) => !n.read).forEach((n) => { markNotificationRead(n.id).catch(() => undefined); }); };
   return (
-    <Page title="Notifications" subtitle="Duty, payment, penalty and approval updates from NESAM."
+    <Page title="Notifications"
       action={unread('all') ? <TextLink title="Mark all read" icon="checkmark-done" onPress={markAll} /> : undefined}>
       <Tabs value={filter} onChange={setFilter} style={{ marginTop: 0 }} items={[{ id: 'all' as const, label: 'All', count: unread('all') || undefined }, ...CATEGORIES.map((c) => ({ id: c, label: CATEGORY_LABEL[c], count: unread(c) || undefined }))]} />
       {shown.length === 0 ? <Empty icon="notifications-outline" title="No notifications" text="Updates from NESAM appear here." /> : (
@@ -141,7 +142,7 @@ export function AlertsScreen() {
             return (
               <Pressable key={n.id} accessibilityRole="button"
                 onPress={() => { if (!n.read) markNotificationRead(n.id).catch(() => undefined); openPage(n.ctaPage, n.bookingId || undefined); }}
-                style={({ hovered }: { pressed: boolean; hovered?: boolean }) => [styles.item, !n.read && { borderColor: tone.border, backgroundColor: tone.bg }, hovered && { borderColor: '#CFD9E5' }]}>
+                style={({ hovered }: { pressed: boolean; hovered?: boolean }) => [styles.item, !n.read && { borderColor: tone.border, backgroundColor: tone.bg }, hovered && { borderColor: '#D8DFE9' }]}>
                 <View style={[styles.dot, { backgroundColor: n.read ? colors.border : tone.bar }]} />
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={styles.cat}>{CATEGORY_LABEL[n.category].toUpperCase()}{n.bookingCode ? ` · ${n.bookingCode}` : ''}</Text>

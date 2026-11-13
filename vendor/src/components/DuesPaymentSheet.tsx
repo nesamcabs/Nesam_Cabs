@@ -2,7 +2,8 @@
 // trips, finalised penalties) — the app never sends an amount. Razorpay Checkout runs in a WebView; the dues are marked paid
 // only after the server verifies the captured payment (functions/src/partnerOps.ts: createDuesPayment / verifyDuesPayment).
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
+import { Text } from './kit/Text';
 import { WebView } from 'react-native-webview';
 import { Sheet } from './ui';
 import { Btn as PButton, Feedback } from './kit/core';
@@ -11,11 +12,11 @@ import { formatINR } from '../utils/format';
 import { colors, space } from '../theme';
 
 const checkoutHtml = (o: DuesOrder) => `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;color:#7a8593">Opening secure payment…
+<body style="margin:0;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;color:#8B919C">Opening secure payment…
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script><script>
 var post=function(m){window.ReactNativeWebView.postMessage(JSON.stringify(m))};
 var rz=new Razorpay({key:${JSON.stringify(o.keyId)},amount:${o.amount},currency:${JSON.stringify(o.currency)},order_id:${JSON.stringify(o.orderId)},
-name:'NESAM Partner',description:'Outstanding dues',prefill:{name:${JSON.stringify(o.name)},contact:${JSON.stringify(o.phone)}},theme:{color:'#c62828'},
+name:'NESAM Partner',description:'Outstanding dues',prefill:{name:${JSON.stringify(o.name)},contact:${JSON.stringify(o.phone)}},theme:{color:'#D82035'},
 handler:function(r){post({ok:true,orderId:r.razorpay_order_id,paymentId:r.razorpay_payment_id,signature:r.razorpay_signature})},
 modal:{ondismiss:function(){post({ok:false,reason:'Payment was cancelled. No money was taken.'})}}});
 rz.on('payment.failed',function(){post({ok:false,reason:'The payment failed. You have not been charged; please try again.'})});

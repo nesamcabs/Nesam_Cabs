@@ -1,8 +1,8 @@
-// Trips — available duties ordered by pickup time (reference qTrips): wallet + deposit summary, attention banners,
+// Trips — available duties ordered by pickup time (reference qTrips): attention banners,
 // search / trip type / vehicle / date filters, then duties grouped by pickup day with Accept and Bid actions.
 import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '../../components/kit/Text';
 import { useNavigation } from '@react-navigation/native';
 import { useVendorData } from '../../context/VendorData';
 import { useInbox } from '../../context/Inbox';
@@ -11,7 +11,7 @@ import { Btn, Dropdown, Empty, Feedback, Notice, SearchBox, SectionLine, TextLin
 import { isoDay, marketFrom, marketTo, marketType, rupees, weekdayText } from '../../components/kit/format';
 import { goSection } from '../../navigation/navigationRef';
 import { DutyDialogs, DutyRow, OPEN_BID, useNow, type DutyAction } from './parts';
-import { colors, fontFamily } from '../../theme';
+import { fontFamily } from '../../theme';
 import { useLayout } from '../../theme/responsive';
 
 const TYPES = ['All', 'One Way', 'Round Trip', 'Airport', 'Multicity', 'Local Rental', 'Pickup & Drop'];
@@ -53,38 +53,12 @@ export function TripsScreen() {
   const gate = unacknowledged[0] ?? null;
   const pendingAssign = d.awaitingDispatch.length;
   const docAlerts = d.vehicles.filter((v) => v.docStatus === 'Rejected').length + d.drivers.filter((x) => x.docStatus === 'Rejected' || x.approvalStatus === 'Rejected').length;
-  const depositActive = d.deposit?.status === 'Active';
   const filtered = search || type !== 'All' || category !== 'All' || date !== 'All';
   const clear = () => { setSearch(''); setType('All'); setCategory('All'); setDate('All'); };
   const total = groups.reduce((n, [, l]) => n + l.length, 0);
 
   return (
-    <Page
-      controls={false}
-      title="Trips"
-      subtitle="Available duties, ordered by pickup time."
-      action={<Btn kind="secondary" small={!wide} icon="document-text-outline" title={`My bids${openBids.length ? ` (${openBids.length})` : ''}`} onPress={() => navigation.navigate('MyBids')} />}
-    >
-      <View style={[styles.balance, !wide && { paddingHorizontal: 13 }]}>
-        <Pressable style={styles.balanceItem} onPress={() => goSection('Wallet')} accessibilityRole="button" accessibilityLabel="Working wallet">
-          <Ionicons name="wallet-outline" size={wide ? 22 : 20} color="#70849A" />
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={styles.balanceLabel}>Working wallet</Text>
-            <Text style={[styles.balanceValue, d.wallet.available < 0 && { color: colors.danger }]} numberOfLines={1}>{rupees(d.wallet.available)}</Text>
-          </View>
-          {wide ? <Ionicons name="chevron-forward" size={14} color="#A5B0BD" /> : null}
-        </Pressable>
-        <View style={styles.rule} />
-        <Pressable style={styles.balanceItem} onPress={() => goSection('Wallet')} accessibilityRole="button" accessibilityLabel="Security deposit">
-          <Ionicons name="shield-checkmark-outline" size={wide ? 22 : 20} color="#70849A" />
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={styles.balanceLabel}>Security deposit</Text>
-            <Text style={[styles.deposit, !depositActive && { color: colors.muted }]} numberOfLines={1}>{d.deposit ? (depositActive ? 'Active' : d.deposit.status) : 'Not recorded'}</Text>
-          </View>
-          <View style={[styles.dot, depositActive && { backgroundColor: '#3B9472' }]} />
-        </Pressable>
-      </View>
-
+    <Page controls={false}>
       {gate ? (
         <Notice tone="amber" icon="alert-circle-outline" title="New duty acceptance needs attention" text={`Acknowledge the ${rupees(gate.amount)} penalty notice before accepting a new duty.`} style={{ marginBottom: 12 }}
           action={<Btn kind="secondary" small icon="checkmark-done" title="Acknowledge" onPress={() => navigation.navigate('Penalty', { id: gate.id })} />} />
@@ -110,7 +84,8 @@ export function TripsScreen() {
       {filtered ? <View style={{ marginTop: -8, marginBottom: 10, alignItems: 'flex-end' }}><TextLink title="Clear filters" icon="close" onPress={clear} /></View> : null}
 
       {d.errors.market ? <Feedback tone="error" message={d.errors.market} /> : null}
-      <SectionLine title="Available duties" meta={`${total} ${total === 1 ? 'duty' : 'duties'}`} />
+      <SectionLine title="Available duties" meta={`${total} ${total === 1 ? 'duty' : 'duties'}`}
+        action={<Btn kind="secondary" small icon="document-text-outline" title={`My bids${openBids.length ? ` (${openBids.length})` : ''}`} onPress={() => navigation.navigate('MyBids')} />} />
       {groups.length === 0 ? (
         <Empty icon="map-outline" title={filtered ? 'No duties for this selection' : 'No duties available right now'}
           text={filtered ? 'Choose another pickup date, vehicle or route.' : 'New duties appear here as soon as NESAM publishes them. You will also get a notification.'}
@@ -132,15 +107,8 @@ export function TripsScreen() {
 }
 
 const styles = StyleSheet.create({
-  balance: { flexDirection: 'row', backgroundColor: colors.card, borderWidth: 1, borderColor: '#DEE6EF', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 19, marginBottom: 14, maxWidth: 780 },
-  balanceItem: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, minWidth: 0, minHeight: 44 },
-  rule: { width: 1, backgroundColor: '#E5EAF0', marginHorizontal: 18 },
-  balanceLabel: { fontFamily, fontSize: 11, color: '#63758A' },
-  balanceValue: { fontFamily, fontSize: 18, fontWeight: '600', color: '#33485F', marginTop: 2, letterSpacing: -0.3 },
-  deposit: { fontFamily, fontSize: 14, fontWeight: '600', color: '#35775D', marginTop: 3 },
-  dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#BDAD8E' },
   quick: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 20, marginBottom: 6 },
   dateHead: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12 },
-  dateTitle: { fontFamily, fontSize: 14, fontWeight: '600', color: '#33465D' },
-  dateCount: { fontFamily, fontSize: 11.5, color: '#708096' },
+  dateTitle: { fontFamily, fontSize: 14, fontWeight: '600', color: '#424B5A' },
+  dateCount: { fontFamily, fontSize: 11.5, color: '#6F7785' },
 });

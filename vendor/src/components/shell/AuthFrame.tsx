@@ -1,7 +1,8 @@
 // The frame for everything before the workspace (sign-in, sign-up): a dark brand panel beside the form on tablets and
 // desktop browsers, the NESAM PARTNER lockup above the form on phones — the same structure as the NESAM Driver app.
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '../kit/Text';
 import { PartnerBanner } from './PartnerBanner';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,12 +12,12 @@ import { useLayout } from '../../theme/responsive';
 import type { IconName } from '../kit/core';
 
 export const AUTH = {
-  panel: '#202128',
-  panelMuted: '#BBBEC8',
+  panel: '#171B24',
+  panelMuted: '#C3C8D0',
   ink: '#171B24',
   muted: '#6F7785',
-  line: '#E7EAF0',
-  fieldLine: '#D8DFE9',
+  line: '#F1F2F5',
+  fieldLine: '#E7EAF0',
   page: '#F6F7F9',
 } as const;
 
@@ -107,9 +108,9 @@ const styles = StyleSheet.create({
   scroll: { flexGrow: 1, paddingHorizontal: 18, paddingTop: 28, paddingBottom: 28 },
   formCol: { width: '100%', maxWidth: 440, alignSelf: 'center' },
   phoneBrand: { alignItems: 'center', marginBottom: 26, marginTop: 6 },
-  card: { backgroundColor: colors.white, borderWidth: 1, borderColor: AUTH.line, borderRadius: 18, padding: 24, shadowColor: '#162033', shadowOpacity: 0.05, shadowRadius: 22, shadowOffset: { width: 0, height: 8 }, elevation: 2 },
+  card: { backgroundColor: colors.white, borderWidth: 1, borderColor: AUTH.line, borderRadius: 18, padding: 24, shadowColor: '#171B24', shadowOpacity: 0.05, shadowRadius: 22, shadowOffset: { width: 0, height: 8 }, elevation: 2 },
   eyebrow: { fontFamily, fontSize: 10, fontWeight: '700', letterSpacing: 1.35, color: AUTH.muted, textTransform: 'uppercase', marginBottom: 6 },
   title: { fontFamily, fontSize: 23, fontWeight: '700', letterSpacing: -0.7, color: AUTH.ink },
   subtitle: { fontFamily, fontSize: 13, lineHeight: 21, color: AUTH.muted, marginTop: 6, marginBottom: 4 },
-  legal: { fontFamily, fontSize: 11, lineHeight: 17, color: '#989DA6', textAlign: 'center', marginTop: 20 },
+  legal: { fontFamily, fontSize: 11, lineHeight: 17, color: '#A9AEB8', textAlign: 'center', marginTop: 20 },
 });

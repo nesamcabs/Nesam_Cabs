@@ -1,7 +1,8 @@
 // Profile — My Business and account settings (reference vBusiness): the partner profile beside the account menu
 // (bank details, business & contact, agreements, documents, linking, alerts, penalties, help, deletion, sign out).
 import React, { useState } from 'react';
-import { Alert, Linking, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, StyleSheet, View } from 'react-native';
+import { Text } from '../../components/kit/Text';
 import Constants from 'expo-constants';
 import { useNavigation } from '@react-navigation/native';
 import { useVendorData } from '../../context/VendorData';
@@ -92,7 +93,7 @@ export function AccountScreen() {
   );
 
   return (
-    <Page title="Profile" subtitle="My Business and account settings.">
+    <Page title="Profile">
       {sideBySide ? <View style={{ flexDirection: 'row', gap: 22, alignItems: 'flex-start' }}>{business}{menu}</View> : <View style={{ gap: 16 }}>{business}{menu}</View>}
       <Text style={styles.version}>NESAM Partner v{Constants.expoConfig?.version ?? '1.0.0'} · © {new Date().getFullYear()} {COMPANY_LEGAL_NAME}</Text>
       {bank ? <BankSheet onClose={() => setBank(false)} pending={bankPending?.accountLast4 ?? ''} summary={record.payoutSummary} /> : null}

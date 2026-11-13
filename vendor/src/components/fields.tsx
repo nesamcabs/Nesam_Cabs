@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './kit/Text';
 import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { chooseFileSource } from './FileUploadField';
@@ -71,6 +72,7 @@ export function SingleDocField({
   required,
   error,
   onBusyChange,
+  folder,
 }: {
   label: string;
   vehicleId: string;
@@ -80,6 +82,8 @@ export function SingleDocField({
   required?: boolean;
   error?: string;
   onBusyChange?: (busy: boolean) => void;
+  /** Where in the vendor's storage it goes; vehicle documents by default. */
+  folder?: 'vehicles' | 'drivers';
 }) {
   const [progress, setProgress] = useState<number | null>(null);
   const [uploadError, setUploadError] = useState('');
@@ -92,7 +96,7 @@ export function SingleDocField({
       if (!file) return;
       setProgress(0);
       onBusyChange?.(true);
-      onChange(await uploadVehicleDocument(vehicleId, kind, file, setProgress));
+      onChange(await uploadVehicleDocument(vehicleId, kind, file, setProgress, folder));
     } catch (e) {
       setUploadError(e instanceof PickerError ? e.message : (e as { code?: string })?.code ? describeDataError(e) : describePickerError(e));
     } finally {
@@ -114,13 +118,12 @@ export function SingleDocField({
         ) : (
           <Ionicons name={value ? 'checkmark-circle' : 'cloud-upload-outline'} size={20} color={value ? colors.success : colors.muted} />
         )}
-        <Text style={[type.body, { flex: 1 }]}>{progress != null ? `Uploading… ${progress}%` : value ? 'Uploaded — tap to replace' : 'Tap to upload (PDF or photo)'}</Text>
+        <Text style={[type.body, { flex: 1 }]}>{progress != null ? `Uploading… ${progress}%` : value ? 'Uploaded' : 'Upload'}</Text>
         {value && progress == null ? (
           <Text style={styles.view} onPress={() => void Linking.openURL(value)} accessibilityRole="link">
             View
           </Text>
-        ) : null}
-      </Pressable>
+        ) : null}      </Pressable>
       {shown ? <Text style={styles.err}>{shown}</Text> : null}
     </View>
   );

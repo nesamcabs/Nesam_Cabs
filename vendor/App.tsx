@@ -3,6 +3,7 @@
 // admin approves the application the snapshot fires and the dashboard mounts.
 import React, { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
@@ -24,6 +25,7 @@ import { needsDocuments, subscribeToVendor, type VendorSnapshot } from './src/se
 import { DocumentsRequiredScreen } from './src/screens/auth/DocumentsRequiredScreen';
 import { describeDataError } from './src/utils/retry';
 import { colors } from './src/theme';
+import { POPPINS_FILES, setPoppinsReady } from './src/theme/fonts';
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -38,7 +40,20 @@ interface VendorState {
   error: string;
 }
 
+/** Poppins is bundled; if loading ever fails or stalls, the app continues in the system font instead of blocking. */
+function useBrandFonts(): boolean {
+  const [loaded, error] = useFonts(POPPINS_FILES);
+  const [gaveUp, setGaveUp] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setGaveUp(true), 5000);
+    return () => clearTimeout(t);
+  }, []);
+  setPoppinsReady(loaded && !error);
+  return loaded || !!error || gaveUp;
+}
+
 function Root() {
+  const fontsSettled = useBrandFonts();
   const [authUser, setAuthUser] = useState<User | null | undefined>(undefined);
   const [state, setState] = useState<VendorState>({ key: '', error: '' });
   const [attempt, setAttempt] = useState(0);
@@ -64,15 +79,17 @@ function Root() {
   const status = vendor?.record.status;
 
   const resolved = authUser !== undefined && (!authUser || vendor !== undefined || !!vendorError);
+  const ready = resolved && fontsSettled;
   useEffect(() => {
-    if (resolved) void SplashScreen.hideAsync().catch(() => undefined);
-  }, [resolved]);
+    if (ready) void SplashScreen.hideAsync().catch(() => undefined);
+  }, [ready]);
 
   const signOut = () => {
     setReapplying(false);
     void signOutUser();
   };
 
+  if (!fontsSettled) return null;
   if (authUser === undefined) return <FullScreenLoader />;
   if (!authUser) return <AuthScreen />;
   if (vendor === undefined && vendorError) return <LoadErrorScreen message={vendorError} onRetry={() => setAttempt((a) => a + 1)} onSignOut={signOut} />;

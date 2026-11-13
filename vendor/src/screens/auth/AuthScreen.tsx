@@ -1,7 +1,8 @@
 // Welcome → mobile number → OTP (Firebase phone auth, same flow as the Driver and Customer apps), in the NESAM Driver
 // sign-in design: brand panel on wide screens, choice tiles, +91 field and a single large OTP box.
 import React, { useEffect, useRef, useState } from 'react';
-import { BackHandler, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { BackHandler, Pressable, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../../components/kit/Text';
 import { Ionicons } from '@expo/vector-icons';
 import type { ConfirmationResult } from 'firebase/auth';
 import { AUTH, AuthCard, AuthFrame } from '../../components/shell/AuthFrame';
@@ -24,7 +25,7 @@ function Choice({ icon, title, text, onPress, primary }: { icon: IconName; title
       style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
         styles.choice,
         primary && styles.choicePrimary,
-        hovered && { borderColor: primary ? colors.primaryDark : '#D4D7DE' },
+        hovered && { borderColor: primary ? colors.primaryDark : '#D8DFE9' },
         hovered && primary && { backgroundColor: colors.primaryDark },
         pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] },
       ]}
@@ -176,7 +177,7 @@ export function AuthScreen() {
               textContentType="telephoneNumber"
               maxLength={10}
               placeholder="98765 43210"
-              placeholderTextColor="#A2A8B2"
+              placeholderTextColor="#A9AEB8"
               blurOnSubmit={false}
               returnKeyType="done"
               onSubmitEditing={() => void sendOtp()}
@@ -218,7 +219,7 @@ export function AuthScreen() {
           maxLength={6}
           editable={!verifying}
           placeholder="••••••"
-          placeholderTextColor="#B4BAC4"
+          placeholderTextColor="#C3C8D0"
           style={[styles.otp, focused && styles.fieldFocus, !!error && { borderColor: colors.primary }]}
           accessibilityLabel="6-digit OTP"
         />
@@ -244,7 +245,7 @@ const styles = StyleSheet.create({
   terms: { fontFamily, fontSize: 11, lineHeight: 17, color: AUTH.muted, textAlign: 'center', marginTop: 20 },
   label: { fontFamily, fontSize: 12, fontWeight: '600', color: AUTH.ink, marginTop: 20 },
   phoneField: { flexDirection: 'row', alignItems: 'center', minHeight: 54, marginTop: 8, marginBottom: 4, borderWidth: 1, borderColor: AUTH.fieldLine, borderRadius: 12, backgroundColor: colors.white, paddingHorizontal: 14 },
-  fieldFocus: { borderColor: '#B9C3D1', shadowColor: colors.primary, shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 0 } },
+  fieldFocus: { borderColor: '#C3C8D0', shadowColor: colors.primary, shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 0 } },
   prefix: { fontFamily, fontSize: 16, fontWeight: '700', color: colors.primary },
   prefixRule: { width: 1, height: 24, backgroundColor: AUTH.line, marginHorizontal: 12 },
   phoneInput: { flex: 1, minWidth: 0, fontFamily, fontSize: 17, letterSpacing: 0.6, color: AUTH.ink, paddingVertical: 12 },

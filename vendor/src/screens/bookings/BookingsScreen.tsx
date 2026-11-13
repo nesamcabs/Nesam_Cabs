@@ -1,7 +1,8 @@
 // Bookings — accepted duties and the assigned team (reference vBookings / s-booking-card): pending-assignment summary,
 // Accepted · Upcoming · On Trip · Completed tabs (+ Cancelled history), search and service filter, booking cards.
 import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../../components/kit/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useVendorData } from '../../context/VendorData';
@@ -49,15 +50,11 @@ export function BookingsScreen() {
   const released = tab === 'Cancelled' ? d.requests.filter((r) => r.type === 'cancellation' && r.status === 'Approved' && !d.bookings.some((b) => b.id === r.bookingId)) : [];
 
   return (
-    <Page
-      title="Bookings"
-      subtitle="Manage accepted duties and your assigned team."
-      action={<TextLink title={tab === 'Cancelled' ? 'Accepted bookings' : 'Cancelled history'} onPress={() => setTab(tab === 'Cancelled' ? 'Accepted' : 'Cancelled')} />}
-    >
+    <Page title="Bookings">
       {tab === 'Accepted' && accepted.length ? (
         <View style={[styles.pending, overdue ? styles.pendingOverdue : null]}>
           <View style={[styles.pendingIcon, overdue ? { backgroundColor: '#FBEAE3' } : null]}>
-            <Ionicons name="person-add-outline" size={20} color={overdue ? '#B77F63' : '#7891AE'} />
+            <Ionicons name="person-add-outline" size={20} color={overdue ? '#B77F63' : '#8B919C'} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[styles.pendingTitle, overdue ? { color: '#975D43' } : null]}>{accepted.length} {accepted.length === 1 ? 'duty needs' : 'duties need'} assignment</Text>
@@ -66,13 +63,21 @@ export function BookingsScreen() {
         </View>
       ) : null}
       {tab !== 'Cancelled' ? (
-        <Tabs value={tab} onChange={setTab} items={TABS.map((id) => ({ id, label: id, count: counts[id] }))} style={{ marginTop: tab === 'Accepted' && accepted.length ? 4 : 0 }} />
-      ) : <SectionLine title="Cancelled history" meta={`${counts.Cancelled + released.length}`} />}
+        <Tabs value={tab} onChange={setTab} items={TABS.map((id) => ({ id, label: id, count: counts[id] }))} style={{ marginTop: tab === 'Accepted' && accepted.length ? 4 : 0, marginBottom: 14 }} />
+      ) : null}
       <Toolbar>
         <SearchBox value={search} onChange={setSearch} placeholder="Search route, Duty ID, driver or vehicle" />
         <Dropdown label="Service type" icon="options-outline" value={service} onChange={setService} options={SERVICES.map((x) => ({ value: x, label: x === 'All' ? 'All services' : x }))} style={{ minWidth: 170 }} />
       </Toolbar>
       {d.errors.bookings ? <Feedback tone="error" message={d.errors.bookings} /> : null}
+      {tab === 'Cancelled' ? (
+        <SectionLine title="Cancelled history" meta={`${list.length + released.length}`} action={<TextLink title="Back to bookings" icon="arrow-back" onPress={() => setTab('Accepted')} />} />
+      ) : (
+        <SectionLine
+          meta={`${list.length} ${list.length === 1 ? 'booking' : 'bookings'}`}
+          action={<TextLink title={`Cancelled history${counts.Cancelled ? ` (${counts.Cancelled})` : ''}`} onPress={() => setTab('Cancelled')} />}
+        />
+      )}
       {list.length || released.length ? (
         <Grid>
           {[
@@ -114,7 +119,7 @@ export function BookingCard({ b, now }: { b: VendorBooking; now: number }) {
   return (
     <Panel style={{ paddingVertical: wide ? 22 : 18, paddingHorizontal: wide ? 24 : 18, flexGrow: 1 }}>
       <View style={styles.top}>
-        <View style={styles.date}><Ionicons name="calendar-outline" size={15} color="#5E728A" /><Text style={styles.dateText}>{b.pickupAt ? dayTime(b.pickupAt) : [b.date, b.time].filter(Boolean).join(' · ')}</Text></View>
+        <View style={styles.date}><Ionicons name="calendar-outline" size={15} color="#6F7785" /><Text style={styles.dateText}>{b.pickupAt ? dayTime(b.pickupAt) : [b.date, b.time].filter(Boolean).join(' · ')}</Text></View>
         <Badge label={label} tone={tone} />
       </View>
       <Pressable onPress={open} accessibilityRole="button" accessibilityLabel={`Open booking ${b.bookingId}`}>
@@ -123,8 +128,8 @@ export function BookingCard({ b, now }: { b: VendorBooking; now: number }) {
       <Meta items={[{ icon: 'car-outline', text: b.vehicleCategory || 'Vehicle' }, b.includedKm ? { icon: 'git-commit-outline', text: `${b.includedKm} km` } : null, { text: tripTypeLabel(b.tripType), badge: true }]} />
       {st === 'Accepted' || b.driverId ? (
         <View style={styles.team}>
-          <View style={styles.teamItem}><Ionicons name={b.driverId ? 'person' : 'person-outline'} size={15} color="#5C6F86" /><Text style={styles.teamText}>{b.driverName || 'Driver pending'}</Text></View>
-          <View style={styles.teamItem}><Ionicons name="car-outline" size={15} color="#5C6F86" /><Text style={styles.teamText}>{b.vehicleNumber ? plate(b.vehicleNumber) : 'Vehicle pending'}</Text></View>
+          <View style={styles.teamItem}><Ionicons name={b.driverId ? 'person' : 'person-outline'} size={15} color="#6F7785" /><Text style={styles.teamText}>{b.driverName || 'Driver pending'}</Text></View>
+          <View style={styles.teamItem}><Ionicons name="car-outline" size={15} color="#6F7785" /><Text style={styles.teamText}>{b.vehicleNumber ? plate(b.vehicleNumber) : 'Vehicle pending'}</Text></View>
         </View>
       ) : null}
       {deadline ? (
@@ -134,8 +139,8 @@ export function BookingCard({ b, now }: { b: VendorBooking; now: number }) {
         </View>
       ) : st === 'Upcoming' || st === 'On Trip' ? (
         <View style={styles.liveRow}>
-          {st === 'On Trip' ? <View style={styles.liveDot} /> : <Ionicons name="radio-outline" size={14} color="#7A8A9D" />}
-          <Text style={[styles.liveText, st === 'On Trip' && { color: '#B42323' }]}>{liveLabel(b)}</Text>
+          {st === 'On Trip' ? <View style={styles.liveDot} /> : <Ionicons name="radio-outline" size={14} color="#8B919C" />}
+          <Text style={[styles.liveText, st === 'On Trip' && { color: '#B81C2A' }]}>{liveLabel(b)}</Text>
         </View>
       ) : st === 'Completed' && b.trip.totalKm ? (
         <Small style={{ marginTop: 10 }}>{b.trip.totalKm.toLocaleString('en-IN')} km driven{b.trip.endedAt ? ` · completed ${dayTime(b.trip.endedAt)}` : ''}</Small>
@@ -159,24 +164,24 @@ export function BookingCard({ b, now }: { b: VendorBooking; now: number }) {
 const styles = StyleSheet.create({
   pending: { flexDirection: 'row', alignItems: 'center', gap: 13, backgroundColor: colors.card, borderWidth: 1, borderColor: '#DEE7F2', borderRadius: 11, paddingVertical: 15, paddingHorizontal: 17, marginBottom: 4 },
   pendingOverdue: { backgroundColor: '#FFF8F5', borderColor: '#EFD9CF' },
-  pendingIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#F1F5FA', alignItems: 'center', justifyContent: 'center' },
-  pendingTitle: { fontFamily, fontSize: 13.5, fontWeight: '600', color: '#415C79' },
-  pendingSub: { fontFamily, fontSize: 11.5, color: '#76889F', marginTop: 3 },
+  pendingIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#F6F7F9', alignItems: 'center', justifyContent: 'center' },
+  pendingTitle: { fontFamily, fontSize: 13.5, fontWeight: '600', color: '#6F7785' },
+  pendingSub: { fontFamily, fontSize: 11.5, color: '#8B919C', marginTop: 3 },
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 14, flexWrap: 'wrap' },
   date: { flexDirection: 'row', alignItems: 'center', gap: 7, flexShrink: 1 },
-  dateText: { fontFamily, fontSize: 12, color: '#5E728A', fontWeight: '500' },
+  dateText: { fontFamily, fontSize: 12, color: '#6F7785', fontWeight: '500' },
   route: { fontFamily, fontSize: 16, fontWeight: '600', color: colors.ink, marginBottom: 4 },
   team: { flexDirection: 'row', flexWrap: 'wrap', gap: 18, rowGap: 6, marginTop: 15 },
   teamItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  teamText: { fontFamily, fontSize: 12, color: '#5C6F86' },
+  teamText: { fontFamily, fontSize: 12, color: '#6F7785' },
   deadline: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 11 },
   deadlineLate: { backgroundColor: '#FFF6ED', borderRadius: 8, paddingVertical: 9, paddingHorizontal: 11 },
   deadlineText: { fontFamily, fontSize: 11.5, color: colors.warning, fontWeight: '500', flexShrink: 1 },
-  bottom: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14, borderTopWidth: 1, borderTopColor: '#E9EEF4', marginTop: 16, paddingTop: 15 },
-  rateLabel: { fontFamily, fontSize: 11.5, color: '#6E7E92' },
-  rate: { fontFamily, fontSize: 24, fontWeight: '700', color: '#283E58', marginTop: 4, letterSpacing: -0.5 },
-  code: { fontFamily, fontSize: 10.5, color: '#6E8199' },
+  bottom: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14, borderTopWidth: 1, borderTopColor: '#F1F2F5', marginTop: 16, paddingTop: 15 },
+  rateLabel: { fontFamily, fontSize: 11.5, color: '#6F7785' },
+  rate: { fontFamily, fontSize: 24, fontWeight: '700', color: '#424B5A', marginTop: 4, letterSpacing: -0.5 },
+  code: { fontFamily, fontSize: 10.5, color: '#6F7785' },
   liveRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 11 },
   liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary },
-  liveText: { fontFamily, fontSize: 12, color: '#5C6F86', fontWeight: '500', flexShrink: 1 },
+  liveText: { fontFamily, fontSize: 12, color: '#6F7785', fontWeight: '500', flexShrink: 1 },
 });

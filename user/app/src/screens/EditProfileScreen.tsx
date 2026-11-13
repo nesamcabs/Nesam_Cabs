@@ -72,7 +72,7 @@ export function EditProfileScreen({ navigation }: Props) {
     <SafeAreaView style={styles.root} edges={['top']}>
 <KeyboardAvoid>
       <AppHeader title="My Profile" onBack={() => navigation.goBack()} />
-      <ScrollView kind="narrow" contentContainerStyle={styles.page} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView footer kind="narrow" contentContainerStyle={styles.page} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={styles.card}>
           <TextField label="Full name" required value={name} onChangeText={setName} autoComplete="name" />
           <TextField

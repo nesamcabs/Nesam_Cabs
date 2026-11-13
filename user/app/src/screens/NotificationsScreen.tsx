@@ -59,6 +59,7 @@ export function NotificationsScreen() {
         </View>
 
         <FlatList
+          footer
           data={shown}
           kind="narrow"
           keyExtractor={(n) => n.id}

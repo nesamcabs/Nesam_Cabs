@@ -18,7 +18,7 @@ import type { NotificationSound } from '../types/notifications';
 export const CHANNELS: Record<NotificationSound, { id: string; name: string; sound: string; vibration: number[]; light: string }> = {
   new_booking: { id: 'nesam_new_booking', name: 'New bookings', sound: 'new_booking.wav', vibration: [0, 250, 150, 250, 150, 400], light: '#2563EB' },
   approval: { id: 'nesam_approval', name: 'Approvals', sound: 'approval.wav', vibration: [0, 200, 100, 200], light: '#16A34A' },
-  general: { id: 'nesam_general', name: 'General', sound: 'general.wav', vibration: [0, 250], light: '#6B7280' },
+  general: { id: 'nesam_general', name: 'General', sound: 'general.wav', vibration: [0, 250], light: '#6F7785' },
 };
 
 const TONE_FILES: Record<NotificationSound, number> = {

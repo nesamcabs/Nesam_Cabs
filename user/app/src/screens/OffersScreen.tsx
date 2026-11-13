@@ -29,7 +29,7 @@ export function OffersScreen() {
     <SafeAreaView style={styles.root} edges={['top']}>
 <KeyboardAvoid>
       <AppHeader title="Offers & Coupons" onBack={() => navigation.goBack()} />
-      <ScrollView kind="narrow" contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
+      <ScrollView footer kind="narrow" contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
         {coupons === null ? (
           <Text style={styles.loading}>Loading offers…</Text>
         ) : live.length === 0 ? (
