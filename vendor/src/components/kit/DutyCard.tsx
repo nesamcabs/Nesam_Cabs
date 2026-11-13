@@ -88,7 +88,13 @@ function CompactCard({ date, time, from, to, service, distance, vehicle, payout,
               <Text style={[q.serviceText, sm && q.serviceTextSm]} numberOfLines={1}>{service}</Text>
               {distance ? <Text style={[q.factText, sm && q.factTextSm, q.distance]} numberOfLines={1}>·  {distance}</Text> : null}
             </View>
-            {vehicle ? <Text style={[q.factText, sm && q.factTextSm]} numberOfLines={1}>{vehicle}</Text> : null}
+            {vehicle ? (
+              // Same icon column and gap as the service line above, so both lines start at the same edge.
+              <View style={q.serviceRow}>
+                <Ionicons name="car-sport-outline" size={sm ? 14 : 15} color="#475569" />
+                <Text style={[q.factText, sm && q.factTextSm, q.vehicleText, { flexShrink: 1 }]} numberOfLines={1}>{vehicle}</Text>
+              </View>
+            ) : null}
           </View>
           <View style={q.priceWrap}>
             <Text style={q.priceLabel} numberOfLines={1}>Vendor payout</Text>
@@ -226,8 +232,8 @@ const c = StyleSheet.create({
 // The compact list card: a calm, airy three-band layout with one hero line (the route) and one strong figure (the price).
 const q = StyleSheet.create({
   card: { borderRadius: 16 },
-  inner: { flex: 1, minWidth: 0, paddingVertical: 16, paddingHorizontal: 18, gap: 12 },
-  innerSm: { paddingVertical: 14, paddingHorizontal: 14, gap: 11 },
+  inner: { flex: 1, minWidth: 0, paddingVertical: 13, paddingHorizontal: 18, gap: 9 },
+  innerSm: { paddingVertical: 12, paddingHorizontal: 14, gap: 8 },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   when: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1, minWidth: 0 },
   whenText: { fontSize: 14, fontWeight: '600', color: '#334155', flexShrink: 1 },
@@ -235,7 +241,7 @@ const q = StyleSheet.create({
   dot: { width: 3, height: 3, borderRadius: 2, backgroundColor: '#C3CAD6', marginHorizontal: 3 },
   // The price sits in a soft tinted pill of a minimum width, so the amounts line up down the list.
   price: { minWidth: 96, height: 34, paddingHorizontal: 12, borderRadius: 10, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  priceWrap: { alignItems: 'center', gap: 4, flexShrink: 0 },
+  priceWrap: { alignItems: 'center', gap: 2, flexShrink: 0 },
   priceLabel: { fontSize: 10.5, fontWeight: '600', color: '#8A94A6', letterSpacing: 0.2 },
   priceText: { fontSize: 18, fontWeight: '800', color: colors.primary, letterSpacing: -0.3 },
   priceTextSm: { fontSize: 16.5 },
@@ -243,13 +249,15 @@ const q = StyleSheet.create({
   routeSm: { fontSize: 17, lineHeight: 23 },
   rule: { height: 1, backgroundColor: '#EEF1F5' },
   foot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  facts: { flex: 1, minWidth: 0, gap: 3 },
+  facts: { flex: 1, minWidth: 0, gap: 2 },
   serviceRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   distance: { flexShrink: 0 },
   serviceText: { fontSize: 14.5, fontWeight: '800', color: colors.primary, flexShrink: 1 },
   serviceTextSm: { fontSize: 13.5 },
   factText: { fontSize: 13, color: '#64748B', lineHeight: 18 },
   factTextSm: { fontSize: 12.5 },
+  // The vehicle (class or car name) reads as the second line of the card, so it is bold and dark.
+  vehicleText: { fontWeight: '700', color: '#1F2937' },
 });
 
 // Very small phones (under 360 px).

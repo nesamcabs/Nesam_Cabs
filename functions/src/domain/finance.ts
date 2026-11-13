@@ -33,8 +33,9 @@ export interface ResolvedCommission {
   policyVersion: number;
 }
 
-export const COMMISSION_NOT_CONFIGURED =
-  'Booking is unavailable: the platform commission policy is not configured. A finance admin must set it first.';
+/** Shown when a duty has no payout source: no tariff partner rate, no payout agreed and no payout entered by hand. Never blocks creating a booking. */
+export const PAYOUT_NOT_SET =
+  'No partner payout is set for this duty. Enter the payout by hand (finance access), or give this service a partner rate in Service & Fare Settings.';
 
 const validRate = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 100;
 

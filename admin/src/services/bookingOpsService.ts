@@ -15,7 +15,7 @@ export interface ChannelResult {
 export const approveBooking = (bookingId: string, note = "") =>
   callFunction<unknown, { ok: boolean; published: boolean; customerChannels: ChannelResult[] }>("approveBooking", { bookingId, note }, 120000);
 
-/** Fulfilment route 1: publish an approved booking to Open Duties. `payout` (whole rupees) needs finance access; omit it to use the commission policy. */
+/** Fulfilment route 1: publish an approved booking to Open Duties. `payout` (whole rupees) needs finance access; omit it to use the tariff's partner payout. */
 export const publishToMarketplace = (bookingId: string, payout?: number, options: Record<string, unknown> = {}) =>
   callFunction<unknown, { bookingId: string; offeredPayout: number; partnersNotified: number }>("postBookingToMarketplace", { booking: bookingId, ...(payout != null ? { payout } : {}), ...options }, 120000);
 

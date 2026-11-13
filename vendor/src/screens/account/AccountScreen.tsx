@@ -35,7 +35,7 @@ export function AccountScreen() {
     { text: 'Stay', style: 'cancel' },
     { text: 'Sign out', style: 'destructive', onPress: signOut },
   ]);
-  const confirmDeletion = () => Alert.alert('Delete your account?', 'NESAM will verify the request, settle anything still open (duties, dues, wallet and deposit) and then delete your account and personal data. Records required by law, such as invoices and settlements, are retained.', [
+  const confirmDeletion = () => Alert.alert('Delete your account?', 'NESAM will verify the request, settle anything still open (duties, dues, wallet and recharge) and then delete your account and personal data. Records required by law, such as invoices and settlements, are retained.', [
     { text: 'Keep my account', style: 'cancel' },
     {
       text: 'Request deletion', style: 'destructive', onPress: () => {

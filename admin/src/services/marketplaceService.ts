@@ -16,7 +16,7 @@ export const rejectBid = (tripId: string, bidId: string) => call('rejectMarketpl
 
 export const awardBid = (tripId: string, bidId: string) => call('awardMarketplaceBid', { tripId, bidId }).then(() => undefined);
 
-/** Payout omitted = offer from the commission policy; a payout needs finance access. */
+/** Payout omitted = the tariff's partner payout; a payout needs finance access. */
 export const postBooking = (booking: string, payout: number | null, options: Record<string, unknown> = {}) =>
   call('postBookingToMarketplace', { booking: booking.trim(), ...(payout != null ? { payout } : {}), ...options }).then(() => undefined);
 

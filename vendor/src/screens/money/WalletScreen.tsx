@@ -63,7 +63,7 @@ export function WalletScreen() {
   const entries = d.ledger.filter((e) => tab === 'All' || (ENTRY[e.type]?.tab ?? 'Trips') === tab);
   const processing = d.dues.filter((x) => ['Due', 'Processing', 'On Hold'].includes(x.status)).length;
 
-  const askRefund = () => Alert.alert('Request deposit refund?', 'The deposit is refunded at Full & Final settlement, after account closure, completed duties and clearance of outstanding accounts.', [
+  const askRefund = () => Alert.alert('Request recharge refund?', 'The recharge is refunded at Full & Final settlement, after account closure, completed duties and clearance of outstanding accounts.', [
     { text: 'Not now', style: 'cancel' },
     { text: 'Request refund', onPress: () => { requestDepositRefund().then(() => flash('Refund request sent. The office settles it at full & final settlement.'), (e: Error) => flash(e.message, 'error')); } },
   ]);
@@ -71,16 +71,16 @@ export function WalletScreen() {
   return (
     <Page title="Wallet">
       {remainingDeposit > 0 ? (
-        <Notice tone="amber" icon="shield-checkmark-outline" title="Security deposit is mandatory" style={{ marginBottom: 12 }}
-          text={`NESAM requires a refundable deposit of ${rupees(requiredDeposit)}. ${heldDeposit ? `${rupees(heldDeposit)} is paid; ` : ''}pay the remaining ${rupees(remainingDeposit)} to complete it.${policy.message ? ` ${policy.message}` : ''}`}
-          action={<Btn small icon="add" title="Pay deposit" onPress={() => setSheet('deposit')} />} />
+        <Notice tone="amber" icon="shield-checkmark-outline" title="Security recharge is mandatory" style={{ marginBottom: 12 }}
+          text={`NESAM requires a refundable recharge of ${rupees(requiredDeposit)}. ${heldDeposit ? `${rupees(heldDeposit)} is paid; ` : ''}pay the remaining ${rupees(remainingDeposit)} to complete it.${policy.message ? ` ${policy.message}` : ''}`}
+          action={<Btn small icon="add" title="Recharge now" onPress={() => setSheet('deposit')} />} />
       ) : null}
       {d.errors.wallet ? <Notice tone="red" title="Wallet could not load" text={d.errors.wallet} style={{ marginBottom: 14 }} /> : null}
       <View style={styles.actionRow}>
         {negative
           ? <ActionButton primary icon="card-outline" label="Pay dues" onPress={() => setSheet('dues')} />
           : <ActionButton primary icon="arrow-up" label="Withdraw" disabled={withdrawable < MIN_PAYOUT} onPress={() => setSheet('payout')} />}
-        <ActionButton icon="add" label="Add deposit" disabled={depositClosed} onPress={() => setSheet('deposit')} />
+        <ActionButton icon="add" label="Recharge" disabled={depositClosed} onPress={() => setSheet('deposit')} />
       </View>
       <Grid columns={wide ? 2 : 1} gap={12}>
         <View style={[styles.balance, { flexGrow: 1 }]}>
@@ -99,7 +99,7 @@ export function WalletScreen() {
           <View style={styles.depRow}>
             <View style={styles.depositIcon}><Ionicons name="shield-checkmark-outline" size={18} color="#4F7A68" /></View>
             <View style={{ flex: 1, minWidth: 0 }}>
-              <Eyebrow>SECURITY DEPOSIT{requiredDeposit ? ' · MANDATORY' : ''}</Eyebrow>
+              <Eyebrow>SECURITY RECHARGE{requiredDeposit ? ' · MANDATORY' : ''}</Eyebrow>
               <Text style={styles.depositValue} numberOfLines={1}>{rupees(heldDeposit)}{requiredDeposit ? <Text style={styles.depositOf}> / {rupees(requiredDeposit)}</Text> : null}</Text>
             </View>
             <Badge
@@ -107,12 +107,12 @@ export function WalletScreen() {
               tone={depositClosed ? 'amber' : requiredDeposit ? (remainingDeposit > 0 ? 'red' : 'green') : dep?.status === 'Active' ? 'green' : 'neutral'} />
           </View>
           {requiredDeposit && !depositClosed ? (
-            <View style={styles.track} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: depositPct }} accessibilityLabel="Security deposit paid">
+            <View style={styles.track} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: depositPct }} accessibilityLabel="Security recharge paid">
               <View style={[styles.trackFill, { width: `${depositPct}%`, backgroundColor: remainingDeposit > 0 ? colors.primary : colors.success }]} />
             </View>
           ) : null}
           <Small style={{ marginTop: 10 }}>{requiredDeposit && policy.message ? policy.message : 'Refundable and separate from the working wallet. Trip and penalty adjustments never use it.'}</Small>
-          {dep?.status === 'Active' && dep.amount > 0 ? <View style={{ marginTop: 8 }}><TextLink title="Request deposit refund" onPress={askRefund} /></View> : null}
+          {dep?.status === 'Active' && dep.amount > 0 ? <View style={{ marginTop: 8 }}><TextLink title="Request recharge refund" onPress={askRefund} /></View> : null}
           {dep?.status === 'Refund requested' ? <Small style={{ marginTop: 8 }}>Existing duties and outstanding accounts must be resolved before the refund.</Small> : null}
         </Panel>
       </Grid>

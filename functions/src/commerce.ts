@@ -12,7 +12,7 @@ import { optionalEmail, whatsappContact } from './bookingBuild';
 import { bookingWindowFrom, parsePickupInstant, pickupWindowProblem } from './domain/advanceBooking';
 import { dutyClassOf } from './domain/eligibility';
 import { isOutstation, mapCategory, mapCoupon, normalizeCode, validateCoupon } from './domain/pricing';
-import { COMMISSION_NOT_CONFIGURED, resolveCommission } from './domain/finance';
+import { resolveCommission } from './domain/finance';
 import { formatDate, formatDateTime12, formatTime12 } from './domain/time';
 import { GeoPlace, TripType } from './domain/types';
 import { loadCommissionPolicy } from './commission';
@@ -195,14 +195,11 @@ export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (requ
     if (fuel && category.cngEnabled !== true) throw new HttpsError('failed-precondition', 'CNG is not offered on this vehicle.');
     const priceInput = { addOns: bookingAddOnsOf(input.addOns ?? input.tripExtras), fuel, boardingState, recipientState, recipientAddressState: recipientAddressState(customer.data()), category, route: pricingRoute, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, rentalHours: tripType === 'Local Rental' ? rentalHoursOf(input.rentalHours) : null, brand: bookingBrand, fixedRoutes, localCityId, serviceId, multicity, platformFee, nightAllowance };
     const beforeDiscount = priceBooking(priceInput);
-    // The percentage commission only prices duties still on the category engine; confirmed
-    // tariff duties carry fixed partner rates, so no commission is required (or invented).
+    // The percentage commission (if an older policy still exists) only prices duties on the category engine; confirmed
+    // tariff duties carry fixed partner rates. A missing commission never blocks a booking.
     const commission = beforeDiscount.usesCommissionPolicy
       ? resolveCommission(policy, { serviceId: serviceId || undefined, categoryId: category.id })
       : null;
-    if (beforeDiscount.usesCommissionPolicy && !commission) {
-      throw new HttpsError('failed-precondition', COMMISSION_NOT_CONFIGURED);
-    }
     const service = multicity ? 'Multicity' : matchedService?.name || beforeDiscount.service;
     const couponCode = normalizeCode(text(input.couponCode, 50));
     let discount = 0, usedCoupon;

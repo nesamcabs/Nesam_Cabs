@@ -386,7 +386,7 @@ export const assignDriver = onCall({ timeoutSeconds: 60 }, async (request) => {
     const vehicle = vehicleId ? await assignableVehicle(tx, vehicleId, vendorId, newDriverId, b) : null;
     assertScheduleFree(vehicleHeld, vehicle?.number ? `Vehicle ${vehicle.number}` : 'This vehicle', b, bookingId, scheduleCfg, force);
 
-    // Payout: an existing agreement (vendor bid, earlier assignment) → the published offer → the commission policy.
+    // Payout: an existing agreement (vendor bid, earlier assignment) → the published offer → the tariff's partner payout.
     let agreed = agreedPayoutOf(b) || (m.exists ? money(m.data()!.offeredPayout) : 0);
     let payoutSource: string = text(b.payoutSource) || 'offered';
     let commission: DocumentData | null = null;

@@ -144,7 +144,7 @@ export default function SecurityDeposit() {
       {loadError && <ErrorBanner message={loadError} onRetry={() => setRetryKey((k) => k + 1)} />}
       <div>
         <h1 className="text-xl font-bold text-ink">Security deposit</h1>
-        <p className="text-sm text-muted max-w-3xl">
+        <p className="text-sm text-muted">
           Set the refundable deposit every vendor must hold with NESAM. It is kept apart from the working wallet and refunded at full &amp; final settlement.
           The Partner app shows it as mandatory, with the amount still to pay.
         </p>
@@ -164,30 +164,43 @@ export default function SecurityDeposit() {
         ))}
       </div>
 
-      <section className="bg-white rounded-xl border border-line shadow-sm p-5 space-y-4 max-w-3xl">
-        <div>
-          <h2 className="text-[15px] font-bold text-ink flex items-center gap-2"><span className="w-1 h-4 rounded-full bg-brand" />Deposit policy</h2>
-          <p className="text-sm text-muted mt-1">Applies to every vendor. Changing the amount updates what each vendor still has to pay; deposits already received are not touched.</p>
-        </div>
-        {!canFinance && <Notice tone="info">You can view the policy. Changing it needs finance permission.</Notice>}
-        <fieldset disabled={!canFinance || busy || policy === undefined} className="space-y-4 border-0 p-0 m-0">
-          <label className="flex items-center gap-2.5 text-sm font-semibold text-body">
-            <input type="checkbox" className="w-4 h-4 accent-brand" checked={required} onChange={(e) => { setRequired(e.target.checked); setDirty(true); setFormError(""); }} />
-            Security deposit is mandatory for vendors
-          </label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Field label="Required deposit (₹)" required={required} hint={required ? "Whole rupees. Vendors pay this in full or in parts." : "Turn the option on to set an amount."}>
-              <input className={inputCls} inputMode="numeric" value={amount} disabled={!required} placeholder="e.g. 25000"
-                onChange={(e) => { setAmount(e.target.value.replace(/\D/g, "").slice(0, 7)); setDirty(true); setFormError(""); }} />
-            </Field>
+      <section className="bg-white rounded-xl border border-line shadow-sm">
+        <div className="px-5 py-4 border-b border-line flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-[15px] font-bold text-ink flex items-center gap-2"><span className="w-1 h-4 rounded-full bg-brand" />Deposit policy</h2>
+            <p className="text-sm text-muted mt-1">Applies to every vendor. Changing the amount updates what each vendor still has to pay; deposits already received are not touched.</p>
           </div>
-          <Field label="Note shown to vendors (optional)" hint="One or two lines on the Wallet, for example why it is needed or how to pay.">
-            <textarea className={`${inputCls} min-h-[72px]`} maxLength={240} value={message} onChange={(e) => { setMessage(e.target.value); setDirty(true); }} />
-          </Field>
-        </fieldset>
-        {(problem && dirty) && <Notice tone="error">{problem}</Notice>}
-        {formError && <Notice tone="error">{formError}</Notice>}
-        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <span className={`inline-block px-2.5 py-1 rounded-md border text-xs font-semibold whitespace-nowrap ${policy?.vendorRequired ? PILL.ok : PILL.neutral}`}>
+            {policy === undefined ? "Loading…" : policy?.vendorRequired ? "Mandatory for vendors" : "Not mandatory"}
+          </span>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {!canFinance && <Notice tone="info">You can view the policy. Changing it needs finance permission.</Notice>}
+          <fieldset disabled={!canFinance || busy || policy === undefined} className="border-0 p-0 m-0 grid grid-cols-1 lg:grid-cols-[minmax(280px,360px)_1fr] gap-x-8 gap-y-5">
+            <div className="space-y-4">
+              <label className={`flex items-start gap-3 rounded-lg border p-3.5 cursor-pointer ${required ? "border-brand bg-brand-soft/40" : "border-line bg-surface-2"}`}>
+                <input type="checkbox" className="w-4 h-4 mt-0.5 accent-brand" checked={required} onChange={(e) => { setRequired(e.target.checked); setDirty(true); setFormError(""); }} />
+                <span>
+                  <span className="block text-sm font-semibold text-ink">Security deposit is mandatory</span>
+                  <span className="block text-xs text-muted mt-0.5">Vendors see it as required on their Wallet until it is fully paid.</span>
+                </span>
+              </label>
+              <Field label="Required deposit (₹)" required={required} hint={required ? "Whole rupees. Vendors pay this in full or in parts." : "Turn the option on to set an amount."}>
+                <input className={inputCls} inputMode="numeric" value={amount} disabled={!required} placeholder="e.g. 25000"
+                  onChange={(e) => { setAmount(e.target.value.replace(/\D/g, "").slice(0, 7)); setDirty(true); setFormError(""); }} />
+              </Field>
+            </div>
+            <Field label="Note shown to vendors (optional)" hint="One or two lines on the Wallet, for example why it is needed or how to pay." className="flex flex-col">
+              <textarea className={`${inputCls} min-h-[150px] flex-1 resize-y`} maxLength={240} value={message} onChange={(e) => { setMessage(e.target.value); setDirty(true); }} />
+              <span className="block text-right text-xs text-muted mt-1">{message.length} / 240</span>
+            </Field>
+          </fieldset>
+          {(problem && dirty) && <Notice tone="error">{problem}</Notice>}
+          {formError && <Notice tone="error">{formError}</Notice>}
+        </div>
+
+        <div className="px-5 py-3 border-t border-line bg-surface-2 rounded-b-xl flex items-center justify-between gap-3 flex-wrap">
           <span className="text-xs text-muted">{policy?.updatedAt ? `Last saved ${formatDateTime12(policy.updatedAt)}` : policy === null ? "No policy saved yet." : ""}</span>
           <div className="flex gap-2">
             {dirty && <button className={secondaryBtn} disabled={busy} onClick={() => { setDirty(false); setFormError(""); }}>Reset</button>}

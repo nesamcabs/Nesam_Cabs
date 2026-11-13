@@ -33,7 +33,6 @@ import { requirePermission, text, requireAction } from './shared';
 import { distanceKm as straightKm } from './domain/verification';
 import { assertCatalogAvailable, matchAuthoritativeService, ServiceMasterDoc } from './onlineCatalog';
 import { loadCommissionPolicy } from './commission';
-import { COMMISSION_NOT_CONFIGURED, resolveCommission } from './domain/finance';
 import { assertServiceSupported, resolveAndValidateBrand } from './brandContext';
 
 export const TARIFF_DOC = 'business_config/tariff_v2';
@@ -617,10 +616,6 @@ export const quoteBooking = onCall({ timeoutSeconds: 60, cors: PUBLIC_CALLABLE_O
         assertCatalogAvailable(onlineMasters,tripType,category.id);
         assertBookable(rules, category.name);
         const before = priceBooking(base);
-        if (before.usesCommissionPolicy) {
-          const commission = resolveCommission(policy, { serviceId: matched?.id, categoryId: c.id });
-          if (!commission) throw new HttpsError('failed-precondition', COMMISSION_NOT_CONFIGURED);
-        }
         let couponMessage = '', discount = 0;
         if (code && coupons) {
           const r = validateCoupon(coupons.docs.map((x) => mapCoupon(x.id, x.data())), code, {

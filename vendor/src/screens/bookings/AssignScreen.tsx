@@ -135,7 +135,7 @@ export function AssignScreen() {
                 ['Missed assignment deadline', rupees(d.ops.missedAssignmentPenalty)],
                 [`Cancellation within ${d.ops.cancellation.lastMinuteHours} h of pickup`, rupees(d.ops.cancellation.lastMinuteCharge)],
               ]} />
-              <Small style={{ marginTop: 8 }}>Toll, parking and state tax are extra on approved receipts. Only the confirmed driver and vehicle can operate this duty.</Small>
+              <Small style={{ marginTop: 8 }}>The driver collects toll, parking, state tax and hill charges from the customer and gives the customer a receipt for each. Only the confirmed driver and vehicle can operate this duty.</Small>
             </View>
             {replacing ? <Notice tone="amber" title="Replacing the current assignment" text={`${b.driverName || 'The current driver'} stays assigned until you confirm. The new driver is notified on confirmation.`} style={{ marginTop: 14 }} /> : null}
             <View style={{ marginTop: 10 }}>

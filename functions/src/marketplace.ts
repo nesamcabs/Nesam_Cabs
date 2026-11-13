@@ -15,7 +15,7 @@ import { db } from './admin';
 import { auditInTx } from './audit';
 import { mapCategory } from './domain/pricing';
 import { awaitingFulfilment } from './domain/advanceBooking';
-import { COMMISSION_NOT_CONFIGURED, CommissionPolicy, partnerPayoutFor, resolveCommission } from './domain/finance';
+import { PAYOUT_NOT_SET, CommissionPolicy, partnerPayoutFor, resolveCommission } from './domain/finance';
 import { formatDateTime12, pickupInstant } from './domain/time';
 import { loadCommissionPolicy } from './commission';
 import { assertDriverEligible, assertScheduleFree, assertVehicleEligible, bookingDutyClass, loadHeldDuties, loadScheduleConfig } from './eligibility';
@@ -51,14 +51,13 @@ export interface Payout {
 }
 
 /**
- * The partner payout an admin action will agree: the commission policy's offer
- * (the commission the booking was created under, else the current policy), or a
- * payout set by hand — which needs finance access and stays within the fare.
+ * The partner payout an admin action will agree: the tariff's fixed partner rate, an older commission the booking
+ * was created under, or a payout set by hand — which needs finance access and stays within the fare.
  */
 export function resolvePayout(b: DocumentData, policy: CommissionPolicy | null, manual: unknown, admin: AdminAccess, purpose: 'direct' | 'offer' = 'direct'): Payout {
   const fareTotal = money(b.fare);
   if (manual != null) {
-    if (!admin.permissions.includes('finance')) throw new HttpsError('permission-denied', 'Setting a payout by hand needs finance access. Leave it blank to use the commission policy.');
+    if (!admin.permissions.includes('finance')) throw new HttpsError('permission-denied', 'Setting a payout by hand needs finance access. Leave it blank to use the partner payout from the tariff.');
     if (typeof manual !== 'number' || !Number.isSafeInteger(manual) || manual <= 0) throw new HttpsError('invalid-argument', 'Enter the payout in whole rupees.');
     if (manual > fareTotal) throw new HttpsError('failed-precondition', 'The payout must be within the customer fare.');
     return { amount: manual, source: 'manual', commission: null };
@@ -74,7 +73,7 @@ export function resolvePayout(b: DocumentData, policy: CommissionPolicy | null, 
   const taxableAmount = fb && Number.isFinite(fb.taxableAmount) ? fb.taxableAmount : Math.round((fareTotal / 1.05) * 100) / 100;
   const stored = b.commission && typeof b.commission.rate === 'number' ? b.commission : null;
   const commission = stored ?? resolveCommission(policy, { serviceId: text(b.serviceId), categoryId: text(b.vehicleCategoryId) });
-  if (!commission) throw new HttpsError('failed-precondition', COMMISSION_NOT_CONFIGURED);
+  if (!commission) throw new HttpsError('failed-precondition', PAYOUT_NOT_SET);
   return { amount: partnerPayoutFor({ taxableAmount, total: fareTotal }, commission), source: 'offered', commission: stored ? null : commission };
 }
 
@@ -178,7 +177,7 @@ export async function announceToPartners(bookingId: string, b: DocumentData, off
  * Explicitly publishes an approved, unassigned booking to Open Duties. This is
  * the only step that makes a booking visible to partners. Idempotent: posting a
  * booking that is already open just refreshes the offer. The offer comes from the
- * commission policy; a finance admin may set a specific payout instead.
+ * tariff's partner payout; a finance admin may set a specific payout instead.
  */
 export const postBookingToMarketplace = onCall({ timeoutSeconds: 120 }, async (request) => {
   const admin = await requirePermission(request.auth, 'operations');

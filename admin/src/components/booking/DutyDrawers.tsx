@@ -98,7 +98,7 @@ export function PublishDutyDrawer({ booking, market, edit, canSetPayout, onClose
     if (!(Number(custKm) > 0) || !(Number(partKm) > 0)) return setError("Enter separate positive customer and partner extra-km rates.");
     const closeAt = fromLocalInput(closes);
     const cutoffMinutes = mode === "bid" && closeAt && pickup ? Math.max(0, Math.round((pickup.getTime() - closeAt.getTime()) / 60000)) : undefined;
-    // Without finance access the payout comes from the tariff / commission policy.
+    // Without finance access the payout comes from the tariff.
     const manual = canSetPayout && Math.round(startNum) !== Math.round(start) ? Math.round(startNum) : canSetPayout && edit ? Math.round(startNum) : undefined;
     setBusy(true);
     setError(null);
@@ -451,7 +451,7 @@ export function AssignOnBehalfDrawer({ booking, data, agreedPayout, onClose, onD
             <div className="ds-note mb-4">
               <strong>Terms &amp; penalty</strong>
               <br />
-              Toll, parking and state tax are extra at actuals unless the duty terms say otherwise. Missed-assignment penalties follow the commission policy. Only this confirmed driver and vehicle can operate the duty.
+              Toll, parking and state tax are extra at actuals unless the duty terms say otherwise. Only this confirmed driver and vehicle can operate the duty.
             </div>
             <label className="ds-field mb-3">
               <span>Vendor request / call reference</span>

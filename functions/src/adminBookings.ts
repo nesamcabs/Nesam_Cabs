@@ -17,7 +17,7 @@ import { AWAITING_APPROVAL } from './bookingBuild';
 import { MANUAL_PAYMENT_METHODS as PAYMENT_METHODS, summarizePayments } from './domain/bookingFlow';
 import { dutyClassOf } from './domain/eligibility';
 import { applyFareOverride, isOutstation, mapCategory, mapCoupon, normalizeCode, serviceName, validateCoupon } from './domain/pricing';
-import { COMMISSION_NOT_CONFIGURED, buildFinanceSnapshot, partnerPayoutFor, resolveCommission } from './domain/finance';
+import { buildFinanceSnapshot, partnerPayoutFor, resolveCommission } from './domain/finance';
 import { distanceKm } from './domain/verification';
 import { formatDate, formatDateTime12, formatTime12 } from './domain/time';
 import { FareBreakdown, GeoPlace, TripType } from './domain/types';
@@ -285,7 +285,6 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
     const calculated = priced.fare;
     const breakup = priced.breakup;
     const commission = priced.usesCommissionPolicy ? resolveCommission(policy, { serviceId: serviceId || undefined, categoryId: category.id }) : null;
-    if (priced.usesCommissionPolicy && !commission) throw new HttpsError('failed-precondition', COMMISSION_NOT_CONFIGURED);
     // The admin form asks for this quote first and books against it; nothing is written.
     if (input.quoteOnly === true) {
       // The partner rate block is payout data: only for staff holding the payout right.

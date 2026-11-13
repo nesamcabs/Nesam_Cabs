@@ -41,7 +41,6 @@ export const CALLABLES: Readonly<Record<string, CallableLike>> = Object.freeze({
   saveServiceRule: fns.saveServiceRule,
   setServiceRuleStatus: fns.setServiceRuleStatus,
   quoteBooking: fns.quoteBooking,
-  saveCommissionPolicy: fns.saveCommissionPolicy,
   requestPartnerPayout: fns.requestPartnerPayout,
   rebuildPartnerLedger: fns.rebuildPartnerLedger,
   updateSettlement: fns.updateSettlement,

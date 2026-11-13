@@ -1,5 +1,5 @@
 // Marketplace participation, all server-side:
-//   claimMarketplaceDuty    accept the current offer (posting mode "accept_offer")
+//   claimMarketplaceDuty    accept the current offer (posting mode "accept_offer", or a bidding duty at its current payout)
 //   submitMarketplaceBid    counter-offer for Admin review (posting mode "bid_review")
 //   withdrawMarketplaceBid  withdraw a pending bid
 //   runOfferEscalation      hourly offer step-ups, driven by the publication timestamp
@@ -83,7 +83,8 @@ export const claimMarketplaceDuty = onCall({ timeoutSeconds: 60 }, async (reques
     if (b.fareVerified !== true) throw new HttpsError('failed-precondition', 'This trip is not ready to be taken yet.');
     await assertPenaltiesAcknowledged(tx, party.kind, party.uid);
     const mode = POSTING_MODES.includes(offer.mode) ? (offer.mode as PostingMode) : null;
-    if (mode === 'bid_review') throw new HttpsError('failed-precondition', 'This trip is open for bids reviewed by NESAM. Submit a bid instead of accepting.', { code: 'bid-only' });
+    // A bidding duty can also be taken outright at its current payout (the same as a bid equal to it); the lowest amount a
+    // vendor will accept is still entered as a bid.
     // Legacy posts carried both paths; an owner-driver could only ever accept an Open offer.
     if (!mode && party.kind === 'driver' && offer.status !== 'Open') throw new HttpsError('failed-precondition', 'This trip is no longer available.', { code: 'taken' });
     const at = pickupInstant(b);

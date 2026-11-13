@@ -268,7 +268,7 @@ export default function Marketplace({ onSelectBooking }: MarketplaceProps) {
               {canFinance ? (
                 <Field
                   label="Partner Payout (₹, Optional)"
-                  hint="Leave empty to use automatic commission policy payout"
+                  hint="Leave empty to use the tariff's partner payout"
                 >
                   <input
                     type="number"
@@ -276,7 +276,7 @@ export default function Marketplace({ onSelectBooking }: MarketplaceProps) {
                     step="1"
                     value={payout}
                     onChange={(e) => setPayout(e.target.value)}
-                    placeholder="Auto from commission policy"
+                    placeholder="Auto from tariff"
                     className={inputCls}
                   />
                 </Field>
@@ -284,7 +284,7 @@ export default function Marketplace({ onSelectBooking }: MarketplaceProps) {
                 <div className="bg-gray-50 rounded-xl p-3 border border-line flex flex-col justify-center">
                   <span className="text-xs font-semibold text-muted">Partner Payout</span>
                   <span className="text-xs text-faint mt-1">
-                    Derived automatically from the active Commission Policy (Finance restricted).
+                    Taken automatically from the tariff's partner rate (Finance restricted).
                   </span>
                 </div>
               )}

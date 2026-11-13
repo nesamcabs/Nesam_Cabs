@@ -7,7 +7,7 @@ import { useVendorData } from '../../context/VendorData';
 import { useInbox } from '../../context/Inbox';
 import { Sheet } from '../../components/ui';
 import { DetailGrid, Page } from '../../components/shell/Page';
-import { Badge, Between, BigAmount, Btn, Empty, Eyebrow, H2, Inline, KV, Notice, Panel, RouteStack, Small, TextLink } from '../../components/kit/core';
+import { Badge, Between, BigAmount, BulletList, Btn, Empty, Eyebrow, H2, Inline, KV, Notice, Panel, RouteStack, Small, TextLink } from '../../components/kit/core';
 import { dayTime, plate, rupees, tripTypeLabel } from '../../components/kit/format';
 import { goSection } from '../../navigation/navigationRef';
 import { assignDeadline, type PartnerRequestRecord } from '../../services/partnerOps';
@@ -121,8 +121,9 @@ export function BookingDetailScreen() {
         <Notice tone="neutral" icon="receipt-outline" title="Final accounts after the trip" text="Cash reported by the driver is adjusted only after office verification." style={{ marginTop: 16 }} />
       )}
       <View style={{ marginTop: 18, borderTopWidth: 1, borderTopColor: '#F1F2F5', paddingTop: 14 }}>
-        <H2 style={{ fontSize: 13 }}>Included & extra costs</H2>
-        <Small style={{ marginTop: 6 }}>{b.includedKm ? `${b.includedKm} km included. ` : ''}Toll, parking and state tax are extra and reimbursed against office-approved receipts.</Small>
+        <H2 style={{ fontSize: 13 }}>Extra charges</H2>
+        <Small style={{ marginTop: 6, marginBottom: 10 }}>The driver collects all of these from the customer and gives the customer a receipt for each one.</Small>
+        <BulletList items={['Toll', 'Parking', 'State permit / tax', 'Hill charges']} style={{ marginBottom: 6 }} />
         <TextLink title="Accepted duty terms" onPress={() => setSheet('terms')} />
       </View>
     </Panel>

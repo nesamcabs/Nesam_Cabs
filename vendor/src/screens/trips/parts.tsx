@@ -28,7 +28,8 @@ export const risesText = (t: MarketTrip) => {
   return `${t.stepPercent}% every ${every}`;
 };
 
-export const canAccept = (t: MarketTrip) => t.mode !== 'bid_review' && t.offeredPayout > 0;
+/** Any duty with a payout can be accepted at that payout: the fixed offer, or a bidding duty's current payout. */
+export const canAccept = (t: MarketTrip) => t.offeredPayout > 0;
 
 /** When a duty opens to vendors (release waves offer it to owner-drivers first); 0 = already open. */
 export const opensToVendorsAt = (t: MarketTrip, releaseSeconds: number, now = Date.now()) => {
@@ -59,7 +60,7 @@ export function ExtraTag() {
   return (
     <View style={styles.extra}>
       <Ionicons name="receipt-outline" size={14} color="#8B919C" />
-      <Text style={styles.extraText}>Toll, parking & state permit<Text style={styles.extraStrong}> · paid separately on receipts</Text></Text>
+      <Text style={styles.extraText}>Toll, parking, state permit & hill charges<Text style={styles.extraStrong}> · the driver collects them from the customer and gives a receipt</Text></Text>
     </View>
   );
 }
@@ -104,7 +105,7 @@ export function DutyRow({ trip: t, bid, onAction, list }: { trip: MarketTrip; bi
   const dateText = pickup ? numericDate(pickup) : t.travelDate || '';
   // One line saying where this duty stands for this vendor (nothing when it is simply open).
   const closes = t.cutoffMs ? `Bidding closes ${dayTime(new Date(t.cutoffMs))}` : '';
-  const status = bid ? `Your bid ${rupees(bid.vendorCounterRate)} · ${bid.autoAcceptConsent ? 'allocates when the payout reaches it' : 'update to confirm'}`
+  const status = bid ? `Your bid ${rupees(bid.vendorCounterRate)} · ${bid.autoAcceptConsent ? 'allocates when payout reaches it' : 'update to confirm'}`
     : opensAt ? `Opens to vendors at ${timeText(new Date(opensAt))}`
     : isBidding(t) && !bidOpen ? 'Bidding closed'
     : isBidding(t) ? closes
@@ -122,15 +123,15 @@ export function DutyRow({ trip: t, bid, onAction, list }: { trip: MarketTrip; bi
       payout={t.offeredPayout > 0 ? rupees(t.offeredPayout) : 'Your quote'}
       payoutLabel={isBidding(t) ? 'Payout' : isFixed(t) ? 'Fixed payout' : 'Vendor payout'}
       badge={isBidding(t) ? <Badge label="Bidding" tone="blue" /> : isFixed(t) ? <Badge label="Fixed payout" tone="green" /> : undefined}
-      compact={list}
+      compact
       onPress={list ? open : undefined}
       accessibilityLabel={`${marketFrom(t)} to ${marketTo(t)}, vendor payout ${rupees(t.offeredPayout)}. Open duty`}
     >
       {t.fuelType || status || !list ? (
-        <View style={{ gap: 8 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 10, rowGap: 4 }}>
           {list ? null : <Text style={styles.code} numberOfLines={1}>{t.bookingId}</Text>}
           {t.fuelType ? <Badge label={t.fuelType === 'cng' ? 'CNG' : 'Diesel / Petrol'} tone={t.fuelType === 'cng' ? 'green' : 'neutral'} /> : null}
-          {status ? <Text style={[styles.status, bid ? { color: '#2F5BD3' } : opensAt ? { color: '#946000' } : null]} numberOfLines={2}>{status}</Text> : null}
+          {status ? <Text style={[styles.status, bid ? { color: '#2F5BD3' } : opensAt ? { color: '#946000' } : null]} numberOfLines={1}>{status}</Text> : null}
         </View>
       ) : null}
     </DutyCard>
@@ -142,7 +143,7 @@ export function DutyRow({ trip: t, bid, onAction, list }: { trip: MarketTrip; bi
       {card}
       {accept || bid || bidOpen ? (
         <View style={styles.actionsRow}>
-          {accept ? <Btn title={`Accept ${rupees(t.offeredPayout)}`} icon="checkmark-done" onPress={() => onAction({ kind: 'accept', trip: t })} style={{ flex: 1 }} /> : null}
+          {accept ? <Btn title="Accept duty" icon="checkmark-done" onPress={() => onAction({ kind: 'accept', trip: t })} style={{ flex: 1 }} /> : null}
           {bid ? <Btn kind="bid" title={`My bid ${rupees(bid.vendorCounterRate)}`} icon="create-outline" onPress={() => onAction({ kind: 'bid-detail', bid })} style={{ flex: 1 }} />
             : bidOpen ? <Btn kind="bid" title="Place bid" icon="trending-up" onPress={() => onAction({ kind: 'bid', trip: t })} style={{ flex: 1 }} /> : null}
         </View>
@@ -225,11 +226,6 @@ export function BidDialog({ trip, onClose, onDone }: { trip: MarketTrip; onClose
   return (
     <Sheet visible onClose={onClose} title={existing ? 'Update bid' : 'Place bid'} dismissible={!busy}>
       <RouteTitle from={marketFrom(trip)} to={marketTo(trip)} size={17} />
-      <Text style={styles.explainer}>
-        {risesText(trip)
-          ? `Enter the lowest total payout you will accept. The offer rises ${risesText(trip)} while bidding is open; as soon as it reaches your amount, the duty is allocated to you automatically at that amount.`
-          : 'Quote the total vendor payout you will accept for this duty. NESAM reviews the bids; if yours is accepted, the duty is allocated to you at your quote without another confirmation.'}
-      </Text>
       <View style={styles.offer}>
         <Text style={styles.offerLabel}>{risesText(trip) ? 'Current payout (rising)' : 'Current vendor payout'}</Text>
         <Text style={styles.offerValue}>{trip.offeredPayout > 0 ? rupees(trip.offeredPayout) : '—'}</Text>
@@ -268,7 +264,6 @@ export function BidDetailDialog({ bid, onClose, onUpdate }: { bid: VendorBid; on
       </View>
       <KV rows={[['Status', bidLabel(bid.status)], ['Current office offer', rupees(trip?.offeredPayout ?? bid.offeredPayout)], ['Submitted', dayTime(bid.submittedAt)], bid.biddingNote ? ['Your note', bid.biddingNote] : null]} />
       {open && !bid.autoAcceptConsent ? <Notice tone="amber" title="Allocation terms not confirmed" text="Update this bid and confirm the allocation terms so NESAM can allocate the duty to you." style={{ marginTop: 14 }} /> : null}
-      {open ? <Notice tone="blue" title="A submitted bid does not confirm a duty" text="When NESAM allocates it, the duty appears in Bookings with an assignment deadline." style={{ marginTop: 14 }} /> : null}
       <Feedback tone="error" message={error} />
       {open ? (
         <View style={styles.dialogActions}>
@@ -311,7 +306,7 @@ const styles = StyleSheet.create({
   amount: { alignItems: 'flex-start', backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 5, paddingHorizontal: 10 },
   amountLabel: { fontFamily, fontSize: 8, fontWeight: '600', color: 'rgba(255,255,255,0.82)', letterSpacing: 0.8 },
   amountValue: { fontFamily, fontSize: 15, fontWeight: '700', color: colors.white, letterSpacing: -0.2, marginTop: 1 },
-  status: { fontFamily, fontSize: 12, fontWeight: '600', color: '#6B7685', marginTop: 8 },
+  status: { fontFamily, fontSize: 11, fontWeight: '600', color: '#6B7685', flexShrink: 1 },
   actionsRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 15, paddingBottom: 15 },
   extra: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 11, flexWrap: 'wrap' },
   extraText: { fontFamily, fontSize: 11, color: '#6F7785', lineHeight: 18, flexShrink: 1 },

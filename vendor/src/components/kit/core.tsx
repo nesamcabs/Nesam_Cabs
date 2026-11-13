@@ -142,6 +142,20 @@ export const Stack = ({ children, gap = 16, style }: { children: React.ReactNode
 export function H2({ children, style }: { children: React.ReactNode; style?: object }) {
   return <Text style={[s.h2, style]} accessibilityRole="header">{children}</Text>;
 }
+/** A plain bulleted list: a dot, then the text (one line each, wrapping under the text). */
+export function BulletList({ items, style }: { items: string[]; style?: StyleProp<ViewStyle> }) {
+  return (
+    <View style={[{ gap: 8 }, style]}>
+      {items.map((t) => (
+        <View key={t} style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+          <View style={s.bulletDot} />
+          <Text style={s.bulletText}>{t}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export function Small({ children, style, lines }: { children: React.ReactNode; style?: object; lines?: number }) {
   return <Text style={[s.small, style]} numberOfLines={lines}>{children}</Text>;
 }
@@ -564,6 +578,8 @@ export const s = StyleSheet.create({
   between: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, minWidth: 0 },
   inline: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   h2: { fontSize: 16, fontWeight: '700', color: colors.ink, letterSpacing: -0.4, fontFamily },
+  bulletDot: { width: 5, height: 5, borderRadius: 3, marginTop: 8, backgroundColor: colors.primary },
+  bulletText: { flex: 1, minWidth: 0, fontSize: 13, lineHeight: 21, color: '#424B5A', fontFamily },
   small: { fontSize: 12, color: colors.muted, lineHeight: 19, fontFamily },
   kv: { marginTop: 10 },
   kvRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F1F2F5' },
@@ -617,7 +633,8 @@ export const s = StyleSheet.create({
   dropMenu: { position: 'absolute', backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, borderRadius: 12, overflow: 'hidden', shadowColor: '#171B24', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.14, shadowRadius: 22, elevation: 12 },
   menuItem: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 8 },
   optionText: { fontSize: 14, color: colors.ink, fontFamily },
-  toolbar: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
+  // On wide screens the filters sit at the right end of the row (a search box, when there is one, fills the space before them).
+  toolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 12, marginBottom: 20 },
   check: { flexDirection: 'row', alignItems: 'flex-start', gap: 11, paddingVertical: 8 },
   checkBox: { width: 19, height: 19, borderRadius: 5, borderWidth: 1.5, borderColor: '#C3C8D0', alignItems: 'center', justifyContent: 'center', marginTop: 1, backgroundColor: colors.white },
   checkOn: { backgroundColor: colors.primary, borderColor: colors.primary },

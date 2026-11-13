@@ -1,14 +1,17 @@
 // My bids (reference vBids: All / Open / Allocated / Closed) and Duty details for one available duty.
 import React, { useState } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useVendorData } from '../../context/VendorData';
 import { Page } from '../../components/shell/Page';
-import { Badge, Between, Btn, Empty, Grid, H2, KV, Notice, Panel, RouteStack, RouteTitle, Small, Tabs } from '../../components/kit/core';
-import { dayTime, marketFrom, marketPickup, marketTo, marketType, rupees } from '../../components/kit/format';
+import { Text } from '../../components/kit/Text';
+import { colors, fontFamily } from '../../theme';
+import { Badge, BulletList, Between, Btn, Empty, Grid, H2, KV, Notice, Panel, RouteStack, RouteTitle, Small, Tabs } from '../../components/kit/core';
+import { dayTime, marketFrom, marketPickup, marketTo, marketType, numericDate, rupees, timeText } from '../../components/kit/format';
 import { goSection } from '../../navigation/navigationRef';
 import type { RootStackParamList } from '../../navigation/types';
-import { bidLabel, bidTone, DutyDialogs, DutyRow, isBidding, isFixed, OPEN_BID, risesText, type DutyAction } from './parts';
+import { bidLabel, bidTone, canAccept, canBid, DutyDialogs, isBidding, isFixed, OPEN_BID, opensToVendorsAt, useNow, type DutyAction } from './parts';
+import type { MarketTrip } from '../../types/operations';
 
 type BidTab = 'All' | 'Open' | 'Allocated' | 'Closed';
 
@@ -24,7 +27,6 @@ export function MyBidsScreen() {
 
   return (
     <Page title="My bids" subtitle="Your quotes and NESAM's decisions.">
-      <Notice tone="blue" title="A submitted bid does not confirm a duty" text="NESAM reviews every bid. If yours is accepted, the duty is allocated to you at your quote and appears in Bookings with an assignment deadline." />
       <Tabs value={tab} onChange={setTab} items={(['All', 'Open', 'Allocated', 'Closed'] as BidTab[]).map((id) => ({ id, label: id, count: count(id) }))} />
       {d.errors.bids ? <Notice tone="red" title="Bids could not load" text={d.errors.bids} /> : null}
       {list.length === 0 ? (
@@ -74,33 +76,72 @@ export function DutyScreen() {
       </Page>
     );
   }
+  return <DutyDetail t={t} setAction={setAction} action={action} />;
+}
+
+/** One available duty: how it was published, the Accept / bid actions, then everything about it in a single Duty information panel. */
+function DutyDetail({ t, action, setAction }: { t: MarketTrip; action: DutyAction | null; setAction: (a: DutyAction | null) => void }) {
+  const d = useVendorData();
+  const now = useNow();
   const bid = d.bids.find((b) => b.tripId === t.id && b.status === OPEN_BID);
+  const pickup = marketPickup(t);
+  const opensAt = opensToVendorsAt(t, d.ops.vendorReleaseSeconds, now);
+  const accept = canAccept(t) && !opensAt;
+  const bidOpen = canBid(t, now) && !opensAt;
+  const payout = t.offeredPayout > 0 ? rupees(t.offeredPayout) : 'Your quote';
+  const mode = isBidding(t) ? 'Bidding' : isFixed(t) ? 'Fixed payout' : '';
   return (
     <Page title="Duty details" subtitle={t.bookingId}>
-      <DutyRow trip={t} bid={bid} onAction={setAction} />
-      {isBidding(t) ? (
-        <Notice tone="blue" icon="trending-up-outline" title="Bidding duty" style={{ marginBottom: 14 }}
-          text={`Enter the lowest payout you will accept${risesText(t) ? `. The payout rises ${risesText(t)}; the duty is allocated to you automatically when it reaches your amount` : ''}.${t.cutoffMs ? ` Bidding closes ${dayTime(new Date(t.cutoffMs))}.` : ''}`} />
-      ) : isFixed(t) ? (
+      {isFixed(t) ? (
         <Notice tone="green" icon="checkmark-circle-outline" title="Fixed payout" style={{ marginBottom: 14 }}
           text={`Accept ${rupees(t.offeredPayout)} to take this duty. The first eligible vendor to accept gets it.`} />
       ) : null}
+
+      {opensAt ? <Notice tone="amber" icon="time-outline" title="Not open to vendors yet" text={`Opens to vendors at ${timeText(new Date(opensAt))}.`} style={{ marginBottom: 14 }} /> : null}
+      {accept || bid || bidOpen ? (
+        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
+          {accept ? <Btn title="Accept duty" icon="checkmark-done" onPress={() => setAction({ kind: 'accept', trip: t })} style={{ flex: 1 }} /> : null}
+          {bid ? <Btn kind="bid" title={`My bid ${rupees(bid.vendorCounterRate)}`} icon="create-outline" onPress={() => setAction({ kind: 'bid-detail', bid })} style={{ flex: 1 }} />
+            : bidOpen ? <Btn kind="bid" title="Place bid" icon="trending-up" onPress={() => setAction({ kind: 'bid', trip: t })} style={{ flex: 1 }} /> : null}
+        </View>
+      ) : isBidding(t) && !bidOpen && !opensAt ? <Notice tone="neutral" title="Bidding closed" text="This duty no longer takes bids." style={{ marginBottom: 14 }} /> : null}
+
       <Grid>
         <Panel>
-          <H2>Duty information</H2>
-          <RouteStack from={t.pickup.address || marketFrom(t)} fromSub={`Pickup · ${dayTime(marketPickup(t))}`} to={t.drop.address || marketTo(t)} toSub={t.drop.city || undefined} />
-          <KV rows={[['Trip type', marketType(t)], ['Vehicle category', t.vehicleCategory || '—'], t.distanceKm ? ['Included distance', `${Math.round(t.distanceKm)} km`] : null, t.cutoffMs ? ['Offer closes', dayTime(new Date(t.cutoffMs))] : null, ['Bids so far', String(t.bidCount)]]} />
+          <Between><H2>Duty information</H2>{mode ? <Badge label={mode} tone={isBidding(t) ? 'blue' : 'green'} /> : null}</Between>
+          <RouteStack from={t.pickup.address || marketFrom(t)} fromSub={`Pickup · ${numericDate(pickup)} · ${pickup ? timeText(pickup) : t.pickup.time || '—'}`} to={t.drop.address || marketTo(t)} toSub={t.drop.city || undefined} />
+          <KV rows={[
+            ['Duty ID', t.bookingId],
+            ['Pickup date', pickup ? numericDate(pickup) : t.travelDate || '—'],
+            ['Pickup time', pickup ? timeText(pickup) : t.pickup.time || '—'],
+            ['Trip type', marketType(t)],
+            ['Vehicle category', t.vehicleCategory || '—'],
+            t.fuelType ? ['Fuel', t.fuelType === 'cng' ? 'CNG' : 'Diesel / Petrol'] : null,
+            t.distanceKm ? ['Included distance', `${Math.round(t.distanceKm)} km`] : null,
+            [isBidding(t) ? 'Current payout' : 'Vendor payout', payout],
+            t.cutoffMs ? ['Offer closes', dayTime(new Date(t.cutoffMs))] : null,
+            isBidding(t) ? ['Bids so far', String(t.bidCount)] : null,
+            bid ? ['Your bid', `${rupees(bid.vendorCounterRate)} · ${bid.autoAcceptConsent ? 'allocates when the payout reaches it' : 'update to confirm'}`] : null,
+          ]} />
         </Panel>
         <Panel>
-          <H2>Included & extra costs</H2>
-          <Small style={{ marginTop: 10 }}>{t.distanceKm ? `${Math.round(t.distanceKm)} km included. ` : ''}Toll, parking and state permit are reimbursed separately against office-approved receipts. Customer contact unlocks 8 hours before pickup.</Small>
+          <H2>Charges</H2>
           {t.addOns?.roofCarrier || t.addOns?.pets ? (
-            <KV rows={[t.addOns.roofCarrier ? ['Roof carrier', 'Required'] : null, t.addOns.pets ? ['Pet travel', 'Customer travels with a pet'] : null]} />
+            <>
+              <Text style={styles.chargeHead}>Included in your payout</Text>
+              <BulletList items={[...(t.addOns?.roofCarrier ? ['Roof carrier (required for this trip)'] : []), ...(t.addOns?.pets ? ['Pet travel (customer travels with a pet)'] : [])]} />
+            </>
           ) : null}
-          <Notice tone="neutral" icon="shield-checkmark-outline" title="Only verified drivers and vehicles" text="After accepting, assign a NESAM-approved driver and an approved vehicle of this category before the deadline." style={{ marginTop: 14 }} />
+          <Text style={[styles.chargeHead, { marginTop: t.addOns?.roofCarrier || t.addOns?.pets ? 18 : 12 }]}>Excluded · collected from the customer</Text>
+          <Small style={{ marginBottom: 10 }}>The driver collects these from the customer and gives the customer a receipt for each one.</Small>
+          <BulletList items={['Toll', 'Parking', 'State permit / tax', 'Hill charges']} />
         </Panel>
       </Grid>
       <DutyDialogs action={action} setAction={setAction} onAccepted={() => goSection('Bookings', { tab: 'Accepted' })} />
     </Page>
   );
 }
+
+const styles = StyleSheet.create({
+  chargeHead: { fontFamily, fontSize: 13, fontWeight: '700', color: colors.ink, marginTop: 12, marginBottom: 6 },
+});

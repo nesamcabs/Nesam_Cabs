@@ -229,7 +229,7 @@ export function PublishDialog({ booking, canSetPayout, onClose, onDone }: { book
   const [error, setError] = useState<string | null>(null);
   const go = async () => {
     const manual = payout.trim() ? Number(payout) : undefined;
-    if (manual !== undefined && (!Number.isSafeInteger(manual) || manual <= 0)) return setError("Enter the payout in whole rupees, or leave it blank to use the commission policy.");
+    if (manual !== undefined && (!Number.isSafeInteger(manual) || manual <= 0)) return setError("Enter the payout in whole rupees, or leave it blank to use the tariff's partner payout.");
     const opts = postingPayload(options.value);
     if (!opts.ok) return setError(opts.error);
     setBusy(true);
@@ -249,9 +249,9 @@ export function PublishDialog({ booking, canSetPayout, onClose, onDone }: { book
         <div className="space-y-3">
           <p><strong>{code(booking)}</strong> becomes visible in Open Duties to eligible approved owner drivers and vendors, and they are notified. The first valid claim (or an awarded bid) takes it.</p>
           {canSetPayout ? (
-            <Field label="Partner payout (₹)" hint="Leave blank to use the commission policy offer."><input value={payout} onChange={(e) => setPayout(e.target.value.replace(/\D/g, ""))} inputMode="numeric" className={inputCls} /></Field>
+            <Field label="Partner payout (₹)" hint="Leave blank to use the tariff's partner payout."><input value={payout} onChange={(e) => setPayout(e.target.value.replace(/\D/g, ""))} inputMode="numeric" className={inputCls} /></Field>
           ) : (
-            <p className="text-xs text-muted">The payout comes from the commission policy. Setting it by hand needs finance access.</p>
+            <p className="text-xs text-muted">The payout comes from the tariff's partner rate. Setting it by hand needs finance access.</p>
           )}
           <PostingOptions value={options.value} onChange={options.set} />
         </div>
@@ -274,7 +274,7 @@ export function AssignVendorModal({ booking, vendors, canSetPayout, onClose, onD
   const go = async () => {
     if (!vendorId) return setError("Choose a vendor.");
     const manual = payout.trim() ? Number(payout) : undefined;
-    if (manual !== undefined && (!Number.isSafeInteger(manual) || manual <= 0)) return setError("Enter the payout in whole rupees, or leave it blank to use the commission policy.");
+    if (manual !== undefined && (!Number.isSafeInteger(manual) || manual <= 0)) return setError("Enter the payout in whole rupees, or leave it blank to use the tariff's partner payout.");
     setBusy(true);
     setError(null);
     try {
@@ -300,9 +300,9 @@ export function AssignVendorModal({ booking, vendors, canSetPayout, onClose, onD
           </select>
         </Field>
         {canSetPayout ? (
-          <Field label="Agreed payout (₹)" hint="Leave blank to use the commission policy offer."><input value={payout} onChange={(e) => setPayout(e.target.value.replace(/\D/g, ""))} inputMode="numeric" className={inputCls} /></Field>
+          <Field label="Agreed payout (₹)" hint="Leave blank to use the tariff's partner payout."><input value={payout} onChange={(e) => setPayout(e.target.value.replace(/\D/g, ""))} inputMode="numeric" className={inputCls} /></Field>
         ) : (
-          <p className="text-xs text-muted">The payout comes from the commission policy. Setting it by hand needs finance access.</p>
+          <p className="text-xs text-muted">The payout comes from the tariff's partner rate. Setting it by hand needs finance access.</p>
         )}
         <Field label="Note (optional)"><input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} placeholder="e.g. Regular partner for this route" className={inputCls} /></Field>
         {chosen && <p className="text-xs text-muted">After assigning, only {chosen.companyName || chosen.name}’s own drivers can be given this booking.</p>}
