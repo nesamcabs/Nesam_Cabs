@@ -25,6 +25,7 @@ function badgeFor(id: string, b: NavBadges): number {
     case "bookings": return b.newBookings;
     case "trips": return b.trips;
     case "marketplace": return b.marketplace;
+    case "vendor-bids": return b.vendorBids;
     case "vendors": return b.vendors;
     case "drivers": return b.drivers;
     case "notifications": return b.notifications;

@@ -42,6 +42,9 @@ interface PartnerRequest {
   accountHolder: string;
   accountLast4: string;
   ifsc: string;
+  bankName: string;
+  branchName: string;
+  upiId: string;
   note: string;
   entityType: string;
   entityName: string;
@@ -66,7 +69,7 @@ function toRequest(id: string, d: Record<string, unknown>): PartnerRequest {
     bookingId: s(d.bookingId), bookingCode: s(d.bookingCode), route: s(d.route), pickupAt: dateOf(d.pickupAt), acceptedAt: dateOf(d.acceptedAt),
     requestedAt: dateOf(d.requestedAt) ?? dateOf(d.createdAt), reasonLabel: s(d.reasonLabel), details: s(d.details), quotedPenalty: n(d.quotedPenalty),
     ruleLabel: s(d.ruleLabel), finalPenalty: typeof d.finalPenalty === "number" ? d.finalPenalty : null, adminReason: s(d.adminReason),
-    decidedByName: s(d.decidedByName), decidedAt: dateOf(d.decidedAt), accountHolder: s(d.accountHolder), accountLast4: s(d.accountLast4), ifsc: s(d.ifsc), note: s(d.note),
+    decidedByName: s(d.decidedByName), decidedAt: dateOf(d.decidedAt), accountHolder: s(d.accountHolder), accountLast4: s(d.accountLast4), ifsc: s(d.ifsc), bankName: s(d.bankName), branchName: s(d.branchName), upiId: s(d.upiId), note: s(d.note),
     entityType: s(d.entityType), entityName: s(d.entityName), documentLabel: s(d.documentLabel), expiry: s(d.expiry), previousExpiry: s(d.previousExpiry),
     filePath: s(d.filePath), fileName: s(d.fileName),
   };
@@ -323,6 +326,9 @@ function RequestSheet({ request: r, onClose, onDone, onError, onOpenBooking }: {
             <Row label="Account holder">{r.accountHolder}</Row>
             <Row label="New account ending">•••• {r.accountLast4}</Row>
             <Row label="IFSC">{r.ifsc}</Row>
+            {r.bankName ? <Row label="Bank">{r.bankName}</Row> : null}
+            {r.branchName ? <Row label="Branch">{r.branchName}</Row> : null}
+            {r.upiId ? <Row label="UPI ID">{r.upiId}</Row> : null}
             {r.note && <Row label="Note">{r.note}</Row>}
             {pending && <div className="mt-3"><Notice tone="warn">Verify the new account against a cancelled cheque or bank statement before approving.</Notice></div>}
           </div>

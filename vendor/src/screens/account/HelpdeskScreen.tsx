@@ -2,15 +2,16 @@
 // vendor's cancellation / bank-change / renewal requests with the office's decision.
 import React, { useState } from 'react';
 import { Linking, StyleSheet, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { Text } from '../../components/kit/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useVendorData } from '../../context/VendorData';
 import { Page } from '../../components/shell/Page';
 import { Badge, Between, Btn, Empty, Grid, H2, MenuItem, Panel, SectionLine, Small, Tabs } from '../../components/kit/core';
 import { dayTime, rupees } from '../../components/kit/format';
-import { goSection } from '../../navigation/navigationRef';
+import { Sheet } from '../../components/ui';
+import { BankSheet } from './AccountScreen';
 import { CancellationSheet } from '../bookings/CancellationSheet';
-import { SUPPORT_EMAIL, WHATSAPP_SUPPORT } from '../../config/constants';
 import { colors, fontFamily } from '../../theme';
 import { useLayout } from '../../theme/responsive';
 
@@ -18,9 +19,12 @@ const TYPE = { cancellation: 'Cancellation', bank_change: 'Bank change', documen
 
 export function HelpdeskScreen() {
   const d = useVendorData();
+  const navigation = useNavigation();
   const { wide } = useLayout();
   const [filter, setFilter] = useState<'Pending' | 'Resolved'>('Pending');
   const [cancel, setCancel] = useState(false);
+  const [choose, setChoose] = useState(false);
+  const [bank, setBank] = useState(false);
   const phone = d.ops.supportPhone.replace(/^\+91/, '').replace(/(\d{5})(\d{5})/, '$1 $2');
   const pending = d.requests.filter((r) => r.status === 'Pending');
   const list = filter === 'Pending' ? pending : d.requests.filter((r) => r.status !== 'Pending');
@@ -36,19 +40,9 @@ export function HelpdeskScreen() {
         <Btn icon="call-outline" title={`Call ${phone}`} onPress={() => void Linking.openURL(`tel:${d.ops.supportPhone}`)} style={!wide ? { flexGrow: 1 } : undefined} />
       </View>
 
-      <Grid gap={14}>
-        <Panel style={{ paddingVertical: 6, flexGrow: 1 }}>
-          <MenuItem icon="close-circle-outline" title="Request cancellation" sub="Office decision and charge details" onPress={() => setCancel(true)} />
-          <MenuItem icon="people-outline" title="Change driver or vehicle" sub="Open a booking and update before trip start" onPress={() => goSection('Bookings', { tab: 'Upcoming' })} last />
-        </Panel>
-        <Panel style={{ paddingVertical: 6, flexGrow: 1 }}>
-          <MenuItem icon="swap-horizontal-outline" title="Driver / vehicle linking" sub="Codes and office verification" onPress={() => goSection('Fleet', { tab: 'Vehicles', swap: Date.now() })} />
-          <MenuItem icon="logo-whatsapp" title="WhatsApp NESAM" sub={`Or email ${SUPPORT_EMAIL}`} onPress={() => void Linking.openURL(WHATSAPP_SUPPORT)} last />
-        </Panel>
-      </Grid>
-
       <View style={{ height: 26 }} />
-      <SectionLine title="My requests" meta="Duties stay active until the office approves cancellation." />
+      <SectionLine stacked title="My requests" meta="Duties stay active until the office approves cancellation."
+        action={<Btn small icon="add" title="Send a request" onPress={() => setChoose(true)} />} />
       <Tabs value={filter} onChange={setFilter} style={{ marginTop: 0 }} items={[{ id: 'Pending', label: 'Pending', count: pending.length }, { id: 'Resolved', label: 'Resolved', count: d.requests.length - pending.length }]} />
       {list.length ? (
         <Grid>
@@ -67,6 +61,15 @@ export function HelpdeskScreen() {
       ) : (
         <Empty icon="chatbubbles-outline" title={`No ${filter.toLowerCase()} requests`} text="Cancellation, bank change and document renewal requests appear here with the office decision." />
       )}
+      {choose ? (
+        <Sheet visible onClose={() => setChoose(false)} title="Send a request">
+          <Small style={{ marginBottom: 6 }}>The office reviews every request and replies here.</Small>
+          <MenuItem icon="close-circle-outline" title="Cancel a duty" sub="Office decision and charge details" onPress={() => { setChoose(false); setCancel(true); }} />
+          <MenuItem icon="card-outline" title="Change bank details" sub="Takes effect after office approval" onPress={() => { setChoose(false); setBank(true); }} />
+          <MenuItem icon="document-text-outline" title="Renew a document" sub="Upload the renewed document and its new expiry" onPress={() => { setChoose(false); navigation.navigate('Documents'); }} last />
+        </Sheet>
+      ) : null}
+      {bank ? <BankSheet onClose={() => setBank(false)} pending={d.requests.find((r) => r.type === 'bank_change' && r.status === 'Pending')?.accountLast4 ?? ''} summary={d.record.payoutSummary} /> : null}
       {cancel ? <CancellationSheet booking={null} onClose={() => setCancel(false)} /> : null}
     </Page>
   );

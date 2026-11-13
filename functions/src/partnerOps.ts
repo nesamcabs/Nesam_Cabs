@@ -220,12 +220,20 @@ export const submitPartnerRequest = onCall(async (request) => {
 
   if (type === 'bank_change') {
     const accountHolder = text(input.accountHolder, 120);
-    const last4 = String(input.accountLast4 ?? '').replace(/\D/g, '');
+    // The full account number comes from newer apps; older ones only send the last four digits.
+    const accountNumber = String(input.accountNumber ?? '').replace(/\D/g, '');
+    const last4 = accountNumber ? accountNumber.slice(-4) : String(input.accountLast4 ?? '').replace(/\D/g, '');
     const ifsc = text(input.ifsc, 11).toUpperCase();
+    const bankName = text(input.bankName, 80);
+    const branchName = text(input.branchName, 80);
+    const upiId = text(input.upiId, 80);
     if (accountHolder.length < 3) throw new HttpsError('invalid-argument', 'Enter the account holder name.');
-    if (!/^\d{4}$/.test(last4)) throw new HttpsError('invalid-argument', 'Enter the last four digits of the new account.');
+    if (accountNumber && !/^\d{8,20}$/.test(accountNumber)) throw new HttpsError('invalid-argument', 'Enter the full account number (8 to 20 digits).');
+    if (!/^\d{4}$/.test(last4)) throw new HttpsError('invalid-argument', 'Enter the account number.');
     if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) throw new HttpsError('invalid-argument', 'Enter a valid IFSC (for example HDFC0001234).');
-    payload = { accountHolder, accountLast4: last4, ifsc, note: text(input.note, 300) };
+    if (accountNumber && (bankName.length < 2 || branchName.length < 2)) throw new HttpsError('invalid-argument', 'Enter the bank name and the branch name.');
+    if (upiId && !/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+$/.test(upiId)) throw new HttpsError('invalid-argument', 'Enter a valid UPI ID (for example name@bank) or leave it empty.');
+    payload = { accountHolder, accountLast4: last4, ifsc, bankName, branchName, upiId, ...(accountNumber ? { accountNumber } : {}), note: text(input.note, 300) };
     title = 'Bank detail change';
   } else {
     const entityType = input.entityType === 'vehicle' ? 'vehicle' : input.entityType === 'driver' ? 'driver' : null;
@@ -270,7 +278,7 @@ export const submitPartnerRequest = onCall(async (request) => {
       [party.type === 'vendor' ? 'vendorId' : 'driverId']: party.uid, ...payload, createdAt: stamp, requestedAt: stamp, updatedAt: stamp,
       decidedAt: null, decidedBy: '', adminReason: '',
     });
-    auditInTx(tx, { action: `partner_${type}_requested`, entity: 'partner_request', entityId: ref.id, performedBy: party.uid, performedByName: party.name, role: party.type, next: payload });
+    auditInTx(tx, { action: `partner_${type}_requested`, entity: 'partner_request', entityId: ref.id, performedBy: party.uid, performedByName: party.name, role: party.type, next: Object.fromEntries(Object.entries(payload).filter(([k]) => k !== 'accountNumber')) });
     const n: NotifyInput = {
       recipientType: 'admin', recipientId: 'admin', category: 'approvals', severity: 'info', sound: 'general', push: false,
       title: `${title} request`, message: `${party.name} (${party.type}) sent a ${title.toLowerCase()} request for review.`, cta: { label: 'Review request', page: 'partner-requests' },
@@ -376,7 +384,14 @@ export const decidePartnerRequest = onCall({ timeoutSeconds: 60 }, async (reques
     } else if (r.type === 'bank_change') {
       if (decision === 'approve') {
         const profile = db.doc(`${partyType === 'vendor' ? 'vendors' : 'drivers'}/${partyId}`);
-        tx.update(profile, { payoutSummary: { accountHolderName: text(r.accountHolder), bankLast4: text(r.accountLast4), ifsc: text(r.ifsc), upiId: '' }, bankUpdatedAt: stamp, updatedAt: stamp });
+        tx.update(profile, { payoutSummary: { accountHolderName: text(r.accountHolder), bankLast4: text(r.accountLast4), ifsc: text(r.ifsc), upiId: text(r.upiId), bankName: text(r.bankName), branchName: text(r.branchName) }, bankUpdatedAt: stamp, updatedAt: stamp });
+        // The account payouts are actually sent to lives in the private payout record: update it from the full number, then drop that
+        // number from the request so it is not kept there.
+        if (text(r.accountNumber, 30)) {
+          const details = { accountHolderName: text(r.accountHolder), accountNumber: text(r.accountNumber, 30), ifsc: text(r.ifsc), upiId: text(r.upiId), bankName: text(r.bankName), branchName: text(r.branchName) };
+          tx.set(db.doc(`${partyType === 'vendor' ? 'vendor_kyc' : 'driver_private'}/${partyId}`), partyType === 'vendor' ? { payout: details } : { bank: details }, { merge: true });
+          tx.update(snap.ref, { accountNumber: FieldValue.delete() });
+        }
         message = `Your bank details now end in ${text(r.accountLast4)}. ${adminReason}`;
       } else message = `Your bank change request was declined. ${adminReason}`;
     } else if (r.type === 'document_renewal') {

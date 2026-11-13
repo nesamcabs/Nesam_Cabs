@@ -11,10 +11,11 @@
 // Phones keep exactly the same layout as wide screens, only smaller; a long vehicle name is shortened with "…" rather than wrapping.
 import React from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Text } from './Text';
 import { colors } from '../../theme';
 import { useWindowWidth } from '../../theme/responsive';
+import { Blink } from './Blink';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -39,6 +40,8 @@ export interface DutyCardProps {
   onPress?: () => void;
   /** The quiet, button-free list card. */
   compact?: boolean;
+  /** The fuel the vehicle runs on: 'cng', or any other value for petrol / diesel. Shown as an icon beside the vehicle. */
+  fuel?: string;
   /** A status badge (the publish mode, a booking state). */
   badge?: React.ReactNode;
   /** Extra lines under the card's main content (fuel, deadline, notes). */
@@ -59,7 +62,8 @@ function Chip({ icon, text, tone = 'grey', sm, shrink }: { icon: IconName; text:
 const Divider = ({ sm, tall }: { sm: boolean; tall?: boolean }) => <View style={[s.vline, sm && c.vline, tall && { height: sm ? 40 : 46 }]} />;
 
 /** The compact list card: date·time and the mode tag, the route, then the facts and the price. */
-function CompactCard({ date, time, from, to, service, distance, vehicle, payout, badge, children, sm }: Pick<DutyCardProps, 'date' | 'time' | 'from' | 'to' | 'service' | 'distance' | 'vehicle' | 'payout' | 'badge' | 'children'> & { sm: boolean }) {
+function CompactCard({ date, time, from, to, service, distance, vehicle, payout, badge, fuel, children, sm }: Pick<DutyCardProps, 'date' | 'time' | 'from' | 'to' | 'service' | 'distance' | 'vehicle' | 'payout' | 'badge' | 'fuel' | 'children'> & { sm: boolean }) {
+  const cng = fuel === 'cng';
   return (
     <View style={[s.card, q.card]}>
       <View style={s.accent} />
@@ -95,12 +99,22 @@ function CompactCard({ date, time, from, to, service, distance, vehicle, payout,
                 <Text style={[q.factText, sm && q.factTextSm, q.vehicleText, { flexShrink: 1 }]} numberOfLines={1}>{vehicle}</Text>
               </View>
             ) : null}
+            {fuel ? (
+              // A CNG vehicle gets a green leaf icon (clean fuel), a petrol / diesel one a fuel-pump icon.
+              <View style={q.serviceRow}>
+                <MaterialCommunityIcons name={cng ? 'leaf' : 'gas-station'} size={sm ? 14 : 15} color={cng ? '#15803D' : '#475569'} />
+                <Text style={[q.factText, sm && q.factTextSm, q.vehicleText, cng && { color: '#15803D' }, { flexShrink: 1 }]} numberOfLines={1}>{cng ? 'CNG' : 'Diesel / Petrol'}</Text>
+              </View>
+            ) : null}
           </View>
-          <View style={q.priceWrap}>
+          <View style={q.priceCol} accessible accessibilityLabel={`Vendor payout ${payout}`}>
             <Text style={q.priceLabel} numberOfLines={1}>Vendor payout</Text>
-            <View style={q.price}>
-              <Text style={[q.priceText, sm && q.priceTextSm]} numberOfLines={1} adjustsFontSizeToFit>{payout}</Text>
-            </View>
+            {/* The red box blinks, to draw the eye to what the duty pays. */}
+            <Blink style={q.priceBlink} duration={1000}>
+              <View style={q.price}>
+                <Text style={[q.priceText, sm && q.priceTextSm]} numberOfLines={1} adjustsFontSizeToFit>{payout}</Text>
+              </View>
+            </Blink>
           </View>
         </View>
         {children}
@@ -109,14 +123,14 @@ function CompactCard({ date, time, from, to, service, distance, vehicle, payout,
   );
 }
 
-export function DutyCard({ date, time, from, to, service, distance, vehicle, payout, payoutLabel = 'Vendor payout', action, onPress, badge, children, accessibilityLabel, compact }: DutyCardProps) {
+export function DutyCard({ date, time, from, to, service, distance, vehicle, payout, payoutLabel = 'Vendor payout', action, onPress, badge, fuel, children, accessibilityLabel, compact }: DutyCardProps) {
   const width = useWindowWidth();
   const sm = width < 560;
   const xs = width < 360;
   // A long button label ("Assign driver", "View booking") cannot sit beside the payout on a phone: it goes under it, full width.
   const stack = sm && (action?.label.length ?? 0) > 10;
   const body = compact ? (
-    <CompactCard date={date} time={time} from={from} to={to} service={service} distance={distance} vehicle={vehicle} payout={payout} badge={badge} sm={sm}>{children}</CompactCard>
+    <CompactCard date={date} time={time} from={from} to={to} service={service} distance={distance} vehicle={vehicle} payout={payout} badge={badge} fuel={fuel} sm={sm}>{children}</CompactCard>
   ) : (
     <View style={[s.card, sm && c.card]}>
       <View style={s.accent} />
@@ -240,15 +254,17 @@ const q = StyleSheet.create({
   whenTextSm: { fontSize: 13 },
   dot: { width: 3, height: 3, borderRadius: 2, backgroundColor: '#C3CAD6', marginHorizontal: 3 },
   // The price sits in a soft tinted pill of a minimum width, so the amounts line up down the list.
-  price: { minWidth: 96, height: 34, paddingHorizontal: 12, borderRadius: 10, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  priceWrap: { alignItems: 'center', gap: 2, flexShrink: 0 },
-  priceLabel: { fontSize: 10.5, fontWeight: '600', color: '#8A94A6', letterSpacing: 0.2 },
-  priceText: { fontSize: 18, fontWeight: '800', color: colors.primary, letterSpacing: -0.3 },
-  priceTextSm: { fontSize: 16.5 },
+  // "Vendor payout" sits above the price box, small and grey; the box itself is solid red and stretches down to the last row beside it.
+  priceCol: { alignSelf: 'stretch', alignItems: 'flex-end', gap: 3, flexShrink: 0 },
+  priceLabel: { fontSize: 10, fontWeight: '600', color: '#8A94A6', letterSpacing: 0.2 },
+  priceBlink: { flex: 1, alignSelf: 'stretch' },
+  price: { flex: 1, minWidth: 112, minHeight: 36, paddingHorizontal: 12, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  priceText: { fontSize: 20, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5 },
+  priceTextSm: { fontSize: 18 },
   route: { fontSize: 19, fontWeight: '700', color: colors.ink, lineHeight: 26, letterSpacing: -0.4 },
   routeSm: { fontSize: 17, lineHeight: 23 },
   rule: { height: 1, backgroundColor: '#EEF1F5' },
-  foot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  foot: { flexDirection: 'row', alignItems: 'stretch', justifyContent: 'space-between', gap: 12 },
   facts: { flex: 1, minWidth: 0, gap: 2 },
   serviceRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   distance: { flexShrink: 0 },

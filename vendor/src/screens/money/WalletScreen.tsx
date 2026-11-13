@@ -11,6 +11,7 @@ import { Page } from '../../components/shell/Page';
 import { Segmented, Sheet, TextField } from '../../components/ui';
 import { DuesPaymentSheet } from '../../components/DuesPaymentSheet';
 import { DepositSheet } from '../../components/DepositSheet';
+import { Blink } from '../../components/kit/Blink';
 import { ActionButton, Badge, Btn, Empty, Eyebrow, Feedback, Grid, H2, KV, Notice, Panel, Small, Tabs, TextLink, type IconName, type Tone } from '../../components/kit/core';
 import { dayTime, rupees } from '../../components/kit/format';
 import { flash } from '../../components/kit/flash';
@@ -70,11 +71,6 @@ export function WalletScreen() {
 
   return (
     <Page title="Wallet">
-      {remainingDeposit > 0 ? (
-        <Notice tone="amber" icon="shield-checkmark-outline" title="Security recharge is mandatory" style={{ marginBottom: 12 }}
-          text={`NESAM requires a refundable recharge of ${rupees(requiredDeposit)}. ${heldDeposit ? `${rupees(heldDeposit)} is paid; ` : ''}pay the remaining ${rupees(remainingDeposit)} to complete it.${policy.message ? ` ${policy.message}` : ''}`}
-          action={<Btn small icon="add" title="Recharge now" onPress={() => setSheet('deposit')} />} />
-      ) : null}
       {d.errors.wallet ? <Notice tone="red" title="Wallet could not load" text={d.errors.wallet} style={{ marginBottom: 14 }} /> : null}
       <View style={styles.actionRow}>
         {negative
@@ -102,9 +98,11 @@ export function WalletScreen() {
               <Eyebrow>SECURITY RECHARGE{requiredDeposit ? ' · MANDATORY' : ''}</Eyebrow>
               <Text style={styles.depositValue} numberOfLines={1}>{rupees(heldDeposit)}{requiredDeposit ? <Text style={styles.depositOf}> / {rupees(requiredDeposit)}</Text> : null}</Text>
             </View>
-            <Badge
-              label={depositClosed ? (dep?.status ?? '') : requiredDeposit ? (remainingDeposit > 0 ? `${rupees(remainingDeposit)} due` : 'Complete') : (dep?.status ?? 'Not recorded')}
-              tone={depositClosed ? 'amber' : requiredDeposit ? (remainingDeposit > 0 ? 'red' : 'green') : dep?.status === 'Active' ? 'green' : 'neutral'} />
+            <Blink active={!depositClosed && remainingDeposit > 0}>
+              <Badge
+                label={depositClosed ? (dep?.status ?? '') : requiredDeposit ? (remainingDeposit > 0 ? `${rupees(remainingDeposit)} due` : 'Complete') : (dep?.status ?? 'Not recorded')}
+                tone={depositClosed ? 'amber' : requiredDeposit ? (remainingDeposit > 0 ? 'red' : 'green') : dep?.status === 'Active' ? 'green' : 'neutral'} />
+            </Blink>
           </View>
           {requiredDeposit && !depositClosed ? (
             <View style={styles.track} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: depositPct }} accessibilityLabel="Security recharge paid">
@@ -116,6 +114,15 @@ export function WalletScreen() {
           {dep?.status === 'Refund requested' ? <Small style={{ marginTop: 8 }}>Existing duties and outstanding accounts must be resolved before the refund.</Small> : null}
         </Panel>
       </Grid>
+
+      {remainingDeposit > 0 ? (
+        // Blinks until the whole mandatory recharge is paid.
+        <Blink>
+          <Notice tone="amber" icon="shield-checkmark-outline" title="Security recharge is mandatory" style={{ marginTop: 12 }}
+            text={`Pay the remaining ${rupees(remainingDeposit)} to complete it.`}
+            action={<Btn small icon="add" title="Recharge now" onPress={() => setSheet('deposit')} />} />
+        </Blink>
+      ) : null}
 
       {processing ? <Notice tone="neutral" icon="time-outline" title="Adjustment pending" text={`${processing} completed ${processing === 1 ? 'duty needs' : 'duties need'} final bill closure or collection verification.`} style={{ marginTop: 18 }} /> : null}
 

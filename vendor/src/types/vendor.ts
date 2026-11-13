@@ -268,6 +268,9 @@ export interface PayoutSummary {
   bankLast4: string;
   ifsc: string;
   upiId: string;
+  /** Set by an approved bank change (the onboarding summary has neither). */
+  bankName?: string;
+  branchName?: string;
 }
 
 export interface AdminReview {

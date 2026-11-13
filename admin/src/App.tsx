@@ -38,6 +38,7 @@ import Penalties from "./pages/Penalties";
 import DriverEarnings from "./pages/DriverEarnings";
 import VendorFinance from "./pages/VendorFinance";
 import SecurityDeposit from "./pages/SecurityDeposit";
+import VendorBids from "./pages/VendorBids";
 import ReportsGst from "./pages/ReportsGst";
 import Communication from "./pages/Communication";
 import StaffRoles from "./pages/StaffRoles";
@@ -80,6 +81,7 @@ const pageMeta: Record<string, { title: string; breadcrumb: string[] }> = {
   "booking-detail": { title: "Bookings", breadcrumb: ["Operations", "Bookings", "Details"] },
   trips: { title: "Live Trips", breadcrumb: ["Operations", "Trips"] },
   marketplace: { title: "Open Trip Marketplace", breadcrumb: ["Operations", "Open Marketplace"] },
+  "vendor-bids": { title: "Vendor Bids", breadcrumb: ["Operations", "Vendor Bids"] },
   customers: { title: "Customers", breadcrumb: ["People & Fleet", ""] },
   vendors: { title: "Vendor Management", breadcrumb: ["People & Fleet", ""] },
   drivers: { title: "Drivers", breadcrumb: ["People & Fleet", "Driver Partners"] },
@@ -259,6 +261,8 @@ function AdminShell({ session }: { session: AdminSession }) {
         );
       case "marketplace":
         return <Marketplace onSelectBooking={(id) => setSelectedBookingId(id)} />;
+      case "vendor-bids":
+        return <VendorBids onOpenBooking={(id) => setSelectedBookingId(id)} />;
 
       // People
       case "customers":

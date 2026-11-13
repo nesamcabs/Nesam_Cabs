@@ -133,8 +133,20 @@ export function assignDeadline(acceptedAt: Date | null, pickupAt: Date | null, o
 export const requestCancellation = (bookingId: string, reason: string, details: string, quotedPenalty: number) =>
   callFunction('requestDutyCancellation', { bookingId, reason, details: details.trim(), quotedPenalty }, 30000);
 
-export const requestBankChange = (accountHolder: string, accountLast4: string, ifsc: string) =>
-  callFunction('submitPartnerRequest', { type: 'bank_change', accountHolder: accountHolder.trim(), accountLast4, ifsc: ifsc.trim().toUpperCase() });
+export interface BankChangeInput { accountHolder: string; accountNumber: string; ifsc: string; bankName: string; branchName: string; upiId?: string }
+
+/** Asks the office to change the payout bank account. The full account number goes to the office only; the last four digits are also sent for older servers. */
+export const requestBankChange = (b: BankChangeInput) =>
+  callFunction('submitPartnerRequest', {
+    type: 'bank_change',
+    accountHolder: b.accountHolder.trim(),
+    accountNumber: b.accountNumber.replace(/\D/g, ''),
+    accountLast4: b.accountNumber.replace(/\D/g, '').slice(-4),
+    ifsc: b.ifsc.trim().toUpperCase(),
+    bankName: b.bankName.trim(),
+    branchName: b.branchName.trim(),
+    upiId: (b.upiId ?? '').trim(),
+  });
 
 export const requestDepositRefund = () => callFunction('requestDepositRefund', {});
 

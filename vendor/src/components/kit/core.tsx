@@ -252,13 +252,20 @@ export function ActionButton({ icon, label, onPress, primary, disabled, count, a
   );
 }
 
-export function SectionLine({ title, meta, action }: { title?: string; meta?: string; action?: React.ReactNode }) {
+export function SectionLine({ title, meta, action, stacked }: { title?: string; meta?: string; action?: React.ReactNode; /** Put `meta` under the title instead of beside it. */ stacked?: boolean }) {
   return (
     <View style={s.sectionLine}>
-      <View style={s.inline}>
-        {title ? <Text style={s.sectionTitle}>{title}</Text> : null}
-        {meta ? <Text style={s.sectionMeta}>{meta}</Text> : null}
-      </View>
+      {stacked ? (
+        <View style={{ flexShrink: 1, minWidth: 0 }}>
+          {title ? <Text style={s.sectionTitle}>{title}</Text> : null}
+          {meta ? <Text style={[s.sectionMeta, { marginTop: 3 }]}>{meta}</Text> : null}
+        </View>
+      ) : (
+        <View style={s.inline}>
+          {title ? <Text style={s.sectionTitle}>{title}</Text> : null}
+          {meta ? <Text style={s.sectionMeta}>{meta}</Text> : null}
+        </View>
+      )}
       {action}
     </View>
   );

@@ -105,8 +105,7 @@ export function DutyRow({ trip: t, bid, onAction, list }: { trip: MarketTrip; bi
   const dateText = pickup ? numericDate(pickup) : t.travelDate || '';
   // One line saying where this duty stands for this vendor (nothing when it is simply open).
   const closes = t.cutoffMs ? `Bidding closes ${dayTime(new Date(t.cutoffMs))}` : '';
-  const status = bid ? `Your bid ${rupees(bid.vendorCounterRate)} · ${bid.autoAcceptConsent ? 'allocates when payout reaches it' : 'update to confirm'}`
-    : opensAt ? `Opens to vendors at ${timeText(new Date(opensAt))}`
+  const status = opensAt ? `Opens to vendors at ${timeText(new Date(opensAt))}`
     : isBidding(t) && !bidOpen ? 'Bidding closed'
     : isBidding(t) ? closes
     : '';
@@ -124,13 +123,13 @@ export function DutyRow({ trip: t, bid, onAction, list }: { trip: MarketTrip; bi
       payoutLabel={isBidding(t) ? 'Payout' : isFixed(t) ? 'Fixed payout' : 'Vendor payout'}
       badge={isBidding(t) ? <Badge label="Bidding" tone="blue" /> : isFixed(t) ? <Badge label="Fixed payout" tone="green" /> : undefined}
       compact
+      fuel={t.fuelType}
       onPress={list ? open : undefined}
       accessibilityLabel={`${marketFrom(t)} to ${marketTo(t)}, vendor payout ${rupees(t.offeredPayout)}. Open duty`}
     >
-      {t.fuelType || status || !list ? (
+      {status || !list ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 10, rowGap: 4 }}>
           {list ? null : <Text style={styles.code} numberOfLines={1}>{t.bookingId}</Text>}
-          {t.fuelType ? <Badge label={t.fuelType === 'cng' ? 'CNG' : 'Diesel / Petrol'} tone={t.fuelType === 'cng' ? 'green' : 'neutral'} /> : null}
           {status ? <Text style={[styles.status, bid ? { color: '#2F5BD3' } : opensAt ? { color: '#946000' } : null]} numberOfLines={1}>{status}</Text> : null}
         </View>
       ) : null}

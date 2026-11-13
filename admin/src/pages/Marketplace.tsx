@@ -50,6 +50,9 @@ const BID_STATUS_STYLE: Record<string, string> = {
   Withdrawn: "bg-gray-100 text-gray-600 border-gray-200",
 };
 
+/** One row of the trips list: booking, route, vehicle, payout, status, action (stacked on phones). */
+const ROW = "md:grid md:grid-cols-[minmax(130px,1fr)_minmax(200px,2fr)_minmax(110px,0.9fr)_100px_130px_130px] md:items-center md:gap-4";
+
 export default function Marketplace({ onSelectBooking }: MarketplaceProps) {
   const canFinance = useCan("finance");
   const canOperations = useCan("operations");
@@ -194,30 +197,24 @@ export default function Marketplace({ onSelectBooking }: MarketplaceProps) {
   }, [trips, statusFilter, search]);
 
   return (
-    <div className="w-full min-w-0 space-y-5">
+    <div className="w-full min-w-0 space-y-4">
       <Toast toast={toast} />
 
       {/* Header and Title */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex-1 min-w-[260px]">
-          <h1 className="text-xl md:text-2xl font-bold text-ink">Open Trip Marketplace</h1>
-          <p className="text-sm text-muted mt-0.5">
-            Publish approved bookings to eligible independent drivers and partner vendors, review bids, and award assignments. Approving a booking does not publish it — you publish it here or from the booking.
-          </p>
+        <div className="min-w-0">
+          <h1 className="text-lg md:text-xl font-bold text-ink">Open Trip Marketplace</h1>
+          <p className="text-[13px] text-muted">Publish approved bookings to partners and review bids. Approving a booking does not publish it.</p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={() => setShowPostingForm((prev) => !prev)}
-            className={`px-4 py-2.5 rounded-lg text-sm font-semibold transition-all shadow-sm ${
-              showPostingForm
-                ? "bg-gray-100 text-body border border-line-strong hover:bg-gray-200"
-                : primaryBtn
-            }`}
-          >
-            {showPostingForm ? "✕ Close Post Panel" : "+ Post Booking to Marketplace"}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setShowPostingForm((prev) => !prev)}
+          className={`px-3.5 py-2 rounded-lg text-[13px] font-semibold transition-all shadow-sm shrink-0 ${
+            showPostingForm ? "bg-gray-100 text-body border border-line-strong hover:bg-gray-200" : primaryBtn
+          }`}
+        >
+          {showPostingForm ? "✕ Close" : "+ Post booking"}
+        </button>
       </div>
 
       {actionError && (
@@ -303,100 +300,75 @@ export default function Marketplace({ onSelectBooking }: MarketplaceProps) {
             <PostingOptions value={posting.value} onChange={posting.set} />
 
             <p className="text-xs text-faint bg-gray-50 rounded-lg p-2.5 border border-gray-100">
-              ℹ️ When posted, vendors will see this trip under their Marketplace offers. If no custom payout is specified by Finance, the platform commission rule calculates the offer rate automatically.
+              ℹ️ When posted, vendors will see this trip under their Marketplace offers. If no custom payout is specified by Finance, the offer is the tariff's partner payout.
             </p>
           </form>
         </section>
       )}
 
-      {/* Stats Counter Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        {[
-          { label: "All Marketplace", count: stats.total, color: "text-ink" },
-          { label: "Open for Claims", count: stats.openCount, color: "text-emerald-700" },
-          { label: "Bids Active", count: stats.biddingCount, color: "text-amber-700" },
-          { label: "Assigned", count: stats.assignedCount, color: "text-blue-700" },
-          { label: "Closed", count: stats.closedCount, color: "text-gray-500" },
-        ].map((s) => (
-          <div key={s.label} className="bg-white rounded-xl border border-line shadow-xs p-3.5 flex flex-col">
-            <span className="text-xs font-medium text-muted">{s.label}</span>
-            <span className={`text-2xl font-extrabold mt-1 ${s.color}`}>{loading ? "…" : s.count}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* Filter and Search Bar */}
-      <div className="bg-white rounded-xl border border-line shadow-xs p-3.5 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-[280px]">
-          <div className="relative flex-1 min-w-[200px] max-w-2xl">
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by Booking ID, Route, Vehicle…"
-              aria-label="Search marketplace trips"
-              className={`${inputCls} pl-8`}
-            />
-            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none">
-              🔍
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-semibold text-muted">Status:</span>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
-              className={`${inputCls} !w-auto text-xs py-2`}
-              aria-label="Filter by status"
+      {/* Status tabs (with counts) and search */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div role="tablist" aria-label="Filter by status" className="flex flex-wrap gap-2">
+          {([
+            ["All", "All", stats.total],
+            ["Open", "Open for claims", stats.openCount],
+            ["Bidding", "Bids active", stats.biddingCount],
+            ["Assigned", "Assigned", stats.assignedCount],
+            ["Closed", "Closed", stats.closedCount],
+          ] as const).map(([id, label, count]) => (
+            <button
+              key={id}
+              role="tab"
+              type="button"
+              aria-selected={statusFilter === id}
+              onClick={() => setStatusFilter(id)}
+              className={`px-3 py-1.5 rounded-lg text-[13px] font-semibold border ${statusFilter === id ? "bg-ink text-white border-ink" : "bg-white text-body border-line-strong hover:bg-gray-50"}`}
             >
-              <option value="All">All Statuses ({trips.length})</option>
-              <option value="Open">Open ({stats.openCount})</option>
-              <option value="Bidding">Bidding ({stats.biddingCount})</option>
-              <option value="Assigned">Assigned ({stats.assignedCount})</option>
-              <option value="Closed">Closed ({stats.closedCount})</option>
-            </select>
-          </div>
+              {label}
+              <span className={`ml-2 text-[11px] rounded-full px-1.5 py-0.5 ${statusFilter === id ? "bg-white/20" : "bg-gray-100 text-muted"}`}>{loading ? "…" : count}</span>
+            </button>
+          ))}
         </div>
-
-        <div className="text-xs font-medium text-muted">
-          Showing <strong>{filteredTrips.length}</strong> of {trips.length} trips
-        </div>
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search booking ID, route or vehicle"
+          aria-label="Search marketplace trips"
+          className={`${inputCls} !w-full sm:!w-72`}
+        />
       </div>
 
-      {/* Trips List / Table Container */}
-      <div className="space-y-3.5">
+      {/* Trips as a compact list */}
+      <div className="bg-white rounded-xl border border-line shadow-sm overflow-hidden">
+        <div className={`hidden ${ROW} px-4 py-2 bg-surface-2 border-b border-line text-[11px] uppercase tracking-wide text-muted font-semibold`}>
+          <span>Booking</span><span>Route</span><span>Vehicle</span><span className="text-right">Payout</span><span>Status</span><span className="text-right">Action</span>
+        </div>
+
         {loading && (
-          <div className="bg-white rounded-2xl border border-line p-12 text-center text-sm text-muted shadow-xs" role="status">
-            <div className="inline-block w-6 h-6 border-2 border-brand border-t-transparent rounded-full animate-spin mb-2" />
+          <div className="py-12 text-center text-sm text-muted" role="status">
+            <div className="inline-block w-5 h-5 border-2 border-brand border-t-transparent rounded-full animate-spin mb-2" />
             <p>Loading marketplace listings…</p>
           </div>
         )}
 
         {!loading && filteredTrips.length === 0 && (
-          <div className="bg-white rounded-2xl border border-line p-12 text-center space-y-2 shadow-xs">
-            <div className="text-3xl">🚖</div>
-            <h3 className="text-base font-bold text-ink">No Marketplace Trips Found</h3>
-            <p className="text-sm text-muted max-w-md mx-auto">
+          <div className="py-12 text-center space-y-1.5">
+            <h3 className="text-sm font-bold text-ink">No marketplace trips found</h3>
+            <p className="text-[13px] text-muted max-w-md mx-auto">
               {search || statusFilter !== "All"
-                ? "No trips matched your search or status criteria. Try resetting the filters."
-                : "No trips are currently posted on the marketplace. Verified bookings can be broadcast using the button above."}
+                ? "Nothing matches your search or status. Try resetting the filters."
+                : "No trips are posted yet. Verified bookings can be posted with the button above."}
             </p>
             {(search || statusFilter !== "All") && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSearch("");
-                  setStatusFilter("All");
-                }}
-                className={`mt-2 ${secondaryBtn}`}
-              >
-                Reset Filters
+              <button type="button" onClick={() => { setSearch(""); setStatusFilter("All"); }} className={`mt-1 ${secondaryBtn}`}>
+                Reset filters
               </button>
             )}
           </div>
         )}
 
+        <div className="divide-y divide-line">
         {!loading &&
           filteredTrips.map((trip) => {
             const isExpanded = expanded === trip.id;
@@ -410,100 +382,62 @@ export default function Marketplace({ onSelectBooking }: MarketplaceProps) {
             const payoutAmount = rupees(trip.offeredPayout);
             const code = trip.bookingId || trip.id;
             const vehicle = trip.vehicleCategory || trip.vehicleType || "Standard";
+            const modeText = trip.mode === "bid_review" ? "Bids reviewed by NESAM" : trip.mode === "accept_offer" ? "Accept current offer" : "Offer or bid";
+            const escalation = trip.escalation?.enabled ? ` · +${trip.escalation.stepPercent ?? 5}% / ${trip.escalation.intervalMinutes ?? 60} min (step ${trip.escalation.step ?? 0})` : "";
 
             return (
-              <article
-                key={trip.id}
-                className={`bg-white rounded-2xl border transition-all shadow-xs ${
-                  isExpanded ? "border-brand ring-1 ring-brand/20" : "border-line hover:border-[#D0D0D0]"
-                }`}
-              >
-                {/* Trip Card Summary Header */}
-                <div className="p-4 md:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  {/* Left Column: ID, Category & Route */}
-                  <div className="space-y-2 flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2.5">
-                      <strong className="text-base font-bold text-ink tracking-tight">{code}</strong>
-                      <span className="text-xs font-semibold px-2.5 py-0.5 rounded-md bg-gray-100 text-gray-700 border border-gray-200">
-                        {vehicle}
-                      </span>
-                      {trip.distanceKm ? (
-                        <span className="text-xs text-muted font-medium">· {trip.distanceKm} km</span>
-                      ) : null}
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-blue-50 text-blue-800 border border-blue-200">
-                        {trip.mode === "bid_review" ? "Bids reviewed by NESAM" : trip.mode === "accept_offer" ? "Accept current offer" : "Offer or bid (older post)"}
-                      </span>
-                      {trip.escalation?.enabled ? (
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
-                          Escalating +{trip.escalation.stepPercent ?? 5}% / {trip.escalation.intervalMinutes ?? 60} min · step {trip.escalation.step ?? 0}
-                        </span>
-                      ) : null}
-                      {onSelectBooking && (
-                        <button
-                          type="button"
-                          onClick={() => onSelectBooking(trip.id)}
-                          className="text-xs text-brand hover:underline font-semibold"
-                          title="View complete booking details"
-                        >
-                          View booking ↗
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Route Display */}
-                    <div className="flex items-start gap-2 text-sm text-body">
-                      <div className="flex flex-col items-center mt-1 shrink-0">
-                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-100" />
-                        <span className="w-0.5 h-4 bg-gray-300 my-0.5" />
-                        <span className="w-2.5 h-2.5 rounded-xs bg-brand ring-2 ring-red-100" />
-                      </div>
-                      <div className="min-w-0 flex-1 space-y-0.5">
-                        <div className="font-medium truncate" title={pickupAddr}>
-                          <span className="text-xs text-faint uppercase font-semibold mr-1.5">Pickup:</span>
-                          {pickupAddr}
-                        </div>
-                        <div className="font-medium truncate" title={dropAddr}>
-                          <span className="text-xs text-faint uppercase font-semibold mr-1.5">Drop:</span>
-                          {dropAddr}
-                        </div>
-                      </div>
-                    </div>
+              <article key={trip.id} className={isExpanded ? "bg-red-50/30" : ""}>
+                <div className={`px-4 py-2.5 space-y-1 md:space-y-0 hover:bg-surface-2 ${ROW}`}>
+                  <div className="min-w-0">
+                    <div className="text-[13px] font-bold text-ink">{code}</div>
+                    {onSelectBooking && (
+                      <button type="button" onClick={() => onSelectBooking(trip.id)} className="text-[11px] font-semibold text-brand hover:underline" title="View complete booking details">
+                        View booking ↗
+                      </button>
+                    )}
                   </div>
 
-                  {/* Right Column: Payout, Status Badge & Expand Action */}
-                  <div className="flex md:flex-col items-center md:items-end justify-between md:justify-center gap-3 shrink-0 pt-3 md:pt-0 border-t md:border-t-0 border-line-soft">
-                    <div className="text-left md:text-right">
-                      <div className="text-xs text-faint font-semibold uppercase">Offered Payout</div>
-                      <div className="text-xl md:text-2xl font-extrabold text-ink">{payoutAmount}</div>
+                  <div className="min-w-0 text-[13px] text-body">
+                    <div className="truncate" title={`${pickupAddr} → ${dropAddr}`}>
+                      {pickupAddr} <span className="text-faint">→</span> {dropAddr}
                     </div>
+                    <div className="text-[11px] text-muted truncate">{modeText}{escalation}</div>
+                  </div>
 
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${tripStatus.chip}`}
-                      >
-                        <span className={`w-1.5 h-1.5 rounded-full ${tripStatus.dot}`} />
-                        {tripStatus.label}
-                      </span>
+                  <div className="min-w-0 text-[13px] text-body">
+                    <div className="truncate">{vehicle}</div>
+                    {trip.distanceKm ? <div className="text-[11px] text-muted">{trip.distanceKm} km</div> : null}
+                  </div>
 
-                      <button
-                        type="button"
-                        onClick={() => setExpanded(isExpanded ? "" : trip.id)}
-                        className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all ${
-                          isExpanded
-                            ? "bg-red-50 text-brand border-red-200"
-                            : "bg-white text-body border-line-strong hover:bg-gray-50"
-                        }`}
-                        aria-expanded={isExpanded}
-                      >
-                        {isExpanded ? "Hide Review ▲" : "Review Bids & Assign ▼"}
-                      </button>
-                    </div>
+                  <div className="md:text-right">
+                    <span className="text-[11px] text-faint uppercase font-semibold md:hidden mr-1.5">Payout</span>
+                    <span className="text-[15px] font-extrabold text-ink">{payoutAmount}</span>
+                  </div>
+
+                  <div>
+                    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${tripStatus.chip}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${tripStatus.dot}`} />
+                      {tripStatus.label}
+                    </span>
+                  </div>
+
+                  <div className="md:text-right pt-1 md:pt-0">
+                    <button
+                      type="button"
+                      onClick={() => setExpanded(isExpanded ? "" : trip.id)}
+                      className={`px-2.5 py-1.5 text-xs font-bold rounded-lg border transition-all ${
+                        isExpanded ? "bg-red-50 text-brand border-red-200" : "bg-white text-body border-line-strong hover:bg-gray-50"
+                      }`}
+                      aria-expanded={isExpanded}
+                    >
+                      {isExpanded ? "Hide ▲" : "Bids & assign ▼"}
+                    </button>
                   </div>
                 </div>
 
                 {/* Expanded Drawer: Bids and Driver Assignment */}
                 {isExpanded && (
-                  <div className="border-t border-line bg-surface-2 p-4 md:p-5 rounded-b-2xl space-y-5 animate-in fade-in duration-150">
+                  <div className="border-t border-line bg-surface-2 p-4 space-y-4 animate-in fade-in duration-150">
                     {/* Bids Section */}
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
@@ -645,6 +579,7 @@ export default function Marketplace({ onSelectBooking }: MarketplaceProps) {
               </article>
             );
           })}
+        </div>
       </div>
     </div>
   );

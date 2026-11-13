@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { collectionGroup, onSnapshot } from "firebase/firestore";
+import { db } from "../services/firebase";
 import { subscribeToCollection, subscribeAdminNotifications, COLLECTIONS } from "../services/adminFirestoreService";
 import { normalizeVendorStatus } from "../utils/vendorStatus";
 import { canAccessPage, type AdminAccess } from "../config/permissions";
@@ -10,13 +12,15 @@ export interface NavBadges {
   awaitingAssignment: number;
   trips: number;
   marketplace: number;
+  /** Vendor bids waiting for NESAM to review. */
+  vendorBids: number;
   vendors: number;
   drivers: number;
   notifications: number;
   support: number;
 }
 
-const EMPTY: NavBadges = { newBookings: 0, awaitingAssignment: 0, trips: 0, marketplace: 0, vendors: 0, drivers: 0, notifications: 0, support: 0 };
+const EMPTY: NavBadges = { newBookings: 0, awaitingAssignment: 0, trips: 0, marketplace: 0, vendorBids: 0, vendors: 0, drivers: 0, notifications: 0, support: 0 };
 
 /**
  * Live counts for the sidebar badges and the live strip. Subscribes only to the areas the signed-in
@@ -43,6 +47,9 @@ export function useNavBadges(access: AdminAccess): NavBadges {
     }
     if (allowed("marketplace")) {
       unsubs.push(subscribeToCollection("marketplace_trips", (data: any[]) => set({ marketplace: data.filter((t) => t.status === "Open").length })));
+    }
+    if (allowed("vendor-bids")) {
+      unsubs.push(onSnapshot(collectionGroup(db, "bids"), (snap) => set({ vendorBids: snap.docs.filter((d) => (d.data().status || "Pending Review") === "Pending Review").length }), () => undefined));
     }
     if (allowed("vendors")) {
       unsubs.push(

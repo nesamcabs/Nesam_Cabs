@@ -101,29 +101,45 @@ export function AccountScreen() {
   );
 }
 
-function BankSheet({ onClose, pending, summary }: { onClose: () => void; pending: string; summary: { accountHolderName: string; bankLast4: string; ifsc: string } | null }) {
+export function BankSheet({ onClose, pending, summary }: { onClose: () => void; pending: string; summary: { accountHolderName: string; bankLast4: string; ifsc: string; upiId?: string; bankName?: string; branchName?: string } | null }) {
   const [holder, setHolder] = useState(summary?.accountHolderName ?? '');
-  const [last4, setLast4] = useState('');
+  const [account, setAccount] = useState('');
   const [ifsc, setIfsc] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [branch, setBranch] = useState('');
+  const [upi, setUpi] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const submit = async () => {
-    if (holder.trim().length < 2) { setError('Enter the account holder name.'); return; }
-    if (!/^\d{4}$/.test(last4)) { setError('Enter the last four digits of the new account.'); return; }
-    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc.toUpperCase())) { setError('Enter a valid IFSC (for example HDFC0001234).'); return; }
+    if (holder.trim().length < 3) { setError('Enter the account holder name.'); return; }
+    if (!/^\d{8,20}$/.test(account)) { setError('Enter the full account number (8 to 20 digits).'); return; }
+    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc.toUpperCase())) { setError('Enter a valid IFSC code (for example HDFC0001234).'); return; }
+    if (bankName.trim().length < 2) { setError('Enter the bank name.'); return; }
+    if (branch.trim().length < 2) { setError('Enter the branch name.'); return; }
+    if (upi.trim() && !/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+$/.test(upi.trim())) { setError('Enter a valid UPI ID (for example name@bank) or leave it empty.'); return; }
     setBusy(true); setError('');
-    try { await requestBankChange(holder, last4, ifsc); flash('Bank change requested. It takes effect after office approval.'); onClose(); }
+    try { await requestBankChange({ accountHolder: holder, accountNumber: account, ifsc, bankName, branchName: branch, upiId: upi }); flash('Bank change requested. It takes effect after office approval.'); onClose(); }
     catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   };
   return (
     <Sheet visible onClose={onClose} title="Bank details" dismissible={!busy}>
-      <KV rows={[['Account holder', summary?.accountHolderName || '—'], ['Account ending', summary?.bankLast4 ? `•••• ${summary.bankLast4}` : '—'], ['IFSC', summary?.ifsc || '—']]} style={{ marginTop: 0 }} />
+      <KV rows={[
+        ['Account holder', summary?.accountHolderName || '—'],
+        ['Account ending', summary?.bankLast4 ? `•••• ${summary.bankLast4}` : '—'],
+        ['IFSC code', summary?.ifsc || '—'],
+        summary?.bankName ? ['Bank', summary.bankName] : null,
+        summary?.branchName ? ['Branch', summary.branchName] : null,
+        summary?.upiId ? ['UPI ID', summary.upiId] : null,
+      ]} style={{ marginTop: 0 }} />
       {pending ? <Small style={{ marginTop: 14 }}>A change to the account ending {pending} is with the office.</Small> : (
         <View style={{ marginTop: 18 }}>
           <H2 style={{ fontSize: 14, marginBottom: 12 }}>Request a change</H2>
-          <TextField label="Account holder" value={holder} onChangeText={setHolder} />
-          <TextField label="New account — last four digits" value={last4} onChangeText={(v) => setLast4(v.replace(/\D/g, '').slice(0, 4))} keyboardType="number-pad" />
-          <TextField label="IFSC" value={ifsc} onChangeText={(v) => setIfsc(v.toUpperCase().slice(0, 11))} autoCapitalize="characters" hint="Bank changes take effect after office approval." />
+          <TextField label="Account holder name" required value={holder} onChangeText={setHolder} autoCapitalize="words" />
+          <TextField label="Account number" required value={account} onChangeText={(v) => setAccount(v.replace(/\D/g, '').slice(0, 20))} keyboardType="number-pad" />
+          <TextField label="IFSC code" required value={ifsc} onChangeText={(v) => setIfsc(v.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 11))} autoCapitalize="characters" placeholder="HDFC0001234" />
+          <TextField label="Bank name" required value={bankName} onChangeText={setBankName} autoCapitalize="words" />
+          <TextField label="Branch name" required value={branch} onChangeText={setBranch} autoCapitalize="words" />
+          <TextField label="UPI ID · optional" value={upi} onChangeText={setUpi} autoCapitalize="none" autoCorrect={false} placeholder="name@bank" hint="Bank changes take effect after office approval." />
           <Feedback tone="error" message={error} />
           <Btn title="Request bank change" icon="send-outline" full busy={busy} onPress={() => void submit()} />
         </View>
