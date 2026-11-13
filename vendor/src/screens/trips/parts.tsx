@@ -1,21 +1,32 @@
 // Marketplace duty row (the reference's q-duty-row) and the accept / bid dialogs used on Trips, Duty details and My bids.
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Text } from '../../components/kit/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useVendorData } from '../../context/VendorData';
 import { useInbox } from '../../context/Inbox';
 import { Sheet, TextField } from '../../components/ui';
-import { Badge, Btn, Check, Feedback, KV, Meta, Notice, RouteTitle, Small } from '../../components/kit/core';
-import { dayTime, marketFrom, marketPickup, marketTo, marketType, rupees, timeText } from '../../components/kit/format';
+import { Badge, Btn, Check, Feedback, KV, Notice, RouteTitle, Small } from '../../components/kit/core';
+import { DutyCard } from '../../components/kit/DutyCard';
+import { dayTime, marketFrom, marketPickup, marketTo, marketType, rupees, timeText, numericDate } from '../../components/kit/format';
 import { flash } from '../../components/kit/flash';
 import { acceptOfferedRate, isEligibleVehicle, submitCounterBid, withdrawBid } from '../../services/vendorService';
 import type { FleetDriver, FleetVehicle, MarketTrip, VendorBid } from '../../types/operations';
 import { colors, fontFamily } from '../../theme';
-import { useLayout } from '../../theme/responsive';
 
 export const OPEN_BID = 'Pending Review';
+
+/** How a duty was published: a fixed payout to accept, or bidding (the payout rises over time and vendors bid the lowest they accept). */
+export const isBidding = (t: MarketTrip) => t.mode === 'bid_review';
+export const isFixed = (t: MarketTrip) => t.mode === 'accept_offer';
+/** "5% every 1 hour": how the payout of a bidding duty rises ('' when it does not). */
+export const risesText = (t: MarketTrip) => {
+  if (!(t.stepPercent > 0) || !(t.intervalMinutes > 0)) return '';
+  const m = t.intervalMinutes;
+  const every = m % 60 === 0 ? (m === 60 ? '1 hour' : `${m / 60} hours`) : `${m} min`;
+  return `${t.stepPercent}% every ${every}`;
+};
 
 export const canAccept = (t: MarketTrip) => t.mode !== 'bid_review' && t.offeredPayout > 0;
 
@@ -69,11 +80,13 @@ export function fleetWarning(t: MarketTrip, vehicles: FleetVehicle[], drivers: F
 
 export type DutyAction = { kind: 'accept'; trip: MarketTrip } | { kind: 'bid'; trip: MarketTrip } | { kind: 'bid-detail'; bid: VendorBid };
 
-/** One available duty: pickup time, route, payout and the two actions (accept the offer / place a bid). */
-export function DutyRow({ trip: t, bid, onAction }: { trip: MarketTrip; bid?: VendorBid; onAction: (a: DutyAction) => void }) {
+/**
+ * One available duty. In the list (`list`) it is a compact, easy-to-read row with no buttons: pickup time and Duty ID, the route, a
+ * one-line summary and the payout; tapping it opens the duty, where it is accepted or bid on. On the duty page the same card is
+ * shown with its Accept / Place bid actions underneath.
+ */
+export function DutyRow({ trip: t, bid, onAction, list }: { trip: MarketTrip; bid?: VendorBid; onAction: (a: DutyAction) => void; list?: boolean }) {
   const navigation = useNavigation();
-  const { contentWidth, wide } = useLayout();
-  const row = contentWidth >= 860;
   const { ops } = useVendorData();
   const now = useNow();
   const pickup = marketPickup(t);
@@ -81,56 +94,59 @@ export function DutyRow({ trip: t, bid, onAction }: { trip: MarketTrip; bid?: Ve
   const accept = canAccept(t) && !opensAt;
   const bidOpen = canBid(t, now) && !opensAt;
   const extras = [t.addOns?.roofCarrier ? 'Roof carrier' : '', t.addOns?.pets ? 'Pet travel' : ''].filter(Boolean).join(' · ');
+  const open = () => navigation.navigate('Duty', { id: t.id });
+  // The list keeps to what decides whether to open a duty: date and time, place, service, vehicle and payout. The duty page adds distance and extras.
+  // The service type and the car are on separate lines.
+  // The car name the admin gave the category ("Wagon R or Similar"); VendorData falls back to the class ("Hatchback").
+  const car = t.carName || t.vehicleCategory || 'Any vehicle';
+  const km = t.distanceKm ? `${Math.round(t.distanceKm)} km` : '';
+  const carLine = list ? car : [car, extras].filter(Boolean).join('  ·  ');
+  const dateText = pickup ? numericDate(pickup) : t.travelDate || '';
+  // One line saying where this duty stands for this vendor (nothing when it is simply open).
+  const closes = t.cutoffMs ? `Bidding closes ${dayTime(new Date(t.cutoffMs))}` : '';
+  const status = bid ? `Your bid ${rupees(bid.vendorCounterRate)} · ${bid.autoAcceptConsent ? 'allocates when the payout reaches it' : 'update to confirm'}`
+    : opensAt ? `Opens to vendors at ${timeText(new Date(opensAt))}`
+    : isBidding(t) && !bidOpen ? 'Bidding closed'
+    : isBidding(t) ? closes
+    : '';
 
-  const actions = (
-    <View style={[styles.actions, row ? { width: 206 } : { flexDirection: 'row', marginTop: 14 }]}>
-      {accept ? <Btn title={`Accept ${rupees(t.offeredPayout)}`} icon="checkmark-done" onPress={() => onAction({ kind: 'accept', trip: t })} style={!row && { flex: 1 }} /> : null}
-      {bid ? <Btn kind="bid" title={`My bid ${rupees(bid.vendorCounterRate)}`} icon="create-outline" onPress={() => onAction({ kind: 'bid-detail', bid })} style={!row && { flex: 1 }} />
-        : bidOpen ? <Btn kind="bid" title="Place bid" icon="trending-up" onPress={() => onAction({ kind: 'bid', trip: t })} style={!row && { flex: 1 }} />
-        : opensAt ? null
-        : t.mode === 'bid_review' ? <Small style={{ textAlign: 'center', flex: row ? undefined : 1 }}>Bidding closed</Small> : null}
-      {opensAt ? (
-        <View style={[styles.opens, !row && { flex: 1 }]}>
-          <Ionicons name="time-outline" size={15} color="#946000" />
-          <Text style={styles.opensText}>Opens to vendors at {timeText(new Date(opensAt))}</Text>
+  const card = (
+    <DutyCard
+      date={dateText || '—'}
+      time={pickup ? timeText(pickup) : t.pickup.time || '—'}
+      from={marketFrom(t)}
+      to={marketTo(t)}
+      service={marketType(t)}
+      distance={km}
+      vehicle={carLine}
+      payout={t.offeredPayout > 0 ? rupees(t.offeredPayout) : 'Your quote'}
+      payoutLabel={isBidding(t) ? 'Payout' : isFixed(t) ? 'Fixed payout' : 'Vendor payout'}
+      badge={isBidding(t) ? <Badge label="Bidding" tone="blue" /> : isFixed(t) ? <Badge label="Fixed payout" tone="green" /> : undefined}
+      compact={list}
+      onPress={list ? open : undefined}
+      accessibilityLabel={`${marketFrom(t)} to ${marketTo(t)}, vendor payout ${rupees(t.offeredPayout)}. Open duty`}
+    >
+      {t.fuelType || status || !list ? (
+        <View style={{ gap: 8 }}>
+          {list ? null : <Text style={styles.code} numberOfLines={1}>{t.bookingId}</Text>}
+          {t.fuelType ? <Badge label={t.fuelType === 'cng' ? 'CNG' : 'Diesel / Petrol'} tone={t.fuelType === 'cng' ? 'green' : 'neutral'} /> : null}
+          {status ? <Text style={[styles.status, bid ? { color: '#2F5BD3' } : opensAt ? { color: '#946000' } : null]} numberOfLines={2}>{status}</Text> : null}
         </View>
       ) : null}
-    </View>
+    </DutyCard>
   );
 
+  if (list) return card;
   return (
-    <View style={[styles.duty, row ? styles.dutyRow : { padding: wide ? 20 : 17 }]}>
-      <View style={row ? styles.pickupCol : styles.pickupLine}>
-        <Text style={styles.pickupTime}>{pickup ? timeText(pickup) : t.pickup.time || '—'}</Text>
-        <Text style={styles.pickupLabel}>Pickup</Text>
-        {!row ? <View style={{ flex: 1 }} /> : null}
-        {!row ? <Pressable onPress={() => navigation.navigate('Duty', { id: t.id })} hitSlop={8} accessibilityRole="link"><Text style={styles.code}>{t.bookingId} ›</Text></Pressable> : null}
-      </View>
-      <View style={{ flex: 1, minWidth: 0 }}>
-        {row ? (
-          <View style={styles.topLine}>
-            <Pressable onPress={() => navigation.navigate('Duty', { id: t.id })} accessibilityRole="link" accessibilityLabel={`Open duty ${t.bookingId}`} hitSlop={6}><Text style={styles.code}>{t.bookingId} ›</Text></Pressable>
-            <Badge label={t.mode === 'bid_review' ? 'Bid required' : 'Available'} tone={t.mode === 'bid_review' ? 'blue' : 'neutral'} />
-          </View>
-        ) : null}
-        <Pressable onPress={() => navigation.navigate('Duty', { id: t.id })} accessibilityRole="button" accessibilityLabel={`${marketFrom(t)} to ${marketTo(t)}`}>
-          <RouteTitle from={marketFrom(t)} to={marketTo(t)} size={row ? 19 : 18} />
-        </Pressable>
-        <Meta items={[{ icon: 'car-outline', text: t.vehicleCategory || 'Any vehicle' }, t.distanceKm ? { icon: 'git-commit-outline', text: `${Math.round(t.distanceKm)} km included` } : null, { text: marketType(t), badge: true }, extras ? { icon: 'paw-outline', text: extras } : null]} />
-        <ExtraTag />
-        <View style={[styles.rate, !row && styles.rateMobile]}>
-          <Text style={styles.rateLabel}>Current vendor payout <Text style={{ color: colors.faint }}>· trip total</Text></Text>
-          <Text style={styles.rateValue}>{t.offeredPayout > 0 ? rupees(t.offeredPayout) : 'Your quote'}</Text>
+    <View style={{ gap: 10 }}>
+      {card}
+      {accept || bid || bidOpen ? (
+        <View style={styles.actionsRow}>
+          {accept ? <Btn title={`Accept ${rupees(t.offeredPayout)}`} icon="checkmark-done" onPress={() => onAction({ kind: 'accept', trip: t })} style={{ flex: 1 }} /> : null}
+          {bid ? <Btn kind="bid" title={`My bid ${rupees(bid.vendorCounterRate)}`} icon="create-outline" onPress={() => onAction({ kind: 'bid-detail', bid })} style={{ flex: 1 }} />
+            : bidOpen ? <Btn kind="bid" title="Place bid" icon="trending-up" onPress={() => onAction({ kind: 'bid', trip: t })} style={{ flex: 1 }} /> : null}
         </View>
-        {bid ? (
-          <View style={styles.bidCaption}>
-            <Ionicons name="create-outline" size={16} color={colors.info} />
-            <Text style={styles.bidText}>Your bid {rupees(bid.vendorCounterRate)} · <Text style={{ color: '#6F7785' }}>{bid.autoAcceptConsent ? 'Awaiting NESAM review' : 'Update to confirm allocation terms'}</Text></Text>
-          </View>
-        ) : null}
-        {!row ? actions : null}
-      </View>
-      {row ? actions : null}
+      ) : null}
     </View>
   );
 }
@@ -209,9 +225,13 @@ export function BidDialog({ trip, onClose, onDone }: { trip: MarketTrip; onClose
   return (
     <Sheet visible onClose={onClose} title={existing ? 'Update bid' : 'Place bid'} dismissible={!busy}>
       <RouteTitle from={marketFrom(trip)} to={marketTo(trip)} size={17} />
-      <Text style={styles.explainer}>Quote the total vendor payout you will accept for this duty. NESAM reviews the bids; if yours is accepted, the duty is allocated to you at your quote without another confirmation.</Text>
+      <Text style={styles.explainer}>
+        {risesText(trip)
+          ? `Enter the lowest total payout you will accept. The offer rises ${risesText(trip)} while bidding is open; as soon as it reaches your amount, the duty is allocated to you automatically at that amount.`
+          : 'Quote the total vendor payout you will accept for this duty. NESAM reviews the bids; if yours is accepted, the duty is allocated to you at your quote without another confirmation.'}
+      </Text>
       <View style={styles.offer}>
-        <Text style={styles.offerLabel}>Current vendor payout</Text>
+        <Text style={styles.offerLabel}>{risesText(trip) ? 'Current payout (rising)' : 'Current vendor payout'}</Text>
         <Text style={styles.offerValue}>{trip.offeredPayout > 0 ? rupees(trip.offeredPayout) : '—'}</Text>
       </View>
       <TextField label="Your total payout quote (₹)" value={amount} onChangeText={(v) => setAmount(v.replace(/\D/g, '').slice(0, 7))} keyboardType="number-pad" placeholder={trip.offeredPayout ? `e.g. ${Math.round(trip.offeredPayout * 1.15)}` : 'e.g. 1800'} />
@@ -272,23 +292,27 @@ export function DutyDialogs({ action, setAction, onAccepted }: { action: DutyAct
 }
 
 const styles = StyleSheet.create({
-  duty: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 13, marginBottom: 14 },
-  dutyRow: { flexDirection: 'row', gap: 24, paddingVertical: 22, paddingHorizontal: 24, alignItems: 'stretch' },
-  pickupCol: { width: 92, paddingTop: 4, borderRightWidth: 1, borderRightColor: '#E3EAF2', paddingRight: 12 },
-  pickupLine: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingBottom: 12, marginBottom: 14, borderBottomWidth: 1, borderBottomColor: '#F1F2F5' },
-  pickupTime: { fontFamily, fontSize: 14, fontWeight: '600', color: '#424B5A' },
-  pickupLabel: { fontFamily, fontSize: 11, color: '#8B919C', marginTop: 2 },
-  topLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 9, marginBottom: 10 },
-  code: { fontFamily, fontSize: 10.5, color: '#6F7785', letterSpacing: 0.15 },
-  rate: { marginTop: 15, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', gap: 8, columnGap: 15 },
-  rateMobile: { justifyContent: 'space-between' },
-  rateLabel: { fontFamily, fontSize: 12, color: '#6F7785' },
-  rateValue: { fontFamily, fontSize: 25, fontWeight: '700', color: '#424B5A', letterSpacing: -0.5 },
-  bidCaption: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 10, flexWrap: 'wrap' },
-  bidText: { fontFamily, fontSize: 12, color: '#426B9C', flexShrink: 1, lineHeight: 19 },
-  actions: { justifyContent: 'center', gap: 10 },
-  opens: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 46, paddingHorizontal: 12, borderRadius: 10, backgroundColor: '#FFF5DE', borderWidth: 1, borderColor: '#F3DFAE' },
-  opensText: { fontFamily, fontSize: 12, color: '#946000', fontWeight: '500' },
+  item: { backgroundColor: colors.card, borderWidth: 1, borderColor: '#DCE3EC', borderRadius: 12, marginBottom: 10, overflow: 'hidden' },
+  card: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 13, paddingLeft: 15, paddingRight: 12 },
+  main: { flex: 1, minWidth: 0 },
+  topLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  when: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
+  time: { fontFamily, fontSize: 12.5, fontWeight: '700', color: '#334155', flexShrink: 0 },
+  code: { fontFamily, fontSize: 11.5, color: '#6B7685', letterSpacing: 0.2, marginTop: 4 },
+  route: { fontFamily, fontSize: 16, fontWeight: '700', color: '#0F172A', lineHeight: 22, marginTop: 5 },
+  bottomLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 10 },
+  carLine: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#EEF1F5' },
+  carText: { flex: 1, minWidth: 0, fontFamily, fontSize: 14.5, fontWeight: '600', color: '#334155', lineHeight: 20 },
+  summary: { fontFamily, fontSize: 12.5, color: '#475569', lineHeight: 18 },
+  // The service type leads in bold red, with the distance beside it.
+  serviceLine: { flex: 1, minWidth: 0, fontFamily, fontSize: 17, fontWeight: '800', color: colors.primary, lineHeight: 23 },
+  km: { fontWeight: '600', color: '#475569', fontSize: 15 },
+  // Compact red amount tag: a micro label over the figure, sized to its content so the route keeps the width.
+  amount: { alignItems: 'flex-start', backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 5, paddingHorizontal: 10 },
+  amountLabel: { fontFamily, fontSize: 8, fontWeight: '600', color: 'rgba(255,255,255,0.82)', letterSpacing: 0.8 },
+  amountValue: { fontFamily, fontSize: 15, fontWeight: '700', color: colors.white, letterSpacing: -0.2, marginTop: 1 },
+  status: { fontFamily, fontSize: 12, fontWeight: '600', color: '#6B7685', marginTop: 8 },
+  actionsRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 15, paddingBottom: 15 },
   extra: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 11, flexWrap: 'wrap' },
   extraText: { fontFamily, fontSize: 11, color: '#6F7785', lineHeight: 18, flexShrink: 1 },
   extraStrong: { color: '#426E91', fontWeight: '500' },

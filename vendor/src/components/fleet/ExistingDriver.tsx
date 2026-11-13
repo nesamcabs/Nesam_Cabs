@@ -67,7 +67,7 @@ export function ExistingDriverPanel({
       {!f.mine && !f.approved ? <Notice tone="amber" title="Not approved yet" text="NESAM has not approved this driver, so they cannot be linked." style={{ marginTop: 12 }} /> : null}
       {f.pendingLinkId && !f.mine ? (
         <Notice tone="amber" title="Request already open" text="You already have an open request for this driver." style={{ marginTop: 12 }}
-          action={<Btn kind="secondary" small title="Open linking requests" onPress={() => { onClose(); navigation.navigate('Linking'); }} />} />
+          action={<Btn kind="secondary" small title="Open linking requests" onPress={() => { onClose(); goSection('Fleet', { tab: 'Drivers', swap: Date.now() }); }} />} />
       ) : null}
 
       {!blocked && !result ? (

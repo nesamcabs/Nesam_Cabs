@@ -19,6 +19,7 @@ import {
   subscribeToFleetVehicles,
   subscribeToInvites,
   subscribeToMarketplace,
+  subscribeToCategoryNames,
   subscribeToMyBids,
   subscribeToVendorBookings,
   subscribeToVendorLedger,
@@ -31,8 +32,8 @@ import { EMPTY_WALLET, monthEarnings } from '../utils/wallet';
 import { describeDataError } from '../utils/retry';
 import { linkIsOpen, subscribeToMyLinks, type PartnerLink } from '../services/partnerLinks';
 import {
-  mapOperations, subscribeToDeposit, subscribeToOperations, subscribeToPartnerRequests, subscribeToSettlementDues,
-  type OperationsConfig, type PartnerRequestRecord, type SecurityDeposit, type SettlementDue,
+  mapOperations, NO_DEPOSIT_POLICY, subscribeToDeposit, subscribeToDepositPolicy, subscribeToOperations, subscribeToPartnerRequests, subscribeToSettlementDues,
+  type DepositPolicy, type OperationsConfig, type PartnerRequestRecord, type SecurityDeposit, type SettlementDue,
 } from '../services/partnerOps';
 
 interface VendorDataValue {
@@ -63,6 +64,8 @@ interface VendorDataValue {
   /** Cancellation, bank and renewal requests sent to the office. */
   requests: PartnerRequestRecord[];
   deposit: SecurityDeposit | null;
+  /** What the office requires: the deposit is mandatory when `required`. */
+  depositPolicy: DepositPolicy;
   /** Settlement records of completed trips (statements). */
   dues: SettlementDue[];
   ops: OperationsConfig;
@@ -82,6 +85,7 @@ export function VendorDataProvider({ profile, record, children }: { profile: Ven
   const [drivers, setDrivers] = useState<FleetDriver[]>([]);
   const [bookings, setBookings] = useState<VendorBooking[]>([]);
   const [marketTrips, setMarketTrips] = useState<MarketTrip[]>([]);
+  const [categoryNames, setCategoryNames] = useState<{ byId: Record<string, string>; byName: Record<string, string> }>({ byId: {}, byName: {} });
   const [bids, setBids] = useState<VendorBid[]>([]);
   const [invites, setInvites] = useState<DriverInviteRecord[]>([]);
   const [links, setLinks] = useState<PartnerLink[]>([]);
@@ -104,6 +108,7 @@ export function VendorDataProvider({ profile, record, children }: { profile: Ven
       ),
     [vendorId],
   );
+  useEffect(() => subscribeToCategoryNames(setCategoryNames), []);
   useEffect(
     () =>
       subscribeToMarketplace(
@@ -130,10 +135,12 @@ export function VendorDataProvider({ profile, record, children }: { profile: Ven
   useEffect(() => subscribeToInvites(vendorId, setInvites), [vendorId]);
   const [requests, setRequests] = useState<PartnerRequestRecord[]>([]);
   const [deposit, setDeposit] = useState<SecurityDeposit | null>(null);
+  const [depositPolicy, setDepositPolicy] = useState<DepositPolicy>(NO_DEPOSIT_POLICY);
   const [dues, setDues] = useState<SettlementDue[]>([]);
   const [ops, setOps] = useState<OperationsConfig>(() => mapOperations(undefined));
   useEffect(() => subscribeToPartnerRequests(vendorId, setRequests), [vendorId]);
   useEffect(() => subscribeToDeposit(vendorId, setDeposit), [vendorId]);
+  useEffect(() => subscribeToDepositPolicy(setDepositPolicy), []);
   useEffect(() => subscribeToSettlementDues(vendorId, setDues), [vendorId]);
   useEffect(() => subscribeToOperations(setOps), []);
   useEffect(
@@ -175,7 +182,8 @@ export function VendorDataProvider({ profile, record, children }: { profile: Ven
       bookings: sorted,
       activeBookings,
       awaitingDispatch: activeBookings.filter((b) => b.status === 'Confirmed' || (b.status === 'Assigned' && !b.driverId)),
-      marketTrips,
+      // Each duty carries the car name the admin gave its category ("Wagon R or Similar"), falling back to the class ("Hatchback").
+      marketTrips: marketTrips.map((t) => ({ ...t, carName: categoryNames.byId[t.vehicleCategoryId] || categoryNames.byName[t.vehicleCategory.trim().toLowerCase()] || t.carName || t.vehicleCategory })),
       bids,
       invites,
       links,
@@ -188,10 +196,11 @@ export function VendorDataProvider({ profile, record, children }: { profile: Ven
       errors,
       requests,
       deposit,
+      depositPolicy,
       dues,
       ops,
     };
-  }, [profile, record, vehicles, drivers, bookings, marketTrips, bids, invites, links, vendorId, payouts, wallet, ledger, errors, requests, deposit, dues, ops]);
+  }, [profile, record, vehicles, drivers, bookings, marketTrips, categoryNames, bids, invites, links, vendorId, payouts, wallet, ledger, errors, requests, deposit, depositPolicy, dues, ops]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

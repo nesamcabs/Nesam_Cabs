@@ -1102,6 +1102,13 @@ service cloud.firestore {
                   || (isDriver() && depositId == 'driver_' + uid());
       allow write: if false;
     }
+    // Security-deposit top-up orders (createDepositPayment / verifyDepositPayment).
+    match /deposit_payments/{orderId} {
+      allow read: if canReadFinance()
+                  || (isVendor() && resource.data.get('vendorId', '') == uid())
+                  || (isDriver() && resource.data.get('driverId', '') == uid());
+      allow write: if false;
+    }
     // Working-wallet recharge orders (createWalletRecharge / verifyWalletRecharge).
     match /wallet_recharges/{orderId} {
       allow read: if canReadFinance()
@@ -1138,7 +1145,12 @@ service cloud.firestore {
     match /settings/{docId} {
       allow read: if isSignedIn();
       // The invoice number counter advances with every invoice finance issues.
-      allow write: if can('system') || (docId in ['invoice_sequence', 'tax_policy'] && can('finance'));
+      allow write: if can('system') || (docId in ['invoice_sequence', 'tax_policy'] && can('finance'))
+                   // The vendor security-deposit policy (Security Deposit page): a flag, a whole-rupee amount within the limit, a short note.
+                   || (docId == 'security_deposit' && can('finance')
+                       && request.resource.data.vendorRequired is bool
+                       && request.resource.data.vendorAmount is int && request.resource.data.vendorAmount >= 0 && request.resource.data.vendorAmount <= 1000000
+                       && request.resource.data.get('message', '') is string && request.resource.data.get('message', '').size() <= 240);
     }
     // Explicitly approved public catalog and moderated testimonial fields only.
     match /public_content/{id} {

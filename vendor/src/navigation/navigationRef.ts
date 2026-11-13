@@ -11,7 +11,7 @@ export function sectionOf(route: string | undefined): Section | 'Helpdesk' | 'Ac
   switch (route) {
     case 'Trips': case 'MyBids': case 'Duty': return 'Trips';
     case 'Bookings': case 'Booking': case 'Assign': return 'Bookings';
-    case 'Fleet': case 'FleetAdd': case 'Vehicle': case 'Driver': case 'Linking': case 'Documents': return 'Fleet';
+    case 'Fleet': case 'FleetAdd': case 'Vehicle': case 'Driver': case 'Documents': return 'Fleet';
     case 'Earnings': return 'Earnings';
     case 'Wallet': case 'Penalty': return 'Wallet';
     case 'Helpdesk': return 'Helpdesk';

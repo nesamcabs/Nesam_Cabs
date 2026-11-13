@@ -10,7 +10,8 @@ import { useInbox } from '../../context/Inbox';
 import { Page } from '../../components/shell/Page';
 import { Segmented, Sheet, TextField } from '../../components/ui';
 import { DuesPaymentSheet } from '../../components/DuesPaymentSheet';
-import { Badge, Btn, Empty, Eyebrow, Feedback, Grid, H2, KV, Notice, Panel, Small, Tabs, TextLink, type IconName, type Tone } from '../../components/kit/core';
+import { DepositSheet } from '../../components/DepositSheet';
+import { ActionButton, Badge, Btn, Empty, Eyebrow, Feedback, Grid, H2, KV, Notice, Panel, Small, Tabs, TextLink, type IconName, type Tone } from '../../components/kit/core';
 import { dayTime, rupees } from '../../components/kit/format';
 import { flash } from '../../components/kit/flash';
 import { MIN_PAYOUT, requestVendorPayout, validateVendorPayout, VendorActionError } from '../../services/vendorService';
@@ -46,11 +47,19 @@ export function WalletScreen() {
   const [tab, setTab] = useState<WalletTab>(route.params?.tab ?? 'All');
   const [seen, setSeen] = useState(route.params?.tab);
   if (route.params?.tab !== seen) { setSeen(route.params?.tab); if (route.params?.tab) setTab(route.params.tab); }
-  const [sheet, setSheet] = useState<'' | 'payout' | 'dues'>('');
+  const [sheet, setSheet] = useState<'' | 'payout' | 'dues' | 'deposit'>('');
   const w = d.wallet;
   const withdrawable = Math.max(0, Math.floor(w.available));
   const negative = w.available < 0;
   const dep = d.deposit;
+  // Once a refund is requested or the deposit is settled, only the office changes it.
+  const depositClosed = !!dep && ['Refund requested', 'Refunded', 'Adjusted'].includes(dep.status);
+  // The office's mandatory deposit: what is required, what is held, what is still to pay.
+  const policy = d.depositPolicy;
+  const requiredDeposit = policy.required ? policy.amount : 0;
+  const heldDeposit = dep && ['Active', 'Refund requested'].includes(dep.status) ? dep.amount : 0;
+  const remainingDeposit = depositClosed ? 0 : Math.max(0, requiredDeposit - heldDeposit);
+  const depositPct = requiredDeposit ? Math.min(100, Math.round((heldDeposit / requiredDeposit) * 100)) : 0;
   const entries = d.ledger.filter((e) => tab === 'All' || (ENTRY[e.type]?.tab ?? 'Trips') === tab);
   const processing = d.dues.filter((x) => ['Due', 'Processing', 'On Hold'].includes(x.status)).length;
 
@@ -60,34 +69,51 @@ export function WalletScreen() {
   ]);
 
   return (
-    <Page title="Wallet"
-      action={negative ? <Btn small={!wide} icon="card-outline" title="Pay dues" onPress={() => setSheet('dues')} /> : <Btn small={!wide} icon="arrow-up" title="Withdraw" disabled={withdrawable < MIN_PAYOUT} onPress={() => setSheet('payout')} />}>
+    <Page title="Wallet">
+      {remainingDeposit > 0 ? (
+        <Notice tone="amber" icon="shield-checkmark-outline" title="Security deposit is mandatory" style={{ marginBottom: 12 }}
+          text={`NESAM requires a refundable deposit of ${rupees(requiredDeposit)}. ${heldDeposit ? `${rupees(heldDeposit)} is paid; ` : ''}pay the remaining ${rupees(remainingDeposit)} to complete it.${policy.message ? ` ${policy.message}` : ''}`}
+          action={<Btn small icon="add" title="Pay deposit" onPress={() => setSheet('deposit')} />} />
+      ) : null}
       {d.errors.wallet ? <Notice tone="red" title="Wallet could not load" text={d.errors.wallet} style={{ marginBottom: 14 }} /> : null}
-      <Grid columns={wide ? 2 : 1} gap={18}>
+      <View style={styles.actionRow}>
+        {negative
+          ? <ActionButton primary icon="card-outline" label="Pay dues" onPress={() => setSheet('dues')} />
+          : <ActionButton primary icon="arrow-up" label="Withdraw" disabled={withdrawable < MIN_PAYOUT} onPress={() => setSheet('payout')} />}
+        <ActionButton icon="add" label="Add deposit" disabled={depositClosed} onPress={() => setSheet('deposit')} />
+      </View>
+      <Grid columns={wide ? 2 : 1} gap={12}>
         <View style={[styles.balance, { flexGrow: 1 }]}>
           <Text style={styles.eyebrowLight}>WORKING WALLET</Text>
           <Text style={[styles.balanceValue, negative && { color: colors.danger }]} numberOfLines={1} adjustsFontSizeToFit>{rupees(w.available)}</Text>
           <Text style={styles.balanceSub}>{negative ? 'Outstanding · upcoming earnings settle this first, or pay your dues now.' : 'Available to withdraw'}</Text>
           {w.reserved ? <Text style={styles.held}>{rupees(w.reserved)} held for a pending bank payout</Text> : null}
           <View style={styles.balanceRow}>
-            <Mini label="Awaiting payment" value={rupees(w.pending)} />
+            <Mini label="Awaiting" value={rupees(w.pending)} />
             <Mini label="Paid out" value={rupees(w.paidOut)} />
             <Mini label="This month" value={rupees(d.monthEarnings)} />
           </View>
-          <View style={{ flexDirection: 'row', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
-            {negative ? <Btn kind="primary" icon="card-outline" title="Pay dues" onPress={() => setSheet('dues')} /> : null}
-            <Btn kind="secondary" icon="arrow-up" title="Request payout" disabled={withdrawable < MIN_PAYOUT} onPress={() => setSheet('payout')} />
-          </View>
-          {withdrawable < MIN_PAYOUT && !negative ? <Small style={{ marginTop: 10 }}>Payouts open once your available balance reaches {rupees(MIN_PAYOUT)}.</Small> : null}
+          {withdrawable < MIN_PAYOUT && !negative ? <Small style={{ marginTop: 10 }}>Withdraw opens at {rupees(MIN_PAYOUT)} available.</Small> : null}
         </View>
-        <Panel style={{ padding: 26, flexGrow: 1 }}>
-          <View style={styles.depositIcon}><Ionicons name="shield-checkmark-outline" size={20} color="#4F7A68" /></View>
-          <Eyebrow style={{ marginTop: 14 }}>REFUNDABLE SECURITY DEPOSIT</Eyebrow>
-          <Text style={styles.depositValue}>{rupees(dep?.amount ?? 0)}</Text>
-          <Badge label={dep?.status ?? 'Not recorded'} tone={dep?.status === 'Active' ? 'green' : dep?.status === 'Refund requested' ? 'amber' : 'neutral'} />
-          <Small style={{ marginTop: 12 }}>Separate from the working wallet. Trip and penalty adjustments do not spend this deposit.</Small>
-          {dep?.status === 'Active' && dep.amount > 0 ? <View style={{ marginTop: 10 }}><TextLink title="Request deposit refund" onPress={askRefund} /></View> : null}
-          {dep?.status === 'Refund requested' ? <Small style={{ marginTop: 10 }}>Existing duties and outstanding accounts must be resolved before the refund.</Small> : null}
+        <Panel style={{ padding: 16, flexGrow: 1 }}>
+          <View style={styles.depRow}>
+            <View style={styles.depositIcon}><Ionicons name="shield-checkmark-outline" size={18} color="#4F7A68" /></View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Eyebrow>SECURITY DEPOSIT{requiredDeposit ? ' · MANDATORY' : ''}</Eyebrow>
+              <Text style={styles.depositValue} numberOfLines={1}>{rupees(heldDeposit)}{requiredDeposit ? <Text style={styles.depositOf}> / {rupees(requiredDeposit)}</Text> : null}</Text>
+            </View>
+            <Badge
+              label={depositClosed ? (dep?.status ?? '') : requiredDeposit ? (remainingDeposit > 0 ? `${rupees(remainingDeposit)} due` : 'Complete') : (dep?.status ?? 'Not recorded')}
+              tone={depositClosed ? 'amber' : requiredDeposit ? (remainingDeposit > 0 ? 'red' : 'green') : dep?.status === 'Active' ? 'green' : 'neutral'} />
+          </View>
+          {requiredDeposit && !depositClosed ? (
+            <View style={styles.track} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: depositPct }} accessibilityLabel="Security deposit paid">
+              <View style={[styles.trackFill, { width: `${depositPct}%`, backgroundColor: remainingDeposit > 0 ? colors.primary : colors.success }]} />
+            </View>
+          ) : null}
+          <Small style={{ marginTop: 10 }}>{requiredDeposit && policy.message ? policy.message : 'Refundable and separate from the working wallet. Trip and penalty adjustments never use it.'}</Small>
+          {dep?.status === 'Active' && dep.amount > 0 ? <View style={{ marginTop: 8 }}><TextLink title="Request deposit refund" onPress={askRefund} /></View> : null}
+          {dep?.status === 'Refund requested' ? <Small style={{ marginTop: 8 }}>Existing duties and outstanding accounts must be resolved before the refund.</Small> : null}
         </Panel>
       </Grid>
 
@@ -114,7 +140,7 @@ export function WalletScreen() {
 
       {tab === 'Payouts' || tab === 'All' ? (
         d.payouts.length ? (
-          <Panel style={{ marginBottom: 18 }}>
+          <Panel style={{ marginBottom: 14, padding: 16 }}>
             <H2>Bank payouts</H2>
             {d.payouts.map((p) => (
               <View key={p.id} style={styles.payRow}>
@@ -137,13 +163,14 @@ export function WalletScreen() {
         ) : tab !== 'Payouts' ? <Empty icon="receipt-outline" title="No entries here" text="Trip earnings, cash collected, penalties and payouts recorded by NESAM appear here." /> : null
       ) : null}
 
-      <Panel style={{ marginTop: 18 }}>
+      <Panel style={{ marginTop: 14, padding: 16 }}>
         <H2>Settlement account</H2>
         <KV rows={[['Account holder', d.profile.bankAccountName || d.record.payoutSummary?.accountHolderName || 'Not on file'], ['Account', d.profile.bankAccountNumber || (d.record.payoutSummary?.bankLast4 ? `•••• ${d.record.payoutSummary.bankLast4}` : '—')], ['IFSC', d.profile.ifscCode || d.record.payoutSummary?.ifsc || '—'], d.profile.upiId ? ['UPI', d.profile.upiId] : null]} />
         <Small style={{ marginTop: 10 }}>NESAM pays only to this account. Request a change from Profile → Bank details; it applies after office approval.</Small>
       </Panel>
 
       {sheet === 'payout' ? <PayoutSheet withdrawable={withdrawable} onClose={() => setSheet('')} /> : null}
+      {sheet === 'deposit' ? <DepositSheet current={heldDeposit} required={requiredDeposit} onClose={() => setSheet('')} onDone={(m) => { setSheet(''); flash(m); }} /> : null}
       {sheet === 'dues' ? <DuesPaymentSheet onClose={() => setSheet('')} onDone={(m) => { setSheet(''); flash(m); }} /> : null}
     </Page>
   );
@@ -213,16 +240,21 @@ function PayoutSheet({ withdrawable, onClose }: { withdrawable: number; onClose:
 }
 
 const styles = StyleSheet.create({
-  balance: { backgroundColor: colors.card, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 14, padding: 26 },
+  actionRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  depRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  balance: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 16 },
   eyebrowLight: { fontFamily, fontSize: 10, fontWeight: '600', letterSpacing: 1.1, color: '#6F7785' },
-  balanceValue: { fontFamily, fontSize: 38, fontWeight: '700', letterSpacing: -1, color: '#424B5A', marginTop: 14 },
-  balanceSub: { fontFamily, fontSize: 12, color: '#6F7785', marginTop: 6, lineHeight: 19 },
+  balanceValue: { fontFamily, fontSize: 28, fontWeight: '700', letterSpacing: -0.8, color: '#424B5A', marginTop: 6 },
+  balanceSub: { fontFamily, fontSize: 12, color: '#6F7785', marginTop: 2, lineHeight: 18 },
   held: { fontFamily, fontSize: 11, color: '#9D8353', marginTop: 8 },
-  balanceRow: { flexDirection: 'row', gap: 12, marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#F1F2F5' },
+  balanceRow: { flexDirection: 'row', gap: 12, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#F1F2F5' },
   miniLabel: { fontFamily, fontSize: 10.5, color: '#8B919C' },
   miniValue: { fontFamily, fontSize: 14, fontWeight: '600', color: '#424B5A', marginTop: 4 },
-  depositIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#EEF6F2', alignItems: 'center', justifyContent: 'center' },
-  depositValue: { fontFamily, fontSize: 28, fontWeight: '700', color: '#424B5A', marginTop: 10, marginBottom: 8, letterSpacing: -0.6 },
+  depositIcon: { width: 38, height: 38, borderRadius: 11, backgroundColor: '#EEF6F2', alignItems: 'center', justifyContent: 'center' },
+  depositOf: { fontSize: 14, fontWeight: '600', color: '#8B919C' },
+  track: { height: 6, borderRadius: 3, backgroundColor: '#EEF0F4', overflow: 'hidden', marginTop: 12 },
+  trackFill: { height: 6, borderRadius: 3 },
+  depositValue: { fontFamily, fontSize: 22, fontWeight: '700', color: '#424B5A', marginTop: 2, letterSpacing: -0.5 },
   between: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   penaltyAmount: { fontFamily, fontSize: 24, fontWeight: '700', color: '#B81C2A', marginTop: 12 },
   penaltyReason: { fontFamily, fontSize: 13, color: colors.ink, marginTop: 4, lineHeight: 19 },

@@ -38,6 +38,7 @@ import Penalties from "./pages/Penalties";
 import DriverEarnings from "./pages/DriverEarnings";
 import VendorFinance from "./pages/VendorFinance";
 import CommissionPolicy from "./pages/CommissionPolicy";
+import SecurityDeposit from "./pages/SecurityDeposit";
 import ReportsGst from "./pages/ReportsGst";
 import Communication from "./pages/Communication";
 import StaffRoles from "./pages/StaffRoles";
@@ -101,6 +102,7 @@ const pageMeta: Record<string, { title: string; breadcrumb: string[] }> = {
   earnings: { title: "Driver Earnings & TDS", breadcrumb: ["Finance", ""] },
   "vendor-finance": { title: "Vendor Finance & GST", breadcrumb: ["Finance", ""] },
   commission: { title: "Commission Policy", breadcrumb: ["Finance", ""] },
+  "security-deposit": { title: "Security Deposit", breadcrumb: ["Finance", ""] },
   penalties: { title: "Penalties & Disputes", breadcrumb: ["Finance", ""] },
   reports: { title: "Reports & Analytics", breadcrumb: ["Finance", "Reports & Analytics"] },
   b2b: { title: "Corporate & B2B Integrations", breadcrumb: ["Office", ""] },
@@ -308,6 +310,8 @@ function AdminShell({ session }: { session: AdminSession }) {
         return <VendorFinance />;
       case "commission":
         return <CommissionPolicy />;
+      case "security-deposit":
+        return <SecurityDeposit />;
 
       // Compliance
       case "penalties":

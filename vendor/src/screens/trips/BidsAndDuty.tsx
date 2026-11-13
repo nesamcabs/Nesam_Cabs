@@ -8,7 +8,7 @@ import { Badge, Between, Btn, Empty, Grid, H2, KV, Notice, Panel, RouteStack, Ro
 import { dayTime, marketFrom, marketPickup, marketTo, marketType, rupees } from '../../components/kit/format';
 import { goSection } from '../../navigation/navigationRef';
 import type { RootStackParamList } from '../../navigation/types';
-import { bidLabel, bidTone, DutyDialogs, DutyRow, OPEN_BID, type DutyAction } from './parts';
+import { bidLabel, bidTone, DutyDialogs, DutyRow, isBidding, isFixed, OPEN_BID, risesText, type DutyAction } from './parts';
 
 type BidTab = 'All' | 'Open' | 'Allocated' | 'Closed';
 
@@ -78,6 +78,13 @@ export function DutyScreen() {
   return (
     <Page title="Duty details" subtitle={t.bookingId}>
       <DutyRow trip={t} bid={bid} onAction={setAction} />
+      {isBidding(t) ? (
+        <Notice tone="blue" icon="trending-up-outline" title="Bidding duty" style={{ marginBottom: 14 }}
+          text={`Enter the lowest payout you will accept${risesText(t) ? `. The payout rises ${risesText(t)}; the duty is allocated to you automatically when it reaches your amount` : ''}.${t.cutoffMs ? ` Bidding closes ${dayTime(new Date(t.cutoffMs))}.` : ''}`} />
+      ) : isFixed(t) ? (
+        <Notice tone="green" icon="checkmark-circle-outline" title="Fixed payout" style={{ marginBottom: 14 }}
+          text={`Accept ${rupees(t.offeredPayout)} to take this duty. The first eligible vendor to accept gets it.`} />
+      ) : null}
       <Grid>
         <Panel>
           <H2>Duty information</H2>

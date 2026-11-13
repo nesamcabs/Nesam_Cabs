@@ -81,6 +81,12 @@ export function mapMarketTrip(id: string, d: DocumentData): MarketTrip {
     service: str(d.service),
     tripType: str(d.tripType),
     vehicleCategory: str(d.vehicleCategory || d.categoryName),
+    vehicleCategoryId: str(d.vehicleCategoryId),
+    carName: str(d.categoryName),
+    fuelType: str(d.fuelType),
+    startOffer: num(d.startOffer),
+    stepPercent: d.escalation?.enabled ? num(d.escalation.stepPercent) : 0,
+    intervalMinutes: d.escalation?.enabled ? num(d.escalation.intervalMinutes) : 0,
     addOns: { roofCarrier: d.addOns?.roofCarrier === true, pets: d.addOns?.pets === true },
     distanceKm: num(d.distanceKm),
     offeredPayout: num(d.offeredPayout),
@@ -92,6 +98,32 @@ export function mapMarketTrip(id: string, d: DocumentData): MarketTrip {
     pickupMs: toDate(d.pickupAt)?.getTime() ?? 0,
     cutoffMs: toDate(d.cutoffAt)?.getTime() ?? 0,
   };
+}
+
+/**
+ * The car names the admin panel shows for its categories (vehicle_categories): a category named "Hatchback" has the description
+ * "Wagon R or Similar", which is what the vendor should read. Keyed by category id and by category name (lower case), because a duty
+ * made from an enquiry carries only the name. Signed-in users may read the categories.
+ */
+export function subscribeToCategoryNames(cb: (names: { byId: Record<string, string>; byName: Record<string, string> }) => void): () => void {
+  return onSnapshot(
+    collection(db, 'vehicle_categories'),
+    (snap) => {
+      const byId: Record<string, string> = {};
+      const byName: Record<string, string> = {};
+      for (const d of snap.docs) {
+        const data = d.data();
+        const name = str(data.name);
+        const car = str(data.description).trim() || name;
+        if (!car) continue;
+        byId[d.id] = car;
+        if (name && !byName[name.toLowerCase()]) byName[name.toLowerCase()] = car;
+      }
+      cb({ byId, byName });
+    },
+    // The names are cosmetic: without them a duty shows its class (e.g. Hatchback).
+    () => cb({ byId: {}, byName: {} }),
+  );
 }
 
 export function subscribeToMarketplace(cb: (trips: MarketTrip[]) => void, onError?: (e: unknown) => void): () => void {

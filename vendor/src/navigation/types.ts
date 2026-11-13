@@ -7,7 +7,8 @@ export type WalletTab = 'All' | 'Trips' | 'Payments' | 'Penalties' | 'Payouts';
 export type RootStackParamList = {
   Trips: undefined;
   Bookings: { tab?: BookingTab } | undefined;
-  Fleet: { tab?: FleetTab } | undefined;
+  /** `swap` is a timestamp: opening the Fleet page with it set opens the Swap panel (a new value reopens it). */
+  Fleet: { tab?: FleetTab; swap?: number } | undefined;
   Earnings: undefined;
   Wallet: { tab?: WalletTab } | undefined;
 
@@ -19,7 +20,6 @@ export type RootStackParamList = {
   FleetAdd: { kind: 'vehicle' | 'driver' };
   Vehicle: { id: string };
   Driver: { id: string };
-  Linking: undefined;
   Documents: undefined;
 
   Penalty: { id: string };

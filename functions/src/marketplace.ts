@@ -222,6 +222,8 @@ export const postBookingToMarketplace = onCall({ timeoutSeconds: 120 }, async (r
       drop: { address: text(b.drop), city: text(b.drop), ...(Number.isFinite(b.dropLat) ? { lat: Math.round(b.dropLat * 100) / 100, lng: Math.round(b.dropLng * 100) / 100 } : {}) },
       travelDate: text(b.date), service: text(b.service), tripType: text(b.tripType),
       vehicleCategory: text(b.vehicleCategory) || text(b.vehicle), vehicleCategoryId: text(b.vehicleCategoryId),
+      // The fuel the customer booked: a CNG car, or any petrol / diesel car (the vendor sees it on the duty).
+      fuelType: b.fuelType === 'cng' ? 'cng' : 'diesel_petrol',
       addOns: bookingAddOnsOf(b.addOns ?? b.fareBreakdown?.addOns ?? b.tripExtras),
       // Lower-case aliases an older claim compared a vehicle type against; the vehicle classes are authoritative.
       eligibleVehicleTypes: category?.matchVehicleTypes ?? [],

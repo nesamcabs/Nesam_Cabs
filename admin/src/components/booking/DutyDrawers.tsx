@@ -80,7 +80,6 @@ export function PublishDutyDrawer({ booking, market, edit, canSetPayout, onClose
   const [maximum, setMaximum] = useState(market?.ceiling ? String(market.ceiling) : start ? String(Math.ceil(start * 1.2)) : "");
   const [closes, setCloses] = useState(pickup ? localInput(new Date(Math.max(Date.now(), pickup.getTime() - 3 * 3600000))) : "");
   const [note, setNote] = useState("");
-  const [reviewed, setReviewed] = useState(false);
   const [custKm, setCustKm] = useState(String(stored.customerExtraKm ?? (booking.pricing?.extraKmRatePaise ? booking.pricing.extraKmRatePaise / 100 : "")));
   const [partKm, setPartKm] = useState(String(stored.partnerExtraKm ?? ""));
   const [items, setItems] = useState<Record<TermKey, string>>(() => Object.fromEntries(TERM_ITEMS.map(([k]) => [k, stored.items?.[k] ?? (k === "driverBata" ? "Included" : "At actuals")])) as Record<TermKey, string>);
@@ -96,7 +95,6 @@ export function PublishDutyDrawer({ booking, market, edit, canSetPayout, onClose
     if (!(startNum > 0) || startNum > 1000000) return setError("Enter a valid vendor payout.");
     if (mode === "bid" && !(Number(maximum) >= startNum)) return setError("Maximum payout must be at least the starting payout.");
     if (edit && note.trim().length < 5) return setError("Record the reason for changing a published payout.");
-    if (!reviewed) return setError("Review the payout details and tick the confirmation.");
     if (!(Number(custKm) > 0) || !(Number(partKm) > 0)) return setError("Enter separate positive customer and partner extra-km rates.");
     const closeAt = fromLocalInput(closes);
     const cutoffMinutes = mode === "bid" && closeAt && pickup ? Math.max(0, Math.round((pickup.getTime() - closeAt.getTime()) / 60000)) : undefined;
@@ -167,14 +165,12 @@ export function PublishDutyDrawer({ booking, market, edit, canSetPayout, onClose
             <p className="ds-note mb-4">Valid authorised bids auto allocate at the earliest matching payout. Customer fare is unchanged.</p>
           </>
         )}
-        <label className="ds-field mb-3">
-          <span>{edit ? "Reason for payout change" : "Office note · optional"}</span>
-          <input className="ds-input" maxLength={300} value={note} onChange={(e) => setNote(e.target.value)} />
-        </label>
-        <label className="ds-check mb-2">
-          <input type="checkbox" checked={reviewed} onChange={(e) => setReviewed(e.target.checked)} />
-          I reviewed the payout and publication details.
-        </label>
+        {edit ? (
+          <label className="ds-field mb-3">
+            <span>Reason for payout change</span>
+            <input className="ds-input" maxLength={300} value={note} onChange={(e) => setNote(e.target.value)} />
+          </label>
+        ) : null}
         <details className="ds-disclosure" open>
           <summary>Agreed expense &amp; extra-km terms</summary>
           <div className="ds-form-grid">

@@ -11,7 +11,8 @@ import { colors, fontFamily } from '../../theme';
 import { useLayout } from '../../theme/responsive';
 import { COMPANY_LEGAL_NAME } from '../../config/constants';
 
-const SECTION_PAGES = ['Trips', 'Bookings', 'Fleet', 'Earnings', 'Wallet', 'Helpdesk', 'Account'];
+// Pages that show no back arrow: the five sections plus the pages opened from the header and menus. Only record detail pages keep one.
+const SECTION_PAGES = ['Trips', 'Bookings', 'Fleet', 'Earnings', 'Wallet', 'Helpdesk', 'Account', 'Alerts', 'Business', 'Agreements', 'Documents', 'MyBids', 'FleetAdd', 'Duty'];
 
 export function Page({
   title,
@@ -60,19 +61,20 @@ export function Page({
   );
 }
 
-export function PageHeading({ title, subtitle, action, back }: { title: string; subtitle?: string; action?: React.ReactNode; back?: boolean }) {
-  const { wide, compact } = useLayout();
+/**
+ * No page shows a title or subtitle any more (the bottom bar and the content already say where you are). What is left is the small
+ * back arrow on detail pages and the page's action button, if it has one; a section page with neither shows nothing here.
+ */
+export function PageHeading({ action, back }: { title?: string; subtitle?: string; action?: React.ReactNode; back?: boolean }) {
+  if (!back && !action) return null;
   return (
     <View style={styles.heading}>
       {back ? (
-        <Pressable onPress={goBack} accessibilityRole="button" accessibilityLabel="Back" hitSlop={8} style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [styles.back, (pressed || hovered) && { backgroundColor: '#F1F2F5' }]}>
-          <Ionicons name="arrow-back" size={19} color="#6F7785" />
+        <Pressable onPress={goBack} accessibilityRole="button" accessibilityLabel="Back" hitSlop={8} style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [styles.back, (pressed || hovered) && { backgroundColor: '#EEF2F7' }]}>
+          <Ionicons name="arrow-back" size={19} color="#52657B" />
         </Pressable>
       ) : null}
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={[styles.h1, !wide && { fontSize: compact ? 22 : 24 }]} accessibilityRole="header" numberOfLines={2}>{title}</Text>
-        {subtitle ? <Text style={styles.sub}>{subtitle}</Text> : null}
-      </View>
+      <View style={{ flex: 1 }} />
       {action ? <View style={{ flexShrink: 0 }}>{action}</View> : null}
     </View>
   );
@@ -96,7 +98,7 @@ const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: colors.bg },
   inner: { width: '100%', maxWidth: 1360, alignSelf: 'center' },
   back: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: -1, marginLeft: -6 },
-  heading: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, marginBottom: 18 },
+  heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14, marginBottom: 14 },
   h1: { fontFamily, fontSize: 27, fontWeight: '700', letterSpacing: -0.9, color: colors.ink, lineHeight: 34 },
   sub: { fontFamily, fontSize: 12.5, color: colors.muted, marginTop: 3, lineHeight: 19 },
   footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 28, marginBottom: 4 },

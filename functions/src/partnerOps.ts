@@ -915,3 +915,96 @@ export function assignByFor(acceptedAt: number, pickupAt: number | null, setting
   return preferred > acceptedAt ? preferred : Math.min(byWindow, pickupAt);
 }
 
+
+// ── Security deposit top-up (online) ────────────────────────────────────────
+// A partner adds to its own refundable deposit by paying through Razorpay. The order is created here for a whole-rupee amount
+// the partner chose; the deposit changes only after the captured payment is verified (checkout callback or signed webhook, in
+// either order, once per order). The deposit stays separate from the working wallet: nothing here touches the ledger.
+
+export const DEPOSIT_TOPUP_MIN = 100;
+export const DEPOSIT_TOPUP_MAX = 100000;
+export const DEPOSIT_TOTAL_MAX = 1000000;
+/** Only an open deposit (or none yet) can be topped up; once a refund is requested or settled the office decides. */
+const TOPUP_OPEN_STATES = ['Not paid', 'Active'];
+
+export const createDepositPayment = onCall({ secrets: [RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET] }, async (request) => {
+  const party = await partyOf(request.auth?.uid);
+  const amount = request.data?.amount;
+  if (!Number.isSafeInteger(amount) || amount < DEPOSIT_TOPUP_MIN || amount > DEPOSIT_TOPUP_MAX) {
+    throw new HttpsError('invalid-argument', `Enter an amount from ₹${DEPOSIT_TOPUP_MIN.toLocaleString('en-IN')} to ₹${DEPOSIT_TOPUP_MAX.toLocaleString('en-IN')}, in whole rupees.`);
+  }
+  const dep = await db.doc(`partner_deposits/${party.type}_${party.uid}`).get();
+  const status = dep.exists ? String(dep.data()!.status) : 'Not paid';
+  if (!TOPUP_OPEN_STATES.includes(status)) throw new HttpsError('failed-precondition', 'Your deposit is being refunded or has been settled, so it cannot be topped up now. Contact the NESAM office.');
+  if ((Number(dep.data()?.amount) || 0) + amount > DEPOSIT_TOTAL_MAX) throw new HttpsError('failed-precondition', `The deposit cannot go above ₹${DEPOSIT_TOTAL_MAX.toLocaleString('en-IN')}.`);
+  const keyId = RAZORPAY_KEY_ID.value();
+  const keySecret = RAZORPAY_KEY_SECRET.value();
+  if (!configured(keyId, keySecret)) throw new HttpsError('failed-precondition', 'PAYMENT_NOT_CONFIGURED');
+  const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
+  const order = await razorpay.orders.create({ amount: amount * 100, currency: 'INR', receipt: `dt_${party.uid}`.slice(0, 40), notes: { purpose: 'deposit_topup', partyType: party.type, partyId: party.uid } });
+  await db.doc(`deposit_payments/${order.id}`).set({
+    orderId: order.id, partyType: party.type, partyId: party.uid, partyName: party.name, [party.type === 'vendor' ? 'vendorId' : 'driverId']: party.uid,
+    amount, amountPaise: amount * 100, currency: 'INR', status: 'created', createdAt: FieldValue.serverTimestamp(),
+  });
+  return { orderId: order.id, amount: order.amount, currency: order.currency, keyId, name: party.name, phone: text(party.data.phone, 20) };
+});
+
+export const verifyDepositPayment = onCall({ secrets: [RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET] }, async (request) => {
+  const party = await partyOf(request.auth?.uid);
+  const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = (request.data ?? {}) as Record<string, string | undefined>;
+  if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) throw new HttpsError('invalid-argument', 'Missing payment verification fields.');
+  const keyId = RAZORPAY_KEY_ID.value();
+  const keySecret = RAZORPAY_KEY_SECRET.value();
+  if (!configured(keyId, keySecret)) throw new HttpsError('failed-precondition', 'PAYMENT_NOT_CONFIGURED');
+  const orderRef = db.doc(`deposit_payments/${docId(razorpayOrderId, 'order')}`);
+  const order = await orderRef.get();
+  if (!order.exists || order.data()!.partyId !== party.uid || order.data()!.partyType !== party.type) throw new HttpsError('failed-precondition', 'This payment does not belong to your account.');
+  const expected = createHmac('sha256', keySecret).update(`${razorpayOrderId}|${razorpayPaymentId}`).digest('hex');
+  if (!safeEq(expected, razorpaySignature)) throw new HttpsError('invalid-argument', 'Payment signature verification failed.');
+  const amount = Number(order.data()!.amount);
+  // The webhook may have settled this order first.
+  if (order.data()!.status === 'credited') return { verified: true, status: 'credited', amount };
+  if (order.data()!.status === 'held') return { verified: true, status: 'held', amount };
+  const p = await (new Razorpay({ key_id: keyId, key_secret: keySecret }) as unknown as { payments: { fetch(id: string): Promise<{ order_id: string; status: string; amount: number; currency: string }> } }).payments.fetch(razorpayPaymentId);
+  if (p.order_id !== razorpayOrderId) throw new HttpsError('failed-precondition', 'The payment does not belong to this order.');
+  if (p.status === 'failed') {
+    await orderRef.update({ status: 'failed', lastPaymentId: razorpayPaymentId, updatedAt: FieldValue.serverTimestamp() });
+    throw new HttpsError('failed-precondition', 'The payment failed. You have not been charged; please try again.');
+  }
+  if (p.status !== 'captured') return { verified: true, status: 'pending', amount, message: 'Your payment is being confirmed. The deposit updates shortly.' };
+  if (p.currency !== 'INR' || p.amount !== order.data()!.amountPaise) throw new HttpsError('failed-precondition', 'The paid amount does not match the order.');
+  const status = await applyDepositTopup(orderRef.id, razorpayPaymentId, party.type, party.uid);
+  return { verified: true, status, amount };
+});
+
+/**
+ * Idempotent per order: adds the paid amount to the deposit once, whichever of the checkout callback and the webhook gets here first.
+ * If the deposit stopped being open while the partner was paying (refund requested or settled), the money is kept as `held` for the
+ * office to review instead of being added.
+ */
+export async function applyDepositTopup(orderId: string, paymentId: string, type: PartyType, id: string): Promise<'credited' | 'held'> {
+  const orderRef = db.doc(`deposit_payments/${orderId}`);
+  const depRef = db.doc(`partner_deposits/${type}_${id}`);
+  return db.runTransaction(async (tx: Transaction) => {
+    const [o, d] = await Promise.all([tx.get(orderRef), tx.get(depRef)]);
+    if (!o.exists) throw new HttpsError('failed-precondition', 'Unknown deposit payment.');
+    const od = o.data()!;
+    if (od.status === 'credited') return 'credited';
+    if (od.status === 'held') return 'held';
+    const amount = Number(od.amount);
+    const stamp = FieldValue.serverTimestamp();
+    const current = d.exists ? Number(d.data()!.amount) || 0 : 0;
+    const status = d.exists ? String(d.data()!.status) : 'Not paid';
+    if (!TOPUP_OPEN_STATES.includes(status) || current + amount > DEPOSIT_TOTAL_MAX) {
+      tx.update(orderRef, { status: 'held', paymentId, heldAt: stamp, heldReason: !TOPUP_OPEN_STATES.includes(status) ? `Deposit status was ${status}` : 'Deposit limit exceeded' });
+      auditInTx(tx, { action: 'security_deposit_topup_held', entity: 'partner_deposit', entityId: depRef.id, performedBy: id, performedByName: text(od.partyName), role: type, next: { amount, paymentId, depositStatus: status } });
+      return 'held';
+    }
+    const total = current + amount;
+    const history = [...(Array.isArray(d.data()?.history) ? d.data()!.history : []).slice(-19), { status: 'Active', amount: total, reference: paymentId, by: id, byName: text(od.partyName), at: Timestamp.now() }];
+    tx.set(depRef, { partyType: type, partyId: id, [type === 'vendor' ? 'vendorId' : 'driverId']: id, amount: total, status: 'Active', reference: paymentId, history, updatedAt: stamp, updatedBy: id }, { merge: true });
+    tx.update(orderRef, { status: 'credited', paymentId, creditedAt: stamp });
+    auditInTx(tx, { action: 'security_deposit_topped_up', entity: 'partner_deposit', entityId: depRef.id, performedBy: id, performedByName: text(od.partyName), role: type, previous: d.exists ? { amount: current, status } : undefined, next: { amount: total, status: 'Active', added: amount, paymentId } });
+    return 'credited';
+  });
+}

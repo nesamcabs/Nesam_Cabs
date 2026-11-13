@@ -55,6 +55,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: "penalties", label: "Penalties", icon: "shield-alert" },
       { id: "full-final", label: "Full & Final", icon: "clipboard-check" },
       { id: "commission", label: "Commission Policy", icon: "percent" },
+      { id: "security-deposit", label: "Security Deposit", icon: "shield-check" },
       { id: "reports", label: "Reports & GST", icon: "chart-no-axes-combined" },
     ],
   },

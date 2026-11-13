@@ -13,6 +13,15 @@ export interface MarketTrip {
   service: string;
   tripType: string;
   vehicleCategory: string;
+  /** The category's id, and its display name set in the admin panel (e.g. "Wagon R or Similar"); `vehicleCategory` stays the class used for matching. */
+  vehicleCategoryId: string;
+  carName: string;
+  /** 'cng' or 'diesel_petrol' as booked; empty on duties published before it was recorded. */
+  fuelType: string;
+  /** Bidding duties: the payout starts at `startOffer` and rises `stepPercent`% every `intervalMinutes` (0 when it does not rise). */
+  startOffer: number;
+  stepPercent: number;
+  intervalMinutes: number;
   distanceKm: number;
   offeredPayout: number;
   status: string;

@@ -7,7 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useVendorData } from '../../context/VendorData';
 import { Page } from '../../components/shell/Page';
 import { displayDate } from '../../components/fields';
-import { Avatar, Badge, Between, Btn, Empty, Grid, H2, KV, Notice, Panel, SectionLine, Small, Tabs } from '../../components/kit/core';
+import { Avatar, Badge, Between, Btn, Empty, Grid, H2, KV, Notice, Panel, SectionLine, Small } from '../../components/kit/core';
 import { dayTime, plate } from '../../components/kit/format';
 import { flash } from '../../components/kit/flash';
 import { linkIsOpen } from '../../services/partnerLinks';
@@ -22,13 +22,13 @@ import { SwapDriver, SwapVehicle } from './SwapFlows';
 import { VEHICLE_DOCS } from './logic';
 import { colors, fontFamily } from '../../theme';
 
-type SwapTab = 'vehicle' | 'driver';
-
-/** Swap a vehicle or a driver that is already on NESAM into this fleet, and follow the requests that are still open. */
-export function LinkingScreen() {
+/**
+ * Swap a vehicle or a driver that is already on NESAM into this fleet, and follow the requests that are still open.
+ * Shown inline on the Fleet page when its Swap button is pressed (there is no separate page).
+ */
+export function SwapPanel({ kind }: { kind: 'vehicle' | 'driver' }) {
   const navigation = useNavigation();
   const { links, profile, bookings, errors } = useVendorData();
-  const [tab, setTab] = useState<SwapTab>('vehicle');
   // A request just made is shown (with its code box) inside the flow, so it is left out of the open list below.
   const [shown, setShown] = useState<string[]>([]);
 
@@ -36,10 +36,9 @@ export function LinkingScreen() {
   const open = links.filter((l) => linkIsOpen(l) && !shown.includes(l.id) && (l.toVendorId === profile.id || l.fromVendorId === profile.id));
 
   return (
-    <Page maxWidth={700}>
+    <View style={{ marginBottom: 18 }}>
       {errors.links ? <Notice tone="red" title="Requests could not load" text={errors.links} style={{ marginBottom: 12 }} /> : null}
-      <Tabs fill value={tab} onChange={setTab} items={[{ id: 'vehicle', label: 'Swap vehicle' }, { id: 'driver', label: 'Swap driver' }]} />
-      {tab === 'vehicle' ? <SwapVehicle onSent={(id) => setShown((x) => [...x, id])} /> : <SwapDriver onSent={(id) => setShown((x) => [...x, id])} />}
+      {kind === 'vehicle' ? <SwapVehicle onSent={(id) => setShown((x) => [...x, id])} /> : <SwapDriver onSent={(id) => setShown((x) => [...x, id])} />}
 
       {open.length ? (
         <View style={{ marginTop: 28 }}>
@@ -77,7 +76,7 @@ export function LinkingScreen() {
           </View>
         </View>
       ) : null}
-    </Page>
+    </View>
   );
 }
 

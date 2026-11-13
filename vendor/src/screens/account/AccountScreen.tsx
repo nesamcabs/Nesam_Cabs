@@ -79,7 +79,7 @@ export function AccountScreen() {
         <MenuItem icon="card-outline" title="Bank details" sub={record.payoutSummary?.bankLast4 ? `Account ending ${record.payoutSummary.bankLast4}${bankPending ? ' · change under review' : ''}` : 'Not added'} onPress={() => setBank(true)} />
         <MenuItem icon="document-text-outline" title="Agreement & accepted copy" onPress={() => navigation.navigate('Agreements')} />
         <MenuItem icon="shield-checkmark-outline" title="Documents & verification" onPress={() => navigation.navigate('Documents')} />
-        <MenuItem icon="swap-horizontal-outline" title="Driver / vehicle linking requests" value={actionLinks.length ? `${actionLinks.length} need you` : undefined} onPress={() => navigation.navigate('Linking')} />
+        <MenuItem icon="swap-horizontal-outline" title="Driver / vehicle linking requests" value={actionLinks.length ? `${actionLinks.length} need you` : undefined} onPress={() => goSection('Fleet', { tab: 'Vehicles', swap: Date.now() })} />
         <MenuItem icon="notifications-outline" title="Notifications" value={unreadCount ? `${unreadCount} new` : undefined} onPress={() => navigation.navigate('Alerts')} />
         <MenuItem icon="warning-outline" title="Penalty notices" value={unacknowledged.length ? `${unacknowledged.length} to review` : undefined} onPress={() => goSection('Wallet', { tab: 'Penalties' })} last />
       </Panel>

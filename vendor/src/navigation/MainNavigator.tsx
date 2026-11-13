@@ -23,7 +23,7 @@ import { AssignScreen } from '../screens/bookings/AssignScreen';
 import { FleetScreen } from '../screens/fleet/FleetScreen';
 import { DriverScreen, VehicleScreen } from '../screens/fleet/EntityScreens';
 import { FleetAddScreen } from '../screens/fleet/FleetAddScreen';
-import { DocumentsScreen, LinkingScreen } from '../screens/fleet/LinkingAndDocs';
+import { DocumentsScreen } from '../screens/fleet/LinkingAndDocs';
 import { EarningsScreen } from '../screens/money/EarningsScreen';
 import { WalletScreen } from '../screens/money/WalletScreen';
 import { PenaltyScreen } from '../screens/money/PenaltyScreen';
@@ -36,9 +36,9 @@ export { useSignOut } from './signOut';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const TITLES: Record<keyof RootStackParamList, string> = {
-  Trips: 'Trips', Bookings: 'Bookings', Fleet: 'Fleet', Earnings: 'Earnings', Wallet: 'Wallet', MyBids: 'My bids', Duty: 'Duty details',
+  Trips: 'Bookings', Bookings: 'My Trips', Fleet: 'Fleet', Earnings: 'Earnings', Wallet: 'Wallet', MyBids: 'My bids', Duty: 'Duty details',
   Booking: 'Booking details', Assign: 'Assign driver', FleetAdd: 'Add to fleet', Vehicle: 'Vehicle details', Driver: 'Driver details',
-  Linking: 'Swap vehicle or driver', Documents: 'Documents & verification', Penalty: 'Penalty notice', Helpdesk: '24/7 Helpdesk', Account: 'Profile',
+  Documents: 'Documents & verification', Penalty: 'Penalty notice', Helpdesk: '24/7 Helpdesk', Account: 'Profile',
   Business: 'Business & contact', Agreements: 'Agreements', Alerts: 'Notifications',
 };
 
@@ -85,7 +85,6 @@ export function MainNavigator({ onSignOut, locked = null }: { onSignOut: () => v
           <Stack.Screen name="FleetAdd" component={FleetAddScreen} />
           <Stack.Screen name="Vehicle" component={VehicleScreen} />
           <Stack.Screen name="Driver" component={DriverScreen} />
-          <Stack.Screen name="Linking" component={LinkingScreen} />
           <Stack.Screen name="Documents" component={DocumentsScreen} />
           <Stack.Screen name="Penalty" component={PenaltyScreen} />
           <Stack.Screen name="Helpdesk" component={HelpdeskScreen} />

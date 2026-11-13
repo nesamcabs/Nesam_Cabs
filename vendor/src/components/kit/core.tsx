@@ -219,6 +219,25 @@ export function Tabs<T extends string>({ items, value, onChange, style, action, 
   );
 }
 
+/** A page-level action: outlined (or red when `primary`), the same height and radius as the tabs, icon beside the label. Buttons in a row share the width equally. */
+export function ActionButton({ icon, label, onPress, primary, disabled, count, active }: { icon: IconName; label: string; onPress: () => void; primary?: boolean; disabled?: boolean; count?: number; /** The panel this button opens is showing. */ active?: boolean }) {
+  const fg = primary ? colors.white : colors.ink;
+  return (
+    <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityState={{ disabled: !!disabled, expanded: active }} accessibilityLabel={count ? `${label}, ${count} awaiting action` : label}
+      style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
+        s.actionBtn, primary && s.actionBtnPrimary, active && !primary && { backgroundColor: colors.primarySoft, borderColor: colors.primary }, disabled && { opacity: 0.5 },
+        !disabled && !primary && (pressed || hovered) && { backgroundColor: colors.primarySoft, borderColor: colors.primaryBorder },
+        !disabled && primary && pressed && { backgroundColor: colors.primaryDark },
+      ]}>
+      <View>
+        <Ionicons name={icon} size={19} color={primary ? colors.white : colors.primary} />
+        {count ? <View style={s.actionDot}><Text style={s.actionDotText}>{count > 9 ? '9+' : count}</Text></View> : null}
+      </View>
+      <Text style={[s.actionBtnText, { color: fg }]} numberOfLines={1}>{label}</Text>
+    </Pressable>
+  );
+}
+
 export function SectionLine({ title, meta, action }: { title?: string; meta?: string; action?: React.ReactNode }) {
   return (
     <View style={s.sectionLine}>
@@ -560,6 +579,11 @@ export const s = StyleSheet.create({
   tabCount: { minWidth: 20, height: 20, paddingHorizontal: 6, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#EEF0F4' },
   tabCountOn: { backgroundColor: colors.white },
   tabCountText: { fontSize: 11, fontWeight: '700', color: colors.muted, fontFamily },
+  actionBtn: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, minHeight: 46, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.white },
+  actionBtnPrimary: { backgroundColor: colors.primary, borderColor: colors.primary },
+  actionBtnText: { fontSize: 13.5, fontWeight: '600', fontFamily, flexShrink: 1 },
+  actionDot: { position: 'absolute', top: -7, right: -10, minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 4, backgroundColor: colors.primary, borderWidth: 1.5, borderColor: colors.white, alignItems: 'center', justifyContent: 'center' },
+  actionDotText: { fontSize: 9, fontWeight: '700', color: colors.white, lineHeight: 11, fontFamily },
   sectionLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14, marginTop: 4, marginBottom: 14, flexWrap: 'wrap' },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: colors.ink, fontFamily },
   sectionMeta: { fontSize: 12, color: '#6F7785', fontFamily },

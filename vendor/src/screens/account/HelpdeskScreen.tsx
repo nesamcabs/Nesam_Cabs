@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import { Linking, StyleSheet, View } from 'react-native';
 import { Text } from '../../components/kit/Text';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
 import { useVendorData } from '../../context/VendorData';
 import { Page } from '../../components/shell/Page';
 import { Badge, Between, Btn, Empty, Grid, H2, MenuItem, Panel, SectionLine, Small, Tabs } from '../../components/kit/core';
@@ -18,7 +17,6 @@ import { useLayout } from '../../theme/responsive';
 const TYPE = { cancellation: 'Cancellation', bank_change: 'Bank change', document_renewal: 'Document renewal' } as const;
 
 export function HelpdeskScreen() {
-  const navigation = useNavigation();
   const d = useVendorData();
   const { wide } = useLayout();
   const [filter, setFilter] = useState<'Pending' | 'Resolved'>('Pending');
@@ -44,7 +42,7 @@ export function HelpdeskScreen() {
           <MenuItem icon="people-outline" title="Change driver or vehicle" sub="Open a booking and update before trip start" onPress={() => goSection('Bookings', { tab: 'Upcoming' })} last />
         </Panel>
         <Panel style={{ paddingVertical: 6, flexGrow: 1 }}>
-          <MenuItem icon="swap-horizontal-outline" title="Driver / vehicle linking" sub="Codes and office verification" onPress={() => navigation.navigate('Linking')} />
+          <MenuItem icon="swap-horizontal-outline" title="Driver / vehicle linking" sub="Codes and office verification" onPress={() => goSection('Fleet', { tab: 'Vehicles', swap: Date.now() })} />
           <MenuItem icon="logo-whatsapp" title="WhatsApp NESAM" sub={`Or email ${SUPPORT_EMAIL}`} onPress={() => void Linking.openURL(WHATSAPP_SUPPORT)} last />
         </Panel>
       </Grid>

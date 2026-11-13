@@ -35,7 +35,7 @@ export function openPage(page: string, bookingId?: string): void {
       return navigationRef.navigate('Documents');
     case 'links':
     case 'partner-links':
-      return navigationRef.navigate('Linking');
+      return goSection('Fleet', { tab: 'Vehicles', swap: Date.now() });
     case 'requests':
     case 'helpdesk':
       return goSection('Helpdesk');

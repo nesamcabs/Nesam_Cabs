@@ -14,6 +14,10 @@ export const dayText = (d: Date | null): string =>
 export const weekdayText = (d: Date | null): string =>
   d ? new Intl.DateTimeFormat('en-GB', { timeZone: IST, weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }).format(d) : '—';
 
+/** The plain numeric date used on the duty and booking cards: 13/11/2026 (no weekday or month name). */
+export const numericDate = (d: Date | null): string =>
+  d ? new Intl.DateTimeFormat('en-GB', { timeZone: IST, day: '2-digit', month: '2-digit', year: 'numeric' }).format(d) : '—';
+
 export const timeText = (d: Date | null): string =>
   d ? new Intl.DateTimeFormat('en-US', { timeZone: IST, hour: '2-digit', minute: '2-digit', hour12: true }).format(d) : '';
 

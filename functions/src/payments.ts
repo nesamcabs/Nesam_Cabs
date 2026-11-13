@@ -205,6 +205,18 @@ export async function handleRazorpayEvent(event: any): Promise<{ handled: boolea
       await applyDuesPayment(duePayment.id, entity.id, d.partyType, d.partyId, entity.amount);
       return { handled: true, detail: 'dues payment reconciled' };
     }
+    // A security-deposit top-up is added to the deposit once (see applyDepositTopup), never to the working wallet.
+    const depositPayment = await db.doc(`deposit_payments/${entity.order_id}`).get();
+    if (depositPayment.exists) {
+      const d = depositPayment.data()!;
+      if (type !== 'payment.captured' && type !== 'order.paid') return { handled: false, detail: `ignored ${type}` };
+      if (entity.status !== 'captured' || entity.currency !== 'INR' || !Number.isSafeInteger(entity.amount) || entity.amount <= 0) return { handled: false, detail: 'invalid captured payment' };
+      if (entity.amount !== d.amountPaise) return { handled: false, detail: 'amount mismatch' };
+      if (!['vendor', 'driver'].includes(d.partyType) || typeof d.partyId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(d.partyId)) return { handled: false, detail: 'invalid deposit owner' };
+      const { applyDepositTopup } = await import('./partnerOps');
+      const outcome = await applyDepositTopup(depositPayment.id, entity.id, d.partyType, d.partyId);
+      return { handled: true, detail: `deposit top-up ${outcome}` };
+    }
     const recharge = await db.doc(`wallet_recharges/${entity.order_id}`).get();
     if (!recharge.exists) return { handled: false, detail: 'unknown order' };
     const r = recharge.data()!;

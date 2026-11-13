@@ -1,14 +1,15 @@
 // Bookings — accepted duties and the assigned team (reference vBookings / s-booking-card): pending-assignment summary,
-// Accepted · Upcoming · On Trip · Completed tabs (+ Cancelled history), search and service filter, booking cards.
+// Accepted · Upcoming · On Trip · Completed · Cancelled tabs, search and service filter, booking cards.
 import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Text } from '../../components/kit/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useVendorData } from '../../context/VendorData';
 import { Page } from '../../components/shell/Page';
-import { Badge, Btn, Dropdown, Empty, Feedback, Grid, KV, Meta, Panel, RouteTitle, SearchBox, SectionLine, Small, Tabs, TextLink, Toolbar } from '../../components/kit/core';
-import { dayTime, firstPart, plate, rupees, tripTypeLabel } from '../../components/kit/format';
+import { Badge, Btn, Dropdown, Empty, Feedback, Grid, KV, Panel, SectionLine, Small, Tabs, Toolbar } from '../../components/kit/core';
+import { dayTime, firstPart, numericDate, plate, rupees, timeText, tripTypeLabel } from '../../components/kit/format';
+import { DutyCard } from '../../components/kit/DutyCard';
 import { goSection } from '../../navigation/navigationRef';
 import { assignDeadline } from '../../services/partnerOps';
 import type { VendorBooking } from '../../types/operations';
@@ -17,10 +18,9 @@ import { ExtraTag } from '../trips/parts';
 import { liveLabel } from './TripTimeline';
 import { payoutOf, STAGE_BADGE, stageOf, type Stage } from './logic';
 import { colors, fontFamily } from '../../theme';
-import { useLayout } from '../../theme/responsive';
 
 const SERVICES = ['All', 'One Way', 'Round Trip', 'Airport', 'Multicity', 'Local Rental', 'Pickup & Drop'];
-const TABS: Stage[] = ['Accepted', 'Upcoming', 'On Trip', 'Completed'];
+const TABS: Stage[] = ['Accepted', 'Upcoming', 'On Trip', 'Completed', 'Cancelled'];
 
 export function BookingsScreen() {
   const route = useRoute<RouteProp<RootStackParamList, 'Bookings'>>();
@@ -28,7 +28,6 @@ export function BookingsScreen() {
   const [tab, setTab] = useState<BookingTab>(route.params?.tab ?? 'Accepted');
   const [seen, setSeen] = useState(route.params?.tab);
   if (route.params?.tab !== seen) { setSeen(route.params?.tab); if (route.params?.tab) setTab(route.params.tab); }
-  const [search, setSearch] = useState('');
   const [service, setService] = useState('All');
   const [now] = useState(() => Date.now());
 
@@ -41,16 +40,14 @@ export function BookingsScreen() {
   const accepted = d.bookings.filter((b) => stageOf(b) === 'Accepted');
   const deadlines = accepted.map((b) => assignDeadline(b.acceptedAt, b.pickupAt, d.ops, b.assignBy)).filter((x): x is Date => !!x).sort((a, b) => a.getTime() - b.getTime());
   const overdue = deadlines.filter((x) => x.getTime() < now).length;
-  const q = search.trim().toLowerCase();
   const list = d.bookings
     .filter((b) => stageOf(b) === tab)
     .filter((b) => service === 'All' || tripTypeLabel(b.tripType) === service)
-    .filter((b) => !q || `${b.bookingId} ${b.pickupAddress} ${b.dropAddress} ${b.driverName} ${b.vehicleNumber}`.toLowerCase().includes(q))
     .sort((a, b) => (tab === 'Completed' || tab === 'Cancelled' ? -1 : 1) * ((a.pickupAt?.getTime() ?? 0) - (b.pickupAt?.getTime() ?? 0)));
   const released = tab === 'Cancelled' ? d.requests.filter((r) => r.type === 'cancellation' && r.status === 'Approved' && !d.bookings.some((b) => b.id === r.bookingId)) : [];
 
   return (
-    <Page title="Bookings">
+    <Page>
       {tab === 'Accepted' && accepted.length ? (
         <View style={[styles.pending, overdue ? styles.pendingOverdue : null]}>
           <View style={[styles.pendingIcon, overdue ? { backgroundColor: '#FBEAE3' } : null]}>
@@ -62,22 +59,12 @@ export function BookingsScreen() {
           </View>
         </View>
       ) : null}
-      {tab !== 'Cancelled' ? (
-        <Tabs value={tab} onChange={setTab} items={TABS.map((id) => ({ id, label: id, count: counts[id] }))} style={{ marginTop: tab === 'Accepted' && accepted.length ? 4 : 0, marginBottom: 14 }} />
-      ) : null}
+      <Tabs value={tab} onChange={setTab} items={TABS.map((id) => ({ id, label: id, count: counts[id] }))} style={{ marginTop: tab === 'Accepted' && accepted.length ? 4 : 0, marginBottom: 14 }} />
       <Toolbar>
-        <SearchBox value={search} onChange={setSearch} placeholder="Search route, Duty ID, driver or vehicle" />
         <Dropdown label="Service type" icon="options-outline" value={service} onChange={setService} options={SERVICES.map((x) => ({ value: x, label: x === 'All' ? 'All services' : x }))} style={{ minWidth: 170 }} />
       </Toolbar>
       {d.errors.bookings ? <Feedback tone="error" message={d.errors.bookings} /> : null}
-      {tab === 'Cancelled' ? (
-        <SectionLine title="Cancelled history" meta={`${list.length + released.length}`} action={<TextLink title="Back to bookings" icon="arrow-back" onPress={() => setTab('Accepted')} />} />
-      ) : (
-        <SectionLine
-          meta={`${list.length} ${list.length === 1 ? 'booking' : 'bookings'}`}
-          action={<TextLink title={`Cancelled history${counts.Cancelled ? ` (${counts.Cancelled})` : ''}`} onPress={() => setTab('Cancelled')} />}
-        />
-      )}
+      <SectionLine meta={`${list.length + released.length} ${list.length + released.length === 1 ? 'booking' : 'bookings'}`} />
       {list.length || released.length ? (
         <Grid>
           {[
@@ -108,7 +95,6 @@ export function BookingsScreen() {
 export function BookingCard({ b, now }: { b: VendorBooking; now: number }) {
   const navigation = useNavigation();
   const d = useVendorData();
-  const { wide } = useLayout();
   const st = stageOf(b);
   const deadline = st === 'Accepted' ? assignDeadline(b.acceptedAt, b.pickupAt, d.ops, b.assignBy) : null;
   const late = !!deadline && deadline.getTime() < now;
@@ -117,47 +103,46 @@ export function BookingCard({ b, now }: { b: VendorBooking; now: number }) {
     : st === 'On Trip' && !b.trip.startedAt && b.trip.reachedPickupAt ? ['Driver at pickup', 'blue' as const] : STAGE_BADGE[st];
   const open = () => navigation.navigate('Booking', { id: b.id });
   return (
-    <Panel style={{ paddingVertical: wide ? 22 : 18, paddingHorizontal: wide ? 24 : 18, flexGrow: 1 }}>
-      <View style={styles.top}>
-        <View style={styles.date}><Ionicons name="calendar-outline" size={15} color="#6F7785" /><Text style={styles.dateText}>{b.pickupAt ? dayTime(b.pickupAt) : [b.date, b.time].filter(Boolean).join(' · ')}</Text></View>
-        <Badge label={label} tone={tone} />
+    <DutyCard
+      date={b.pickupAt ? numericDate(b.pickupAt) : b.date || '—'}
+      time={b.pickupAt ? timeText(b.pickupAt) : b.time || '—'}
+      from={firstPart(b.pickupAddress)}
+      to={firstPart(b.dropAddress)}
+      service={tripTypeLabel(b.tripType)}
+      distance={b.includedKm ? `${b.includedKm} km` : undefined}
+      vehicle={b.vehicleCategory || 'Vehicle'}
+      payout={rupees(payoutOf(b))}
+      badge={<Badge label={label} tone={tone} />}
+      onPress={open}
+      accessibilityLabel={`Open booking ${b.bookingId}`}
+      action={st === 'Accepted'
+        ? { label: 'Assign driver', icon: 'person-add', onPress: () => navigation.navigate('Assign', { id: b.id }) }
+        : { label: st === 'Completed' ? 'View statement' : 'View booking', onPress: open }}
+    >
+      <View style={{ gap: 10 }}>
+        {st === 'Accepted' || b.driverId ? (
+          <View style={styles.team}>
+            <View style={styles.teamItem}><Ionicons name={b.driverId ? 'person' : 'person-outline'} size={15} color="#6F7785" /><Text style={styles.teamText}>{b.driverName || 'Driver pending'}</Text></View>
+            <View style={styles.teamItem}><Ionicons name="car-outline" size={15} color="#6F7785" /><Text style={styles.teamText}>{b.vehicleNumber ? plate(b.vehicleNumber) : 'Vehicle pending'}</Text></View>
+          </View>
+        ) : null}
+        {deadline ? (
+          <View style={[styles.deadline, late && styles.deadlineLate]}>
+            <Ionicons name={late ? 'warning-outline' : 'time-outline'} size={14} color={late ? '#A66D42' : colors.warning} />
+            <Text style={[styles.deadlineText, late && { color: '#A66D42' }]}>{late ? 'Assignment deadline missed · ' : 'Assign by '}{dayTime(deadline)}</Text>
+          </View>
+        ) : st === 'Upcoming' || st === 'On Trip' ? (
+          <View style={styles.liveRow}>
+            {st === 'On Trip' ? <View style={styles.liveDot} /> : <Ionicons name="radio-outline" size={14} color="#8B919C" />}
+            <Text style={[styles.liveText, st === 'On Trip' && { color: '#B81C2A' }]}>{liveLabel(b)}</Text>
+          </View>
+        ) : st === 'Completed' && b.trip.totalKm ? (
+          <Small>{b.trip.totalKm.toLocaleString('en-IN')} km driven{b.trip.endedAt ? ` · completed ${dayTime(b.trip.endedAt)}` : ''}</Small>
+        ) : null}
+        {st !== 'Cancelled' ? <ExtraTag /> : null}
+        <Text style={styles.code}>{b.bookingId}</Text>
       </View>
-      <Pressable onPress={open} accessibilityRole="button" accessibilityLabel={`Open booking ${b.bookingId}`}>
-        <RouteTitle from={firstPart(b.pickupAddress)} to={firstPart(b.dropAddress)} size={18} />
-      </Pressable>
-      <Meta items={[{ icon: 'car-outline', text: b.vehicleCategory || 'Vehicle' }, b.includedKm ? { icon: 'git-commit-outline', text: `${b.includedKm} km` } : null, { text: tripTypeLabel(b.tripType), badge: true }]} />
-      {st === 'Accepted' || b.driverId ? (
-        <View style={styles.team}>
-          <View style={styles.teamItem}><Ionicons name={b.driverId ? 'person' : 'person-outline'} size={15} color="#6F7785" /><Text style={styles.teamText}>{b.driverName || 'Driver pending'}</Text></View>
-          <View style={styles.teamItem}><Ionicons name="car-outline" size={15} color="#6F7785" /><Text style={styles.teamText}>{b.vehicleNumber ? plate(b.vehicleNumber) : 'Vehicle pending'}</Text></View>
-        </View>
-      ) : null}
-      {deadline ? (
-        <View style={[styles.deadline, late && styles.deadlineLate]}>
-          <Ionicons name={late ? 'warning-outline' : 'time-outline'} size={14} color={late ? '#A66D42' : colors.warning} />
-          <Text style={[styles.deadlineText, late && { color: '#A66D42' }]}>{late ? 'Assignment deadline missed · ' : 'Assign by '}{dayTime(deadline)}</Text>
-        </View>
-      ) : st === 'Upcoming' || st === 'On Trip' ? (
-        <View style={styles.liveRow}>
-          {st === 'On Trip' ? <View style={styles.liveDot} /> : <Ionicons name="radio-outline" size={14} color="#8B919C" />}
-          <Text style={[styles.liveText, st === 'On Trip' && { color: '#B81C2A' }]}>{liveLabel(b)}</Text>
-        </View>
-      ) : st === 'Completed' && b.trip.totalKm ? (
-        <Small style={{ marginTop: 10 }}>{b.trip.totalKm.toLocaleString('en-IN')} km driven{b.trip.endedAt ? ` · completed ${dayTime(b.trip.endedAt)}` : ''}</Small>
-      ) : null}
-      {st !== 'Cancelled' ? <ExtraTag /> : null}
-      <View style={{ flex: 1 }} />
-      <View style={styles.bottom}>
-        <View style={{ flexShrink: 1 }}>
-          <Text style={styles.rateLabel}>Vendor payout</Text>
-          <Text style={styles.rate}>{rupees(payoutOf(b))}</Text>
-        </View>
-        {st === 'Accepted'
-          ? <Btn title="Assign driver" icon="person-add" onPress={() => navigation.navigate('Assign', { id: b.id })} />
-          : <Btn kind="secondary" title={st === 'Completed' ? 'View statement' : 'View booking'} icon="open-outline" onPress={open} />}
-      </View>
-      <Pressable onPress={open} accessibilityRole="link" style={{ marginTop: 12 }}><Text style={styles.code}>{b.bookingId} ›</Text></Pressable>
-    </Panel>
+    </DutyCard>
   );
 }
 

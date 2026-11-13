@@ -16,7 +16,7 @@ export { savePlatformFee } from './platformFeeConfig';
 export { saveNightAllowance } from './nightAllowanceConfig';
 export { saveServiceRule, setServiceRuleStatus } from './serviceRules';
 export { issuePenalty, transitionPenalty, acknowledgePenalty, disputePenalty } from './penalties';
-export { requestDutyCancellation, submitPartnerRequest, decidePartnerRequest, acknowledgeAssignment, setVehicleAvailability, createWalletRecharge, verifyWalletRecharge, getDuesSummary, createDuesPayment, verifyDuesPayment, setSecurityDeposit, requestDepositRefund } from './partnerOps';
+export { requestDutyCancellation, submitPartnerRequest, decidePartnerRequest, acknowledgeAssignment, setVehicleAvailability, createWalletRecharge, verifyWalletRecharge, getDuesSummary, createDuesPayment, verifyDuesPayment, setSecurityDeposit, requestDepositRefund, createDepositPayment, verifyDepositPayment } from './partnerOps';
 export { advanceTrip, verifyBoarding, overrideReachedPickup } from './trips';
 export { saveTariffConfig, quoteBooking } from './quote';
 export { saveTariffSection } from './tariffSections';

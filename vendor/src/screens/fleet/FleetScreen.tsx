@@ -1,13 +1,13 @@
 // Fleet — "Drivers and vehicles. One permanent ID each." (reference vVehicles): Vehicles / Drivers tabs with counts,
 // search + status filter, linking and document shortcuts, and a card per vehicle or driver. Pending invitations show under Drivers.
 import React, { useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import { Text } from '../../components/kit/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useVendorData } from '../../context/VendorData';
 import { Page } from '../../components/shell/Page';
-import { Avatar, Badge, Between, Btn, CarImage, Dropdown, Empty, Grid, Inline, Panel, SearchBox, SectionLine, Small, Tabs, TextLink, Toolbar } from '../../components/kit/core';
+import { ActionButton, Avatar, Badge, Between, Btn, CarImage, Dropdown, Empty, Grid, Inline, Panel, SearchBox, SectionLine, Small, Tabs, TextLink, Toolbar } from '../../components/kit/core';
 import { plate, shortId } from '../../components/kit/format';
 import { flash } from '../../components/kit/flash';
 import { displayDate } from '../../components/fields';
@@ -17,6 +17,7 @@ import { describeDataError } from '../../utils/retry';
 import type { FleetDriver, FleetVehicle } from '../../types/operations';
 import type { FleetTab, RootStackParamList } from '../../navigation/types';
 import { docTone, driverDocState, driverMatches, DRIVER_FILTERS, nextExpiry, vehicleDocState, vehicleMatches, VEHICLE_FILTERS, vehicleStatusLabel } from './logic';
+import { SwapPanel } from './LinkingAndDocs';
 import { colors, fontFamily } from '../../theme';
 import { useLayout } from '../../theme/responsive';
 
@@ -28,6 +29,10 @@ export function FleetScreen() {
   const [tab, setTab] = useState<FleetTab>(route.params?.tab ?? 'Vehicles');
   const [seen, setSeen] = useState(route.params?.tab);
   if (route.params?.tab !== seen) { setSeen(route.params?.tab); if (route.params?.tab) setTab(route.params.tab); }
+  // The Swap panel opens under the buttons on this page; arriving with a `swap` token (from the Profile / Helpdesk menus) opens it too.
+  const [swapOpen, setSwapOpen] = useState(!!route.params?.swap);
+  const [swapSeen, setSwapSeen] = useState(route.params?.swap);
+  if (route.params?.swap !== swapSeen) { setSwapSeen(route.params?.swap); if (route.params?.swap) setSwapOpen(true); }
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('All');
   const vehicles = tab === 'Vehicles';
@@ -36,14 +41,14 @@ export function FleetScreen() {
   const dList = d.drivers.filter((x) => driverMatches(x, search, filter));
   const invites = !vehicles && filter === 'All' && !search ? d.invites : [];
   const shown = vehicles ? vList.length : dList.length + invites.length;
-  const switchTab = (t: FleetTab) => { setTab(t); setFilter('All'); };
+  const switchTab = (t: FleetTab) => { setTab(t); setFilter('All'); setSwapOpen(false); };
   const tabItems = [{ id: 'Vehicles' as const, label: 'Vehicles', count: d.vehicles.length }, { id: 'Drivers' as const, label: 'Drivers', count: d.drivers.length + d.invites.length }];
   const noun = vehicles ? 'vehicle' : 'driver';
   // Add and Swap: the same size as the tabs (46 high), side by side; on desktop they sit at the right end of the tab row.
   const actions = (
     <View style={[styles.actionRow, wide && { width: 380, marginBottom: 0 }]}>
-      <ActionTile icon="add" label={`Add ${noun}`} onPress={() => navigation.navigate('FleetAdd', { kind: vehicles ? 'vehicle' : 'driver' })} />
-      <ActionTile icon="swap-horizontal" label={`Swap ${noun}`} count={d.actionLinks.length} onPress={() => navigation.navigate('Linking')} />
+      <ActionButton icon="add" label={`Add ${noun}`} onPress={() => navigation.navigate('FleetAdd', { kind: vehicles ? 'vehicle' : 'driver' })} />
+      <ActionButton icon="swap-horizontal" label={`Swap ${noun}`} count={d.actionLinks.length} active={swapOpen} onPress={() => setSwapOpen((o) => !o)} />
     </View>
   );
 
@@ -62,6 +67,7 @@ export function FleetScreen() {
           {actions}
         </>
       )}
+      {swapOpen ? <SwapPanel kind={vehicles ? 'vehicle' : 'driver'} /> : null}
       <Toolbar>
         <SearchBox value={search} onChange={setSearch} placeholder={vehicles ? 'Registration, Car ID or model' : 'Name, mobile, DL or Driver ID'} />
         <Dropdown label="Fleet status" icon="funnel-outline" value={filter} onChange={setFilter} options={(vehicles ? VEHICLE_FILTERS : DRIVER_FILTERS).map((x) => ({ value: x, label: x === 'All' ? 'All statuses' : x }))} style={{ minWidth: 170 }} />
@@ -105,20 +111,6 @@ export function FleetScreen() {
         </Grid>
       )}
     </Page>
-  );
-}
-
-/** One of the two actions under the tabs (Add · Swap): outlined, equal width, the same height and radius as the tabs. */
-function ActionTile({ icon, label, count, onPress }: { icon: React.ComponentProps<typeof Ionicons>['name']; label: string; count?: number; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={count ? `${label}, ${count} awaiting action` : label}
-      style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [styles.tile, (pressed || hovered) && { backgroundColor: colors.primarySoft, borderColor: colors.primaryBorder }]}>
-      <View>
-        <Ionicons name={icon} size={19} color={colors.primary} />
-        {count ? <View style={styles.tileDot}><Text style={styles.tileDotText}>{count > 9 ? '9+' : count}</Text></View> : null}
-      </View>
-      <Text style={styles.tileLabel} numberOfLines={1}>{label}</Text>
-    </Pressable>
   );
 }
 
@@ -183,10 +175,6 @@ function DriverCard({ x }: { x: FleetDriver }) {
 
 const styles = StyleSheet.create({
   actionRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
-  tile: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, minHeight: 46, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.white },
-  tileDot: { position: 'absolute', top: -7, right: -10, minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 4, backgroundColor: colors.primary, borderWidth: 1.5, borderColor: colors.white, alignItems: 'center', justifyContent: 'center' },
-  tileDotText: { fontFamily, fontSize: 9, fontWeight: '700', color: colors.white, lineHeight: 11 },
-  tileLabel: { fontFamily, fontSize: 13.5, fontWeight: '600', color: colors.ink, flexShrink: 1 },
   eyebrow: { fontFamily, fontSize: 10, fontWeight: '600', letterSpacing: 1, color: '#8B919C' },
   kind: { fontFamily, fontSize: 10.5, color: '#8B919C' },
   carHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 14 },

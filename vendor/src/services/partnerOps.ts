@@ -38,6 +38,10 @@ export interface PartnerRequestRecord {
 
 export interface SecurityDeposit { amount: number; status: string }
 
+/** The office's security-deposit policy (settings/security_deposit, set on the admin Security Deposit page). */
+export interface DepositPolicy { required: boolean; amount: number; message: string }
+export const NO_DEPOSIT_POLICY: DepositPolicy = { required: false, amount: 0, message: '' };
+
 export interface SettlementDue {
   id: string;
   bookingCode: string;
@@ -90,6 +94,12 @@ export const subscribeToPartnerRequests = (vendorId: string, cb: (r: PartnerRequ
 
 export const subscribeToDeposit = (vendorId: string, cb: (d: SecurityDeposit | null) => void) =>
   onSnapshot(doc(db, 'partner_deposits', `vendor_${vendorId}`), (snap) => cb(snap.exists() ? { amount: n(snap.data().amount), status: s(snap.data().status) || 'Not paid' } : null), () => cb(null));
+
+export const subscribeToDepositPolicy = (cb: (p: DepositPolicy) => void) =>
+  onSnapshot(doc(db, 'settings', 'security_deposit'), (snap) => {
+    const d = snap.data();
+    cb(d && d.vendorRequired === true && rupees(d.vendorAmount, 0) > 0 ? { required: true, amount: rupees(d.vendorAmount, 0), message: s(d.message) } : NO_DEPOSIT_POLICY);
+  }, () => cb(NO_DEPOSIT_POLICY));
 
 export const subscribeToSettlementDues = (vendorId: string, cb: (d: SettlementDue[]) => void) =>
   onSnapshot(query(collection(db, 'settlement_dues'), where('partnerId', '==', vendorId)), (snap) => cb(snap.docs.map((x) => {
@@ -163,6 +173,13 @@ export interface RechargeOrder { orderId: string; amount: number; currency: stri
 export const createWalletRecharge = (amount: number) => callFunction<{ amount: number }, RechargeOrder>('createWalletRecharge', { amount });
 export const verifyWalletRecharge = (orderId: string, paymentId: string, signature: string) =>
   callFunction<unknown, { status: string; message?: string }>('verifyWalletRecharge', { razorpayOrderId: orderId, razorpayPaymentId: paymentId, razorpaySignature: signature });
+
+/** Security deposit top-up: the amount is a whole-rupee choice; the deposit changes only after the server verifies the payment. */
+export const DEPOSIT_TOPUP_MIN = 100;
+export const DEPOSIT_TOPUP_MAX = 100000;
+export const createDepositPayment = (amount: number) => callFunction<{ amount: number }, RechargeOrder>('createDepositPayment', { amount });
+export const verifyDepositPayment = (orderId: string, paymentId: string, signature: string) =>
+  callFunction<unknown, { status: 'credited' | 'held' | 'pending'; amount?: number; message?: string }>('verifyDepositPayment', { razorpayOrderId: orderId, razorpayPaymentId: paymentId, razorpaySignature: signature });
 
 export interface AccountDeletionReceipt { alreadyOpen: boolean; liveBookings: number; reference: string }
 /** Asks the office to erase this partner's account and personal data. Nothing is deleted automatically; the office verifies and settles first. */
