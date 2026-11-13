@@ -1,7 +1,7 @@
 // Driver app constants. Support contact matches the Customer app / Customer
 // Web configuration (the Driver Web panel had a stale hard-coded number).
-export const SUPPORT_PHONE = '+919025099990';
-export const SUPPORT_PHONE_DISPLAY = '+91 90250 99990';
+export const SUPPORT_PHONE = '+919025033330';
+export const SUPPORT_PHONE_DISPLAY = '+91 90250 33330';
 export const SUPPORT_EMAIL = 'support@nesamcabs.com';
 export const COMPANY_LEGAL_NAME = 'NESAM Tours and Travels Private Limited';
 export const EMERGENCY_NUMBER = '112';

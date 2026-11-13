@@ -104,10 +104,8 @@ export function DutyRow({ trip: t, bid, onAction, list }: { trip: MarketTrip; bi
   const carLine = list ? car : [car, extras].filter(Boolean).join('  ·  ');
   const dateText = pickup ? numericDate(pickup) : t.travelDate || '';
   // One line saying where this duty stands for this vendor (nothing when it is simply open).
-  const closes = t.cutoffMs ? `Bidding closes ${dayTime(new Date(t.cutoffMs))}` : '';
   const status = opensAt ? `Opens to vendors at ${timeText(new Date(opensAt))}`
     : isBidding(t) && !bidOpen ? 'Bidding closed'
-    : isBidding(t) ? closes
     : '';
 
   const card = (

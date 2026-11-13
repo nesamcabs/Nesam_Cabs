@@ -1,52 +1,40 @@
 // 24/7 Helpdesk — office support and duty requests (reference vHelpdesk): call the office, quick requests, and the
 // vendor's cancellation / bank-change / renewal requests with the office's decision.
 import React, { useState } from 'react';
-import { Linking, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Text } from '../../components/kit/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useVendorData } from '../../context/VendorData';
 import { Page } from '../../components/shell/Page';
-import { Badge, Between, Btn, Empty, Grid, H2, MenuItem, Panel, SectionLine, Small, Tabs } from '../../components/kit/core';
+import { Badge, Between, Btn, Empty, Grid, MenuItem, Panel, Small } from '../../components/kit/core';
 import { dayTime, rupees } from '../../components/kit/format';
 import { Sheet } from '../../components/ui';
 import { BankSheet } from './AccountScreen';
 import { CancellationSheet } from '../bookings/CancellationSheet';
 import { colors, fontFamily } from '../../theme';
-import { useLayout } from '../../theme/responsive';
 
 const TYPE = { cancellation: 'Cancellation', bank_change: 'Bank change', document_renewal: 'Document renewal' } as const;
 
 export function HelpdeskScreen() {
   const d = useVendorData();
   const navigation = useNavigation();
-  const { wide } = useLayout();
-  const [filter, setFilter] = useState<'Pending' | 'Resolved'>('Pending');
   const [cancel, setCancel] = useState(false);
   const [choose, setChoose] = useState(false);
   const [bank, setBank] = useState(false);
   const phone = d.ops.supportPhone.replace(/^\+91/, '').replace(/(\d{5})(\d{5})/, '$1 $2');
-  const pending = d.requests.filter((r) => r.status === 'Pending');
-  const list = filter === 'Pending' ? pending : d.requests.filter((r) => r.status !== 'Pending');
 
   return (
     <Page title="24/7 Helpdesk">
-      <View style={[styles.support, !wide && { flexWrap: 'wrap' }]}>
-        <View style={styles.supportIcon}><Ionicons name="headset-outline" size={23} color={colors.primary} /></View>
-        <View style={{ flex: 1, minWidth: 180 }}>
-          <H2>NESAM office</H2>
-          <Small>Duty, transfer and account assistance, any time.</Small>
-        </View>
-        <Btn icon="call-outline" title={`Call ${phone}`} onPress={() => void Linking.openURL(`tel:${d.ops.supportPhone}`)} style={!wide ? { flexGrow: 1 } : undefined} />
+      {/* Requests section on top */}
+      <View style={styles.headerRow}>
+        <Text style={styles.sectionTitle}>My requests</Text>
+        <Btn small icon="add" title="New request" onPress={() => setChoose(true)} />
       </View>
 
-      <View style={{ height: 26 }} />
-      <SectionLine stacked title="My requests" meta="Duties stay active until the office approves cancellation."
-        action={<Btn small icon="add" title="Send a request" onPress={() => setChoose(true)} />} />
-      <Tabs value={filter} onChange={setFilter} style={{ marginTop: 0 }} items={[{ id: 'Pending', label: 'Pending', count: pending.length }, { id: 'Resolved', label: 'Resolved', count: d.requests.length - pending.length }]} />
-      {list.length ? (
+      {d.requests.length ? (
         <Grid>
-          {list.map((r) => (
+          {d.requests.map((r) => (
             <Panel key={r.id} style={{ flexGrow: 1 }}>
               <Between><Small>{r.bookingCode || r.entityName || r.id.slice(0, 8).toUpperCase()}</Small><Badge label={r.status === 'Pending' ? 'Under review' : r.status} tone={r.status === 'Approved' ? 'green' : r.status === 'Declined' ? 'red' : 'amber'} /></Between>
               <Text style={styles.reqTitle}>{TYPE[r.type]}</Text>
@@ -59,8 +47,39 @@ export function HelpdeskScreen() {
           ))}
         </Grid>
       ) : (
-        <Empty icon="chatbubbles-outline" title={`No ${filter.toLowerCase()} requests`} text="Cancellation, bank change and document renewal requests appear here with the office decision." />
+        <Empty
+          icon="chatbubbles-outline"
+          title="No requests yet"
+          text="Your submitted requests will appear here."
+        />
       )}
+
+      {/* Office contact card below */}
+      <Pressable
+        onPress={() => void Linking.openURL(`tel:${d.ops.supportPhone}`)}
+        accessibilityRole="button"
+        accessibilityLabel={`Call Nesam office ${phone}`}
+        style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
+          styles.support,
+          hovered && { borderColor: colors.primary },
+          pressed && { opacity: 0.92 },
+        ]}
+      >
+        <View style={styles.supportInfo}>
+          <View style={styles.supportIcon}>
+            <Ionicons name="headset" size={22} color={colors.primary} />
+          </View>
+          <View style={{ gap: 2, flexShrink: 1 }}>
+            <Text style={styles.supportTitle}>Nesam office</Text>
+            <Text style={styles.supportSub} numberOfLines={1}>{phone} · 24/7 support</Text>
+          </View>
+        </View>
+        <View style={styles.callBadge}>
+          <Ionicons name="call" size={14} color="#FFFFFF" />
+          <Text style={styles.callBadgeText}>Call</Text>
+        </View>
+      </Pressable>
+
       {choose ? (
         <Sheet visible onClose={() => setChoose(false)} title="Send a request">
           <Small style={{ marginBottom: 6 }}>The office reviews every request and replies here.</Small>
@@ -76,8 +95,89 @@ export function HelpdeskScreen() {
 }
 
 const styles = StyleSheet.create({
-  support: { flexDirection: 'row', alignItems: 'center', gap: 16, borderWidth: 1, borderColor: colors.border, borderRadius: 15, backgroundColor: colors.card, padding: 22, marginBottom: 18 },
-  supportIcon: { width: 46, height: 46, borderRadius: 12, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
-  reqTitle: { fontFamily, fontSize: 15, fontWeight: '600', color: colors.ink, marginTop: 10, marginBottom: 3 },
-  charge: { fontFamily, fontSize: 12.5, fontWeight: '600', color: colors.ink, marginTop: 8 },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  sectionTitle: {
+    fontFamily,
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.ink,
+  },
+  support: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 16,
+    backgroundColor: colors.white,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginTop: 20,
+  },
+  supportInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+    minWidth: 0,
+  },
+  supportIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  supportTitle: {
+    fontFamily,
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.ink,
+  },
+  supportSub: {
+    fontFamily,
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
+    marginTop: 1,
+  },
+  callBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 12,
+    marginLeft: 10,
+    flexShrink: 0,
+  },
+  callBadgeText: {
+    fontFamily,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  reqTitle: {
+    fontFamily,
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.ink,
+    marginTop: 10,
+    marginBottom: 3,
+  },
+  charge: {
+    fontFamily,
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: colors.ink,
+    marginTop: 8,
+  },
 });

@@ -65,7 +65,7 @@ export function MainNavigator({ onSignOut, locked = null }: { onSignOut: () => v
     <SignOutCtx.Provider value={onSignOut}>
       <AppShell lock={locked ? <VerificationLock record={locked} onSignOut={onSignOut} /> : null}>
         <Stack.Navigator
-          initialRouteName="Trips"
+          initialRouteName="Bookings"
           screenOptions={({ route }) => ({
             headerShown: false,
             title: `${TITLES[route.name]} · NESAM Partner`,

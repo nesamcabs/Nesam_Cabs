@@ -114,7 +114,7 @@ export function BookingDetailScreen() {
             <Badge label={b.paymentStatus === 'Paid' ? 'Final bill closed' : 'Final bill processing'} tone={b.paymentStatus === 'Paid' ? 'green' : 'amber'} />
             <Badge label={due ? SETTLEMENT_LABEL[due.status] ?? due.status : 'Settlement pending'} tone={due && ['Paid', 'Wallet'].includes(due.status) ? 'green' : 'amber'} />
           </Inline>
-          <KV rows={[due ? ['Fare retained by driver / vendor', rupees(due.collectedByPartner)] : null, due ? ['Trip adjustment', `${due.amount >= 0 ? '+' : '−'}${rupees(Math.abs(due.amount))}`] : null, b.tollCharges ? ['Toll recorded', rupees(b.tollCharges)] : null]} />
+          <KV rows={[due ? ['Fare retained by driver / vendor', rupees(due.collectedByPartner)] : null, due ? ['Trip adjustment', `${due.amount < 0 ? '−' : ''}${rupees(Math.abs(due.amount))}`] : null, b.tollCharges ? ['Toll recorded', rupees(b.tollCharges)] : null]} />
           <View style={{ marginTop: 12, flexDirection: 'row' }}><Btn kind="secondary" small icon="receipt-outline" title="Earnings & statements" onPress={() => goSection('Earnings')} /></View>
         </>
       ) : (

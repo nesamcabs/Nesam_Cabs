@@ -31,9 +31,9 @@ export function AccountScreen() {
   const b = record.business;
   const bankPending = requests.find((r) => r.type === 'bank_change' && r.status === 'Pending');
 
-  const confirmSignOut = () => Alert.alert('Sign out?', 'You will need to verify your phone number again to sign back in.', [
-    { text: 'Stay', style: 'cancel' },
-    { text: 'Sign out', style: 'destructive', onPress: signOut },
+  const confirmSignOut = () => Alert.alert('Log out?', 'You will need to verify your phone number again to log back in.', [
+    { text: 'Cancel', style: 'cancel' },
+    { text: 'Log out', style: 'destructive', onPress: signOut },
   ]);
   const confirmDeletion = () => Alert.alert('Delete your account?', 'NESAM will verify the request, settle anything still open (duties, dues, wallet and recharge) and then delete your account and personal data. Records required by law, such as invoices and settlements, are retained.', [
     { text: 'Keep my account', style: 'cancel' },
@@ -78,16 +78,12 @@ export function AccountScreen() {
       <Panel style={{ paddingVertical: 6 }}>
         <MenuItem icon="card-outline" title="Bank details" sub={record.payoutSummary?.bankLast4 ? `Account ending ${record.payoutSummary.bankLast4}${bankPending ? ' · change under review' : ''}` : 'Not added'} onPress={() => setBank(true)} />
         <MenuItem icon="document-text-outline" title="Agreement & accepted copy" onPress={() => navigation.navigate('Agreements')} />
-        <MenuItem icon="shield-checkmark-outline" title="Documents & verification" onPress={() => navigation.navigate('Documents')} />
-        <MenuItem icon="swap-horizontal-outline" title="Driver / vehicle linking requests" value={actionLinks.length ? `${actionLinks.length} need you` : undefined} onPress={() => goSection('Fleet', { tab: 'Vehicles', swap: Date.now() })} />
-        <MenuItem icon="notifications-outline" title="Notifications" value={unreadCount ? `${unreadCount} new` : undefined} onPress={() => navigation.navigate('Alerts')} />
-        <MenuItem icon="warning-outline" title="Penalty notices" value={unacknowledged.length ? `${unacknowledged.length} to review` : undefined} onPress={() => goSection('Wallet', { tab: 'Penalties' })} last />
+        <MenuItem icon="shield-checkmark-outline" title="Documents & verification" onPress={() => navigation.navigate('Documents')} last />
       </Panel>
       <Panel style={{ paddingVertical: 6 }}>
         <MenuItem icon="call-outline" title="NESAM office" value={SUPPORT_PHONE_DISPLAY} onPress={() => void Linking.openURL(`tel:${SUPPORT_PHONE}`)} />
         <MenuItem icon="mail-outline" title="Email NESAM" value={SUPPORT_EMAIL} onPress={() => void Linking.openURL(`mailto:${SUPPORT_EMAIL}`)} />
-        <MenuItem icon="trash-outline" title="Delete my account" danger onPress={confirmDeletion} />
-        <MenuItem icon="log-out-outline" title="Sign out" danger last onPress={confirmSignOut} />
+        <MenuItem icon="log-out-outline" title="Log out" danger last onPress={confirmSignOut} />
       </Panel>
     </View>
   );
@@ -95,7 +91,6 @@ export function AccountScreen() {
   return (
     <Page title="Profile">
       {sideBySide ? <View style={{ flexDirection: 'row', gap: 22, alignItems: 'flex-start' }}>{business}{menu}</View> : <View style={{ gap: 16 }}>{business}{menu}</View>}
-      <Text style={styles.version}>NESAM Partner v{Constants.expoConfig?.version ?? '1.0.0'} · © {new Date().getFullYear()} {COMPANY_LEGAL_NAME}</Text>
       {bank ? <BankSheet onClose={() => setBank(false)} pending={bankPending?.accountLast4 ?? ''} summary={record.payoutSummary} /> : null}
     </Page>
   );

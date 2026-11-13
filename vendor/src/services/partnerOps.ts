@@ -65,7 +65,7 @@ export function mapOperations(d: DocumentData | undefined): OperationsConfig {
     assignBeforePickupHours: hours(d?.vendorAssignBeforePickupHours, 1),
     missedAssignmentPenalty: rupees(d?.missedAssignmentPenalty, 500),
     cancellation: { lastMinuteHours: hours(c.lastMinuteHours, 4), lastMinuteCharge: rupees(c.lastMinuteCharge, 1000), graceHours: hours(c.graceHours, 4), afterGraceCharge: rupees(c.afterGraceCharge, 500) },
-    supportPhone: s(d?.supportPhone) || '+919025099990',
+    supportPhone: s(d?.supportPhone) || '+919025033330',
     // Same reading as functions/src/release.ts releaseConfigOf: waves are off unless enabled.
     vendorReleaseSeconds: (() => {
       const r = (d?.dutyRelease ?? {}) as Record<string, unknown>;

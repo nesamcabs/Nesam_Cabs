@@ -21,17 +21,17 @@ export function sectionOf(route: string | undefined): Section | 'Helpdesk' | 'Ac
 }
 
 /**
- * Open a top-level page. The history becomes [Trips, page] so Back (and the Android back button) returns to Trips,
+ * Open a top-level page. The history becomes [Bookings, page] so Back (and the Android back button) returns to Bookings,
  * the reference's "Home".
  */
 export function goSection<T extends Section | 'Helpdesk' | 'Account'>(name: T, params?: RootStackParamList[T]): void {
   if (!navigationRef.isReady()) return;
-  const routes = name === 'Trips' ? [{ name: 'Trips' as const }] : [{ name: 'Trips' as const }, { name, params }];
+  const routes = name === 'Bookings' ? [{ name: 'Bookings' as const }] : [{ name: 'Bookings' as const }, { name, params }];
   navigationRef.dispatch(CommonActions.reset({ index: routes.length - 1, routes }));
 }
 
 export function goHome(): void {
-  goSection('Trips');
+  goSection('Bookings');
 }
 
 export function goBack(): void {

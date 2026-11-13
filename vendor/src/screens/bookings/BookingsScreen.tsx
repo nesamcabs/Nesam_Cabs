@@ -66,7 +66,7 @@ export function BookingsScreen() {
       {d.errors.bookings ? <Feedback tone="error" message={d.errors.bookings} /> : null}
       <SectionLine meta={`${list.length + released.length} ${list.length + released.length === 1 ? 'booking' : 'bookings'}`} />
       {list.length || released.length ? (
-        <Grid>
+        <Grid gap={20}>
           {[
             ...list.map((b) => <BookingCard key={b.id} b={b} now={now} />),
             ...released.map((r) => (

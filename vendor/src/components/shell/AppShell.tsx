@@ -39,7 +39,7 @@ function useBadges(): Partial<Record<Section, number>> {
  */
 export function AppShell({ children, lock = null }: { children: React.ReactNode; lock?: React.ReactNode }) {
   const layout = useLayout();
-  const route = useCurrentRoute() ?? 'Trips';
+  const route = useCurrentRoute() ?? 'Bookings';
   const current = sectionOf(route);
   const frame = useRef<View>(null);
   const locked = !!lock;
@@ -107,7 +107,7 @@ function Topbar({ current, route }: { current: string; route: string }) {
   if (!wide) {
     return (
       <View style={[styles.phoneBar, { paddingTop: insets.top + 12, paddingHorizontal: gutter, minHeight: 64 + insets.top }]}>
-        <Pressable style={styles.brandLink} onPress={() => goSection('Trips')} accessibilityRole="button" accessibilityLabel="NESAM Partner — Bookings">
+        <Pressable style={styles.brandLink} onPress={() => goSection('Bookings')} accessibilityRole="button" accessibilityLabel="NESAM Partner — Bookings">
           <PartnerBanner height={compact ? 32 : 38} />
         </Pressable>
         {actions}
@@ -144,7 +144,7 @@ function Sidebar({ current, width, rail }: { current: string; width: number; rai
   const name = profile.companyName || 'Fleet partner';
   return (
     <View style={[styles.sidebar, { width, paddingTop: 30 + insets.top, paddingBottom: 22 + insets.bottom, paddingHorizontal: rail ? 12 : compact ? 14 : 20 }]} accessibilityRole="menu" accessibilityLabel="Main navigation">
-      <Pressable onPress={() => goSection('Trips')} accessibilityRole="button" accessibilityLabel="NESAM Partner — Bookings" style={rail ? styles.brandRail : [styles.brand, compact && { marginLeft: 4 }]}>
+      <Pressable onPress={() => goSection('Bookings')} accessibilityRole="button" accessibilityLabel="NESAM Partner — Bookings" style={rail ? styles.brandRail : [styles.brand, compact && { marginLeft: 4 }]}>
         {rail ? <Image source={require('../../../assets/icon.png')} style={styles.brandIcon} accessibilityIgnoresInvertColors /> : <PartnerBanner height={compact ? 40 : 46} />}
       </Pressable>
       {rail ? null : <Text style={styles.caption}>YOUR WORKSPACE</Text>}

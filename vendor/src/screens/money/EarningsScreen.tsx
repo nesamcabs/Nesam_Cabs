@@ -7,7 +7,7 @@ import { useInbox } from '../../context/Inbox';
 import { Page } from '../../components/shell/Page';
 import { Sheet } from '../../components/ui';
 import { Badge, Btn, Empty, Grid, Inline, KV, Notice, Small, Tabs, TextLink } from '../../components/kit/core';
-import { dayTime, firstPart, rupees, signed } from '../../components/kit/format';
+import { dayTime, firstPart, rupees } from '../../components/kit/format';
 import { navigationRef } from '../../navigation/navigationRef';
 import { payoutOf, SETTLEMENT_LABEL } from '../bookings/logic';
 import { ExtraTag } from '../trips/parts';
@@ -49,7 +49,7 @@ export function EarningsScreen() {
         {totals.map(([k, v, sub]) => (
           <View key={k} style={styles.tile}>
             <Text style={styles.tileLabel} numberOfLines={1}>{k}</Text>
-            <Text style={[styles.tileValue, v < 0 && { color: colors.danger }]} numberOfLines={1} adjustsFontSizeToFit>{k === 'Trip adjustment' ? signed(v) : rupees(v)}</Text>
+            <Text style={[styles.tileValue, v < 0 && { color: colors.danger }]} numberOfLines={1} adjustsFontSizeToFit>{v < 0 ? `−${rupees(Math.abs(v))}` : rupees(v)}</Text>
             <Text style={styles.tileSub} numberOfLines={1}>{sub}</Text>
           </View>
         ))}
@@ -91,7 +91,7 @@ export function EarningsScreen() {
             ['Agreed vendor payout', rupees(payoutOf(b))],
             ['Approved reimbursements', rupees(due ? Math.max(0, due.entitlement - (payoutOf(b) ?? 0)) : 0)],
             ['Fare retained by driver / vendor', due ? rupees(due.collectedByPartner) : 'After office verification'],
-            ['Trip adjustment', due ? signed(due.amount) : 'After office verification'],
+            ['Trip adjustment', due ? (due.amount < 0 ? `−${rupees(Math.abs(due.amount))}` : rupees(due.amount)) : 'After office verification'],
             ['Confirmed penalties', `${rupees(fines)} · separate wallet entries`],
           ]} />
           <Notice tone="neutral" icon="receipt-outline" title="How this is settled" text="Customer advances paid to NESAM are not counted again as driver collection. Toll and parking follow approved receipts." style={{ marginTop: 14 }} />

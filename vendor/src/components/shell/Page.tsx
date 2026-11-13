@@ -51,7 +51,7 @@ export function Page({
           <View style={[styles.footer, !wide && { justifyContent: 'center' }]}>
             <View style={styles.footerLeft}>
               <Ionicons name="shield-checkmark-outline" size={12} color="#989DA6" />
-              <Text style={styles.footerText}>{COMPANY_LEGAL_NAME.toUpperCase()}</Text>
+              <Text style={styles.footerText}>{COMPANY_LEGAL_NAME}</Text>
             </View>
             {wide ? <Text style={styles.footerText}>Made for every mile.</Text> : null}
           </View>

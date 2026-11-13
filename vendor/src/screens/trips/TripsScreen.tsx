@@ -81,7 +81,9 @@ export function TripsScreen() {
           text={filtered ? 'Choose another trip type or pickup date.' : 'New duties appear here as soon as NESAM publishes them. You will also get a notification.'}
           action={filtered ? <Btn kind="secondary" icon="options-outline" title="Clear filters" onPress={clear} /> : undefined} />
       ) : (
-        groups.flatMap(([, list]) => list).map((t) => <DutyRow list key={t.id} trip={t} bid={openBids.find((b) => b.tripId === t.id)} onAction={setAction} />)
+        <View style={{ gap: 20 }}>
+          {groups.flatMap(([, list]) => list).map((t) => <DutyRow list key={t.id} trip={t} bid={openBids.find((b) => b.tripId === t.id)} onAction={setAction} />)}
+        </View>
       )}
       <DutyDialogs action={action} setAction={setAction} onAccepted={() => goSection('Bookings', { tab: 'Accepted' })} />
     </Page>
