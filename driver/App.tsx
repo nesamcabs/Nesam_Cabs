@@ -22,7 +22,7 @@ import { navigationRef } from './src/navigation/navigationRef';
 import { DriverDataProvider } from './src/context/DriverData';
 import { LegalGate } from './src/components/LegalGate';
 import { signOutUser, subscribeToAuthUser } from './src/services/authService';
-import { emptyRegistration, formatPhone, getDriverInvite, subscribeToDriverAccount, type DriverInvite } from './src/services/driverService';
+import { claimDriverInvite, emptyRegistration, formatPhone, getDriverInvite, subscribeToDriverAccount, type DriverInvite } from './src/services/driverService';
 import type { DriverAccount } from './src/types/driver';
 import { describeError } from './src/utils/retry';
 import { colors } from './src/theme';
@@ -70,6 +70,7 @@ function Root() {
   const [invite, setInvite] = useState<{ uid: string; invite: DriverInvite | null } | null>(null);
   const [registerAnyway, setRegisterAnyway] = useState(false);
   const [resubmitting, setResubmitting] = useState(false);
+  const [provisioning, setProvisioning] = useState(false);
 
   useEffect(() => subscribeToAuthUser(setAuthUser), []);
 
@@ -89,13 +90,27 @@ function Root() {
   const account = current?.account;
   const accountError = current?.error ?? '';
 
-  // An admin/vendor invite for this phone pre-fills the registration.
+  // An admin/vendor invite for this phone pre-fills or auto-provisions the registration.
   const phoneE164 = authUser?.phoneNumber ?? '';
   const needsInvite = !!uid && account === null;
   useEffect(() => {
     if (!needsInvite || !uid) return undefined;
     let alive = true;
-    void getDriverInvite(phoneE164).then((inv) => alive && setInvite({ uid, invite: inv }));
+    void getDriverInvite(phoneE164).then(async (inv) => {
+      if (!alive) return;
+      setInvite({ uid, invite: inv });
+      // If the vendor pre-registered the driver with DL details, auto-provision the driver document
+      if (inv && (inv.preApproved || inv.licenseNumber || inv.licenseDocUrl || inv.approvalStatus === 'Approved')) {
+        try {
+          setProvisioning(true);
+          await claimDriverInvite(uid, phoneE164, inv);
+        } catch (e) {
+          console.warn('Could not auto-provision driver invite:', e);
+        } finally {
+          if (alive) setProvisioning(false);
+        }
+      }
+    });
     return () => {
       alive = false;
     };
@@ -110,6 +125,7 @@ function Root() {
   const signOut = () => {
     setRegisterAnyway(false);
     setResubmitting(false);
+    setProvisioning(false);
     void signOutUser();
   };
 
@@ -123,12 +139,15 @@ function Root() {
   if (account === undefined) return <FullScreenLoader label="Loading your profile…" />;
 
   if (account === null) {
-    if (getAuthIntent() === 'login' && !registerAnyway) {
+    if (!invite || invite.uid !== authUser.uid || provisioning) {
+      return <FullScreenLoader label="Checking driver profile…" />;
+    }
+    if (!invite.invite && getAuthIntent() === 'login' && !registerAnyway) {
       return <NoAccountScreen phone={formatPhone(phoneE164)} onRegister={() => setRegisterAnyway(true)} onSignOut={signOut} />;
     }
-    if (!invite || invite.uid !== authUser.uid) return <FullScreenLoader label="Preparing registration…" />;
     const initial = emptyRegistration(formatPhone(phoneE164));
     if (invite.invite?.name) initial.profile.name = invite.invite.name;
+    if (invite.invite?.licenseNumber) initial.license.number = invite.invite.licenseNumber;
     return <RegistrationScreen key={`signup-${authUser.uid}`} uid={authUser.uid} mode="signup" initial={initial} vendorName={invite.invite?.vendorName} fleetDriver={!!invite.invite?.vendorId} onSignOut={signOut} />;
   }
 

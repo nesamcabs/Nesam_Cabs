@@ -248,7 +248,8 @@ export function LocationPicker({
 }
 
 function PinDialog({ title, mode, onBack, onConfirm }: { title: string; mode: 'pickup' | 'drop'; onBack: () => void; onConfirm: (p: GeoPlace) => void }) {
-  const { position } = useDeviceLocation(false);
+  // Starts on the rider's real location (asks once); the map's locate button finds it again after panning away.
+  const { position, locate, locating, error: locError, permission } = useDeviceLocation(false, true);
   const [center, setCenter] = useState<LatLng | null>(null);
   const [place, setPlace] = useState<GeoPlace | null>(null);
   const [busy, setBusy] = useState(false);
@@ -281,6 +282,8 @@ function PinDialog({ title, mode, onBack, onConfirm }: { title: string; mode: 'p
     };
   }, [center?.lat, center?.lng]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const locNote = locError ? LOCATION_HELP[locError.kind] : permission === 'denied' || permission === 'blocked' ? LOCATION_HELP.blocked : '';
+
   return (
     <Dialog
       variant="page"
@@ -299,7 +302,16 @@ function PinDialog({ title, mode, onBack, onConfirm }: { title: string; mode: 'p
         </>
       }
     >
-      <RouteMap className="pinmap" label="Choose a place on the map" pinMode={mode} userLocation={position} onCenterChange={setCenter} />
+      <RouteMap className="pinmap" label="Choose a place on the map" pinMode={mode} userLocation={position} onCenterChange={setCenter} onLocate={locate} />
+      {locating ? (
+        <p className="pin-note muted" role="status">
+          Finding your location…
+        </p>
+      ) : locNote ? (
+        <p className="pin-note muted" role="status">
+          {locNote}
+        </p>
+      ) : null}
       <div className="pin-card" aria-live="polite">
         <Icon name="map-pin" size={20} />
         <div>

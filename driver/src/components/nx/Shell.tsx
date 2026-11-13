@@ -199,15 +199,13 @@ function NxTopbar({ title, subtitle, gutter }: { title: string; subtitle: string
 // ── Screen frame ────────────────────────────────────────────────────────────
 
 /**
- * Top bar + scrollable page on the reference's background. On phones a page heading is shown under the brand bar for every
- * page except Home and the trip pages (the reference's `.mobile-page-heading`).
+ * Top bar + scrollable page on the reference's background. Phones show only the brand bar: no page heading under it.
  */
 export function NxScreen({
   children,
   refreshControl,
   title,
   subtitle,
-  phoneHeading = true,
   maxWidth = 1180,
 }: {
   children: React.ReactNode;
@@ -215,7 +213,7 @@ export function NxScreen({
   /** Overrides the page heading taken from the route. */
   title?: string;
   subtitle?: string;
-  /** Show the big heading under the brand bar on phones. */
+  /** @deprecated phones no longer show a heading under the brand bar. */
   phoneHeading?: boolean;
   /** Content column width on large screens. */
   maxWidth?: number;
@@ -227,7 +225,6 @@ export function NxScreen({
   const [routeTitle, routeSubtitle] = PAGE_TITLES[frame.route] ?? ['NESAM Driver', ''];
   const heading = title ?? routeTitle;
   const caption = subtitle ?? routeSubtitle;
-  const showPhoneHeading = frame.phone && phoneHeading && frame.route !== 'Home' && frame.route !== 'Tabs';
   return (
     <SafeAreaView style={styles.root} edges={frame.sideNav ? ['top', 'right'] : ['top', 'left', 'right']}>
       <NxTopbar title={heading} subtitle={caption} gutter={frame.gutter} />
@@ -239,11 +236,6 @@ export function NxScreen({
           refreshControl={refreshControl}
         >
           <View style={{ width: '100%', maxWidth, alignSelf: 'center' }}>
-            {showPhoneHeading ? (
-              <Text style={styles.phoneHeading} accessibilityRole="header">
-                {heading}
-              </Text>
-            ) : null}
             {children}
             <View style={[styles.footer, frame.phone && { justifyContent: 'center' }]}>
               <View style={styles.footerLeft}>
@@ -265,7 +257,6 @@ const styles = StyleSheet.create({
   wideBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, paddingTop: 26, paddingBottom: 18, backgroundColor: nx.page },
   pageTitle: { fontSize: 27, lineHeight: 34, fontWeight: '700', letterSpacing: -0.9, color: nx.ink },
   pageSubtitle: { fontSize: 12.5, color: nx.muted, marginTop: 3 },
-  phoneHeading: { fontSize: 22, fontWeight: '700', letterSpacing: -0.6, color: nx.ink, marginBottom: 18 },
   actions: { flexDirection: 'row', alignItems: 'center', gap: 7, flexShrink: 0 },
   status: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 40, paddingVertical: 7, paddingHorizontal: 9, borderRadius: 24, backgroundColor: nx.statusBg, borderWidth: 1, borderColor: nx.statusBorder },
   statusOff: { backgroundColor: '#F0F1F3', borderColor: '#E2E4E8' },

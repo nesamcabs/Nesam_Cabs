@@ -90,14 +90,14 @@ export async function getCurrentPosition(timeoutMs = 15000): Promise<DevicePosit
     ]);
     return toPosition(pos);
   } catch (err) {
-    if (err instanceof LocationError) {
-      // A recent cached fix is better than nothing when GPS is slow.
-      if (err.kind === 'timeout') {
-        const last = await Location.getLastKnownPositionAsync({ maxAge: 5 * 60 * 1000 }).catch(() => null);
-        if (last) return toPosition(last);
-      }
-      throw err;
+    // The browser reports a timeout as code 3; either way a recent cached fix beats nothing.
+    const timedOut = (err instanceof LocationError && err.kind === 'timeout') || (err as { code?: unknown } | null)?.code === 3;
+    if (timedOut) {
+      const last = await Location.getLastKnownPositionAsync({ maxAge: 5 * 60 * 1000 }).catch(() => null);
+      if (last) return toPosition(last);
+      throw new LocationError('timeout', LOCATION_ERROR_TEXT.timeout);
     }
+    if (err instanceof LocationError) throw err;
     throw new LocationError('unavailable', LOCATION_ERROR_TEXT.unavailable);
   } finally {
     clearTimeout(timer);

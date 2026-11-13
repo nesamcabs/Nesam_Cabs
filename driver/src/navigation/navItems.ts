@@ -9,44 +9,47 @@ export interface NavItem {
   id: TabName;
   label: string;
   icon: NxIconName;
-  /** Shown in the phone bottom bar (five slots, as in the reference). The sidebar shows every item. */
+  /** Shown in the phone bottom bar. The sidebar shows every item. */
   phone: boolean;
   /** Owner-drivers only: a vendor's employee is paid by the vendor and gets trips from them. */
   ownerOnly?: boolean;
+  /** Fleet drivers only: local duty is planned by the driver's fleet partner. */
+  fleetOnly?: boolean;
 }
 
 export const NAV_ITEMS: NavItem[] = [
   { id: 'Home', label: 'Home', icon: 'home', phone: true },
   { id: 'Marketplace', label: 'Duties', icon: 'marketplace', phone: false, ownerOnly: true },
+  { id: 'Local', label: 'Local Taxi', icon: 'taxi', phone: true },
   { id: 'Trip', label: 'My Trips', icon: 'trip', phone: true },
-  { id: 'Earnings', label: 'Earnings', icon: 'chart', phone: true, ownerOnly: true },
-  { id: 'Wallet', label: 'Wallet', icon: 'wallet', phone: true, ownerOnly: true },
+  { id: 'Earnings', label: 'Earnings', icon: 'wallet', phone: true, ownerOnly: true },
   { id: 'Profile', label: 'Profile', icon: 'user', phone: true },
 ];
 
-export const navItemsFor = (fleet: boolean) => NAV_ITEMS.filter((i) => !(fleet && i.ownerOnly));
+export const navItemsFor = (fleet: boolean) => NAV_ITEMS.filter((i) => !(fleet && i.ownerOnly) && !(!fleet && i.fleetOnly));
 
 /** Page heading and caption for each page (the reference's `titles` table). */
 export const PAGE_TITLES: Record<string, [string, string]> = {
   Tabs: ['Dashboard', 'Your trips, ready when you are.'],
   Home: ['Dashboard', 'Your trips, ready when you are.'],
   Marketplace: ['Available duties', 'Open duties you can accept or bid on.'],
+  Local: ['Local Taxi', 'Hourly Rental and Pickup & Drop orders, one after another.'],
   Trip: ['My Trips', 'Upcoming duties & completed trips.'],
-  Earnings: ['Earnings', 'Credited earnings & pending reviews.'],
-  Wallet: ['Wallet', 'Balance, payouts & settlement status.'],
+  Earnings: ['Earnings & Wallet', 'Credited earnings, balance & payouts.'],
   Profile: ['My Profile', 'Your vehicle, documents & preferences.'],
   TripFlow: ['Trip Details', 'Start, navigate, board and close your trip.'],
   PreTrip: ['Trip photos', 'Live trip-start photographs.'],
   Notifications: ['Notifications', 'Trips, approvals, payments and penalties.'],
   UpdateDocuments: ['Update documents', 'Refresh your licence and vehicle papers.'],
+  ProfileSection: ['My Profile', 'Your vehicle, documents & preferences.'],
 };
 
 /** Which workspace page a route belongs to (a trip page highlights My Trips). */
 export function navOwner(route: string): TabName | null {
   if (route === 'Tabs') return 'Home';
   if (route === 'TripFlow' || route === 'PreTrip') return 'Trip';
-  if (route === 'UpdateDocuments') return 'Profile';
-  return (['Home', 'Marketplace', 'Trip', 'Earnings', 'Wallet', 'Profile'] as string[]).includes(route) ? (route as TabName) : null;
+  if (route === 'UpdateDocuments' || route === 'ProfileSection') return 'Profile';
+  return (['Home', 'Marketplace', 'Local', 'Trip', 'Earnings', 'Profile'] as string[]).includes(route) ? (route as TabName) : null;
 }
 
 const readRoute = () => (navigationRef.isReady() ? (navigationRef.getCurrentRoute()?.name ?? 'Home') : 'Home');

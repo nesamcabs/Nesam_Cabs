@@ -15,7 +15,9 @@ import {
   collection,
   doc,
   getDoc,
+  limit,
   onSnapshot,
+  orderBy,
   query,
   runTransaction,
   serverTimestamp,
@@ -23,6 +25,7 @@ import {
   updateDoc,
   where,
   type DocumentData,
+  type QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import type {
@@ -37,6 +40,7 @@ import type {
   DriverStatus,
   DriverWallet,
   DrivingLicense,
+  TripLocation,
   IdentityDetails,
   LedgerEntry,
   MarketplaceOffer,
@@ -54,6 +58,7 @@ import { withTimeout } from '../utils/retry';
 import { normalizeAadhaar, normalizePan } from '../validation/kyc';
 import { toDate as toDateTime } from '../utils/time';
 import { tripSubStatusOf } from '../utils/tripFlow';
+import { localModeOf } from '../utils/localDuty';
 import { mapLedgerEntry, mapWallet } from '../utils/ledger';
 import { categoryOf, ctaOf, severityOf, soundOf } from '../utils/notificationModel';
 
@@ -61,7 +66,13 @@ export const BOOKINGS_COLLECTION = 'bookings';
 export const DRIVERS_COLLECTION = 'drivers';
 export const MARKETPLACE_COLLECTION = 'marketplace_trips';
 export const PAYOUT_REQUESTS_COLLECTION = 'payout_requests';
-export const NOTIFICATIONS_COLLECTION = 'notifications';
+/**
+ * This app's own inbox. Riders, vendors and the office have separate collections, so a login that also books rides
+ * (or runs a fleet) never sees those notifications here (functions/src/notify.ts).
+ */
+export const NOTIFICATIONS_COLLECTION = 'driver_notifications';
+/** The newest notifications kept in the inbox. */
+const INBOX_LIMIT = 200;
 export const DRIVER_INVITES_COLLECTION = 'driver_invites';
 
 const WRITE_TIMEOUT_MS = 15000;
@@ -272,10 +283,18 @@ export function subscribeToDriverAccount(uid: string, callback: (account: Driver
   return () => { a(); b(); };
 }
 export interface DriverInvite {
+  phone?: string;
   name?: string;
   vendorId?: string;
   vendorName?: string;
   preApproved?: boolean;
+  approvalStatus?: string;
+  rejectionReason?: string;
+  licenseNumber?: string;
+  licenseDocUrl?: string;
+  selfieUrl?: string;
+  licenseExpiry?: string;
+  vehicleAssignment?: string | null;
 }
 
 /** An admin or vendor may pre-register a driver by phone number. */
@@ -299,6 +318,44 @@ async function writeDriverProfile(uid: string, payload: Record<string, unknown>,
     ...(bank ? { bank } : {}), ...(identity ? { identity } : {}), updatedAt: serverTimestamp(),
   }, { merge: true });
   await batch.commit();
+}
+
+/** Automatically claims/provisions an approved or vendor-invited driver document in drivers/{uid}. */
+export async function claimDriverInvite(uid: string, phoneE164: string, invite: DriverInvite): Promise<void> {
+  const licenceNo = (invite.licenseNumber || '').trim().toUpperCase();
+  const isApproved = invite.preApproved === true || invite.approvalStatus === 'Approved';
+  const docPayload: Record<string, unknown> = {
+    uid,
+    id: uid,
+    name: (invite.name || 'Driver').trim(),
+    phone: formatPhone(phoneE164),
+    phoneE164,
+    role: 'driver',
+    status: isApproved ? 'Approved' : 'Pending',
+    verified: false,
+    walletBalance: 0,
+    rating: 5,
+    totalTrips: 0,
+    photoUrl: invite.selfieUrl || '',
+    licenseInfo: {
+      number: licenceNo,
+      frontPhotoUrl: invite.licenseDocUrl || '',
+      expiryDate: invite.licenseExpiry || '',
+    },
+    licenseNumber: licenceNo,
+    licenseExpiry: invite.licenseExpiry || '',
+    license: 'Submitted',
+    docStatus: 'Pending',
+    vendorId: invite.vendorId || '',
+    vendorName: invite.vendorName || '',
+    assignedVehicleNumber: invite.vehicleAssignment || '',
+    presenceStatus: 'Offline',
+    submittedAt: serverTimestamp(),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+
+  await withTimeout(writeDriverProfile(uid, docPayload, true), WRITE_TIMEOUT_MS);
 }
 /**
  * What onboarding writes (spec page 13): selfie, licence, and — for an owner
@@ -428,6 +485,7 @@ export function mapOffer(id: string, data: DocumentData): MarketplaceOffer & { c
       lat: typeof drop.lat === 'number' ? drop.lat : undefined,
       lng: typeof drop.lng === 'number' ? drop.lng : undefined,
     },
+    via: viaNames(data),
     pickupTime: str(pickup.time),
     travelDate: str(data.travelDate),
     vehicleCategory: str(data.vehicleCategory || data.categoryName),
@@ -534,6 +592,30 @@ function readLocation(data: DocumentData, key: 'pickup' | 'drop', fallback: stri
   return { address: str(data[`${key}Address`] || v) || fallback, lat: num(data[`${key}Lat`]), lng: num(data[`${key}Lng`]) };
 }
 
+/** The places a tour passes through between pickup and drop: names on a published duty (`via`), stop objects on a booking (`stops`). */
+function viaNames(data: DocumentData): string[] {
+  const list: unknown[] = Array.isArray(data.via) ? data.via : Array.isArray(data.stops) ? data.stops : [];
+  return list
+    .map((x) => (typeof x === 'string' ? x : str((x as { name?: string; address?: string } | null)?.name || (x as { address?: string } | null)?.address)))
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .slice(0, 10);
+}
+
+/** The tour's places with their coordinates, in order (a booking carries them as `stops`; a published duty only the names). */
+function viaPlacesOf(data: DocumentData): TripLocation[] {
+  const list: unknown[] = Array.isArray(data.stops) ? data.stops : [];
+  return list
+    .map((x): TripLocation | null => {
+      if (!x || typeof x !== 'object') return null;
+      const s = x as { name?: string; address?: string; lat?: unknown; lng?: unknown };
+      const address = str(s.address || s.name).trim();
+      return address ? { address, lat: num(s.lat), lng: num(s.lng) } : null;
+    })
+    .filter((x): x is TripLocation => x !== null)
+    .slice(0, 8);
+}
+
 const STAGES: TripStage[] = ['Assigned', 'En Route Pickup', 'Reached Pickup', 'In Progress', 'Arrived Destination', 'Completed'];
 const STATUSES: BookingStatus[] = ['Pending', 'Approved', 'Confirmed', 'Assigned', 'Ongoing', 'Completed', 'Cancelled', 'Rejected'];
 const LEGACY_STAGE: Record<string, TripStage> = { 'Not Started': 'Assigned', 'Reached Pickup': 'Reached Pickup', 'Trip Started': 'In Progress', 'Trip Ended': 'Completed' };
@@ -564,6 +646,8 @@ export function mapBooking(id: string, data: DocumentData): TripDetails {
     customerPhoneMasked: str(data.phoneMasked),
     pickup: readLocation(data, 'pickup', 'Pickup location'),
     drop: readLocation(data, 'drop', 'Drop location'),
+    via: viaNames(data),
+    viaPlaces: viaPlacesOf(data),
     distanceKm: parseAmount(data.distanceKm),
     vehicleType: str(data.categoryName || data.vehicleCategory || data.vehicle),
     serviceType: str(data.service).replace(/^rental$/i, 'Hourly Rental').replace(/^local$/i, 'Pickup & Drop'),
@@ -614,6 +698,28 @@ export function mapBooking(id: string, data: DocumentData): TripDetails {
       : [],
     completedAt: toDate(data.completedAt),
     assignedAt: toDate(data.assignedAt),
+    ...localFields(data),
+  };
+}
+
+/** Local-order details: the kind of order, the duty it was taken on and the hourly-rental package and clock. */
+function localFields(data: DocumentData): Pick<TripDetails, 'tripType' | 'localMode' | 'localShiftId' | 'rentalHours' | 'includedKm' | 'extraHourRate' | 'tripStartedAt' | 'rentalUsage' | 'cashHeld' | 'totalKm'> {
+  const p = data.pricing && typeof data.pricing === 'object' ? data.pricing : {};
+  const usage = data.rentalUsage && typeof data.rentalUsage === 'object' && data.rentalUsage.schema === 1 ? data.rentalUsage : null;
+  const amount = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+  return {
+    tripType: str(data.tripType),
+    localMode: localModeOf(data),
+    localShiftId: str(data.localShiftId) || undefined,
+    rentalHours: amount(p.rentalHours) > 0 ? amount(p.rentalHours) : null,
+    includedKm: amount(p.includedKm) > 0 ? amount(p.includedKm) : null,
+    extraHourRate: amount(p.extraHourRatePaise) > 0 ? Math.round(amount(p.extraHourRatePaise)) / 100 : null,
+    tripStartedAt: toDateTime(data.tripStartedAt),
+    cashHeld: amount(data.paymentSummary?.partnerCashHeld),
+    totalKm: amount(data.totalKm) > 0 ? amount(data.totalKm) : null,
+    rentalUsage: usage
+      ? { packageHours: amount(usage.packageHours), usedMinutes: amount(usage.usedMinutes), overtimeMinutes: amount(usage.overtimeMinutes), extraHours: amount(usage.extraHours), extraHourRate: amount(usage.extraHourRate), indicativeExtra: amount(usage.indicativeExtra) }
+      : null,
   };
 }
 
@@ -739,11 +845,38 @@ export function subscribeToPayoutRequests(driverId: string, callback: (requests:
 
 // ── Notifications ──────────────────────────────────────────────────────────
 
+/**
+ * Live newest-first listener on one inbox. While the (recipientId, createdAt) index is still building after a deploy the
+ * ordered query is refused; the plain equality query is used then, so the inbox never goes blank.
+ */
+function listenToInbox(
+  recipientId: string,
+  onDocs: (docs: QueryDocumentSnapshot<DocumentData>[]) => void,
+  onError: (e: unknown) => void,
+): () => void {
+  const inbox = collection(db, NOTIFICATIONS_COLLECTION);
+  let stop = onSnapshot(
+    query(inbox, where('recipientId', '==', recipientId), orderBy('createdAt', 'desc'), limit(INBOX_LIMIT)),
+    (snap) => onDocs(snap.docs),
+    (err) => {
+      if ((err as { code?: string }).code !== 'failed-precondition') return onError(err);
+      stop = onSnapshot(query(inbox, where('recipientId', '==', recipientId), limit(INBOX_LIMIT)), (snap) => onDocs(snap.docs), onError);
+    },
+  );
+  return () => stop();
+}
+
 export function subscribeToDriverNotifications(recipientId: string, callback: (n: DriverNotification[]) => void) {
-  return onSnapshot(
-    query(collection(db, NOTIFICATIONS_COLLECTION), where('recipientId', '==', recipientId)),
-    (snap) => {
-      const rows = snap.docs.map((d): DriverNotification => {
+  if (!recipientId) {
+    callback([]);
+    return () => undefined;
+  }
+  return listenToInbox(
+    recipientId,
+    (docs) => {
+      // The collection is the driver inbox; the type check only guards against a record filed in the wrong place.
+      const mine = docs.filter((d) => (str(d.data().recipientType) || 'driver') === 'driver');
+      const rows = mine.map((d): DriverNotification => {
         const data = d.data();
         const created = toDateTime(data.createdAt);
         const base = { type: str(data.type), category: str(data.category), severity: str(data.severity), priority: str(data.priority), sound: str(data.sound), cta: data.cta, bookingId: str(data.bookingId) };
@@ -810,4 +943,14 @@ export function subscribeToDriverPenalties(driverId: string, callback: (p: Drive
 
 export async function markNotificationRead(id: string): Promise<void> {
   await updateDoc(doc(db, NOTIFICATIONS_COLLECTION, id), { read: true, readAt: serverTimestamp() });
+}
+
+/** Marks several notifications read in as few writes as possible (a batch holds at most 500). */
+export async function markNotificationsRead(ids: string[]): Promise<void> {
+  const unique = [...new Set(ids.filter(Boolean))];
+  for (let i = 0; i < unique.length; i += 450) {
+    const batch = writeBatch(db);
+    for (const id of unique.slice(i, i + 450)) batch.update(doc(db, NOTIFICATIONS_COLLECTION, id), { read: true, readAt: serverTimestamp() });
+    await withTimeout(batch.commit(), WRITE_TIMEOUT_MS);
+  }
 }

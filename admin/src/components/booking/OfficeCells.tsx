@@ -3,7 +3,7 @@ import type { Booking, MarketplaceTrip } from "../../types";
 import type { OfficeData } from "../../hooks/useOfficeData";
 import {
   GROUP_TONE, agreedPayoutOf, bookingSourceLabel, displayTripType, fareOf, placeParts, refDate, refDateTime, refTime, remainingLabel, rupee,
-  serviceFamilyOf, suggestedPayoutOf, tripTypeOf, type CustomerGroup,
+  routeLabel, serviceFamilyOf, suggestedPayoutOf, tripTypeOf, type CustomerGroup,
 } from "../../domain/officeStage";
 import { bookingPickupDate, toDate } from "../../utils/time";
 import { Badge, Button, Icon } from "../ui";
@@ -25,9 +25,13 @@ export function RouteCell({ b }: { b: Booking }) {
   const from = placeParts(b.pickup);
   const to = placeParts(b.drop);
   const areas = [from.area, to.area].filter(Boolean).join(" → ");
+  const tour = (b.itinerary?.length ?? 0) > 2;
   return (
     <div className="ds-route-cell">
-      <strong title={`${b.pickup} → ${b.drop}`}>{from.city || b.pickup} → {to.city || b.drop}</strong>
+      <strong title={routeLabel(b)}>
+        {tour ? routeLabel(b) : `${from.city || b.pickup} → ${to.city || b.drop}`}
+      </strong>
+      {tour && <small>{(b.itinerary?.length ?? 0) - 2} stop{(b.itinerary?.length ?? 0) - 2 === 1 ? "" : "s"} between pickup and drop</small>}
       <small title={b.bookingId || b.id}>
         {b.bookingId || b.id} <i>{bookingSourceLabel(b)}</i>
       </small>

@@ -3,6 +3,7 @@ import type { LatLng } from '@core/types';
 import { DEFAULT_CENTER } from '@core/config/constants';
 import { isValidLatLng } from '@core/utils/geo';
 import { Icon } from './Icon';
+import { Spinner } from './ui';
 import type { MapPadding } from './RouteMap';
 
 import { loadGoogleMaps, onGoogleMapsFailure } from '@/lib/googleMaps';
@@ -18,6 +19,8 @@ interface Props {
   padding: MapPadding;
   pinMode?: 'pickup' | 'drop' | null;
   onCenterChange?: (p: LatLng) => void;
+  /** Finds the device's position for the locate button; the map then centres on it. */
+  onLocate?: () => Promise<LatLng | null>;
   className?: string;
   label: string;
   onLoadError: () => void;
@@ -28,7 +31,7 @@ const markerIcon = (maps: any, color: string) => ({
   fillColor: color, fillOpacity: 1, strokeColor: '#fff', strokeWeight: 1.5, scale: 1.25, anchor: new maps.Point(12, 22),
 });
 
-export function GoogleRouteMap({ pickup, drop, driver, userLocation, path, basePath, padding, pinMode = null, onCenterChange, className = '', label, onLoadError }: Props) {
+export function GoogleRouteMap({ pickup, drop, driver, userLocation, path, basePath, padding, pinMode = null, onCenterChange, onLocate, className = '', label, onLoadError }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const overlays = useRef<any[]>([]);
@@ -38,6 +41,7 @@ export function GoogleRouteMap({ pickup, drop, driver, userLocation, path, baseP
   pinModeRef.current = pinMode;
   const [ready, setReady] = useState(false);
   const [fitTick, setFitTick] = useState(0);
+  const [locating, setLocating] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -79,7 +83,7 @@ export function GoogleRouteMap({ pickup, drop, driver, userLocation, path, baseP
     if (driver && isValidLatLng(driver)) { add(new maps.Marker({ map, position: driver, title: driver.label ?? 'Driver', label: { text: '🚕', fontSize: '22px' } })); addPoint(driver); }
     if (pinMode) {
       const start = p ?? (userLocation && isValidLatLng(userLocation) ? userLocation : null);
-      if (start) { map.setCenter(start); map.setZoom(15); }
+      if (start) { map.setCenter(start); map.setZoom(16); }
       return;
     }
     if (count > 1) map.fitBounds(bounds, padding);
@@ -87,10 +91,26 @@ export function GoogleRouteMap({ pickup, drop, driver, userLocation, path, baseP
     else if (userLocation && isValidLatLng(userLocation)) { map.setCenter(userLocation); map.setZoom(14); }
   }, [ready, pickup?.lat, pickup?.lng, drop?.lat, drop?.lng, driver?.lat, driver?.lng, driver?.stale, userLocation?.lat, userLocation?.lng, path, basePath, padding.top, padding.right, padding.bottom, padding.left, pinMode, fitTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const recenter = async () => {
+    if (!onLocate) return setFitTick((n) => n + 1);
+    if (locating) return;
+    setLocating(true);
+    try {
+      const pos = await onLocate();
+      const map = mapRef.current;
+      if (pos && isValidLatLng(pos) && map) {
+        map.setCenter({ lat: pos.lat, lng: pos.lng });
+        map.setZoom(16);
+      }
+    } finally {
+      setLocating(false);
+    }
+  };
+
   const pinStyle = { left: `calc(50% + ${(padding.left - padding.right) / 2}px)`, top: `calc(50% + ${(padding.top - padding.bottom) / 2}px)` };
   return <div className={`route-map ${className}`} role="region" aria-label={label}>
     <div ref={host} className="route-map__canvas" />
     {pinMode ? <div className="route-map__pin" style={pinStyle} aria-hidden="true"><span className={`map-drop map-drop--${pinMode}`} /><span className="map-drop__shadow" /></div> : null}
-    <button type="button" className="route-map__recenter" onClick={() => setFitTick((n) => n + 1)} aria-label="Recentre map"><Icon name="navigation" size={20} /></button>
+    <button type="button" className="route-map__recenter" onClick={() => void recenter()} disabled={locating} aria-label={onLocate ? 'Use my current location' : 'Recentre map'}>{locating ? <Spinner /> : <Icon name="navigation" size={20} />}</button>
   </div>;
 }

@@ -496,6 +496,7 @@ export function PlanStep({ ui, setUi, intent }: { ui: PlanUi; setUi: Dispatch<Se
             pickup={ui.pin === 'drop' ? pickup : null}
             userLocation={position}
             onCenterChange={setPinCenter}
+            onLocate={locate}
           />
           <div className="pin-card" aria-live="polite">
             <Icon name="location-pin" size={22} />

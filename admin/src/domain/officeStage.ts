@@ -223,3 +223,9 @@ export function bookingSourceLabel(b: Pick<Booking, "source" | "bookingSource" |
   if (/b2b|partner|corporate|api/.test(s)) return "Partner";
   return "App";
 }
+
+/** "Theni → Madurai → Trichy → Theni" for a tour or round trip with stops; "Pickup → Drop" otherwise. */
+export function routeLabel(b: Pick<Booking, "pickup" | "drop" | "itinerary">): string {
+  const places = b.itinerary && b.itinerary.length > 2 ? b.itinerary.map((p) => p.name).filter(Boolean) : [];
+  return places.length > 2 ? places.join(" → ") : `${b.pickup} → ${b.drop}`;
+}

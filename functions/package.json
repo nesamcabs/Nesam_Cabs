@@ -7,7 +7,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "test": "npm run build && node --test test/rentalHours.test.js test/rentalPackageBuilder.test.js test/bookingAddOns.test.js test/nightAllowance.test.js test/platformFee.test.js test/addOnInvoice.test.js test/groqChat.test.js test/supportAiLead.test.js test/roundTripStops.test.js test/tariff.test.js test/multicitySnapshot.test.js test/serviceRules.test.js test/paymentWiring.test.js test/advanceBooking.test.js test/http.test.js test/partnerOps.test.js test/businessPricing.test.js && npm run test:e2e",
+    "test": "npm run build && node --test test/rentalHours.test.js test/rentalPackageBuilder.test.js test/bookingAddOns.test.js test/nightAllowance.test.js test/platformFee.test.js test/addOnInvoice.test.js test/groqChat.test.js test/supportAiLead.test.js test/roundTripStops.test.js test/tariff.test.js test/multicitySnapshot.test.js test/serviceRules.test.js test/paymentWiring.test.js test/advanceBooking.test.js test/http.test.js test/partnerOps.test.js test/businessPricing.test.js test/localShift.test.js && npm run test:e2e",
     "build:watch": "tsc --watch",
     "serve": "npm run build && firebase emulators:start --only functions,firestore,auth,storage",
     "shell": "npm run build && firebase functions:shell",
@@ -15,7 +15,7 @@
     "logs": "firebase functions:log",
     "test:http": "npm run build && node --test test/http.test.js",
     "vercel-build": "npm run build",
-    "test:e2e": "npx firebase-tools@13 emulators:exec --config ../firebase.e2e.json --project demo-nesam --only auth,firestore,functions \"node --test --test-concurrency=1 test/rentalHours.e2e.test.js test/bookingAddOns.e2e.test.js test/advanceBooking.e2e.test.js test/integration.e2e.test.js test/crossRoleJourneys.e2e.test.js test/driverUiContract.e2e.test.js test/partnerLinks.e2e.test.js test/walletRecharge.e2e.test.js test/adminPanel.e2e.test.js test/wiringFixes.e2e.test.js test/multicityConversion.e2e.test.js\""
+    "test:e2e": "npx firebase-tools@13 emulators:exec --config ../firebase.e2e.json --project demo-nesam --only auth,firestore,functions \"node --test --test-concurrency=1 test/rentalHours.e2e.test.js test/bookingAddOns.e2e.test.js test/advanceBooking.e2e.test.js test/integration.e2e.test.js test/crossRoleJourneys.e2e.test.js test/driverUiContract.e2e.test.js test/partnerLinks.e2e.test.js test/walletRecharge.e2e.test.js test/adminPanel.e2e.test.js test/wiringFixes.e2e.test.js test/multicityConversion.e2e.test.js test/multicityLifecycle.e2e.test.js\""
   },
   "dependencies": {
     "exifr": "^7.1.3",

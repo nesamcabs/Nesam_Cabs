@@ -8,8 +8,9 @@ import { useInbox } from '../../context/Inbox';
 import { Sheet } from '../../components/ui';
 import { DetailGrid, Page } from '../../components/shell/Page';
 import { Badge, Between, BigAmount, BulletList, Btn, Empty, Eyebrow, H2, Inline, KV, Notice, Panel, RouteStack, Small, TextLink } from '../../components/kit/core';
-import { dayTime, plate, rupees, tripTypeLabel } from '../../components/kit/format';
+import { dayTime, firstPart, plate, rupees, tripTypeLabel } from '../../components/kit/format';
 import { goSection } from '../../navigation/navigationRef';
+import { SUPPORT_PHONE } from '../../config/constants';
 import { assignDeadline, type PartnerRequestRecord } from '../../services/partnerOps';
 import type { RootStackParamList } from '../../navigation/types';
 import { CancellationSheet } from './CancellationSheet';
@@ -50,7 +51,7 @@ export function BookingDetailScreen() {
           <Badge label={badgeLabel} tone={badgeTone} />
         </Between>
         <RouteStack from={b.pickupAddress || '—'} fromSub={`Pickup · ${b.pickupAt ? dayTime(b.pickupAt) : [b.date, b.time].filter(Boolean).join(' · ')}`} to={b.dropAddress || '—'} toSub={b.completedAt ? `Completed · ${dayTime(b.completedAt)}` : 'Drop'} />
-        <KV rows={[b.includedKm ? ['Included distance', `${b.includedKm} km`] : null, ['Vehicle category', b.vehicleCategory || '—'], ['Customer', b.customerName || '—'], ['Customer mobile', b.customerPhoneMasked || 'Shared with the driver before pickup'], b.paymentMethod ? ['Customer payment', b.paymentMethod] : null]} />
+        <KV rows={[b.via?.length ? ['Tour cities', [firstPart(b.pickupAddress), ...b.via, firstPart(b.dropAddress)].join(' → ')] : null, b.includedKm ? ['Included distance', `${b.includedKm} km`] : null, ['Vehicle category', b.vehicleCategory || '—'], ['Customer', b.customerName || '—'], ['Customer mobile', b.customerPhoneMasked || 'Shared with the driver before pickup'], b.paymentMethod ? ['Customer payment', b.paymentMethod] : null]} />
       </Panel>
 
       {req && req.status !== 'Approved' ? <CancellationStatus r={req} /> : null}
@@ -84,7 +85,7 @@ export function BookingDetailScreen() {
           <Small style={{ marginTop: 6 }}>The duty stays active until the office approves a cancellation.</Small>
           <Inline style={{ marginTop: 14, gap: 16 }}>
             <Btn kind="secondary" icon="close-circle-outline" title="Request cancellation" onPress={() => setSheet('cancel')} />
-            <TextLink title="24/7 Helpdesk" onPress={() => goSection('Helpdesk')} />
+            <TextLink title="Call NESAM office" onPress={() => void Linking.openURL(`tel:${SUPPORT_PHONE}`)} />
           </Inline>
         </Panel>
       ) : null}

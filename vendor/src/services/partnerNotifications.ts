@@ -1,4 +1,4 @@
-import { collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
+import { collection, doc, limit, onSnapshot, orderBy, query, serverTimestamp, updateDoc, where, writeBatch, type DocumentData, type QueryDocumentSnapshot } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { callFunction } from './callables';
 import { formatDateTime12, toDate } from '../utils/time';
@@ -12,16 +12,42 @@ const amount = (v: unknown): number => {
   return Number.isFinite(n) ? n : 0;
 };
 
-/** This user's own notifications (rules allow reading only those addressed to them). */
 /**
- * One login can be a rider, a driver and a vendor at once, so with `role` only the notifications for
- * that role are returned (older ones that record no role are kept).
+ * The vendor inbox. One login can be a rider, a driver and a vendor at once; riders, drivers and the office each have
+ * their own collection (functions/src/notify.ts), so only vendor notifications can ever appear in this app.
  */
-export function subscribeToNotifications(recipientId: string, callback: (n: PartnerNotification[]) => void, role?: 'customer' | 'driver' | 'vendor') {
-  return onSnapshot(
-    query(collection(db, 'notifications'), where('recipientId', '==', recipientId)),
-    (snap) => {
-      const rows = snap.docs.filter((d) => !role || !str(d.data().recipientType) || str(d.data().recipientType) === role).map((d): PartnerNotification => {
+export const VENDOR_INBOX = 'vendor_notifications';
+/** The newest notifications kept in the inbox. */
+const INBOX_LIMIT = 200;
+
+/**
+ * Live newest-first listener on the inbox. While the (recipientId, createdAt) index is still building after a deploy the
+ * ordered query is refused; the plain equality query is used then, so the inbox never goes blank.
+ */
+function listenToInbox(recipientId: string, onDocs: (docs: QueryDocumentSnapshot<DocumentData>[]) => void, onError: () => void): () => void {
+  const inbox = collection(db, VENDOR_INBOX);
+  let stop = onSnapshot(
+    query(inbox, where('recipientId', '==', recipientId), orderBy('createdAt', 'desc'), limit(INBOX_LIMIT)),
+    (snap) => onDocs(snap.docs),
+    (err) => {
+      if ((err as { code?: string }).code !== 'failed-precondition') return onError();
+      stop = onSnapshot(query(inbox, where('recipientId', '==', recipientId), limit(INBOX_LIMIT)), (snap) => onDocs(snap.docs), onError);
+    },
+  );
+  return () => stop();
+}
+
+/** This vendor's own notifications (rules allow reading only those addressed to them), newest first. */
+export function subscribeToNotifications(recipientId: string, callback: (n: PartnerNotification[]) => void) {
+  if (!recipientId) {
+    callback([]);
+    return () => undefined;
+  }
+  return listenToInbox(
+    recipientId,
+    (docs) => {
+      // The collection is the vendor inbox; the type check only guards against a record filed in the wrong place.
+      const rows = docs.filter((d) => (str(d.data().recipientType) || 'vendor') === 'vendor').map((d): PartnerNotification => {
         const data = d.data();
         const created = toDate(data.createdAt);
         const base = { type: str(data.type), category: str(data.category), severity: str(data.severity), priority: str(data.priority), sound: str(data.sound), cta: data.cta, bookingId: str(data.bookingId) };
@@ -49,7 +75,17 @@ export function subscribeToNotifications(recipientId: string, callback: (n: Part
 }
 
 export async function markNotificationRead(id: string): Promise<void> {
-  await updateDoc(doc(db, 'notifications', id), { read: true, readAt: serverTimestamp() });
+  await updateDoc(doc(db, VENDOR_INBOX, id), { read: true, readAt: serverTimestamp() });
+}
+
+/** Marks several notifications read in as few writes as possible (a batch holds at most 500). */
+export async function markNotificationsRead(ids: string[]): Promise<void> {
+  const unique = [...new Set(ids.filter(Boolean))];
+  for (let i = 0; i < unique.length; i += 450) {
+    const batch = writeBatch(db);
+    for (const id of unique.slice(i, i + 450)) batch.update(doc(db, VENDOR_INBOX, id), { read: true, readAt: serverTimestamp() });
+    await batch.commit();
+  }
 }
 
 const STATUSES: PenaltyStatus[] = ['Pending', 'Acknowledged', 'Paid', 'Deducted', 'Waived', 'Disputed'];

@@ -125,8 +125,9 @@ export function DutyRow({ trip: t, bid, onAction, list }: { trip: MarketTrip; bi
       onPress={list ? open : undefined}
       accessibilityLabel={`${marketFrom(t)} to ${marketTo(t)}, vendor payout ${rupees(t.offeredPayout)}. Open duty`}
     >
-      {status || !list ? (
+      {status || !list || t.via?.length ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 10, rowGap: 4 }}>
+          {t.via?.length ? <Text style={styles.status} numberOfLines={2}>Via {t.via.join(', ')}</Text> : null}
           {list ? null : <Text style={styles.code} numberOfLines={1}>{t.bookingId}</Text>}
           {status ? <Text style={[styles.status, bid ? { color: '#2F5BD3' } : opensAt ? { color: '#946000' } : null]} numberOfLines={1}>{status}</Text> : null}
         </View>

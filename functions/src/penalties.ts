@@ -8,7 +8,7 @@ import { db } from './admin';
 import { auditInTx } from './audit';
 import { PENALTY_STATUSES, PenaltyStatusName, penaltyBlocker, penaltyStatusOf } from './domain/bookingFlow';
 import { recomputeWallet, walletId } from './ledger';
-import { notifyInTx, pushAfterCommit, NotifyInput } from './notify';
+import { notifyInTx, pushAfterCommit, NotifyInput, inr } from './notify';
 import { approved, requireAdmin, requirePermission, text, requireAction } from './shared';
 
 export const MAX_PENALTY = 100000;
@@ -86,7 +86,7 @@ export const issuePenalty = onCall(async (request) => {
     auditInTx(tx, { action: 'penalty_issued', entity: 'penalty', entityId: ref.id, performedBy: admin.uid, performedByName: admin.name, role: 'admin', bookingId: booking?.id, next: { party, partyId, amount, category }, reason });
     const n: NotifyInput = {
       recipientType: party === 'Driver' ? 'driver' : 'vendor', recipientId: partyId, category: 'penalties', severity: 'critical', sound: 'general',
-      title: `Penalty of ₹${amount.toLocaleString('en-IN')} issued`, message: `${category}${bookingCode ? ` · ${bookingCode}` : ''}: ${reason}`,
+      title: `Penalty of ${inr(amount)} issued`, message: `${category}${bookingCode ? ` · ${bookingCode}` : ''}: ${reason}`,
       bookingId: booking?.id, bookingCode, cta: { label: 'View penalty', page: 'penalties' }, push: true, sentBy: admin.uid,
     };
     pushes.push({ id: notifyInTx(tx, n), input: n });
@@ -142,7 +142,7 @@ export const transitionPenalty = onCall(async (request) => {
     auditInTx(tx, { action: `penalty_${to.toLowerCase()}`, entity: 'penalty', entityId: penaltyId, performedBy: admin.uid, performedByName: admin.name, role: 'admin', bookingId: text(p.bookingDocumentId) || undefined, previous: { status: from }, next: { status: to, amount: p.amount }, reason: note || reference });
     const n: NotifyInput = {
       recipientType: partnerType, recipientId: partnerId, category: 'penalties', severity: to === 'Waived' ? 'success' : 'info', sound: 'general',
-      title: `Penalty ${to === 'Pending' ? 'upheld' : to.toLowerCase()}`, message: `₹${Number(p.amount).toLocaleString('en-IN')} · ${text(p.category)}${note ? ` — ${note}` : ''}`,
+      title: `Penalty ${to === 'Pending' ? 'upheld' : to.toLowerCase()}`, message: `${inr(Number(p.amount))} · ${text(p.category)}${note ? ` — ${note}` : ''}`,
       bookingId: text(p.bookingDocumentId) || undefined, bookingCode: text(p.bookingCode), cta: { label: 'View penalty', page: 'penalties' }, push: true, sentBy: admin.uid,
     };
     pushes.push({ id: notifyInTx(tx, n), input: n });
@@ -204,7 +204,7 @@ export const disputePenalty = onCall(async (request) => {
     auditInTx(tx, { action: 'penalty_disputed', entity: 'penalty', entityId: penaltyId, performedBy: uid, performedByName: name, role, bookingId: text(p.bookingDocumentId) || undefined, previous: { status: from }, next: { status: 'Disputed' }, reason: note });
     const n: NotifyInput = {
       recipientType: 'admin', recipientId: 'admin', category: 'penalties', severity: 'warning', sound: 'general', title: 'Penalty disputed',
-      message: `${name} disputed a ₹${Number(p.amount).toLocaleString('en-IN')} penalty: ${note}`, bookingId: text(p.bookingDocumentId) || undefined, bookingCode: text(p.bookingCode),
+      message: `${name} disputed a ${inr(Number(p.amount))} penalty: ${note}`, bookingId: text(p.bookingDocumentId) || undefined, bookingCode: text(p.bookingCode),
       cta: { label: 'Review penalty', page: 'penalties' }, push: true, sentBy: uid,
     };
     notifyInTx(tx, n);

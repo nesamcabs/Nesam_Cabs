@@ -21,12 +21,16 @@ import { loadCommissionPolicy } from './commission';
 import { assertDriverEligible, assertScheduleFree, assertVehicleEligible, bookingDutyClass, loadHeldDuties, loadScheduleConfig } from './eligibility';
 import { CLASS_MATRIX, DutyClass, VEHICLE_CLASSES } from './domain/eligibility';
 import { releaseConfigOf } from './release';
-import { notify, notifyInTx, pushAfterCommit, NotifyInput } from './notify';
+import { notify, notifyInTx, pushAfterCommit, NotifyInput, inr } from './notify';
 import { sendCustomerMessage } from './customerComms';
 import { AdminAccess } from './permissions';
 import { loadPrivatePricing, withPrivatePricing } from './pricingPrivate';
 import { approved, requirePermission, text, requireDuty, requireAction } from './shared';
 import { assignByFor } from './partnerOps';
+
+/** Names of the places a tour passes through between pickup and drop (booking.stops), at most ten. */
+const viaNames = (b: Record<string, any>): string[] =>
+  (Array.isArray(b.stops) ? b.stops : []).map((s: any) => text(s?.name || s?.address)).filter(Boolean).slice(0, 10);
 
 export const docId = (v: unknown, what: string): string => {
   if (typeof v !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(v)) throw new HttpsError('invalid-argument', `Invalid ${what}.`);
@@ -149,7 +153,7 @@ export async function announceToPartners(bookingId: string, b: DocumentData, off
   const base = {
     category: 'bookings' as const, severity: 'info' as const, sound: 'new_booking' as const, push: true,
     title: 'New trip available',
-    message: `${text(b.pickup)} → ${text(b.drop)}${when ? ` · ${formatDateTime12(when)}` : ''} · ${text(b.vehicleCategory)}${b.fuelType === 'cng' ? ' (CNG)' : ''} · payout ₹${money(offer.offeredPayout).toLocaleString('en-IN')}`,
+    message: `${text(b.pickup)} → ${text(b.drop)}${when ? ` · ${formatDateTime12(when)}` : ''} · ${text(b.vehicleCategory)}${b.fuelType === 'cng' ? ' (CNG)' : ''} · payout ${inr(money(offer.offeredPayout))}`,
     bookingId, bookingCode: code(b, bookingId), cta: { label: 'View trip', page: 'marketplace', bookingId },
   };
   const targets: { id: string; type: 'driver' | 'vendor' }[] = [
@@ -220,6 +224,8 @@ export const postBookingToMarketplace = onCall({ timeoutSeconds: 120 }, async (r
       pickup: { address: text(b.pickup), city: text(b.pickup), time: text(b.time), ...(Number.isFinite(b.pickupLat) ? { lat: Math.round(b.pickupLat * 100) / 100, lng: Math.round(b.pickupLng * 100) / 100 } : {}) },
       drop: { address: text(b.drop), city: text(b.drop), ...(Number.isFinite(b.dropLat) ? { lat: Math.round(b.dropLat * 100) / 100, lng: Math.round(b.dropLng * 100) / 100 } : {}) },
       travelDate: text(b.date), service: text(b.service), tripType: text(b.tripType),
+      // A Multicity tour (or a round trip) passes through these places, in order; partners see them by name only.
+      ...(viaNames(b).length ? { via: viaNames(b) } : {}), ...(text(b.tourType) ? { tourType: text(b.tourType) } : {}),
       vehicleCategory: text(b.vehicleCategory) || text(b.vehicle), vehicleCategoryId: text(b.vehicleCategoryId),
       // The fuel the customer booked: a CNG car, or any petrol / diesel car (the vendor sees it on the duty).
       fuelType: b.fuelType === 'cng' ? 'cng' : 'diesel_petrol',
@@ -308,7 +314,7 @@ export const assignVendor = onCall({ timeoutSeconds: 60 }, async (request) => {
     const when = pickupInstant(b);
     const toVendor: NotifyInput = {
       recipientType: 'vendor', recipientId: vendorId, category: 'bookings', severity: 'info', sound: 'new_booking',
-      title: 'Trip assigned to your fleet', message: `${text(b.pickup)} → ${text(b.drop)}${when ? ` · ${formatDateTime12(when)}` : ''} · ${text(b.vehicleCategory)}${b.fuelType === 'cng' ? ' (CNG)' : ''} · payout ₹${payout.amount.toLocaleString('en-IN')}. Assign a driver and vehicle.`,
+      title: 'Trip assigned to your fleet', message: `${text(b.pickup)} → ${text(b.drop)}${when ? ` · ${formatDateTime12(when)}` : ''} · ${text(b.vehicleCategory)}${b.fuelType === 'cng' ? ' (CNG)' : ''} · payout ${inr(payout.amount)}. Assign a driver and vehicle.`,
       bookingId, bookingCode: label, cta: { label: 'Open trip', page: 'trip', bookingId }, push: true, sentBy: admin.uid,
     };
     pushes.push({ id: notifyInTx(tx, toVendor), input: toVendor });
@@ -387,7 +393,7 @@ export const awardMarketplaceBid = onCall({ timeoutSeconds: 60 }, async (request
     auditInTx(tx, { action: 'bid_awarded', entity: 'booking', entityId: tripId, performedBy: admin.uid, performedByName: admin.name, role: 'admin', bookingId: tripId, next: { bidId, payout, bidder: bid.bidderId ?? bid.vendorId } });
     const to: NotifyInput = {
       recipientType: bid.bidderType === 'driver' ? 'driver' : 'vendor', recipientId: String(bid.bidderId ?? bid.vendorId), category: 'bookings', severity: 'success', sound: 'approval', push: true,
-      title: 'Your bid was accepted', message: `${label2} · ₹${payout.toLocaleString('en-IN')}`, bookingId: tripId, bookingCode: label2, cta: { label: 'Open trip', page: 'trip', bookingId: tripId }, sentBy: admin.uid,
+      title: 'Your bid was accepted', message: `${label2} · ${inr(payout)}`, bookingId: tripId, bookingCode: label2, cta: { label: 'Open trip', page: 'trip', bookingId: tripId }, sentBy: admin.uid,
     };
     pushes.push({ id: notifyInTx(tx, to), input: to });
     return { booking: { ...bk }, kind: bid.bidderType === 'driver' ? 'driver_assigned' : 'vendor_assigned' };

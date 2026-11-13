@@ -8,8 +8,9 @@ import { useDriverData } from '../context/DriverData';
 import { NxScreen } from '../components/nx/Shell';
 import { NxIcon, type NxIconName } from '../components/nx/Icon';
 import { NxBackLink, NxBadge, NxEmpty, NxPanel, NxPills, NxTextButton, isHovered } from '../components/nx/primitives';
-import { markNotificationRead } from '../services/driverService';
+import { markNotificationRead, markNotificationsRead } from '../services/driverService';
 import { goTab } from '../navigation/navItems';
+import { openNotificationTarget } from '../navigation/openNotification';
 import { CATEGORIES, CATEGORY_LABEL, TONE_COLORS, toneOf } from '../utils/notificationModel';
 import type { DriverNotification, NotificationCategory } from '../types/driver';
 import { nx } from '../theme/nx';
@@ -18,7 +19,8 @@ const CATEGORY_ICON: Record<NotificationCategory, NxIconName> = { bookings: 'tri
 
 export function NotificationsScreen() {
   const navigation = useNavigation();
-  const { notifications } = useDriverData();
+  const { notifications, account } = useDriverData();
+  const fleet = !!account.driver.vendorId;
   const [filter, setFilter] = useState<NotificationCategory | 'all'>('all');
   const shown = filter === 'all' ? notifications : notifications.filter((n) => n.category === filter);
   const unread = (c: NotificationCategory | 'all') => notifications.filter((n) => !n.read && (c === 'all' || n.category === c)).length;
@@ -26,28 +28,12 @@ export function NotificationsScreen() {
 
   const open = (n: DriverNotification) => {
     if (!n.read) markNotificationRead(n.id).catch(() => undefined);
-    switch (n.ctaPage) {
-      case 'trip':
-      case 'trips':
-      case 'booking-detail':
-        if (n.bookingId) navigation.navigate('TripFlow', { bookingId: n.bookingId });
-        else goTab('Trip');
-        return;
-      case 'wallet':
-        return goTab('Wallet');
-      case 'earnings':
-        return goTab('Earnings');
-      case 'marketplace':
-        return goTab('Marketplace');
-      case 'profile':
-      case 'penalties':
-      case 'links':
-        return goTab('Profile');
-      default:
-    }
+    // A notice that points nowhere else is read right here.
+    if (!n.ctaPage || n.ctaPage === 'notifications') return;
+    openNotificationTarget(n.ctaPage, { tripId: n.bookingId || undefined, fleet });
   };
 
-  const markAll = () => notifications.filter((n) => !n.read).forEach((n) => markNotificationRead(n.id).catch(() => undefined));
+  const markAll = () => markNotificationsRead(notifications.filter((n) => !n.read).map((n) => n.id)).catch(() => undefined);
 
   return (
     <NxScreen maxWidth={860}>

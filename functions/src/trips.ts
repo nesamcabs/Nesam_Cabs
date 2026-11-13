@@ -21,6 +21,8 @@ import { assertDeviceTrusted, logSecurityEvent, requestIp } from './security';
 import { loadPrivatePricing, withPrivatePricing } from './pricingPrivate';
 import { sendCustomerMessage } from './customerComms';
 import { approved, inIndia, requirePermission, text, requireAction } from './shared';
+import { rentalUsageOf } from './domain/localShift';
+import { refreshShiftSummary } from './localShifts';
 
 // Operational limits. All are staff-configurable in settings/operations; these defaults are the
 // working values in the Tariff & Operations spec (pickup radius 3 km, subject to confirmation).
@@ -220,8 +222,12 @@ export const advanceTrip = onCall({ timeoutSeconds: 60 }, async (request) => {
           }
         }
       }
+      // An Hourly Rental keeps a record of the time it used against the package, measured from the server's own start stamp.
+      // Extra hours are billed by the office at actuals (the tariff never adds them automatically), so nothing is charged here.
+      const rentalUsage = rentalUsageOf(b, (b.tripStartedAt as Timestamp | undefined)?.toMillis?.() ?? null, Date.now());
       update = {
         ...base, status: 'Completed', tripEndedAt: stamp, completedAt: stamp, tripEndedLocation: geo, ...(hasEnd ? { endOdometer: end } : {}),
+        ...(rentalUsage ? { rentalUsage } : {}),
         ...(typeof totalKm === 'number' ? { totalKm, ...(discrepancy ? { distanceDiscrepancy: { odometerKm: driven, enteredKm: totalKm, flaggedAt: Timestamp.now() } } : {}) } : {}),
         ...money, tolls, tollCharges: tolls.reduce((s, t) => s + t.amount, 0),
       };
@@ -261,7 +267,7 @@ export const advanceTrip = onCall({ timeoutSeconds: 60 }, async (request) => {
       };
       pushes.push({ id: notifyInTx(tx, c), input: c });
     }
-    return { ok: true, duplicate: false, stage: to };
+    return { ok: true, duplicate: false, stage: to, ...(text(b.localShiftId) ? { shiftId: text(b.localShiftId) } : {}) };
   }).catch(async (err) => {
     if (violation) {
       await logSecurityEvent({ type: 'trip_state_violation', severity: 'medium', userId: driver.uid, role: 'driver', bookingId, platform, source: 'server', details: { attempted: to, reason: violation }, ip: requestIp(request) }).catch(() => null);
@@ -269,6 +275,9 @@ export const advanceTrip = onCall({ timeoutSeconds: 60 }, async (request) => {
     throw err;
   });
   await pushAfterCommit(pushes);
+  // An order on a local duty: the duty's totals follow every step (and a duty that is ending closes after its last order).
+  const shiftId = (result as { shiftId?: string; duplicate?: boolean } | undefined)?.duplicate === false ? (result as { shiftId?: string }).shiftId : undefined;
+  if (shiftId) await refreshShiftSummary(shiftId).catch((err) => console.warn('local duty summary failed', err));
   // The trip just ended (not a repeated tap): send the customer their trip summary — every channel, as before.
   if (to === 'Trip Ended' && result && (result as { duplicate?: boolean }).duplicate === false) {
     try {

@@ -65,6 +65,15 @@ export const CALLABLES: Readonly<Record<string, CallableLike>> = Object.freeze({
   assignIndependentDriver: fns.assignIndependentDriver,
   assignVendor: fns.assignVendor,
   vendorAssignDriver: fns.vendorAssignDriver,
+  // local duty (continuous local orders for fleet drivers)
+  localDutyOptions: fns.localDutyOptions,
+  createLocalShift: fns.createLocalShift,
+  updateLocalShift: fns.updateLocalShift,
+  endLocalShift: fns.endLocalShift,
+  localShiftAction: fns.localShiftAction,
+  localShiftBoard: fns.localShiftBoard,
+  takeLocalOrder: fns.takeLocalOrder,
+  releaseLocalOrder: fns.releaseLocalOrder,
   findPartnerDriver: fns.findPartnerDriver,
   findPartnerVehicle: fns.findPartnerVehicle,
   requestDriverLink: fns.requestDriverLink,
@@ -160,7 +169,7 @@ export const RECONCILES_BOOKING = new Set([
   'createBooking', 'createAdminBooking', 'overrideBookingFare', 'approveBooking', 'rejectBooking', 'cancelBooking', 'updateRefund',
   'assignDriver', 'recordPayment', 'voidPayment', 'advanceTrip', 'overrideReachedPickup', 'verifyBoarding', 'awardMarketplaceBid', 'rejectMarketplaceBid', 'postBookingToMarketplace',
   'assignIndependentDriver', 'assignVendor', 'vendorAssignDriver', 'claimMarketplaceDuty', 'submitMarketplaceBid', 'withdrawMarketplaceBid', 'finalizeVehicleVerification',
-  'requestDutyCancellation', 'acknowledgeAssignment', 'reviewExtraUsage',
+  'requestDutyCancellation', 'acknowledgeAssignment', 'reviewExtraUsage', 'takeLocalOrder', 'releaseLocalOrder',
 ]);
 export const RECONCILES_PAYOUT = new Set(['requestPartnerPayout']);
 

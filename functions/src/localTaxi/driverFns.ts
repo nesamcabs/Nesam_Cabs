@@ -8,7 +8,7 @@ import { timingSafeEqual } from 'crypto';
 import { db } from '../admin';
 import { auditInTx } from '../audit';
 import { approved } from '../shared';
-import { calculateFare, cancellationFeePaise, resolveFinalDistance, validateFareConfig } from './fare';
+import { calculateFare, cancellationFeePaise, formatPaise, resolveFinalDistance, validateFareConfig } from './fare';
 import { haversineMeters, pointInGeometry } from './geo';
 import { COL, boundaryOfDoc, cleanId, str } from './model';
 import { advanceDispatch, assignRide, boundaryFor, driverApproved, ltNotify, rejectOffer, releaseDriverTx, rideEventTx, rideRef } from './dispatch';
@@ -209,7 +209,7 @@ export const ltDriverAdvance = onCall(async (request) => {
         tx.set(db.doc(`${COL.driverState}/${uid}`), { completedRides: FieldValue.increment(1) }, { merge: true });
         rideEventTx(tx, rideId, { type: 'status', from: ride.status, to: 'completed', actorId: uid, actorRole: 'driver', meta: { totalPaise: breakdown.totalPaise, distanceBasis: resolved.basis } });
         auditInTx(tx, { action: 'lt_ride_completed', entity: 'lt_ride', entityId: rideId, performedBy: uid, performedByName: str(profile.name, 80), role: 'driver', next: { totalPaise: breakdown.totalPaise, distanceMeters: resolved.meters, basis: resolved.basis, fareVersion: ride.fare.version } });
-        notifyCustomer = { id: ride.customerId, title: 'Ride completed', body: `Your fare is ₹${(breakdown.totalPaise / 100).toLocaleString('en-IN')}. Thanks for riding with us.` };
+        notifyCustomer = { id: ride.customerId, title: 'Ride completed', body: `Your fare is ${formatPaise(breakdown.totalPaise)}. Thanks for riding with us.` };
         return { status: 'completed', totalPaise: breakdown.totalPaise };
       }
       case 'release': {

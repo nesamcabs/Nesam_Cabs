@@ -16,7 +16,7 @@ import { db } from './admin';
 import { auditInTx } from './audit';
 import { FinanceSnapshot } from './domain/finance';
 import { walletTotals } from './domain/finance';
-import { notify } from './notify';
+import { notify, inr } from './notify';
 import { recomputeWallet, walletId } from './ledger';
 import { docId } from './marketplace';
 import { approvedPartnerExtraPaise, loadPrivatePricing } from './pricingPrivate';
@@ -190,7 +190,7 @@ export async function runSettlementOverdue(now = Date.now()): Promise<{ checked:
     await notify({
       recipientType: 'admin', recipientId: 'admin', category: 'payments', severity: day >= 1 ? 'critical' : 'warning', sound: 'general', push: true,
       title: day >= 1 ? 'Partner payout seriously overdue' : 'Partner payout overdue',
-      message: `${x.bookingCode} · ${text(x.partnerName) || x.partnerType} · ₹${money(x.amount).toLocaleString('en-IN')} was due ${hours} h ago (${x.status}).`,
+      message: `${x.bookingCode} · ${text(x.partnerName) || x.partnerType} · ${inr(money(x.amount))} was due ${hours} h ago (${x.status}).`,
       bookingId: d.id, bookingCode: String(x.bookingCode), cta: { label: 'Open settlement', page: 'driver-earnings', bookingId: d.id }, dedupeKey: `settlement_overdue_${d.id}_${day}`,
     }).catch(() => null);
   }

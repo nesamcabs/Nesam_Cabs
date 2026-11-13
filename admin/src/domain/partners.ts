@@ -10,6 +10,7 @@
 import { arrayUnion, doc, serverTimestamp, Timestamp, updateDoc, addDoc, collection } from "firebase/firestore";
 import { auth, db } from "../services/firebase";
 import { normalizeVendorStatus } from "../utils/vendorStatus";
+import { notifyPartner as sendPartnerNotice } from "../services/partnerNotices";
 
 export type PartnerKind = "driver" | "vendor-driver" | "vendor" | "vehicle";
 export const APPROVALS = ["Unapproved", "Changes requested", "Approved", "Rejected", "Incomplete"] as const;
@@ -98,11 +99,10 @@ function clean(o: Record<string, unknown>) {
 
 async function notifyPartner(kind: PartnerKind, id: string, title: string, message: string) {
   if (kind === "vehicle") return;
-  await addDoc(collection(db, "notifications"), {
-    recipientId: id, recipientType: kind === "vendor" ? "vendor" : "driver", type: kind === "vendor" ? "vendor" : "driver", category: "approvals",
-    severity: /reject|suspend|block|hold|change/i.test(title) ? "warning" : "success", sound: "approval", push: true, channel: "In-App",
-    title, message, read: false, createdAt: serverTimestamp(),
-  }).catch(() => undefined);
+  await sendPartnerNotice(kind === "vendor" ? "vendor" : "driver", id, {
+    title, message, category: "approvals",
+    severity: /reject|suspend|block|hold|change/i.test(title) ? "warning" : "success",
+  });
 }
 
 export async function decideApproval(kind: PartnerKind, r: Raw, decision: Approval, reason: string) {

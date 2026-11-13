@@ -20,11 +20,12 @@ export function useInbox(): InboxValue {
   return v;
 }
 
-export function InboxProvider({ userId, role, penaltyField, children }: { userId: string; role: 'driver' | 'vendor' | 'customer'; penaltyField?: 'driverId' | 'vendorId'; children: React.ReactNode }) {
+/** This is the vendor app: it reads only the vendor inbox and registers its push token as a vendor device. */
+export function InboxProvider({ userId, role, penaltyField, children }: { userId: string; role: 'vendor'; penaltyField?: 'driverId' | 'vendorId'; children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<PartnerNotification[]>([]);
   const [penalties, setPenalties] = useState<PartnerPenalty[]>([]);
 
-  useEffect(() => subscribeToNotifications(userId, setNotifications, role), [userId, role]);
+  useEffect(() => subscribeToNotifications(userId, setNotifications), [userId]);
   useEffect(() => (penaltyField ? subscribeToPenalties(penaltyField, userId, setPenalties) : undefined), [userId, penaltyField]);
   useEffect(() => {
     void registerForPush(userId, role);

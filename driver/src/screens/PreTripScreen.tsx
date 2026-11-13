@@ -40,19 +40,42 @@ function BackToTrip({ onPress }: { onPress: () => void }) {
 }
 
 export function PreTripScreen({ route, navigation }: Props) {
-  const { bookings } = useDriverData();
-  const found = bookings.find((b) => b.id === route.params.bookingId);
-  const trip = found && (found.status === 'Assigned' || found.status === 'Ongoing') ? found : null;
+  const { bookings, shifts } = useDriverData();
+  // A local duty is checked once for the whole day; every order taken on it uses this check.
+  const shiftId = route.params.shiftId;
+  const shift = shiftId ? shifts.find((s) => s.id === shiftId) ?? null : null;
+  const found = route.params.bookingId ? bookings.find((b) => b.id === route.params.bookingId) : undefined;
+  const trip = !shiftId && found && (found.status === 'Assigned' || found.status === 'Ongoing') ? found : null;
   const [session, setSession] = useState<CaptureSession | null>(null);
   const [photos, setPhotos] = useState<Partial<Record<Slot, string>>>({});
   const [reading, setReading] = useState('');
   const [capturing, setCapturing] = useState<Slot | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const toTrip = () => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Tabs', { screen: 'Trip' }));
+  const toTrip = () => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Tabs', { screen: shiftId ? 'Local' : 'Trip' }));
+  const toLocal = () => navigation.navigate('Tabs', { screen: 'Local' });
+
+  if (shiftId) {
+    if (!shift || (shift.status !== 'Scheduled' && shift.status !== 'Active')) {
+      return (
+        <NxScreen maxWidth={600} phoneHeading={false}>
+          <NxBackLink label="Local Taxi" onPress={toTrip} />
+          <NxEmpty icon="taxi" title="This local duty is closed" message="Your fleet partner may have changed or ended it." action={<NxButton title="Go to Local Taxi" onPress={toLocal} />} />
+        </NxScreen>
+      );
+    }
+    if (shift.verified) {
+      return (
+        <NxScreen maxWidth={600} phoneHeading={false}>
+          <NxBackLink label="Local Taxi" onPress={toTrip} />
+          <NxEmpty icon="check" title="Duty photo check submitted" message="Every order you take on this duty uses it. Start the duty from Local Taxi." action={<NxButton title="Go to Local Taxi" onPress={toLocal} />} />
+        </NxScreen>
+      );
+    }
+  }
 
   // The evidence is taken first; the trip can only move on to Navigate / Reached Pickup once it is accepted.
-  if (!trip || (trip.subStatus !== 'Not Started' && trip.subStatus !== 'Reached Pickup')) {
+  if (!shift && (!trip || (trip.subStatus !== 'Not Started' && trip.subStatus !== 'Reached Pickup'))) {
     return (
       <NxScreen maxWidth={600} phoneHeading={false}>
         <BackToTrip onPress={toTrip} />
@@ -65,7 +88,7 @@ export function PreTripScreen({ route, navigation }: Props) {
       </NxScreen>
     );
   }
-  if (trip.verificationSubmitted) {
+  if (trip && trip.verificationSubmitted) {
     return (
       <NxScreen maxWidth={600} phoneHeading={false}>
         <BackToTrip onPress={toTrip} />
@@ -86,7 +109,7 @@ export function PreTripScreen({ route, navigation }: Props) {
     setError('');
     setBusy(true);
     try {
-      setSession(await createCaptureSession(trip.id));
+      setSession(await createCaptureSession(shift ? { shiftId: shift.id } : trip!.id));
       setPhotos({});
     } catch (e) {
       setError(message(e, 'Could not start the verification.'));
@@ -103,7 +126,8 @@ export function PreTripScreen({ route, navigation }: Props) {
     setBusy(true);
     try {
       await finalizeVehicleVerification(session.sessionId, readingNum);
-      navigation.navigate('TripFlow', { bookingId: trip.id });
+      if (shift) navigation.navigate('Tabs', { screen: 'Local' });
+      else navigation.navigate('TripFlow', { bookingId: trip!.id });
     } catch (e) {
       setError(message(e, 'Could not submit the verification.'));
       setBusy(false);
@@ -115,26 +139,28 @@ export function PreTripScreen({ route, navigation }: Props) {
 
   return (
     <NxScreen maxWidth={600} phoneHeading={false}>
-      <BackToTrip onPress={toTrip} />
-      <Text style={styles.meta}>{trip.bookingId}</Text>
-      <Text style={nxText.routeTitle}>Before you start</Text>
+      {shift ? <NxBackLink label="Local Taxi" onPress={toTrip} /> : <BackToTrip onPress={toTrip} />}
+      <Text style={styles.meta}>{shift ? `LOCAL DUTY · ${shift.vehicleNumber}` : trip!.bookingId}</Text>
+      <Text style={nxText.routeTitle}>{shift ? 'Start-of-duty check' : 'Before you start'}</Text>
       <Text style={[nxText.copy, { marginTop: 8 }]}>
-        Take your live selfie and the vehicle photos, one at a time, then enter the starting odometer reading. This safety check is required before the trip can start.
+        {shift
+          ? 'Take your live selfie and the vehicle photos once, then enter the odometer reading. Every order you take on today’s duty uses this check — no photos are needed per order.'
+          : 'Take your live selfie and the vehicle photos, one at a time, then enter the starting odometer reading. This safety check is required before the trip can start.'}
       </Text>
       <NxInfo tone="amber" icon="camera">Take each photo now with the camera, following the instruction shown. Photos from the gallery or screenshots are not accepted, and every photo is checked by NESAM.</NxInfo>
 
       <NxPanel style={{ marginTop: 18 }}>
         <View style={styles.panelTop}>
-          <NxBadge label="Confirmed duty" tone="green" icon="check" />
+          <NxBadge label={shift ? 'Local duty' : 'Confirmed duty'} tone="green" icon="check" />
           <Text style={nxText.small}>
             {Object.keys(photos).length} of {SLOTS.length} photos
           </Text>
         </View>
         <View style={styles.pickupSummary}>
-          <NxIcon name="pin" size={19} color={nx.red} />
+          <NxIcon name={shift ? 'taxi' : 'pin'} size={19} color={nx.red} />
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={nxText.small}>Pickup</Text>
-            <Text style={styles.pickupAddr}>{trip.pickup.address || '—'}</Text>
+            <Text style={nxText.small}>{shift ? 'Duty' : 'Pickup'}</Text>
+            <Text style={styles.pickupAddr}>{shift ? `${shift.cityName} · ${shift.vehicleNumber}` : trip!.pickup.address || '—'}</Text>
           </View>
         </View>
         {SLOTS.map((s, i) => (

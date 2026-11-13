@@ -1,17 +1,34 @@
 import {
   collection,
   doc,
+  limit,
   onSnapshot,
+  orderBy,
   query,
   updateDoc,
   serverTimestamp,
-  addDoc,
   writeBatch,
   Timestamp,
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { COLLECTIONS } from "./adminFirestoreService";
 import { NotificationRecord } from "../types";
+
+/**
+ * Notifications live in one inbox per panel (functions/src/notify.ts). The office reads its own shared inbox; the
+ * outbox view reads the three others. Nothing is filtered on the client to decide whose a record is.
+ */
+export const ADMIN_INBOX = "admin_notifications";
+export const AUDIENCE_INBOX = {
+  customer: "customer_notifications",
+  driver: "driver_notifications",
+  vendor: "vendor_notifications",
+} as const;
+export type Audience = keyof typeof AUDIENCE_INBOX;
+/** The newest office notifications kept live in the console. */
+const ADMIN_INBOX_LIMIT = 300;
+/** The newest records shown per audience in the outbox. */
+const OUTBOX_LIMIT = 150;
 import { callFunction } from "./callables";
 import { CATEGORIES, categoryOf } from "./notificationModel";
 import { formatShortDateTime12, formatTime12 } from "../utils/time";
@@ -158,8 +175,8 @@ export function subscribeAdminNotifications(
     callback(formatted);
   };
 
-  // 1. Stored Admin Notifications in Firestore
-  const qNotifs = query(collection(db, COLLECTIONS.NOTIFICATIONS));
+  // 1. The shared office inbox (newest first; older entries stay in Firestore)
+  const qNotifs = query(collection(db, ADMIN_INBOX), orderBy("createdAt", "desc"), limit(ADMIN_INBOX_LIMIT));
   const unsubNotifs = onSnapshot(
     qNotifs,
     (snap) => {
@@ -290,30 +307,41 @@ export function subscribeAdminNotifications(
 }
 
 /**
- * Subscribes to ALL outbound notifications sent across the platform
- * (to Drivers, Customers, Vendors) for audit and outbox inspection.
+ * The newest notifications sent to riders, drivers and vendors (each from its own inbox), merged newest first, for the
+ * outbox audit view. Each record keeps the audience of the inbox it came from.
  */
 export function subscribeOutboundNotifications(
   callback: (notifications: NotificationRecord[]) => void,
 ): () => void {
-  const q = query(collection(db, COLLECTIONS.NOTIFICATIONS));
-  return onSnapshot(
-    q,
-    (snap) => {
-      const items = snap.docs.map((docSnap) => {
-        const d = docSnap.data();
-        return {
-          id: docSnap.id,
-          ...d,
-          time: d.time || formatTimeAgo(d.createdAt),
-        } as NotificationRecord;
-      });
-
-      items.sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
-      callback(items);
-    },
-    (err) => console.warn("Outbound notifications subscription error:", err),
+  const byAudience: Record<Audience, NotificationRecord[]> = { customer: [], driver: [], vendor: [] };
+  const publish = () => {
+    const items = [...byAudience.customer, ...byAudience.driver, ...byAudience.vendor];
+    items.sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
+    callback(items);
+  };
+  const unsubs = (Object.keys(AUDIENCE_INBOX) as Audience[]).map((audience) =>
+    onSnapshot(
+      query(collection(db, AUDIENCE_INBOX[audience]), orderBy("createdAt", "desc"), limit(OUTBOX_LIMIT)),
+      (snap) => {
+        byAudience[audience] = snap.docs.map((docSnap) => {
+          const d = docSnap.data();
+          return {
+            ...d,
+            id: docSnap.id,
+            recipientType: audience,
+            time: d.time || formatTimeAgo(d.createdAt),
+          } as NotificationRecord;
+        });
+        publish();
+      },
+      (err) => {
+        console.warn(`Outbound ${audience} notifications subscription error:`, err);
+        byAudience[audience] = [];
+        publish();
+      },
+    ),
   );
+  return () => unsubs.forEach((u) => u());
 }
 
 /**
@@ -332,7 +360,7 @@ export async function markAdminNotificationRead(
   }
 
   try {
-    const docRef = doc(db, COLLECTIONS.NOTIFICATIONS, notifId);
+    const docRef = doc(db, ADMIN_INBOX, notifId);
     await updateDoc(docRef, { read: true, readAt: serverTimestamp() });
   } catch (err) {
     console.warn(`Error marking notification ${notifId} read:`, err);
@@ -359,11 +387,12 @@ export async function markAllAdminNotificationsRead(
 
   saveLocalSet(LOCAL_READ_KEY, readSet);
 
-  if (firestoreIds.length > 0) {
+  // A batch holds at most 500 writes.
+  for (let i = 0; i < firestoreIds.length; i += 450) {
     try {
       const batch = writeBatch(db);
-      for (const id of firestoreIds) {
-        batch.update(doc(db, COLLECTIONS.NOTIFICATIONS, id), {
+      for (const id of firestoreIds.slice(i, i + 450)) {
+        batch.update(doc(db, ADMIN_INBOX, id), {
           read: true,
           readAt: serverTimestamp(),
         });

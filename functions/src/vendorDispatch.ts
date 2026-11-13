@@ -15,6 +15,7 @@ import { assertDriverEligible, assertScheduleFree, loadHeldDuties, loadScheduleC
 import { assignableVehicle, docId } from './marketplace';
 import { notifyInTx, pushAfterCommit, NotifyInput } from './notify';
 import { approved, text } from './shared';
+import { dutyAttachment, refreshShiftSummary } from './localShifts';
 
 const code = (b: FirebaseFirestore.DocumentData, id: string) => text(b.bookingId) || id;
 
@@ -52,6 +53,8 @@ export const vendorAssignDriver = onCall({ timeoutSeconds: 60 }, async (request)
     const vehicle = await assignableVehicle(tx, vehicleId, uid, driverId, b);
     assertScheduleFree(driverHeld, text(driver.name) || 'This driver', b, bookingId, scheduleCfg);
     assertScheduleFree(vehicleHeld, vehicle.number ? `Vehicle ${vehicle.number}` : 'This vehicle', b, bookingId, scheduleCfg);
+    // A driver on local duty in this vehicle: a local order of the kind the duty serves joins the duty (and its photo check).
+    const duty = await dutyAttachment(tx, driverId, vehicle.id, b, bookingId);
 
     const stamp = FieldValue.serverTimestamp();
     const action = b.assignedDriverId ? 'reassign' : 'assign';
@@ -63,9 +66,11 @@ export const vendorAssignDriver = onCall({ timeoutSeconds: 60 }, async (request)
       assignedVehicleId: vehicle.id, assignedVehicleNumber: vehicle.number,
       assignedAt: stamp, lastAssignment: { action, by: uid, byName: text(vendorSnap.data()!.companyName || vendorSnap.data()!.name), reason: '', at: Timestamp.now() },
       assignmentChanges: FieldValue.increment(1), updatedAt: stamp,
+      ...(duty?.fields ?? {}),
     });
-    // Evidence submitted by a previous driver does not carry over.
-    if (verification.exists && verification.data()!.driverId !== driverId) tx.update(verification.ref, { status: 'Superseded', supersededAt: stamp });
+    // Evidence submitted by a previous driver does not carry over; an order joining a local duty uses the duty's photo check.
+    if (duty?.verification) tx.set(verification.ref, duty.verification);
+    else if (verification.exists && verification.data()!.driverId !== driverId) tx.update(verification.ref, { status: 'Superseded', supersededAt: stamp });
     tx.create(ref.collection('assignments').doc(), { action, oldDriver: oldDriver.id ? oldDriver : null, newDriver, changedBy: uid, changedByName: text(vendorSnap.data()!.companyName || vendorSnap.data()!.name), reason: '', at: stamp });
     tx.create(ref.collection('events').doc(), { type: action === 'assign' ? 'driver_assigned' : 'driver_reassigned', actorId: uid, actorRole: 'vendor', driverId, oldDriverId: oldDriver.id, at: stamp });
     auditInTx(tx, { action: action === 'assign' ? 'driver_assigned' : 'driver_reassigned', entity: 'booking', entityId: bookingId, performedBy: uid, performedByName: text(vendorSnap.data()!.companyName || vendorSnap.data()!.name), role: 'vendor', bookingId, previous: oldDriver.id ? oldDriver : null, next: newDriver });
@@ -89,9 +94,10 @@ export const vendorAssignDriver = onCall({ timeoutSeconds: 60 }, async (request)
       const gone: NotifyInput = { recipientType: 'driver', recipientId: oldDriver.id, category: 'trips', severity: 'warning', sound: 'general', title: 'Trip reassigned', message: `Booking ${label} was reassigned to another driver.`, bookingId, bookingCode: label, push: true, sentBy: uid };
       pushes.push({ id: notifyInTx(tx, gone), input: gone });
     }
-    return { action, booking: { ...b, assignedDriverName: text(driver.name), assignedVehicleNumber: vehicle.number }, driverName: text(driver.name) };
+    return { action, booking: { ...b, assignedDriverName: text(driver.name), assignedVehicleNumber: vehicle.number }, driverName: text(driver.name), shifts: [duty?.shiftId, text(b.localShiftId)].filter((x): x is string => !!x) };
   });
   await pushAfterCommit(pushes);
+  for (const shiftId of new Set(out.shifts)) await refreshShiftSummary(shiftId).catch((err) => console.warn('local duty summary failed', err));
   await sendCustomerMessage(bookingId, out.booking, 'driver_assigned').catch((err) => console.warn('customer message failed', err));
   return { ok: true, action: out.action, driverName: out.driverName };
 });

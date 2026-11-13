@@ -33,7 +33,7 @@ export function TripCard({ trip, now, onOpen }: { trip: TripDetails; now: number
         <NxBadge label={badge} tone={pendingCancel ? 'amber' : active ? 'red' : 'green'} icon={pendingCancel ? 'clock' : active ? 'trip' : 'check'} style={{ maxWidth: 150 }} />
       </View>
       <View style={styles.pad}>
-        <NxRouteStack pickup={trip.pickup.address} drop={trip.drop.address} />
+        <NxRouteStack pickup={trip.pickup.address} drop={trip.drop.address} via={trip.via} />
         <View style={styles.facts}>
           <Fact icon="car" text={trip.vehicleType || 'Cab'} />
           {km ? <Fact icon="distance" text={km} /> : null}

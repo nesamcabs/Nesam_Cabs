@@ -120,6 +120,7 @@ export function BookingCard({ b, now }: { b: VendorBooking; now: number }) {
         : { label: st === 'Completed' ? 'View statement' : 'View booking', onPress: open }}
     >
       <View style={{ gap: 10 }}>
+        {b.via?.length ? <Small>Via {b.via.join(', ')}</Small> : null}
         {st === 'Accepted' || b.driverId ? (
           <View style={styles.team}>
             <View style={styles.teamItem}><Ionicons name={b.driverId ? 'person' : 'person-outline'} size={15} color="#6F7785" /><Text style={styles.teamText}>{b.driverName || 'Driver pending'}</Text></View>

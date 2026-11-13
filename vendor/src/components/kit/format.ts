@@ -39,9 +39,10 @@ export const firstPart = (address: string): string => (address || '').split(',')
 /** One label per trip type, the same words the customer apps use. */
 export function tripTypeLabel(raw: string): string {
   const s = (raw || '').toLowerCase();
+  // A Multicity tour is stored as a Round Trip through its cities, so it is recognised first.
+  if (/multi/.test(s)) return 'Multicity';
   if (/round/.test(s)) return 'Round Trip';
   if (/airport/.test(s)) return 'Airport';
-  if (/multi/.test(s)) return 'Multicity';
   if (/rental|hour|package/.test(s)) return 'Local Rental';
   if (/local|pickup\s*&|pickup and drop/.test(s)) return 'Pickup & Drop';
   if (/one|drop|outstation/.test(s)) return 'One Way';

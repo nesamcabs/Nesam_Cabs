@@ -28,7 +28,7 @@ import { splitPricing } from './domain/pricingPrivacy';
 import { sendCustomerMessage } from './customerComms';
 import { mailOfficeNewBooking } from './officeMail';
 import { storePricingInTx } from './pricingPrivate';
-import { notifyInTx, pushAfterCommit, NotifyInput } from './notify';
+import { notifyInTx, pushAfterCommit, NotifyInput, inr } from './notify';
 import { NO_BOOKABLE_CATEGORIES, approved, inIndia, requestIdOf as id, roundTripPricingRoute, routeThrough, text } from './shared';
 import { assertServiceSupported, resolveAndValidateBrand } from './brandContext';
 import { FAST, WARM } from './hotOptions';
@@ -245,7 +245,7 @@ export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (requ
       passengerSeatsRequired: category.seats, dutyClass: dutyClassOf({ dutyClass: category.dutyClass, name: category.name, seats: category.seats }) ?? '', tariffClass: tariffClassOf(category) ?? '',
       fare: fare.total, fareBreakdown: fare, fareBreakup: breakup, addOns: bookingAddOnsOf(input.addOns), pricing: storedPricing, fareVerified: true, ...(commission ? { commission } : {}), distanceKm: fare.distanceKm, durationMin: fare.durationMin,
       ...(tripEndAt ? { tripEndAt: Timestamp.fromDate(tripEndAt), endDate: priced.pricing.endDate, billableDays: priced.pricing.days } : {}),
-      discountDetails: fare.discountDetail, globalAdjustmentApplied: fare.globalAdjustment ?? null,
+      discountDetails: fare.discountDetail ?? null, globalAdjustmentApplied: fare.globalAdjustment ?? null,
       routeEstimated: false, couponCode, discount, notes: text(input.notes), payment: 'Pending', paymentStatus: 'Unpaid',
       paymentMethod: input.paymentMethod === 'UPI' ? 'UPI' : 'Cash',
       ...(fuel ? { fuelType: fuel } : {}),
@@ -275,7 +275,7 @@ export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (requ
       : 'New booking request to review';
     const n: NotifyInput = {
       recipientType: 'admin', recipientId: 'admin', category: 'bookings', severity: 'info', sound: 'new_booking',
-      title: sourceTitle, message: `${bookingCode}${sourceTag}${fuel ? ' · CNG' : ''} · ${text(c.name)} · ${pickup.name} → ${drop.name} · ${formatDateTime12(when)} · ₹${fare.total.toLocaleString('en-IN')}`,
+      title: sourceTitle, message: `${bookingCode}${sourceTag}${fuel ? ' · CNG' : ''} · ${text(c.name)} · ${pickup.name} → ${drop.name} · ${formatDateTime12(when)} · ${inr(fare.total)}`,
       bookingId: requestId, bookingCode, cta: { label: 'Review booking', page: 'booking-detail', bookingId: requestId }, push: true, sentBy: uid,
     };
     pushes.push({ id: notifyInTx(tx, n), input: n });
@@ -283,7 +283,7 @@ export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (requ
     const toCustomer: NotifyInput = {
       recipientType: 'customer', brand: bookingSource, recipientId: uid, category: 'bookings', severity: 'success', sound: 'approval',
       title: 'Booking confirmed',
-      message: `Your booking ${bookingCode} for ${formatDateTime12(when)} (${pickup.name} → ${drop.name}) is confirmed. Fare ₹${fare.total.toLocaleString('en-IN')}. We will share the driver details before pickup.`,
+      message: `Your booking ${bookingCode} for ${formatDateTime12(when)} (${pickup.name} → ${drop.name}) is confirmed. Fare ${inr(fare.total)}. We will share the driver details before pickup.`,
       bookingId: requestId, bookingCode, cta: { label: 'View trip', page: 'trips', bookingId: requestId }, push: true, sentBy: uid,
     };
     pushes.push({ id: notifyInTx(tx, toCustomer), input: toCustomer });

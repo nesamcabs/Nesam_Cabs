@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, onSnapshot, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
+import { collection, doc, getDoc, limit, onSnapshot, orderBy, query, serverTimestamp, updateDoc, where, writeBatch, type DocumentData, type QueryDocumentSnapshot } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { callFunction } from './callables';
 import { formatDateTime12, toDate } from '../utils/time';
@@ -29,24 +29,48 @@ function brandOfBooking(bookingId: string) {
   return known;
 }
 
-export type NotificationRole = 'customer' | 'driver' | 'vendor';
+/**
+ * The rider inbox. One login can be a rider, a driver and a vendor at once; drivers, vendors and the office each have
+ * their own collection (functions/src/notify.ts), so only rider notifications can ever appear in a customer app or site.
+ */
+export const CUSTOMER_INBOX = 'customer_notifications';
+/** The newest notifications kept in the inbox. */
+const INBOX_LIMIT = 200;
 
 /**
- * This user's own notifications (rules allow reading only those addressed to them).
- * - `role`: one login can be a rider, a driver and a vendor at once; only notifications for that role
- *   are returned (a vendor's "Account suspended" must not appear in the rider's inbox). Older ones that
- *   record no role are treated as rider notifications.
+ * Live newest-first listener on the inbox. While the (recipientId, createdAt) index is still building after a deploy the
+ * ordered query is refused; the plain equality query is used then, so the inbox never goes blank.
+ */
+function listenToInbox(recipientId: string, onDocs: (docs: QueryDocumentSnapshot<DocumentData>[]) => void, onError: () => void): () => void {
+  const inbox = collection(db, CUSTOMER_INBOX);
+  let stop = onSnapshot(
+    query(inbox, where('recipientId', '==', recipientId), orderBy('createdAt', 'desc'), limit(INBOX_LIMIT)),
+    (snap) => onDocs(snap.docs),
+    (err) => {
+      if ((err as { code?: string }).code !== 'failed-precondition') return onError();
+      stop = onSnapshot(query(inbox, where('recipientId', '==', recipientId), limit(INBOX_LIMIT)), (snap) => onDocs(snap.docs), onError);
+    },
+  );
+  return () => stop();
+}
+
+/**
+ * This rider's own notifications (rules allow reading only those addressed to them), newest first.
  * - `site`: only that site's notifications (and those sent to every site): the same rider account works
  *   on NESAM Cabs, One Way Car Rentals and People Taxi, and each should show only its own.
  */
-export function subscribeToNotifications(recipientId: string, callback: (n: PartnerNotification[]) => void, scope: { role?: NotificationRole; site?: SiteBrand } = {}) {
-  const { role, site } = scope;
+export function subscribeToNotifications(recipientId: string, callback: (n: PartnerNotification[]) => void, scope: { site?: SiteBrand } = {}) {
+  const { site } = scope;
+  if (!recipientId) {
+    callback([]);
+    return () => undefined;
+  }
   let latest = 0;
-  return onSnapshot(
-    query(collection(db, 'notifications'), where('recipientId', '==', recipientId)),
-    (snap) => {
-      const forRole = (data: Record<string, unknown>) => !role || !str(data.recipientType) || str(data.recipientType) === role;
-      const rows = snap.docs.filter((d) => forRole(d.data())).map((d): PartnerNotification => {
+  return listenToInbox(
+    recipientId,
+    (docs) => {
+      // The collection is the rider inbox; the type check only guards against a record filed in the wrong place.
+      const rows = docs.filter((d) => (str(d.data().recipientType) || 'customer') === 'customer').map((d): PartnerNotification => {
         const data = d.data();
         const created = toDate(data.createdAt);
         const base = { type: str(data.type), category: str(data.category), severity: str(data.severity), priority: str(data.priority), sound: str(data.sound), cta: data.cta, bookingId: str(data.bookingId) };
@@ -83,7 +107,17 @@ export function subscribeToNotifications(recipientId: string, callback: (n: Part
 }
 
 export async function markNotificationRead(id: string): Promise<void> {
-  await updateDoc(doc(db, 'notifications', id), { read: true, readAt: serverTimestamp() });
+  await updateDoc(doc(db, CUSTOMER_INBOX, id), { read: true, readAt: serverTimestamp() });
+}
+
+/** Marks several notifications read in as few writes as possible (a batch holds at most 500). */
+export async function markNotificationsRead(ids: string[]): Promise<void> {
+  const unique = [...new Set(ids.filter(Boolean))];
+  for (let i = 0; i < unique.length; i += 450) {
+    const batch = writeBatch(db);
+    for (const id of unique.slice(i, i + 450)) batch.update(doc(db, CUSTOMER_INBOX, id), { read: true, readAt: serverTimestamp() });
+    await batch.commit();
+  }
 }
 
 const STATUSES: PenaltyStatus[] = ['Pending', 'Acknowledged', 'Paid', 'Deducted', 'Waived', 'Disputed'];

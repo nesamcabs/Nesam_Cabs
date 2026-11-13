@@ -77,6 +77,7 @@ export function mapMarketTrip(id: string, d: DocumentData): MarketTrip {
     route: str(d.route) || `${str(pickup.city || pickup.address)} ➔ ${str(drop.city || drop.address)}`,
     pickup: { address: str(pickup.address) || 'Pickup', city: str(pickup.city), time: str(pickup.time) },
     drop: { address: str(drop.address) || 'Drop', city: str(drop.city) },
+    via: viaOf(d),
     travelDate: str(d.travelDate),
     service: str(d.service),
     tripType: str(d.tripType),
@@ -227,6 +228,7 @@ export function mapVendorBooking(id: string, d: DocumentData): VendorBooking {
     customerPhoneMasked: str(d.phoneMasked),
     pickupAddress: str(d.pickupAddress || d.pickup) || 'Pickup',
     dropAddress: str(d.dropAddress || d.drop) || 'Destination',
+    via: viaOf(d),
     date: str(d.date),
     time: str(d.time),
     vehicleCategory: str(d.vehicleCategory || d.vehicle),
@@ -286,12 +288,25 @@ export function mapVendorBooking(id: string, d: DocumentData): VendorBooking {
           status: str(d.paymentSummary.status),
         }
       : null,
+    localShiftId: str(d.localShiftId),
+    rentalHours: num(d.pricing?.rentalHours),
+    rentalUsage: d.rentalUsage && typeof d.rentalUsage === 'object'
+      ? { usedMinutes: num(d.rentalUsage.usedMinutes), overtimeMinutes: num(d.rentalUsage.overtimeMinutes), extraHours: num(d.rentalUsage.extraHours), extraHourRate: num(d.rentalUsage.extraHourRate), indicativeExtra: num(d.rentalUsage.indicativeExtra) }
+      : null,
   };
+}
+
+/** The places a tour passes through between pickup and drop: names on a published duty, stop objects on a booking. */
+export function viaOf(d: DocumentData): string[] {
+  const list: unknown[] = Array.isArray(d.via) ? d.via : Array.isArray(d.stops) ? d.stops : [];
+  return list.map((x) => (typeof x === 'string' ? x : str((x as { name?: string; address?: string } | null)?.name || (x as { address?: string } | null)?.address))).map((x) => x.trim()).filter(Boolean).slice(0, 10);
 }
 
 /** "One Way", "Round Trip", "Hourly Rental", "Pickup & Drop", "Multicity", "Airport" from what the booking stored. */
 export function tripTypeOf(d: DocumentData): string {
-  const raw = `${str(d.tripType)} ${str(d.service)} ${str(d.bookingType)}`.toLowerCase();
+  const raw = `${str(d.tripType)} ${str(d.service)} ${str(d.bookingType)} ${str(d.tourType)}`.toLowerCase();
+  // A Multicity tour is stored as a Round Trip through its cities, so it is recognised first.
+  if (/multi/.test(raw)) return 'Multicity';
   if (/round/.test(raw)) return 'Round Trip';
   if (/rental|hour/.test(raw)) return 'Hourly Rental';
   if (/multi/.test(raw)) return 'Multicity';

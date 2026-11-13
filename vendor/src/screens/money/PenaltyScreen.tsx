@@ -1,7 +1,7 @@
 // Penalty notice (reference vPenaltyDetails): duty, reason, calculation and office remarks, with acknowledge / dispute.
 // Acknowledging records that the notice was read — it is not an admission, and it can still be disputed.
 import React, { useState } from 'react';
-import { View } from 'react-native';
+import { Linking, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useInbox } from '../../context/Inbox';
 import { useVendorData } from '../../context/VendorData';
@@ -11,6 +11,7 @@ import { Badge, Between, BigAmount, Btn, Empty, Eyebrow, H2, KV, Notice, Panel, 
 import { dayTime, firstPart, rupees } from '../../components/kit/format';
 import { flash } from '../../components/kit/flash';
 import { goSection } from '../../navigation/navigationRef';
+import { SUPPORT_PHONE } from '../../config/constants';
 import type { RootStackParamList } from '../../navigation/types';
 import type { PenaltyStatus } from '../../types/notifications';
 
@@ -73,7 +74,7 @@ export function PenaltyScreen() {
         {needsAck ? <Btn title="Acknowledge or dispute" icon="checkmark-done" full onPress={() => setOpen(true)} />
           : <Notice tone="green" icon="checkmark-done" title="Acknowledged" text={p.acknowledgedAt ? dayTime(p.acknowledgedAt) : 'Viewing recorded'} />}
         {b ? <Btn kind="secondary" icon="ticket-outline" title="Open booking" full onPress={() => navigation.navigate('Booking', { id: b.id })} /> : null}
-        <Btn kind="text" title="Questions? 24/7 Helpdesk" onPress={() => goSection('Helpdesk')} />
+        <Btn kind="text" title="Questions? Call NESAM office" onPress={() => void Linking.openURL(`tel:${SUPPORT_PHONE}`)} />
       </View>
     </Panel>
   );

@@ -86,7 +86,8 @@ export const COLLECTIONS = {
   MARKETPLACE: "marketplace_trips",
   PAYMENTS: "payments",
   PENALTIES: "penalties",
-  NOTIFICATIONS: "notifications",
+  /** The shared office inbox. Riders, drivers and vendors have their own (adminNotificationService AUDIENCE_INBOX). */
+  NOTIFICATIONS: "admin_notifications",
   VEHICLE_CATEGORIES: "vehicle_categories",
   INVOICES: "invoices",
   SERVICES: "services",

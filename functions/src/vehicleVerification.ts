@@ -46,10 +46,56 @@ async function activeDriver(uid: string | undefined) {
 export const photoPath = (uid: string, bookingId: string, sessionId: string, slot: VehicleSlot, issuedAtMs: number) =>
   `drivers/${uid}/trips/${bookingId}/verification/${sessionId}/${slot}-${issuedAtMs}.jpg`;
 
+/** A local duty is checked once, before it starts; its photos live under the duty instead of a trip. */
+export const shiftPhotoPath = (uid: string, shiftId: string, sessionId: string, slot: VehicleSlot, issuedAtMs: number) =>
+  `drivers/${uid}/shifts/${shiftId}/verification/${sessionId}/${slot}-${issuedAtMs}.jpg`;
+
+/** Where a session's photo must be uploaded: under the duty for a local-duty session, else under the trip. */
+const sessionPhotoPath = (uid: string, s: FirebaseFirestore.DocumentData, sessionId: string, slot: VehicleSlot, issuedAtMs: number) =>
+  typeof s.shiftId === 'string' && s.shiftId ? shiftPhotoPath(uid, s.shiftId, sessionId, slot, issuedAtMs) : photoPath(uid, String(s.bookingId), sessionId, slot, issuedAtMs);
+
+/** The verification record key of a local duty (vehicle_verifications/shift_{id}); a booking id never starts with it. */
+export const shiftVerificationKey = (shiftId: string) => `shift_${shiftId}`;
+
+/** A capture session for a local duty: the selfie and vehicle photos once for the whole duty. */
+async function createShiftSession(driver: { uid: string; name: string }, shiftId: string, platform: string) {
+  const key = shiftVerificationKey(shiftId);
+  const shiftRef = db.doc(`local_shifts/${shiftId}`);
+  const sessionRef = db.collection('capture_sessions').doc();
+  return db.runTransaction(async (tx) => {
+    const [snap, open, done] = await Promise.all([
+      tx.get(shiftRef),
+      tx.get(db.collection('capture_sessions').where('bookingId', '==', key).where('status', '==', 'open')),
+      tx.get(db.doc(`vehicle_verifications/${key}`)),
+    ]);
+    const s = snap.data();
+    if (!snap.exists || !s || s.driverId !== driver.uid) throw new HttpsError('permission-denied', 'This local duty is not assigned to you.');
+    if (!['Scheduled', 'Active'].includes(s.status)) throw new HttpsError('failed-precondition', 'This local duty is closed.');
+    if (s.verification?.status === 'Submitted' || (done.exists && done.data()!.status === 'Submitted' && done.data()!.driverId === driver.uid)) {
+      throw new HttpsError('failed-precondition', 'The photo check for this duty is already submitted.');
+    }
+    for (const x of open.docs) tx.update(x.ref, { status: 'superseded' });
+    const now = Date.now();
+    tx.create(sessionRef, {
+      id: sessionRef.id, driverId: driver.uid, bookingId: key, tripId: key, shiftId, vehicleId: text(s.vehicleId), vehicleNumber: text(s.vehicleNumber),
+      platform, status: 'open', challenges: {}, submitted: {}, createdAt: FieldValue.serverTimestamp(), expiresAt: Timestamp.fromMillis(now + CAPTURE_SESSION_MS),
+    });
+    return {
+      sessionId: sessionRef.id, expiresAtMs: now + CAPTURE_SESSION_MS,
+      slots: VEHICLE_SLOTS.map((x) => ({ slot: x, label: SLOT_LABEL[x] })), vehicleNumber: text(s.vehicleNumber),
+    };
+  });
+}
+
 export const createCaptureSession = onCall(async (request) => {
   const driver = await activeDriver(request.auth?.uid);
-  const bookingId = docId(request.data?.bookingId, 'booking');
   const platform = text(request.data?.platform, 12) || 'android';
+  if (typeof request.data?.shiftId === 'string' && request.data.shiftId) {
+    const shiftId = docId(request.data.shiftId, 'duty');
+    await assertDeviceTrusted(driver.uid, platform);
+    return createShiftSession(driver, shiftId, platform);
+  }
+  const bookingId = docId(request.data?.bookingId, 'booking');
   await assertDeviceTrusted(driver.uid, platform);
   const bookingRef = db.doc(`bookings/${bookingId}`);
   const sessionRef = db.collection('capture_sessions').doc();
@@ -105,7 +151,7 @@ export const getSlotChallenge = onCall(async (request) => {
   await ref.update({ [`challenges.${slot}`]: challenge });
   return {
     slot, label: SLOT_LABEL[slot], instruction: challenge.instruction, code: challenge.code, expiresAtMs: challenge.expiresAtMs,
-    storagePath: photoPath(driver.uid, String(s.bookingId), sessionId, slot, now),
+    storagePath: sessionPhotoPath(driver.uid, s, sessionId, slot, now),
   };
 });
 
@@ -121,7 +167,7 @@ export const submitCapturePhoto = onCall({ timeoutSeconds: 120, memory: '1GiB' }
   const bookingId: string = s.bookingId;
   const ch = s.challenges?.[slot];
   const ip = requestIp(request);
-  const path = ch ? photoPath(driver.uid, bookingId, sessionId, slot, ch.issuedAtMs) : '';
+  const path = ch ? sessionPhotoPath(driver.uid, s, sessionId, slot, ch.issuedAtMs) : '';
   if (!path || input.storagePath !== path) throw new HttpsError('invalid-argument', 'The photo was not uploaded to the capture session. Request the instruction for this photo first.');
   const reject = async (type: string, message: string) => {
     await logSecurityEvent({ type, severity: 'medium', userId: driver.uid, role: 'driver', bookingId, source: 'server', details: { slot, sessionId }, ip }).catch(() => null);
@@ -238,6 +284,7 @@ export const finalizeVehicleVerification = onCall(async (request) => {
   const reading = request.data?.odometerReading;
   if (!Number.isSafeInteger(reading) || reading <= 0 || reading > 5000000) throw new HttpsError('invalid-argument', 'Enter the starting odometer reading in kilometres.');
   const { ref: sessionRef, s } = await loadSession(sessionId, driver.uid);
+  if (typeof s.shiftId === 'string' && s.shiftId) return finalizeShiftVerification(driver, sessionRef, s, reading);
   const bookingId: string = s.bookingId;
   const verRef = db.doc(`vehicle_verifications/${bookingId}`);
   const bookingRef = db.doc(`bookings/${bookingId}`);
@@ -272,3 +319,44 @@ export const finalizeVehicleVerification = onCall(async (request) => {
   }
   return { ok: true, flagged: res.flagged };
 });
+
+/** Completes a local duty's photo check: the evidence is stored on the duty and every order taken on it uses it. */
+async function finalizeShiftVerification(driver: { uid: string; name: string }, sessionRef: FirebaseFirestore.DocumentReference, s: FirebaseFirestore.DocumentData, reading: number) {
+  const shiftId = String(s.shiftId);
+  const key = shiftVerificationKey(shiftId);
+  const verRef = db.doc(`vehicle_verifications/${key}`);
+  const shiftRef = db.doc(`local_shifts/${shiftId}`);
+  const res = await db.runTransaction(async (tx) => {
+    const [ver, shift] = await Promise.all([tx.get(verRef), tx.get(shiftRef)]);
+    const v = ver.data();
+    if (!ver.exists || !v || v.sessionId !== sessionRef.id || v.driverId !== driver.uid) throw new HttpsError('failed-precondition', 'No photos were captured in this session.');
+    const missing = VEHICLE_SLOTS.filter((slot) => !v.photos?.[slot]);
+    if (missing.length) throw new HttpsError('failed-precondition', `Capture all the photos first. Missing: ${missing.map((m) => SLOT_LABEL[m]).join(', ')}.`, { missing });
+    const d = shift.data();
+    if (!shift.exists || !d || d.driverId !== driver.uid || !['Scheduled', 'Active'].includes(d.status)) throw new HttpsError('permission-denied', 'This local duty is no longer assigned to you.');
+    const scores = VEHICLE_SLOTS.map((slot) => v.photos[slot].riskScore as number);
+    const score = Math.min(100, Math.max(...scores) + (scores.filter((x) => x >= 25).length > 1 ? 15 : 0));
+    const level = score >= 60 ? 'high' : score >= 25 ? 'medium' : 'low';
+    const flagged = level !== 'low';
+    const stamp = FieldValue.serverTimestamp();
+    tx.update(verRef, { status: 'Submitted', odometerReading: reading, riskScore: score, riskLevel: level, flagged, submittedAt: stamp, updatedAt: stamp });
+    tx.update(sessionRef, { status: 'completed', completedAt: stamp });
+    tx.update(shiftRef, {
+      verification: {
+        status: 'Submitted', sessionId: sessionRef.id, riskScore: score, riskLevel: level, flagged, odometerReading: reading, submittedAt: Timestamp.now(),
+        photos: { selfie: v.driverSelfiePhoto ?? '', front: v.vehicleFrontPhoto ?? '', rear: v.vehicleRearPhoto ?? '', interior: v.vehicleInteriorPhoto ?? '' },
+      },
+      startOdometer: reading, updatedAt: stamp,
+    });
+    return { level, score, flagged, city: text(d.cityName), vehicle: text(d.vehicleNumber) };
+  });
+  await audit({ action: 'vehicle_verification_submitted', entity: 'local_shift', entityId: shiftId, performedBy: driver.uid, performedByName: driver.name, role: 'driver', next: { riskLevel: res.level, riskScore: res.score } });
+  if (res.flagged) {
+    await notify({
+      recipientType: 'admin', recipientId: 'admin', category: 'trips', severity: res.level === 'high' ? 'critical' : 'warning', sound: 'general',
+      title: `Local duty photos flagged (${res.level} risk)`, message: `${driver.name} · ${res.vehicle} · local duty in ${res.city}. Review the photos.`,
+      dedupeKey: `vv_flag_${key}_${res.level}`, push: res.level === 'high',
+    }).catch(() => null);
+  }
+  return { ok: true, flagged: res.flagged };
+}

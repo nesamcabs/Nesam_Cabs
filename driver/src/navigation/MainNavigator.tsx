@@ -5,15 +5,15 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import type { RootStackParamList, TabParamList } from './types';
 import { navigationRef } from './navigationRef';
-import { goTab } from './navItems';
 import { useDriverData } from '../context/DriverData';
 import { HomeScreen } from '../screens/HomeScreen';
 import MarketplaceScreen from '../screens/MarketplaceScreen';
 import { TripsScreen } from '../screens/TripsScreen';
+import { LocalTaxiScreen } from '../screens/LocalTaxiScreen';
 import { TripFlowScreen } from '../screens/TripFlowScreen';
 import { EarningsScreen } from '../screens/EarningsScreen';
-import { WalletScreen } from '../screens/WalletScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { ProfileSectionScreen, PROFILE_SECTION_TITLES } from '../screens/ProfileSectionScreen';
 import { PreTripScreen } from '../screens/PreTripScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { UpdateDocumentsScreen } from '../screens/UpdateDocumentsScreen';
@@ -22,6 +22,7 @@ import { NotificationPopups } from '../components/NotificationPopups';
 import { PenaltyAckModal } from '../components/PenaltyAckModal';
 import { markNotificationRead } from '../services/driverService';
 import { onPushOpened } from '../services/notificationService';
+import { openNotificationTarget } from './openNotification';
 import type { DriverNotification } from '../types/driver';
 import { nx } from '../theme/nx';
 import { POPPINS } from '../theme/fonts';
@@ -43,9 +44,9 @@ function Pages() {
     <Tab.Navigator initialRouteName="Home" backBehavior="history" screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: nx.page } }} tabBar={() => null}>
       <Tab.Screen name="Home" component={HomeScreen} />
       {fleet ? null : <Tab.Screen name="Marketplace" component={MarketplaceScreen} />}
+      <Tab.Screen name="Local" component={LocalTaxiScreen} />
       <Tab.Screen name="Trip" component={TripsScreen} />
       {fleet ? null : <Tab.Screen name="Earnings" component={EarningsScreen} />}
-      {fleet ? null : <Tab.Screen name="Wallet" component={WalletScreen} />}
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
@@ -74,50 +75,27 @@ function TripAutoFocus() {
   return null;
 }
 
-/** Where a notification's call-to-action leads. */
-function openPage(page: string, tripId?: string) {
-  if (!navigationRef.isReady()) return;
-  switch (page) {
-    case 'dashboard':
-    case 'home':
-      return goTab('Home');
-    case 'marketplace':
-      return goTab('Marketplace');
-    case 'trip':
-    case 'trips':
-    case 'booking-detail':
-      return tripId ? navigationRef.navigate('TripFlow', { bookingId: tripId }) : goTab('Trip');
-    case 'earnings':
-      return goTab('Earnings');
-    case 'wallet':
-      return goTab('Wallet');
-    case 'profile':
-    case 'penalties':
-    case 'links':
-      return goTab('Profile');
-    default:
-      return navigationRef.navigate('Notifications');
-  }
-}
-
 /** Popups with tones for new events, the penalty acknowledgement that cannot be skipped, and push taps. */
 function WorkspaceOverlays() {
-  const { notifications, penalties, nextTrip } = useDriverData();
+  const { notifications, penalties, nextTrip, account } = useDriverData();
+  const fleet = !!account.driver.vendorId;
   const [doneIds, setDoneIds] = useState<string[]>([]);
   const pending = penalties.find((p) => p.status === 'Pending' && !p.acknowledged && !doneIds.includes(p.id));
-  // The push listener is registered once; it reads the trip to open from a ref.
+  // The push listener is registered once; it reads the trip to open (and the driver kind) from refs.
   const tripRef = useRef<string | undefined>(undefined);
+  const fleetRef = useRef(fleet);
   const nextTripId = nextTrip?.id;
   useEffect(() => {
     tripRef.current = nextTripId;
-  }, [nextTripId]);
+    fleetRef.current = fleet;
+  }, [nextTripId, fleet]);
   // The trip the notification is about; the next trip only when it names none.
-  useEffect(() => onPushOpened((d) => openPage(d.page, d.bookingId || tripRef.current)), []);
+  useEffect(() => onPushOpened((d) => openNotificationTarget(d.page, { tripId: d.bookingId || tripRef.current, fleet: fleetRef.current })), []);
   return (
     <>
       <NotificationPopups
         notifications={notifications}
-        onOpen={(n: DriverNotification) => openPage(n.ctaPage, n.bookingId || nextTrip?.id)}
+        onOpen={(n: DriverNotification) => openNotificationTarget(n.ctaPage, { tripId: n.bookingId || nextTrip?.id, fleet })}
         onRead={(n) => {
           if (!n.read) markNotificationRead(n.id).catch(() => undefined);
         }}
@@ -144,6 +122,18 @@ export function MainNavigator({ onSignOut }: { onSignOut: () => void }) {
             <Stack.Screen name="TripFlow" component={TripFlowScreen} />
             <Stack.Screen name="PreTrip" component={PreTripScreen} />
             <Stack.Screen name="Notifications" component={NotificationsScreen} />
+            <Stack.Screen
+              name="ProfileSection"
+              component={ProfileSectionScreen}
+              options={({ route }) => ({
+                headerShown: true,
+                title: PROFILE_SECTION_TITLES[route.params.section],
+                headerTintColor: nx.ink,
+                headerShadowVisible: false,
+                headerStyle: { backgroundColor: nx.white },
+                headerTitleStyle: { fontFamily: POPPINS.bold, fontSize: 17 },
+              })}
+            />
             <Stack.Screen
               name="UpdateDocuments"
               component={UpdateDocumentsScreen}

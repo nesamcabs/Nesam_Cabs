@@ -18,7 +18,7 @@ import { sendCustomerMessage } from './customerComms';
 import { assertDriverEligible, assertScheduleFree, bookingDutyClass, loadHeldDuties, loadScheduleConfig } from './eligibility';
 import { assignableVehicle, docId, money } from './marketplace';
 import { releaseBlocker, releaseConfigOf } from './release';
-import { notify, notifyInTx, pushAfterCommit, NotifyInput } from './notify';
+import { notify, notifyInTx, pushAfterCommit, NotifyInput, inr } from './notify';
 import { approved, text } from './shared';
 import { assertPenaltiesAcknowledged, assignByFor } from './partnerOps';
 
@@ -133,7 +133,7 @@ export const claimMarketplaceDuty = onCall({ timeoutSeconds: 60 }, async (reques
     auditInTx(tx, { action: 'marketplace_claimed', entity: 'booking', entityId: bookingId, performedBy: party.uid, performedByName: partnerName || text(party.data.name), role: party.kind, bookingId, next: { payout, partner: party.kind } });
     const admin: NotifyInput = {
       recipientType: 'admin', recipientId: 'admin', category: 'bookings', severity: 'info', sound: 'general', title: 'Marketplace duty taken',
-      message: `${mine} accepted by ${partnerName || text(party.data.name)} (${party.kind}) at ₹${payout.toLocaleString('en-IN')}.`, bookingId, bookingCode: mine,
+      message: `${mine} accepted by ${partnerName || text(party.data.name)} (${party.kind}) at ${inr(payout)}.`, bookingId, bookingCode: mine,
       cta: { label: 'Open booking', page: 'booking-detail', bookingId }, push: false,
     };
     pushes.push({ id: notifyInTx(tx, admin), input: admin });
@@ -267,7 +267,7 @@ export async function runOfferEscalation(now = Date.now()): Promise<{ checked: n
       atCeiling++;
       await notify({
         recipientType: 'admin', recipientId: 'admin', category: 'bookings', severity: 'warning', sound: 'general', push: true,
-        title: 'Marketplace offer is at its ceiling', message: `${res.bookingId} still has no partner at ₹${(res.ceiling / 100).toLocaleString('en-IN')}. The customer fare is unchanged — assign directly or review.`,
+        title: 'Marketplace offer is at its ceiling', message: `${res.bookingId} still has no partner at ${inr(res.ceiling / 100)}. The customer fare is unchanged — assign directly or review.`,
         bookingId: d.id, bookingCode: String(res.bookingId), cta: { label: 'Open booking', page: 'booking-detail', bookingId: d.id }, dedupeKey: `offer_ceiling_${d.id}`,
       }).catch(() => null);
     }

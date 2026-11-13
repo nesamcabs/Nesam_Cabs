@@ -18,6 +18,7 @@ import type { FleetDriver, FleetVehicle } from '../../types/operations';
 import type { FleetTab, RootStackParamList } from '../../navigation/types';
 import { docTone, driverDocState, driverMatches, DRIVER_FILTERS, nextExpiry, vehicleDocState, vehicleMatches, VEHICLE_FILTERS, vehicleStatusLabel } from './logic';
 import { SwapPanel } from './LinkingAndDocs';
+import { LocalDutySheet, LocalDutyTab } from './LocalDuty';
 import { colors, fontFamily } from '../../theme';
 import { useLayout } from '../../theme/responsive';
 
@@ -33,19 +34,25 @@ export function FleetScreen() {
   const [swapOpen, setSwapOpen] = useState(!!route.params?.swap);
   const [swapSeen, setSwapSeen] = useState(route.params?.swap);
   if (route.params?.swap !== swapSeen) { setSwapSeen(route.params?.swap); if (route.params?.swap) setSwapOpen(true); }
+  const [planning, setPlanning] = useState(false);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('All');
   const vehicles = tab === 'Vehicles';
+  const local = tab === 'Local duty';
 
   const vList = d.vehicles.filter((v) => vehicleMatches(v, search, filter));
   const dList = d.drivers.filter((x) => driverMatches(x, search, filter));
   const invites = !vehicles && filter === 'All' && !search ? d.invites : [];
   const shown = vehicles ? vList.length : dList.length + invites.length;
   const switchTab = (t: FleetTab) => { setTab(t); setFilter('All'); setSwapOpen(false); };
-  const tabItems = [{ id: 'Vehicles' as const, label: 'Vehicles', count: d.vehicles.length }, { id: 'Drivers' as const, label: 'Drivers', count: d.drivers.length + d.invites.length }];
+  const tabItems = [{ id: 'Vehicles' as const, label: 'Vehicles', count: d.vehicles.length }, { id: 'Drivers' as const, label: 'Drivers', count: d.drivers.length + d.invites.length }, { id: 'Local duty' as const, label: 'Local duty' }];
   const noun = vehicles ? 'vehicle' : 'driver';
   // Add and Swap: the same size as the tabs (46 high), side by side; on desktop they sit at the right end of the tab row.
-  const actions = (
+  const actions = local ? (
+    <View style={[styles.actionRow, wide && { width: 220, marginBottom: 0 }]}>
+      <ActionButton icon="navigate-outline" label="Start local duty" primary onPress={() => setPlanning(true)} />
+    </View>
+  ) : (
     <View style={[styles.actionRow, wide && { width: 380, marginBottom: 0 }]}>
       <ActionButton icon="add" label={`Add ${noun}`} onPress={() => navigation.navigate('FleetAdd', { kind: vehicles ? 'vehicle' : 'driver' })} />
       <ActionButton icon="swap-horizontal" label={`Swap ${noun}`} count={d.actionLinks.length} active={swapOpen} onPress={() => setSwapOpen((o) => !o)} />
@@ -67,6 +74,8 @@ export function FleetScreen() {
           {actions}
         </>
       )}
+      {planning ? <LocalDutySheet onClose={() => setPlanning(false)} /> : null}
+      {local ? <LocalDutyTab onPlan={() => setPlanning(true)} /> : (<>
       {swapOpen ? <SwapPanel kind={vehicles ? 'vehicle' : 'driver'} /> : null}
       <Toolbar>
         <SearchBox value={search} onChange={setSearch} placeholder={vehicles ? 'Registration, Car ID or model' : 'Name, mobile, DL or Driver ID'} />
@@ -110,6 +119,7 @@ export function FleetScreen() {
               ]}
         </Grid>
       )}
+      </>)}
     </Page>
   );
 }

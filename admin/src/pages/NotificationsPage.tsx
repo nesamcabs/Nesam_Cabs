@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { CATEGORIES, CATEGORY_LABEL, categoryOf } from "../services/notificationModel";
 import DeliveryLog from "../components/DeliveryLog";
+import { useNotifications } from "../components/NotificationHost";
 import { NotificationRecord } from "../types";
 import {
-  subscribeAdminNotifications,
   subscribeOutboundNotifications,
   markAdminNotificationRead,
   markAllAdminNotificationsRead,
@@ -66,14 +66,15 @@ const TEMPLATES = [
   },
 ];
 
-export default function NotificationsPage({ onNavigate }: NotificationsPageProps) {
+// Page links open through the notification context (NotificationHost), which knows the booking to open.
+export default function NotificationsPage(_props: NotificationsPageProps) {
   const [activeTab, setActiveTab] = useState<"inbox" | "outbox" | "send" | "delivery">("inbox");
   const [filterType, setFilterType] = useState("All");
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Inbound Admin Notifications & Operational Alerts
-  const [adminNotifs, setAdminNotifs] = useState<NotificationRecord[]>([]);
+  // The office inbox and live operational alerts: the one subscription the whole console shares.
+  const { notifications: adminNotifs, open: openNotification } = useNotifications();
 
   // Outbound Notifications (Sent to drivers, customers, vendors)
   const [outboundNotifs, setOutboundNotifs] = useState<NotificationRecord[]>([]);
@@ -95,9 +96,6 @@ export default function NotificationsPage({ onNavigate }: NotificationsPageProps
   const [sendError, setSendError] = useState("");
 
   useEffect(() => {
-    // 1. Subscribe to Admin notifications & real-time operational alerts
-    const unsubAdmin = subscribeAdminNotifications(setAdminNotifs);
-
     // 2. Subscribe to outbound platform notifications
     const unsubOutbound = subscribeOutboundNotifications(setOutboundNotifs);
 
@@ -136,7 +134,6 @@ export default function NotificationsPage({ onNavigate }: NotificationsPageProps
     );
 
     return () => {
-      unsubAdmin();
       unsubOutbound();
       unsubCust();
       unsubDrv();
@@ -182,23 +179,8 @@ export default function NotificationsPage({ onNavigate }: NotificationsPageProps
       });
   }, [outboundNotifs, outboundFilter, searchQuery]);
 
-  const handleAction = (n: NotificationRecord) => {
-    markAdminNotificationRead(n);
-    if (!onNavigate) return;
-    if (n.actionUrl) {
-      onNavigate(n.actionUrl);
-    } else if (n.type === "driver") {
-      onNavigate("drivers");
-    } else if (n.type === "booking") {
-      onNavigate("bookings");
-    } else if (n.type === "vendor") {
-      onNavigate("vendors");
-    } else if (n.type === "alert" || n.type === "trip") {
-      onNavigate("trips");
-    } else if (n.type === "penalty") {
-      onNavigate("penalties");
-    }
-  };
+  // Same destination as the header bell and the popups: the notification's own target, with its booking opened.
+  const handleAction = (n: NotificationRecord) => openNotification(n);
 
   const handleSend = async () => {
     setSendError("");

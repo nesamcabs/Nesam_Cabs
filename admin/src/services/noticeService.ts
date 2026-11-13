@@ -7,6 +7,7 @@ import { addDoc, collection, doc, limit, onSnapshot, orderBy, query, serverTimes
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { auth, db, storage } from "./firebase";
 import { callFunction } from "./callables";
+import { AUDIENCE_INBOX, type Audience } from "./adminNotificationService";
 
 export const MESSAGE_TYPES = ["Festival wishes", "General service notice", "Personal warning"] as const;
 export type MessageType = (typeof MESSAGE_TYPES)[number];
@@ -66,20 +67,42 @@ export function subscribeCampaigns(cb: (rows: Campaign[]) => void, onError?: (m:
     (e) => (onError ? onError(e.message) : cb([])));
 }
 
-/** Read / acknowledged counts from the in-app records of a sent campaign. */
-export function subscribeCampaignReads(id: string, cb: (c: { read: number; ack: number; byRecipient: Map<string, "Read" | "Acknowledged" | "Delivered"> }) => void) {
-  return onSnapshot(query(collection(db, "notifications"), where("campaignId", "==", id), limit(4000)), (s) => {
-    const byRecipient = new Map<string, "Read" | "Acknowledged" | "Delivered">();
+type ReadState = "Read" | "Acknowledged" | "Delivered";
+const RANK: Record<ReadState, number> = { Delivered: 0, Read: 1, Acknowledged: 2 };
+
+/**
+ * Read / acknowledged counts from the in-app records of a sent campaign. A campaign reaches riders, drivers and vendors,
+ * whose records live in their own inboxes, so all three are read. A person with two accounts (e.g. rider and driver)
+ * shows their furthest state.
+ */
+export function subscribeCampaignReads(id: string, cb: (c: { read: number; ack: number; byRecipient: Map<string, ReadState> }) => void) {
+  const parts: Record<Audience, { id: string; recipientId: string; state: ReadState }[]> = { customer: [], driver: [], vendor: [] };
+  const publish = () => {
+    const byRecipient = new Map<string, ReadState>();
     let read = 0, ack = 0;
-    s.docs.forEach((d) => {
-      const n = d.data();
-      const st = n.acknowledgedAt ? "Acknowledged" : n.read ? "Read" : "Delivered";
-      if (n.acknowledgedAt) ack++;
-      if (n.read) read++;
-      byRecipient.set(String(n.recipientId), st);
-    });
+    for (const rows of Object.values(parts)) {
+      for (const r of rows) {
+        if (r.state === "Acknowledged") ack++;
+        if (r.state !== "Delivered") read++;
+        const prev = byRecipient.get(r.recipientId);
+        if (!prev || RANK[r.state] > RANK[prev]) byRecipient.set(r.recipientId, r.state);
+      }
+    }
     cb({ read, ack, byRecipient });
-  }, () => cb({ read: 0, ack: 0, byRecipient: new Map() }));
+  };
+  const unsubs = (Object.keys(AUDIENCE_INBOX) as Audience[]).map((audience) =>
+    onSnapshot(query(collection(db, AUDIENCE_INBOX[audience]), where("campaignId", "==", id), limit(4000)), (s) => {
+      parts[audience] = s.docs.map((d) => {
+        const n = d.data();
+        return { id: d.id, recipientId: String(n.recipientId), state: (n.acknowledgedAt ? "Acknowledged" : n.read ? "Read" : "Delivered") as ReadState };
+      });
+      publish();
+    }, () => {
+      parts[audience] = [];
+      publish();
+    }),
+  );
+  return () => unsubs.forEach((u) => u());
 }
 
 export async function uploadGreeting(file: File): Promise<{ name: string; url: string; path: string }> {

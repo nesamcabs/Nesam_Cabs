@@ -22,6 +22,7 @@ import { BookingDetailScreen } from '../screens/bookings/BookingDetailScreen';
 import { AssignScreen } from '../screens/bookings/AssignScreen';
 import { FleetScreen } from '../screens/fleet/FleetScreen';
 import { DriverScreen, VehicleScreen } from '../screens/fleet/EntityScreens';
+import { LocalShiftScreen } from '../screens/fleet/LocalDuty';
 import { FleetAddScreen } from '../screens/fleet/FleetAddScreen';
 import { DocumentsScreen } from '../screens/fleet/LinkingAndDocs';
 import { EarningsScreen } from '../screens/money/EarningsScreen';
@@ -36,7 +37,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const TITLES: Record<keyof RootStackParamList, string> = {
   Trips: 'Bookings', Bookings: 'My Trips', Fleet: 'Fleet', Earnings: 'Earnings', Wallet: 'Wallet', MyBids: 'My bids', Duty: 'Duty details',
-  Booking: 'Booking details', Assign: 'Assign driver', FleetAdd: 'Add to fleet', Vehicle: 'Vehicle details', Driver: 'Driver details',
+  Booking: 'Booking details', Assign: 'Assign driver', FleetAdd: 'Add to fleet', Vehicle: 'Vehicle details', Driver: 'Driver details', LocalShift: 'Local duty',
   Documents: 'Documents & verification', Penalty: 'Penalty notice', Account: 'Profile',
   Business: 'Business & contact', Agreements: 'Agreements', Alerts: 'Notifications',
 };
@@ -84,6 +85,7 @@ export function MainNavigator({ onSignOut, locked = null }: { onSignOut: () => v
           <Stack.Screen name="FleetAdd" component={FleetAddScreen} />
           <Stack.Screen name="Vehicle" component={VehicleScreen} />
           <Stack.Screen name="Driver" component={DriverScreen} />
+          <Stack.Screen name="LocalShift" component={LocalShiftScreen} />
           <Stack.Screen name="Documents" component={DocumentsScreen} />
           <Stack.Screen name="Penalty" component={PenaltyScreen} />
           <Stack.Screen name="Account" component={AccountScreen} />

@@ -20,12 +20,22 @@ export function useInbox(): InboxValue {
   return v;
 }
 
-export function InboxProvider({ userId, role, penaltyField, children }: { userId: string; role: 'driver' | 'vendor' | 'customer'; penaltyField?: 'driverId' | 'vendorId'; children: React.ReactNode }) {
+/**
+ * This is the rider app: it reads only the rider inbox (every site's notifications — the trips list shows every site's
+ * bookings too) and registers its push token as a rider device.
+ */
+export function InboxProvider({ userId, role, penaltyField, children }: { userId: string; role: 'customer'; penaltyField?: 'driverId' | 'vendorId'; children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<PartnerNotification[]>([]);
   const [penalties, setPenalties] = useState<PartnerPenalty[]>([]);
 
   // No user id means a guest browsing the booking form: nothing to read.
-  useEffect(() => (userId ? subscribeToNotifications(userId, setNotifications, { role }) : undefined), [userId, role]);
+  useEffect(() => {
+    if (!userId) {
+      setNotifications([]);
+      return undefined;
+    }
+    return subscribeToNotifications(userId, setNotifications);
+  }, [userId]);
   useEffect(() => (userId && penaltyField ? subscribeToPenalties(penaltyField, userId, setPenalties) : undefined), [userId, penaltyField]);
   useEffect(() => {
     if (userId) void registerForPush(userId, role);

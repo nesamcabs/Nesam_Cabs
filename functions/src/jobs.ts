@@ -21,6 +21,7 @@ import { expiryMs } from './domain/eligibility';
 import { text } from './shared';
 import { runScheduledNotices } from './noticeCampaigns';
 import { reconcilePublicContent } from './publicContent';
+import { runLocalShiftSweep } from './localShifts';
 
 const STATE_DOC = 'system/reconcile_state';
 
@@ -216,6 +217,7 @@ export async function runPeriodicJobs(): Promise<Record<string, unknown>> {
   await step('documentExpiry', () => runDocumentExpiryReminders());
   await step('scheduledNotices', () => runScheduledNotices());
   await step('publicContent', () => reconcilePublicContent());
+  await step('localDuty', () => runLocalShiftSweep());
   return report;
 }
 

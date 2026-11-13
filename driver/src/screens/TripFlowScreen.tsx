@@ -9,6 +9,8 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Text, TextInput } from '../components/nx/Text';
 import { CancellationStatus, HelpCancellationDialog } from '../components/nx/Cancellation';
 import { ExtraUsageCard } from '../components/nx/ExtraUsageCard';
+import { RentalClock } from '../components/nx/RentalClock';
+import { spanText } from '../utils/localDuty';
 import { acknowledgeAssignment } from '../services/partnerRequests';
 import { useNow } from '../hooks/useNow';
 import type { RootStackParamList } from '../navigation/types';
@@ -17,7 +19,7 @@ import { useDriverData } from '../context/DriverData';
 import { NxScreen, useShell } from '../components/nx/Shell';
 import { NxDialog } from '../components/nx/Dialog';
 import { NxIcon, type NxIconName } from '../components/nx/Icon';
-import { NxBackLink, NxBadge, NxButton, NxEmpty, NxField, NxFormError, NxInfo, NxPanel, NxRow, NxStatusLine, isHovered, nxText, placeName } from '../components/nx/primitives';
+import { NxBackLink, NxBadge, NxButton, NxEmpty, NxField, NxFormError, NxInfo, NxPanel, NxRouteStack, NxRow, NxStatusLine, isHovered, nxText, placeName } from '../components/nx/primitives';
 import { NxSwipe, SWIPE_HELP } from '../components/nx/Swipe';
 import { arrivalWindow, durationText, kmText, payoutCaption, payoutLabel, tripStageLabel, tripWhen } from '../components/nx/tripFormat';
 import { PhotoField } from '../components/forms';
@@ -32,13 +34,10 @@ import { formatINR, formatPhone, localMobile } from '../utils/format';
 import { describeError } from '../utils/retry';
 import { formatTime12 } from '../utils/time';
 import { startBlockers } from '../utils/tripFlow';
+import { mapsDirections, mapsTour } from '../utils/geo';
 import { nx } from '../theme/nx';
 
-export function mapsDirections(loc: TripDetails['pickup']): string {
-  return loc.lat != null && loc.lng != null
-    ? `https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}&travelmode=driving`
-    : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(loc.address)}&travelmode=driving`;
-}
+export { mapsDirections, mapsTour };
 
 const reason = (err: unknown, fallback: string) =>
   err instanceof ActionError || err instanceof DriverActionError || err instanceof LocationError ? err.message : describeError(err, fallback);
@@ -101,6 +100,9 @@ function TripFlow({ trip }: { trip: TripDetails }) {
   const requestId = (key: string) => (ids.current[key] ??= newRequestId());
 
   const sub = trip.subStatus;
+  // A Multicity tour: it passes through other cities between the pickup and the final drop.
+  const tour = (trip.via?.length ?? 0) > 0;
+  const tourCities = [trip.pickup.address, ...(trip.via ?? []), trip.drop.address].map(placeName).join(' → ');
   const finished = trip.status === 'Completed' || sub === 'Trip Ended';
   const cancelled = trip.status === 'Cancelled' || trip.status === 'Rejected';
   const when = tripWhen(trip);
@@ -339,7 +341,7 @@ function TripFlow({ trip }: { trip: TripDetails }) {
         </View>
         <Text style={nxText.heading}>Trip completed</Text>
         <Text style={[nxText.copy, { marginTop: 4 }]}>
-          {placeName(trip.pickup.address)} → {placeName(trip.drop.address)}
+          {tour ? tourCities : `${placeName(trip.pickup.address)} → ${placeName(trip.drop.address)}`}
         </Text>
         <View style={[styles.collection, paid && { backgroundColor: nx.greenSoft }]}>
           <Text style={[styles.collectionLabel, paid && { color: '#286B4C' }]}>{paid ? 'Trip payment' : 'Cash to collect'}</Text>
@@ -352,7 +354,14 @@ function TripFlow({ trip }: { trip: TripDetails }) {
         </View>
         {(trip.totalPaid ?? 0) > 0 ? <NxStatusLine>{formatINR(trip.totalPaid ?? 0)} paid so far</NxStatusLine> : null}
         <View style={{ marginTop: 10 }}>
-          <NxRow label="Booked route" value={trip.distanceKm > 0 ? kmText(trip.distanceKm) : '—'} />
+          {trip.rentalUsage ? (
+            <NxRow
+              label="Rental time used"
+              value={`${spanText(trip.rentalUsage.usedMinutes)} of ${trip.rentalUsage.packageHours} h${trip.rentalUsage.overtimeMinutes > 0 ? ` · ${spanText(trip.rentalUsage.overtimeMinutes)} extra` : ''}`}
+              valueStyle={trip.rentalUsage.overtimeMinutes > 0 ? { color: nx.amber } : undefined}
+            />
+          ) : null}
+          <NxRow label={trip.localMode === 'rental' ? 'Package' : 'Booked route'} value={trip.localMode === 'rental' ? `${trip.rentalHours ?? '—'} h${trip.includedKm ? ` · ${trip.includedKm} km included` : ''}` : trip.distanceKm > 0 ? kmText(trip.distanceKm) : '—'} />
           {totalTolls > 0 || trip.tollCharges > 0 ? <NxRow label="Toll & parking receipts" value={formatINR(Math.max(totalTolls, trip.tollCharges))} /> : null}
           {!trip.fleetTrip ? <NxRow label="Your payout" value={payoutLabel(trip)} last /> : null}
         </View>
@@ -361,7 +370,15 @@ function TripFlow({ trip }: { trip: TripDetails }) {
           <NxIcon name="shield" size={14} color={nx.muted} />
           <Text style={styles.settlementText}>{trip.fleetTrip ? 'Your fleet operator settles your pay for this trip.' : 'Driver settlement awaits NESAM approval.'}</Text>
         </View>
-        <NxButton title="Back to My Trips" trailingIcon="arrow" onPress={() => goTab('Trip', { tab: 'completed' })} style={{ marginTop: 20 }} />
+        {trip.localShiftId ? (
+          // On local duty the next order is one tap away.
+          <>
+            <NxButton title="Next order · Local Taxi" icon="taxi" trailingIcon="arrow" onPress={() => goTab('Local', { tab: trip.localMode ?? undefined, at: Date.now() })} style={{ marginTop: 20 }} />
+            <NxButton title="My Trips" variant="ghost" onPress={() => goTab('Trip', { tab: 'completed' })} style={{ marginTop: 6 }} />
+          </>
+        ) : (
+          <NxButton title="Back to My Trips" trailingIcon="arrow" onPress={() => goTab('Trip', { tab: 'completed' })} style={{ marginTop: 20 }} />
+        )}
       </NxPanel>
     );
   } else if (closing === 'form') {
@@ -369,7 +386,9 @@ function TripFlow({ trip }: { trip: TripDetails }) {
       <>
         <NxPanel style={styles.closePanel}>
           <SectionHead icon="distance" eyebrow="Trip closing" title="Enter trip distance" />
-          <Text style={nxText.copy}>Enter the actual distance from customer pickup to final drop, add toll receipts and record the payments you collected.</Text>
+          <Text style={nxText.copy}>
+            {tour ? 'Enter the actual distance for the whole tour, through every city, from customer pickup to final drop.' : 'Enter the actual distance from customer pickup to final drop, add toll receipts and record the payments you collected.'}
+          </Text>
           <Text style={styles.runningLabel}>Total running KM</Text>
           <View style={styles.kmControl}>
             <TextInput
@@ -387,7 +406,8 @@ function TripFlow({ trip }: { trip: TripDetails }) {
             <Text style={styles.kmUnit}>km</Text>
           </View>
           <Text style={nxText.note}>
-            {trip.distanceKm > 0 ? `Booked route about ${Math.round(trip.distanceKm)} km. ` : ''}Customer pickup → final drop only. NESAM works out the fare from the booked rates.
+            {trip.distanceKm > 0 ? `Booked route about ${Math.round(trip.distanceKm)} km. ` : ''}
+            {tour ? 'Count the whole tour, pickup → every city → final drop. NESAM works out the fare from the booked Multicity rates.' : 'Customer pickup → final drop only. NESAM works out the fare from the booked rates.'}
           </Text>
           <SeparateCharges />
         </NxPanel>
@@ -475,10 +495,24 @@ function TripFlow({ trip }: { trip: TripDetails }) {
     content = (
       <NxPanel>
         <NxStatusLine>Customer on board · OTP verified</NxStatusLine>
-        <Text style={[nxText.heading, { marginTop: 18 }]}>Trip in progress</Text>
-        <Text style={[nxText.copy, { marginTop: 6 }]}>Have a safe journey to {placeName(trip.drop.address)}.</Text>
-        {locationBlock(trip.drop, 'Customer’s drop location')}
-        <NxButton title="Navigate to Drop" icon="pin" onPress={() => void Linking.openURL(mapsDirections(trip.drop))} />
+        <Text style={[nxText.heading, { marginTop: 18 }]}>{trip.localMode === 'rental' ? 'Hourly rental in progress' : 'Trip in progress'}</Text>
+        {trip.localMode === 'rental' ? (
+          // An hourly rental has no destination: the car stays with the customer for the booked hours.
+          <>
+            <Text style={[nxText.copy, { marginTop: 6 }]}>Stay with the customer and drive where they ask until the booked hours are used or they are done. End the trip at their final stop.</Text>
+            <RentalClock trip={trip} />
+            <View style={{ height: 6 }} />
+          </>
+        ) : (
+          <>
+            <Text style={[nxText.copy, { marginTop: 6 }]}>
+              {tour ? `Have a safe journey: ${tourCities}.` : `Have a safe journey to ${placeName(trip.drop.address)}.`}
+            </Text>
+            {tour ? <NxRouteStack pickup={trip.pickup.address} drop={trip.drop.address} via={trip.via} compact /> : null}
+            {locationBlock(trip.drop, 'Customer’s drop location')}
+            <NxButton title={tour ? 'Navigate through tour cities' : 'Navigate to Drop'} icon="pin" onPress={() => void Linking.openURL(mapsTour(trip))} />
+          </>
+        )}
         {trip.distanceKm > 0 ? (
           <View style={{ marginTop: 14 }}>
             <NxRow label="Trip estimate" value={kmText(trip.distanceKm)} last />
@@ -580,7 +614,7 @@ function TripFlow({ trip }: { trip: TripDetails }) {
   return (
     <NxScreen maxWidth={TRIP_COLUMN} phoneHeading={false}>
       <View style={styles.toolbar}>
-        <NxBackLink label="My Trips" onPress={() => (navigation.canGoBack() ? navigation.goBack() : goTab('Trip'))} />
+        <NxBackLink label={trip.localShiftId ? 'Local Taxi' : 'My Trips'} onPress={() => (navigation.canGoBack() ? navigation.goBack() : goTab(trip.localShiftId ? 'Local' : 'Trip'))} />
         {!finished && !cancelled ? (
           <Pressable
             style={(s) => [styles.help, isHovered(s) && { backgroundColor: nx.page }]}
@@ -600,7 +634,7 @@ function TripFlow({ trip }: { trip: TripDetails }) {
         {trip.serviceType ? ` · ${trip.serviceType.toUpperCase()}` : ''}
       </Text>
       <Text style={nxText.routeTitle}>
-        {placeName(trip.pickup.address)} → {placeName(trip.drop.address)}
+        {tour ? tourCities : `${placeName(trip.pickup.address)} → ${placeName(trip.drop.address)}`}
       </Text>
       <View style={styles.dateRow}>
         <NxIcon name="calendar" size={13} color={nx.tripMuted} />
@@ -633,6 +667,12 @@ function TripFlow({ trip }: { trip: TripDetails }) {
       {customerCard}
       {pendingCancel ? null : content}
       {!pendingCancel ? statusCard : null}
+      {trip.localMode === 'rental' && !finished && !cancelled && sub !== 'Trip Started' && closing === 'trip' ? (
+        <NxPanel>
+          <Text style={styles.cardTitle}>Hourly rental package</Text>
+          <RentalClock trip={trip} />
+        </NxPanel>
+      ) : null}
       {closing === 'trip' ? fareCard : null}
       {error && closing === 'trip' && !(sub === 'Reached Pickup' || (sub === 'Not Started' && trip.verificationSubmitted)) ? <NxInfo tone="red" style={{ marginTop: 0, marginBottom: 16 }}>{error}</NxInfo> : null}
       {/* Waiting / hill / roof carrier: once the trip is under way, until the office has approved it. */}

@@ -20,6 +20,7 @@ import type { RootStackParamList } from '../../navigation/types';
 import type { VehicleStatus } from '../../types/operations';
 import { EXPIRY_WARNING_DAYS } from '../../config/constants';
 import { AvailabilitySheet, PairSheet, RenewSheet } from './sheets';
+import { LocalDutySheet } from './LocalDuty';
 import { docTone, driverDocState, VEHICLE_DOCS, vehicleDocState, vehicleStatusLabel } from './logic';
 import { colors, fontFamily } from '../../theme';
 
@@ -113,6 +114,7 @@ export function DriverScreen() {
   const { params } = useRoute<RouteProp<RootStackParamList, 'Driver'>>();
   const d = useVendorData();
   const [pair, setPair] = useState(false);
+  const [localDuty, setLocalDuty] = useState(false);
   const x = d.drivers.find((y) => y.id === params.id);
   if (!x) {
     return <Page title="Driver details"><Empty icon="person-outline" title="Driver not found" text="The driver may have moved to another partner." action={<Btn kind="secondary" icon="arrow-back" title="Fleet" onPress={() => goSection('Fleet', { tab: 'Drivers' })} />} /></Page>;
@@ -163,6 +165,7 @@ export function DriverScreen() {
   const side = (
     <Panel style={{ paddingVertical: 8 }}>
       <MenuItem icon="car-outline" title="Pair vehicle" sub={x.assignedVehicleNumber ? plate(x.assignedVehicleNumber) : 'No paired vehicle'} onPress={() => setPair(true)} />
+      {!suspended && x.approvalStatus === 'Approved' ? <MenuItem icon="navigate-outline" title="Local duty" sub="Hourly Rental · Pickup & Drop, one after another" onPress={() => setLocalDuty(true)} /> : null}
       <MenuItem icon={suspended ? 'play-circle-outline' : 'pause-circle-outline'} title={suspended ? 'Resume duties' : 'Suspend driver'} sub={suspended ? 'Allow assignments again' : 'Stop new assignments'} danger={!suspended} last onPress={toggle} />
     </Panel>
   );
@@ -170,6 +173,7 @@ export function DriverScreen() {
     <Page title="Driver details" subtitle={x.name}>
       <DetailGrid main={main} side={side} />
       {pair ? <PairSheet driver={x} onClose={() => setPair(false)} /> : null}
+      {localDuty ? <LocalDutySheet driverId={x.id} onClose={() => setLocalDuty(false)} /> : null}
     </Page>
   );
 }

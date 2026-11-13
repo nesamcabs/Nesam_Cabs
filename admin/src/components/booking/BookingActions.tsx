@@ -9,6 +9,7 @@ import {
 } from "../../services/bookingOpsService";
 import { ActionError } from "../../services/callables";
 import { paymentOf, refundNext } from "../../domain/bookingFlow";
+import { routeLabel } from "../../domain/officeStage";
 import { formatDateTime12 } from "../../utils/time";
 
 const rupees = (n: number) => `₹${Math.round(n * 100) / 100 === Math.round(n) ? Math.round(n).toLocaleString("en-IN") : (Math.round(n * 100) / 100).toLocaleString("en-IN")}`;
@@ -138,7 +139,7 @@ export function AssignDriverModal({ booking, drivers, vehicles, vendors, onClose
   return (
     <Modal
       title={removing ? "Remove assignment" : hasDriver ? "Change / reassign driver" : "Assign driver"}
-      subtitle={`Booking ${code(booking)} · ${booking.pickup} → ${booking.drop}`}
+      subtitle={`Booking ${code(booking)} · ${routeLabel(booking)}`}
       onClose={onClose} busy={busy} size="lg"
       footer={
         <>
@@ -287,7 +288,7 @@ export function AssignVendorModal({ booking, vendors, canSetPayout, onClose, onD
   };
   return (
     <Modal
-      title="Assign vendor" subtitle={`Booking ${code(booking)} · ${booking.pickup} → ${booking.drop}`} onClose={onClose} busy={busy}
+      title="Assign vendor" subtitle={`Booking ${code(booking)} · ${routeLabel(booking)}`} onClose={onClose} busy={busy}
       footer={<><button onClick={onClose} disabled={busy} className={secondaryBtn}>Cancel</button><button onClick={go} disabled={busy} className={primaryBtn}>{busy ? "Assigning…" : "Assign vendor"}</button></>}
     >
       <div className="space-y-4 text-sm">

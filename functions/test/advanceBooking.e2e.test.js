@@ -19,6 +19,9 @@ const PROJECT = 'demo-nesam';
 admin.initializeApp({ projectId: PROJECT });
 const db = admin.firestore();
 const TS = admin.firestore.Timestamp;
+/** "New trip available" goes to drivers and vendors, each in their own inbox. */
+const partnerNotesTitled = async (title) =>
+  (await Promise.all(['driver_notifications', 'vendor_notifications'].map((c) => db.collection(c).where('title', '==', title).get()))).reduce((n, s) => n + s.size, 0);
 
 const FS = `http://${process.env.FIRESTORE_EMULATOR_HOST}/v1/projects/${PROJECT}/databases/(default)/documents`;
 const AUTH = `http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}`;
@@ -179,7 +182,7 @@ test('10. several future bookings can be open at the same time', async () => {
 // ── 3: approval ───────────────────────────────────────────────────────────
 
 test('3. approval alone does not publish or notify partners', async () => {
-  const before = (await db.collection('notifications').where('title', '==', 'New trip available').get()).size;
+  const before = await partnerNotesTitled('New trip available');
   const r = await call(U.admin, 'approveBooking', { bookingId: first.requestId });
   assert.equal(r.ok, true, JSON.stringify(r));
   assert.equal(r.data.published, false);
@@ -187,10 +190,10 @@ test('3. approval alone does not publish or notify partners', async () => {
   assert.equal((await booking(first.requestId)).status, 'Approved');
   const m = await market(first.requestId);
   assert.ok(!m || !['Open', 'Bidding'].includes(m.status));
-  assert.equal((await db.collection('notifications').where('title', '==', 'New trip available').get()).size, before);
+  assert.equal(await partnerNotesTitled('New trip available'), before);
   assert.notEqual((await rest(U.vendorA, `marketplace_trips/${first.requestId}`)).status, 200);
   // The customer is told it is approved and being arranged — not that a driver is assigned.
-  const note = (await db.collection('notifications').where('recipientId', '==', U.cust).where('title', '==', 'Booking approved').get()).docs[0].data();
+  const note = (await db.collection('customer_notifications').where('recipientId', '==', U.cust).where('title', '==', 'Booking approved').get()).docs[0].data();
   assert.match(note.message, /arranging your vehicle/);
   assert.doesNotMatch(note.message, /finding your driver/i);
 });
@@ -211,7 +214,7 @@ test('4. direct Vendor assignment works without a marketplace record', async () 
   const history = await db.collection(`bookings/${first.requestId}/assignments`).get();
   assert.equal(history.docs.some((d) => d.data().action === 'assign_vendor'), true);
   // The customer sees progress that is true: a partner has it, driver details pending.
-  const note = (await db.collection('notifications').where('recipientId', '==', U.cust).where('title', '==', 'Your booking is with a NESAM partner').get()).docs[0].data();
+  const note = (await db.collection('customer_notifications').where('recipientId', '==', U.cust).where('title', '==', 'Your booking is with a NESAM partner').get()).docs[0].data();
   assert.match(note.message, /Driver and vehicle details will follow/);
   // An unapproved vendor or a second assignment is refused.
   const again = await call(U.admin, 'assignVendor', { bookingId: first.requestId, vendorId: U.vendorB });
@@ -234,7 +237,7 @@ test('5. the vendor dispatches a driver with the selected vehicle id and matchin
   assert.equal(b.assignedVehicleNumber, 'TN01AB1001');
   assert.equal(b.assignedVendorId, U.vendorA);
   assert.equal(b.tripSubStatus, 'Not Started');
-  const note = (await db.collection('notifications').where('recipientId', '==', U.cust).where('title', '==', 'Driver assigned').get()).docs[0].data();
+  const note = (await db.collection('customer_notifications').where('recipientId', '==', U.cust).where('title', '==', 'Driver assigned').get()).docs[0].data();
   assert.match(note.message, /Murugan \(TN01AB1001\)/);
 });
 

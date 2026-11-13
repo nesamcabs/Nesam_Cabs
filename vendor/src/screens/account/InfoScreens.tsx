@@ -14,7 +14,7 @@ import { dayTime } from '../../components/kit/format';
 import { flash } from '../../components/kit/flash';
 import { updateApprovedContactInfo } from '../../services/onboardingService';
 import { currentTextOf, subscribeToMyAcceptances, type Acceptance } from '../../services/agreements';
-import { markNotificationRead } from '../../services/partnerNotifications';
+import { markNotificationRead, markNotificationsRead } from '../../services/partnerNotifications';
 import { INDIAN_STATES } from '../../config/onboarding';
 import { CATEGORIES, CATEGORY_LABEL, TONE_COLORS, toneOf } from '../../utils/notificationModel';
 import type { NotificationCategory } from '../../types/notifications';
@@ -130,8 +130,12 @@ export function AlertsScreen() {
   const [filter, setFilter] = useState<NotificationCategory | 'all'>('all');
   const shown = filter === 'all' ? notifications : notifications.filter((n) => n.category === filter);
   const unread = (c: NotificationCategory | 'all') => notifications.filter((n) => !n.read && (c === 'all' || n.category === c)).length;
+  const markAll = () => markNotificationsRead(notifications.filter((n) => !n.read).map((n) => n.id)).catch(() => flash('Could not mark them read. Check your connection.', 'error'));
   return (
-    <Page title="Notifications">
+    <Page
+      title="Notifications"
+      action={unread('all') > 0 ? <Btn kind="secondary" small icon="checkmark-done-outline" title="Mark all as read" onPress={markAll} /> : undefined}
+    >
       <Tabs value={filter} onChange={setFilter} style={{ marginTop: 0 }} items={[{ id: 'all' as const, label: 'All', count: unread('all') || undefined }, ...CATEGORIES.map((c) => ({ id: c, label: CATEGORY_LABEL[c], count: unread(c) || undefined }))]} />
       {shown.length === 0 ? <Empty icon="notifications-outline" title="No notifications" text="Updates from NESAM appear here." /> : (
         <View style={{ gap: 10 }}>

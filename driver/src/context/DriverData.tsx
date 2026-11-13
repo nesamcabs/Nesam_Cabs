@@ -9,6 +9,7 @@ import type {
   DriverPenalty,
   DriverWallet,
   LedgerEntry,
+  LocalShift,
   MarketplaceOffer,
   PayoutRequest,
   TripDetails,
@@ -30,6 +31,7 @@ import { describeError } from '../utils/retry';
 import { describeSignals, runDeviceChecks } from '../services/deviceSecurity';
 import { registerForPush } from '../services/notificationService';
 import { DEFAULT_POLICY, subscribeToCancellationPolicy, subscribeToDriverCancellations, type CancellationPolicy, type DriverCancellation } from '../services/partnerRequests';
+import { subscribeToMyShifts } from '../services/localDutyService';
 
 interface DriverDataValue {
   account: DriverAccount;
@@ -62,9 +64,14 @@ interface DriverDataValue {
   /** Owner-driver duty cancellation requests and the policy that prices them. */
   cancellations: DriverCancellation[];
   cancelPolicy: CancellationPolicy;
+  /** Local duties the fleet partner planned for this driver (fleet drivers only), newest first. */
+  shifts: LocalShift[];
+  shiftsLoaded: boolean;
+  refreshShifts: () => void;
 }
 
 const Ctx = createContext<DriverDataValue | null>(null);
+const NO_SHIFTS: LocalShift[] = [];
 
 export function useDriverData(): DriverDataValue {
   const v = useContext(Ctx);
@@ -126,6 +133,25 @@ export function DriverDataProvider({ account, children }: { account: DriverAccou
   useEffect(() => subscribeToDriverLedger(driverId, setLedger, (e) => setWalletError(describeError(e, 'We couldn’t load your earnings.'))), [driverId]);
   useEffect(() => subscribeToDriverNotifications(driverId, setNotifications), [driverId]);
   useEffect(() => subscribeToDriverPenalties(driverId, setPenalties), [driverId]);
+  // Local duty is planned by a fleet partner, so only a fleet driver has any.
+  const fleetDriver = true; // every driver can run local duty (fleet drivers for their partner, owner-drivers for themselves)
+  const [fleetShifts, setShifts] = useState<LocalShift[]>([]);
+  const [fleetShiftsLoaded, setShiftsLoaded] = useState(false);
+  const shifts = fleetDriver ? fleetShifts : NO_SHIFTS;
+  const shiftsLoaded = fleetDriver ? fleetShiftsLoaded : true;
+  const [shiftsKey, setShiftsKey] = useState(0);
+  const refreshShifts = () => setShiftsKey((k) => k + 1);
+  useEffect(() => {
+    if (!fleetDriver) return undefined;
+    return subscribeToMyShifts(
+      driverId,
+      (list) => {
+        setShifts(list);
+        setShiftsLoaded(true);
+      },
+      () => setShiftsLoaded(true),
+    );
+  }, [driverId, fleetDriver, shiftsKey]);
 
   // Once per session: register this phone for push, log device signals, refresh the Play Integrity verdict.
   useEffect(() => {
@@ -135,7 +161,10 @@ export function DriverDataProvider({ account, children }: { account: DriverAccou
       .catch(() => undefined);
   }, [driverId]);
 
-  const activeTrip = useMemo(() => bookings.find((b) => b.status === 'Assigned' || b.status === 'Ongoing') ?? null, [bookings]);
+  const activeTrip = useMemo(
+    () => bookings.find((b) => b.status === 'Ongoing') ?? bookings.find((b) => b.status === 'Assigned' && b.subStatus !== 'Not Started') ?? bookings.find((b) => b.status === 'Assigned') ?? null,
+    [bookings],
+  );
 
   // The marketplace is only listened to while the driver can take a trip.
   // Fleet drivers get trips from their vendor; the rules refuse them the marketplace.
@@ -198,8 +227,11 @@ export function DriverDataProvider({ account, children }: { account: DriverAccou
       rules,
       cancellations,
       cancelPolicy,
+      shifts,
+      shiftsLoaded,
+      refreshShifts,
     };
-  }, [account, bookings, bookingsLoaded, bookingsError, activeTrip, canBrowse, offers, offersError, payouts, notifications, penalties, deviceWarning, wallet, ledger, walletError, rules, cancellations, cancelPolicy]);
+  }, [account, bookings, bookingsLoaded, bookingsError, activeTrip, canBrowse, offers, offersError, payouts, notifications, penalties, deviceWarning, wallet, ledger, walletError, rules, cancellations, cancelPolicy, shifts, shiftsLoaded, shiftsKey]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

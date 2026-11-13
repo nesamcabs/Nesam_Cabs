@@ -18,8 +18,8 @@ test.before(async()=>{
   try { await H.admin.auth().createUser({uid}); } catch(e) { if(e.code!=='auth/uid-already-exists')throw e; }
   await authSdk.signInWithCustomToken(auth,await H.admin.auth().createCustomToken(uid));
 });
-test('35 primary admin root collections can be queried by the master account', async()=>{
-  const roots = ['bookings','marketplace_trips','partner_requests','customers','business_accounts','drivers','vendors','vehicles','vehicle_categories','accounts_register','penalties','invoices','payout_requests','settlement_dues','wallet_ledger','partner_deposits','business_config','notice_campaigns','notifications','notification_deliveries','support_tickets','admins','staff_roles','staff_sessions','staff_activity','security_events','settings','coupons','services','tour_packages','locations','reviews','b2b_partners','legal_documents','partner_links'];
+test('39 primary admin root collections (incl. every notification inbox) can be queried by the master account', async()=>{
+  const roots = ['bookings','marketplace_trips','partner_requests','customers','business_accounts','drivers','vendors','vehicles','vehicle_categories','accounts_register','penalties','invoices','payout_requests','settlement_dues','wallet_ledger','partner_deposits','business_config','notice_campaigns','notifications','customer_notifications','driver_notifications','vendor_notifications','admin_notifications','notification_deliveries','support_tickets','admins','staff_roles','staff_sessions','staff_activity','security_events','settings','coupons','services','tour_packages','locations','reviews','b2b_partners','legal_documents','partner_links'];
   const failures=[];
   for(const name of roots) try { await fsSdk.getDocs(fsSdk.query(fsSdk.collection(db,name),fsSdk.limit(1))); } catch(e){failures.push(`${name}: ${e.code}`);}
   assert.deepEqual(failures,[]);
@@ -76,7 +76,7 @@ test('Communication sends a real in-app record and logs its delivery',async()=>{
   const title='Audit notice '+Date.now();
   const r=await N.sendAdminNotification({target:'single_user',recipientId:'audit-customer',recipientType:'customer',channel:'In-App',type:'bookings',title,message:'Local delivery test only'});
   assert.equal(r.success,true,JSON.stringify(r));
-  const notifications=await H.db.collection('notifications').where('title','==',title).get();
+  const notifications=await H.db.collection('customer_notifications').where('title','==',title).get();
   assert.equal(notifications.size,1);
   assert.equal(notifications.docs[0].data().recipientId,'audit-customer');
   const deliveries=await H.db.collection('notification_deliveries').where('notificationId','==',notifications.docs[0].id).get();

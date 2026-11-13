@@ -19,7 +19,19 @@ jest.mock('firebase/firestore', () => {
       return new Date(this.ms);
     }
   }
-  return { serverTimestamp: () => ({ __type: 'serverTimestamp' }), Timestamp };
+  // Screens subscribe on mount (payment methods, local duties): a listener that never fires keeps them on their defaults.
+  const ref = () => ({});
+  return {
+    serverTimestamp: () => ({ __type: 'serverTimestamp' }),
+    Timestamp,
+    doc: ref,
+    collection: ref,
+    query: ref,
+    where: ref,
+    orderBy: ref,
+    limit: ref,
+    onSnapshot: () => () => undefined,
+  };
 });
 
 // Callable transport is covered by the backend emulator integration suite.

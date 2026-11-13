@@ -115,7 +115,9 @@ const Settings = withDock(gated(SettingsScreen, 'Settings', 'Sign in to change y
 function openPage(page: string) {
   if (!navigationRef.isReady()) return;
   switch (page) {
+    case 'trip':
     case 'trips':
+    case 'booking':
     case 'booking-detail':
       return navigationRef.navigate('Tabs', { screen: 'Trips' });
     case 'book':

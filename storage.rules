@@ -180,7 +180,26 @@ service firebase.storage {
       allow create: if isDriverOwner(driverId) && newObject() && liveTripOf(driverId, bookingId)
                        && request.resource.contentType == 'image/jpeg'
                        && request.resource.size > 10 * 1024 && request.resource.size < 8 * 1024 * 1024
-                       && slot.matches('(front|rear|interior)-[0-9]+\\.jpg')
+                       && slot.matches('(selfie|front|rear|interior)-[0-9]+\\.jpg')
+                       && request.resource.metadata.get('source', '') == 'camera_session'
+                       && request.resource.metadata.get('sessionId', '') == sessionId
+                       && slot.matches(request.resource.metadata.get('slot', 'none') + '-[0-9]+\\.jpg');
+      allow update, delete: if can('operations');
+    }
+
+    // A local duty is photo-checked once, before it starts (functions/src/vehicleVerification.ts, duty sessions):
+    // the same live-camera rules as a trip, while the duty is planned or running.
+    function liveShiftOf(driverId, shiftId) {
+      return firestore.exists(fsDoc('local_shifts', shiftId))
+             && firestore.get(fsDoc('local_shifts', shiftId)).data.get('driverId', '') == driverId
+             && firestore.get(fsDoc('local_shifts', shiftId)).data.status in ['Scheduled', 'Active'];
+    }
+    match /drivers/{driverId}/shifts/{shiftId}/verification/{sessionId}/{slot} {
+      allow read: if isAdmin() || isDriverOwner(driverId) || isDriversVendor(driverId);
+      allow create: if isDriverOwner(driverId) && newObject() && liveShiftOf(driverId, shiftId)
+                       && request.resource.contentType == 'image/jpeg'
+                       && request.resource.size > 10 * 1024 && request.resource.size < 8 * 1024 * 1024
+                       && slot.matches('(selfie|front|rear|interior)-[0-9]+\\.jpg')
                        && request.resource.metadata.get('source', '') == 'camera_session'
                        && request.resource.metadata.get('sessionId', '') == sessionId
                        && slot.matches(request.resource.metadata.get('slot', 'none') + '-[0-9]+\\.jpg');

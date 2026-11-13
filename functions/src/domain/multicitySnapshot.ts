@@ -24,6 +24,8 @@ export function multicityBookingAmounts(q: MulticityQuote, meta: {
     subtotal: q.taxablePaise / 100, discount: 0, taxableAmount: q.taxablePaise / 100, gstRate: q.gstRate,
     gst: q.gstPaise / 100, total: q.totalPaise / 100, distanceKm: q.totalKm, durationMin: meta.durationMin,
     perKmRate: net(paise(q.rates.customerRate)) / 100, perMinuteRate: 0,
+    // Stored on the booking as they are, and Firestore refuses `undefined`: none applies to a plain tour, so they are null.
+    discountDetail: null, globalAdjustment: null,
     ...(meta.gst ? { gstDetails: { ...meta.gst, ...gstComponents(q.gstPaise / 100, meta.gst.split) } } : {}),
   };
   const pricing: PricingSnapshot = {

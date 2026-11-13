@@ -9,7 +9,7 @@ import { awardBid, rejectBid } from "../../services/marketplaceService";
 import { ActionError } from "../../services/callables";
 import { db } from "../../services/firebase";
 import type { OfficeData } from "../../hooks/useOfficeData";
-import { refDateTime, rupee, suggestedPayoutOf, tripTypeOf } from "../../domain/officeStage";
+import { refDateTime, routeLabel, rupee, suggestedPayoutOf, tripTypeOf } from "../../domain/officeStage";
 import { bookingPickupDate, isoDateIST, toDate } from "../../utils/time";
 
 const code = (b: Booking) => b.bookingId || b.id;
@@ -21,7 +21,7 @@ export function DutyCard({ b, extra }: { b: Booking; extra?: ReactNode }) {
   return (
     <div className="ds-sheet-card">
       <span>{p ? refDateTime(p) : `${b.date} · ${b.time}`}</span>
-      <strong>{b.pickup} → {b.drop}</strong>
+      <strong>{routeLabel(b)}</strong>
       <small>{extra ?? `${code(b)} · ${tripTypeOf(b)} · ${b.vehicleCategory || b.vehicle}`}</small>
     </div>
   );

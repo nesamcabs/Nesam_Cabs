@@ -26,7 +26,7 @@ import { auditInTx } from './audit';
 import { pickupInstant } from './domain/time';
 import { walletTotals } from './domain/finance';
 import { recomputeWallet, walletId } from './ledger';
-import { notifyInTx, pushAfterCommit, NotifyInput } from './notify';
+import { notifyInTx, pushAfterCommit, NotifyInput, inr } from './notify';
 import { mailOfficePartnerRequest } from './officeMail';
 import { approved, requireAdmin, requirePermission, text, requireAction, requireDuty, requireStaffFlag } from './shared';
 
@@ -185,7 +185,7 @@ export const requestDutyCancellation = onCall({ timeoutSeconds: 60 }, async (req
     auditInTx(tx, { action: 'partner_cancellation_requested', entity: 'booking', entityId: bookingId, performedBy: party.uid, performedByName: party.name, role: holder, bookingId, next: { reason, quotedPenalty: quote.amount, rule: quote.rule }, reason: details });
     const n: NotifyInput = {
       recipientType: 'admin', recipientId: 'admin', category: 'bookings', severity: 'warning', sound: 'general', push: true,
-      title: 'Partner cancellation request', message: `${party.name} (${holder}) asked to cancel ${bookingCode}: ${CANCELLATION_REASONS[reason]}. Potential charge ₹${quote.amount.toLocaleString('en-IN')}.`,
+      title: 'Partner cancellation request', message: `${party.name} (${holder}) asked to cancel ${bookingCode}: ${CANCELLATION_REASONS[reason]}. Potential charge ${inr(quote.amount)}.`,
       bookingId, bookingCode, cta: { label: 'Review request', page: 'partner-requests', bookingId },
     };
     pushes.push({ id: notifyInTx(tx, n), input: n });
@@ -374,7 +374,7 @@ export const decidePartnerRequest = onCall({ timeoutSeconds: 60 }, async (reques
           walletToRecompute = { type: partyType, id: partyId };
         }
         message = finalPenalty > 0
-          ? `${text(r.bookingCode)} is cancelled. A cancellation charge of ₹${finalPenalty.toLocaleString('en-IN')} is recorded in your wallet. ${adminReason}`
+          ? `${text(r.bookingCode)} is cancelled. A cancellation charge of ${inr(finalPenalty)} is recorded in your wallet. ${adminReason}`
           : `${text(r.bookingCode)} is cancelled with no charge. ${adminReason}`;
       } else {
         tx.update(bookingRef, { 'cancellationRequest.status': 'Declined', 'cancellationRequest.decidedAt': stamp, updatedAt: stamp });

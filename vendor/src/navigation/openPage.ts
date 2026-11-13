@@ -28,6 +28,9 @@ export function openPage(page: string, bookingId?: string): void {
       return goSection('Earnings');
     case 'drivers':
       return goSection('Fleet', { tab: 'Drivers' });
+    case 'local-duty':
+    case 'local':
+      return goSection('Fleet', { tab: 'Local duty' });
     case 'fleet':
     case 'vehicles':
       return goSection('Fleet', { tab: 'Vehicles' });
@@ -36,9 +39,6 @@ export function openPage(page: string, bookingId?: string): void {
     case 'links':
     case 'partner-links':
       return goSection('Fleet', { tab: 'Vehicles', swap: Date.now() });
-    case 'requests':
-    case 'helpdesk':
-      return goSection('Helpdesk');
     case 'profile':
     case 'account':
       return goSection('Account');

@@ -9,6 +9,8 @@ export interface MarketTrip {
   route: string;
   pickup: { address: string; city: string; time: string };
   drop: { address: string; city: string };
+  /** A tour's places between pickup and drop, in order (Multicity / round trip). */
+  via?: string[];
   travelDate: string;
   service: string;
   tripType: string;
@@ -60,6 +62,8 @@ export interface VendorBooking {
   customerPhoneMasked: string;
   pickupAddress: string;
   dropAddress: string;
+  /** A tour's places between pickup and drop, in order (Multicity / round trip). */
+  via?: string[];
   date: string;
   time: string;
   vehicleCategory: string;
@@ -94,6 +98,11 @@ export interface VendorBooking {
   trip: TripProgress;
   /** Collections recorded on the booking (bookings/{id}.paymentSummary); null before any is recorded. */
   payment: BookingPayment | null;
+  /** The local duty a driver took this order on (local_shifts/{id}); '' otherwise. */
+  localShiftId?: string;
+  /** Hourly-rental package hours, and the time it used (server record at trip end). */
+  rentalHours?: number;
+  rentalUsage?: { usedMinutes: number; overtimeMinutes: number; extraHours: number; extraHourRate: number; indicativeExtra: number } | null;
 }
 
 export interface TripProgress {

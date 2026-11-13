@@ -115,6 +115,7 @@ function DutyDetail({ t, action, setAction }: { t: MarketTrip; action: DutyActio
             ['Pickup date', pickup ? numericDate(pickup) : t.travelDate || '—'],
             ['Pickup time', pickup ? timeText(pickup) : t.pickup.time || '—'],
             ['Trip type', marketType(t)],
+            t.via?.length ? ['Tour cities', [marketFrom(t), ...t.via, marketTo(t)].join(' → ')] : null,
             ['Vehicle category', t.vehicleCategory || '—'],
             t.fuelType ? ['Fuel', t.fuelType === 'cng' ? 'CNG' : 'Diesel / Petrol'] : null,
             t.distanceKm ? ['Included distance', `${Math.round(t.distanceKm)} km`] : null,

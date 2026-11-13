@@ -464,25 +464,26 @@ export function NxListItem({
 // ── Route stack ─────────────────────────────────────────────────────────────
 
 /** Pickup → drop stack with the reference's hollow/solid dots joined by a dashed line. */
-export function NxRouteStack({ pickup, drop, compact }: { pickup: string; drop: string; compact?: boolean }) {
+export function NxRouteStack({ pickup, drop, via, compact }: { pickup: string; drop: string; /** A tour's places between pickup and drop. */ via?: string[]; compact?: boolean }) {
   return (
     <View style={[styles.route, compact && { paddingTop: 4 }]}>
       <Stop address={pickup} first />
+      {(via ?? []).map((place, i) => <Stop key={`${i}-${place}`} address={place} mid />)}
       <Stop address={drop} />
     </View>
   );
 }
 
-function Stop({ address, first }: { address: string; first?: boolean }) {
+function Stop({ address, first, mid }: { address: string; first?: boolean; mid?: boolean }) {
   const name = placeName(address);
   const detail = placeDetail(address);
   return (
     <View style={styles.stop}>
       <View style={styles.dotCol}>
-        <View style={[styles.dot, first ? styles.dotHollow : styles.dotSolid]} />
-        {first ? <View style={styles.dotLine} /> : null}
+        <View style={[styles.dot, first ? styles.dotHollow : mid ? styles.dotMid : styles.dotSolid]} />
+        {first || mid ? <View style={styles.dotLine} /> : null}
       </View>
-      <View style={{ flex: 1, minWidth: 0, paddingBottom: first ? 14 : 0 }}>
+      <View style={{ flex: 1, minWidth: 0, paddingBottom: first || mid ? 14 : 0 }}>
         <Text style={styles.stopName} numberOfLines={2}>
           {name}
         </Text>
@@ -577,6 +578,7 @@ const styles = StyleSheet.create({
   dotCol: { width: 10, alignItems: 'center', paddingTop: 6 },
   dot: { width: 9, height: 9, borderRadius: 5 },
   dotHollow: { borderWidth: 2, borderColor: nx.red, backgroundColor: nx.white },
+  dotMid: { width: 8, height: 8, borderRadius: 4, backgroundColor: nx.white, borderWidth: 2, borderColor: '#9BA1AA' },
   dotSolid: { backgroundColor: nx.ink, borderRadius: 2, width: 8, height: 8 },
   dotLine: { flex: 1, width: 0, borderLeftWidth: 1, borderStyle: 'dashed', borderColor: '#C9CDD5', marginTop: 3 },
   stopName: { fontSize: 15.5, fontWeight: '700', letterSpacing: -0.25, color: nx.ink },

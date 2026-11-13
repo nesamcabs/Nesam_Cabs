@@ -34,7 +34,9 @@ export interface Challenge {
   storagePath: string;
 }
 
-export const createCaptureSession = (bookingId: string) => callFunction<unknown, CaptureSession>('createCaptureSession', { bookingId, platform: CLIENT_PLATFORM });
+/** A session for one trip (its booking id), or for a whole local duty ({ shiftId }) — the duty is checked once, before it starts. */
+export const createCaptureSession = (target: string | { shiftId: string }) =>
+  callFunction<unknown, CaptureSession>('createCaptureSession', typeof target === 'string' ? { bookingId: target, platform: CLIENT_PLATFORM } : { shiftId: target.shiftId, platform: CLIENT_PLATFORM });
 
 export const getSlotChallenge = (sessionId: string, slot: Slot) => callFunction<unknown, Challenge>('getSlotChallenge', { sessionId, slot });
 

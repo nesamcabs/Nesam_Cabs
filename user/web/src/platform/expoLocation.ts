@@ -61,8 +61,11 @@ function once(options: PositionOptions): Promise<LocationObject> {
 const GOOD_ACCURACY_M = 60;
 /** After the first fix arrives, how long to wait for a more accurate one before using the best so far. */
 const SETTLE_MS = 2500;
+/** A fix worse than this (metres) is probably a network / cell guess, so the GPS gets longer to improve on it. */
+const COARSE_ACCURACY_M = 150;
+const COARSE_SETTLE_MS = 8000;
 /** The longest "find my location" ever waits. */
-const HARD_TIMEOUT_MS = 12000;
+const HARD_TIMEOUT_MS = 14000;
 /** A fix newer than this and good enough is reused instead of asking the device again. */
 const FRESH_MS = 15000;
 
@@ -77,6 +80,7 @@ function bestFix(): Promise<LocationObject> {
     let best: GeolocationPosition | null = null;
     let lastError: unknown = null;
     let settle: ReturnType<typeof setTimeout> | undefined;
+    let settleDue = Infinity;
     let watchId: number | null = null;
     let done = false;
     const accuracyOf = (p: GeolocationPosition) => (p.coords.accuracy > 0 ? p.coords.accuracy : Infinity);
@@ -93,7 +97,13 @@ function bestFix(): Promise<LocationObject> {
       if (done) return;
       if (!best || accuracyOf(p) < accuracyOf(best)) best = p;
       if (accuracyOf(best) <= GOOD_ACCURACY_M) return finish(best);
-      if (settle === undefined) settle = setTimeout(() => finish(best), SETTLE_MS);
+      // A coarse fix waits longer for the GPS; a better fix shortens the wait.
+      const due = Date.now() + (accuracyOf(best) > COARSE_ACCURACY_M ? COARSE_SETTLE_MS : SETTLE_MS);
+      if (due < settleDue) {
+        clearTimeout(settle);
+        settleDue = due;
+        settle = setTimeout(() => finish(best), Math.max(0, due - Date.now()));
+      }
     };
     const onError = (e: GeolocationPositionError) => {
       if (e.code === 1) return finish(null, e); // permission denied: nothing more to wait for
@@ -120,15 +130,17 @@ export async function getForegroundPermissionsAsync(): Promise<PermissionRespons
 }
 
 export async function requestForegroundPermissionsAsync(): Promise<PermissionResponse> {
+  const current = await getForegroundPermissionsAsync();
+  if (current.granted || current.status === PermissionStatus.DENIED) return current;
   try {
-    // The browser shows its own prompt on the first position request.
-    await once({ enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 });
+    // The browser shows its own prompt on the first position request, and the answer is waited for.
+    await once({ enableHighAccuracy: false, timeout: 30000, maximumAge: 600000 });
     return { status: PermissionStatus.GRANTED, granted: true, canAskAgain: true };
   } catch (err) {
     const code = (err as { code?: number }).code;
     if (code === 1) return { status: PermissionStatus.DENIED, granted: false, canAskAgain: false };
-    // Position unavailable / timed out: permission itself may well be granted.
-    return getForegroundPermissionsAsync();
+    // Position unavailable / timed out is not a refusal: the rider allowed it, so go on and look for a fix.
+    return { status: PermissionStatus.GRANTED, granted: true, canAskAgain: true };
   }
 }
 

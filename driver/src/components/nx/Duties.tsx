@@ -242,7 +242,7 @@ export function DutyDialog({ offer, onClose, onAccepted }: { offer: MarketplaceO
               </View>
               <Text style={styles.payoutBoxValue}>{formatINR(offer.offeredPayout)}</Text>
             </View>
-            <NxRouteStack pickup={offer.pickup.address} drop={offer.drop.address} compact />
+            <NxRouteStack pickup={offer.pickup.address} drop={offer.drop.address} via={offer.via} compact />
             <View style={{ marginTop: 6 }}>
               <NxRow label="Pickup date" value={w.date} />
               {w.time ? <NxRow label="Pickup time" value={`${w.time} IST`} /> : null}

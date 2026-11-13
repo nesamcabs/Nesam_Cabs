@@ -1,7 +1,17 @@
-// Server-side notifications. Every event is stored once as an in-app record
-// (`notifications`) with a category, severity and sound key the apps use to
-// pick a tab, a colour and a tone, and each delivery attempt on any channel is
-// logged in `notification_deliveries` (recipient, channel, status, booking).
+// Server-side notifications. Every event is stored once as an in-app record in
+// the inbox of the panel it is for — one collection per audience, so a panel can
+// never read (or show) another panel's notifications, even when one login is a
+// rider, a driver and a vendor at the same time:
+//
+//   customer_notifications   rider apps and sites (NESAM Cabs, One Way Car Rentals, People Taxi; `brand` picks the site)
+//   driver_notifications     driver partner app (owner-drivers and vendor fleet drivers)
+//   vendor_notifications     vendor partner app
+//   admin_notifications      the shared office inbox (recipientId 'admin')
+//
+// Each record carries a category, severity and sound key the apps use to pick a
+// tab, a colour and a tone. Every delivery attempt on any channel is logged in
+// `notification_deliveries` (recipient, channel, status, booking), and a push
+// goes only to the devices registered by that audience's app (device_tokens.role).
 //
 // Categories mirror the tabs in every app: Bookings, Approvals, Trips,
 // Payments, Penalties, General. Three tones exist — new booking, approval /
@@ -15,6 +25,27 @@ export type NotificationCategory = 'bookings' | 'approvals' | 'trips' | 'payment
 export type NotificationSeverity = 'info' | 'success' | 'warning' | 'critical';
 export type NotificationSound = 'new_booking' | 'approval' | 'general';
 export type RecipientType = 'admin' | 'driver' | 'vendor' | 'customer';
+
+/** The inbox collection of each audience. Only the server writes them (firestore.rules). */
+export const INBOX_COLLECTION: Readonly<Record<RecipientType, string>> = Object.freeze({
+  customer: 'customer_notifications',
+  driver: 'driver_notifications',
+  vendor: 'vendor_notifications',
+  admin: 'admin_notifications',
+});
+
+/** The collection that held every audience's notifications together; read-only since the split (scripts/migrate-notifications.cjs). */
+export const LEGACY_NOTIFICATIONS = 'notifications';
+
+export const inboxOf = (type: RecipientType): string => INBOX_COLLECTION[type];
+
+/** Rupees for a notification line: ₹18,907.90 for paise, ₹18,908 for whole amounts, never ₹18,907.9. */
+export function inr(value: unknown): string {
+  const n = typeof value === 'number' ? value : Number(value);
+  const safe = Number.isFinite(n) ? Math.round(n * 100) / 100 : 0;
+  const whole = Number.isInteger(safe);
+  return `₹${safe.toLocaleString('en-IN', { minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: 2 })}`;
+}
 export type DeliveryChannel = 'in_app' | 'push' | 'whatsapp' | 'sms' | 'email';
 export type DeliveryStatus = 'queued' | 'sent' | 'delivered' | 'read' | 'failed' | 'not_configured' | 'skipped';
 
@@ -61,14 +92,35 @@ export interface NotifyInput {
   meta?: Record<string, string | boolean>;
 }
 
-const clip = (s: string, n: number) => s.slice(0, n);
+const clip = (s: string, n: number) => String(s ?? '').slice(0, n);
 
 export function notificationDocId(dedupeKey: string): string {
   return `dk_${createHash('sha256').update(dedupeKey).digest('hex').slice(0, 40)}`;
 }
 
+/**
+ * The input with its recipient made exact, or null when it cannot be delivered to anyone: an unknown audience, or a
+ * rider / partner record without an id (e.g. a booking the office entered for a walk-in customer). Such an event is
+ * skipped rather than stored under an id no app can ever read.
+ */
+function addressed(n: NotifyInput): NotifyInput | null {
+  if (!Object.prototype.hasOwnProperty.call(INBOX_COLLECTION, n.recipientType)) {
+    console.warn('notification skipped: unknown recipient type', n.recipientType, n.title);
+    return null;
+  }
+  if (n.recipientType === 'admin') return n.recipientId === 'admin' ? n : { ...n, recipientId: 'admin' };
+  const id = typeof n.recipientId === 'string' ? n.recipientId.trim() : '';
+  if (!id || id.length > 128 || id.includes('/')) {
+    console.warn('notification skipped: no recipient id', n.recipientType, n.title);
+    return null;
+  }
+  return id === n.recipientId ? n : { ...n, recipientId: id };
+}
+
 function record(n: NotifyInput) {
   return {
+    // Extra fields first: they can add to a record but never replace who it is for or what it says.
+    ...(n.meta ?? {}),
     recipientId: n.recipientId,
     recipientType: n.recipientType,
     brand: brandKey(n.brand),
@@ -89,7 +141,6 @@ function record(n: NotifyInput) {
     read: false,
     sentBy: n.sentBy ?? 'system',
     createdAt: FieldValue.serverTimestamp(),
-    ...(n.meta ?? {}),
   };
 }
 
@@ -98,10 +149,13 @@ function record(n: NotifyInput) {
  * does). Call it after the transaction's reads. It cannot de-duplicate (that
  * needs a read); alerts that must not repeat use `notify` with a dedupeKey.
  * Push delivery is attempted after commit with `pushAfterCommit`.
+ * Returns '' (and stores nothing) when the notification has no deliverable recipient.
  */
-export function notifyInTx(tx: Transaction, n: NotifyInput): string {
-  if (n.dedupeKey) throw new Error('notifyInTx cannot de-duplicate; use notify().');
-  const ref = db.collection('notifications').doc();
+export function notifyInTx(tx: Transaction, input: NotifyInput): string {
+  if (input.dedupeKey) throw new Error('notifyInTx cannot de-duplicate; use notify().');
+  const n = addressed(input);
+  if (!n) return '';
+  const ref = db.collection(inboxOf(n.recipientType)).doc();
   tx.set(ref, record(n));
   tx.set(db.collection('notification_deliveries').doc(), deliveryRow(ref.id, n, 'in_app', 'sent'));
   return ref.id;
@@ -109,22 +163,28 @@ export function notifyInTx(tx: Transaction, n: NotifyInput): string {
 
 /** Push for notifications stored with notifyInTx, once the transaction has committed. */
 export async function pushAfterCommit(items: { id: string; input: NotifyInput }[]): Promise<void> {
-  await Promise.all(items.filter((i) => i.input.push !== false).map((i) => deliverPush(i.id, i.input).catch((err) => console.warn('push failed', err))));
+  await Promise.all(items.filter((i) => i.id && i.input.push !== false).map((i) => {
+    const n = addressed(i.input);
+    return n ? deliverPush(i.id, n).catch((err) => console.warn('push failed', err)) : undefined;
+  }));
 }
 
-/** Outside a transaction. Returns the id, or null when a duplicate was skipped. */
-export async function notify(n: NotifyInput, store: Firestore = db): Promise<string | null> {
+/** Outside a transaction. Returns the id, or null when a duplicate was skipped or there is no deliverable recipient. */
+export async function notify(input: NotifyInput, store: Firestore = db): Promise<string | null> {
+  const n = addressed(input);
+  if (!n) return null;
+  const inbox = store.collection(inboxOf(n.recipientType));
   let id: string;
   if (n.dedupeKey) {
     id = notificationDocId(n.dedupeKey);
     try {
-      await store.doc(`notifications/${id}`).create(record(n));
+      await inbox.doc(id).create(record(n));
     } catch (err) {
       if ((err as { code?: number }).code === 6) return null; // ALREADY_EXISTS
       throw err;
     }
   } else {
-    id = (await store.collection('notifications').add(record(n))).id;
+    id = (await inbox.add(record(n))).id;
   }
   await store.collection('notification_deliveries').add(deliveryRow(id, n, 'in_app', 'sent'));
   if (n.push !== false) await deliverPush(id, n).catch((err) => console.warn('push failed', err));
@@ -140,6 +200,8 @@ export function deliveryRow(notificationId: string, n: Pick<NotifyInput, 'recipi
     notificationId,
     recipientId: n.recipientId,
     recipientType: n.recipientType,
+    // The inbox the in-app record lives in ('' for a type with none, e.g. an OTP message).
+    inbox: INBOX_COLLECTION[n.recipientType as RecipientType] ?? '',
     category: n.category,
     title: clip(n.title, 140),
     message: clip(n.message, 300),
@@ -165,25 +227,47 @@ export const ANDROID_CHANNEL: Record<NotificationSound, string> = {
 };
 
 /**
- * Sends the push for a stored notification to every registered device of the
- * recipient (`device_tokens`, written by the apps). Dead tokens are removed.
- * Without registered tokens this is a no-op recorded as `skipped`.
+ * The devices a push for this recipient may go to: the ones the recipient registered from THIS audience's app
+ * (device_tokens.role). A rider who is also a driver gets rider pushes on the rider app only and duty pushes on the
+ * driver app only. Each token once, even if it was registered twice.
+ */
+export function pushTargets(recipientType: RecipientType, docs: { id: string; data: () => Record<string, unknown> }[]): { id: string; token: string }[] {
+  const seen = new Set<string>();
+  const out: { id: string; token: string }[] = [];
+  for (const d of docs) {
+    const x = d.data();
+    const token = typeof x.token === 'string' ? x.token : '';
+    if (!token || x.role !== recipientType || seen.has(token)) continue;
+    seen.add(token);
+    out.push({ id: d.id, token });
+  }
+  return out;
+}
+
+/**
+ * Sends the push for a stored notification to every device the recipient
+ * registered from this audience's app (`device_tokens`, written by the apps).
+ * Dead tokens are removed. Without registered tokens this is a no-op recorded
+ * as `skipped`. The shared office inbox has no devices.
  */
 export async function deliverPush(notificationId: string, n: NotifyInput): Promise<void> {
+  if (n.recipientType === 'admin') return;
   if(!await (await import('./channelPolicy')).channelEnabled('push')) {
     await db.collection('notification_deliveries').add(deliveryRow(notificationId,n,'push','skipped',{error:'Push delivery is disabled in Settings.'}));
     return;
   }
-  const tokens = await db.collection('device_tokens').where('ownerId', '==', n.recipientId).limit(20).get();
-  if (tokens.empty) {
-    await db.collection('notification_deliveries').add(deliveryRow(notificationId, n, 'push', 'skipped', { error: 'No registered device.' }));
+  const snap = await db.collection('device_tokens').where('ownerId', '==', n.recipientId).limit(50).get();
+  const targets = pushTargets(n.recipientType, snap.docs).slice(0, 20);
+  if (!targets.length) {
+    await db.collection('notification_deliveries').add(deliveryRow(notificationId, n, 'push', 'skipped', { error: `No registered ${n.recipientType} app device.` }));
     return;
   }
   const sound = n.sound ?? 'general';
   const res = await getMessaging().sendEachForMulticast({
-    tokens: tokens.docs.map((d) => d.data().token as string),
+    tokens: targets.map((t) => t.token),
     notification: { title: clip(n.title, 100), body: clip(n.message, 200) },
-    data: { notificationId, category: n.category, severity: n.severity ?? 'info', bookingId: n.bookingId ?? '', page: n.cta?.page ?? '' },
+    // `audience` lets an app ignore a tap on anything that is not its own.
+    data: { notificationId, audience: n.recipientType, category: n.category, severity: n.severity ?? 'info', bookingId: n.bookingId ?? '', page: n.cta?.page ?? '' },
     android: {
       priority: n.severity === 'critical' || n.severity === 'warning' || sound === 'new_booking' ? 'high' : 'normal',
       notification: { channelId: ANDROID_CHANNEL[sound], sound: `${sound}.wav` },
@@ -193,7 +277,7 @@ export async function deliverPush(notificationId: string, n: NotifyInput): Promi
   const stale: string[] = [];
   res.responses.forEach((r, i) => {
     const code = r.error?.code ?? '';
-    if (code === 'messaging/registration-token-not-registered' || code === 'messaging/invalid-registration-token') stale.push(tokens.docs[i].id);
+    if (code === 'messaging/registration-token-not-registered' || code === 'messaging/invalid-registration-token') stale.push(targets[i].id);
   });
   await Promise.all(stale.map((id) => db.doc(`device_tokens/${id}`).delete()));
   await db.collection('notification_deliveries').add(deliveryRow(notificationId, n, 'push', res.successCount > 0 ? 'sent' : 'failed', {

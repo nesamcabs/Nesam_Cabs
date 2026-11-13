@@ -8,6 +8,7 @@ import type { LatLng } from '@core/types';
 import { DEFAULT_CENTER } from '@core/config/constants';
 import { isValidLatLng } from '@core/utils/geo';
 import { Icon } from './Icon';
+import { Spinner } from './ui';
 import { GoogleRouteMap, hasGoogleMapsWebKey } from './GoogleRouteMap';
 
 const TILE_URL = (import.meta.env.VITE_MAP_TILE_URL as string | undefined) || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
@@ -34,6 +35,8 @@ interface Props {
   /** Drop-a-pin mode: a fixed pin at the visible centre; reports where the map is centred. */
   pinMode?: 'pickup' | 'drop' | null;
   onCenterChange?: (p: LatLng) => void;
+  /** Finds the device's position for the locate button; the map then centres on it. */
+  onLocate?: () => Promise<LatLng | null>;
   className?: string;
   label: string;
 }
@@ -51,7 +54,7 @@ const meIcon = L.divIcon({ className: 'map-pin-wrap', html: '<span class="map-me
 
 const ZERO: MapPadding = { top: 24, right: 24, bottom: 24, left: 24 };
 
-function LeafletRouteMap({ pickup, drop, driver, userLocation, path, basePath, padding = ZERO, pinMode = null, onCenterChange, className = '', label }: Props) {
+function LeafletRouteMap({ pickup, drop, driver, userLocation, path, basePath, padding = ZERO, pinMode = null, onCenterChange, onLocate, className = '', label }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layers = useRef<{ group: L.LayerGroup; route: L.Polyline | null }>({ group: L.layerGroup(), route: null });
@@ -65,6 +68,7 @@ function LeafletRouteMap({ pickup, drop, driver, userLocation, path, basePath, p
   const [ready, setReady] = useState(false);
   const [tilesFailed, setTilesFailed] = useState(false);
   const [fitTick, setFitTick] = useState(0);
+  const [locating, setLocating] = useState(false);
 
   const visibleCenter = (map: L.Map): L.LatLng => {
     const p = padRef.current;
@@ -169,7 +173,7 @@ function LeafletRouteMap({ pickup, drop, driver, userLocation, path, basePath, p
       // The rider is placing a pin: leave the map where it is unless nothing is chosen yet.
       if (lastFit.current === '') {
         const start = p ?? (userLocation && isValidLatLng(userLocation) ? userLocation : null);
-        if (start) map.setView([start.lat, start.lng], Math.max(map.getZoom(), 15), { animate: false });
+        if (start) map.setView([start.lat, start.lng], Math.max(map.getZoom(), 16), { animate: false });
       }
       lastFit.current = key;
       return;
@@ -202,11 +206,22 @@ function LeafletRouteMap({ pickup, drop, driver, userLocation, path, basePath, p
     centerCb.current?.({ lat: c.lat, lng: c.lng });
   }, [pinMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const recenter = () => {
+  const recenter = async () => {
     const map = mapRef.current;
     if (!map) return;
-    lastFit.current = '';
-    setFitTick((n) => n + 1);
+    if (!onLocate) {
+      lastFit.current = '';
+      setFitTick((n) => n + 1);
+      return;
+    }
+    if (locating) return;
+    setLocating(true);
+    try {
+      const pos = await onLocate();
+      if (pos && isValidLatLng(pos) && mapRef.current) mapRef.current.setView([pos.lat, pos.lng], 16, { animate: true });
+    } finally {
+      setLocating(false);
+    }
   };
 
   const pinStyle = { left: `calc(50% + ${(padding.left - padding.right) / 2}px)`, top: `calc(50% + ${(padding.top - padding.bottom) / 2}px)` };
@@ -220,8 +235,8 @@ function LeafletRouteMap({ pickup, drop, driver, userLocation, path, basePath, p
           <span className="map-drop__shadow" />
         </div>
       ) : null}
-      <button type="button" className="route-map__recenter" onClick={recenter} aria-label="Recentre map">
-        <Icon name="current-location" size={20} />
+      <button type="button" className="route-map__recenter" onClick={() => void recenter()} disabled={locating} aria-label={onLocate ? 'Use my current location' : 'Recentre map'}>
+        {locating ? <Spinner /> : <Icon name="current-location" size={20} />}
       </button>
       {tilesFailed ? <div className="route-map__offline">Map tiles could not be loaded. Your route and fares are unaffected.</div> : null}
     </div>

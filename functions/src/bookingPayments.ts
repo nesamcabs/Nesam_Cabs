@@ -10,7 +10,7 @@ import { db } from './admin';
 import { auditInTx, AuditRole } from './audit';
 import { PAYMENT_KINDS, MANUAL_PAYMENT_METHODS, CollectorType, COLLECTOR_TYPES, PaymentTxn, PaymentSummary, amountDueFor, legacyPaymentField, summarizePayments } from './domain/bookingFlow';
 import { formatDateTime12 } from './domain/time';
-import { notifyInTx, pushAfterCommit, NotifyInput } from './notify';
+import { notifyInTx, pushAfterCommit, NotifyInput, inr } from './notify';
 import { approved, requestIdOf, requireAdmin, text, requireAction } from './shared';
 import type { AdminAccess } from './permissions';
 
@@ -184,7 +184,7 @@ export const recordPayment = onCall(async (request) => {
     const n: NotifyInput = {
       recipientType: 'admin', recipientId: 'admin', category: 'payments', severity: after.status === 'Paid' ? 'success' : 'info', sound: 'general',
       title: after.status === 'Paid' ? 'Booking fully paid' : 'Payment received',
-      message: `₹${amount.toLocaleString('en-IN')} by ${method} (${label || caller.collectorType}) for ${txn.bookingCode} at ${formatDateTime12(paymentDate)}. Balance ₹${after.balanceDue.toLocaleString('en-IN')}.`,
+      message: `${inr(amount)} by ${method} (${label || caller.collectorType}) for ${txn.bookingCode} at ${formatDateTime12(paymentDate)}. Balance ${inr(after.balanceDue)}.`,
       bookingId, bookingCode: txn.bookingCode, cta: { label: 'View payment', page: 'booking-detail', bookingId }, push: after.status === 'Paid',
     };
     pushes.push({ id: notifyInTx(tx, n), input: n });

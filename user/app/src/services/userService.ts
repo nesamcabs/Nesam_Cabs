@@ -15,14 +15,14 @@ import {
   setDoc,
   updateDoc,
   where,
-  writeBatch,
   type DocumentData,
 } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
-import type { LocationItem, NotificationItem, SupportTicket, UserProfile } from '../types';
-import { formatDateTime, num, str, timeAgo, toDate } from '../utils/format';
+import type { LocationItem, SupportTicket, UserProfile } from '../types';
+import { formatDateTime, num, str, toDate } from '../utils/format';
 import { withTimeout } from '../utils/retry';
 import { callFunction } from './callables';
+import { CUSTOMER_INBOX, markNotificationRead as markInboxRead, markNotificationsRead } from './partnerNotifications';
 
 // Firestore queues and retries writes itself; re-issuing one after a timeout
 // could turn a create into a (rule-rejected) update. So: timeout only.
@@ -30,7 +30,8 @@ const WRITE_TIMEOUT_MS = 15000;
 
 export const CUSTOMERS_COLLECTION = 'customers';
 export const SAVED_PLACES_COLLECTION = 'saved_places';
-export const NOTIFICATIONS_COLLECTION = 'notifications';
+/** The rider inbox (services/partnerNotifications.ts reads it). */
+export const NOTIFICATIONS_COLLECTION = CUSTOMER_INBOX;
 export const SUPPORT_COLLECTION = 'support_tickets';
 
 // ── Profile ─────────────────────────────────────────────────────────────────
@@ -164,46 +165,9 @@ export async function deleteSavedPlace(placeId: string): Promise<void> {
 
 // ── Notifications ───────────────────────────────────────────────────────────
 
-const NOTIF_CATEGORIES: NotificationItem['category'][] = ['Bookings', 'Driver', 'Payments', 'Offers', 'Support', 'System'];
+export const markNotificationRead = (id: string): Promise<void> => markInboxRead(id);
 
-export function subscribeToUserNotifications(recipientId: string, cb: (notifs: NotificationItem[]) => void): () => void {
-  return onSnapshot(
-    query(collection(db, NOTIFICATIONS_COLLECTION), where('recipientId', '==', recipientId)),
-    (snap) => {
-      const items = snap.docs.map((d) => {
-        const x = d.data();
-        const created = toDate(x.createdAt);
-        return {
-          item: {
-            id: d.id,
-            title: str(x.title) || 'Notification',
-            message: str(x.message || x.body),
-            time: created ? timeAgo(created) : str(x.time) || '',
-            category: NOTIF_CATEGORIES.includes(x.category) ? x.category : 'System',
-            read: Boolean(x.read),
-          } as NotificationItem,
-          at: created?.getTime() ?? 0,
-        };
-      });
-      items.sort((a, b) => b.at - a.at);
-      cb(items.map((i) => i.item));
-    },
-    () => cb([]),
-  );
-}
-
-export async function markNotificationRead(id: string): Promise<void> {
-  await updateDoc(doc(db, NOTIFICATIONS_COLLECTION, id), { read: true, readAt: serverTimestamp() });
-}
-
-export async function markAllNotificationsRead(ids: string[]): Promise<void> {
-  // Firestore batches are capped at 500 writes.
-  for (let i = 0; i < ids.length; i += 450) {
-    const batch = writeBatch(db);
-    for (const id of ids.slice(i, i + 450)) batch.update(doc(db, NOTIFICATIONS_COLLECTION, id), { read: true, readAt: serverTimestamp() });
-    await withTimeout(batch.commit(), WRITE_TIMEOUT_MS);
-  }
-}
+export const markAllNotificationsRead = (ids: string[]): Promise<void> => markNotificationsRead(ids);
 
 // ── Support ─────────────────────────────────────────────────────────────────
 

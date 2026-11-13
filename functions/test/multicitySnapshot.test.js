@@ -40,3 +40,21 @@ test('Multicity GST uses brand pickup-state policy, preserves shared precedence 
   assert.equal(fareGstForScope({ tariff, brand: 'people_taxi', service: 'Multicity', boardingState: '29' }).rate, .12);
   assert.throws(() => fareGstForScope({ tariff, brand: 'people_taxi', service: 'Multicity', boardingState: '' }), /verified pickup state/);
 });
+
+// Firestore refuses `undefined`, and createBooking stores `fare.discountDetail` and `fare.globalAdjustment` on the booking.
+// A Multicity fare with no coupon and no fare adjustment used to leave both out, so the booking write crashed after the quote
+// had worked ("We couldn’t submit your booking request"). Every fare must carry them as null.
+const undefinedPath = (value, path = 'fare') => {
+  if (value === undefined) return path;
+  if (value && typeof value === 'object') for (const [k, v] of Object.entries(value)) { const hit = undefinedPath(v, `${path}.${k}`); if (hit) return hit; }
+  return '';
+};
+
+for (const included of [false, true]) test(`Multicity fare is safe to store as it is (${included ? 'inclusive' : 'exclusive'} GST, no coupon, no adjustment)`, () => {
+  const q = quoteMulticity({ rates, totalKm: 420, days: 2, gstRate: 0.05, gstIncluded: included });
+  const { fare, pricing } = multicityBookingAmounts(q, meta);
+  assert.equal(fare.discountDetail, null);
+  assert.equal(fare.globalAdjustment, null);
+  assert.equal(undefinedPath(fare), '');
+  assert.equal(undefinedPath(pricing, 'pricing'), '');
+});

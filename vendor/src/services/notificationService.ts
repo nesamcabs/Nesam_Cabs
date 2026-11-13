@@ -4,9 +4,12 @@
  * sound files match what the server sends (functions/src/notify.ts), and the
  * sounds are bundled into the app by the expo-notifications plugin.
  *
- * Registration stores this phone's FCM token in device_tokens (rules: a device may
- * create and delete only its own). While the app is open the in-app popups show
- * the notification and play the tone themselves, so the system banner is suppressed.
+ * Registration stores this phone's FCM token in device_tokens with the audience of
+ * this app (rules: a device may create and delete only its own). The server pushes
+ * each audience's notifications only to that audience's app, so one login that is a
+ * rider, a driver and a vendor gets each push on the right app only. While the app is
+ * open the in-app popups show the notification and play the tone themselves, so the
+ * system banner is suppressed.
  */
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
@@ -26,6 +29,9 @@ const TONE_FILES: Record<NotificationSound, number> = {
   approval: require('../../assets/sounds/approval.wav') as number,
   general: require('../../assets/sounds/general.wav') as number,
 };
+
+/** The only audience this app serves; pushes for any other audience are not ours. */
+export const APP_AUDIENCE = 'vendor' as const;
 
 let handlerSet = false;
 
@@ -72,7 +78,8 @@ export async function registerForPush(uid: string, role: 'driver' | 'vendor' | '
     const token = typeof t.data === 'string' ? t.data : '';
     if (!token) return 'unavailable';
     try {
-      await setDoc(doc(db, 'device_tokens', `${uid}_${tokenKey(token)}`), { ownerId: uid, token, platform: Platform.OS, role, createdAt: serverTimestamp() });
+      // The role is part of the id: the same login registers separately from each app it uses.
+      await setDoc(doc(db, 'device_tokens', `${uid}_${role}_${tokenKey(token)}`), { ownerId: uid, token, platform: Platform.OS, role, createdAt: serverTimestamp() });
     } catch (err) {
       // Already registered (rules allow create only): nothing to do.
       if ((err as { code?: string }).code !== 'permission-denied') throw err;
@@ -104,10 +111,11 @@ export function playTone(tone: NotificationSound, times = 1): void {
   }
 }
 
-/** Calls back with the page a tapped push points to. Returns an unsubscribe. */
+/** Calls back with the page a tapped push points to (only pushes for this app's audience). Returns an unsubscribe. */
 export function onPushOpened(cb: (data: { page: string; bookingId: string }) => void): () => void {
   const sub = Notifications.addNotificationResponseReceivedListener((r) => {
-    const d = r.notification.request.content.data as Record<string, unknown>;
+    const d = (r.notification.request.content.data ?? {}) as Record<string, unknown>;
+    if (typeof d.audience === 'string' && d.audience && d.audience !== APP_AUDIENCE) return;
     cb({ page: typeof d.page === 'string' ? d.page : '', bookingId: typeof d.bookingId === 'string' ? d.bookingId : '' });
   });
   return () => sub.remove();

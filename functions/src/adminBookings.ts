@@ -28,7 +28,7 @@ import { adjustPartner, assertBookable, assertWithinLimits, availabilityFields, 
 import { loadCommissionPolicy } from './commission';
 import { createContactInTx, maskPhone } from './contacts';
 import { loadFixedRoutes, loadTariffConfig, priceBooking, rentalHoursOf, sharedCityId, tariffClassOf } from './quote';
-import { notifyInTx, pushAfterCommit, NotifyInput } from './notify';
+import { notifyInTx, pushAfterCommit, NotifyInput, inr } from './notify';
 import { nextBookingCode } from './bookingSequence';
 import { businessContract, availableBusinessCredit } from './domain/business';
 import { assertCashAllowed } from './channelPolicy';
@@ -379,7 +379,7 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
     const n: NotifyInput = {
       recipientType: 'admin', recipientId: 'admin', category: 'bookings', severity: 'info', sound: 'new_booking',
       title: 'New booking request to review',
-      message: `${bookingCode} · ${name} · ${pickup.name} → ${drop.name} · ${formatDateTime12(when)} · ₹${fare.total.toLocaleString('en-IN')}`,
+      message: `${bookingCode} · ${name} · ${pickup.name} → ${drop.name} · ${formatDateTime12(when)} · ${inr(fare.total)}`,
       bookingId: requestId, bookingCode, cta: { label: 'Review booking', page: 'booking-detail', bookingId: requestId }, push: true, sentBy: admin.uid,
     };
     pushes.push({ id: notifyInTx(tx, n), input: n });

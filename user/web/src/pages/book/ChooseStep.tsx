@@ -2,7 +2,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { RideCategory } from '@core/types';
-import { quotedInclusionLine } from '@core/utils/bookingRules';
 import { SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY } from '@core/config/constants';
 import { buildFareBreakup } from '@core/utils/fareBreakup';
 import { formatDate, formatDistance, formatDuration, formatINR, formatTime } from '@core/utils/format';
@@ -169,7 +168,6 @@ export function ChooseStep() {
                 const entry = q.entries.get(c.id);
                 const strikeTotal = (cngAlt ? cngAlt.strikeTotal : entry?.strikeTotal) ?? 0;
                 const strike = fare && strikeTotal > 0 && fare.total > 0 ? Math.round((fare.taxableAmount * strikeTotal) / fare.total) : 0;
-                const incl = quotedInclusionLine(entry && cngAlt ? { ...entry, extraKmRate: cngAlt.extraKmRate } : entry, c, q.outstation);
 
                 return (
                   <div
@@ -203,10 +201,6 @@ export function ChooseStep() {
                           <li><CabIcon kind="bag" size={20} /> {((c as any).luggage ?? (c.seats >= 6 ? 4 : 2))} bags</li>
                         </ul>
                       </div>
-
-                      <ul className="cabx-rows">
-                        {incl ? <li><CabIcon kind="road" size={20} /> {incl}</li> : null}
-                      </ul>
 
                       {cngOf(c) ? <FuelPick name={`fuel-${c.id}`} value={fuelOf(c)} onChange={(f) => !disabled && chooseFuel(c, f)} /> : null}
 

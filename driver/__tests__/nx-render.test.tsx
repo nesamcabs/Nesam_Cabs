@@ -97,11 +97,11 @@ jest.mock('../src/context/DriverData', () => ({
 }));
 
 import { HomeScreen } from '../src/screens/HomeScreen';
+import { ProfileSectionScreen } from '../src/screens/ProfileSectionScreen';
 import MarketplaceScreen from '../src/screens/MarketplaceScreen';
 import { TripsScreen } from '../src/screens/TripsScreen';
 import { TripFlowScreen } from '../src/screens/TripFlowScreen';
 import { EarningsScreen } from '../src/screens/EarningsScreen';
-import { WalletScreen } from '../src/screens/WalletScreen';
 import { ProfileScreen } from '../src/screens/ProfileScreen';
 import { NotificationsScreen } from '../src/screens/NotificationsScreen';
 import { NxSwipe } from '../src/components/nx/Swipe';
@@ -148,23 +148,19 @@ describe('tab screens render', () => {
     mockActiveTrip = mockBookings[0]!;
   });
 
-  it('Home shows the next trip, the available-duties heading and the Start Trip action for a near pickup', () => {
+  it('Home shows the next trip and the Start Trip action for a near pickup, without the duties list', () => {
     const text = textOf(mount(<HomeScreen />));
     expect(text).toContain('Your next trip');
-    expect(text).toContain('Available duties');
+    expect(text).not.toContain('Available duties');
     expect(text).toContain('Start trip');
-    expect(text).toContain('Finish your current trip');
   });
 
-  it('Home lists open duties when no trip is assigned', () => {
+  it('Home shows an empty state, not the duties list, when no trip is assigned', () => {
     mockBookings = [];
     mockActiveTrip = null;
     const text = textOf(mount(<HomeScreen />));
     expect(text).toContain('No active assigned trips');
-    expect(text).toContain('View details');
-    expect(text).toContain('₹5,600');
-    // a duty NESAM reviews bids on is marked as such, not offered for outright acceptance
-    expect(text).toContain('Bid');
+    expect(text).not.toContain('Available duties');
   });
 
   it('My Trips shows the three tabs with counts', () => {
@@ -175,10 +171,15 @@ describe('tab screens render', () => {
   });
 
   it('Earnings, Wallet, Profile and Notifications render their sections', () => {
-    expect(textOf(mount(<EarningsScreen />))).toContain('Pending settlement review');
-    const wallet = textOf(mount(<WalletScreen />));
-    expect(wallet).toContain('AVAILABLE WALLET BALANCE');
-    expect(wallet).toContain('₹8,450');
+    // Earnings and wallet are one page: balance, credited earnings, settlement review, activity and payout account.
+    const money = textOf(mount(<EarningsScreen />));
+    expect(money).toContain('AVAILABLE BALANCE');
+    expect(money).toContain('₹8,450');
+    expect(money).toContain('Credited earnings');
+    expect(money).toContain('Under settlement review');
+    expect(money).toContain('Payout account');
+    expect(money).toContain('Trips (');
+    expect(money).toContain('Payouts (');
     expect(textOf(mount(<ProfileScreen />))).toContain('Document verification');
     expect(textOf(mount(<ProfileScreen />))).toContain('Contact & payout account');
     expect(textOf(mount(<NotificationsScreen />))).toContain('New duty');
@@ -193,6 +194,20 @@ describe('tab screens render', () => {
     expect(text).toContain('Place bid');
   });
 
+  it('Profile is a short menu; each option opens its own page', () => {
+    const menu = textOf(mount(<ProfileScreen />));
+    for (const t of ['Personal & vehicle', 'Contact & payout account', 'Document verification', 'Licence & ID', 'Penalties', 'Sign out']) expect(menu).toContain(t);
+    // the long detail rows live on their own pages now
+    expect(menu).not.toContain('Registration');
+    expect(menu).not.toContain('Account holder');
+    const page = (section: 'details' | 'contact' | 'documents' | 'licence' | 'penalties') =>
+      textOf(mount(<ProfileSectionScreen {...({ route: { params: { section } } } as unknown as React.ComponentProps<typeof ProfileSectionScreen>)} />));
+    expect(page('details')).toContain('Registration');
+    expect(page('contact')).toContain('Account holder');
+    expect(page('documents')).toContain('Driving licence (front)');
+    expect(page('licence')).toContain('Licence no.');
+  });
+
   it('NxBrand shows the NESAM DRIVER banner, and only the emblem on the tablet rail', () => {
     const full = mount(<NxBrand />).root.findByProps({ accessibilityLabel: 'NESAM Driver' });
     const rail = mount(<NxBrand iconOnly />).root.findByProps({ accessibilityLabel: 'NESAM Driver' });
@@ -201,9 +216,9 @@ describe('tab screens render', () => {
   });
 
   it('navigation: owner-drivers get every page, fleet drivers only theirs; trip pages highlight My Trips', () => {
-    expect(navItemsFor(false).map((i) => i.id)).toEqual(['Home', 'Marketplace', 'Trip', 'Earnings', 'Wallet', 'Profile']);
+    expect(navItemsFor(false).map((i) => i.id)).toEqual(['Home', 'Marketplace', 'Local', 'Trip', 'Earnings', 'Profile']);
     expect(navItemsFor(false).filter((i) => i.phone)).toHaveLength(5);
-    expect(navItemsFor(true).map((i) => i.id)).toEqual(['Home', 'Trip', 'Profile']);
+    expect(navItemsFor(true).map((i) => i.id)).toEqual(['Home', 'Local', 'Trip', 'Profile']);
     expect(navOwner('TripFlow')).toBe('Trip');
     expect(navOwner('PreTrip')).toBe('Trip');
     expect(navOwner('Notifications')).toBeNull();

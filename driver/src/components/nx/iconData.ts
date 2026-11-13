@@ -1,6 +1,6 @@
 // GENERATED from driver/web/src/components/nx/icons.ts — the reference's SVG symbols (first 23) plus the matching extras
 // (alert, logout, camera, edit, trash, plus, bank). Same 24-unit grid; drawn with 1.8 round strokes by Icon.tsx.
-export type NxIconName = 'home' | 'trip' | 'chart' | 'wallet' | 'user' | 'bell' | 'arrow' | 'chevron' | 'calendar' | 'clock' | 'pin' | 'car' | 'check' | 'shield' | 'help' | 'close' | 'refresh' | 'power' | 'info' | 'copy' | 'phone' | 'document' | 'distance' | 'alert' | 'logout' | 'camera' | 'edit' | 'trash' | 'plus' | 'bank' | 'marketplace';
+export type NxIconName = 'home' | 'trip' | 'chart' | 'wallet' | 'user' | 'bell' | 'arrow' | 'chevron' | 'calendar' | 'clock' | 'pin' | 'car' | 'check' | 'shield' | 'help' | 'close' | 'refresh' | 'power' | 'info' | 'copy' | 'phone' | 'document' | 'distance' | 'alert' | 'logout' | 'camera' | 'edit' | 'trash' | 'plus' | 'bank' | 'marketplace' | 'taxi' | 'navigate' | 'pause' | 'play' | 'map' | 'list';
 
 export interface IconEl {
   tag: 'path' | 'circle' | 'rect' | 'line' | 'polyline';
@@ -39,4 +39,10 @@ export const ICON_DATA: Record<NxIconName, { viewBox: string; els: IconEl[] }> =
   plus: { viewBox: '0 0 24 24', els: [{"tag":"path","a":{"d":"M12 5v14M5 12h14"}}] },
   bank: { viewBox: '0 0 24 24', els: [{"tag":"path","a":{"d":"M3 10 12 4l9 6M5 10v8m4-8v8m6-8v8m4-8v8M3 20h18"}}] },
   marketplace: { viewBox: '0 0 24 24', els: [{"tag":"path","a":{"d":"m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"}},{"tag":"path","a":{"d":"M2 7v13a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7"}},{"tag":"path","a":{"d":"M2 7h20"}},{"tag":"path","a":{"d":"M16 11a4 4 0 0 1-8 0"}}] },
+  taxi: { viewBox: '0 0 24 24', els: [{"tag":"path","a":{"d":"M9 3h6l1 3"}},{"tag":"path","a":{"d":"m5 10 2-4h10l2 4m-16 7v-7h18v7H3Zm2 0v3m14-3v3M6.5 13.5h2m7 0h2"}}] },
+  navigate: { viewBox: '0 0 24 24', els: [{"tag":"path","a":{"d":"M21 3 3 10.5l7.5 3L14 21z"}}] },
+  pause: { viewBox: '0 0 24 24', els: [{"tag":"rect","a":{"x":"6","y":"5","width":"4","height":"14","rx":"1"}},{"tag":"rect","a":{"x":"14","y":"5","width":"4","height":"14","rx":"1"}}] },
+  play: { viewBox: '0 0 24 24', els: [{"tag":"path","a":{"d":"M7 4.5v15l12-7.5z"}}] },
+  map: { viewBox: '0 0 24 24', els: [{"tag":"path","a":{"d":"M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20z"}},{"tag":"path","a":{"d":"M9 4v13.5m6-11V20"}}] },
+  list: { viewBox: '0 0 24 24', els: [{"tag":"path","a":{"d":"M9 6h11M9 12h11M9 18h11M4.5 6h.1m-.1 6h.1m-.1 6h.1"}}] },
 };

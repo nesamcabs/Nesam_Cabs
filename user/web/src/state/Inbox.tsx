@@ -25,7 +25,9 @@ export function useInbox(): InboxValue {
 /** Where a notification's call-to-action leads (page keys come from the server's `cta.page`). */
 export function pathForPage(page: string): string {
   switch (page) {
+    case 'trip':
     case 'trips':
+    case 'booking':
     case 'booking-detail':
       return '/trips';
     case 'book':
@@ -68,7 +70,7 @@ export function InboxProvider({ userId, children }: { userId?: string | null; ch
       }
       // Oldest first, so the popups follow the order they arrived in.
       if (fresh.length) setQueue((q) => [...q, ...fresh.sort((a, b) => a.createdAtMs - b.createdAtMs)].slice(-10));
-    }, { role: 'customer', site: 'nesam' });
+    }, { site: 'nesam' });
   }, [userId]);
 
   // A popup whose notification was read elsewhere (e.g. on the Notifications page) is skipped.

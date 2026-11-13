@@ -222,6 +222,10 @@ export interface TripDetails {
   customerPhoneMasked: string;
   pickup: TripLocation;
   drop: TripLocation;
+  /** A Multicity tour's places between pickup and drop, in order. */
+  via?: string[];
+  /** The same places with their coordinates (from the booking's `stops`), so navigation can route through them. */
+  viaPlaces?: TripLocation[];
   distanceKm: number;
   vehicleType: string;
   serviceType: string;
@@ -271,6 +275,24 @@ export interface TripDetails {
   tolls: TollReceipt[];
   completedAt?: Date | null;
   assignedAt?: Date | null;
+  /** The booked trip type ('One Way', 'Local Rental', …). */
+  tripType?: string;
+  /** Hourly Rental or Pickup & Drop when the booking is a local order; null otherwise. */
+  localMode?: LocalMode | null;
+  /** The local duty this order was taken on (functions/src/localShifts.ts). */
+  localShiftId?: string;
+  /** Hourly Rental: the booked package hours, the KM it includes and the rate for each extra hour. */
+  rentalHours?: number | null;
+  includedKm?: number | null;
+  extraHourRate?: number | null;
+  /** When the customer's journey started (server stamp): the rental clock runs from here. */
+  tripStartedAt?: Date | null;
+  /** Server record of the time an Hourly Rental used against its package. */
+  rentalUsage?: { packageHours: number; usedMinutes: number; overtimeMinutes: number; extraHours: number; extraHourRate: number; indicativeExtra: number } | null;
+  /** Received by the driver / fleet directly (cash, UPI to the driver): held by the fleet and settled with NESAM. */
+  cashHeld?: number;
+  /** The kilometres the driver entered at Trip End. */
+  totalKm?: number | null;
 }
 
 /** An open marketplace offer a driver may accept. */
@@ -280,6 +302,8 @@ export interface MarketplaceOffer {
   bookingId: string;
   pickup: TripLocation;
   drop: TripLocation;
+  /** A Multicity tour's places between pickup and drop, in order. */
+  via?: string[];
   pickupTime: string;
   travelDate: string;
   vehicleCategory: string;
@@ -376,4 +400,79 @@ export interface DriverPenalty {
   disputeNote: string;
   issuedAt: Date | null;
   issuedByName: string;
+}
+
+// ── Local duty ("continuous moving") ────────────────────────────────────────
+
+/** The two kinds of local order a duty can serve. */
+export type LocalMode = 'rental' | 'pickup_drop';
+
+export type LocalShiftStatus = 'Scheduled' | 'Active' | 'Ended' | 'Cancelled' | 'Missed';
+
+/** Totals the server works out from the duty's own bookings (functions/src/domain/localShift.ts shiftTotals). */
+export interface LocalShiftStats {
+  orders: number;
+  completed: number;
+  active: number;
+  cancelled: number;
+  rental: number;
+  pickupDrop: number;
+  km: number;
+  fare: number;
+  payout: number;
+  tolls: number;
+  collected: number;
+  cashInHand: number;
+  paidOnline: number;
+  balanceDue: number;
+  rentalMinutes: number;
+  overtimeMinutes: number;
+}
+
+/** A local duty the driver's fleet partner planned (local_shifts/{id}); written only by the server. */
+export interface LocalShift {
+  id: string;
+  vendorName: string;
+  vehicleId: string;
+  vehicleNumber: string;
+  vehicleCategory: string;
+  cityName: string;
+  centre: { lat: number; lng: number } | null;
+  radiusKm: number;
+  services: LocalMode[];
+  startsAt: Date | null;
+  endsAt: Date | null;
+  status: LocalShiftStatus;
+  startedAt: Date | null;
+  endedAt: Date | null;
+  paused: boolean;
+  pausedAt: Date | null;
+  breakMs: number;
+  /** The driver or the partner asked to end it: no new orders, it closes after the orders in hand. */
+  endRequested: boolean;
+  endReason: string;
+  verified: boolean;
+  verificationFlagged: boolean;
+  releases: number;
+  stats: LocalShiftStats;
+  note: string;
+}
+
+/** A nearby order the driver may take on the duty (localShiftBoard). */
+export interface BoardOrder {
+  id: string;
+  code: string;
+  source: 'fleet' | 'marketplace';
+  mode: LocalMode;
+  pickup: { name: string; address: string; lat: number; lng: number; approx: boolean };
+  drop: { name: string; lat: number | null; lng: number | null } | null;
+  pickupAtMs: number | null;
+  overdue: boolean;
+  tripKm: number;
+  awayKm: number;
+  rentalHours: number | null;
+  includedKm: number | null;
+  fare: number;
+  paymentMethod: string;
+  vehicleCategory: string;
 }

@@ -15,7 +15,7 @@ import { loadCommissionPolicy } from './commission';
 import { assertDriverEligible, assertScheduleFree, loadHeldDuties, loadScheduleConfig } from './eligibility';
 import { REFUND_STATUSES, RefundStatus, maxRefund, refundBlocker, summarizePayments, transitionBlocker } from './domain/bookingFlow';
 import { formatDateTime12, pickupInstant } from './domain/time';
-import { notify, notifyInTx, pushAfterCommit, NotifyInput } from './notify';
+import { notify, notifyInTx, pushAfterCommit, NotifyInput, inr } from './notify';
 import { txnsRef } from './bookingPayments';
 import { loadPrivatePricing, withPrivatePricing } from './pricingPrivate';
 import { approved, requireAdmin, requirePermission, requireSuperAdmin, text, requireDuty, requireAction, requireStaffFlag } from './shared';
@@ -271,7 +271,7 @@ export const updateRefund = onCall(async (request) => {
     if (cur.customerId) {
       const n: NotifyInput = {
         recipientType: 'customer', brand: cur.brand, recipientId: cur.customerId, category: 'payments', severity: to === 'Completed' ? 'success' : to === 'Processing' ? 'info' : 'warning', sound: 'general',
-        title: `Refund ${to.toLowerCase()}`, message: `Your refund of ₹${amount.toLocaleString('en-IN')} for ${code(cur, bookingId)} is ${to.toLowerCase()}.`, bookingId, bookingCode: code(cur, bookingId), push: true, sentBy: admin.uid,
+        title: `Refund ${to.toLowerCase()}`, message: `Your refund of ${inr(amount)} for ${code(cur, bookingId)} is ${to.toLowerCase()}.`, bookingId, bookingCode: code(cur, bookingId), push: true, sentBy: admin.uid,
       };
       pushes.push({ id: notifyInTx(tx, n), input: n });
     }

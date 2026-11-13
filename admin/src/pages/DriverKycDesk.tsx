@@ -9,9 +9,9 @@ import {
   subscribeToCollection,
   updateFirestoreDocument,
   setFirestoreDocument,
-  addFirestoreDocument,
   COLLECTIONS,
 } from "../services/adminFirestoreService";
+import { notifyPartner } from "../services/partnerNotices";
 
 // drivers/{uid} as written by the driver app's signup wizard.
 interface DriverDoc {
@@ -100,19 +100,12 @@ function DocImage({ label, url, expiry }: { label: string; url?: string; expiry?
 }
 
 async function notifyDriver(driverId: string, title: string, message: string) {
-  await addFirestoreDocument(COLLECTIONS.NOTIFICATIONS, {
-    recipientId: driverId,
-    recipientType: "driver",
-    type: "driver",
-    // Approval / rejection decisions use the approval tab and tone in the driver app.
-    category: "approvals",
-    severity: /reject|declin|correction/i.test(title) ? "warning" : "success",
-    sound: "approval",
-    push: true,
-    channel: "In-App",
+  // Approval / rejection decisions use the approval tab and tone in the driver app (driver inbox only).
+  await notifyPartner("driver", driverId, {
     title,
     message,
-    read: false,
+    category: "approvals",
+    severity: /reject|declin|correction/i.test(title) ? "warning" : "success",
   });
 }
 

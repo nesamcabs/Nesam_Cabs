@@ -227,7 +227,7 @@ test('M3. offer escalation steps from the publication time, never compounds twic
   assert.equal(again.stepped, 0);
   near((await booking(id)).fare, 2350, 'the customer fare never changes');
   // The ceiling raised exactly one admin alert.
-  const alerts = await db.collection('notifications').where('title', '==', 'Marketplace offer is at its ceiling').get();
+  const alerts = await db.collection('admin_notifications').where('title', '==', 'Marketplace offer is at its ceiling').get();
   assert.ok(alerts.size >= 1);
 });
 

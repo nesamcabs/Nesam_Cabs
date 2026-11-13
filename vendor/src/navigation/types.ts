@@ -1,6 +1,6 @@
 // Every NESAM Partner page. The five sections (Bookings · Fleet · Trips · Earnings · Wallet) sit in the sidebar on wide
 // screens and the bottom bar on phones; Helpdesk and Profile sit in the header.
-export type FleetTab = 'Vehicles' | 'Drivers';
+export type FleetTab = 'Vehicles' | 'Drivers' | 'Local duty';
 export type BookingTab = 'Accepted' | 'Upcoming' | 'On Trip' | 'Completed' | 'Cancelled';
 export type WalletTab = 'All' | 'Trips' | 'Payments' | 'Penalties' | 'Payouts';
 
@@ -20,6 +20,8 @@ export type RootStackParamList = {
   FleetAdd: { kind: 'vehicle' | 'driver' };
   Vehicle: { id: string };
   Driver: { id: string };
+  /** One local duty (continuous local orders for a driver). */
+  LocalShift: { id: string };
   Documents: undefined;
 
   Penalty: { id: string };
