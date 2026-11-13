@@ -7,14 +7,13 @@ export const navigationRef = createNavigationContainerRef<RootStackParamList>();
 export const SECTIONS: Section[] = ['Bookings', 'Fleet', 'Trips', 'Earnings', 'Wallet'];
 
 /** Which section (or header page) a route belongs to, for highlighting the sidebar / bottom bar. */
-export function sectionOf(route: string | undefined): Section | 'Helpdesk' | 'Account' | '' {
+export function sectionOf(route: string | undefined): Section | 'Account' | '' {
   switch (route) {
     case 'Trips': case 'MyBids': case 'Duty': return 'Trips';
     case 'Bookings': case 'Booking': case 'Assign': return 'Bookings';
     case 'Fleet': case 'FleetAdd': case 'Vehicle': case 'Driver': case 'Documents': return 'Fleet';
     case 'Earnings': return 'Earnings';
     case 'Wallet': case 'Penalty': return 'Wallet';
-    case 'Helpdesk': return 'Helpdesk';
     case 'Account': case 'Business': case 'Agreements': case 'Alerts': return 'Account';
     default: return '';
   }
@@ -24,7 +23,7 @@ export function sectionOf(route: string | undefined): Section | 'Helpdesk' | 'Ac
  * Open a top-level page. The history becomes [Bookings, page] so Back (and the Android back button) returns to Bookings,
  * the reference's "Home".
  */
-export function goSection<T extends Section | 'Helpdesk' | 'Account'>(name: T, params?: RootStackParamList[T]): void {
+export function goSection<T extends Section | 'Account'>(name: T, params?: RootStackParamList[T]): void {
   if (!navigationRef.isReady()) return;
   const routes = name === 'Bookings' ? [{ name: 'Bookings' as const }] : [{ name: 'Bookings' as const }, { name, params }];
   navigationRef.dispatch(CommonActions.reset({ index: routes.length - 1, routes }));

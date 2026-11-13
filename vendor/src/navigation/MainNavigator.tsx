@@ -27,7 +27,6 @@ import { DocumentsScreen } from '../screens/fleet/LinkingAndDocs';
 import { EarningsScreen } from '../screens/money/EarningsScreen';
 import { WalletScreen } from '../screens/money/WalletScreen';
 import { PenaltyScreen } from '../screens/money/PenaltyScreen';
-import { HelpdeskScreen } from '../screens/account/HelpdeskScreen';
 import { AccountScreen } from '../screens/account/AccountScreen';
 import { AgreementsScreen, AlertsScreen, BusinessScreen } from '../screens/account/InfoScreens';
 
@@ -38,7 +37,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const TITLES: Record<keyof RootStackParamList, string> = {
   Trips: 'Bookings', Bookings: 'My Trips', Fleet: 'Fleet', Earnings: 'Earnings', Wallet: 'Wallet', MyBids: 'My bids', Duty: 'Duty details',
   Booking: 'Booking details', Assign: 'Assign driver', FleetAdd: 'Add to fleet', Vehicle: 'Vehicle details', Driver: 'Driver details',
-  Documents: 'Documents & verification', Penalty: 'Penalty notice', Helpdesk: '24/7 Helpdesk', Account: 'Profile',
+  Documents: 'Documents & verification', Penalty: 'Penalty notice', Account: 'Profile',
   Business: 'Business & contact', Agreements: 'Agreements', Alerts: 'Notifications',
 };
 
@@ -70,7 +69,7 @@ export function MainNavigator({ onSignOut, locked = null }: { onSignOut: () => v
             headerShown: false,
             title: `${TITLES[route.name]} · NESAM Partner`,
             contentStyle: { backgroundColor: colors.bg },
-            animation: Platform.OS === 'web' ? 'none' : ['Trips', 'Bookings', 'Fleet', 'Earnings', 'Wallet', 'Helpdesk', 'Account'].includes(route.name) ? 'fade' : 'slide_from_right',
+            animation: Platform.OS === 'web' ? 'none' : ['Trips', 'Bookings', 'Fleet', 'Earnings', 'Wallet', 'Account'].includes(route.name) ? 'fade' : 'slide_from_right',
           })}
         >
           <Stack.Screen name="Trips" component={TripsScreen} />
@@ -87,7 +86,6 @@ export function MainNavigator({ onSignOut, locked = null }: { onSignOut: () => v
           <Stack.Screen name="Driver" component={DriverScreen} />
           <Stack.Screen name="Documents" component={DocumentsScreen} />
           <Stack.Screen name="Penalty" component={PenaltyScreen} />
-          <Stack.Screen name="Helpdesk" component={HelpdeskScreen} />
           <Stack.Screen name="Account" component={AccountScreen} />
           <Stack.Screen name="Business" component={BusinessScreen} />
           <Stack.Screen name="Agreements" component={AgreementsScreen} />

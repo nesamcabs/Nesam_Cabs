@@ -23,7 +23,6 @@ export type RootStackParamList = {
   Documents: undefined;
 
   Penalty: { id: string };
-  Helpdesk: undefined;
   Account: undefined;
   Business: undefined;
   Agreements: undefined;

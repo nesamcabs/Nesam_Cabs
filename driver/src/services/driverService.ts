@@ -65,8 +65,8 @@ export const NOTIFICATIONS_COLLECTION = 'notifications';
 export const DRIVER_INVITES_COLLECTION = 'driver_invites';
 
 const WRITE_TIMEOUT_MS = 15000;
-/** Share of the fare a driver earns when the booking carries no explicit payout. */
-export const MIN_PAYOUT = 100;
+/** Minimum payout withdrawal limit in rupees. */
+export const MIN_PAYOUT = 500;
 
 export class DriverActionError extends Error {
   constructor(

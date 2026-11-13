@@ -69,7 +69,7 @@ export function AccountScreen() {
         ['Account type', 'Fleet vendor'],
         ['Declared fleet size', profile.totalFleetSize ? String(profile.totalFleetSize) : '—'],
       ]} />
-      <Btn kind="secondary" icon="create-outline" title="Business & contact details" onPress={() => navigation.navigate('Business')} style={{ marginTop: 16, alignSelf: 'flex-start' }} />
+      <Btn kind="secondary" icon="call-outline" title="Request edit" onPress={() => void Linking.openURL(`tel:${SUPPORT_PHONE}`)} style={{ marginTop: 16, alignSelf: 'flex-start' }} />
     </Panel>
   );
 
@@ -81,7 +81,7 @@ export function AccountScreen() {
         <MenuItem icon="shield-checkmark-outline" title="Documents & verification" onPress={() => navigation.navigate('Documents')} last />
       </Panel>
       <Panel style={{ paddingVertical: 6 }}>
-        <MenuItem icon="call-outline" title="NESAM office" value={SUPPORT_PHONE_DISPLAY} onPress={() => void Linking.openURL(`tel:${SUPPORT_PHONE}`)} />
+        <MenuItem icon="call-outline" title="Nesam office" value={SUPPORT_PHONE_DISPLAY} onPress={() => void Linking.openURL(`tel:${SUPPORT_PHONE}`)} />
         <MenuItem icon="mail-outline" title="Email NESAM" value={SUPPORT_EMAIL} onPress={() => void Linking.openURL(`mailto:${SUPPORT_EMAIL}`)} />
         <MenuItem icon="log-out-outline" title="Log out" danger last onPress={confirmSignOut} />
       </Panel>

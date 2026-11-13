@@ -2,7 +2,7 @@
 // navigation, support card, profile), an icon rail on tablets and a brand bar + bottom navigation on phones. The page that is
 // open sits beside / between them, so the navigation never moves while pages change.
 import React, { useEffect, useRef } from 'react';
-import { Image, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Image, Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useVendorData } from '../../context/VendorData';
@@ -16,6 +16,7 @@ import { initials } from '../kit/format';
 import { Text } from '../kit/Text';
 import { PartnerBanner } from './PartnerBanner';
 import type { IconName } from '../kit/core';
+import { SUPPORT_PHONE } from '../../config/constants';
 
 const NAV: Record<Section, { on: IconName; off: IconName; label: string }> = {
   Bookings: { on: 'ticket', off: 'ticket-outline', label: 'My Trips' },
@@ -100,7 +101,7 @@ function Topbar({ current, route }: { current: string; route: string }) {
   const actions = (
     <View style={[styles.actions, compact && { gap: 5 }]}>
       <IconButton icon="notifications-outline" label={dot ? 'Notifications, unread' : 'Notifications'} onPress={openAlerts} dot={dot} active={alerts} size={size} />
-      <IconButton icon="headset-outline" label="24/7 Helpdesk" onPress={() => goSection('Helpdesk')} active={current === 'Helpdesk'} color={colors.primary} size={size} />
+      <IconButton icon="call-outline" label="Call Nesam office" onPress={() => void Linking.openURL(`tel:${SUPPORT_PHONE}`)} color={colors.primary} size={size} />
       {wide ? null : <IconButton icon="person-circle-outline" label="Profile and My Business" onPress={() => goSection('Account')} active={current === 'Account' && !alerts} size={size} />}
     </View>
   );
@@ -168,15 +169,15 @@ function Sidebar({ current, width, rail }: { current: string; width: number; rai
       <View style={{ flex: 1, minHeight: 24 }} />
       {rail ? (
         <View style={{ alignItems: 'center' }}>
-          <IconButton icon="headset-outline" label="Contact NESAM support" onPress={() => goSection('Helpdesk')} color={colors.primary} size={44} />
+          <IconButton icon="call-outline" label="Call Nesam support" onPress={() => void Linking.openURL(`tel:${SUPPORT_PHONE}`)} color={colors.primary} size={44} />
         </View>
       ) : (
         <View style={styles.supportBox}>
-          <Ionicons name="headset-outline" size={20} color={colors.primary} />
+          <Ionicons name="call-outline" size={20} color={colors.primary} />
           <Text style={styles.supportTitle}>We’re here for you.</Text>
           <Text style={styles.supportText}>Get help with your duties or payments.</Text>
-          <Pressable onPress={() => goSection('Helpdesk')} accessibilityRole="button" accessibilityLabel="Contact NESAM support" style={({ hovered }: Hover) => [styles.supportLink, hovered && { opacity: 0.75 }]}>
-            <Text style={styles.supportLinkText}>Contact NESAM</Text>
+          <Pressable onPress={() => void Linking.openURL(`tel:${SUPPORT_PHONE}`)} accessibilityRole="button" accessibilityLabel="Call Nesam support" style={({ hovered }: Hover) => [styles.supportLink, hovered && { opacity: 0.75 }]}>
+            <Text style={styles.supportLinkText}>Call Nesam</Text>
             <Ionicons name="arrow-forward" size={14} color={colors.primary} />
           </Pressable>
         </View>
