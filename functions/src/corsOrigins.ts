@@ -56,4 +56,7 @@ export const PUBLIC_CALLABLE_ORIGINS: string[] = [
 export const PUBLIC_ORIGIN_PATTERNS: string[] = [
   'https://peopletaxi-*-nesam1.vercel.app',
   'https://onewaycarrentals-*-nesam1.vercel.app',
+  // Vercel also hands out a short alias with no team segment (e.g. peopletaxi-lime.vercel.app).
+  'https://peopletaxi-*.vercel.app',
+  'https://onewaycarrentals-*.vercel.app',
 ];
