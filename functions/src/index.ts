@@ -29,6 +29,7 @@ export { unassignedBookingAlerts } from './scheduler';
 export { approveAdminRequest, rejectAdminRequest, updateAdminAccess, saveStaffRole, deleteStaffRole, migrateLegacyAdmins } from './staff';
 export { awardMarketplaceBid, rejectMarketplaceBid, postBookingToMarketplace, assignIndependentDriver, assignVendor } from './marketplace';
 export { vendorAssignDriver } from './vendorDispatch';
+export { requestRoundTripDuty, decideDriverTripRequest } from './driverTripRequests';
 export { localDutyOptions, createLocalShift, updateLocalShift, endLocalShift, localShiftAction, localShiftBoard, takeLocalOrder, releaseLocalOrder } from './localShifts';
 export { findPartnerDriver, findPartnerVehicle, requestDriverLink, requestVehicleLink, adminCreatePartnerLink, verifyPartnerLinkOtp, resendPartnerLinkOtp, requestPartnerLinkHelp, cancelPartnerLink, decidePartnerLink } from './partnerLinks';
 export { claimMarketplaceDuty, submitMarketplaceBid, withdrawMarketplaceBid } from './claims';

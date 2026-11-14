@@ -16,6 +16,7 @@ export type RootStackParamList = {
   Duty: { id: string };
   Booking: { id: string };
   Assign: { id: string };
+  DriverTripRequests: undefined;
 
   FleetAdd: { kind: 'vehicle' | 'driver' };
   Vehicle: { id: string };

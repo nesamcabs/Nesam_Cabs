@@ -81,6 +81,8 @@ function applyBaseRates(base: TariffConfig, d: Record<string, unknown>): TariffC
       // One Way and Round Trip keep separate allowances (the confirmed Crysta values differ), so each has its own pair.
       customerBata: amount(round.customerBata, `${cls} Round Trip customer allowance`, false), partnerBata: amount(round.partnerBata, `${cls} Round Trip partner allowance`, false),
       minKmPerDay,
+      // The mini round-trip slab is its own section (below); keep it as it was.
+      ...(base.roundTrip.classes[cls]?.miniFare ? { miniFare: base.roundTrip.classes[cls]!.miniFare, miniPartnerFare: base.roundTrip.classes[cls]!.miniPartnerFare } : {}),
     };
     // Old clients can still update the shared fallback, but cannot overwrite separately saved journey rates.
     for (const [field, target, label] of [
@@ -218,6 +220,32 @@ function applyRentalPackage(base: TariffConfig, cls: TariffClass, hours: number,
   if (!pkg) throw bad('The rental package is incomplete.');
   const current = base.rentalPackages?.[cls];
   return { ...base, rentalPackages: { ...(base.rentalPackages ?? {}), [cls]: { ...(current?.minHours ? { minHours: current.minHours } : {}), packages: { ...(current?.packages ?? {}), [String(hours)]: pkg } } } };
+}
+
+// ── Section: mini round trip (short same-day slab + the overnight combo's day 1) ───
+
+function applyRoundTripMini(base: TariffConfig, d: Record<string, unknown>): TariffConfig {
+  const next: TariffConfig = { ...base, roundTrip: { ...base.roundTrip, classes: { ...base.roundTrip.classes } } };
+  next.roundTrip.miniMaxHours = amount(d.miniMaxHours, 'Mini round-trip hour limit', true);
+  next.roundTrip.miniMaxKm = amount(d.miniMaxKm, 'Mini round-trip kilometre limit', true);
+  const classes = obj(d.classes, 'The mini fares');
+  for (const [key, raw] of Object.entries(classes)) {
+    const cls = classOf(key);
+    const current = next.roundTrip.classes[cls];
+    if (!current) throw bad(`Set the ${cls} Round Trip base rates before its mini fare.`);
+    if (raw === null) {
+      const { miniFare: _mf, miniPartnerFare: _mp, ...rest } = current;
+      next.roundTrip.classes[cls] = rest;
+      continue;
+    }
+    const m = obj(raw, `The ${cls} mini fare`);
+    next.roundTrip.classes[cls] = {
+      ...current,
+      miniFare: amount(m.miniFare, `${cls} mini customer fare`, true),
+      miniPartnerFare: amount(m.miniPartnerFare, `${cls} mini partner fare`, true),
+    };
+  }
+  return next;
 }
 
 function applyBrandOverride(
@@ -500,6 +528,10 @@ export const saveTariffSection = onCall(async (request) => {
       next = { ...base };
       if (Object.keys(all).length) next.displayMarkup = all; else delete next.displayMarkup;
       meta = { section, brand, service, percent: pct };
+    } else if (section === 'roundTripMini') {
+      const d = obj(input.data, 'The mini round-trip fares');
+      next = applyRoundTripMini(base, d);
+      meta = { section, classes: Object.keys(obj(d.classes, 'The mini fares')), miniMaxHours: next.roundTrip.miniMaxHours, miniMaxKm: next.roundTrip.miniMaxKm };
     } else if (section === 'rentalMinimum') {
       const cls = classOf(input.class);
       next = applyRentalMinimum(base, cls, input.minHours);

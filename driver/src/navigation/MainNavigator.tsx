@@ -38,12 +38,13 @@ export const useSignOut = () => useContext(SignOutCtx);
 /** The workspace pages. Their navigation is drawn by AppFrame, so the tab navigator's own bar is hidden. */
 function Pages() {
   const { account } = useDriverData();
-  // A vendor's employee drives assigned trips only: no marketplace, commission, wallet or payout pages.
+  // A vendor's employee drives assigned trips only: no commission, wallet or payout pages. It still
+  // gets Marketplace — My Bookings there is its one direct-request exception (Outstation Round Trip).
   const fleet = !!account.driver.vendorId;
   return (
     <Tab.Navigator initialRouteName="Home" backBehavior="history" screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: nx.page } }} tabBar={() => null}>
       <Tab.Screen name="Home" component={HomeScreen} />
-      {fleet ? null : <Tab.Screen name="Marketplace" component={MarketplaceScreen} />}
+      <Tab.Screen name="Marketplace" component={MarketplaceScreen} />
       <Tab.Screen name="Local" component={LocalTaxiScreen} />
       <Tab.Screen name="Trip" component={TripsScreen} />
       {fleet ? null : <Tab.Screen name="Earnings" component={EarningsScreen} />}

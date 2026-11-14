@@ -67,6 +67,38 @@ test('round trip: a trip that runs into another date adds that day', () => {
   assert.equal(final.fare.subtotal, 500 * 14 + 2 * 400);
 });
 
+test('round trip mini: a short same-day trip prices the flat mini fare, not the full day', () => {
+  const q = T.quoteRoundTripMini({ config: cfg, tariffClass: 'sedan', tripType: 'Round Trip', routeKm: 60, durationMin: 90, pickupMs: IST('2026-10-09T10:00:00'), endMs: IST('2026-10-09T15:00:00') });
+  assert.equal(q.pricing.model, 'round_trip_mini');
+  assert.equal(q.pricing.packagePaise / 100, 2600);
+  assert.equal(q.pricing.partner.basePaise / 100, 2340);
+  assert.equal(q.fare.total, 2730); // 2600 + 5% GST
+});
+
+test('round trip mini: auto-upgrades to the full day once past the hour or km limit', () => {
+  const tooLong = T.quoteRoundTripMini({ config: cfg, tariffClass: 'sedan', tripType: 'Round Trip', routeKm: 60, durationMin: 90, pickupMs: IST('2026-10-09T10:00:00'), endMs: IST('2026-10-09T20:00:00') });
+  assert.equal(tooLong, null);
+  const tooFar = T.quoteRoundTripMini({ config: cfg, tariffClass: 'sedan', tripType: 'Round Trip', routeKm: 100, durationMin: 90, pickupMs: IST('2026-10-09T10:00:00'), endMs: IST('2026-10-09T15:00:00') });
+  assert.equal(tooFar, null);
+  // The caller's own fallback is the standard calendar package — the one-day fare already confirmed above.
+  const fallback = T.quoteRoundTrip({ config: cfg, tariffClass: 'sedan', tripType: 'Round Trip', routeKm: 60, durationMin: 90, pickupMs: IST('2026-10-09T10:00:00'), endMs: IST('2026-10-09T20:00:00') });
+  assert.equal(fallback.pricing.packagePaise / 100, 3900);
+});
+
+test('round trip overnight combo: an evening start billed as a half day + a full day, not two full days', () => {
+  const q = T.quoteRoundTripOvernightCombo({ config: cfg, tariffClass: 'sedan', tripType: 'Round Trip', routeKm: 50, durationMin: 90, pickupMs: IST('2026-10-09T17:00:00'), endMs: IST('2026-10-10T06:00:00') });
+  assert.equal(q.pricing.model, 'round_trip_overnight_combo');
+  assert.equal(q.pricing.days, 2);
+  assert.equal(q.pricing.packagePaise / 100, 6500); // 2600 mini (day 1) + 250×14 + 400 (day 2) = 6500, not 2×3900
+});
+
+test('round trip overnight combo: a pickup too early in the day bills the standard two full days instead', () => {
+  const tooEarly = T.quoteRoundTripOvernightCombo({ config: cfg, tariffClass: 'sedan', tripType: 'Round Trip', routeKm: 50, durationMin: 90, pickupMs: IST('2026-10-09T16:00:00'), endMs: IST('2026-10-10T06:00:00') });
+  assert.equal(tooEarly, null);
+  const fallback = T.quoteRoundTrip({ config: cfg, tariffClass: 'sedan', tripType: 'Round Trip', routeKm: 50, durationMin: 90, pickupMs: IST('2026-10-09T16:00:00'), endMs: IST('2026-10-10T06:00:00') });
+  assert.equal(fallback.pricing.packagePaise / 100, 2 * 3900);
+});
+
 test('round trip is rejected without an end, before the start, or beyond the limit', () => {
   const base = { config: cfg, tariffClass: 'sedan', tripType: 'Round Trip', routeKm: 40, durationMin: 60, pickupMs: IST('2026-10-09T12:00:00') };
   assert.throws(() => T.quoteRoundTrip({ ...base, endMs: null }), /Choose the date/);

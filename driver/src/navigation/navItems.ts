@@ -19,7 +19,7 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { id: 'Home', label: 'Home', icon: 'home', phone: true },
-  { id: 'Marketplace', label: 'Duties', icon: 'marketplace', phone: false, ownerOnly: true },
+  { id: 'Marketplace', label: 'Duties', icon: 'marketplace', phone: false },
   { id: 'Local', label: 'Local Taxi', icon: 'taxi', phone: true },
   { id: 'Trip', label: 'My Trips', icon: 'trip', phone: true },
   { id: 'Earnings', label: 'Earnings', icon: 'wallet', phone: true, ownerOnly: true },
@@ -32,7 +32,7 @@ export const navItemsFor = (fleet: boolean) => NAV_ITEMS.filter((i) => !(fleet &
 export const PAGE_TITLES: Record<string, [string, string]> = {
   Tabs: ['Dashboard', 'Your trips, ready when you are.'],
   Home: ['Dashboard', 'Your trips, ready when you are.'],
-  Marketplace: ['Available duties', 'Open duties you can accept or bid on.'],
+  Marketplace: ['Available duties', 'Open duties and bookings you can take.'],
   Local: ['Local Taxi', 'Hourly Rental and Pickup & Drop orders, one after another.'],
   Trip: ['My Trips', 'Upcoming duties & completed trips.'],
   Earnings: ['Earnings & Wallet', 'Credited earnings, balance & payouts.'],

@@ -31,6 +31,7 @@ import {
 import { EMPTY_WALLET, monthEarnings } from '../utils/wallet';
 import { describeDataError } from '../utils/retry';
 import { linkIsOpen, subscribeToMyLinks, type PartnerLink } from '../services/partnerLinks';
+import { requestIsOpen, subscribeToDriverTripRequests, type DriverTripRequest } from '../services/driverTripRequests';
 import {
   mapOperations, NO_DEPOSIT_POLICY, subscribeToDeposit, subscribeToDepositPolicy, subscribeToOperations, subscribeToPartnerRequests, subscribeToSettlementDues,
   type DepositPolicy, type OperationsConfig, type PartnerRequestRecord, type SecurityDeposit, type SettlementDue,
@@ -60,7 +61,7 @@ interface VendorDataValue {
   ledger: LedgerRecord[];
   /** Earnings the server credited this month. */
   monthEarnings: number;
-  errors: { bookings: string; market: string; bids: string; wallet: string; links: string };
+  errors: { bookings: string; market: string; bids: string; wallet: string; links: string; tripRequests: string };
   /** Cancellation, bank and renewal requests sent to the office. */
   requests: PartnerRequestRecord[];
   deposit: SecurityDeposit | null;
@@ -69,6 +70,10 @@ interface VendorDataValue {
   /** Settlement records of completed trips (statements). */
   dues: SettlementDue[];
   ops: OperationsConfig;
+  /** Round-trip requests this fleet's drivers filed (requestRoundTripDuty), newest first. */
+  tripRequests: DriverTripRequest[];
+  /** Ones still waiting on this vendor's decision. */
+  openTripRequests: DriverTripRequest[];
 }
 
 const Ctx = createContext<VendorDataValue | null>(null);
@@ -92,7 +97,8 @@ export function VendorDataProvider({ profile, record, children }: { profile: Ven
   const [payouts, setPayouts] = useState<VendorPayoutRequest[]>([]);
   const [wallet, setWallet] = useState<WalletDetails>(EMPTY_WALLET);
   const [ledger, setLedger] = useState<LedgerRecord[]>([]);
-  const [errors, setErrors] = useState({ bookings: '', market: '', bids: '', wallet: '', links: '' });
+  const [errors, setErrors] = useState({ bookings: '', market: '', bids: '', wallet: '', links: '', tripRequests: '' });
+  const [tripRequests, setTripRequests] = useState<DriverTripRequest[]>([]);
 
   useEffect(() => subscribeToFleetVehicles(vendorId, setVehicles), [vendorId]);
   useEffect(() => subscribeToFleetDrivers(vendorId, setDrivers), [vendorId]);
@@ -169,6 +175,10 @@ export function VendorDataProvider({ profile, record, children }: { profile: Ven
     [vendorId],
   );
   useEffect(() => subscribeToVendorLedger(vendorId, setLedger, (err) => setErrors((e) => ({ ...e, wallet: describeDataError(err) }))), [vendorId]);
+  useEffect(
+    () => subscribeToDriverTripRequests(vendorId, setTripRequests, (message) => setErrors((e) => ({ ...e, tripRequests: message }))),
+    [vendorId],
+  );
 
   const value = useMemo<VendorDataValue>(() => {
     const sorted = [...bookings].sort((a, b) => (b.confirmedAt?.getTime() ?? 0) - (a.confirmedAt?.getTime() ?? 0));
@@ -199,8 +209,10 @@ export function VendorDataProvider({ profile, record, children }: { profile: Ven
       depositPolicy,
       dues,
       ops,
+      tripRequests,
+      openTripRequests: tripRequests.filter(requestIsOpen),
     };
-  }, [profile, record, vehicles, drivers, bookings, marketTrips, categoryNames, bids, invites, links, vendorId, payouts, wallet, ledger, errors, requests, deposit, depositPolicy, dues, ops]);
+  }, [profile, record, vehicles, drivers, bookings, marketTrips, categoryNames, bids, invites, links, vendorId, payouts, wallet, ledger, errors, requests, deposit, depositPolicy, dues, ops, tripRequests]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

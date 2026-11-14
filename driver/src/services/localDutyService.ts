@@ -3,7 +3,7 @@
 // Every rule is checked on the server (functions/src/localShifts.ts); nothing here can assign an order by itself.
 import { collection, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, Timestamp, updateDoc, where, type DocumentData } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
-import { callFunction } from './callables';
+import { ActionError, callFunction } from './callables';
 import type { BoardOrder, LocalMode, LocalShift, LocalShiftStats, LocalShiftStatus } from '../types/driver';
 import type { Fix } from './tripService';
 import { toDate } from '../utils/time';
@@ -229,37 +229,14 @@ export const takeLocalOrder = async (shiftId: string, bookingId: string): Promis
   const user = auth.currentUser;
   if (!user) throw new Error('Not signed in');
   try {
-    const res = await callFunction<unknown, { ok: boolean; bookingId: string; mode: LocalMode }>('takeLocalOrder', { shiftId, bookingId });
-    return res;
-  } catch {
-    try {
-      const bRef = doc(db, 'bookings', bookingId);
-      const bSnap = await getDoc(bRef);
-      const bData = bSnap.data() || {};
-      const mode: LocalMode = bData.tripType === 'Local Rental' || bData.rentalHours ? 'rental' : 'pickup_drop';
-      await updateDoc(bRef, {
-        assignedDriverId: user.uid,
-        driverId: user.uid,
-        status: 'Assigned',
-        localShiftId: shiftId,
-        localMode: mode,
-        assignedAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-      const sRef = doc(db, 'local_shifts', shiftId);
-      const sSnap = await getDoc(sRef);
-      if (sSnap.exists()) {
-        const stats = sSnap.data().stats || {};
-        await updateDoc(sRef, {
-          'stats.orders': (stats.orders || 0) + 1,
-          'stats.active': (stats.active || 0) + 1,
-          updatedAt: serverTimestamp(),
-        });
-      }
-      return { ok: true, bookingId, mode };
-    } catch {
-      return { ok: true, bookingId, mode: 'pickup_drop' };
+    return await callFunction<unknown, { ok: boolean; bookingId: string; mode: LocalMode }>('takeLocalOrder', { shiftId, bookingId });
+  } catch (err) {
+    // No client write can assign an order (firestore.rules; see the file header) — a rejection here
+    // is real (taken, schedule conflict, documents required...) and must reach the driver, not be hidden.
+    if (err instanceof ActionError && (err.details as { conflict?: boolean } | undefined)?.conflict) {
+      throw new ActionError('Booking overlap: You have an upcoming assigned trip and cannot complete this ride in time.', err.details);
     }
+    throw err;
   }
 };
 

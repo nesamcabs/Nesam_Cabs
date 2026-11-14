@@ -1,4 +1,5 @@
-// Duties: every open duty the driver can accept or bid on, with category and pickup-date filters.
+// Duties: the live "right now" feed (presence-gated) and My Bookings, advance/scheduled work a driver may
+// claim or — for a vendor driver's one exception, an Outstation Round Trip — request, online or offline.
 import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -9,26 +10,58 @@ import { NxButton, NxEmpty, NxInfo, NxNote, NxPills, NxSelectButton } from '../c
 import { DateFilterDialog, DutyCard, DutyDialog, useDutyFeed } from '../components/nx/Duties';
 import { usePresence } from '../hooks/usePresence';
 import type { MarketplaceOffer } from '../types/driver';
+import { isVendorDriver } from '../utils/driverRole';
+import { goTab } from '../navigation/navItems';
 
 type Scope = 'matching' | 'all';
+type MainTab = 'duties' | 'bookings';
 
 export default function MarketplaceScreen() {
   const navigation = useNavigation();
   const { notify } = useShell();
-  const { account, activeTrip, offersError } = useDriverData();
+  const { account, activeTrip, offersError, myBookingsOffers, pendingTripRequestBookingIds } = useDriverData();
   const { driver, vehicle } = account;
   const presence = usePresence(notify);
   const { mode } = useLayout();
+  const vendorDriver = isVendorDriver(driver);
+  const [mainTab, setMainTab] = useState<MainTab>(vendorDriver ? 'bookings' : 'duties');
   const [scope, setScope] = useState<Scope>('matching');
   const [dateFilter, setDateFilter] = useState('all');
   const [filterOpen, setFilterOpen] = useState(false);
   const [detail, setDetail] = useState<MarketplaceOffer | null>(null);
   const feed = useDutyFeed(scope === 'all', dateFilter);
+  const detailPending = detail ? pendingTripRequestBookingIds.has(detail.id) : false;
 
-  if (driver.vendorId) {
+  const bookingsBody = myBookingsOffers.length ? (
+    <NxGrid columns={mode === 'sidebar' ? 2 : mode === 'rail' ? 2 : 1} gap={14}>
+      {myBookingsOffers.map((o) => (
+        <DutyCard key={o.id} offer={o} pending={pendingTripRequestBookingIds.has(o.id)} onOpen={() => setDetail(o)} />
+      ))}
+    </NxGrid>
+  ) : (
+    <NxEmpty
+      icon="trip"
+      title={vendorDriver ? 'No round trips open to request' : 'No bookings to claim right now'}
+      message={
+        vendorDriver
+          ? 'An Outstation Round Trip your fleet has not yet assigned appears here — request it and your fleet decides.'
+          : 'Outstation, Multicity and scheduled Hourly Rental bookings appear here as they are approved — online or offline.'
+      }
+    />
+  );
+
+  if (vendorDriver) {
     return (
-      <NxScreen>
-        <NxEmpty icon="car" title="Trips are assigned by your fleet" message={`${driver.vendorName || 'Your fleet operator'} takes duties and assigns them to you directly.`} />
+      <NxScreen subtitle={`${myBookingsOffers.length} round trip${myBookingsOffers.length === 1 ? '' : 's'} open to request.`}>
+        <NxEmpty
+          icon="car"
+          title="Local pickups & hourly rentals"
+          message={`${driver.vendorName || 'Your fleet operator'} assigns most trips directly. Go on Local Duty to take local pickup/drop and hourly rentals yourself.`}
+          action={<NxButton title="Open Local Duty" trailingIcon="arrow" onPress={() => goTab('Local')} />}
+        />
+        <NxNote>Outstation Round Trip is the one duty you may request directly here — your fleet still approves it before it's assigned to you.</NxNote>
+        {bookingsBody}
+        <DutyDialog offer={detail} scheduled requestOnly pending={detailPending} onClose={() => setDetail(null)} />
       </NxScreen>
     );
   }
@@ -71,28 +104,51 @@ export default function MarketplaceScreen() {
   }
 
   return (
-    <NxScreen subtitle={`${presence.online && !activeTrip ? feed.visible.length : 0} open dut${feed.visible.length === 1 ? 'y' : 'ies'} for you right now.`}>
-      <View style={styles.filters}>
-        <NxPills<Scope>
-          scroll
-          label="Duty category"
-          value={scope}
-          onChange={(v) => {
-            setScope(v);
-            setDateFilter('all');
-          }}
-          style={{ marginBottom: 0, flexShrink: 1 }}
-          options={[
-            { value: 'matching', label: `${vehicle.vehicleType || 'My vehicle'} (${feed.matching.length})` },
-            { value: 'all', label: `All categories (${feed.all.length})` },
-          ]}
-        />
-        <NxSelectButton label={dateFilter === 'all' ? 'All dates' : dateFilter} disabled={!feed.dates.length} onPress={() => setFilterOpen(true)} accessibilityLabel="Filter duties by pickup date" />
-      </View>
-      {offersError ? <NxInfo tone="red" style={{ marginTop: 0, marginBottom: 14 }}>{offersError}</NxInfo> : null}
-      {body}
-      <NxNote>Payouts shown are the agreed driver rates. Toll, parking and state tax are paid by the customer at actual cost.</NxNote>
-      <DutyDialog offer={detail} onClose={() => setDetail(null)} onAccepted={(o) => navigation.navigate('TripFlow', { bookingId: o.bookingId || o.id })} />
+    <NxScreen subtitle={mainTab === 'duties' ? `${presence.online && !activeTrip ? feed.visible.length : 0} open dut${feed.visible.length === 1 ? 'y' : 'ies'} for you right now.` : `${myBookingsOffers.length} booking${myBookingsOffers.length === 1 ? '' : 's'} to claim.`}>
+      <NxPills<MainTab>
+        label="View"
+        fill
+        value={mainTab}
+        onChange={setMainTab}
+        style={{ marginBottom: 20 }}
+        options={[
+          { value: 'duties', label: 'Duties' },
+          { value: 'bookings', label: `My Bookings${myBookingsOffers.length ? ` (${myBookingsOffers.length})` : ''}` },
+        ]}
+      />
+      {mainTab === 'duties' ? (
+        <>
+          <View style={styles.filters}>
+            <NxPills<Scope>
+              scroll
+              label="Duty category"
+              value={scope}
+              onChange={(v) => {
+                setScope(v);
+                setDateFilter('all');
+              }}
+              style={{ marginBottom: 0, flexShrink: 1 }}
+              options={[
+                { value: 'matching', label: `${vehicle.vehicleType || 'My vehicle'} (${feed.matching.length})` },
+                { value: 'all', label: `All categories (${feed.all.length})` },
+              ]}
+            />
+            <NxSelectButton label={dateFilter === 'all' ? 'All dates' : dateFilter} disabled={!feed.dates.length} onPress={() => setFilterOpen(true)} accessibilityLabel="Filter duties by pickup date" />
+          </View>
+          {offersError ? <NxInfo tone="red" style={{ marginTop: 0, marginBottom: 14 }}>{offersError}</NxInfo> : null}
+          {body}
+          <NxNote>Payouts shown are the agreed driver rates. Toll, parking and state tax are paid by the customer at actual cost.</NxNote>
+        </>
+      ) : (
+        bookingsBody
+      )}
+      <DutyDialog
+        offer={detail}
+        scheduled={mainTab === 'bookings'}
+        pending={detailPending}
+        onClose={() => setDetail(null)}
+        onAccepted={(o) => navigation.navigate('TripFlow', { bookingId: o.bookingId || o.id })}
+      />
       <DateFilterDialog visible={filterOpen} onClose={() => setFilterOpen(false)} dates={feed.dates} value={dateFilter} onChange={setDateFilter} />
     </NxScreen>
   );

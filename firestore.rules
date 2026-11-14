@@ -218,6 +218,11 @@ service cloud.firestore {
     function isApprovedIndependentDriver() {
       return isApprovedDriver() && get(docPath('drivers', uid())).data.get('vendorId', '') == '';
     }
+    // A vendor driver otherwise gets duties only from its vendor; it may browse (never claim
+    // directly — see requestRoundTripDuty) Outstation Round Trip offers to request one.
+    function isApprovedVendorDriver() {
+      return isApprovedDriver() && get(docPath('drivers', uid())).data.get('vendorId', '') != '';
+    }
     // E.164 phone number from a phone-auth token ('' when absent).
     function authPhone() {
       return request.auth.token.get('phone_number', '');
@@ -747,7 +752,9 @@ service cloud.firestore {
                           || resource.data.get('assignedVendorId', '') == uid()))
                   || (isApprovedIndependentDriver()
                       && (resource.data.status == 'Open'
-                          || resource.data.get('assignedDriverId', '') == uid()));
+                          || resource.data.get('assignedDriverId', '') == uid()))
+                  || (isApprovedVendorDriver() && resource.data.status == 'Open'
+                      && resource.data.get('service', '') == 'Outstation' && resource.data.get('tripType', '') == 'Round Trip');
       // Created, priced, claimed and escalated only by the marketplace functions. The one client
       // write left is the customer withdrawing the offer when cancelling their own booking.
       allow create: if false;
@@ -1306,6 +1313,20 @@ service cloud.firestore {
       }
     }
     match /partner_link_secrets/{linkId} { allow read, write: if false; }
+
+    // A vendor driver's request to take an Outstation Round Trip directly, decided by its own
+    // vendor (requestRoundTripDuty / decideDriverTripRequest — see functions/src/driverTripRequests.ts).
+    // Approving assigns the driver in the same transaction as vendorAssignDriver would; no client write.
+    match /driver_trip_requests/{requestId} {
+      allow read: if can('people') || can('fleet')
+                  || (isDriver() && resource.data.get('driverId', '') == uid())
+                  || (isVendor() && resource.data.get('vendorId', '') == uid());
+      allow write: if false;
+      match /events/{eventId} {
+        allow read: if can('people') || can('fleet');
+        allow write: if false;
+      }
+    }
 
     // ── Local Taxi ──────────────────────────────────────────────────────────────────────────────────────────────
     // Every document below is written only by the lt* functions (functions/src/localTaxi). Clients read what they own.

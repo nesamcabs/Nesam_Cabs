@@ -24,6 +24,9 @@ import {
   subscribeToOpenMarketplace,
   subscribeToPayoutRequests,
   subscribeToTripRules,
+  subscribeToMyOpenTripRequests,
+  isScheduledOffer,
+  type DriverTripRequest,
   type TripRules,
 } from '../services/driverService';
 import { EMPTY_WALLET, summarizeEarnings } from '../utils/ledger';
@@ -45,8 +48,13 @@ interface DriverDataValue {
   nextTrip: TripDetails | null;
   completedTrips: TripDetails[];
   cancelledTrips: TripDetails[];
+  /** On-demand local/rental offers right now — only while online, with no active trip (the "Duties" feed). */
   offers: MarketplaceOffer[];
   offersError: string;
+  /** Advance/scheduled offers (Outstation One-Way, Round Trip, Multicity, a dated Hourly Rental) — visible regardless of online status. A vendor driver only ever receives Outstation Round Trip here (firestore.rules). */
+  myBookingsOffers: MarketplaceOffer[];
+  /** This vendor driver's own round-trip requests still awaiting their vendor's decision (requestRoundTripDuty), by booking id. */
+  pendingTripRequestBookingIds: Set<string>;
   payouts: PayoutRequest[];
   notifications: DriverNotification[];
   penalties: DriverPenalty[];
@@ -85,7 +93,7 @@ export function DriverDataProvider({ account, children }: { account: DriverAccou
   const [bookings, setBookings] = useState<TripDetails[]>([]);
   const [bookingsLoaded, setBookingsLoaded] = useState(false);
   const [bookingsError, setBookingsError] = useState('');
-  const [offers, setOffers] = useState<MarketplaceOffer[]>([]);
+  const [rawOffers, setOffers] = useState<MarketplaceOffer[]>([]);
   const [offersError, setOffersError] = useState('');
   const [payouts, setPayouts] = useState<PayoutRequest[]>([]);
   const [notifications, setNotifications] = useState<DriverNotification[]>([]);
@@ -166,19 +174,25 @@ export function DriverDataProvider({ account, children }: { account: DriverAccou
     [bookings],
   );
 
-  // The marketplace is only listened to while the driver can take a trip.
-  // Fleet drivers get trips from their vendor; the rules refuse them the marketplace.
-  const canBrowse = presence === 'Online' && !activeTrip && !account.driver.vendorId;
-  useEffect(() => {
-    if (!canBrowse) return undefined;
-    return subscribeToOpenMarketplace(
-      (o) => {
-        setOffers(o);
-        setOffersError('');
-      },
-      (e) => setOffersError(describeError(e, 'Open trips are unavailable right now.')),
-    );
-  }, [canBrowse]);
+  // Open duties this driver may read at all (firestore.rules): every Open duty for an owner-driver,
+  // Outstation Round Trip only for a vendor driver (its My Bookings request-to-vendor exception).
+  // Subscribed regardless of presence so My Bookings stays visible while offline; only the live "Duties" feed below is presence-gated.
+  useEffect(
+    () =>
+      subscribeToOpenMarketplace(
+        (o) => {
+          setOffers(o);
+          setOffersError('');
+        },
+        (e) => setOffersError(describeError(e, 'Open trips are unavailable right now.')),
+      ),
+    [],
+  );
+  // The live "Duties" feed (on-demand local/rental) is only shown while the driver can take a trip right now.
+  const canBrowse = presence === 'Online' && !activeTrip;
+
+  const [myTripRequests, setMyTripRequests] = useState<DriverTripRequest[]>([]);
+  useEffect(() => subscribeToMyOpenTripRequests(driverId, setMyTripRequests), [driverId]);
 
   // Presence follows the trip: On Trip while one is active, Online after.
   // Written only when the trip state flips, never on every snapshot.
@@ -203,6 +217,8 @@ export function DriverDataProvider({ account, children }: { account: DriverAccou
     const upcomingTrips = bookings.filter((b) => b.status === 'Assigned' || b.status === 'Ongoing').sort(byPickup);
     const nextTrip = upcomingTrips.find((t) => t.subStatus !== 'Not Started' || t.verificationSubmitted) ?? upcomingTrips[0] ?? null;
     const cancelledTrips = bookings.filter((b) => b.status === 'Cancelled' || b.status === 'Rejected').sort(byPickup);
+    const liveOffers = rawOffers.filter((o) => !isScheduledOffer(o));
+    const myBookingsOffers = rawOffers.filter((o) => isScheduledOffer(o));
     return {
       account,
       bookings,
@@ -213,8 +229,10 @@ export function DriverDataProvider({ account, children }: { account: DriverAccou
       nextTrip,
       completedTrips,
       cancelledTrips,
-      offers: canBrowse ? offers : [],
+      offers: canBrowse ? liveOffers : [],
       offersError: canBrowse ? offersError : '',
+      myBookingsOffers,
+      pendingTripRequestBookingIds: new Set(myTripRequests.map((r) => r.bookingId)),
       payouts,
       notifications,
       penalties,
@@ -231,7 +249,7 @@ export function DriverDataProvider({ account, children }: { account: DriverAccou
       shiftsLoaded,
       refreshShifts,
     };
-  }, [account, bookings, bookingsLoaded, bookingsError, activeTrip, canBrowse, offers, offersError, payouts, notifications, penalties, deviceWarning, wallet, ledger, walletError, rules, cancellations, cancelPolicy, shifts, shiftsLoaded, shiftsKey]);
+  }, [account, bookings, bookingsLoaded, bookingsError, activeTrip, canBrowse, rawOffers, offersError, myTripRequests, payouts, notifications, penalties, deviceWarning, wallet, ledger, walletError, rules, cancellations, cancelPolicy, shifts, shiftsLoaded, shiftsKey]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

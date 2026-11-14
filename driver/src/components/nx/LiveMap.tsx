@@ -9,7 +9,7 @@ import { buildMapHtml, type MapData } from './mapHtml';
 
 export type { LatLng, MapData, MapLine, MapMarker } from './mapHtml';
 
-export function LiveMap({ data, height = 300, onSelect, label = 'Map' }: { data: MapData; height?: number; onSelect?: (id: string) => void; label?: string }) {
+export function LiveMap({ data, height = 300, fill, onSelect, label = 'Map' }: { data: MapData; height?: number; fill?: boolean; onSelect?: (id: string) => void; label?: string }) {
   const ref = useRef<WebView>(null);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -32,7 +32,7 @@ export function LiveMap({ data, height = 300, onSelect, label = 'Map' }: { data:
   };
 
   return (
-    <View style={[styles.wrap, { height }]} accessibilityLabel={label}>
+    <View style={[styles.wrap, fill ? styles.wrapFill : { height }]} accessibilityLabel={label}>
       <WebView
         ref={ref}
         source={{ html, baseUrl: 'https://nesam.local/' }}
@@ -56,6 +56,7 @@ export function LiveMap({ data, height = 300, onSelect, label = 'Map' }: { data:
 
 const styles = StyleSheet.create({
   wrap: { width: '100%', borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: nx.line, backgroundColor: '#EEF0F3' },
+  wrapFill: { flex: 1, width: '100%', borderRadius: 0, borderWidth: 0 },
   web: { flex: 1, backgroundColor: '#EEF0F3' },
   off: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, alignItems: 'center', justifyContent: 'center', padding: 20, backgroundColor: '#EEF0F3' },
   offText: { fontSize: 12.5, color: nx.muted, textAlign: 'center' },

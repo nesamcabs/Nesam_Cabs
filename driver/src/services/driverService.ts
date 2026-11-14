@@ -488,6 +488,7 @@ export function mapOffer(id: string, data: DocumentData): MarketplaceOffer & { c
     via: viaNames(data),
     pickupTime: str(pickup.time),
     travelDate: str(data.travelDate),
+    pickupMs: toDate(data.pickupAt)?.getTime() ?? 0,
     vehicleCategory: str(data.vehicleCategory || data.categoryName),
     addOns: { roofCarrier: data.addOns?.roofCarrier === true, pets: data.addOns?.pets === true },
     distanceKm: parseAmount(data.distanceKm),
@@ -496,7 +497,18 @@ export function mapOffer(id: string, data: DocumentData): MarketplaceOffer & { c
     eligibleClasses: Array.isArray(data.eligibleVehicleClasses) ? data.eligibleVehicleClasses.filter((x: unknown): x is string => typeof x === 'string') : [],
     publishedMs: toDate(data.publishedAt)?.getTime() ?? 0,
     createdMs: toDate(data.createdAt)?.getTime() ?? 0,
+    service: str(data.service),
+    tripType: str(data.tripType),
   };
+}
+
+/** A duty booked well ahead, not for right now. */
+const SCHEDULED_AHEAD_MS = 3 * 60 * 60 * 1000;
+
+/** Advance/scheduled work (Outstation One-Way, Round Trip, Multicity, a dated Hourly Rental) — My Bookings shows these regardless of online status; an on-demand local offer is not one. */
+export function isScheduledOffer(o: Pick<MarketplaceOffer, 'service' | 'tripType' | 'pickupMs'>, nowMs = Date.now()): boolean {
+  if (o.service === 'Outstation' || o.tripType === 'Round Trip' || o.tripType === 'Multicity') return true;
+  return o.pickupMs > 0 && o.pickupMs - nowMs > SCHEDULED_AHEAD_MS;
 }
 
 export function subscribeToOpenMarketplace(callback: (offers: MarketplaceOffer[]) => void, onError?: (e: unknown) => void) {
@@ -524,9 +536,45 @@ export async function acceptMarketplaceTrip(driver: DriverProfile, _registeredVe
   try {
     await callFunction('claimMarketplaceDuty', { bookingId: offer.id }, 30000);
   } catch (err) {
-    if (err instanceof ActionError) throw new DriverActionError('taken', err.message);
+    if (err instanceof ActionError) throw scheduleConflictError(err) ?? new DriverActionError('taken', err.message);
     throw err;
   }
+}
+
+/**
+ * A vendor driver's request to take an Outstation Round Trip directly (functions/src/driverTripRequests.ts).
+ * Unlike acceptMarketplaceTrip this never assigns the trip itself — it only files the request; the
+ * driver's own vendor decides, and the booking surfaces in Trips automatically once approved.
+ */
+export async function requestRoundTripDuty(offer: MarketplaceOffer): Promise<void> {
+  try {
+    await callFunction('requestRoundTripDuty', { bookingId: offer.id }, 30000);
+  } catch (err) {
+    if (err instanceof ActionError) throw scheduleConflictError(err) ?? new DriverActionError('taken', err.message);
+    throw err;
+  }
+}
+
+export interface DriverTripRequest {
+  id: string;
+  bookingId: string;
+  status: 'Pending' | 'Approved' | 'Rejected' | 'Cancelled';
+}
+
+/** This driver's own round-trip requests still awaiting their vendor's decision. */
+export function subscribeToMyOpenTripRequests(driverId: string, callback: (requests: DriverTripRequest[]) => void): () => void {
+  return onSnapshot(
+    query(collection(db, 'driver_trip_requests'), where('driverId', '==', driverId), where('status', '==', 'Pending')),
+    (snap) => callback(snap.docs.map((d) => ({ id: d.id, bookingId: str(d.data().bookingId), status: 'Pending' as const }))),
+    () => callback([]),
+  );
+}
+
+/** An assignment refused for a schedule clash (eligibility.ts assertScheduleFree) carries details.conflict; give the driver the plain overlap alert instead of the admin-facing detail. */
+function scheduleConflictError(err: ActionError): DriverActionError | null {
+  const details = err.details as { conflict?: boolean } | undefined;
+  if (!details?.conflict) return null;
+  return new DriverActionError('conflict', 'Booking overlap: You have an upcoming assigned trip and cannot complete this ride in time.');
 }
 
 /** Sends an owner-driver's counter amount for a duty NESAM reviews bids on. */

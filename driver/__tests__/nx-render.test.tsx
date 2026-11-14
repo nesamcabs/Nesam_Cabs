@@ -76,10 +76,12 @@ jest.mock('../src/context/DriverData', () => ({
       completedTrips: mockBookings.filter((b) => b.status === 'Completed'),
       cancelledTrips: mockBookings.filter((b) => b.status === 'Cancelled'),
       offers: [
-        { id: 'o2', bookingId: 'NT-1102', pickup: { address: 'Salem, Tamil Nadu' }, drop: { address: 'Coimbatore' }, pickupTime: '07:00 AM', travelDate: '21 Oct 2026', vehicleCategory: 'Sedan', distanceKm: 165, offeredPayout: 2100, mode: 'bid_review', eligibleClasses: [], publishedMs: 0 },
-        { id: 'o1', bookingId: 'NT-1101', pickup: { address: 'Theni, Tamil Nadu' }, drop: { address: 'Chennai Airport, Chennai' }, pickupTime: '06:00 AM', travelDate: '20 Oct 2026', vehicleCategory: 'Sedan', distanceKm: 540, offeredPayout: 5600, mode: 'accept_offer', eligibleClasses: [], publishedMs: 0 },
+        { id: 'o2', bookingId: 'NT-1102', pickup: { address: 'Salem, Tamil Nadu' }, drop: { address: 'Coimbatore' }, pickupTime: '07:00 AM', travelDate: '21 Oct 2026', pickupMs: 0, vehicleCategory: 'Sedan', distanceKm: 165, offeredPayout: 2100, mode: 'bid_review', eligibleClasses: [], publishedMs: 0, service: 'Local', tripType: 'One Way' },
+        { id: 'o1', bookingId: 'NT-1101', pickup: { address: 'Theni, Tamil Nadu' }, drop: { address: 'Chennai Airport, Chennai' }, pickupTime: '06:00 AM', travelDate: '20 Oct 2026', pickupMs: 0, vehicleCategory: 'Sedan', distanceKm: 540, offeredPayout: 5600, mode: 'accept_offer', eligibleClasses: [], publishedMs: 0, service: 'Local', tripType: 'One Way' },
       ],
       offersError: '',
+      myBookingsOffers: [],
+      pendingTripRequestBookingIds: new Set<string>(),
       payouts: [{ id: 'p1', amount: 2000, requestedAt: '17 Oct 2026', method: 'UPI', details: 'a@upi', status: 'Pending', utr: '', processedAt: '' }],
       notifications: [{ id: 'n1', title: 'New duty', message: 'Theni → Chennai', time: '2 min ago', read: false, createdAtMs: Date.now(), category: 'bookings', severity: 'info', sound: 'general', bookingId: '', bookingCode: 'NT-1', ctaLabel: '', ctaPage: '', popup: false }],
       penalties: [],
@@ -218,7 +220,7 @@ describe('tab screens render', () => {
   it('navigation: owner-drivers get every page, fleet drivers only theirs; trip pages highlight My Trips', () => {
     expect(navItemsFor(false).map((i) => i.id)).toEqual(['Home', 'Marketplace', 'Local', 'Trip', 'Earnings', 'Profile']);
     expect(navItemsFor(false).filter((i) => i.phone)).toHaveLength(5);
-    expect(navItemsFor(true).map((i) => i.id)).toEqual(['Home', 'Local', 'Trip', 'Profile']);
+    expect(navItemsFor(true).map((i) => i.id)).toEqual(['Home', 'Marketplace', 'Local', 'Trip', 'Profile']);
     expect(navOwner('TripFlow')).toBe('Trip');
     expect(navOwner('PreTrip')).toBe('Trip');
     expect(navOwner('Notifications')).toBeNull();

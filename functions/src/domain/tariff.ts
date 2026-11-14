@@ -56,7 +56,13 @@ export function kmAmountPaise(km: number, ratePaise: number): number {
 /** The CNG rate card of one vehicle class. All four rates together, or no CNG option; the extra-km rate falls back to the CNG customer rate. */
 export interface CngRates { customerRate: number; customerBata: number; partnerRate: number; partnerBata: number; extraKmRate?: number; /** Round Trip: the daily minimum KM on the CNG card; absent = the class's normal daily minimum. */ minKmPerDay?: number }
 export interface OneWayRates { customerRate: number; customerBata: number; partnerRate: number; partnerBata: number; cng?: CngRates }
-export interface RoundTripRates extends OneWayRates { minKmPerDay: number }
+export interface RoundTripRates extends OneWayRates {
+  minKmPerDay: number;
+  /** Flat fare for a short same-day round trip (quoteRoundTripMini) and the first day of an evening-to-morning
+   * overnight combo (quoteRoundTripOvernightCombo). Unset or 0 = neither slab is offered for this class. */
+  miniFare?: number;
+  miniPartnerFare?: number;
+}
 export interface RentalRates { firstHour: number; laterHour: number; minHours: number; minTimeFare: number; partnerPerHour: number }
 export interface CityDropRates { customerBase: number; customerExtraKm: number; partnerBase: number; partnerExtraKm: number }
 export interface CityZone { id: string; name: string; lat: number; lng: number; radiusKm: number }
@@ -151,7 +157,14 @@ export interface TariffConfig {
   enabled: boolean;
   gstRate: number;
   oneWay: { minKm: number; classes: Partial<Record<TariffClass, OneWayRates>> };
-  roundTrip: { maxDays: number; classes: Partial<Record<TariffClass, RoundTripRates>> };
+  roundTrip: {
+    maxDays: number;
+    /** Hours from pickup (same-day slab) or to the next IST midnight (overnight combo) within which the mini fare applies. */
+    miniMaxHours?: number;
+    /** Round-trip km ceiling of the mini slab. */
+    miniMaxKm?: number;
+    classes: Partial<Record<TariffClass, RoundTripRates>>;
+  };
   rental: { classes: Partial<Record<TariffClass, RentalRates>> };
   cityDrop: { baseKm: number; zones: CityZone[]; classes: Partial<Record<TariffClass, CityDropRates>> };
   outstationExtras?: Partial<Record<TariffClass, OutstationExtra>>;
@@ -183,10 +196,12 @@ export const CONFIRMED_TARIFF_V2: Omit<TariffConfig, 'version' | 'enabled'> = {
   },
   roundTrip: {
     maxDays: 30,
+    miniMaxHours: 7,
+    miniMaxKm: 150,
     classes: {
-      sedan: { customerRate: 14, customerBata: 400, partnerRate: 12.6, partnerBata: 300, minKmPerDay: 250 },
-      suv: { customerRate: 19, customerBata: 400, partnerRate: 17.1, partnerBata: 300, minKmPerDay: 250 },
-      crysta: { customerRate: 22, customerBata: 500, partnerRate: 20, partnerBata: 400, minKmPerDay: 300 },
+      sedan: { customerRate: 14, customerBata: 400, partnerRate: 12.6, partnerBata: 300, minKmPerDay: 250, miniFare: 2600, miniPartnerFare: 2340 },
+      suv: { customerRate: 19, customerBata: 400, partnerRate: 17.1, partnerBata: 300, minKmPerDay: 250, miniFare: 3400, miniPartnerFare: 3060 },
+      crysta: { customerRate: 22, customerBata: 500, partnerRate: 20, partnerBata: 400, minKmPerDay: 300, miniFare: 4700, miniPartnerFare: 4230 },
     },
   },
   rental: {
@@ -222,6 +237,19 @@ function rateMap<T extends object>(v: unknown, keys: readonly (keyof T)[]): Part
 }
 
 const isPos = (v: unknown): v is number => isNum(v) && v > 0;
+
+/** Attaches a class's mini round-trip fare (quoteRoundTripMini / quoteRoundTripOvernightCombo) only when both the
+ * customer and partner amounts are configured — a partial mini fare leaves that class without the slab, not at ₹0. */
+function withMiniRoundTrip(classes: Partial<Record<TariffClass, RoundTripRates>>, raw: unknown): Partial<Record<TariffClass, RoundTripRates>> {
+  if (!raw || typeof raw !== 'object') return classes;
+  for (const c of TARIFF_CLASSES) {
+    const base = classes[c];
+    const r = (raw as Record<string, unknown>)[c] as Record<string, unknown> | undefined;
+    if (!base || !r || !isPos(r.miniFare) || !isPos(r.miniPartnerFare)) continue;
+    classes[c] = { ...base, miniFare: r.miniFare as number, miniPartnerFare: r.miniPartnerFare as number };
+  }
+  return classes;
+}
 
 /** Keeps a class's CNG rate card only when it is complete; a partial card is dropped, never priced at ₹0. */
 function sanitizeCng<T extends OneWayRates>(m: Partial<Record<TariffClass, T>>): Partial<Record<TariffClass, T>> {
@@ -515,7 +543,9 @@ export function parseTariffConfig(d: Record<string, any> | undefined | null): Ta
     oneWay: { minKm: isNum(d.oneWay?.minKm) && d.oneWay.minKm > 0 ? d.oneWay.minKm : 130, classes: sanitizeCng(rateMap<OneWayRates>(d.oneWay?.classes, ['customerRate', 'customerBata', 'partnerRate', 'partnerBata'])) },
     roundTrip: {
       maxDays: isNum(d.roundTrip?.maxDays) && d.roundTrip.maxDays >= 1 ? Math.floor(d.roundTrip.maxDays) : 30,
-      classes: sanitizeCng(rateMap<RoundTripRates>(d.roundTrip?.classes, ['customerRate', 'customerBata', 'partnerRate', 'partnerBata', 'minKmPerDay'])),
+      ...(isPos(d.roundTrip?.miniMaxHours) ? { miniMaxHours: d.roundTrip.miniMaxHours } : {}),
+      ...(isPos(d.roundTrip?.miniMaxKm) ? { miniMaxKm: d.roundTrip.miniMaxKm } : {}),
+      classes: withMiniRoundTrip(sanitizeCng(rateMap<RoundTripRates>(d.roundTrip?.classes, ['customerRate', 'customerBata', 'partnerRate', 'partnerBata', 'minKmPerDay'])), d.roundTrip?.classes),
     },
     rental: { classes: rateMap<RentalRates>(d.rental?.classes, ['firstHour', 'laterHour', 'minHours', 'minTimeFare', 'partnerPerHour']) },
     cityDrop: { baseKm: isNum(d.cityDrop?.baseKm) && d.cityDrop.baseKm > 0 ? d.cityDrop.baseKm : 20, zones, classes: rateMap<CityDropRates>(d.cityDrop?.classes, ['customerBase', 'customerExtraKm', 'partnerBase', 'partnerExtraKm']) },
@@ -577,7 +607,7 @@ export interface PricingSnapshot {
   schema: 2;
   /** 'tariff_v2' (this module) or 'legacy_category' (admin category fares, kept for local / airport duties). */
   source: 'tariff_v2' | 'legacy_category';
-  model: 'one_way_standard' | 'round_trip_calendar' | 'city_drop_package' | 'rental_time' | 'legacy_category' | 'local_pickup_drop' | 'rental_package' | 'fixed_route' | 'business_contract_per_km' | 'airport_transfer';
+  model: 'one_way_standard' | 'round_trip_calendar' | 'round_trip_mini' | 'round_trip_overnight_combo' | 'city_drop_package' | 'rental_time' | 'legacy_category' | 'local_pickup_drop' | 'rental_package' | 'fixed_route' | 'business_contract_per_km' | 'airport_transfer';
   tariffVersion: number;
   tariffClass: TariffClass | null;
   gstRate: number;
@@ -786,6 +816,99 @@ export function quoteRoundTrip(i: QuoteInput): QuoteResult {
       ...(i.fuel === 'cng' ? { fuelType: 'cng' as const } : {}), ...extra.waiting, days, minKmPerDay: r.minKmPerDay, packagePaise, discount: fare.discount, adminAdjustment: 0,
       adjustmentPercent: i.adjustmentPercent ?? 0, adjustmentDirection: i.adjustmentDirection ?? 'increase',
       partner: { mode: 'NORMAL_RATE', ratePaise: partnerRate, bataPaise: paise(r.partnerBata), minKm: r.minKmPerDay, days, basePaise: kmAmountPaise(billable, partnerRate) + paise(r.partnerBata) * days },
+      pickupDate: istDate(i.pickupMs), endDate: istDate(i.endMs), gates: [...GATES_ROUND_TRIP],
+    },
+  };
+}
+
+/** Hours from the pickup instant to the next IST midnight — how much of the pickup's calendar day is actually used. */
+function hoursToNextIstMidnight(pickupMs: number): number {
+  const nextMidnightMs = Date.parse(`${istDate(pickupMs)}T00:00:00+05:30`) + 86400000;
+  return (nextMidnightMs - pickupMs) / 3600000;
+}
+
+/**
+ * Short same-day round trip (within the class's mini hour/km limits): a flat fare instead of the full
+ * 1-day package. Returns null when the class has no mini fare configured, the trip runs past the limits,
+ * or it crosses into another IST date — the caller then falls back to quoteRoundTrip, which is itself the
+ * "auto-upgrade" to the standard package.
+ */
+export function quoteRoundTripMini(i: QuoteInput): QuoteResult | null {
+  const standard = classRates(i.config.roundTrip.classes, i.tariffClass);
+  if (!standard?.miniFare || !standard.miniPartnerFare) return null;
+  if (i.endMs === null) return null;
+  if (calendarDays(i.pickupMs, i.endMs) !== 1) return null;
+  const hours = (i.endMs - i.pickupMs) / 3600000;
+  const maxHours = i.config.roundTrip.miniMaxHours ?? 8;
+  const maxKm = i.config.roundTrip.miniMaxKm ?? 150;
+  const actualKm = Math.round(i.routeKm * 2 * 10) / 10;
+  if (!(hours > 0) || hours > maxHours || actualKm > maxKm) return null;
+  const r = fuelRates(standard, i.fuel);
+  const fixedPaise = paise(r.miniFare!);
+  const standardRatePaise = paise(r.customerRate);
+  const standardExtra = extraUsage(i.config, i.tariffClass, standardRatePaise, 'Round Trip');
+  const extraKmRatePaise = i.fuel === 'cng' ? paise(r.cng?.extraKmRate ?? r.customerRate) : standardExtra.extraKmRatePaise;
+  const fare = toBreakdown({
+    packagePaise: fixedPaise, distancePaise: fixedPaise, bataPaise: 0, floorPaise: 0, discount: i.discount ?? 0, adminAdjustment: 0,
+    adjustmentPercent: i.adjustmentPercent ?? 0, adjustmentDirection: i.adjustmentDirection ?? 'increase', gstRate: i.config.gstRate,
+    km: Math.min(actualKm, maxKm), durationMin: i.durationMin * 2, ratePaise: extraKmRatePaise,
+  });
+  return {
+    // The whole fare is the flat package, as a rental package prices — there is no separate distance line.
+    fare: { ...fare, baseFare: fare.distanceFare, distanceFare: 0 },
+    pricing: {
+      schema: 2, source: 'tariff_v2', model: 'round_trip_mini', tariffVersion: i.config.version, tariffClass: i.tariffClass, gstRate: i.config.gstRate,
+      quotedKm: actualKm, includedKm: maxKm, extraKmRatePaise, customerRatePaise: 0, customerBataPaise: 0,
+      ...(i.fuel === 'cng' ? { fuelType: 'cng' as const } : {}), ...standardExtra.waiting, days: 1, minKmPerDay: 0, packagePaise: fixedPaise, discount: fare.discount, adminAdjustment: 0,
+      adjustmentPercent: i.adjustmentPercent ?? 0, adjustmentDirection: i.adjustmentDirection ?? 'increase',
+      partner: { mode: 'NORMAL_RATE', ratePaise: 0, bataPaise: 0, minKm: maxKm, days: 1, basePaise: paise(r.miniPartnerFare!) },
+      pickupDate: istDate(i.pickupMs), endDate: istDate(i.endMs), gates: [...GATES_ROUND_TRIP],
+    },
+  };
+}
+
+/**
+ * Evening start, early-morning return: a flat mini fare for the first (short) day plus one standard full
+ * day for the second, instead of two full calendar days. Returns null (falls back to quoteRoundTrip, i.e.
+ * the standard 2-day package) when the class has no mini fare, the trip is not exactly two IST dates, or
+ * the first day's usage already runs past the mini hour limit — it was never really a short evening start.
+ */
+export function quoteRoundTripOvernightCombo(i: QuoteInput): QuoteResult | null {
+  const standard = classRates(i.config.roundTrip.classes, i.tariffClass);
+  if (!standard?.miniFare || !standard.miniPartnerFare) return null;
+  if (i.endMs === null) return null;
+  if (calendarDays(i.pickupMs, i.endMs) !== 2) return null;
+  const maxHours = i.config.roundTrip.miniMaxHours ?? 8;
+  if (hoursToNextIstMidnight(i.pickupMs) > maxHours) return null;
+  const r = fuelRates(standard, i.fuel);
+  const maxKm = i.config.roundTrip.miniMaxKm ?? 150;
+  const actualKm = Math.round(i.routeKm * 2 * 10) / 10;
+  const floorKm = maxKm + r.minKmPerDay;
+  const billable = Math.max(actualKm, floorKm);
+  const ratePaise = paise(r.customerRate);
+  // Day 1's driver allowance is already inside the flat mini fare; only day 2 adds its own bata.
+  const bataPaise = paise(r.customerBata);
+  const standardExtra = extraUsage(i.config, i.tariffClass, ratePaise, 'Round Trip');
+  const extra = i.fuel === 'cng' ? { ...standardExtra, extraKmRatePaise: paise(r.cng?.extraKmRate ?? r.customerRate) } : standardExtra;
+  const miniPaise = paise(r.miniFare!);
+  const distancePaise = kmAmountPaise(billable - maxKm, ratePaise);
+  const floorPaise = kmAmountPaise(Math.max(0, floorKm - actualKm), ratePaise);
+  const packagePaise = miniPaise + bataPaise + distancePaise;
+  const fare = toBreakdown({
+    packagePaise, distancePaise, bataPaise, floorPaise, discount: i.discount ?? 0, adminAdjustment: 0,
+    adjustmentPercent: i.adjustmentPercent ?? 0, adjustmentDirection: i.adjustmentDirection ?? 'increase', gstRate: i.config.gstRate,
+    km: billable, durationMin: i.durationMin * 2, ratePaise,
+  });
+  const partnerRatePaise = paise(r.partnerRate);
+  const partnerDistancePaise = kmAmountPaise(billable - maxKm, partnerRatePaise);
+  return {
+    fare,
+    pricing: {
+      schema: 2, source: 'tariff_v2', model: 'round_trip_overnight_combo', tariffVersion: i.config.version, tariffClass: i.tariffClass, gstRate: i.config.gstRate,
+      quotedKm: actualKm, includedKm: floorKm, extraKmRatePaise: extra.extraKmRatePaise, customerRatePaise: ratePaise, customerBataPaise: paise(r.customerBata),
+      ...(i.fuel === 'cng' ? { fuelType: 'cng' as const } : {}), ...extra.waiting, days: 2, minKmPerDay: r.minKmPerDay, packagePaise, discount: fare.discount, adminAdjustment: 0,
+      adjustmentPercent: i.adjustmentPercent ?? 0, adjustmentDirection: i.adjustmentDirection ?? 'increase',
+      partner: { mode: 'NORMAL_RATE', ratePaise: partnerRatePaise, bataPaise: paise(r.partnerBata), minKm: floorKm, days: 2, basePaise: paise(r.miniPartnerFare!) + paise(r.partnerBata) + partnerDistancePaise },
       pickupDate: istDate(i.pickupMs), endDate: istDate(i.endMs), gates: [...GATES_ROUND_TRIP],
     },
   };
@@ -1127,16 +1250,19 @@ function finalizeFareWithoutAddOns(i: FinalInput): FinalResult {
   let includedKm = p.includedKm;
   let days = p.days;
   let extraDays = 0;
-  if (p.model === 'round_trip_calendar' && p.endDate) {
+  if ((p.model === 'round_trip_calendar' || p.model === 'round_trip_overnight_combo') && p.endDate) {
     const actual = calendarDays(Date.parse(`${p.pickupDate}T12:00:00+05:30`), i.endMs);
     if (actual !== null && actual > p.days) {
       extraDays = actual - p.days;
       days = actual;
-      // The new dates carry their own bata and their own daily minimum.
+      // The new dates carry their own bata and their own daily minimum (the combo's "day 1" is already
+      // flat-priced and not a day in this count — p.days is 2 for it, same as the calendar model).
       includedKm = p.includedKm + p.minKmPerDay * extraDays;
       packagePaise += p.customerBataPaise * extraDays + kmAmountPaise(p.minKmPerDay * extraDays, p.customerRatePaise);
     }
   }
+  // round_trip_mini has no per-day rate of its own to extend from — a mini trip that runs past the quoted
+  // calendar date is an open gate (see domain/tariff.ts module notes); its km overage still bills normally below.
   const extraKm = Math.max(0, Math.round((totalKm - includedKm) * 10) / 10);
   const businessTotal=p.model==='business_contract_per_km'&&typeof p.businessCustomerRatePaise==='number'
     ? kmAmountPaise(Math.max(totalKm,p.quotedKm),p.businessCustomerRatePaise):null;

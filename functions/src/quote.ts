@@ -23,7 +23,7 @@ import { scopedExtraChargesSnapshot } from './domain/scopedExtraCharges';
 import { CATEGORY_GST_RATE, FareAdjustmentInput, calculateFare, isOutstation, serviceName } from './domain/pricing';
 import {
   CONFIRMED_TARIFF_V2, FixedRouteFare, completeAirportRates, defaultRentalHours, quoteAirport, PricingSnapshot, QuoteResult, TARIFF_CLASSES, TariffClass, TariffConfig, TariffError, cityDropFare, classRates, istDate, localFareFor, matchFixedRoute, paise,
-  parseFixedRouteFare, parseTariffConfig, gstOn, quoteFixedRoute, quoteLocalPickupDrop, quoteOneWay, quoteRentalPackage, quoteRoundTrip, r2, withinCityZone, scopedTariffForBrand,
+  parseFixedRouteFare, parseTariffConfig, gstOn, quoteFixedRoute, quoteLocalPickupDrop, quoteOneWay, quoteRentalPackage, quoteRoundTrip, quoteRoundTripMini, quoteRoundTripOvernightCombo, r2, withinCityZone, scopedTariffForBrand,
   calendarDays, finalizeFare, multicityRatesFor, quoteMulticity, displayMarkupPercent,
 } from './domain/tariff';
 import { gstComponents } from './domain/gst';
@@ -349,17 +349,23 @@ function priceBookingCore(i: PriceInput): PriceResult {
   }
   if (useTariff && cfg && klass) {
     try {
-      const run = (discount: number) => (i.tripType === 'Round Trip'
-        ? quoteRoundTrip({
-            config: cfg, tariffClass: klass, tripType: 'Round Trip', routeKm: i.route.distanceKm, durationMin: i.route.durationMin,
-            pickupMs: i.pickupAt.getTime(), endMs: i.tripEndAt ? i.tripEndAt.getTime() : null, discount,
-            adjustmentPercent: i.adjustment?.percent ?? 0, adjustmentDirection: i.adjustment?.direction, fuel: i.fuel,
-          })
-        : quoteOneWay({
+      const run = (discount: number) => {
+        if (i.tripType !== 'Round Trip') {
+          return quoteOneWay({
             config: cfg, tariffClass: klass, tripType: 'One Way', routeKm: i.route.distanceKm, durationMin: i.route.durationMin,
             pickupMs: i.pickupAt.getTime(), endMs: null, discount,
             adjustmentPercent: i.adjustment?.percent ?? 0, adjustmentDirection: i.adjustment?.direction, fuel: i.fuel,
-          }));
+          });
+        }
+        const roundTripInput = {
+          config: cfg, tariffClass: klass, tripType: 'Round Trip' as const, routeKm: i.route.distanceKm, durationMin: i.route.durationMin,
+          pickupMs: i.pickupAt.getTime(), endMs: i.tripEndAt ? i.tripEndAt.getTime() : null, discount,
+          adjustmentPercent: i.adjustment?.percent ?? 0, adjustmentDirection: i.adjustment?.direction, fuel: i.fuel,
+        };
+        // A short same-day trip or an evening-to-morning combo auto-upgrades to the standard calendar
+        // package the moment it runs past the mini slab's hour/km limits (both return null then).
+        return quoteRoundTripMini(roundTripInput) ?? quoteRoundTripOvernightCombo(roundTripInput) ?? quoteRoundTrip(roundTripInput);
+      };
       const q = withDiscounts(run);
       return {
         fare: q.fare, pricing: { ...q.pricing, brand: i.brand, brandScoped: !!(i.brand && i.tariff?.brandOverrides?.[i.brand]) }, service, outstation,

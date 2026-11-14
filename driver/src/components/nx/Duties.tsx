@@ -6,7 +6,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from './Text';
 import { useDriverData } from '../../context/DriverData';
 import { usePresence } from '../../hooks/usePresence';
-import { acceptMarketplaceTrip, DriverActionError, submitDutyBid, withdrawDutyBid } from '../../services/driverService';
+import { acceptMarketplaceTrip, DriverActionError, requestRoundTripDuty, submitDutyBid, withdrawDutyBid } from '../../services/driverService';
 import type { MarketplaceOffer } from '../../types/driver';
 import { categoryMatches } from '../../utils/earnings';
 import { formatINR } from '../../utils/format';
@@ -32,7 +32,7 @@ export function useDutyFeed(showAll: boolean, dateFilter: string) {
 
 // ── Duty card ───────────────────────────────────────────────────────────────
 
-export function DutyCard({ offer, onOpen }: { offer: MarketplaceOffer; onOpen: () => void }) {
+export function DutyCard({ offer, onOpen, pending }: { offer: MarketplaceOffer; onOpen: () => void; pending?: boolean }) {
   const { account } = useDriverData();
   const vehicleType = account.vehicle.vehicleType;
   const w = offerWhen(offer);
@@ -49,7 +49,7 @@ export function DutyCard({ offer, onOpen }: { offer: MarketplaceOffer; onOpen: (
             {w.time ? ` · ${w.time}` : ''}
           </Text>
         </View>
-        <NxBadge label={bid ? 'Bid duty' : offer.vehicleCategory || 'Any vehicle'} tone={bid ? 'red' : mismatch ? 'amber' : 'neutral'} />
+        <NxBadge label={pending ? 'Pending approval' : bid ? 'Bid duty' : offer.vehicleCategory || 'Any vehicle'} tone={pending ? 'amber' : bid ? 'red' : mismatch ? 'amber' : 'neutral'} />
       </View>
       <View style={styles.route}>
         <Text style={styles.routeText} numberOfLines={2}>
@@ -82,7 +82,7 @@ export function DutyCard({ offer, onOpen }: { offer: MarketplaceOffer; onOpen: (
           <Text style={styles.payoutLabel}>{bid ? 'NESAM offer' : 'Driver payout'}</Text>
           <Text style={styles.payout}>{formatINR(offer.offeredPayout)}</Text>
         </View>
-        <NxButton title={bid ? 'Place bid' : 'View details'} trailingIcon="arrow" variant={mismatch ? 'secondary' : 'soft'} compact onPress={onOpen} />
+        <NxButton title={pending ? 'View request' : bid ? 'Place bid' : 'View details'} trailingIcon="arrow" variant={mismatch ? 'secondary' : 'soft'} compact onPress={onOpen} />
       </View>
     </NxPanel>
   );
@@ -128,8 +128,13 @@ export function DateFilterDialog({ visible, onClose, dates, value, onChange }: {
 
 // ── Accept / bid dialog ─────────────────────────────────────────────────────
 
-/** Duty details with Accept (or, for duties NESAM reviews, a counter bid). `onAccepted` runs after a successful accept. */
-export function DutyDialog({ offer, onClose, onAccepted }: { offer: MarketplaceOffer | null; onClose: () => void; onAccepted?: (offer: MarketplaceOffer) => void }) {
+/**
+ * Duty details with Accept (or, for duties NESAM reviews, a counter bid). `onAccepted` runs after a successful accept.
+ * `scheduled` is for the My Bookings tab (advance/scheduled offers): being online and having no active trip stop an
+ * on-demand duty, but never a trip booked for later — the server's own schedule-overlap check is the real gate.
+ * `requestOnly` additionally asks a vendor driver's own fleet for the trip instead of claiming it outright.
+ */
+export function DutyDialog({ offer, onClose, onAccepted, scheduled, requestOnly, pending }: { offer: MarketplaceOffer | null; onClose: () => void; onAccepted?: (offer: MarketplaceOffer) => void; scheduled?: boolean; requestOnly?: boolean; pending?: boolean }) {
   const { account, activeTrip, cancelPolicy } = useDriverData();
   const { notify } = useShell();
   const presence = usePresence(notify);
@@ -148,20 +153,26 @@ export function DutyDialog({ offer, onClose, onAccepted }: { offer: MarketplaceO
     setNote('');
     setError('');
   }
-  const bid = offer?.mode === 'bid_review';
-  const blocked = !presence.online ? (bid ? 'Go online to bid' : 'Go online to accept') : activeTrip ? 'Finish your active trip first' : '';
+  const bid = !requestOnly && offer?.mode === 'bid_review';
+  const blocked = scheduled ? '' : !presence.online ? (bid ? 'Go online to bid' : 'Go online to accept') : activeTrip ? 'Finish your active trip first' : '';
   const mismatch = offer ? !categoryMatches(offer.vehicleCategory, vehicle.vehicleType) : false;
 
   const accept = async () => {
-    if (!offer || activeTrip) return;
+    if (!offer || (!scheduled && activeTrip)) return;
     setAccepting(true);
     try {
-      await acceptMarketplaceTrip(driver, vehicle.vehicleNumber, offer);
-      onClose();
-      notify('ok', 'Duty assigned. Take the vehicle photos before you head to the pickup.');
+      if (requestOnly) {
+        await requestRoundTripDuty(offer);
+        onClose();
+        notify('ok', 'Request sent. Your fleet will approve or decline it.');
+      } else {
+        await acceptMarketplaceTrip(driver, vehicle.vehicleNumber, offer);
+        onClose();
+        notify('ok', 'Duty assigned. Take the vehicle photos before you head to the pickup.');
+      }
       onAccepted?.(offer);
     } catch (e) {
-      notify('error', e instanceof DriverActionError ? e.message : describeError(e, 'This duty is no longer available.'));
+      notify('error', e instanceof DriverActionError ? e.message : describeError(e, requestOnly ? 'This trip could not be requested.' : 'This duty is no longer available.'));
     } finally {
       setAccepting(false);
     }
@@ -211,7 +222,7 @@ export function DutyDialog({ offer, onClose, onAccepted }: { offer: MarketplaceO
         visible={offer !== null && !policyOpen}
         onClose={onClose}
         eyebrow={offer?.bookingId || 'Duty details'}
-        title={bid ? 'Duty bidding' : 'Available duty'}
+        title={requestOnly ? 'Round trip request' : bid ? 'Duty bidding' : 'Available duty'}
         locked={accepting || busy}
         footer={
           bid ? (
@@ -219,6 +230,11 @@ export function DutyDialog({ offer, onClose, onAccepted }: { offer: MarketplaceO
               <NxButton title={busy ? 'Sending…' : blocked || 'Send bid for review'} trailingIcon="check" loading={busy} disabled={!!blocked} onPress={() => void sendBid()} />
               <NxButton title="Withdraw my earlier bid" variant="ghost" compact disabled={busy} onPress={() => void withdraw()} />
               <Text style={styles.footnote}>NESAM reviews bids. The duty is assigned to you only if your bid is accepted.</Text>
+            </>
+          ) : requestOnly ? (
+            <>
+              <NxButton title={pending ? 'Request sent' : accepting ? 'Sending…' : 'Request this trip'} trailingIcon="check" loading={accepting} disabled={pending} onPress={() => void accept()} />
+              <Text style={styles.footnote}>{pending ? "Waiting for your fleet to approve or decline it." : "Sent to your fleet for approval. It's yours only once they approve it."}</Text>
             </>
           ) : (
             <>
@@ -257,7 +273,7 @@ export function DutyDialog({ offer, onClose, onAccepted }: { offer: MarketplaceO
             ) : null}
             <NxInfo>Toll, parking and state tax are extra. Collect separately against actual receipts and record them at the end of the trip.</NxInfo>
             {mismatch ? <NxInfo tone="amber">Booked as {offer.vehicleCategory}. Accept only if your {vehicle.vehicleType} qualifies.</NxInfo> : null}
-            {activeTrip ? <NxInfo tone="amber" icon="clock">You already have an active trip. Finish it before accepting another.</NxInfo> : null}
+            {!scheduled && activeTrip ? <NxInfo tone="amber" icon="clock">You already have an active trip. Finish it before accepting another.</NxInfo> : null}
           </>
         ) : null}
       </NxDialog>

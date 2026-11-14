@@ -2,7 +2,7 @@
 // dialog). The navigation itself (sidebar / rail / bottom bar) lives in AppFrame, outside the screens, so it stays put
 // while pages change — exactly as the reference website behaves.
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Linking, Pressable, RefreshControlProps, ScrollView, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, RefreshControlProps, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Text } from './Text';
@@ -11,7 +11,7 @@ import { useDriverData } from '../../context/DriverData';
 import { usePresence } from '../../hooks/usePresence';
 import { EMERGENCY_NUMBER, SUPPORT_EMAIL, SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY } from '../../config/constants';
 import { PAGE_TITLES, useCurrentRoute } from '../../navigation/navItems';
-import { nx } from '../../theme/nx';
+import { nx, nxRadius, nxShadow } from '../../theme/nx';
 import { NxBrand } from './Brand';
 import { NxDialog } from './Dialog';
 import { NxIcon } from './Icon';
@@ -251,8 +251,50 @@ export function NxScreen({
   );
 }
 
+/**
+ * A screen built around a live map instead of a scrolling column of panels: the map fills the whole body, and `children`
+ * sit in a compact panel over it — a floating bottom sheet on phones, a side column beside the map on wide screens.
+ * `map` is a render prop so the caller's <LiveMap> always gets `fill: true` (no border/radius of its own; this frame
+ * supplies the chrome around it).
+ */
+export function NxMapScreen({ map, children, title, subtitle }: { map: (opts: { fill: true }) => React.ReactNode; children: React.ReactNode; title?: string; subtitle?: string }) {
+  const frame = useFrame();
+  const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
+  const [routeTitle, routeSubtitle] = PAGE_TITLES[frame.route] ?? ['NESAM Driver', ''];
+  return (
+    <SafeAreaView style={styles.root} edges={frame.sideNav ? ['top', 'right'] : ['top', 'left', 'right']}>
+      <NxTopbar title={title ?? routeTitle} subtitle={subtitle ?? routeSubtitle} gutter={frame.gutter} />
+      {frame.dashboard ? (
+        <View style={[styles.mapSplit, { paddingHorizontal: frame.gutter, paddingBottom: insets.bottom + 20 }]}>
+          <View style={styles.mapPane}>{map({ fill: true })}</View>
+          <ScrollView style={styles.sidePane} contentContainerStyle={{ paddingVertical: 18, paddingLeft: 20 }} keyboardShouldPersistTaps="handled">
+            {children}
+          </ScrollView>
+        </View>
+      ) : (
+        <View style={{ flex: 1 }}>
+          <View style={StyleSheet.absoluteFill}>{map({ fill: true })}</View>
+          <View pointerEvents="box-none" style={styles.sheetWrap}>
+            <View style={[styles.sheet, { maxHeight: height * 0.6 }]}>
+              <ScrollView contentContainerStyle={{ padding: frame.gutter, paddingBottom: frame.bottomNav ? 20 : insets.bottom + 20 }} keyboardShouldPersistTaps="handled">
+                {children}
+              </ScrollView>
+            </View>
+          </View>
+        </View>
+      )}
+    </SafeAreaView>
+  );
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: nx.page },
+  mapSplit: { flex: 1, flexDirection: 'row', gap: 20 },
+  mapPane: { flex: 1.3, minWidth: 0, borderRadius: nxRadius.panel, borderWidth: 1, borderColor: nx.line, overflow: 'hidden', ...nxShadow },
+  sidePane: { flex: 1, minWidth: 0, maxWidth: 420 },
+  sheetWrap: { position: 'absolute', left: 0, right: 0, bottom: 0 },
+  sheet: { backgroundColor: nx.white, borderTopLeftRadius: 22, borderTopRightRadius: 22, borderWidth: 1, borderColor: nx.line, shadowColor: '#162033', shadowOpacity: 0.1, shadowRadius: 20, shadowOffset: { width: 0, height: -4 }, elevation: 14 },
   phoneBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, minHeight: 72, paddingVertical: 13, backgroundColor: nx.white, borderBottomWidth: 1, borderBottomColor: nx.line },
   wideBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, paddingTop: 26, paddingBottom: 18, backgroundColor: nx.page },
   pageTitle: { fontSize: 27, lineHeight: 34, fontWeight: '700', letterSpacing: -0.9, color: nx.ink },

@@ -23,6 +23,7 @@ const SERVICES = ['All', 'One Way', 'Round Trip', 'Airport', 'Multicity', 'Local
 const TABS: Stage[] = ['Accepted', 'Upcoming', 'On Trip', 'Completed', 'Cancelled'];
 
 export function BookingsScreen() {
+  const navigation = useNavigation();
   const route = useRoute<RouteProp<RootStackParamList, 'Bookings'>>();
   const d = useVendorData();
   const [tab, setTab] = useState<BookingTab>(route.params?.tab ?? 'Accepted');
@@ -48,6 +49,16 @@ export function BookingsScreen() {
 
   return (
     <Page>
+      {d.openTripRequests.length ? (
+        <View style={styles.pending}>
+          <View style={styles.pendingIcon}><Ionicons name="hand-right-outline" size={20} color="#8B919C" /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.pendingTitle}>{d.openTripRequests.length} round trip {d.openTripRequests.length === 1 ? 'request' : 'requests'} from your drivers</Text>
+            <Text style={styles.pendingSub}>Approve or decline before the pickup window closes.</Text>
+          </View>
+          <Btn title="Review" kind="secondary" small onPress={() => navigation.navigate('DriverTripRequests')} />
+        </View>
+      ) : null}
       {tab === 'Accepted' && accepted.length ? (
         <View style={[styles.pending, overdue ? styles.pendingOverdue : null]}>
           <View style={[styles.pendingIcon, overdue ? { backgroundColor: '#FBEAE3' } : null]}>

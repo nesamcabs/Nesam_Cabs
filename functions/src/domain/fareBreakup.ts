@@ -136,6 +136,33 @@ export function buildTariffFareBreakup(category: RideCategory, fare: FareBreakdo
     const extras = lines.filter((l) => l.treatment === 'extra');
     return { schema: 1, lines, packageTotal: fare.total, knownExtras: extras.reduce((s, l) => s + (l.amount ?? 0), 0), hasActualsExtras: extras.some((l) => l.amount === null) };
   }
+  if (pricing.model === 'round_trip_mini') {
+    const head: FareLine[] = [{
+      key: 'package', label: 'Short round trip package', amount: fare.baseFare, treatment: 'included',
+      detail: `Same-day round trip, up to ${pricing.includedKm} KM`,
+    }];
+    const rest = base.lines.filter((l) => !['base', 'distance', 'time', 'night', 'driverAllowance', 'minimum'].includes(l.key));
+    const lines = [...head, ...extrasBlock(rest).map((l) => (l.key === 'extraKm' ? { ...l, detail: `${num2(pricing.extraKmRatePaise)} per KM beyond the ${pricing.includedKm} KM included` } : l))];
+    const extras = lines.filter((l) => l.treatment === 'extra');
+    return { schema: 1, lines, packageTotal: fare.total, knownExtras: extras.reduce((s, l) => s + (l.amount ?? 0), 0), hasActualsExtras: extras.some((l) => l.amount === null) };
+  }
+  if (pricing.model === 'round_trip_overnight_combo') {
+    const maxKm = Math.max(0, pricing.includedKm - pricing.minKmPerDay);
+    const head: FareLine[] = [
+      {
+        key: 'distance', label: 'Overnight round trip (2 days)', amount: fare.distanceFare + fare.minimumFareAdjustment, treatment: 'included',
+        detail: `Evening start (flat fare, up to ${maxKm} KM) + 1 full day (minimum ${pricing.minKmPerDay} KM) at ${rate}/KM`,
+      },
+      {
+        key: 'driverAllowance', label: 'Driver allowance (day 2)', amount: fare.driverAllowance, treatment: 'included',
+        detail: `${num2(pricing.customerBataPaise)} for day 2 — day 1's allowance is already in the evening-start fare`,
+      },
+    ];
+    const rest = base.lines.filter((l) => !['base', 'distance', 'time', 'night', 'driverAllowance', 'minimum'].includes(l.key));
+    const lines = [...head, ...extrasBlock(rest).map((l) => (l.key === 'extraKm' ? { ...l, detail: `${num2(pricing.extraKmRatePaise)} per KM beyond the ${pricing.includedKm} KM included` } : l))];
+    const extras = lines.filter((l) => l.treatment === 'extra');
+    return { schema: 1, lines, packageTotal: fare.total, knownExtras: extras.reduce((s, l) => s + (l.amount ?? 0), 0), hasActualsExtras: extras.some((l) => l.amount === null) };
+  }
   if (pricing.model === 'airport_transfer') {
     const beyond = Math.max(0, Math.round((pricing.quotedKm - pricing.minKmPerDay) * 10) / 10);
     const head: FareLine[] = [

@@ -20,6 +20,8 @@ export function openPage(page: string, bookingId?: string): void {
     case 'assign':
       if (bookingId) return navigationRef.navigate('Assign', { id: bookingId });
       return goSection('Bookings', { tab: 'Accepted' });
+    case 'driver-trip-requests':
+      return navigationRef.navigate('DriverTripRequests');
     case 'wallet':
     case 'payouts':
       return goSection('Wallet');

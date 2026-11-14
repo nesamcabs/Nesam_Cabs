@@ -1,7 +1,6 @@
 // Where a notification's call-to-action leads — one place for the in-app popup, the Notifications page and a tapped push.
 // Page keys come from the server (functions notify `cta.page`) or utils/notificationModel ctaOf. A link to a page this
-// driver does not have (an owner-driver has no Local Taxi page; a vendor's employee has no Duties or Earnings) lands on
-// Home instead of failing silently.
+// driver does not have (a vendor's employee has no Earnings) lands on Home instead of failing silently.
 import { navigationRef } from './navigationRef';
 import { goTab } from './navItems';
 
@@ -20,7 +19,7 @@ export function openNotificationTarget(page: string, { tripId, fleet }: Notifica
       return goTab('Home');
     case 'marketplace':
     case 'market':
-      return goTab(fleet ? 'Home' : 'Marketplace');
+      return goTab('Marketplace');
     case 'local':
     case 'local-duty':
       return goTab(fleet ? 'Local' : 'Home');

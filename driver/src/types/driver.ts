@@ -306,6 +306,8 @@ export interface MarketplaceOffer {
   via?: string[];
   pickupTime: string;
   travelDate: string;
+  /** Pickup instant in ms, when the booking carries one (scheduled/advance offers). 0 for an on-demand local offer. */
+  pickupMs: number;
   vehicleCategory: string;
   distanceKm: number;
   offeredPayout: number;
@@ -313,6 +315,10 @@ export interface MarketplaceOffer {
   mode: 'accept_offer' | 'bid_review' | '';
   eligibleClasses: string[];
   publishedMs: number;
+  /** Classification from functions/src/domain/pricing.ts serviceName: 'Outstation' | 'Local' | 'Rental' | 'Airport'. */
+  service: string;
+  /** 'One Way' | 'Round Trip' | 'Local Rental' | 'Airport Taxi' | 'Multicity'. */
+  tripType: string;
 }
 
 export interface DriverEarningsSummary {
