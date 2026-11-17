@@ -1,7 +1,8 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { View } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { RideFocusCtx } from './RideFocus';
 import { navigationRef } from './navigationRef';
 import type { RootStackParamList, TabParamList } from './types';
 import { BottomNav } from '../components/brand';
@@ -36,13 +37,6 @@ import { colors, fonts } from '../theme';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
 
-// Rides the rider minimised this session — not re-opened automatically.
-interface RideFocus {
-  dismiss: (bookingId: string) => void;
-  undismiss: (bookingId: string) => void;
-}
-const RideFocusCtx = createContext<RideFocus>({ dismiss: () => undefined, undismiss: () => undefined });
-export const useRideFocus = () => useContext(RideFocusCtx);
 
 // The website's floating bar (Outstation · Multicity · Local · Airport · My trips) sits under every tab page. The
 // service tabs follow the service chosen on the booking form; My trips lights up on the trips page; the profile and

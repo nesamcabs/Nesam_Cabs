@@ -1,6 +1,8 @@
 import { withBookedAddOnFare } from './bookingAddOns';
 import { withNightAllowanceFare, type NightAllowanceCharge } from './nightAllowance';
 import { withPlatformFeeFare, type PlatformFeeCharge } from './platformFee';
+import { withHillChargeFare } from './hillCharge';
+import { HillStationConfig, parseHillStationConfig } from './hillStations';
 import { gstComponents, withFareGst, validGstRule, type FareGstPolicies, type GstSnapshot } from './gst';
 // Confirmed customer tariffs and normal partner rates (Tariff & Operations v2.0, 09 Oct 2026).
 //
@@ -14,6 +16,12 @@ import { gstComponents, withFareGst, validGstRule, type FareGstPolicies, type Gs
 // A missing rate is `null`, never zero.
 import { FareBreakdown } from './types';
 import { ExtraChargesConfig, ExtraChargesSnapshot, parseExtraCharges } from './extraCharges';
+import {
+  DEFAULT_TIME_BASED, SLAB_LABEL, TimeBasedClassRates, TimeBasedSettings, TimeBasedSnapshot, SlabAmounts, SlabId, istInstant, istMinutes, morningEligible,
+  nextDayFirstSlab, resolveTimeBasedFinal, sameDaySlabs, slabsOf, fullDaySlab, morningCutoffOf,
+} from './timeBased';
+export type { TimeBasedClassRates, TimeBasedSettings, TimeBasedSnapshot } from './timeBased';
+export { DEFAULT_TIME_BASED } from './timeBased';
 
 // 'suv' is SUV 6+1 and 'suv7' is SUV 7+1. Like Innova, a class with no rates of its own keeps using the SUV rates (see classRates).
 export type TariffClass = 'sedan' | 'suv' | 'suv7' | 'innova' | 'crysta';
@@ -62,6 +70,8 @@ export interface RoundTripRates extends OneWayRates {
    * overnight combo (quoteRoundTripOvernightCombo). Unset or 0 = neither slab is offered for this class. */
   miniFare?: number;
   miniPartnerFare?: number;
+  /** Time-based round trip packages (5-hour, 8-hour, Morning Return). Absent = the class keeps calendar pricing. */
+  timeBased?: TimeBasedClassRates;
 }
 export interface RentalRates { firstHour: number; laterHour: number; minHours: number; minTimeFare: number; partnerPerHour: number }
 export interface CityDropRates { customerBase: number; customerExtraKm: number; partnerBase: number; partnerExtraKm: number }
@@ -163,6 +173,8 @@ export interface TariffConfig {
     miniMaxHours?: number;
     /** Round-trip km ceiling of the mini slab. */
     miniMaxKm?: number;
+    /** Shared settings of the time-based round trip (cutoffs, boundaries). Absent or disabled = calendar pricing. */
+    timeBased?: TimeBasedSettings;
     classes: Partial<Record<TariffClass, RoundTripRates>>;
   };
   rental: { classes: Partial<Record<TariffClass, RentalRates>> };
@@ -177,6 +189,8 @@ export interface TariffConfig {
   rentalPackages?: Partial<Record<TariffClass, RentalClassConfig>>;
   /** Waiting, hill and roof carrier rates by vehicle category (see domain/extraCharges.ts). */
   extraCharges?: ExtraChargesConfig;
+  /** Hill Station Allowance / Charge slabs per vehicle class, billed automatically as a separate line (see domain/hillStations.ts). */
+  hillStation?: HillStationConfig;
   /** Display only: % shown as a higher, struck-out price above a fare, by Brand -> Service. It never changes what is charged. */
   displayMarkup?: Record<string, Record<string, number>>;
   /** Brand-specific fare overrides organized by Brand -> Service -> Category. */
@@ -247,6 +261,45 @@ function withMiniRoundTrip(classes: Partial<Record<TariffClass, RoundTripRates>>
     const r = (raw as Record<string, unknown>)[c] as Record<string, unknown> | undefined;
     if (!base || !r || !isPos(r.miniFare) || !isPos(r.miniPartnerFare)) continue;
     classes[c] = { ...base, miniFare: r.miniFare as number, miniPartnerFare: r.miniPartnerFare as number };
+  }
+  return classes;
+}
+
+/** Time-based round trip class amounts: the 5-hour and 8-hour packages must be complete; Morning Return is all-or-nothing. */
+export function parseTimeBasedClassRates(r: unknown): TimeBasedClassRates | undefined {
+  if (!r || typeof r !== 'object') return undefined;
+  const o = r as Record<string, unknown>;
+  if (!isPos(o.fiveFare) || !isPos(o.fiveKm) || !isPos(o.fivePartner) || !isPos(o.eightFare) || !isPos(o.eightKm) || !isPos(o.eightPartner)) return undefined;
+  const morning = isPos(o.morningFare) && isPos(o.morningKm) && isPos(o.morningPartner)
+    ? { morningFare: o.morningFare as number, morningKm: o.morningKm as number, morningPartner: o.morningPartner as number } : {};
+  return { fiveFare: o.fiveFare, fiveKm: o.fiveKm, fivePartner: o.fivePartner, eightFare: o.eightFare, eightKm: o.eightKm, eightPartner: o.eightPartner, ...morning };
+}
+
+export function parseTimeBasedSettings(v: unknown): TimeBasedSettings | undefined {
+  if (!v || typeof v !== 'object') return undefined;
+  const o = v as Record<string, unknown>;
+  const minute = (x: unknown, d: number) => (typeof x === 'number' && Number.isInteger(x) && x >= 0 && x <= 1439 ? x : d);
+  const hours = (x: unknown, d: number) => (typeof x === 'number' && Number.isFinite(x) && x >= 1 && x <= 24 ? x : d);
+  const D = DEFAULT_TIME_BASED;
+  const s: TimeBasedSettings = {
+    enabled: o.enabled === true,
+    cutoffMinutes: minute(o.cutoffMinutes, D.cutoffMinutes), morningCutoffMinutes: minute(o.morningCutoffMinutes, D.morningCutoffMinutes),
+    nextDayEightFromMinutes: minute(o.nextDayEightFromMinutes, D.nextDayEightFromMinutes), nextDayFiveFromMinutes: minute(o.nextDayFiveFromMinutes, D.nextDayFiveFromMinutes),
+    shortKmLimit: isPos(o.shortKmLimit) ? o.shortKmLimit : D.shortKmLimit, fiveKmLimit: isPos(o.fiveKmLimit) ? o.fiveKmLimit : D.fiveKmLimit,
+    lateNightEndMinutes: minute(o.lateNightEndMinutes, D.lateNightEndMinutes), fiveHours: hours(o.fiveHours, D.fiveHours), eightHours: hours(o.eightHours, D.eightHours),
+  };
+  // Inconsistent boundaries would make the offered packages overlap: fall back to the confirmed ones.
+  if (s.fiveHours >= s.eightHours || s.nextDayEightFromMinutes >= s.nextDayFiveFromMinutes || s.cutoffMinutes <= s.eightHours * 60 || s.fiveKmLimit > s.shortKmLimit || s.lateNightEndMinutes >= s.nextDayEightFromMinutes) return { ...D, enabled: s.enabled };
+  return s;
+}
+
+/** Attaches each class's time-based amounts (only when complete) to the parsed round-trip classes. */
+function withTimeBasedRates(classes: Partial<Record<TariffClass, RoundTripRates>>, raw: unknown): Partial<Record<TariffClass, RoundTripRates>> {
+  if (!raw || typeof raw !== 'object') return classes;
+  for (const c of TARIFF_CLASSES) {
+    const base = classes[c];
+    const t = parseTimeBasedClassRates((raw as Record<string, any>)[c]?.timeBased);
+    if (base && t) classes[c] = { ...base, timeBased: t };
   }
   return classes;
 }
@@ -441,7 +494,7 @@ export function scopedTariffForBrand(
           if (isNum(merged.customerRate) && isNum(merged.partnerRate) && isNum(merged.customerBata) && isNum(merged.partnerBata)) next.oneWay.classes[cls] = { ...(merged as OneWayRates), ...(cng ? { cng } : {}) };
         } else {
           const minKmPerDay = pick(ov, 'minKmPerDay', (common as RoundTripRates | undefined)?.minKmPerDay);
-          if (isNum(merged.customerRate) && isNum(merged.partnerRate) && isNum(merged.customerBata) && isNum(merged.partnerBata) && isPos(minKmPerDay)) next.roundTrip.classes[cls] = { ...(merged as OneWayRates), ...(cng ? { cng } : {}), minKmPerDay };
+          if (isNum(merged.customerRate) && isNum(merged.partnerRate) && isNum(merged.customerBata) && isNum(merged.partnerBata) && isPos(minKmPerDay)) next.roundTrip.classes[cls] = { ...(merged as OneWayRates), ...(cng ? { cng } : {}), minKmPerDay, ...((common as RoundTripRates | undefined)?.timeBased ? { timeBased: (common as RoundTripRates).timeBased } : {}) };
         }
       }
       if (trip === 'One Way' && ov.minKm !== undefined && ov.minKm > 0) next.oneWay.minKm = ov.minKm;
@@ -530,6 +583,7 @@ export function parseTariffConfig(d: Record<string, any> | undefined | null): Ta
   const localPickupDrop = parseLocalPickupDrop(d.localPickupDrop);
   const rentalPackages = parseRentalPackages(d.rentalPackages);
   const extraCharges = parseExtraCharges(d.extraCharges);
+  const hillStation = parseHillStationConfig(d.hillStation, TARIFF_CLASSES);
   const brandOverrides = parseBrandOverrides(d.brandOverrides);
   const zones: CityZone[] = Array.isArray(d.cityDrop?.zones)
     ? d.cityDrop.zones.filter((z: any) => z && typeof z.id === 'string' && isNum(z.radiusKm) && z.radiusKm > 0 && Number.isFinite(z.lat) && Number.isFinite(z.lng))
@@ -545,7 +599,8 @@ export function parseTariffConfig(d: Record<string, any> | undefined | null): Ta
       maxDays: isNum(d.roundTrip?.maxDays) && d.roundTrip.maxDays >= 1 ? Math.floor(d.roundTrip.maxDays) : 30,
       ...(isPos(d.roundTrip?.miniMaxHours) ? { miniMaxHours: d.roundTrip.miniMaxHours } : {}),
       ...(isPos(d.roundTrip?.miniMaxKm) ? { miniMaxKm: d.roundTrip.miniMaxKm } : {}),
-      classes: withMiniRoundTrip(sanitizeCng(rateMap<RoundTripRates>(d.roundTrip?.classes, ['customerRate', 'customerBata', 'partnerRate', 'partnerBata', 'minKmPerDay'])), d.roundTrip?.classes),
+      ...(parseTimeBasedSettings(d.roundTrip?.timeBased) ? { timeBased: parseTimeBasedSettings(d.roundTrip?.timeBased) } : {}),
+      classes: withTimeBasedRates(withMiniRoundTrip(sanitizeCng(rateMap<RoundTripRates>(d.roundTrip?.classes, ['customerRate', 'customerBata', 'partnerRate', 'partnerBata', 'minKmPerDay'])), d.roundTrip?.classes), d.roundTrip?.classes),
     },
     rental: { classes: rateMap<RentalRates>(d.rental?.classes, ['firstHour', 'laterHour', 'minHours', 'minTimeFare', 'partnerPerHour']) },
     cityDrop: { baseKm: isNum(d.cityDrop?.baseKm) && d.cityDrop.baseKm > 0 ? d.cityDrop.baseKm : 20, zones, classes: rateMap<CityDropRates>(d.cityDrop?.classes, ['customerBase', 'customerExtraKm', 'partnerBase', 'partnerExtraKm']) },
@@ -556,6 +611,7 @@ export function parseTariffConfig(d: Record<string, any> | undefined | null): Ta
     ...(localPickupDrop ? { localPickupDrop } : {}),
     ...(rentalPackages ? { rentalPackages } : {}),
     ...(extraCharges ? { extraCharges } : {}),
+    ...(hillStation ? { hillStation } : {}),
     ...(brandOverrides ? { brandOverrides } : {}),
     ...(parseDisplayMarkup(d.displayMarkup) ? { displayMarkup: parseDisplayMarkup(d.displayMarkup) } : {}),
     ...(parseFareGst(d.fareGst) ? { fareGst: parseFareGst(d.fareGst) } : {}),
@@ -592,6 +648,8 @@ export interface PartnerNormalRate {
   minKm: number;
   days: number;
   basePaise: number;
+  /** Hill station payout already inside basePaise (kept apart so the final fare does not add it twice). */
+  hillPaise?: number;
 }
 
 export interface PricingSnapshot {
@@ -600,6 +658,8 @@ export interface PricingSnapshot {
   nightAllowance?: NightAllowanceCharge;
   /** Platform fee billed on this booking (see domain/platformFee.ts); kept as booked when the final fare is worked out. */
   platformFee?: PlatformFeeCharge;
+  /** Hill Station Allowance / Charge billed on this booking as its own line (see domain/hillCharge.ts). */
+  hillStation?: import('./hillCharge').HillChargeSnapshot;
   gst?: GstSnapshot;
   /** True when the configured fare already contained GST (GST was extracted from it, not added on top). */
   gstInFare?: boolean;
@@ -607,7 +667,7 @@ export interface PricingSnapshot {
   schema: 2;
   /** 'tariff_v2' (this module) or 'legacy_category' (admin category fares, kept for local / airport duties). */
   source: 'tariff_v2' | 'legacy_category';
-  model: 'one_way_standard' | 'round_trip_calendar' | 'round_trip_mini' | 'round_trip_overnight_combo' | 'city_drop_package' | 'rental_time' | 'legacy_category' | 'local_pickup_drop' | 'rental_package' | 'fixed_route' | 'business_contract_per_km' | 'airport_transfer';
+  model: 'one_way_standard' | 'round_trip_calendar' | 'round_trip_time_based' | 'round_trip_mini' | 'round_trip_overnight_combo' | 'city_drop_package' | 'rental_time' | 'legacy_category' | 'local_pickup_drop' | 'rental_package' | 'fixed_route' | 'business_contract_per_km' | 'airport_transfer';
   tariffVersion: number;
   tariffClass: TariffClass | null;
   gstRate: number;
@@ -650,6 +710,8 @@ export interface PricingSnapshot {
   brand?: string;
   /** True when brand-specific overrides were used instead of common baseline. */
   brandScoped?: boolean;
+  /** Time-based round trip only: the booked package and everything its upgrade / final fare needs (see domain/timeBased.ts). */
+  timeBased?: TimeBasedSnapshot;
   /** Dates charged, IST, for round trips. */
   pickupDate: string;
   endDate: string | null;
@@ -670,6 +732,11 @@ export interface QuoteInput {
   adjustmentDirection?: 'increase' | 'decrease';
   /** 'cng' prices the trip on the class's CNG rate card (One Way and Round Trip). */
   fuel?: 'cng';
+  /** Time-based round trip: the trip days the customer chose (the return time is never asked) and the package picked. */
+  tripDays?: number;
+  timePackage?: string;
+  /** A hill station is on the trip (pickup, stop or drop): the 5-hour / 8-hour packages and the mini fare are not offered. */
+  hill?: boolean;
 }
 
 export interface QuoteResult {
@@ -817,6 +884,149 @@ export function quoteRoundTrip(i: QuoteInput): QuoteResult {
       adjustmentPercent: i.adjustmentPercent ?? 0, adjustmentDirection: i.adjustmentDirection ?? 'increase',
       partner: { mode: 'NORMAL_RATE', ratePaise: partnerRate, bataPaise: paise(r.partnerBata), minKm: r.minKmPerDay, days, basePaise: kmAmountPaise(billable, partnerRate) + paise(r.partnerBata) * days },
       pickupDate: istDate(i.pickupMs), endDate: istDate(i.endMs), gates: [...GATES_ROUND_TRIP],
+    },
+  };
+}
+
+// ── Time-based Round Trip (Customer UX v7) ──────────────────────────────────
+
+/** One package a customer can pick for a time-based round trip. Amounts exclude any estimated extra KM and GST. */
+export interface TimePackageOption {
+  id: string;
+  kind: TimeBasedSnapshot['kind'];
+  label: string;
+  /** Short slabs only. */
+  hours: number | null;
+  /** Day-1 slab of a Next-Day Return. */
+  day1: SlabId | null;
+  includedKm: number;
+  farePaise: number;
+  partnerPaise: number;
+  /** When the package's coverage ends. */
+  endMs: number;
+  /** Calendar days this package covers (choosing a 2-day option when 1 day was asked for makes the trip 2 days). */
+  days: number;
+  /** Included km of each calendar day, in order (e.g. [150, 250] for an 8-hour first day + a Full Day). */
+  dayKm: number[];
+}
+
+export interface TimeBasedPlan {
+  /** Calendar days of the first (cheapest-to-pick) option. */
+  days: number;
+  /** The customer asked for 1 day but no same-day package fits the pickup time, so only longer packages are quoted. */
+  autoDays: boolean;
+  options: TimePackageOption[];
+}
+
+/** The settings, class rates and time-based amounts of a class — null when the time-based round trip is off or incomplete for it. */
+export function timeBasedContext(cfg: TariffConfig, cls: TariffClass): { settings: TimeBasedSettings; rates: RoundTripRates; t: TimeBasedClassRates } | null {
+  const settings = cfg.roundTrip.timeBased;
+  if (!settings?.enabled) return null;
+  const rates = classRates(cfg.roundTrip.classes, cls);
+  if (!rates?.timeBased) return null;
+  return { settings, rates, t: rates.timeBased };
+}
+
+const round1 = (n: number): number => Math.round(n * 10) / 10;
+
+/**
+ * Packages offered for a time-based round trip. `tripDays` is what the customer chose (1, 2, 3 …):
+ *   1 day  → the same-day packages that fit; from 3:00 PM the overnight options (Morning Return, Next-Day Return) are listed too,
+ *            and a 1-day trip with no same-day package left becomes a 2-day trip (`autoDays`);
+ *   2 days → Morning Return (where eligible) and the Next-Day Return;
+ *   3+     → the multi-day slab (first-day slab + a Full Day for each further day), never fewer days than the customer chose.
+ * `hill` removes the 5-hour / 8-hour packages (hill stations go straight to a Full Day or a multi-day slab).
+ */
+export function planTimeBasedRoundTrip(i: { config: TariffConfig; tariffClass: TariffClass; pickupMs: number; routeKm: number; durationMin: number; tripDays: number; hill?: boolean }): TimeBasedPlan {
+  const ctx = timeBasedContext(i.config, i.tariffClass);
+  if (!ctx) throw new TariffError('rate-missing', 'The time-based round-trip tariff for this vehicle class is not configured.');
+  if (!Number.isInteger(i.tripDays) || i.tripDays < 1) throw new TariffError('days-required', 'Choose the number of trip days.');
+  if (i.tripDays > i.config.roundTrip.maxDays) throw new TariffError('custom-quote', `Round trips of more than ${i.config.roundTrip.maxDays} days are quoted individually. Please request a custom quote.`);
+  const { settings: s, rates, t } = ctx;
+  const slabs = slabsOf(s, rates, t);
+  const roundTripKm = round1(i.routeKm * 2), estMinutes = i.durationMin * 2;
+  const options: TimePackageOption[] = [];
+  const pm = istMinutes(i.pickupMs);
+  if (i.tripDays === 1) {
+    for (const slab of sameDaySlabs({ settings: s, pickupMs: i.pickupMs, roundTripKm, estMinutes, hill: i.hill })) {
+      const a = slabs[slab];
+      options.push({
+        id: `same:${slab}`, kind: 'same_day', label: SLAB_LABEL[slab], hours: a.hours, day1: null, includedKm: a.includedKm, farePaise: a.farePaise, partnerPaise: a.partnerPaise,
+        endMs: slab === 'full' ? istInstant(i.pickupMs, 0, s.cutoffMinutes) : i.pickupMs + (a.hours ?? 0) * 3_600_000, days: 1, dayKm: [a.includedKm],
+      });
+    }
+    // Before 3:00 PM the customer's own 1-day choice stands; if nothing fits, the trip becomes a 2-day trip below.
+    if (options.length && pm < s.nextDayEightFromMinutes && pm >= s.lateNightEndMinutes) return { days: 1, autoDays: false, options };
+  }
+  if (i.tripDays <= 2 && morningEligible(s, t, i.pickupMs, estMinutes, roundTripKm)) {
+    options.push({
+      id: 'morning', kind: 'morning', label: 'Morning Return', hours: null, day1: null, includedKm: t.morningKm!, farePaise: paise(t.morningFare!), partnerPaise: paise(t.morningPartner!),
+      endMs: morningCutoffOf(s, i.pickupMs), days: 2, dayKm: [t.morningKm!],
+    });
+  }
+  const days = Math.max(2, i.tripDays);
+  const day1 = nextDayFirstSlab(s, i.pickupMs);
+  const more = days - 1;
+  options.push({
+    id: 'next', kind: 'next_day', label: days === 2 ? 'Next-Day Return' : `${days}-Day Round Trip`, hours: null, day1, includedKm: slabs[day1].includedKm + slabs.full.includedKm * more,
+    farePaise: slabs[day1].farePaise + slabs.full.farePaise * more, partnerPaise: slabs[day1].partnerPaise + slabs.full.partnerPaise * more,
+    endMs: istInstant(i.pickupMs, days - 1, s.cutoffMinutes), days, dayKm: [slabs[day1].includedKm, ...Array.from({ length: more }, () => slabs.full.includedKm)],
+  });
+  const noSameDay = !options.some((o) => o.days === 1);
+  return { days: Math.min(...options.map((o) => o.days)), autoDays: i.tripDays === 1 && noSameDay, options };
+}
+
+/** Quote of one time-based round-trip package: the package fare + the estimated KM beyond it at the extra-KM rate. */
+export function quoteRoundTripTimeBased(i: QuoteInput): QuoteResult {
+  const ctx = timeBasedContext(i.config, i.tariffClass);
+  if (!ctx) throw new TariffError('rate-missing', 'The time-based round-trip tariff for this vehicle class is not configured.');
+  if (i.fuel === 'cng') throw new TariffError('cng-unavailable', 'CNG is not available for this package.');
+  const plan = planTimeBasedRoundTrip({ config: i.config, tariffClass: i.tariffClass, pickupMs: i.pickupMs, routeKm: i.routeKm, durationMin: i.durationMin, tripDays: i.tripDays ?? 1, hill: i.hill === true });
+  const opt = i.timePackage ? plan.options.find((o) => o.id === i.timePackage) : [...plan.options].sort((a, b) => a.farePaise - b.farePaise)[0];
+  if (!opt) throw new TariffError('package-unavailable', 'That package is not available for this pickup time and trip. Please choose another package.');
+  const { settings: s, rates, t } = ctx;
+  const slabs = slabsOf(s, rates, t);
+  const estKm = round1(i.routeKm * 2);
+  const ratePaise = paise(rates.customerRate);
+  const extra = extraUsage(i.config, i.tariffClass, ratePaise, 'Round Trip');
+  const extraKm = Math.max(0, round1(estKm - opt.includedKm));
+  const extraPaise = kmAmountPaise(extraKm, extra.extraKmRatePaise);
+  const packagePaise = opt.farePaise + extraPaise;
+  const partnerRatePaise = paise(rates.partnerRate);
+  const base = toBreakdown({
+    packagePaise, distancePaise: packagePaise, bataPaise: 0, floorPaise: 0, discount: i.discount ?? 0, adminAdjustment: 0,
+    adjustmentPercent: i.adjustmentPercent ?? 0, adjustmentDirection: i.adjustmentDirection ?? 'increase', gstRate: i.config.gstRate,
+    km: Math.max(estKm, opt.includedKm), durationMin: i.durationMin * 2, ratePaise: extra.extraKmRatePaise,
+  });
+  // The package is the base fare; only the KM beyond it is a distance line. Driver allowance is inside the package.
+  const fare: FareBreakdown = { ...base, baseFare: r2(opt.farePaise / 100), distanceFare: r2(extraPaise / 100) };
+  const pickupMin = istMinutes(i.pickupMs);
+  let upgrade: TimeBasedSnapshot['upgrade'];
+  if (opt.kind === 'morning') {
+    const day1 = nextDayFirstSlab(s, i.pickupMs);
+    upgrade = {
+      packageId: 'next', label: 'Next-Day Return', day1, includedKm: slabs[day1].includedKm + slabs.full.includedKm, farePaise: slabs[day1].farePaise + slabs.full.farePaise,
+      partnerPaise: slabs[day1].partnerPaise + slabs.full.partnerPaise, coverageEndMs: istInstant(i.pickupMs, 1, s.cutoffMinutes),
+    };
+  }
+  const timeBased: TimeBasedSnapshot = {
+    kind: opt.kind, packageId: opt.id, label: opt.label, pickupMs: i.pickupMs, pickupMin, cutoffMin: s.cutoffMinutes, days: opt.days, hours: opt.hours, coverageEndMs: opt.endMs,
+    limits: { fiveHours: s.fiveHours, eightHours: s.eightHours, shortKmLimit: s.shortKmLimit },
+    base: { farePaise: opt.farePaise, partnerPaise: opt.partnerPaise, includedKm: opt.includedKm, hours: opt.hours },
+    ...(opt.kind === 'same_day' ? { slabs, allowed: plan.options.filter((o) => o.kind === 'same_day').map((o) => o.id.slice(5) as SlabId), selected: opt.id.slice(5) as SlabId } : {}),
+    ...(opt.day1 ? { day1: opt.day1 } : {}),
+    ...(opt.kind === 'morning' ? { morningCutoffMs: opt.endMs, upgrade } : {}),
+    ...(plan.autoDays ? { autoDays: true } : {}),
+  };
+  return {
+    fare,
+    pricing: {
+      schema: 2, source: 'tariff_v2', model: 'round_trip_time_based', tariffVersion: i.config.version, tariffClass: i.tariffClass, gstRate: i.config.gstRate,
+      quotedKm: estKm, includedKm: Math.max(opt.includedKm, estKm), extraKmRatePaise: extra.extraKmRatePaise, customerRatePaise: extra.extraKmRatePaise, customerBataPaise: 0,
+      ...extra.waiting, days: opt.days, minKmPerDay: 0, packagePaise, discount: fare.discount, adminAdjustment: 0,
+      adjustmentPercent: i.adjustmentPercent ?? 0, adjustmentDirection: i.adjustmentDirection ?? 'increase',
+      partner: { mode: 'NORMAL_RATE', ratePaise: partnerRatePaise, bataPaise: 0, minKm: opt.includedKm, days: opt.days, basePaise: opt.partnerPaise + kmAmountPaise(extraKm, partnerRatePaise) },
+      timeBased: { ...timeBased, dayKm: opt.dayKm }, pickupDate: istDate(i.pickupMs), endDate: istDate(opt.endMs), gates: [],
     },
   };
 }
@@ -1206,6 +1416,8 @@ export interface FinalInput {
   totalKm: number;
   /** Actual trip end instant. */
   endMs: number;
+  /** Actual trip start instant (time-based round trips measure the hours used from it); absent = the booked pickup. */
+  startMs?: number | null;
   /** Customer-facing add-ons recorded at actuals (tolls are handled separately by the booking). */
 }
 
@@ -1220,6 +1432,8 @@ export interface FinalResult {
   partnerPaise: number | null;
   /** Calendar days beyond the quoted days (trip ran into another date). */
   extraDays: number;
+  /** Time-based round trip: the package the trip is finally billed on, and whether it was upgraded or ran past its coverage. */
+  timeBased?: { packageId: string; label: string; upgraded: boolean; coverageExceeded: boolean; includedKm: number };
 }
 
 /**
@@ -1229,7 +1443,11 @@ export interface FinalResult {
  */
 export function finalizeFare(i: FinalInput): FinalResult {
   const result = finalizeFareWithoutAddOns(i);
-  return { ...result, fare: withPlatformFeeFare(withNightAllowanceFare(withBookedAddOnFare(result.fare, i.pricing.bookingAddOns), i.pricing.nightAllowance), i.pricing.platformFee) };
+  // The hill charge booked with the trip stays as booked. The partner's hill payout is already inside every payout that starts from
+  // the quoted base; a time-based package is paid from its own amounts, so it is added there.
+  const hillPartner = i.pricing.partner?.hillPaise ?? 0;
+  const partnerPaise = result.partnerPaise !== null && result.timeBased && hillPartner > 0 ? result.partnerPaise + hillPartner : result.partnerPaise;
+  return { ...result, partnerPaise, fare: withPlatformFeeFare(withNightAllowanceFare(withHillChargeFare(withBookedAddOnFare(result.fare, i.pricing.bookingAddOns), i.pricing.hillStation), i.pricing.nightAllowance), i.pricing.platformFee) };
 }
 
 function finalizeFareWithoutAddOns(i: FinalInput): FinalResult {
@@ -1250,6 +1468,14 @@ function finalizeFareWithoutAddOns(i: FinalInput): FinalResult {
   let includedKm = p.includedKm;
   let days = p.days;
   let extraDays = 0;
+  let timeFinal: ReturnType<typeof resolveTimeBasedFinal> | null = null;
+  if (p.model === 'round_trip_time_based' && p.timeBased) {
+    // The booked package, or the one the trip outgrew into, replaces the quoted package; only KM beyond ITS inclusion is extra.
+    timeFinal = resolveTimeBasedFinal(p.timeBased, { startMs: i.startMs, endMs: i.endMs, totalKm });
+    packagePaise = timeFinal.farePaise;
+    includedKm = timeFinal.includedKm;
+    days = p.timeBased.days ?? (p.timeBased.kind === 'same_day' ? 1 : 2);
+  }
   if ((p.model === 'round_trip_calendar' || p.model === 'round_trip_overnight_combo') && p.endDate) {
     const actual = calendarDays(Date.parse(`${p.pickupDate}T12:00:00+05:30`), i.endMs);
     if (actual !== null && actual > p.days) {
@@ -1281,6 +1507,9 @@ function finalizeFareWithoutAddOns(i: FinalInput): FinalResult {
   if (p.partner && p.model === 'airport_transfer') {
     // The quoted payout plus the partner rate for every KM driven beyond the quoted route.
     partnerPaise = p.partner.basePaise + kmAmountPaise(Math.max(0, Math.round((totalKm - includedKm) * 10) / 10), p.partner.ratePaise);
+  } else if (p.partner && timeFinal) {
+    // The package's own payout plus the partner rate for every KM beyond the package's inclusion.
+    partnerPaise = timeFinal.partnerPaise + kmAmountPaise(extraKm, p.partner.ratePaise);
   } else if (p.partner && (p.model === 'rental_package' || p.model === 'fixed_route')) {
     // A rental package or fixed route fare pays the partner its agreed payout.
     partnerPaise = p.partner.basePaise;
@@ -1306,8 +1535,18 @@ function finalizeFareWithoutAddOns(i: FinalInput): FinalResult {
     subtotal, discount, taxableAmount: taxable, gstRate: p.gstRate, gst, total: r2(taxable + gst),
     distanceKm: totalKm, durationMin: 0, perKmRate: rupeesOf(p.extraKmRatePaise), perMinuteRate: 0,
   };
+  if (timeFinal) {
+    // A time-based package is one flat fare (driver allowance inside) plus the KM beyond it.
+    fare.baseFare = r2(packagePaise / 100);
+    fare.distanceFare = r2(extraKmPaise / 100);
+    fare.driverAllowance = 0;
+    fare.minimumFareAdjustment = 0;
+  }
   if (p.gst) fare.gstDetails = { ...p.gst, ...gstComponents(fare.gst, p.gst.split) };
-  return { fare, billableKm, extraKm, days, extraKmPaise, customerPackagePaise: packagePaise, partnerPaise, extraDays };
+  return {
+    fare, billableKm, extraKm, days, extraKmPaise, customerPackagePaise: packagePaise, partnerPaise, extraDays,
+    ...(timeFinal ? { timeBased: { packageId: p.timeBased!.packageId, label: timeFinal.label, upgraded: timeFinal.upgraded, coverageExceeded: timeFinal.coverageExceeded, includedKm: timeFinal.includedKm } } : {}),
+  };
 }
 
 /**

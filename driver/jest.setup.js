@@ -26,6 +26,7 @@ jest.mock('firebase/firestore', () => {
     Timestamp,
     doc: ref,
     collection: ref,
+    collectionGroup: ref,
     query: ref,
     where: ref,
     orderBy: ref,

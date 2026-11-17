@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { scheduleProblem } from '@core/utils/bookingRules';
-import { combineDateTime, earliestPickup, earliestSlot, latestPickup, pickupTimeOptions, toDateInput, toTimeInput } from './schedule';
+import { OVERNIGHT_AFTER_MIN, addDaysISO, combineDateTime, earliestPickup, earliestSlot, latestPickup, pickupMinutes, pickupTimeOptions, toDateInput, toTimeInput } from './schedule';
 
 describe('pickup scheduling', () => {
   it('round-trips the date and time inputs', () => {
@@ -47,5 +47,23 @@ describe('pickup time options', () => {
     expect(pickupTimeOptions('2026-11-10', SLOTS, now)).toEqual([]);
     expect(toDateInput(earliestSlot(now))).toBe('2026-11-11');
     expect(pickupTimeOptions('2026-11-11', SLOTS, now)[0]).toBe('00:20');
+  });
+});
+
+describe('overnight round-trip helpers', () => {
+  it('reads an hh:mm time as minutes after midnight, or -1', () => {
+    expect(pickupMinutes('18:45')).toBe(1125);
+    expect(pickupMinutes('00:05')).toBe(5);
+    expect(pickupMinutes('')).toBe(-1);
+    expect(pickupMinutes('6:45 PM')).toBe(-1);
+  });
+  it('treats a pickup after 6:45 PM (not at it) as overnight', () => {
+    expect(OVERNIGHT_AFTER_MIN).toBe(1125);
+    expect(OVERNIGHT_AFTER_MIN < pickupMinutes('18:45')).toBe(false);
+    expect(OVERNIGHT_AFTER_MIN < pickupMinutes('18:46')).toBe(true);
+  });
+  it('adds calendar days across a month end', () => {
+    expect(addDaysISO('2026-11-30', 1)).toBe('2026-12-01');
+    expect(addDaysISO('2026-11-16', 0)).toBe('2026-11-16');
   });
 });

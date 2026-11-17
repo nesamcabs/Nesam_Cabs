@@ -3,7 +3,7 @@
 import React from 'react';
 import { Image, Linking, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { COMPANY_LEGAL_NAME, SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY } from '../config/constants';
+import { COPYRIGHT_HOLDER, SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY } from '../config/constants';
 import { ROUTE_CORRIDORS } from '../data/routeCorridors';
 import { useBookingDraft, type HomeService } from '../context/BookingDraft';
 import { NESAM } from '../assets/images';
@@ -100,7 +100,7 @@ export function SiteFooter({ breakout }: { breakout?: boolean }) {
         </View>
         <View style={styles.legal}>
           <Text style={styles.legalText}>
-            © {new Date().getFullYear()} NESAM Cabs · A Unit of {COMPANY_LEGAL_NAME}
+            © {new Date().getFullYear()} NESAM Cabs · A Unit of {COPYRIGHT_HOLDER}
           </Text>
           <Text style={styles.legalText}>Cash or UPI to your driver · nothing is charged when you book</Text>
         </View>

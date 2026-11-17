@@ -20,7 +20,7 @@ import { createRideRequest } from '../services/rideService';
 import { buildFareBreakup } from '../utils/fareBreakup';
 import { categoryLabel } from '../utils/categoryLabel';
 import type { AppliedCoupon, FareBreakdown, PaymentMethod } from '../types';
-import { formatINR, formatPhone, formatTime, isValidIndianMobile } from '../utils/format';
+import { formatDate, formatINR, formatPhone, formatTime, isValidIndianMobile } from '../utils/format';
 import { describeError } from '../utils/retry';
 import { colors, fonts, space } from '../theme';
 import { NOTES_MAX, composeBookingNotes, scheduleProblem, whatsappProblem } from '../utils/bookingRules';
@@ -44,7 +44,7 @@ const dayText = (d: Date) => `${d.getDate()} ${d.toLocaleDateString('en-IN', { m
 export function ConfirmBookingScreen() {
   const navigation = useNavigation();
   const { profile, trips } = useCustomerData();
-  const { draft, update, reset, route, categories, adjustment, coupons, serverQuote: serverQuoteState } = useBookingDraft();
+  const { draft, update, reset, route, categories, adjustment, coupons, serverQuote: serverQuoteState, selectedPackage } = useBookingDraft();
   const { pickup, drop, tripType, scheduledAt, tripEndAt, categoryId, flightNumber, promoCode } = draft;
   const { online } = useNetworkStatus();
 
@@ -60,6 +60,8 @@ export function ConfirmBookingScreen() {
   const [email, setEmail] = useState('');
   const [fareOpen, setFareOpen] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  // Morning Return: the strict cutoff and the automatic upgrade are accepted on their own, per package.
+  const [cutoffFor, setCutoffFor] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [serverQuote, setServerQuote] = useState<{ key: string; fare: FareBreakdown } | null>(null);
@@ -144,12 +146,17 @@ export function ConfirmBookingScreen() {
   const addOnsConfirmed = (!draft.roofCarrier || quote.addOns?.roofCarrier === true) && (!draft.pets || quote.addOns?.pets === true);
   const waError = whatsappProblem(waSame, waCode, waNumber);
   const guestError = someoneElse && (guestName.trim().length < 2 ? 'Enter the passenger’s name.' : !isValidIndianMobile(guestMobile.replace(/\D/g, '').slice(-10)) ? 'Enter the passenger’s 10-digit mobile number.' : '');
+  const morning = tripType === 'Round Trip' && !draft.multicity && selectedPackage?.kind === 'morning' ? selectedPackage : null;
+  const cutoffKey = morning ? `${morning.id}|${morning.endAt}` : '';
+  const cutoffAccepted = !morning || cutoffFor === cutoffKey;
+  const cutoffAt = morning ? new Date(morning.morningCutoffAt ?? morning.endAt) : null;
   const blocker = !online
     ? 'You are offline. Please reconnect to confirm your booking.'
     : scheduleProblem(scheduledAt)
       || (!authoritative && serverQuote?.key !== priceKey ? (serverQuoteState.status === 'loading' ? 'Confirming your fare with NESAM…' : serverQuoteState.error || 'We need to confirm your fare before you can submit.') : '')
       || (waError || emailError || guestError ? 'Check your contact details.' : '')
-      || (!termsAccepted ? 'Accept the fare, extra charges and cancellation policy to book.' : '');
+      || (!termsAccepted ? 'Accept the fare, extra charges and cancellation policy to book.' : '')
+      || (!cutoffAccepted ? 'Accept the 9:00 AM cutoff and the automatic upgrade to book.' : '');
 
   // The server quote is requested again with the code; its answer decides whether the discount applies.
   const applyPromo = () => update({ promoCode: promoInput.trim().toUpperCase().slice(0, 50) });
@@ -194,10 +201,13 @@ export function ConfirmBookingScreen() {
         bookingSource: 'nesam',
         brand: 'nesam',
         tripEndAt: tripType === 'Round Trip' ? draft.tripEndAt : null,
+        tripDays: tripType === 'Round Trip' && !draft.multicity ? draft.tripDays : null,
+        timePackage: tripType === 'Round Trip' && !draft.multicity ? selectedPackage?.id ?? null : null,
         stops: tripType === 'Round Trip' ? draft.stops : [],
         multicity: draft.multicity,
         rentalHours: tripType === 'Local Rental' ? draft.rentalHours : null,
         termsAccepted,
+        ...(morning ? { morningCutoffAccepted: true } : {}),
       });
       reset();
       navigation.reset({
@@ -368,6 +378,14 @@ export function ConfirmBookingScreen() {
         <View style={styles.rule} />
 
         <Checkbox checked={termsAccepted} onChange={setTermsAccepted} label="I accept the fare, extra charges and cancellation policy, and understand NESAM reviews this booking before arranging a vehicle." />
+
+        {morning && cutoffAt ? (
+          <Checkbox
+            checked={cutoffAccepted}
+            onChange={(on) => setCutoffFor(on ? cutoffKey : '')}
+            label={`I accept the strict ${formatTime(cutoffAt)} cutoff on ${formatDate(cutoffAt)}.${morning.upgrade ? ` A trip still running after it becomes ${morning.upgrade.label} (+${formatINR(morning.upgrade.increase)}, ${morning.upgrade.includedKm} km included), with no grace period.` : ''}`}
+          />
+        ) : null}
 
         {submitError ? <Notice message={submitError} tone="error" style={{ marginTop: space.md }} /> : null}
         {blocker && termsAccepted ? <Notice message={blocker} tone="warning" style={{ marginTop: space.md }} /> : null}

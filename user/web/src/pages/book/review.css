@@ -730,3 +730,7 @@
   opacity: 0.45;
   transition: opacity 150ms ease;
 }
+
+/* Morning Return: the strict cutoff is accepted on its own line (the copy is long, so it wraps). */
+.cb-terms__row--cutoff { align-items: flex-start; white-space: normal; padding-top: 6px; font-weight: 500; }
+.cb-terms__row--cutoff input.cb-tick { margin-top: 1px; flex: none; }

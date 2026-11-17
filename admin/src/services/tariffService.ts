@@ -16,7 +16,14 @@ export const DEFAULT_RENTAL_MIN_HOURS: Record<TariffClass, number> = { sedan: 1,
 /** A class's CNG rate card as saved on the base rates (the server keeps it only when complete). */
 export interface CngRates { customerRate: number; customerBata: number; partnerRate: number; partnerBata: number; extraKmRate?: number; minKmPerDay?: number }
 export interface OneWayRates { customerRate: number; customerBata: number; partnerRate: number; partnerBata: number; cng?: Partial<CngRates> }
-export interface RoundTripRates extends OneWayRates { minKmPerDay: number }
+/** Time-based round trip (Customer UX v8): 5-hour / 8-hour / Morning Return amounts of one class, in rupees. */
+export interface TimeBasedClassRates { fiveFare: number; fiveKm: number; fivePartner: number; eightFare: number; eightKm: number; eightPartner: number; morningFare?: number; morningKm?: number; morningPartner?: number }
+/** Shared settings; minutes are minutes after IST midnight (1425 = 11:45 PM). */
+export interface TimeBasedSettings { enabled: boolean; cutoffMinutes: number; morningCutoffMinutes: number; nextDayEightFromMinutes: number; nextDayFiveFromMinutes: number; shortKmLimit: number; fiveKmLimit?: number; lateNightEndMinutes?: number; fiveHours: number; eightHours: number }
+/** Hill Station Allowance / Charge (Customer UX v8): one One-Way and one Round-Trip slab per vehicle class, rupees. */
+export interface HillSlab { customer: number; partner: number }
+export interface HillStationSettings { enabled: boolean; chargePer: 'trip' | 'station'; classes?: Partial<Record<TariffClass, { oneWay?: HillSlab; roundTrip?: HillSlab }>> }
+export interface RoundTripRates extends OneWayRates { minKmPerDay: number; timeBased?: TimeBasedClassRates }
 
 /**
  * The rate class a vehicle category is priced as. Same order as the server (functions/src/quote.ts tariffClassOf and
@@ -119,7 +126,7 @@ export interface Tariff {
   enabled?: boolean;
   gstRate?: number;
   oneWay?: { minKm?: number; classes?: Partial<Record<TariffClass, Partial<OneWayRates>>> };
-  roundTrip?: { maxDays?: number; classes?: Partial<Record<TariffClass, Partial<RoundTripRates>>> };
+  roundTrip?: { maxDays?: number; timeBased?: TimeBasedSettings; classes?: Partial<Record<TariffClass, Partial<RoundTripRates>>> };
   cityDrop?: { baseKm?: number; zones?: Zone[] };
   outstationExtras?: Partial<Record<TariffClass, Partial<OutstationExtra>>>;
   oneWayExtras?: Partial<Record<TariffClass, Partial<OutstationExtra>>>;
@@ -128,6 +135,7 @@ export interface Tariff {
   localPickupDrop?: Record<string, { cityName?: string; classes?: Partial<Record<TariffClass, Partial<LocalFare>>> }>;
   rentalPackages?: Partial<Record<TariffClass, { minHours?: number; packages?: Partial<Record<string, Partial<RentalPackage>>> }>>;
   extraCharges?: ExtraCharges;
+  hillStation?: HillStationSettings;
   brandOverrides?: Partial<Record<string, Partial<Record<string, Partial<Record<TariffClass, BrandFareOverride>>>>>>;
   /** Display only: the % shown as a higher struck-out price, by brand then service. */
   displayMarkup?: Record<string, Record<string, number>>;

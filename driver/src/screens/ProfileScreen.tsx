@@ -6,7 +6,7 @@ import Constants from 'expo-constants';
 import { useNavigation } from '@react-navigation/native';
 import { Text } from '../components/nx/Text';
 import { useDriverData } from '../context/DriverData';
-import { useSignOut } from '../navigation/MainNavigator';
+import { useSignOut } from '../navigation/signOut';
 import type { ProfileSection } from '../navigation/types';
 import { NxScreen, useShell } from '../components/nx/Shell';
 import { NxTwoPane, useLayout } from '../components/nx/layout';
@@ -16,7 +16,7 @@ import { NxIcon, type NxIconName } from '../components/nx/Icon';
 import { NxBadge, NxPanel, isHovered } from '../components/nx/primitives';
 import { requestAccountDeletion } from '../services/partnerRequests';
 import { formatINR } from '../utils/format';
-import { COMPANY_LEGAL_NAME, SUPPORT_EMAIL } from '../config/constants';
+import { COPYRIGHT_HOLDER, SUPPORT_EMAIL } from '../config/constants';
 import { nx } from '../theme/nx';
 
 function ActionRow({ icon, title, sub, onPress, danger, last }: { icon: NxIconName; title: string; sub?: string; onPress: () => void; danger?: boolean; last?: boolean }) {
@@ -103,7 +103,7 @@ export function ProfileScreen() {
         <ActionRow icon="logout" title="Sign out" onPress={confirmSignOut} danger last />
       </NxPanel>
       <Text style={styles.version}>
-        NESAM Driver v{Constants.expoConfig?.version ?? '1.0.0'} · © {new Date().getFullYear()} {COMPANY_LEGAL_NAME}
+        NESAM Driver v{Constants.expoConfig?.version ?? '1.0.0'} · © {new Date().getFullYear()} {COPYRIGHT_HOLDER}
       </Text>
     </>
   );

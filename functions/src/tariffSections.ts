@@ -8,8 +8,9 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { FieldValue } from 'firebase-admin/firestore';
 import { db } from './admin';
 import { auditInTx } from './audit';
+import { parseHillStationConfig } from './domain/hillStations';
 import {
-  BrandFareOverride, RENTAL_HOURS, RentalPackage, TARIFF_CLASSES, TariffClass, TariffConfig, parseRentalPackage, parseTariffConfig, rentalMinHours,
+  BrandFareOverride, RENTAL_HOURS, RentalPackage, TARIFF_CLASSES, TariffClass, TariffConfig, TimeBasedClassRates, TimeBasedSettings, DEFAULT_TIME_BASED, parseRentalPackage, parseTariffConfig, rentalMinHours,
 } from './domain/tariff';
 import { EXTRA_CATEGORY_ID, ExtraChargeRow, ExtraChargeSide, ExtraChargesConfig, MAX_FREE_WAITING_MINUTES, MAX_WAITING_ROUNDING_MINUTES, ROUNDING_SCOPES, RoundingScope, TAX_TREATMENTS, TaxTreatment } from './domain/extraCharges';
 import { TARIFF_DOC } from './quote';
@@ -83,6 +84,8 @@ function applyBaseRates(base: TariffConfig, d: Record<string, unknown>): TariffC
       minKmPerDay,
       // The mini round-trip slab is its own section (below); keep it as it was.
       ...(base.roundTrip.classes[cls]?.miniFare ? { miniFare: base.roundTrip.classes[cls]!.miniFare, miniPartnerFare: base.roundTrip.classes[cls]!.miniPartnerFare } : {}),
+      // The time-based round trip packages are their own section (below); keep them as they were.
+      ...(base.roundTrip.classes[cls]?.timeBased ? { timeBased: base.roundTrip.classes[cls]!.timeBased } : {}),
     };
     // Old clients can still update the shared fallback, but cannot overwrite separately saved journey rates.
     for (const [field, target, label] of [
@@ -246,6 +249,98 @@ function applyRoundTripMini(base: TariffConfig, d: Record<string, unknown>): Tar
     };
   }
   return next;
+}
+
+// ── Section: time-based round trip (Customer UX v7) ─────────────────────────
+
+const minuteOfDay = (v: unknown, label: string): number => {
+  if (typeof v !== 'number' || !Number.isInteger(v) || v < 0 || v > 1439) throw bad(`${label} must be a time of day.`);
+  return v;
+};
+
+/**
+ * The 5-hour / 8-hour packages (and the optional Morning Return) of each class, with the shared cutoffs. The Full-Day package
+ * is not entered here: it is the class's normal Round Trip day (daily minimum KM × rate + allowance). Switching `enabled` on
+ * makes customer Round Trip quotes time-based for every class that has amounts; the others keep calendar pricing.
+ */
+function applyRoundTripTimeBased(base: TariffConfig, d: Record<string, unknown>): TariffConfig {
+  const next: TariffConfig = { ...base, roundTrip: { ...base.roundTrip, classes: { ...base.roundTrip.classes } } };
+  const sIn = obj(d.settings, 'The time-based settings');
+  const settings: TimeBasedSettings = {
+    enabled: d.enabled === true,
+    cutoffMinutes: minuteOfDay(sIn.cutoffMinutes, 'The booked cutoff time'),
+    morningCutoffMinutes: minuteOfDay(sIn.morningCutoffMinutes, 'The Morning Return cutoff time'),
+    nextDayEightFromMinutes: minuteOfDay(sIn.nextDayEightFromMinutes, 'The 8-hour first-day start time'),
+    nextDayFiveFromMinutes: minuteOfDay(sIn.nextDayFiveFromMinutes, 'The 5-hour first-day start time'),
+    shortKmLimit: amount(sIn.shortKmLimit, 'The short-package kilometre limit', true),
+    fiveKmLimit: sIn.fiveKmLimit === undefined || sIn.fiveKmLimit === null || sIn.fiveKmLimit === '' ? DEFAULT_TIME_BASED.fiveKmLimit : amount(sIn.fiveKmLimit, 'The 5-hour kilometre limit', true),
+    lateNightEndMinutes: sIn.lateNightEndMinutes === undefined || sIn.lateNightEndMinutes === null ? DEFAULT_TIME_BASED.lateNightEndMinutes : minuteOfDay(sIn.lateNightEndMinutes, 'The late-night group end time'),
+    fiveHours: amount(sIn.fiveHours, 'The short package hours', true),
+    eightHours: amount(sIn.eightHours, 'The medium package hours', true),
+  };
+  if (settings.fiveHours >= settings.eightHours) throw bad('The 5-hour package must be shorter than the 8-hour package.');
+  if (settings.nextDayEightFromMinutes >= settings.nextDayFiveFromMinutes) throw bad('The 8-hour first-day start must be earlier than the 5-hour first-day start.');
+  if (settings.fiveKmLimit > settings.shortKmLimit) throw bad('The 5-hour kilometre limit cannot be above the 8-hour kilometre limit.');
+  if (settings.lateNightEndMinutes >= settings.nextDayEightFromMinutes) throw bad('The late-night group must end before the 8-hour first-day start.');
+  if (settings.cutoffMinutes <= settings.eightHours * 60) throw bad('The booked cutoff must be later than the longest short package.');
+  if (settings.morningCutoffMinutes >= 12 * 60) throw bad('The Morning Return cutoff must be before noon.');
+  next.roundTrip.timeBased = settings;
+  const classes = obj(d.classes, 'The class amounts');
+  for (const [key, raw] of Object.entries(classes)) {
+    const cls = classOf(key);
+    const current = next.roundTrip.classes[cls];
+    if (!current) throw bad(`Set the ${cls} Round Trip base rates before its time-based packages.`);
+    if (raw === null) {
+      const { timeBased: _drop, ...rest } = current;
+      next.roundTrip.classes[cls] = rest;
+      continue;
+    }
+    const m = obj(raw, `The ${cls} time-based packages`);
+    const morning = ['morningFare', 'morningKm', 'morningPartner'].map((k) => m[k]);
+    const anyMorning = morning.some((v) => v !== undefined && v !== null && v !== '');
+    const tb: TimeBasedClassRates = {
+      fiveFare: amount(m.fiveFare, `${cls} 5-hour customer fare`, true), fiveKm: amount(m.fiveKm, `${cls} 5-hour included kilometres`, true), fivePartner: amount(m.fivePartner, `${cls} 5-hour partner payout`, true),
+      eightFare: amount(m.eightFare, `${cls} 8-hour customer fare`, true), eightKm: amount(m.eightKm, `${cls} 8-hour included kilometres`, true), eightPartner: amount(m.eightPartner, `${cls} 8-hour partner payout`, true),
+      ...(anyMorning ? { morningFare: amount(m.morningFare, `${cls} Morning Return customer fare`, true), morningKm: amount(m.morningKm, `${cls} Morning Return included kilometres`, true), morningPartner: amount(m.morningPartner, `${cls} Morning Return partner payout`, true) } : {}),
+    };
+    if (tb.fiveFare >= tb.eightFare) throw bad(`${cls}: the 5-hour fare must be lower than the 8-hour fare.`);
+    if (tb.fiveKm >= tb.eightKm) throw bad(`${cls}: the 5-hour kilometres must be fewer than the 8-hour kilometres.`);
+    next.roundTrip.classes[cls] = { ...current, timeBased: tb };
+  }
+  if (settings.enabled && !Object.values(next.roundTrip.classes).some((c) => c?.timeBased)) throw bad('Enter the 5-hour and 8-hour packages for at least one category before switching the time-based round trip on.');
+  return next;
+}
+
+/**
+ * Hill Station Allowance / Charge: one One-Way slab and one Round-Trip slab per vehicle class (customer and partner amounts), the
+ * master switch, whether the slab is charged once per trip or once per hill station, and optional corrections to the station list.
+ * A `null` class removes its slabs. A class with only one slab is charged for that kind of trip only.
+ */
+function applyHillStation(base: TariffConfig, d: Record<string, unknown>): TariffConfig {
+  const classes: NonNullable<TariffConfig['hillStation']>['classes'] = { ...(base.hillStation?.classes ?? {}) };
+  const incoming = d.classes === undefined ? {} : obj(d.classes, 'The hill station slabs');
+  const slab = (raw: unknown, label: string) => {
+    if (raw === null || raw === undefined) return undefined;
+    const o = obj(raw, label);
+    return { customer: amount(o.customer, `${label} customer charge`, true), partner: amount(o.partner, `${label} partner payout`, false) };
+  };
+  for (const [key, raw] of Object.entries(incoming)) {
+    const cls = classOf(key);
+    if (raw === null) { delete classes[cls]; continue; }
+    const row = obj(raw, `The ${cls} hill station slabs`);
+    const oneWay = slab(row.oneWay, `${cls} one-way hill`), roundTrip = slab(row.roundTrip, `${cls} round-trip hill`);
+    if (!oneWay && !roundTrip) { delete classes[cls]; continue; }
+    classes[cls] = { ...(oneWay ? { oneWay } : {}), ...(roundTrip ? { roundTrip } : {}) };
+  }
+  const enabled = d.enabled === true;
+  if (enabled && !Object.keys(classes).length) throw bad('Enter the hill station charge for at least one vehicle category before switching it on.');
+  const parsed = parseHillStationConfig({
+    enabled, chargePer: d.chargePer === 'station' ? 'station' : 'trip', classes,
+    stations: d.stations === undefined ? base.hillStation?.stations : d.stations,
+    disabledStations: d.disabledStations === undefined ? base.hillStation?.disabledStations : d.disabledStations,
+  }, TARIFF_CLASSES);
+  if (!parsed) throw bad('The hill station setting is invalid.');
+  return { ...base, hillStation: parsed };
 }
 
 function applyBrandOverride(
@@ -532,6 +627,14 @@ export const saveTariffSection = onCall(async (request) => {
       const d = obj(input.data, 'The mini round-trip fares');
       next = applyRoundTripMini(base, d);
       meta = { section, classes: Object.keys(obj(d.classes, 'The mini fares')), miniMaxHours: next.roundTrip.miniMaxHours, miniMaxKm: next.roundTrip.miniMaxKm };
+    } else if (section === 'roundTripTimeBased') {
+      const d = obj(input.data, 'The time-based round-trip packages');
+      next = applyRoundTripTimeBased(base, d);
+      meta = { section, enabled: next.roundTrip.timeBased?.enabled === true, classes: Object.keys(obj(d.classes, 'The class amounts')) };
+    } else if (section === 'hillStation') {
+      const d = obj(input.data, 'The hill station charges');
+      next = applyHillStation(base, d);
+      meta = { section, enabled: next.hillStation?.enabled === true, chargePer: next.hillStation?.chargePer, classes: Object.keys(next.hillStation?.classes ?? {}) };
     } else if (section === 'rentalMinimum') {
       const cls = classOf(input.class);
       next = applyRentalMinimum(base, cls, input.minHours);

@@ -6,6 +6,8 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import type { Coupon, GeoPlace, RideCategory, RouteInfo, TripType } from '../types';
 import { useServerQuotes, type ServerQuoteState } from '../hooks/useServerQuotes';
 import { scheduleProblem } from '../utils/bookingRules';
+import { timePackageView, type TimePackageView } from '../utils/timePackages';
+import type { HillStationInfo, ServerTimePackage } from '../services/quoteService';
 import {
   subscribeToCoupons,
   subscribeToFareAdjustment,
@@ -26,6 +28,10 @@ export interface BookingDraft {
   scheduledAt: Date | null;
   /** Round trips: when the trip ends (billing counts Indian calendar dates from pickup to here). */
   tripEndAt: Date | null;
+  /** Round trips: how many calendar days the trip lasts (the return time is never asked; the package decides it). */
+  tripDays: number;
+  /** Round trips (time-based): the package picked — 'same:eight' | 'same:five' | 'same:full' | 'next' | 'morning'; '' = the cheapest that fits. */
+  timePackage: string;
   categoryId: string;
   /** Airport transfers: which way the customer travels (UI only; the airport place carries type 'airport'). */
   airportDirection: 'to' | 'from';
@@ -71,8 +77,15 @@ interface BookingDraftValue {
   categoryStatus: RideCategoryStatus;
   adjustment: FareAdjustment | null;
   coupons: Coupon[];
-  /** The booking server's own quotes for this trip — the only fare that can be booked. */
+  /** The booking server's own quotes for this trip — the only fare that can be booked. With a package picked, each vehicle's fare is that package's. */
   serverQuote: ServerQuoteState;
+  /** Time-based round trip packages offered (for the chosen vehicle), the one in force, and the notices that go with them. */
+  packages: ServerTimePackage[];
+  selectedPackage: ServerTimePackage | null;
+  autoDays: boolean;
+  customQuote: boolean;
+  /** Hill stations found on the pickup, stops and drop. */
+  hillStations: HillStationInfo[];
 }
 
 const Ctx = createContext<BookingDraftValue | null>(null);
@@ -94,6 +107,8 @@ export function BookingDraftProvider({ authKey = '', children }: { authKey?: str
     tripType: 'One Way',
     scheduledAt: null,
     tripEndAt: null,
+    tripDays: 1,
+    timePackage: '',
     categoryId: '',
     airportDirection: 'to',
     flightNumber: '',
@@ -144,7 +159,7 @@ export function BookingDraftProvider({ authKey = '', children }: { authKey?: str
   const reset = useCallback(() => {
     lastOutstation.current = 'One Way';
     setServiceState('outstation');
-    setDraft((d) => ({ ...d, drop: null, stops: [], scheduledAt: null, tripEndAt: null, tripType: 'One Way', flightNumber: '', airportDirection: 'to', promoCode: '', roofCarrier: false, pets: false, rentalHours: null, fuelType: '', multicity: false }));
+    setDraft((d) => ({ ...d, drop: null, stops: [], scheduledAt: null, tripEndAt: null, tripDays: 1, timePackage: '', tripType: 'One Way', flightNumber: '', airportDirection: 'to', promoCode: '', roofCarrier: false, pets: false, rentalHours: null, fuelType: '', multicity: false }));
   }, []);
   const setRoute = useCallback((key: string, info: RouteInfo) => setRouteState({ key, info }), []);
 
@@ -162,16 +177,29 @@ export function BookingDraftProvider({ authKey = '', children }: { authKey?: str
       tripType: draft.multicity && tripType === 'Round Trip' ? ('Multicity' as const) : tripType,
       scheduledAt: scheduledAt.toISOString(),
       tripEndAt: tripType === 'Round Trip' && tripEndAt ? tripEndAt.toISOString() : null,
+      tripDays: tripType === 'Round Trip' && !draft.multicity ? draft.tripDays : null,
       addOns: { roofCarrier: draft.roofCarrier, pets: draft.pets },
       couponCode: promoCode || '',
       rentalHours: tripType === 'Local Rental' ? draft.rentalHours : null,
     };
   }, [draft]);
-  const serverQuote = useServerQuotes(quoteRequest);
+  const rawQuote = useServerQuotes(quoteRequest);
+  // A package picked on the Choose screen decides each vehicle's fare; every screen below reads it as the vehicle's fare.
+  const view = useMemo<TimePackageView>(() => timePackageView(rawQuote.data, draft.timePackage, draft.categoryId), [rawQuote.data, draft.timePackage, draft.categoryId]);
+  const serverQuote = useMemo<ServerQuoteState>(() => ({ ...rawQuote, data: view.data }), [rawQuote, view.data]);
+
+  // Auto-Days sync (Customer UX v8): choosing an overnight package (Morning Return, Next-Day Return) when fewer days were asked for makes
+  // the trip that many days, in the form and the summary together. Never the other way: 3 or more days are never cut back to 2.
+  const picked = view.selected;
+  useEffect(() => {
+    if (draft.tripType !== 'Round Trip' || draft.multicity || !draft.scheduledAt || !picked || picked.days <= draft.tripDays) return;
+    const start = draft.scheduledAt;
+    update({ tripDays: picked.days, timePackage: picked.id, tripEndAt: new Date(start.getTime() + (picked.days - 1) * 86_400_000) });
+  }, [picked?.id, picked?.days, draft.tripDays, draft.tripType, draft.multicity, draft.scheduledAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const value = useMemo<BookingDraftValue>(
-    () => ({ draft, service, setService, update, reset, route, setRoute, routeKey, categories, categoryStatus, adjustment, coupons, serverQuote }),
-    [draft, service, setService, update, reset, route, setRoute, routeKey, categories, categoryStatus, adjustment, coupons, serverQuote],
+    () => ({ draft, service, setService, update, reset, route, setRoute, routeKey, categories, categoryStatus, adjustment, coupons, serverQuote, packages: view.packages, selectedPackage: view.selected, autoDays: view.autoDays, customQuote: view.customQuote, hillStations: view.hillStations }),
+    [draft, service, setService, update, reset, route, setRoute, routeKey, categories, categoryStatus, adjustment, coupons, serverQuote, view],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

@@ -37,6 +37,8 @@ export function ReviewStep() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
+  // Morning Return: the strict 9:00 AM cutoff and the automatic upgrade are accepted on their own, per package.
+  const [cutoffFor, setCutoffFor] = useState('');
   const [tried, setTried] = useState(false);
   const [serverQuote, setServerQuote] = useState<{ key: string; fare: Fare } | null>(null);
   const [showFare, setShowFare] = useState(false);
@@ -165,7 +167,11 @@ export function ReviewStep() {
     passengerName: forOther ? passengerName : '',
     passengerMobile: forOther ? passengerMobile : '',
   });
+  const morning = tripType === 'Round Trip' && !draft.multicity && q.selectedPackage?.kind === 'morning' ? q.selectedPackage : null;
+  const cutoffKey = morning ? `${morning.id}|${morning.endAt}` : '';
+  const cutoffAccepted = !morning || cutoffFor === cutoffKey;
   const termsError = tried && !termsAccepted ? 'Please accept the fare and cancellation terms to confirm.' : '';
+  const cutoffError = tried && !cutoffAccepted ? 'Please accept the 9:00 AM cutoff and the automatic upgrade to confirm.' : '';
   const blocker = !online
     ? 'You’re offline. Reconnect to book.'
     : scheduleProblem(scheduledAt) ||
@@ -178,8 +184,8 @@ export function ReviewStep() {
 
   const submit = async () => {
     setTried(true);
-    if (!termsAccepted) {
-      termsRef.current?.querySelector('input')?.focus();
+    if (!termsAccepted || !cutoffAccepted) {
+      termsRef.current?.querySelector<HTMLInputElement>(!cutoffAccepted && termsAccepted ? 'input[data-cutoff]' : 'input')?.focus();
       return;
     }
     if (!profile) {
@@ -219,8 +225,11 @@ export function ReviewStep() {
         notes: fullNotes,
         scheduledAt,
         tripEndAt: tripType === 'Round Trip' ? tripEndAt : null,
+        tripDays: tripType === 'Round Trip' && !draft.multicity ? draft.tripDays : null,
+        timePackage: tripType === 'Round Trip' && !draft.multicity ? q.selectedPackage?.id ?? null : null,
         rentalHours: tripType === 'Local Rental' ? draft.rentalHours : null,
         termsAccepted,
+        ...(morning ? { morningCutoffAccepted: true } : {}),
         addOns: { roofCarrier: draft.roofCarrier, pets: draft.pets },
         whatsapp: { sameAsMobile: false, countryCode: contactCode, number: contactNumber },
         email: email.trim(),
@@ -441,6 +450,16 @@ export function ReviewStep() {
               </span>
             </label>
             {termsError ? <p className="cb-error" role="alert">{termsError}</p> : null}
+            {morning ? (
+              <label className="cb-terms__row cb-terms__row--cutoff">
+                <input type="checkbox" className="cb-tick" data-cutoff="" checked={cutoffAccepted} onChange={(e) => setCutoffFor(e.target.checked ? cutoffKey : '')} />
+                <span className="cb-terms__text">
+                  I accept the strict {formatTime(new Date(morning.morningCutoffAt ?? morning.endAt))} cutoff on {formatDate(new Date(morning.morningCutoffAt ?? morning.endAt))}.
+                  {morning.upgrade ? ` A trip still running after it becomes ${morning.upgrade.label} (+${formatINR(morning.upgrade.increase)}, ${morning.upgrade.includedKm} km included), with no grace period.` : ''}
+                </span>
+              </label>
+            ) : null}
+            {cutoffError ? <p className="cb-error" role="alert">{cutoffError}</p> : null}
           </div>
           <div className="cb-bar__row">
             <button type="button" className="cb-iconbtn" aria-label="Back to vehicles" title="Back to vehicles" onClick={() => navigate('/book/ride')}>

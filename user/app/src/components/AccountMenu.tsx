@@ -15,7 +15,7 @@ import { updateCustomerProfile } from '../services/userService';
 import { signOutUser } from '../services/authService';
 import { formatINR, formatPhone, initials } from '../utils/format';
 import { describeError } from '../utils/retry';
-import { COMPANY_LEGAL_NAME } from '../config/constants';
+import { COPYRIGHT_HOLDER } from '../config/constants';
 import { useResponsive } from '../theme/responsive';
 import { colors, fonts } from '../theme';
 
@@ -243,7 +243,7 @@ export function AccountMenu({ variant = 'page', onClose }: { variant?: 'page' | 
             <Text style={styles.settingLabel}>Log out</Text>
           </Pressable>
         </View>
-        <Text style={styles.legal}>© {COMPANY_LEGAL_NAME.replace(/NESAM/g, 'Nesam')}</Text>
+        <Text style={styles.legal}>© {COPYRIGHT_HOLDER}</Text>
       </View>
     </View>
   );

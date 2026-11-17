@@ -17,6 +17,8 @@ export const COMPANY_UPI_ID: string = process.env.EXPO_PUBLIC_COMPANY_UPI_ID || 
 export const CUSTOMER_PAYMENTS_ENABLED: boolean = false;
 export const COMPANY_NAME = 'NESAM Tours & Travels';
 export const COMPANY_LEGAL_NAME = 'NESAM Tours and Travels Private Limited';
+/** Name shown in copyright notices and footers. */
+export const COPYRIGHT_HOLDER = 'Nesam Tours & Travels Private Limited';
 
 // Search results are restricted to India (lon/lat bounding box).
 export const INDIA_BBOX = '68.1,6.5,97.4,35.7';

@@ -199,10 +199,13 @@ export const advanceTrip = onCall({ timeoutSeconds: 60 }, async (request) => {
       if (pricing && typeof totalKm === 'number') {
         const endMs = Date.now();
         if (pricing.source === 'tariff_v2' || pricing.gstInclusiveBase) {
-          const f = finalizeFare({ pricing, totalKm, endMs });
+          const f = finalizeFare({ pricing, totalKm, endMs, startMs: (b.tripStartedAt as Timestamp | undefined)?.toMillis?.() ?? null });
           money = {
             fare: f.fare.total, fareBreakdown: f.fare,
-            finalFare: { schema: 1, totalKm, quotedKm: pricing.quotedKm, includedKm: pricing.includedKm, extraKm: f.extraKm, days: f.days, extraDays: f.extraDays, quotedFare: b.fare, finalFare: f.fare.total, at: Timestamp.now() },
+            finalFare: { schema: 1, totalKm, quotedKm: pricing.quotedKm, includedKm: pricing.includedKm, extraKm: f.extraKm, days: f.days, extraDays: f.extraDays, quotedFare: b.fare, finalFare: f.fare.total, at: Timestamp.now(), ...(f.timeBased ? { timeBased: f.timeBased } : {}) },
+            // A time-based package that ran past its coverage is never charged silently: the office reviews the fare.
+            ...(f.timeBased?.coverageExceeded ? { fareReview: { required: true, reason: 'Trip ran past the booked package coverage', at: Timestamp.now() } } : {}),
+            ...(f.timeBased?.upgraded ? { 'timePackage.upgraded': true, 'timePackage.finalLabel': f.timeBased.label } : {}),
             ...(b.payoutSource === 'tariff' && f.partnerPaise !== null
               ? { [b.assignedVendorId ? 'vendorPayout' : 'driverPayout']: Math.round(f.partnerPaise) / 100 }
               : {}),

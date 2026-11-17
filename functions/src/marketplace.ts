@@ -224,6 +224,8 @@ export const postBookingToMarketplace = onCall({ timeoutSeconds: 120 }, async (r
       pickup: { address: text(b.pickup), city: text(b.pickup), time: text(b.time), ...(Number.isFinite(b.pickupLat) ? { lat: Math.round(b.pickupLat * 100) / 100, lng: Math.round(b.pickupLng * 100) / 100 } : {}) },
       drop: { address: text(b.drop), city: text(b.drop), ...(Number.isFinite(b.dropLat) ? { lat: Math.round(b.dropLat * 100) / 100, lng: Math.round(b.dropLng * 100) / 100 } : {}) },
       travelDate: text(b.date), service: text(b.service), tripType: text(b.tripType),
+      // A time-based round trip: partners see which package it is and when it must end (the 9 AM Morning Return cutoff included).
+      ...(b.timePackage && typeof b.timePackage === 'object' ? { timePackage: { label: text(b.timePackage.label), kind: text(b.timePackage.kind), includedKm: money(b.timePackage.includedKm), ...(b.timePackage.coverageEndAt ? { coverageEndAt: b.timePackage.coverageEndAt } : {}), ...(b.timePackage.morningCutoffAt ? { morningCutoffAt: b.timePackage.morningCutoffAt } : {}) } } : {}),
       // A Multicity tour (or a round trip) passes through these places, in order; partners see them by name only.
       ...(viaNames(b).length ? { via: viaNames(b) } : {}), ...(text(b.tourType) ? { tourType: text(b.tourType) } : {}),
       vehicleCategory: text(b.vehicleCategory) || text(b.vehicle), vehicleCategoryId: text(b.vehicleCategoryId),

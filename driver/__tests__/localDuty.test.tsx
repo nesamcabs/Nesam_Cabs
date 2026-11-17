@@ -34,8 +34,12 @@ const order = (over: Partial<BoardOrder>): BoardOrder => ({
   fare: 210, paymentMethod: 'Cash', vehicleCategory: 'Sedan', ...over,
 });
 
-const account = { driver: { id: 'drv1', name: 'Arun', vendorId: 'ven1', vendorName: 'Kongu Travels', presenceStatus: 'Online' } } as unknown as DriverAccount;
+const account = { driver: { id: 'drv1', name: 'Arun', vendorId: 'ven1', vendorName: 'Kongu Travels', presenceStatus: 'Online', docStatus: 'Approved', city: 'Erode' }, vehicle: { vehicleNumber: 'TN33AB1234', vehicleType: 'Sedan', make: 'Maruti Suzuki', model: 'Dzire' } } as unknown as DriverAccount;
 
+const mockOwnerAccount = { ...account, driver: { ...account.driver, vendorId: '', vendorName: '' } } as unknown as DriverAccount;
+let mockOnline = false;
+let mockAccountFleet = true;
+let mockOffers: unknown[] = [];
 let mockShifts: LocalShift[] = [];
 let mockBookings: TripDetails[] = [];
 let mockBoard: { open: boolean; reason: string; orders: BoardOrder[]; serverTime: number; radiusKm: number; centre: { lat: number; lng: number } | null } | null = null;
@@ -57,12 +61,12 @@ jest.mock('react-native-safe-area-context', () => {
 });
 jest.mock('expo-font', () => ({ useFonts: () => [true, null], isLoaded: () => true, isLoading: () => false, loadAsync: jest.fn(), processFontFamily: (f: string) => f }));
 jest.mock('expo-constants', () => ({ __esModule: true, default: { expoConfig: { version: '1.0.0' } } }));
-jest.mock('../src/hooks/usePresence', () => ({ usePresence: () => ({ status: 'Online', online: true, busy: false, locked: false, change: jest.fn(), toggle: jest.fn() }) }));
+jest.mock('../src/hooks/usePresence', () => ({ usePresence: () => ({ status: mockOnline ? 'Online' : 'Offline', online: mockOnline, busy: false, locked: false, change: jest.fn(), toggle: jest.fn(() => Promise.resolve()) }) }));
 jest.mock('../src/navigation/MainNavigator', () => ({ useSignOut: () => jest.fn() }));
 jest.mock('firebase/storage', () => ({ ref: jest.fn(), uploadBytes: jest.fn(), getDownloadURL: jest.fn() }));
 jest.mock('../src/components/forms', () => ({ PhotoField: () => null, displayDate: (d: string) => d }));
 jest.mock('../src/services/deviceSecurity', () => ({ refreshDeviceIntegrity: jest.fn(), runDeviceChecks: jest.fn(), describeSignals: () => '' }));
-jest.mock('../src/services/locationService', () => ({ getCurrentPosition: jest.fn(() => Promise.reject(new Error('no gps'))), watchPosition: () => () => undefined, LocationError: class LocationError extends Error {} }));
+jest.mock('../src/services/locationService', () => ({ getCurrentPosition: jest.fn(() => Promise.reject(new Error('no gps'))), reverseCity: jest.fn(() => Promise.resolve('')), watchPosition: () => () => undefined, LocationError: class LocationError extends Error {} }));
 jest.mock('../src/hooks/useLocalBoard', () => ({ useLocalBoard: () => ({ board: mockBoard, loading: false, error: '', updatedAt: Date.now(), me: null, locationError: '', refresh: jest.fn() }) }));
 // The map is a WebView page; here it only has to receive the pins.
 jest.mock('../src/components/nx/LiveMap', () => {
@@ -71,7 +75,7 @@ jest.mock('../src/components/nx/LiveMap', () => {
   return { LiveMap: ({ data }: { data: { markers: { label?: string }[] } }) => R.createElement(Text, null, `MAP ${data.markers.map((m) => m.label).join(',')}`) };
 });
 jest.mock('../src/context/DriverData', () => ({
-  useDriverData: () => ({ account, shifts: mockShifts, shiftsLoaded: true, bookings: mockBookings, unreadCount: 0, upcomingTrips: [] }),
+  useDriverData: () => ({ account: mockAccountFleet ? account : mockOwnerAccount, nextTrip: null, activeTrip: null, offers: mockOffers, cancelPolicy: { graceHours: 4, afterGraceCharge: 500, lastMinuteHours: 4, lastMinuteCharge: 1000 }, shifts: mockShifts, shiftsLoaded: true, refreshShifts: () => undefined, bookings: mockBookings, unreadCount: 0, upcomingTrips: [] }),
 }));
 
 import { LocalTaxiScreen } from '../src/screens/LocalTaxiScreen';
@@ -181,12 +185,57 @@ describe('Local Taxi page', () => {
     mockShifts = [];
     mockBookings = [];
     mockBoard = null;
+    mockOnline = false;
+    mockAccountFleet = true;
+    mockOffers = [];
   });
 
-  it('explains local duty when none is planned', () => {
+  it('shows the Drive home with the vehicle and GO when no duty is planned', () => {
     const text = textOfScreen();
-    expect(text).toContain('No local duty right now');
-    expect(text).toContain('One photo check');
+    expect(text).toContain('Local Offline');
+    expect(text).toContain('DEMO MAP');
+    expect(text).toContain('Ready when you are.');
+    expect(text).toContain('TN33AB1234');
+    expect(text).toContain('Maruti Suzuki Dzire · Sedan');
+    expect(text).toContain('Verified');
+    expect(text).toContain('GO');
+    expect(text).toContain('Bookings and assigned trips are available while offline.');
+    // GO only goes online: there is no duty form any more.
+    expect(text).not.toContain('Go on local duty');
+  });
+
+  it('online with no request waits for nearby requests, with the local service switch', () => {
+    mockOnline = true;
+    mockAccountFleet = false;
+    const text = textOfScreen();
+    expect(text).toContain('Local Online');
+    expect(text).toContain('online');
+    expect(text).toContain('Ready for nearby requests');
+    expect(text).toContain('All local');
+    expect(text).toContain('Pickup & Drop');
+    expect(text).not.toContain('Bookings and assigned trips are available while offline.');
+  });
+
+  it('online shows the live request with its payout and Accept / Decline', () => {
+    mockOnline = true;
+    mockAccountFleet = false;
+    mockOffers = [
+      { id: 'o1', bookingId: 'NT-5001', pickup: { address: 'Anna Nagar, Madurai' }, drop: { address: 'Mattuthavani, Madurai' }, vehicleCategory: 'Sedan', offeredPayout: 340, mode: 'accept_offer', tripType: 'One Way', service: 'Local', pickupMs: 0, via: [] },
+    ];
+    const text = textOfScreen();
+    expect(text).toContain('Local Pickup & Drop');
+    expect(text).toContain('\u20B9340');
+    expect(text).toContain('Anna Nagar');
+    expect(text).toContain('Decline');
+    expect(text).toContain('Accept ride');
+  });
+
+  it('a fleet driver who is online is told the fleet assigns trips', () => {
+    mockOnline = true;
+    const text = textOfScreen();
+    expect(text).toContain('Available to your fleet');
+    expect(text).toContain('Kongu Travels assigns your trips');
+    expect(text).not.toContain('All local');
   });
 
   it('a planned duty asks for the photo check before it can start', () => {

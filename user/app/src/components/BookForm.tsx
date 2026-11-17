@@ -5,7 +5,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { Icon, type IconName } from './Icon';
-import { PressableScale } from './brand';
+import { PressableScale } from './PressableScale';
 import { colors, fonts } from '../theme';
 
 /** Field outline on the booking card (a soft rose, as on the website). */
@@ -52,6 +52,7 @@ export function LocationField({
 }) {
   return (
     <View>
+      <View>
       <PressableScale
         onPress={onPress}
         activeScale={0.985}
@@ -82,8 +83,12 @@ export function LocationField({
             </Text>
           )}
         </View>
-        {trailing ?? <Icon name="chevron-right" size={16} color={colors.muted} strokeWidth={2} />}
+        {/* A trailing control (e.g. delete) is its own button, so it sits beside the field, never inside it: a button nested in a
+            button is invalid HTML on the web. Its slot is reserved here so the text never runs under it. */}
+        {trailing ? <View style={styles.trailingSlot} /> : <Icon name="chevron-right" size={16} color={colors.muted} strokeWidth={2} />}
       </PressableScale>
+      {trailing ? <View style={styles.trailing}>{trailing}</View> : null}
+      </View>
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>
   );
@@ -234,6 +239,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   fieldError: { borderColor: colors.danger, backgroundColor: '#FFFBFA' },
+  trailingSlot: { width: 20, height: 20 },
+  // Centred on the field's right edge, whatever height the field grows to.
+  trailing: { position: 'absolute', top: 0, bottom: 0, right: 14, justifyContent: 'center', alignItems: 'center' },
   fieldLabel: { fontFamily: fonts.bold, fontSize: 10.5, lineHeight: 14, letterSpacing: 0.5, textTransform: 'uppercase', color: colors.muted },
   fieldValue: { fontFamily: fonts.extraBold, fontSize: 16, lineHeight: 22, color: colors.ink },
   fieldAddr: { fontFamily: fonts.regular, fontSize: 11.5, lineHeight: 15, color: colors.muted },

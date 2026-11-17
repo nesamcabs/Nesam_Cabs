@@ -27,7 +27,7 @@ import { loadNightAllowance } from './nightAllowanceConfig';
 import { adjustPartner, assertBookable, assertWithinLimits, availabilityFields, evaluateRules, loadServiceRules, partnerPayoutRupees, ruleServiceText } from './serviceRules';
 import { loadCommissionPolicy } from './commission';
 import { createContactInTx, maskPhone } from './contacts';
-import { loadFixedRoutes, loadTariffConfig, priceBooking, rentalHoursOf, sharedCityId, tariffClassOf } from './quote';
+import { loadFixedRoutes, loadTariffConfig, priceBooking, rentalHoursOf, sharedCityId, tariffClassOf, timePackageFields, tripDaysOf } from './quote';
 import { notifyInTx, pushAfterCommit, NotifyInput, inr } from './notify';
 import { nextBookingCode } from './bookingSequence';
 import { businessContract, availableBusinessCredit } from './domain/business';
@@ -146,10 +146,13 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
   if (scheduleProblem || !scheduled) throw new HttpsError('invalid-argument', scheduleProblem || 'Choose the pickup date and time.');
   const when = scheduled;
   let tripEndAt: Date | null = null;
+  // The office may book a time-based round trip package (5/8-hour, Full-Day, Next-Day, Morning Return); its return time then follows the package.
+  const timePackage = tripType === 'Round Trip' && typeof input.timePackage === 'string' && input.timePackage ? input.timePackage : undefined;
+  const tripDays = tripType === 'Round Trip' ? tripDaysOf(input.tripDays) : null;
   if (tripType === 'Round Trip') {
     tripEndAt = parsePickupInstant(input.tripEndAt);
-    if (!tripEndAt) throw new HttpsError('invalid-argument', 'Choose the date and time the round trip ends.');
-    if (tripEndAt.getTime() < when.getTime()) throw new HttpsError('invalid-argument', 'The trip cannot end before it starts.');
+    if (!tripEndAt && !timePackage) throw new HttpsError('invalid-argument', 'Choose the date and time the round trip ends.');
+    if (tripEndAt && tripEndAt.getTime() < when.getTime()) throw new HttpsError('invalid-argument', 'The trip cannot end before it starts.');
   }
   const [pickupR, dropR] = await Promise.all([resolvePlace(input, 'pickup'), resolvePlace(input, 'drop')]);
   const pickup = pickupR.place, drop = dropR.place;
@@ -254,7 +257,7 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
 
     const boardingState = await fareBoardingState(tariff, pickup);
     const recipientState = recipientGstState(business?.data() ?? customer?.data());
-    const priceInput = { addOns: bookingAddOnsOf(input.addOns ?? input.tripExtras), boardingState, recipientState, recipientAddressState: recipientAddressState(business?.data() ?? customer?.data()), category, route, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, adminDiscount: discountIn, localCityId, rentalHours, fixedRoutes, serviceId, businessContract:contract, brand: bookingChannel, platformFee, nightAllowance };
+    const priceInput = { addOns: bookingAddOnsOf(input.addOns ?? input.tripExtras), boardingState, recipientState, recipientAddressState: recipientAddressState(business?.data() ?? customer?.data()), category, route, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, adminDiscount: discountIn, localCityId, rentalHours, fixedRoutes, serviceId, businessContract:contract, brand: bookingChannel, platformFee, nightAllowance, tripDays, timePackage, stops };
     // Coupon: the same server checks as customer checkout (validity, usage limits, minimum fare,
     // category / service, audience) against the fare before discount; then the booking is priced with it.
     let couponDiscount = 0;
@@ -335,7 +338,8 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
       service, serviceId, tripType, vehicle: category.name, vehicleCategory: category.name, vehicleCategoryId: category.id,
       passengerSeatsRequired: category.seats, dutyClass: dutyClassOf({ dutyClass: category.dutyClass, name: category.name, seats: category.seats }) ?? '', tariffClass: tariffClassOf(category) ?? '',
       fare: fare.total, fareBreakdown: fare, fareBreakup: breakup, pricing: storedPricing, fareVerified: true, fareOverride, ...(commission ? { commission } : {}), distanceKm: fare.distanceKm, durationMin: fare.durationMin,
-      ...(tripEndAt ? { tripEndAt: Timestamp.fromDate(tripEndAt), endDate: pricing.endDate, billableDays: pricing.days } : {}),
+      ...(pricing.timeBased ? timePackageFields(pricing.timeBased, pricing.endDate, pricing.days)
+        : tripEndAt ? { tripEndAt: Timestamp.fromDate(tripEndAt), endDate: pricing.endDate, billableDays: pricing.days } : {}),
       discountDetails: fare.discountDetail ? { ...fare.discountDetail, byUid: admin.uid, byName: admin.name } : null,
       globalAdjustmentApplied: fare.globalAdjustment ?? null,
       ...officeBookingExtras(input, admin),

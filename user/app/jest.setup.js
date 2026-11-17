@@ -24,3 +24,10 @@ jest.mock('firebase/firestore', () => {
 
 // Callable transport is covered by the backend emulator integration suite.
 jest.mock('firebase/functions', () => ({ getFunctions: jest.fn(), httpsCallable: jest.fn() }));
+
+// Auth is mocked too (the real SDK needs a browser or device): the pure logic only signs out a dead session.
+jest.mock('firebase/auth', () => ({
+  signOut: jest.fn(() => Promise.resolve()),
+  onAuthStateChanged: jest.fn(() => () => undefined),
+  signInWithPhoneNumber: jest.fn(),
+}));

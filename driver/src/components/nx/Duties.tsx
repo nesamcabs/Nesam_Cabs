@@ -6,7 +6,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from './Text';
 import { useDriverData } from '../../context/DriverData';
 import { usePresence } from '../../hooks/usePresence';
-import { acceptMarketplaceTrip, DriverActionError, requestRoundTripDuty, submitDutyBid, withdrawDutyBid } from '../../services/driverService';
+import { acceptMarketplaceTrip, DriverActionError, requestRoundTripDuty, submitDutyBid, withdrawBid, withdrawDutyBid, type DriverBid } from '../../services/driverService';
 import type { MarketplaceOffer } from '../../types/driver';
 import { categoryMatches } from '../../utils/earnings';
 import { formatINR } from '../../utils/format';
@@ -18,16 +18,18 @@ import { NxIcon, type NxIconName } from './Icon';
 import { NxBadge, NxButton, NxField, NxFormError, NxInfo, NxPanel, NxRouteStack, NxRow, isHovered, placeName } from './primitives';
 import { useShell } from './Shell';
 import { kmText, offerWhen } from './tripFormat';
+import { timePackageLine } from '../../utils/timePackage';
 
 /** Offers for the driver's vehicle (or all), the pickup dates among them, and the ones on the chosen date. */
-export function useDutyFeed(showAll: boolean, dateFilter: string) {
+export function useDutyFeed(showAll: boolean, dateFilter: string, typeFilter = 'all') {
   const { offers, account } = useDriverData();
   const vehicleType = account.vehicle.vehicleType;
   const matching = useMemo(() => offers.filter((o) => categoryMatches(o.vehicleCategory, vehicleType)), [offers, vehicleType]);
   const pool = showAll ? offers : matching;
   const dates = useMemo(() => [...new Set(pool.map((o) => offerWhen(o).key).filter(Boolean))], [pool]);
-  const visible = pool.filter((o) => dateFilter === 'all' || offerWhen(o).key === dateFilter);
-  return { all: offers, matching, pool, dates, visible };
+  const types = useMemo(() => [...new Set(pool.map((o) => o.tripType).filter(Boolean))], [pool]);
+  const visible = pool.filter((o) => (dateFilter === 'all' || offerWhen(o).key === dateFilter) && (typeFilter === 'all' || o.tripType === typeFilter));
+  return { all: offers, matching, pool, dates, types, visible };
 }
 
 // ── Duty card ───────────────────────────────────────────────────────────────
@@ -65,6 +67,12 @@ export function DutyCard({ offer, onOpen, pending }: { offer: MarketplaceOffer; 
         {offer.distanceKm > 0 ? <Fact icon="distance" text={kmText(offer.distanceKm)} /> : null}
         <Fact icon="pin" text={placeName(offer.pickup.address)} />
       </View>
+      {offer.timePackage ? (
+        <View style={styles.schedule}>
+          <NxIcon name="clock" size={12} color={nx.amber} />
+          <Text style={styles.scheduleText}>{timePackageLine(offer.timePackage)}</Text>
+        </View>
+      ) : null}
       {mismatch ? (
         <View style={styles.schedule}>
           <NxIcon name="info" size={12} color={nx.amber} />
@@ -120,6 +128,80 @@ export function DateFilterDialog({ visible, onClose, dates, value, onChange }: {
             <Text style={[styles.optionText, on && { color: nx.red }]}>{d === 'all' ? 'All dates' : d}</Text>
             {on ? <NxIcon name="check" size={16} color={nx.red} /> : null}
           </Pressable>
+        );
+      })}
+    </NxDialog>
+  );
+}
+
+/** The same pick-one list for the trip type (One Way, Round Trip, Local Rental, …). */
+export function TypeFilterDialog({ visible, onClose, types, value, onChange }: { visible: boolean; onClose: () => void; types: string[]; value: string; onChange: (v: string) => void }) {
+  return (
+    <NxDialog visible={visible} onClose={onClose} eyebrow="Available duties" title="Filter by trip type">
+      {['all', ...types].map((t) => {
+        const on = value === t;
+        return (
+          <Pressable
+            key={t}
+            style={(s) => [styles.option, isHovered(s) && { backgroundColor: nx.page }]}
+            onPress={() => {
+              onChange(t);
+              onClose();
+            }}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: on }}
+          >
+            <Text style={[styles.optionText, on && { color: nx.red }]}>{t === 'all' ? 'All trip types' : t}</Text>
+            {on ? <NxIcon name="check" size={16} color={nx.red} /> : null}
+          </Pressable>
+        );
+      })}
+    </NxDialog>
+  );
+}
+
+// ── My bids ─────────────────────────────────────────────────────────────────
+
+const BID_TEXT: Record<string, { label: string; tone: 'amber' | 'green' | 'neutral' | 'red' }> = {
+  'Pending Review': { label: 'Awaiting NESAM review', tone: 'amber' },
+  Awarded: { label: 'Awarded to you', tone: 'green' },
+  Accepted: { label: 'Awarded to you', tone: 'green' },
+  Rejected: { label: 'Not selected', tone: 'neutral' },
+  Withdrawn: { label: 'Withdrawn', tone: 'neutral' },
+};
+
+/** Every bid the driver has placed, with its status; one under review can be withdrawn. */
+export function MyBidsDialog({ visible, onClose, bids, loaded }: { visible: boolean; onClose: () => void; bids: DriverBid[]; loaded: boolean }) {
+  const { notify } = useShell();
+  const [busyId, setBusyId] = useState('');
+  const withdraw = async (b: DriverBid) => {
+    setBusyId(b.id + b.tripId);
+    try {
+      await withdrawBid(b);
+      notify('ok', 'Your bid was withdrawn.');
+    } catch (e) {
+      notify('error', e instanceof DriverActionError ? e.message : describeError(e, 'Your bid could not be withdrawn.'));
+    } finally {
+      setBusyId('');
+    }
+  };
+  return (
+    <NxDialog visible={visible} onClose={onClose} eyebrow="Available duties" title="My bids" footer={<NxButton title="Done" variant="secondary" onPress={onClose} />}>
+      {!loaded ? <Text style={styles.optionText}>Loading your bids…</Text> : null}
+      {loaded && !bids.length ? <Text style={styles.optionText}>No bids yet. Open a bidding duty and send your expected payout.</Text> : null}
+      {bids.map((b) => {
+        const t = BID_TEXT[b.status] ?? { label: b.status, tone: 'neutral' as const };
+        return (
+          <View key={b.tripId + b.id} style={styles.bid}>
+            <View style={styles.bidTop}>
+              <Text style={styles.bidCode}>{b.bookingId}</Text>
+              <NxBadge label={t.label} tone={t.tone} />
+            </View>
+            <NxRow label="Your minimum payout" value={formatINR(b.counterRate)} />
+            <NxRow label="NESAM offer when you bid" value={formatINR(b.offeredPayout)} />
+            {b.note ? <Text style={styles.bidNote}>{b.note}</Text> : null}
+            {b.status === 'Pending Review' ? <NxButton title={busyId === b.id + b.tripId ? 'Withdrawing…' : 'Withdraw bid'} variant="secondary" compact loading={busyId === b.id + b.tripId} onPress={() => void withdraw(b)} style={{ marginTop: 10 }} /> : null}
+          </View>
         );
       })}
     </NxDialog>
@@ -299,6 +381,10 @@ const styles = StyleSheet.create({
   payout: { fontSize: 20, fontWeight: '700', letterSpacing: -0.5, color: nx.ink },
   option: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 50, paddingHorizontal: 4, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: nx.line },
   optionText: { fontSize: 13.5, fontWeight: '600', color: nx.ink },
+  bid: { paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: nx.line },
+  bidTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 6 },
+  bidCode: { fontSize: 11, fontWeight: '700', letterSpacing: 0.6, color: nx.muted },
+  bidNote: { fontSize: 11.5, color: nx.muted, marginTop: 6 },
   footnote: { fontSize: 11, color: nx.muted, textAlign: 'center' },
   policy: { fontSize: 11, lineHeight: 18, color: nx.muted, paddingTop: 12, borderTopWidth: 1, borderTopColor: nx.line },
   policyLink: { color: nx.red, fontWeight: '600' },

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useCustomerData } from '@core/context/CustomerData';
 import { updateCustomerProfile } from '@core/services/userService';
-import { COMPANY_LEGAL_NAME } from '@core/config/constants';
+import { COPYRIGHT_HOLDER } from '@core/config/constants';
 import { formatINR, formatPhone } from '@core/utils/format';
 import { describeError } from '@core/utils/retry';
 import { Avatar, Button, Dialog, EmptyState, Notice, PageHead } from '@/components/ui';
@@ -199,7 +199,7 @@ export function AccountPage({ variant = 'page', onClose }: { variant?: 'page' | 
                   <span className="setting__label">Log out</span>
                 </button>
               </div>
-              <p className="account__legal">© {COMPANY_LEGAL_NAME.replace(/NESAM/g, 'Nesam')}</p>
+              <p className="account__legal">© {COPYRIGHT_HOLDER}</p>
             </section>
           </div>
         </div>

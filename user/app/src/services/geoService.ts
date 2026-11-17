@@ -13,6 +13,30 @@ import { TimeoutError } from '../utils/retry';
 import { matchMainCities } from './mainCities';
 import { callBackend } from './backend';
 
+// When the server answers that Google Maps is not set up (failed-precondition), asking again for every lookup only fills the
+// network log with the same refusal. Skip Google for a while and use the free geocoder / router directly.
+const GOOGLE_RETRY_MS = 10 * 60_000;
+const GOOGLE_OFF_KEY = 'nesam.googleMapsOffUntil';
+// The browser keeps the decision across page loads (a reload would otherwise ask Google, and print the refusal, again).
+const storage = (): Storage | null => {
+  try {
+    return typeof localStorage !== 'undefined' ? localStorage : null;
+  } catch {
+    return null;
+  }
+};
+let googleOffUntil = Number(storage()?.getItem(GOOGLE_OFF_KEY)) || 0;
+const googleOn = () => Date.now() >= googleOffUntil;
+function noteGoogleFailure(error: unknown) {
+  if ((error as { code?: string } | null)?.code !== 'functions/failed-precondition') return;
+  googleOffUntil = Date.now() + GOOGLE_RETRY_MS;
+  try {
+    storage()?.setItem(GOOGLE_OFF_KEY, String(googleOffUntil));
+  } catch {
+    /* private mode: the decision lasts for this page only */
+  }
+}
+
 // ── Device location ─────────────────────────────────────────────────────────
 
 export type LocationErrorKind = 'denied' | 'blocked' | 'disabled' | 'unavailable' | 'timeout';
@@ -242,6 +266,7 @@ export async function searchPlaces(query: string, near?: LatLng | null, signal?:
   const cached = searchCache.get(key);
   if (cached) return cached;
   try {
+    if (!googleOn()) throw new Error('google-off');
     const result = await callBackend<{ query: string; near?: LatLng }, { places: GeoPlace[] }>('searchGooglePlaces', { query: q, ...(near ? { near } : {}) }, 15000);
     if (signal?.aborted) throw signal.reason;
     if (Array.isArray(result.places) && result.places.length) {
@@ -253,7 +278,8 @@ export async function searchPlaces(query: string, near?: LatLng | null, signal?:
     }
   } catch (error) {
     if (signal?.aborted) throw error;
-    if (__DEV__) console.info('[geo] Google place search unavailable; using Photon fallback');
+    noteGoogleFailure(error);
+    if (__DEV__ && googleOn()) console.info('[geo] Google place search unavailable; using Photon fallback');
   }
   const url = `${GEOCODER_URL}/api/?q=${encodeURIComponent(q)}&limit=8&lang=en&bbox=${INDIA_BBOX}${bias}`;
   const data = await fetchJson<{ features?: PhotonFeature[] }>(url, signal);
@@ -295,6 +321,7 @@ export async function reverseGeocode(p: LatLng, signal?: AbortSignal): Promise<G
   };
   try {
     try {
+      if (!googleOn()) throw new Error('google-off');
       const result = await callBackend<LatLng, { place: GeoPlace }>('reverseGoogleGeocode', p, 15000);
       if (signal?.aborted) throw signal.reason;
       if (result.place && isValidLatLng(result.place)) {
@@ -304,7 +331,8 @@ export async function reverseGeocode(p: LatLng, signal?: AbortSignal): Promise<G
       }
     } catch (error) {
       if (signal?.aborted) throw error;
-      if (__DEV__) console.info('[geo] Google reverse geocoding unavailable; using Photon fallback');
+      noteGoogleFailure(error);
+      if (__DEV__ && googleOn()) console.info('[geo] Google reverse geocoding unavailable; using Photon fallback');
     }
     const data = await fetchJson<{ features?: PhotonFeature[] }>(
       `${GEOCODER_URL}/reverse?lat=${p.lat}&lon=${p.lng}&lang=en&limit=1`,
@@ -348,6 +376,7 @@ export async function getRoute(from: LatLng, to: LatLng, signal?: AbortSignal): 
   if (cached) return cached;
   try {
     try {
+      if (!googleOn()) throw new Error('google-off');
       const result = await callBackend<{ origin: LatLng; destination: LatLng }, { route: RouteInfo }>('getGoogleRoute', { origin: from, destination: to }, 8000);
       if (signal?.aborted) throw signal.reason;
       if (result.route && Number.isFinite(result.route.distanceKm) && result.route.distanceKm > 0) {
@@ -356,7 +385,8 @@ export async function getRoute(from: LatLng, to: LatLng, signal?: AbortSignal): 
       }
     } catch (error) {
       if (signal?.aborted) throw error;
-      if (__DEV__) console.info('[geo] Google routing unavailable; using OSRM fallback');
+      noteGoogleFailure(error);
+      if (__DEV__ && googleOn()) console.info('[geo] Google routing unavailable; using OSRM fallback');
     }
     const url =
       `${ROUTING_URL}/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}` +

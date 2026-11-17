@@ -9,6 +9,7 @@ import {
   type User,
 } from 'firebase/auth';
 import { auth } from '../config/firebase';
+import { currentIdToken } from './session';
 import type { NativeRecaptchaVerifier } from '../components/RecaptchaVerifier';
 
 export async function sendOtpToPhone(phoneE164: string, verifier: NativeRecaptchaVerifier): Promise<ConfirmationResult> {
@@ -23,7 +24,11 @@ export async function confirmOtpCode(confirmation: ConfirmationResult, code: str
 }
 
 export function subscribeToAuthUser(callback: (user: User | null) => void): () => void {
-  return onAuthStateChanged(auth, callback);
+  return onAuthStateChanged(auth, (user) => {
+    callback(user);
+    // Check a restored session right away, so a dead one is cleared once instead of failing every later request.
+    if (user) void currentIdToken().catch(() => undefined);
+  });
 }
 
 export async function signOutUser(): Promise<void> {

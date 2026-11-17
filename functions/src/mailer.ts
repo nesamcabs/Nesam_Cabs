@@ -31,6 +31,8 @@ export interface BrandProfile {
 const SUPPORT_PHONE = '+919025099990';
 const SUPPORT_PHONE_DISPLAY = '+91 90250 99990';
 export const COMPANY_LEGAL_NAME = 'NESAM Tours and Travels Private Limited';
+/** Name shown in copyright notices and footers. */
+export const COPYRIGHT_HOLDER = 'Nesam Tours & Travels Private Limited';
 
 /** The three customer brands, with the colours their websites use. */
 export const BRANDS: Record<BrandId, BrandProfile> = {
@@ -183,7 +185,7 @@ ${c.note ? `<p style="margin:0 0 14px;font-size:12px;line-height:1.6;color:#6b72
 </td></tr>
 <tr><td style="padding:16px 28px 24px;border-top:1px solid #f0f1f3">
 <p style="margin:0;font-size:13px;color:#4b5563">Need help? Call or WhatsApp <strong>${esc(brand.supportPhoneDisplay)}</strong> (24×7).</p>
-<p style="margin:6px 0 0;font-size:11px;color:#9ca3af">${esc(brand.name)} · ${esc(COMPANY_LEGAL_NAME)} · Theni, Tamil Nadu, India</p>
+<p style="margin:6px 0 0;font-size:11px;color:#9ca3af">${esc(brand.name)} · ${esc(COPYRIGHT_HOLDER)} · Theni, Tamil Nadu, India</p>
 </td></tr>
 </table></td></tr></table></body></html>`;
   const text = [
@@ -195,7 +197,7 @@ ${c.note ? `<p style="margin:0 0 14px;font-size:12px;line-height:1.6;color:#6b72
     ...(c.action ? [`${c.action.label}: ${c.action.url}`, ''] : []),
     ...(c.note ? [c.note, ''] : []),
     `Need help? Call or WhatsApp ${brand.supportPhoneDisplay} (24x7).`,
-    `${brand.name} · ${COMPANY_LEGAL_NAME}`,
+    `${brand.name} · ${COPYRIGHT_HOLDER}`,
   ].join('\n');
   return { html, text };
 }

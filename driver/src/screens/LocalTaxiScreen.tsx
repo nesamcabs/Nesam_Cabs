@@ -11,7 +11,7 @@
 // (functions/src/localShifts.ts); this page only presents it.
 import React, { useEffect, useMemo, useState } from 'react';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
-import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import { useIsFocused, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { Text } from '../components/nx/Text';
 import { NxScreen, useShell } from '../components/nx/Shell';
 import { NxDialog } from '../components/nx/Dialog';
@@ -21,13 +21,14 @@ import { NxSwipe } from '../components/nx/Swipe';
 import { useLayout } from '../components/nx/layout';
 import { LiveMap, type MapData, type MapLine, type MapMarker } from '../components/nx/LiveMap';
 import { RentalClock } from '../components/nx/RentalClock';
+import { DriveHome } from '../components/nx/DriveHome';
 import { tripStageLabel } from '../components/nx/tripFormat';
 import { useDriverData } from '../context/DriverData';
 import { useLocalBoard } from '../hooks/useLocalBoard';
 import { useNow } from '../hooks/useNow';
 import type { TabParamList } from '../navigation/types';
 import { ActionError } from '../services/callables';
-import { endLocalShift, localDutyCities, localShiftAction, releaseLocalOrder, startMyLocalDuty, takeLocalOrder, type DutyCity } from '../services/localDutyService';
+import { endLocalShift, localShiftAction, releaseLocalOrder, takeLocalOrder } from '../services/localDutyService';
 import { getCurrentPosition } from '../services/locationService';
 import type { BoardOrder, LocalMode, LocalShift, TripDetails } from '../types/driver';
 import { formatINR } from '../utils/format';
@@ -51,9 +52,11 @@ export function LocalTaxiScreen() {
   const shift = currentShift(shifts, now);
   const upcoming = shifts.filter((s) => s.status === 'Scheduled' && s.id !== shift?.id && (s.endsAt?.getTime() ?? 0) > now).reverse();
 
+  // Fleet partners plan duties from their panel: ask again each time the page is shown.
+  const focused = useIsFocused();
   useEffect(() => {
-    refreshShifts();
-  }, [refreshShifts]);
+    if (focused) refreshShifts();
+  }, [focused, refreshShifts]);
 
   if (!shiftsLoaded) {
     return (
@@ -64,135 +67,10 @@ export function LocalTaxiScreen() {
       </NxScreen>
     );
   }
-  if (!shift) return <NoDuty upcoming={upcoming} onRefresh={refreshShifts} />;
+  // No duty yet: the map-first Drive home, where GO sets one up.
+  if (!shift) return <DriveHome onRefresh={refreshShifts} />;
   // Keyed so dialogs and selections never leak from one duty into the next.
   return <Duty key={shift.id} shift={shift} trips={bookings} upcoming={upcoming} now={now} initialTab={route.params?.tab} />;
-}
-
-// ── No duty ─────────────────────────────────────────────────────────────────
-
-function NoDuty({ upcoming, onRefresh }: { upcoming: LocalShift[]; onRefresh: () => void }) {
-  const { dashboard } = useLayout();
-  const start = <StartDutyCard onRefresh={onRefresh} />;
-  return (
-    <NxScreen>
-      <View style={{ marginBottom: 12, flexDirection: 'row', justifyContent: 'flex-end' }}>
-        <NxTextButton title="Check for fleet duty" icon="refresh" onPress={onRefresh} />
-      </View>
-      {dashboard ? (
-        <View style={styles.twoPane}>
-          <View style={{ flex: 1.2, minWidth: 0 }}>{start}</View>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <HowItWorks />
-          </View>
-        </View>
-      ) : (
-        <>
-          {start}
-          <HowItWorks />
-        </>
-      )}
-      {upcoming.length ? <UpcomingDuties list={upcoming} /> : null}
-    </NxScreen>
-  );
-}
-
-const HOURS = [4, 6, 8, 10, 12];
-const RADII = [5, 10, 15, 25];
-
-/** A fleet driver goes on local duty themselves: city, order types, hours and area. Their paired vehicle is used. */
-function StartDutyCard({ onRefresh }: { onRefresh: () => void }) {
-  const { account } = useDriverData();
-  const { notify } = useShell();
-  const [cities, setCities] = useState<DutyCity[] | null>(null);
-  const [cityId, setCityId] = useState('');
-  const [cityName, setCityName] = useState('');
-  const [services, setServices] = useState<LocalMode[]>(['rental', 'pickup_drop']);
-  const [hours, setHours] = useState(8);
-  const [radius, setRadius] = useState(15);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  useEffect(() => {
-    let alive = true;
-    localDutyCities()
-      .then((r) => alive && setCities(r.cities))
-      .catch(() => alive && setCities([]));
-    return () => {
-      alive = false;
-    };
-  }, []);
-  const chosen = cities?.find((c) => c.id === cityId) ?? null;
-  const city = chosen?.name ?? cityName.trim();
-  const toggle = (m: LocalMode) => setServices((l) => (l.includes(m) ? l.filter((x) => x !== m) : MODES.filter((x) => x === m || l.includes(x))));
-  const go = async () => {
-    if (city.length < 2) return setError('Choose or type your city.');
-    if (!services.length) return setError('Choose Hourly Rental, Pickup & Drop or both.');
-    setBusy(true);
-    setError('');
-    try {
-      await startMyLocalDuty({ cityId: chosen?.id ?? '', cityName: city, services, hours, radiusKm: radius });
-      notify('ok', `Local duty active in ${city}.`);
-      onRefresh();
-    } catch (e) {
-      setError(errorText(e, 'Local duty could not be set.'));
-    } finally {
-      setBusy(false);
-    }
-    return undefined;
-  };
-  return (
-    <NxPanel accent>
-      <NxBadge label="Local Taxi" tone="green" icon="taxi" />
-      <Text style={[nxText.routeTitle, { marginTop: 12 }]}>Go on local duty</Text>
-      <Text style={[nxText.copy, { marginTop: 4 }]}>
-        Take Hourly Rental and Pickup & Drop orders one after another in your city{account.driver.vendorName ? ` for ${account.driver.vendorName}` : ''}. {account.driver.vendorId ? 'Your paired vehicle is used and your fleet partner is told.' : 'Your attached vehicle is used.'}
-      </Text>
-
-      <Text style={styles.formLabel}>City</Text>
-      {cities === null ? <Text style={nxText.small}>Loading cities…</Text> : null}
-      {cities && cities.length ? (
-        <View style={styles.reasons}>
-          {cities.slice(0, 12).map((c) => (
-            <Pressable key={c.id} onPress={() => setCityId(cityId === c.id ? '' : c.id)} style={[styles.reason, cityId === c.id && styles.reasonOn]} accessibilityRole="radio" accessibilityState={{ selected: cityId === c.id }}>
-              <Text style={[styles.reasonText, cityId === c.id && { color: nx.white }]}>{c.name}</Text>
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
-      {cities && !cityId ? <NxField label={cities.length ? 'Or type your city' : 'Your city'} value={cityName} onChangeText={setCityName} placeholder="e.g. Erode" maxLength={80} /> : null}
-
-      <Text style={styles.formLabel}>Orders</Text>
-      <View style={styles.reasons}>
-        {MODES.map((m) => (
-          <Pressable key={m} onPress={() => toggle(m)} style={[styles.reason, services.includes(m) && styles.reasonOn]} accessibilityRole="checkbox" accessibilityState={{ checked: services.includes(m) }}>
-            <Text style={[styles.reasonText, services.includes(m) && { color: nx.white }]}>{LOCAL_MODE_LABEL[m]}</Text>
-          </Pressable>
-        ))}
-      </View>
-
-      <Text style={styles.formLabel}>Hours on duty</Text>
-      <View style={styles.reasons}>
-        {HOURS.map((h) => (
-          <Pressable key={h} onPress={() => setHours(h)} style={[styles.reason, hours === h && styles.reasonOn]} accessibilityRole="radio" accessibilityState={{ selected: hours === h }}>
-            <Text style={[styles.reasonText, hours === h && { color: nx.white }]}>{h} h</Text>
-          </Pressable>
-        ))}
-      </View>
-
-      <Text style={styles.formLabel}>Area around you</Text>
-      <View style={styles.reasons}>
-        {RADII.map((r) => (
-          <Pressable key={r} onPress={() => setRadius(r)} style={[styles.reason, radius === r && styles.reasonOn]} accessibilityRole="radio" accessibilityState={{ selected: radius === r }}>
-            <Text style={[styles.reasonText, radius === r && { color: nx.white }]}>{r} km</Text>
-          </Pressable>
-        ))}
-      </View>
-
-      <NxFormError message={error} />
-      <NxButton title={busy ? 'Setting up…' : 'Go on local duty'} icon="taxi" loading={busy} onPress={() => void go()} style={{ marginTop: 16 }} />
-      <Text style={nxText.note}>Next: one selfie + vehicle photo check for the whole duty, then slide to start.</Text>
-    </NxPanel>
-  );
 }
 
 function HowItWorks() {

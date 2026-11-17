@@ -54,8 +54,8 @@ function Sidebar({ rail, width, route }: { rail: boolean; width: number; route: 
         {rail ? null : (
           <View style={styles.supportBox}>
             <NxIcon name="help" size={20} color={nx.red} />
-            <Text style={styles.supportTitle}>We’re here for you.</Text>
-            <Text style={styles.supportText}>Get help with your duties or payments.</Text>
+            <Text style={styles.supportTitle}>A helping hand, always.</Text>
+            <Text style={styles.supportText}>Support for your trips and account.</Text>
             <Pressable onPress={() => openSupport()} style={(s) => [styles.supportLink, isHovered(s) && { opacity: 0.75 }]} accessibilityRole="button" accessibilityLabel="Contact NESAM support">
               <Text style={styles.supportLinkText}>Contact NESAM</Text>
               <NxIcon name="arrow" size={14} color={nx.red} />
@@ -126,7 +126,7 @@ export function Avatar({ name, photoUrl, size = 53 }: { name: string; photoUrl?:
     );
   }
   return (
-    <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2, borderWidth: ring }]} accessibilityElementsHidden>
+    <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2, borderWidth: ring }]} aria-hidden>
       <Text style={[styles.avatarText, { fontSize: Math.round(size * 0.32) }]}>{initials(name)}</Text>
     </View>
   );
@@ -135,11 +135,11 @@ export function Avatar({ name, photoUrl, size = 53 }: { name: string; photoUrl?:
 // ── Phone bottom bar ────────────────────────────────────────────────────────
 
 function BottomNav({ route }: { route: string }) {
-  const { account } = useDriverData();
+  const { account, upcomingTrips } = useDriverData();
   const insets = useSafeAreaInsets();
   const items = navItemsFor(!!account.driver.vendorId).filter((i) => i.phone);
-  // Duties has no slot of its own on phones; it is reached from Home, so Home stays highlighted.
-  const owner = navOwner(route) === 'Marketplace' ? 'Home' : navOwner(route);
+  // Wallet, Overview and Profile have no slot on phones; they open from the Earnings page, the sidebar and the avatar.
+  const owner = navOwner(route);
   return (
     <View style={[styles.bottom, { paddingBottom: 8 + insets.bottom, paddingLeft: 8 + insets.left, paddingRight: 8 + insets.right }]} accessibilityRole="tablist" accessibilityLabel="Mobile pages">
       {items.map((item) => {
@@ -152,10 +152,17 @@ function BottomNav({ route }: { route: string }) {
             style={styles.bottomItem}
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
-            accessibilityLabel={item.label}
+            accessibilityLabel={item.id === 'Trip' && upcomingTrips.length ? `${item.label}, ${upcomingTrips.length}` : item.label}
           >
             {active ? <View style={styles.bottomIndicator} /> : null}
-            <NxIcon name={item.icon} size={21} color={color} strokeWidth={active ? 2 : 1.8} />
+            <View>
+              <NxIcon name={item.icon} size={21} color={color} strokeWidth={active ? 2 : 1.8} />
+              {item.id === 'Trip' && upcomingTrips.length ? (
+                <View style={styles.bottomBadge}>
+                  <Text style={styles.bottomBadgeText}>{upcomingTrips.length > 9 ? '9+' : upcomingTrips.length}</Text>
+                </View>
+              ) : null}
+            </View>
             <Text style={[styles.bottomLabel, { color }]} numberOfLines={1} maxFontSizeMultiplier={1.15}>
               {item.label}
             </Text>
@@ -198,4 +205,6 @@ const styles = StyleSheet.create({
   bottomItem: { flex: 1, minWidth: 0, alignItems: 'center', gap: 4, paddingTop: 6, paddingBottom: 4, minHeight: 50 },
   bottomIndicator: { position: 'absolute', top: -9, width: 24, height: 3, borderBottomLeftRadius: 4, borderBottomRightRadius: 4, backgroundColor: nx.red },
   bottomLabel: { fontSize: 11, fontWeight: '600' },
+  bottomBadge: { position: 'absolute', top: -6, right: -10, minWidth: 16, height: 16, paddingHorizontal: 4, borderRadius: 8, backgroundColor: nx.red, borderWidth: 1.5, borderColor: nx.white, alignItems: 'center', justifyContent: 'center' },
+  bottomBadgeText: { fontSize: 9, fontWeight: '700', color: nx.white },
 });

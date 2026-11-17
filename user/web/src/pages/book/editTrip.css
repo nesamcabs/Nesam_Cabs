@@ -1,0 +1,23 @@
+/* "Edit your pickup" dialog on the vehicle page, and the Edit button on the trip summary. */
+.etd { max-width: 420px; }
+.etd__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.etd__field { display: grid; gap: 5px; min-width: 0; }
+.etd__field > span { color: var(--muted, #5b6472); font-size: 0.72rem; font-weight: 700; }
+.etd__field input, .etd__time { box-sizing: border-box; width: 100%; min-height: 48px; padding: 0 12px; border: 1px solid var(--line-strong, #d5dae2); border-radius: 10px; background: var(--surface, #fff); color: var(--ink, #14171c); font: inherit; font-size: 0.9375rem; font-weight: 700; }
+.etd__time { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; text-align: left; }
+.etd__time svg { color: var(--brand-ink, var(--brand, #c8181f)); }
+.etd__field input:focus-visible, .etd__time:focus-visible { outline: 2px solid var(--brand, #c8181f); outline-offset: 1px; }
+.etd__days { margin-top: 14px; padding: 10px 12px; border: 1px solid var(--line, #e3e7ee); border-radius: 10px; }
+.etd__days > span { display: block; color: var(--muted, #5b6472); font-size: 0.72rem; font-weight: 700; }
+.etd__days > span small { margin-left: 8px; padding: 1px 7px; border-radius: 999px; background: var(--brand-soft, #f6f6f7); color: var(--brand-ink, #b3141a); font-size: 0.62rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+.etd__days > div { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
+.etd__days button { width: 40px; height: 40px; border: 0; border-radius: 8px; background: var(--brand, #c8181f); color: #fff; font: inherit; font-size: 1.4rem; line-height: 1; cursor: pointer; }
+.etd__days button:disabled { opacity: 0.35; cursor: not-allowed; }
+.etd__days output { font-size: 1rem; font-weight: 800; color: var(--ink, #14171c); }
+.etd__days p { margin: 6px 0 0; color: var(--muted, #5b6472); font-size: 0.75rem; text-align: center; }
+.etd__error { margin: 12px 0 0; padding: 9px 12px; border-radius: 10px; background: var(--danger-soft, #fef1f0); color: var(--danger-ink, #b42318); font-size: 0.8125rem; font-weight: 600; }
+.etd__save { width: 100%; min-height: 50px; border: 0; border-radius: 12px; background: var(--brand, #c8181f); color: #fff; font: inherit; font-size: 1rem; font-weight: 800; cursor: pointer; }
+.etd__save:hover { background: var(--brand-hover, #b3141a); }
+
+.trip-sum__edit { display: inline-flex; align-items: center; gap: 5px; min-height: 30px; margin-left: auto; padding: 0 12px; border: 1px solid var(--brand-line, #dcdfe4); border-radius: 999px; background: transparent; color: var(--brand-ink, var(--brand, #c8181f)); font: inherit; font-size: 0.78rem; font-weight: 800; cursor: pointer; }
+.trip-sum__edit:hover { background: var(--brand-soft, #f6f6f7); }

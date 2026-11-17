@@ -10,6 +10,7 @@ import { KeyboardAvoid } from '../KeyboardAvoid';
 import { colors, fontFamily } from '../../theme';
 import { useLayout } from '../../theme/responsive';
 import type { IconName } from '../kit/core';
+import { COPYRIGHT_HOLDER } from '../../config/constants';
 
 export const AUTH = {
   panel: '#171B24',
@@ -61,7 +62,7 @@ export function AuthFrame({ children }: { children: React.ReactNode }) {
               </View>
               <View style={styles.panelFoot}>
                 <Ionicons name="shield-checkmark-outline" size={13} color={AUTH.panelMuted} />
-                <Text style={styles.panelFootText}>NESAM TOURS & TRAVELS PRIVATE LIMITED</Text>
+                <Text style={styles.panelFootText}>{COPYRIGHT_HOLDER}</Text>
               </View>
             </View>
           ) : null}
@@ -69,7 +70,7 @@ export function AuthFrame({ children }: { children: React.ReactNode }) {
             <View style={styles.formCol}>
               {split ? null : <View style={styles.phoneBrand}><PartnerBrand size={1.25} /></View>}
               {children}
-              <Text style={styles.legal}>NESAM Tours & Travels Private Limited · Built for every fleet.</Text>
+              <Text style={styles.legal}>{COPYRIGHT_HOLDER} · Built for every fleet.</Text>
             </View>
           </ScrollView>
         </View>

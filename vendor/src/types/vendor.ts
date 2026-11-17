@@ -29,6 +29,8 @@ export interface FleetVehicle {
   id: string;
   vehicleNumber: string;
   category: 'Sedan' | 'SUV' | 'Mini' | 'Luxury' | 'Tempo Traveller';
+  /** The duty class the category maps to (e.g. sedan, suv6, innova); absent on older vehicle records. */
+  vehicleClass?: string;
   make: string;
   model: string;
   year: string;

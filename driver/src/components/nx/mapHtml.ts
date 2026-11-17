@@ -36,6 +36,10 @@ export interface MapData {
   area: { centre: LatLng; radiusKm: number } | null;
   /** The map re-frames itself only when this changes (so a driver's own pan / zoom is kept between refreshes). */
   fitKey: string;
+  /** How the driver's own position is drawn: the blue dot (default) or the red car with a soft pulse. */
+  meStyle?: 'dot' | 'car';
+  /** A quiet map for a full-screen home: no zoom / Recentre buttons, muted tiles. The screen draws its own controls. */
+  plain?: boolean;
 }
 
 export const MAP_TILE_URL = (process.env.EXPO_PUBLIC_MAP_TILE_URL ?? '').trim() || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
@@ -59,6 +63,13 @@ html,body,#m{height:100%;width:100%;margin:0;padding:0;background:#EEF0F3;font-f
 .pin.next{width:28px;height:28px;background:#946000;color:#fff}
 .pin.approx{border-style:dashed}
 .me{width:16px;height:16px;border-radius:50%;background:#2563EB;border:3px solid #fff;box-shadow:0 0 0 7px rgba(37,99,235,.18),0 1px 4px rgba(0,0,0,.3)}
+.car{position:relative;width:60px;height:60px;display:flex;align-items:center;justify-content:center}
+.car .halo{position:absolute;inset:0;border-radius:50%;background:rgba(207,0,53,.13);border:1px solid rgba(207,0,53,.18);animation:pulse 2.4s ease-out infinite}
+.car .disc{position:relative;width:34px;height:34px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(22,32,51,.28)}
+@keyframes pulse{0%{transform:scale(.72);opacity:1}100%{transform:scale(1.1);opacity:.35}}
+body.plain .leaflet-tile-pane{filter:grayscale(.6) saturate(.8) brightness(1.05) contrast(.92)}
+body.plain #fit,body.plain .leaflet-control-zoom{display:none}
+body.plain .leaflet-control-attribution{font-size:9px;opacity:.7}
 #fit{position:absolute;z-index:500;left:10px;bottom:10px;height:36px;padding:0 12px;border-radius:9px;border:1px solid #E7EAF0;background:#fff;color:#171B24;font:600 12px -apple-system,Roboto,'Segoe UI',Arial,sans-serif;box-shadow:0 2px 8px rgba(22,32,51,.12)}
 #off{display:none;position:absolute;inset:0;align-items:center;justify-content:center;text-align:center;padding:20px;color:#6F7785;font-size:13px}
 .leaflet-tooltip{font-size:11.5px;font-weight:600;color:#171B24;border-radius:7px;border:1px solid #E7EAF0;box-shadow:0 2px 8px rgba(22,32,51,.12)}
@@ -79,7 +90,7 @@ html,body,#m{height:100%;width:100%;margin:0;padding:0;background:#EEF0F3;font-f
   function fit(){var p=points();if(!p.length){if(data&&data.area){map.setView([data.area.centre.lat,data.area.centre.lng],12);}return;}
     if(p.length===1){map.setView(p[0],15);return;}map.fitBounds(L.latLngBounds(p),{padding:[46,46],maxZoom:15});}
   window.__update=function(d){
-    data=d;pins.clearLayers();
+    data=d;pins.clearLayers();document.body.className=d.plain?'plain':'';
     if(d.area){L.circle([d.area.centre.lat,d.area.centre.lng],{radius:d.area.radiusKm*1000,color:'#D82035',weight:1.2,opacity:.45,dashArray:'6 6',fillColor:'#D82035',fillOpacity:.035,interactive:false}).addTo(pins);}
     (d.lines||[]).forEach(function(l){L.polyline([[l.from.lat,l.from.lng],[l.to.lat,l.to.lng]],{color:l.tone==='red'?'#D82035':'#171B24',weight:3,opacity:.7,dashArray:'7 7',interactive:false}).addTo(pins);});
     d.markers.forEach(function(m){
@@ -89,7 +100,11 @@ html,body,#m{height:100%;width:100%;margin:0;padding:0;background:#EEF0F3;font-f
       if(m.title){mk.bindTooltip(esc(m.title),{direction:'top',offset:[0,-s/2]});}
       mk.on('click',function(){send({type:'select',id:m.id});});
     });
-    if(d.me){L.marker([d.me.lat,d.me.lng],{icon:L.divIcon({className:'',html:'<div class="me"></div>',iconSize:[16,16],iconAnchor:[8,8]}),interactive:false,zIndexOffset:2000}).addTo(pins);}
+    if(d.me){
+      var car=d.meStyle==='car',cs=car?60:16;
+      var html=car?'<div class="car"><span class="halo"></span><span class="disc"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#CF0035" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 2-5h10l2 5m-16 9V9h18v8H3Zm2 0v3m14-3v3M6 13h2m8 0h2"/></svg></span></div>':'<div class="me"></div>';
+      L.marker([d.me.lat,d.me.lng],{icon:L.divIcon({className:'',html:html,iconSize:[cs,cs],iconAnchor:[cs/2,cs/2]}),interactive:false,zIndexOffset:2000}).addTo(pins);
+    }
     if(d.fitKey!==lastFit){lastFit=d.fitKey;fit();}
   };
   document.getElementById('fit').onclick=function(){fit();};

@@ -9,6 +9,7 @@
 // with a `functions/<code>` code so describeCallError keeps working unchanged.
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { app, auth } from '../config/firebase';
+import { currentIdToken } from './session';
 
 // The booking server. Builds always talk to it (the Firebase callables they fall back to are not deployed, so nothing that
 // needs the server would work), whether or not the build's environment variable was set; an explicit value still wins, and
@@ -52,8 +53,8 @@ export async function callBackend<Req, Res>(name: string, data: Req, timeoutMs =
   }
 
   // Signed out: sent without a token; the server only answers its public (read-only) functions.
-  const user = auth.currentUser;
-  const token = user ? await user.getIdToken() : '';
+  const token = await currentIdToken();
+  const user = token ? auth.currentUser : null;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -69,6 +70,10 @@ export async function callBackend<Req, Res>(name: string, data: Req, timeoutMs =
     });
   } catch (err) {
     console.error('[NESAM API network error]', { requestId, name, endpoint, error: (err as Error)?.message });
+    if (!diagnosedOnce && typeof window !== 'undefined') {
+      diagnosedOnce = true;
+      void diagnoseApi();
+    }
     if ((err as { name?: string }).name === 'AbortError') throw new BackendError('deadline-exceeded', 'The server took too long to respond.');
     throw new BackendError('unavailable', 'Could not reach the server. Check your connection and try again.');
   } finally {
@@ -135,6 +140,8 @@ export async function diagnoseApi(): Promise<Record<string, unknown>> {
   return report;
 }
 if (typeof window !== 'undefined') {
+  // Runnable by hand. It no longer runs on every page load: its deliberate "unknown function" request answers 404, which the
+  // browser prints as a red network error. It runs once, automatically, when a real call cannot reach the API.
   (window as unknown as { nesamApiCheck?: typeof diagnoseApi }).nesamApiCheck = diagnoseApi;
-  void diagnoseApi();
 }
+let diagnosedOnce = false;

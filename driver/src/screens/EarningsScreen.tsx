@@ -63,7 +63,12 @@ function weekRange(now = new Date()): string {
   return `${fmt(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6))} – ${fmt(now)}`;
 }
 
-export function EarningsScreen() {
+/** Earnings: what was credited (7-day chart and totals), what is under settlement review, and the trip activity. */
+export const EarningsScreen = () => <MoneyScreen mode="earnings" />;
+/** Wallet: the balance and payout action, the payout account, and the payout / ledger activity. */
+export const WalletScreen = () => <MoneyScreen mode="wallet" />;
+
+function MoneyScreen({ mode }: { mode: 'earnings' | 'wallet' }) {
   const { account, wallet, walletError } = useDriverData();
   const { dashboard } = useLayout();
 
@@ -82,29 +87,45 @@ export function EarningsScreen() {
           {walletError}
         </NxInfo>
       ) : null}
-      <BalanceCard />
+      {mode === 'wallet' ? <BalanceCard /> : null}
       {wallet.available < 0 ? (
         <NxInfo tone="amber" style={styles.pageNote}>
           Cash fares you collected exceed your earnings; upcoming earnings settle this first.
         </NxInfo>
       ) : null}
-      {dashboard ? (
+      {mode === 'earnings' ? (
+        dashboard ? (
+          <View style={styles.columns}>
+            <View style={styles.mainCol}>
+              <EarningsCard />
+              <ActivityCard />
+            </View>
+            <View style={styles.sideCol}>
+              <ReviewCard />
+              <NxButton title="Open wallet" icon="wallet" variant="secondary" trailingIcon="arrow" onPress={() => goTab('Wallet')} />
+            </View>
+          </View>
+        ) : (
+          <>
+            <EarningsCard />
+            <ReviewCard />
+            <ActivityCard />
+            <NxButton title="Open wallet" icon="wallet" variant="secondary" trailingIcon="arrow" onPress={() => goTab('Wallet')} />
+          </>
+        )
+      ) : dashboard ? (
         <View style={styles.columns}>
           <View style={styles.mainCol}>
-            <EarningsCard />
-            <ActivityCard />
+            <AccountCard />
           </View>
           <View style={styles.sideCol}>
             <ReviewCard />
-            <AccountCard />
           </View>
         </View>
       ) : (
         <>
-          <EarningsCard />
-          <ReviewCard />
-          <ActivityCard />
           <AccountCard />
+          <ReviewCard />
         </>
       )}
     </NxScreen>

@@ -134,8 +134,12 @@ export const reviewExtraUsage = onCall(async (request) => {
     }
     const gstRate = typeof pricing?.gstRate === 'number' ? pricing.gstRate : 0;
     const carrierPrepaid = whole.pricing?.bookingAddOns?.roofCarrier === true;
-    const billingSnapshot = ratesAfterPrepaidAddOns(snapshot, carrierPrepaid);
-    const calc = computeExtraCharges(billingSnapshot, snapshot.partner, usage, gstRate, pricing?.waitingPerHourPaise);
+    // A Hill Station Allowance / Charge billed with the fare at booking time (customer and partner) is not charged again from the usage record.
+    const hillPrepaid = !!whole.pricing?.hillStation;
+    const prepaid = ratesAfterPrepaidAddOns(snapshot, carrierPrepaid);
+    const billingSnapshot = hillPrepaid ? { ...prepaid, customer: { ...prepaid.customer, hillPaise: 0 } } : prepaid;
+    const billingPartner = hillPrepaid && snapshot.partner ? { ...snapshot.partner, hillPaise: 0 } : snapshot.partner;
+    const calc = computeExtraCharges(billingSnapshot, billingPartner, usage, gstRate, pricing?.waitingPerHourPaise);
     if (calc.blocked.length || !calc.customer || !calc.partner || calc.customerGstPaise === null || calc.customerTotalPaise === null) {
       throw new HttpsError('failed-precondition', `These extra charges cannot be posted yet: ${calc.blocked.join(' ')}`, { code: 'extra-posting-blocked', reasons: calc.blocked });
     }

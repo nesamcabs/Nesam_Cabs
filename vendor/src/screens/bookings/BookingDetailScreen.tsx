@@ -50,6 +50,7 @@ export function BookingDetailScreen() {
           <Inline>{b.tripType ? <Badge label={tripTypeLabel(b.tripType)} /> : null}{b.vehicleCategory ? <Badge label={b.vehicleCategory} /> : null}</Inline>
           <Badge label={badgeLabel} tone={badgeTone} />
         </Between>
+        {b.packageLine ? <Small>{b.packageLine}</Small> : null}
         <RouteStack from={b.pickupAddress || '—'} fromSub={`Pickup · ${b.pickupAt ? dayTime(b.pickupAt) : [b.date, b.time].filter(Boolean).join(' · ')}`} to={b.dropAddress || '—'} toSub={b.completedAt ? `Completed · ${dayTime(b.completedAt)}` : 'Drop'} />
         <KV rows={[b.via?.length ? ['Tour cities', [firstPart(b.pickupAddress), ...b.via, firstPart(b.dropAddress)].join(' → ')] : null, b.includedKm ? ['Included distance', `${b.includedKm} km`] : null, ['Vehicle category', b.vehicleCategory || '—'], ['Customer', b.customerName || '—'], ['Customer mobile', b.customerPhoneMasked || 'Shared with the driver before pickup'], b.paymentMethod ? ['Customer payment', b.paymentMethod] : null]} />
       </Panel>

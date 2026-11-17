@@ -4,6 +4,8 @@ export const SUPPORT_PHONE = '+919025033330';
 export const SUPPORT_PHONE_DISPLAY = '+91 90250 33330';
 export const SUPPORT_EMAIL = 'support@nesamcabs.com';
 export const COMPANY_LEGAL_NAME = 'NESAM Tours and Travels Private Limited';
+/** Name shown in copyright notices and footers. */
+export const COPYRIGHT_HOLDER = 'Nesam Tours & Travels Private Limited';
 export const EMERGENCY_NUMBER = '112';
 
 /** A driver must be within this distance of the pickup to mark arrival. This is the server's default; the configured value

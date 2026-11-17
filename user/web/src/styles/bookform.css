@@ -1197,3 +1197,6 @@
   margin-top: 4px;
   text-align: center;
 }
+
+/* Round trip: a pickup after 6:45 PM is an overnight trip (the days stepper starts at 2). */
+.bf-days__tag { display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 999px; background: var(--brand-soft, #f6f6f7); color: var(--brand-ink, #b3141a); font-size: 0.62rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; vertical-align: middle; }

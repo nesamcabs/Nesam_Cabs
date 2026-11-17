@@ -13,6 +13,7 @@ import { ActionError, callFunction } from './callables';
 import {
   writeBatch,
   collection,
+  collectionGroup,
   doc,
   getDoc,
   limit,
@@ -44,6 +45,7 @@ import type {
   IdentityDetails,
   LedgerEntry,
   MarketplaceOffer,
+  TimePackageInfo,
   PayoutRequest,
   PenaltyStatus,
   RegistrationData,
@@ -499,7 +501,19 @@ export function mapOffer(id: string, data: DocumentData): MarketplaceOffer & { c
     createdMs: toDate(data.createdAt)?.getTime() ?? 0,
     service: str(data.service),
     tripType: str(data.tripType),
+    timePackage: timePackageOf(data.timePackage),
   };
+}
+
+/** The time-based round trip package on a duty or booking (null for any other trip). */
+export function timePackageOf(raw: unknown): TimePackageInfo | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  const label = str(r.label);
+  if (!label) return null;
+  const kind = r.kind === 'same_day' || r.kind === 'next_day' || r.kind === 'morning' ? r.kind : '';
+  const ms = (v: unknown) => toDateTime(v)?.getTime() ?? null;
+  return { label, kind, includedKm: typeof r.includedKm === 'number' ? r.includedKm : 0, endMs: ms(r.coverageEndAt), morningCutoffMs: ms(r.morningCutoffAt), upgraded: r.upgraded === true };
 }
 
 /** A duty booked well ahead, not for right now. */
@@ -581,6 +595,63 @@ function scheduleConflictError(err: ActionError): DriverActionError | null {
 export async function submitDutyBid(offer: MarketplaceOffer, rate: number, note: string): Promise<void> {
   try {
     await callFunction('submitMarketplaceBid', { tripId: offer.id, rate, note: note.trim().slice(0, 300) }, 30000);
+  } catch (err) {
+    if (err instanceof ActionError) throw new DriverActionError('closed', err.message);
+    throw err;
+  }
+}
+
+/** A bid this driver placed on a duty NESAM reviews bids on (marketplace_trips/{trip}/bids/driver_{uid}). */
+export interface DriverBid {
+  id: string;
+  tripId: string;
+  bookingId: string;
+  /** NESAM's offered payout when the bid was placed. */
+  offeredPayout: number;
+  /** The driver's counter amount. */
+  counterRate: number;
+  note: string;
+  /** 'Pending Review' | 'Awarded' | 'Rejected' | 'Withdrawn' — decided by NESAM / the bidder. */
+  status: string;
+  submittedAt: Date | null;
+}
+
+const amount = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : Number(v) || 0);
+
+export function mapDriverBid(id: string, d: DocumentData): DriverBid {
+  return {
+    id,
+    tripId: str(d.tripId),
+    bookingId: str(d.bookingId) || str(d.tripId),
+    offeredPayout: amount(d.offeredPayout),
+    counterRate: amount(d.vendorCounterRate),
+    note: str(d.biddingNote),
+    status: str(d.status) || 'Pending Review',
+    submittedAt: toDate(d.submittedAt),
+  };
+}
+
+/** Live list of this driver's own bids, newest first (firestore.rules lets a driver read bids whose driverId is theirs). */
+export function subscribeToMyBids(driverId: string, callback: (bids: DriverBid[]) => void, onError?: (e: unknown) => void): () => void {
+  return onSnapshot(
+    query(collectionGroup(db, 'bids'), where('driverId', '==', driverId)),
+    (snap) => {
+      const bids = snap.docs.map((x) => mapDriverBid(x.id, x.data()));
+      bids.sort((a, b) => (b.submittedAt?.getTime() ?? 0) - (a.submittedAt?.getTime() ?? 0));
+      callback(bids);
+    },
+    (err) => {
+      callback([]);
+      onError?.(err);
+    },
+  );
+}
+
+/** Withdraws a bid still under review (the server checks that it is this driver's and still pending). */
+export async function withdrawBid(bid: DriverBid): Promise<void> {
+  if (bid.status !== 'Pending Review') throw new DriverActionError('closed', 'Only bids under review can be withdrawn.');
+  try {
+    await callFunction('withdrawMarketplaceBid', { tripId: bid.tripId, bidId: bid.id }, 30000);
   } catch (err) {
     if (err instanceof ActionError) throw new DriverActionError('closed', err.message);
     throw err;
@@ -751,12 +822,13 @@ export function mapBooking(id: string, data: DocumentData): TripDetails {
 }
 
 /** Local-order details: the kind of order, the duty it was taken on and the hourly-rental package and clock. */
-function localFields(data: DocumentData): Pick<TripDetails, 'tripType' | 'localMode' | 'localShiftId' | 'rentalHours' | 'includedKm' | 'extraHourRate' | 'tripStartedAt' | 'rentalUsage' | 'cashHeld' | 'totalKm'> {
+function localFields(data: DocumentData): Pick<TripDetails, 'timePackage' | 'tripType' | 'localMode' | 'localShiftId' | 'rentalHours' | 'includedKm' | 'extraHourRate' | 'tripStartedAt' | 'rentalUsage' | 'cashHeld' | 'totalKm'> {
   const p = data.pricing && typeof data.pricing === 'object' ? data.pricing : {};
   const usage = data.rentalUsage && typeof data.rentalUsage === 'object' && data.rentalUsage.schema === 1 ? data.rentalUsage : null;
   const amount = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
   return {
     tripType: str(data.tripType),
+    timePackage: timePackageOf(data.timePackage),
     localMode: localModeOf(data),
     localShiftId: str(data.localShiftId) || undefined,
     rentalHours: amount(p.rentalHours) > 0 ? amount(p.rentalHours) : null,

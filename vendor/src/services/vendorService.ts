@@ -81,6 +81,7 @@ export function mapMarketTrip(id: string, d: DocumentData): MarketTrip {
     travelDate: str(d.travelDate),
     service: str(d.service),
     tripType: str(d.tripType),
+    packageLine: packageLineOf(d.timePackage),
     vehicleCategory: str(d.vehicleCategory || d.categoryName),
     vehicleCategoryId: str(d.vehicleCategoryId),
     carName: str(d.categoryName),
@@ -253,6 +254,7 @@ export function mapVendorBooking(id: string, d: DocumentData): VendorBooking {
     completedAt: toDate(d.completedAt),
     pickupAt: toDate(d.pickupAt) ?? toDate(d.scheduledAt),
     tripType: tripTypeOf(d),
+    packageLine: packageLineOf(d.timePackage),
     includedKm: Math.round(num(d.pricing?.includedKm) || num(d.pricing?.quotedKm) || num(d.distanceKm)),
     tripSubStatus: str(d.tripSubStatus),
     paymentStatus: str(d.paymentSummary?.status),
@@ -303,6 +305,19 @@ export function viaOf(d: DocumentData): string[] {
 }
 
 /** "One Way", "Round Trip", "Hourly Rental", "Pickup & Drop", "Multicity", "Airport" from what the booking stored. */
+/** One line describing a time-based round trip package, or '' for any other trip. */
+export function packageLineOf(raw: unknown): string {
+  if (!raw || typeof raw !== 'object') return '';
+  const r = raw as Record<string, unknown>;
+  const label = str(r.label);
+  if (!label) return '';
+  const when = (v: unknown) => { const t = toDate(v); return t ? new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true }).format(t) : ''; };
+  const km = num(r.includedKm);
+  const upgraded = r.upgraded === true;
+  const end = r.kind === 'morning' && !upgraded && r.morningCutoffAt ? `must finish by ${when(r.morningCutoffAt)} or it upgrades` : r.coverageEndAt ? `ends ${when(r.coverageEndAt)}` : '';
+  return [upgraded ? `${label} (upgraded)` : label, km > 0 ? `${km} km included` : '', end].filter(Boolean).join(' · ');
+}
+
 export function tripTypeOf(d: DocumentData): string {
   const raw = `${str(d.tripType)} ${str(d.service)} ${str(d.bookingType)} ${str(d.tourType)}`.toLowerCase();
   // A Multicity tour is stored as a Round Trip through its cities, so it is recognised first.

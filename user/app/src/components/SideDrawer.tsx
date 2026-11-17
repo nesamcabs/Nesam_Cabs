@@ -10,6 +10,7 @@ import { colors } from '../theme';
 import { Icon } from './Icon';
 import { AccountMenu } from './AccountMenu';
 import { KeyboardAvoid } from './KeyboardAvoid';
+import { NATIVE_DRIVER } from '../utils/nativeDriver';
 
 export function SideDrawer() {
   const drawer = useDrawer();
@@ -29,10 +30,10 @@ export function SideDrawer() {
 
   useEffect(() => {
     if (open) {
-      Animated.timing(slide, { toValue: 1, duration: 240, useNativeDriver: true }).start();
+      Animated.timing(slide, { toValue: 1, duration: 240, useNativeDriver: NATIVE_DRIVER }).start();
       return undefined;
     }
-    Animated.timing(slide, { toValue: 0, duration: 200, useNativeDriver: true }).start(({ finished }) => {
+    Animated.timing(slide, { toValue: 0, duration: 200, useNativeDriver: NATIVE_DRIVER }).start(({ finished }) => {
       if (finished) setMounted(false);
     });
     return undefined;

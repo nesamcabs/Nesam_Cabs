@@ -120,3 +120,12 @@ export function watchPosition(onPosition: (p: DevicePosition) => void, onError: 
   };
 }
 
+/** The town / city a position is in, for a label on the Drive page. '' when it cannot be told (offline, web, no geocoder). */
+export async function reverseCity(lat: number, lng: number): Promise<string> {
+  try {
+    const [place] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+    return (place?.city || place?.subregion || place?.district || '').trim();
+  } catch {
+    return '';
+  }
+}

@@ -1,7 +1,7 @@
 // About NESAM Cabs: what the brand offers, who runs it and how to reach it. Every fact here is already
 // published elsewhere on this site (service pages, structured data, footer and support page).
 import { Link } from 'react-router-dom';
-import { COMPANY_LEGAL_NAME, SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY } from '@core/config/constants';
+import { COMPANY_LEGAL_NAME, COPYRIGHT_HOLDER, SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY } from '@core/config/constants';
 import { PageHead } from '@/components/ui';
 import { Icon } from '@/components/Icon';
 import { CONTACT } from '@/lib/contact';
@@ -114,7 +114,7 @@ export function AboutPage() {
         </section>
 
         <p className="about-legal">
-          © {new Date().getFullYear()} {COMPANY_LEGAL_NAME}. All rights reserved.
+          © {new Date().getFullYear()} {COPYRIGHT_HOLDER}. All rights reserved.
         </p>
       </div>
     </>

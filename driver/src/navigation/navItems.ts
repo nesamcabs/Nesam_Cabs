@@ -17,25 +17,29 @@ export interface NavItem {
   fleetOnly?: boolean;
 }
 
+// The Driver 2.0 workspace: Drive · Bookings · My Trips · Earnings · Wallet. Profile opens from the avatar; Overview (the
+// old dashboard, which carries the account alerts and the day's figures) stays in the sidebar only.
 export const NAV_ITEMS: NavItem[] = [
-  { id: 'Home', label: 'Home', icon: 'home', phone: true },
-  { id: 'Marketplace', label: 'Duties', icon: 'marketplace', phone: false },
-  { id: 'Local', label: 'Local Taxi', icon: 'taxi', phone: true },
+  { id: 'Local', label: 'Drive', icon: 'locate', phone: true },
+  { id: 'Marketplace', label: 'Bookings', icon: 'map', phone: true },
   { id: 'Trip', label: 'My Trips', icon: 'trip', phone: true },
-  { id: 'Earnings', label: 'Earnings', icon: 'wallet', phone: true, ownerOnly: true },
-  { id: 'Profile', label: 'Profile', icon: 'user', phone: true },
+  { id: 'Earnings', label: 'Earnings', icon: 'chart', phone: true, ownerOnly: true },
+  { id: 'Wallet', label: 'Wallet', icon: 'wallet', phone: false, ownerOnly: true },
+  { id: 'Home', label: 'Overview', icon: 'home', phone: false },
+  { id: 'Profile', label: 'Profile', icon: 'user', phone: false },
 ];
 
 export const navItemsFor = (fleet: boolean) => NAV_ITEMS.filter((i) => !(fleet && i.ownerOnly) && !(!fleet && i.fleetOnly));
 
 /** Page heading and caption for each page (the reference's `titles` table). */
 export const PAGE_TITLES: Record<string, [string, string]> = {
-  Tabs: ['Dashboard', 'Your trips, ready when you are.'],
-  Home: ['Dashboard', 'Your trips, ready when you are.'],
-  Marketplace: ['Available duties', 'Open duties and bookings you can take.'],
-  Local: ['Local Taxi', 'Hourly Rental and Pickup & Drop orders, one after another.'],
-  Trip: ['My Trips', 'Upcoming duties & completed trips.'],
-  Earnings: ['Earnings & Wallet', 'Credited earnings, balance & payouts.'],
+  Tabs: ['Drive', 'Local Pickup & Drop and Hourly Rental, one after another.'],
+  Home: ['Overview', 'Your day at a glance.'],
+  Marketplace: ['Bookings', 'Available duties for your vehicle.'],
+  Local: ['Drive', 'Local Pickup & Drop and Hourly Rental, one after another.'],
+  Trip: ['My Trips', 'Your accepted and assigned journeys.'],
+  Earnings: ['Earnings', 'What was credited, and what is under settlement review.'],
+  Wallet: ['Wallet', 'Balance, payouts and your payout account.'],
   Profile: ['My Profile', 'Your vehicle, documents & preferences.'],
   TripFlow: ['Trip Details', 'Start, navigate, board and close your trip.'],
   PreTrip: ['Trip photos', 'Live trip-start photographs.'],
@@ -46,13 +50,13 @@ export const PAGE_TITLES: Record<string, [string, string]> = {
 
 /** Which workspace page a route belongs to (a trip page highlights My Trips). */
 export function navOwner(route: string): TabName | null {
-  if (route === 'Tabs') return 'Home';
+  if (route === 'Tabs') return 'Local';
   if (route === 'TripFlow' || route === 'PreTrip') return 'Trip';
   if (route === 'UpdateDocuments' || route === 'ProfileSection') return 'Profile';
-  return (['Home', 'Marketplace', 'Local', 'Trip', 'Earnings', 'Profile'] as string[]).includes(route) ? (route as TabName) : null;
+  return (['Home', 'Marketplace', 'Local', 'Trip', 'Earnings', 'Wallet', 'Profile'] as string[]).includes(route) ? (route as TabName) : null;
 }
 
-const readRoute = () => (navigationRef.isReady() ? (navigationRef.getCurrentRoute()?.name ?? 'Home') : 'Home');
+const readRoute = () => (navigationRef.isReady() ? (navigationRef.getCurrentRoute()?.name ?? 'Local') : 'Local');
 
 /** The focused route's name, kept in sync with the navigation container (usable outside any navigator). */
 export function useCurrentRoute(): string {

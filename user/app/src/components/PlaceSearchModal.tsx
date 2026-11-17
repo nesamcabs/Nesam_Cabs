@@ -120,20 +120,20 @@ function PlaceSearchBody({
     const saved = savedPlaces.filter(matches);
     if (saved.length) {
       out.push({ key: 'h-saved', kind: 'header', label: 'Saved addresses' });
-      for (const p of saved) out.push({ key: `s-${p.id}`, kind: 'place', place: p, icon: TYPE_ICON[p.type] ?? 'map-pin', sub: TYPE_LABEL[p.type] ?? p.address });
+      for (const [i, p] of saved.entries()) out.push({ key: `s-${i}-${p.id}`, kind: 'place', place: p, icon: TYPE_ICON[p.type] ?? 'map-pin', sub: TYPE_LABEL[p.type] ?? p.address });
     }
     const sugg = suggestions.filter(matches);
     if (sugg.length) {
       out.push({ key: 'h-sugg', kind: 'header', label: suggestionsLabel });
-      for (const p of sugg) out.push({ key: `g-${p.id}`, kind: 'place', place: p, icon: TYPE_ICON[p.type] ?? 'map-pin', sub: p.address });
+      for (const [i, p] of sugg.entries()) out.push({ key: `g-${i}-${p.id}`, kind: 'place', place: p, icon: TYPE_ICON[p.type] ?? 'map-pin', sub: p.address });
     }
     if (!active && recentPlaces.length) {
       out.push({ key: 'h-recent', kind: 'header', label: 'Recent' });
-      for (const p of recentPlaces) out.push({ key: `r-${p.id}`, kind: 'place', place: p, icon: 'clock-3', sub: p.address });
+      for (const [i, p] of recentPlaces.entries()) out.push({ key: `r-${i}-${p.id}`, kind: 'place', place: p, icon: 'clock-3', sub: p.address });
     }
     if (active && results.length) {
       out.push({ key: 'h-results', kind: 'header', label: 'Search results' });
-      for (const p of results) out.push({ key: `q-${p.id}`, kind: 'place', place: p, icon: p.type === 'airport' ? 'plane' : 'map-pin', sub: p.address });
+      for (const [i, p] of results.entries()) out.push({ key: `q-${i}-${p.id}`, kind: 'place', place: p, icon: p.type === 'airport' ? 'plane' : 'map-pin', sub: p.address });
     }
     return out;
   }, [active, q, results, savedPlaces, recentPlaces, suggestions, suggestionsLabel, onUseCurrentLocation]);

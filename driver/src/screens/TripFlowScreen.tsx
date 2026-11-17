@@ -33,6 +33,7 @@ import type { TollReceipt, TripDetails } from '../types/driver';
 import { formatINR, formatPhone, localMobile } from '../utils/format';
 import { describeError } from '../utils/retry';
 import { formatTime12 } from '../utils/time';
+import { timePackageLine } from '../utils/timePackage';
 import { startBlockers } from '../utils/tripFlow';
 import { mapsDirections, mapsTour } from '../utils/geo';
 import { nx } from '../theme/nx';
@@ -633,6 +634,7 @@ function TripFlow({ trip }: { trip: TripDetails }) {
         {trip.bookingId}
         {trip.serviceType ? ` · ${trip.serviceType.toUpperCase()}` : ''}
       </Text>
+      {trip.timePackage ? <Text style={styles.meta}>{timePackageLine(trip.timePackage)}</Text> : null}
       <Text style={nxText.routeTitle}>
         {tour ? tourCities : `${placeName(trip.pickup.address)} → ${placeName(trip.drop.address)}`}
       </Text>

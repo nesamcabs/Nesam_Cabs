@@ -20,8 +20,9 @@ import {
 } from '@core/services/pricingService';
 import { getRoute } from '@core/services/geoService';
 import { loadDraft, saveDraft, type BookingDraft } from '@/lib/draft';
+import { BookingCtx } from './bookingContext';
 import { useServerQuotes, type ServerQuoteState } from '@core/hooks/useServerQuotes';
-import type { ServerCategoryQuote } from '@core/services/quoteService';
+import type { HillStationInfo, ServerCategoryQuote, ServerTimePackage } from '@core/services/quoteService';
 import { scheduleProblem } from '@core/utils/bookingRules';
 import { useCustomerData } from '@core/context/CustomerData';
 import { useAuth } from '@/state/Auth';
@@ -30,7 +31,7 @@ export type { BookingDraft };
 
 export type RouteStatus = 'idle' | 'loading' | 'ready' | 'error';
 
-interface BookingValue {
+export interface BookingValue {
   draft: BookingDraft;
   update: (patch: Partial<BookingDraft> | ((d: BookingDraft) => Partial<BookingDraft>)) => void;
   /** After a booking: clears the destination, schedule and notes (pickup and preferences stay). */
@@ -48,7 +49,7 @@ interface BookingValue {
   serverQuote: ServerQuoteState;
 }
 
-const Ctx = createContext<BookingValue | null>(null);
+const Ctx = BookingCtx;
 
 export function useBooking(): BookingValue {
   const v = useContext(Ctx);
@@ -86,9 +87,9 @@ export function BookingProvider({ children }: { children: ReactNode }) {
     (patch) => setDraft((d) => ({ ...d, ...(typeof patch === 'function' ? patch(d) : patch) })),
     [],
   );
-  const reset = useCallback(() => setDraft((d) => ({ ...d, drop: null, stops: [], scheduledAt: null, tripEndAt: null, tripType: 'One Way', multicity: false, roofCarrier: false, pets: false, promoCode: '', notes: '' })), []);
+  const reset = useCallback(() => setDraft((d) => ({ ...d, drop: null, stops: [], scheduledAt: null, tripEndAt: null, tripDays: 1, timePackage: '', tripType: 'One Way', multicity: false, roofCarrier: false, pets: false, promoCode: '', notes: '' })), []);
   // A repeat booking always needs a fresh future pickup: the old schedule is never carried over.
-  const startFrom = useCallback<BookingValue['startFrom']>((pickup, drop) => setDraft((d) => ({ ...d, pickup, drop, stops: [], scheduledAt: null, tripEndAt: null, multicity: false, roofCarrier: false, pets: false, promoCode: '' })), []);
+  const startFrom = useCallback<BookingValue['startFrom']>((pickup, drop) => setDraft((d) => ({ ...d, pickup, drop, stops: [], scheduledAt: null, tripEndAt: null, tripDays: 1, timePackage: '', multicity: false, roofCarrier: false, pets: false, promoCode: '' })), []);
 
   const routeStops = draft.tripType === 'Round Trip' ? draft.stops : [];
   const isRoundTrip = draft.tripType === 'Round Trip';
@@ -153,6 +154,8 @@ export function BookingProvider({ children }: { children: ReactNode }) {
       tripType: draft.multicity && tripType === 'Round Trip' ? ('Multicity' as const) : tripType,
       scheduledAt: scheduledAt.toISOString(),
       tripEndAt: tripType === 'Round Trip' && tripEndAt ? tripEndAt.toISOString() : null,
+      // Time-based round trip: the server works out the return time and the packages from the days chosen (the package pick is made on screen).
+      tripDays: tripType === 'Round Trip' && !draft.multicity ? draft.tripDays : null,
       rentalHours: tripType === 'Local Rental' ? draft.rentalHours : null,
       addOns: { roofCarrier: draft.roofCarrier, pets: draft.pets },
       couponCode: promoCode || '',
@@ -206,19 +209,27 @@ export interface BookingQuote {
   trip: { distanceKm: number; durationMin: number } | null;
   /** Chargeable calendar days of a round trip. */
   days: number | null;
+  /** Time-based round trip: the packages the server offers for the chosen vehicle, the one in force, and whether 1 day became 2. */
+  packages: ServerTimePackage[];
+  selectedPackage: ServerTimePackage | null;
+  autoDays: boolean;
+  /** The server refuses this trip as a custom quote (more days than the configured maximum). */
+  customQuote: boolean;
+  /** Hill stations found on the pickup, stops and drop: the Hill Station Allowance / Charge is its own fare line and there is no 5-hour / 8-hour package. */
+  hillStations: HillStationInfo[];
   retryQuote: () => void;
 }
 
 /** Prices the draft the way the booking server will (same engine, adjustment and coupon rules). */
 export function useBookingQuote(): BookingQuote {
-  const { draft, route, categories, adjustment, coupons, serverQuote } = useBooking();
+  const { draft, route, categories, adjustment, coupons, serverQuote, update } = useBooking();
   const { trips } = useCustomerData();
   const { pickup, drop, tripType, scheduledAt, categoryId, promoCode } = draft;
 
   // "Now" for night-charge purposes is fixed per draft change so a quote never flickers mid-minute.
   const pickupTime = useMemo(() => scheduledAt ?? new Date(), [scheduledAt, pickup, drop, tripType, categoryId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return useMemo<BookingQuote>(() => {
+  const result = useMemo<BookingQuote>(() => {
     const category = categories.find((c) => c.id === categoryId) ?? null;
     const quotes = new Map<string, FareBreakdown>();
     if (route) for (const c of categories) if (hasEstimate(c)) quotes.set(c.id, calculateFare({ category: c, route, tripType, pickupTime, adjustment }));
@@ -244,17 +255,27 @@ export function useBookingQuote(): BookingQuote {
     // Only the server's quotes are customer-visible. Local calculations remain available for coupon
     // validation, but showing them while this request is pending makes stale/config-default prices flash.
     const server = serverQuote.status === 'ready' ? serverQuote.data : null;
-    const byId = new Map<string, ServerCategoryQuote>((server?.quotes ?? []).map((x) => [x.categoryId, x]));
+    // Time-based round trip: a vehicle carries one fare per package; the package the rider picked (else the server's pick) is the one in force.
+    const withPackage = (x: ServerCategoryQuote): ServerCategoryQuote => {
+      const pkg = x.packages?.find((p) => p.id === draft.timePackage) ?? x.packages?.find((p) => p.id === x.selectedPackage) ?? x.packages?.[0];
+      return x.ok && pkg ? { ...x, fare: pkg.fare, breakup: pkg.breakup, strikeTotal: pkg.strikeTotal, couponMessage: pkg.couponMessage, couponApplied: pkg.couponApplied, includedKm: pkg.includedKm, days: pkg.days, extraKmRate: pkg.extraKmRate, selectedPackage: pkg.id } : x;
+    };
+    const byId = new Map<string, ServerCategoryQuote>((server?.quotes ?? []).map((x) => [x.categoryId, withPackage(x)]));
     const unavailable = new Map<string, string>();
     for (const x of server?.quotes ?? []) if (!x.ok) unavailable.set(x.categoryId, x.error ?? 'Not available for this trip.');
     const finalQuotes = new Map<string, FareBreakdown>();
-    if (server) for (const x of server.quotes) if (x.ok && x.fare) finalQuotes.set(x.categoryId, x.fare);
+    if (server) for (const x of byId.values()) if (x.ok && x.fare) finalQuotes.set(x.categoryId, x.fare);
     const chosen = category ? byId.get(category.id) : undefined;
     // The CNG rate card applies when the rider picked CNG and this vehicle offers it.
     const cngChoice = draft.fuelType === 'cng' && chosen?.ok && chosen.cng ? chosen.cng : null;
     const serverFare = cngChoice ? cngChoice.fare : chosen?.ok && chosen.fare ? chosen.fare : null;
     const authoritative = !!serverFare;
-    const days = chosen?.ok && typeof chosen.days === 'number' && chosen.model === 'round_trip_calendar' ? chosen.days : null;
+    const days = chosen?.ok && typeof chosen.days === 'number' && (chosen.model === 'round_trip_calendar' || chosen.model === 'round_trip_time_based') ? chosen.days : null;
+    // The packages shown are the chosen vehicle's; before a vehicle is chosen, the first vehicle that has any.
+    const source = (chosen?.ok && chosen.packages?.length ? chosen : (server?.quotes ?? []).find((x) => x.ok && x.packages?.length)) ?? null;
+    const packages = source?.packages ?? [];
+    const selectedPackage = packages.find((p) => p.id === (draft.timePackage || '')) ?? packages.find((p) => p.id === source?.selectedPackage) ?? packages[0] ?? null;
+    const customQuote = !!server && server.quotes.length > 0 && server.quotes.every((x) => !x.ok && x.code === 'custom-quote');
     return {
       category,
       quotes: server ? finalQuotes : new Map<string, FareBreakdown>(),
@@ -267,8 +288,19 @@ export function useBookingQuote(): BookingQuote {
       quoteLoading: serverQuote.status === 'loading',
       quoteError: serverQuote.status === 'error' ? serverQuote.error : '',
       breakup: (cngChoice ? cngChoice.breakup : chosen?.breakup) ?? null,
-      entries: byId, unavailable, days, retryQuote: serverQuote.retry,
+      entries: byId, unavailable, days, packages, selectedPackage, autoDays: source?.autoDays === true, customQuote, retryQuote: serverQuote.retry,
+      hillStations: server?.hillStations ?? [],
       trip: server?.trip ?? null,
     };
-  }, [categories, categoryId, route, tripType, pickupTime, adjustment, coupons, trips, promoCode, pickup, drop, serverQuote, draft.fuelType]);
+  }, [categories, categoryId, route, tripType, pickupTime, adjustment, coupons, trips, promoCode, pickup, drop, serverQuote, draft.fuelType, draft.timePackage]);
+
+  // Auto-Days sync (Customer UX v8): choosing an overnight package (Morning Return, Next-Day Return) when 1 day was asked for makes the
+  // trip 2 days — the form's Days and the summary change together. Never the other way: a trip the rider chose for 3 or more days
+  // is never cut back to 2 when the pickup time or the package changes.
+  const picked = result.selectedPackage;
+  useEffect(() => {
+    if (draft.tripType !== 'Round Trip' || draft.multicity || !draft.scheduledAt || !picked || picked.days <= draft.tripDays) return;
+    update({ tripDays: picked.days, timePackage: picked.id, tripEndAt: new Date(draft.scheduledAt.getTime() + (picked.days - 1) * 86_400_000) });
+  }, [picked?.id, picked?.days, draft.tripDays, draft.tripType, draft.multicity, draft.scheduledAt]); // eslint-disable-line react-hooks/exhaustive-deps
+  return result;
 }

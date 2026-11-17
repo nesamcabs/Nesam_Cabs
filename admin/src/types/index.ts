@@ -38,7 +38,10 @@ export interface Booking {
     partner: { mode: string; ratePaise: number; bataPaise: number; minKm: number; days: number; basePaise: number } | null;
   };
   /** Written when the driver ends the trip: the invoice derived from the verified total kilometres. */
-  finalFare?: { totalKm: number; quotedKm: number; includedKm: number; extraKm: number; days: number; extraDays: number; quotedFare: number; finalFare: number };
+  finalFare?: { totalKm: number; quotedKm: number; includedKm: number; extraKm: number; days: number; extraDays: number; quotedFare: number; finalFare: number; timeBased?: { packageId: string; label: string; upgraded: boolean; coverageExceeded: boolean; includedKm: number } };
+  /** Time-based round trip: the package sold (Customer UX v7) and what happened to it. */
+  timePackage?: { id: string; kind: 'same_day' | 'next_day' | 'morning'; label: string; hours: number | null; includedKm: number; autoDays?: boolean; coverageEndAt?: any; morningCutoffAt?: any; upgradeLabel?: string; upgraded?: boolean; finalLabel?: string; revisedFare?: number };
+  fareReview?: { required: boolean; reason: string };
   totalKm?: number;
   distanceDiscrepancy?: { odometerKm: number; enteredKm: number };
   reachedPickupOverride?: { by: string; byName?: string; reason: string };

@@ -26,6 +26,8 @@ import { BRANDS, BRAND_LABELS, BRAND_SUPPORTED_SERVICES, CLASS_LABEL, TARIFF_CLA
 import { GST_STATES } from "../domain/gstStates";
 import { directoryCities, directoryZones } from "../domain/placeDirectory";
 import DisplayMarkupCard from "../components/DisplayMarkupCard";
+import TimeBasedRoundTripCard from "../components/TimeBasedRoundTripCard";
+import HillStationCard from "../components/HillStationCard";
 import { refDateTime } from "../domain/officeStage";
 
 type Tab = "Brand & service fares" | "Booking availability" | "Cab types" | "Pricing rules" | "GST calculation" | "Platform fee" | "Night allowance";
@@ -362,6 +364,8 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
       {tab === "Brand & service fares" && !pickupDrop && <div className="space-y-4">
         <BrandServiceFareWorkspace scope={fareScope} vehicleClass={fareClass} vehicleName={selectedVehicle?.label} categoryId={activeCats.length ? selectedVehicle?.key : undefined} cngEnabled={selectedVehicle?.cng} fuel={fuelApplies ? fareFuel : "petrol"} onDirtyChange={dirty => { workspaceDirty.current = dirty; }} onBusyChange={busy => { workspaceBusy.current = busy; }} />
         {fareFuel !== "cng" || !fuelApplies ? <ExtraChargeRulesCard /> : null}
+        {fareScope.service === "Round Trip" ? <TimeBasedRoundTripCard /> : null}
+        {fareScope.service === "Round Trip" || fareScope.service === "One Way" ? <HillStationCard /> : null}
         <DisplayMarkupCard scope={fareScope} />
       </div>}
       {tab === "Platform fee" && <PlatformFeeCard />}

@@ -27,7 +27,7 @@ export function buildFareBreakup(category: RideCategory, fare: FareBreakdown, ou
       : `${fare.distanceKm} KM booked, within the included KM`,
   });
   if (fare.timeFare > 0) add({ key: 'time', label: 'Time charge', amount: fare.timeFare, treatment: 'included', detail: `${fare.durationMin} min at ${rupees(fare.perMinuteRate)}/min` });
-  if (fare.nightCharge > 0) add({ key: 'night', label: 'Night allowance', amount: fare.nightCharge, treatment: 'included', detail: 'Pickup between 11:00 PM and 6:00 AM' });
+  if (fare.nightCharge > 0) add({ key: 'night', label: 'Night charge', amount: fare.nightCharge, treatment: 'included', detail: 'Pickup between 10:00 PM and 06:00 AM' });
   add(outstation
     ? { key: 'driverAllowance', label: 'Driver allowance', amount: fare.driverAllowance, treatment: 'included', detail: 'Outstation trip — included in the fare' }
     : { key: 'driverAllowance', label: 'Driver allowance', amount: null, treatment: 'not_applicable', detail: 'Not applicable to local trips' });

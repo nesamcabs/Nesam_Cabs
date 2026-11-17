@@ -1,6 +1,6 @@
 // Waiting at each stop, hill travel and roof carrier, recorded by the driver on the trip. It is only a record: NESAM's office
 // reviews it, and the server works out any charge from the rates saved on this booking (functions/src/extraUsage.ts).
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from './Text';
 import { NxButton, NxField, NxFormError, NxInfo, NxPanel, NxPills, NxSectionHeading, nxText } from './primitives';
@@ -21,16 +21,20 @@ export function ExtraUsageCard({ trip, onDone }: { trip: TripDetails; onDone: (m
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  // Start from the last record sent, so a correction does not have to be typed again.
-  useEffect(() => {
+  // Start from the last record sent, so a correction does not have to be typed again. State is synced while rendering when the
+  // server's revision changes (not in an effect), so the form never flashes the old values.
+  const [seen, setSeen] = useState<number | null>(null);
+  if (seen !== revision) {
+    setSeen(revision);
     const x = u?.usage;
-    if (!x) return;
-    const recorded = x.stops ?? [];
-    setWaited(recorded.some((s) => s.waitedMinutes > 0) ? 'yes' : 'no');
-    setStops(recorded.length ? recorded.map((s) => ({ minutes: String(s.waitedMinutes) })) : [{ minutes: '' }]);
-    setHill(x.hill ? 'yes' : 'no');
-    setCarrier(x.carrier ? 'yes' : 'no');
-  }, [revision]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (x) {
+      const recorded = x.stops ?? [];
+      setWaited(recorded.some((s) => s.waitedMinutes > 0) ? 'yes' : 'no');
+      setStops(recorded.length ? recorded.map((s) => ({ minutes: String(s.waitedMinutes) })) : [{ minutes: '' }]);
+      setHill(x.hill ? 'yes' : 'no');
+      setCarrier(x.carrier ? 'yes' : 'no');
+    }
+  }
 
   if (u?.status === 'approved') {
     return (

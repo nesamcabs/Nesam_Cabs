@@ -7,7 +7,8 @@ import { useDriverData } from '../context/DriverData';
 import { NxScreen, useShell } from '../components/nx/Shell';
 import { NxGrid, useLayout } from '../components/nx/layout';
 import { NxButton, NxEmpty, NxInfo, NxNote, NxPills, NxSelectButton } from '../components/nx/primitives';
-import { DateFilterDialog, DutyCard, DutyDialog, useDutyFeed } from '../components/nx/Duties';
+import { DateFilterDialog, DutyCard, DutyDialog, MyBidsDialog, TypeFilterDialog, useDutyFeed } from '../components/nx/Duties';
+import { useMyBids } from '../hooks/useMyBids';
 import { usePresence } from '../hooks/usePresence';
 import type { MarketplaceOffer } from '../types/driver';
 import { isVendorDriver } from '../utils/driverRole';
@@ -27,9 +28,13 @@ export default function MarketplaceScreen() {
   const [mainTab, setMainTab] = useState<MainTab>(vendorDriver ? 'bookings' : 'duties');
   const [scope, setScope] = useState<Scope>('matching');
   const [dateFilter, setDateFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
   const [filterOpen, setFilterOpen] = useState(false);
+  const [typeOpen, setTypeOpen] = useState(false);
+  const [bidsOpen, setBidsOpen] = useState(false);
+  const myBids = useMyBids(driver.id);
   const [detail, setDetail] = useState<MarketplaceOffer | null>(null);
-  const feed = useDutyFeed(scope === 'all', dateFilter);
+  const feed = useDutyFeed(scope === 'all', dateFilter, typeFilter);
   const detailPending = detail ? pendingTripRequestBookingIds.has(detail.id) : false;
 
   const bookingsBody = myBookingsOffers.length ? (
@@ -82,11 +87,11 @@ export default function MarketplaceScreen() {
     body = (
       <NxEmpty
         icon="trip"
-        title={feed.pool.length ? 'No duties on this date' : 'No open duties right now'}
-        message={feed.pool.length ? 'Try another date or category.' : 'New duties appear here in real time. Keep the app open and stay online.'}
+        title={feed.pool.length ? 'No duties for these filters' : 'No open duties right now'}
+        message={feed.pool.length ? 'Try another trip type, date or category.' : 'New duties appear here in real time. Keep the app open and stay online.'}
         action={
-          dateFilter !== 'all' ? (
-            <NxButton title="Show all dates" variant="secondary" onPress={() => setDateFilter('all')} />
+          dateFilter !== 'all' || typeFilter !== 'all' ? (
+            <NxButton title="Clear filters" variant="secondary" onPress={() => { setDateFilter('all'); setTypeFilter('all'); }} />
           ) : scope === 'matching' && feed.all.length > 0 ? (
             <NxButton title={`View other categories (${feed.all.length})`} variant="secondary" onPress={() => setScope('all')} />
           ) : undefined
@@ -135,6 +140,10 @@ export default function MarketplaceScreen() {
             />
             <NxSelectButton label={dateFilter === 'all' ? 'All dates' : dateFilter} disabled={!feed.dates.length} onPress={() => setFilterOpen(true)} accessibilityLabel="Filter duties by pickup date" />
           </View>
+          <View style={styles.filters}>
+            <NxSelectButton label={typeFilter === 'all' ? 'All trip types' : typeFilter} disabled={!feed.types.length} onPress={() => setTypeOpen(true)} accessibilityLabel="Filter duties by trip type" />
+            <NxButton title={`My bids${myBids.pending.length ? ` (${myBids.pending.length})` : ''}`} icon="document" variant="secondary" compact onPress={() => setBidsOpen(true)} />
+          </View>
           {offersError ? <NxInfo tone="red" style={{ marginTop: 0, marginBottom: 14 }}>{offersError}</NxInfo> : null}
           {body}
           <NxNote>Payouts shown are the agreed driver rates. Toll, parking and state tax are paid by the customer at actual cost.</NxNote>
@@ -149,6 +158,8 @@ export default function MarketplaceScreen() {
         onClose={() => setDetail(null)}
         onAccepted={(o) => navigation.navigate('TripFlow', { bookingId: o.bookingId || o.id })}
       />
+      <TypeFilterDialog visible={typeOpen} onClose={() => setTypeOpen(false)} types={feed.types} value={typeFilter} onChange={setTypeFilter} />
+      <MyBidsDialog visible={bidsOpen} onClose={() => setBidsOpen(false)} bids={myBids.bids} loaded={myBids.loaded} />
       <DateFilterDialog visible={filterOpen} onClose={() => setFilterOpen(false)} dates={feed.dates} value={dateFilter} onChange={setDateFilter} />
     </NxScreen>
   );

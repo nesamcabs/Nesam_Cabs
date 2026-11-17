@@ -677,3 +677,56 @@
   .lr-field--duration .lr-select select { min-height: 46px; font-size: 0.875rem; }
   .lr-sheet--tall .lr-foot .lr-cta { min-height: 46px; font-size: 0.9rem; }
 }
+
+/* ── Front sheet: the places (and the rental duration) as tappable cards ── */
+.lr-places { display: grid; gap: 10px; margin-top: 10px; }
+.lr-card { border: 1px solid var(--line, #e3e7ee); border-radius: 12px; background: var(--surface, #fff); overflow: hidden; }
+.lr-place { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 10px 14px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.lr-place + .lr-place { border-top: 1px solid var(--line, #e3e7ee); }
+.lr-place:hover { background: var(--sunken, #f7f8fb); }
+.lr-place:focus-visible { outline: 2px solid var(--brand, #c8181f); outline-offset: -2px; }
+.lr-place__text { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.lr-place__text small { color: var(--muted, #5b6472); font-size: 0.62rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.lr-place__text strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1rem; font-weight: 800; color: var(--ink, #14171c); }
+.lr-place__text strong.is-empty { color: var(--faint, #8a93a1); font-weight: 500; }
+.lr-place__text em { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted, #5b6472); font-size: 0.75rem; font-style: normal; }
+.lr-place__chev { flex: none; color: var(--muted, #5b6472); }
+.lr-places + .lr-warn, .lr-places ~ .lr-warn { margin-top: 10px; }
+.lr-places ~ .lr-cta { margin-top: 12px; }
+.lr-trip__icon { flex: none; width: 14px; color: var(--lr-red, #c8181f); }
+
+/* ── The rental duration popup: 1–15 hours in a three-column grid ── */
+.lr-hours-dialog { max-width: 400px; }
+.lr-hours-note { margin: 0 0 14px; color: var(--muted, #5b6472); font-size: 0.8125rem; line-height: 1.45; }
+.lr-hours-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.lr-hours-opt { min-height: 46px; padding: 0 6px; border: 1px solid var(--line, #e3e7ee); border-radius: 8px; background: var(--surface, #fff); color: var(--ink, #14171c); font: inherit; font-size: 0.875rem; font-weight: 700; cursor: pointer; transition: border-color 140ms ease, background 140ms ease; }
+.lr-hours-opt:hover { border-color: var(--brand, #c8181f); }
+.lr-hours-opt:focus-visible { outline: 2px solid var(--brand, #c8181f); outline-offset: 2px; }
+.lr-hours-opt.is-on { border-color: var(--brand, #c8181f); background: color-mix(in srgb, var(--brand, #c8181f) 9%, #fff); color: var(--brand-ink, var(--brand, #c8181f)); }
+
+/* ── Ride Now / Schedule on the date-and-time step ── */
+.lr-timing { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 12px; padding: 3px; border-radius: 10px; background: var(--sunken, #f1f4f9); }
+.lr-timing button { min-height: 38px; border: 0; border-radius: 8px; background: transparent; color: var(--muted, #5b6472); font: inherit; font-size: 0.875rem; font-weight: 800; cursor: pointer; transition: background 160ms ease, color 160ms ease; }
+.lr-timing button[aria-pressed='true'] { background: var(--brand, #c8181f); color: #fff; box-shadow: 0 2px 8px rgb(20 23 28 / 0.2); }
+.lr-timing button:focus-visible { outline: 2px solid var(--brand, #c8181f); outline-offset: 2px; }
+.lr-pickup-note { display: flex; align-items: center; gap: 10px; margin: 12px 0 0; padding: 10px 12px; border: 1px solid var(--line, #e3e7ee); border-radius: 10px; background: var(--surface, #fff); color: var(--brand-ink, var(--brand, #c8181f)); }
+.lr-pickup-note > span { display: grid; gap: 1px; min-width: 0; color: var(--ink, #14171c); }
+.lr-pickup-note strong { font-size: 0.875rem; font-weight: 800; }
+.lr-pickup-note small { color: var(--muted, #5b6472); font-size: 0.75rem; }
+.lr-sheet .svc-note--sheet { margin: 8px 0 0; }
+@media (max-width: 899.98px) { .lr-sheet .svc-note--sheet { padding: 7px 8px 7px 10px; } .lr-sheet .svc-note--sheet .svc-note__text span { display: none; } }
+
+/* ── Compact front card: one-line Pickup / Drop (or Duration) inputs, a tiny service note, a shorter button ── */
+.lr-places { gap: 0; margin-top: 8px; }
+.lr-card { border-radius: 10px; }
+.lr-place { min-height: 40px; gap: 10px; padding: 6px 12px; }
+.lr-place > strong { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink, #14171c); font-size: 0.9rem; font-weight: 700; }
+.lr-place > strong.is-empty { color: var(--faint, #8a93a1); font-weight: 500; }
+.lr-place > strong small { margin-left: 8px; color: var(--muted, #5b6472); font-size: 0.68rem; font-weight: 500; }
+.lr-place .lr-dot { width: 10px; height: 10px; border-width: 2px; }
+.lr-places ~ .lr-cta { min-height: 42px; margin-top: 8px; border-radius: 10px; font-size: 0.9rem; }
+.lr-sheet .svc-note--sheet { gap: 7px; margin: 6px 0 0; padding: 4px 6px 4px 9px; border-radius: 8px; }
+.lr-sheet .svc-note--sheet .svc-note__icon { width: 14px; height: 14px; }
+.lr-sheet .svc-note--sheet .svc-note__text strong { font-size: 0.72rem; }
+.lr-sheet .svc-note--sheet .svc-note__text span { display: none; }
+.lr-sheet .svc-note--sheet .svc-note__more { min-height: 22px; padding: 0 9px; font-size: 0.66rem; }

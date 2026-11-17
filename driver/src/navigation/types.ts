@@ -6,9 +6,11 @@ export type TabParamList = {
   Marketplace: undefined;
   /** Local duty: `tab` picks Hourly Rental or Pickup & Drop. */
   Local: { tab?: 'rental' | 'pickup_drop'; at?: number } | undefined;
-  Trip: { tab?: 'upcoming' | 'completed' | 'cancelled' } | undefined;
+  Trip: { tab?: 'upcoming' | 'active' | 'completed' | 'cancelled' } | undefined;
   /** One page for money: balance, credited earnings, settlement review, payout account and activity. */
   Earnings: undefined;
+  /** The owner-driver's balance, payout account and payout activity (split from Earnings, as in the Driver 2.0 reference). */
+  Wallet: undefined;
   Profile: undefined;
 };
 

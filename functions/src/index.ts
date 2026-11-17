@@ -26,6 +26,7 @@ export { reportSecurityEvent, getIntegrityNonce, verifyDeviceIntegrity } from '.
 export { sendVerificationCode, verifyCustomerCode, whatsappWebhook } from './customerVerification';
 export { getLegalStatus, acceptLegalDocuments, publishLegalDocument, saveLegalDraft, seedLegalDocuments } from './legal';
 export { unassignedBookingAlerts } from './scheduler';
+export { morningReturnJobs } from './morningReturn';
 export { approveAdminRequest, rejectAdminRequest, updateAdminAccess, saveStaffRole, deleteStaffRole, migrateLegacyAdmins } from './staff';
 export { awardMarketplaceBid, rejectMarketplaceBid, postBookingToMarketplace, assignIndependentDriver, assignVendor } from './marketplace';
 export { vendorAssignDriver } from './vendorDispatch';

@@ -3,6 +3,8 @@ export const SUPPORT_PHONE = '+919025033330';
 export const SUPPORT_PHONE_DISPLAY = '+91 90250 33330';
 export const SUPPORT_EMAIL = 'support@nesamcabs.com';
 export const COMPANY_LEGAL_NAME = 'Nesam Tours and Travels Private Limited';
+/** Name shown in copyright notices and footers. */
+export const COPYRIGHT_HOLDER = 'Nesam Tours & Travels Private Limited';
 export const WHATSAPP_SUPPORT = 'https://wa.me/919025033330';
 
 /** Vehicle categories offered when adding a fleet vehicle (match ride categories). */

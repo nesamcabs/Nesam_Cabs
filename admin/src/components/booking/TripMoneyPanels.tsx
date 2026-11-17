@@ -25,6 +25,7 @@ const MODEL_LABEL: Record<string, string> = {
   airport_transfer: "Airport transfer (base fare + extra KM)",
   business_contract_per_km: "Business contract (per KM)",
   legacy_category: "Vehicle category fares",
+  round_trip_time_based: "Round trip (time-based package)",
 };
 
 /** How the quote was built and what the final invoice is, from the locked snapshot on the booking. */
@@ -46,6 +47,13 @@ export function PricingPanel({ booking }: { booking: Booking }) {
             </>
           )}
           <div><dt className="text-xs font-semibold text-muted uppercase">Extra km rate</dt><dd className="font-semibold text-ink">{rupees(p.extraKmRatePaise / 100)}/km</dd></div>
+          {p.model === "round_trip_time_based" && booking.timePackage && (
+            <>
+              <div><dt className="text-xs font-semibold text-muted uppercase">Package sold</dt><dd className="font-semibold text-ink">{booking.timePackage.label}{booking.timePackage.autoDays ? " (1 day became 2)" : ""}</dd></div>
+              <div><dt className="text-xs font-semibold text-muted uppercase">Dates covered</dt><dd className="font-semibold text-ink">{p.pickupDate} → {p.endDate} · {p.days} day{p.days === 1 ? "" : "s"}</dd></div>
+              {booking.timePackage.upgraded && <div className="col-span-2"><dt className="text-xs font-semibold text-muted uppercase">Upgraded</dt><dd className="font-semibold text-ink">To {booking.timePackage.finalLabel ?? booking.timePackage.upgradeLabel}{booking.timePackage.revisedFare ? ` · revised estimate ${rupees(booking.timePackage.revisedFare)}` : ""}</dd></div>}
+            </>
+          )}
           {p.partner && <div><dt className="text-xs font-semibold text-muted uppercase">Normal partner payout (quote)</dt><dd className="font-semibold text-ink">{rupees(p.partner.basePaise / 100)}</dd></div>}
         </dl>
       )}
@@ -61,6 +69,8 @@ export function PricingPanel({ booking }: { booking: Booking }) {
           <div className="flex justify-between"><span>Total km driven</span><strong>{f.totalKm} km</strong></div>
           <div className="flex justify-between"><span>Quoted / included</span><strong>{f.quotedKm} / {f.includedKm} km</strong></div>
           <div className="flex justify-between"><span>Extra km charged</span><strong>{f.extraKm} km</strong></div>
+          {f.timeBased && <div className="flex justify-between"><span>Billed package</span><strong>{f.timeBased.label}{f.timeBased.upgraded ? " (upgraded)" : ""} · {f.timeBased.includedKm} km</strong></div>}
+          {booking.fareReview?.required && <Notice tone="warn">This trip ran past the booked package coverage. Review the fare before collecting or releasing payouts; no extra day was added automatically.</Notice>}
           {f.extraDays > 0 && <div className="flex justify-between"><span>Extra calendar days</span><strong>{f.extraDays}</strong></div>}
           <div className="flex justify-between"><span>Quoted fare → final fare</span><strong>{rupees(Number(f.quotedFare))} → {rupees(f.finalFare)}</strong></div>
         </div>

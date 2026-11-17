@@ -19,7 +19,8 @@ import { setPendingReturn } from '@/lib/pendingReturn';
 import { saveDraft, RENTAL_PACKAGE_HOURS } from '@/lib/draft';
 import { useDeviceLocation, useLivePickupDefault, useOnline } from '@/lib/hooks';
 import { ClockIcon, SwapIcon } from '@/components/CabParts';
-import { combineDateTime, defaultPickup, latestPickup, toDateInput, toTimeInput } from '@/lib/schedule';
+import { combineDateTime, defaultPickup, latestPickup, toDateInput, toTimeInput, OVERNIGHT_AFTER_MIN, addDaysISO, pickupMinutes } from '@/lib/schedule';
+import { ServiceNote } from '@/components/ServiceNote';
 import { LOCAL_RENTALS_LABEL, SERVICES, SERVICE_TITLE, isLocalRentals, type ServiceId } from '@/lib/services';
 import { AIRPORTS, QUICK_CITIES, isAirportPlace } from './content';
 import { MulticityForm } from './MulticityForm';
@@ -54,12 +55,6 @@ const dayHint = (iso: string): string => {
 
 /** Round trips are booked for up to this many days (the server's roundTrip.maxDays). */
 const RT_MAX_DAYS = 30;
-/** The calendar date `n` days after a YYYY-MM-DD date (plain calendar arithmetic). */
-const addDaysISO = (iso: string, n: number): string => {
-  const [y, m, d] = iso.split('-').map(Number);
-  return toDateInput(new Date(y!, m! - 1, d! + n));
-};
-
 export function BookingForm({
   service,
   onService,
@@ -130,9 +125,24 @@ export function BookingForm({
     const n = Math.round((Date.parse(toDateInput(tripEndAt)) - Date.parse(toDateInput(scheduledAt))) / 86400000) + 1;
     return n >= 1 && n <= RT_MAX_DAYS ? n : 1;
   });
+  // A pickup after 6:45 PM cannot finish a same-day package (they all end at 11:45 PM; the shortest runs 5 hours), so the trip becomes an
+  // overnight 2-day trip by itself and the stepper cannot go below 2 days. Moving the pickup earlier again returns it to 1 day.
+  const overnight = isRound && OVERNIGHT_AFTER_MIN < pickupMinutes(time);
+  const minDays = overnight ? 2 : 1;
+  const [autoOvernight, setAutoOvernight] = useState(false);
+  useEffect(() => {
+    if (!isRound) return;
+    if (overnight && days < 2) { setDays(2); setAutoOvernight(true); }
+    else if (!overnight && autoOvernight) { setDays(1); setAutoOvernight(false); }
+  }, [overnight, isRound]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const end = isRound && date && time ? combineDateTime(addDaysISO(date, days - 1), time) : null;
-    if ((end?.getTime() ?? null) !== (tripEndAt?.getTime() ?? null)) update({ tripEndAt: end });
+    const tripDays = isRound ? days : 1;
+    const patch: Partial<typeof draft> = {};
+    if ((end?.getTime() ?? null) !== (tripEndAt?.getTime() ?? null)) patch.tripEndAt = end;
+    // The package list depends on the days; a package picked for other days no longer applies.
+    if (tripDays !== draft.tripDays) { patch.tripDays = tripDays; patch.timePackage = ''; }
+    if (Object.keys(patch).length) update(patch);
   }, [date, time, days, isRound]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const recent = useMemo(() => {
@@ -344,6 +354,14 @@ export function BookingForm({
         />
       ) : null}
 
+      {service === 'outstation' ? (
+        <ServiceNote kind={outstationTrip === 'Round Trip' ? 'roundtrip' : 'oneway'} />
+      ) : service === 'multicity' ? (
+        <ServiceNote kind="multicity" />
+      ) : isLocalRentals(service) ? (
+        <ServiceNote kind={service === 'rental' ? 'rental' : 'local'} />
+      ) : null}
+
       {service === 'multicity' ? (
         <MulticityForm />
       ) : (
@@ -475,15 +493,16 @@ export function BookingForm({
             </div>
             {isRound ? (
               <div className="bf-cell bf-round-days">
-                <span className="bf-label bf-label--out" id="bf-days-label">Days</span>
+                <span className="bf-label bf-label--out" id="bf-days-label">{overnight ? 'Trip days' : 'Days'}{overnight ? <small className="bf-days__tag">Overnight</small> : null}</span>
                 {/* Plus and minus buttons choose how many days the trip lasts (1 to RT_MAX_DAYS). */}
                 <div className="bf-days__stepper" role="group" aria-labelledby="bf-days-label">
                   <button
                     type="button"
                     aria-label="One day less"
-                    disabled={days <= 1}
+                    disabled={days <= minDays}
                     onClick={() => {
-                      setDays((d) => Math.max(1, d - 1));
+                      setAutoOvernight(false);
+                      setDays((d) => Math.max(minDays, d - 1));
                       setErrors((x) => ({ ...x, retDate: '' }));
                     }}
                   >
@@ -497,6 +516,7 @@ export function BookingForm({
                     aria-label="One day more"
                     disabled={days >= RT_MAX_DAYS}
                     onClick={() => {
+                      setAutoOvernight(false);
                       setDays((d) => Math.min(RT_MAX_DAYS, d + 1));
                       setErrors((x) => ({ ...x, retDate: '' }));
                     }}
@@ -508,7 +528,6 @@ export function BookingForm({
               </div>
             ) : null}
           </div>
-          {isRound ? <p className="bf-days__end bf-days__end--centered">{date ? `Ends ${dayHint(addDaysISO(date, days - 1))}` : 'Pick a date'}</p> : null}
 
 
           {errors.form ? (

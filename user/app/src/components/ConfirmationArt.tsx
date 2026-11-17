@@ -4,6 +4,7 @@
 import React, { useEffect, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, StyleSheet, View } from 'react-native';
 import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
+import { NATIVE_DRIVER } from '../utils/nativeDriver';
 
 const W = 260;
 const H = 110;
@@ -34,10 +35,10 @@ export function ConfirmationArt({ animate }: { animate: boolean }) {
     seal.setValue(0);
     ripple.setValue(0);
     const anim = Animated.sequence([
-      Animated.timing(cab, { toValue: 1, duration: 700, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(cab, { toValue: 1, duration: 700, easing: Easing.out(Easing.cubic), useNativeDriver: NATIVE_DRIVER }),
       Animated.parallel([
-        Animated.spring(seal, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }),
-        Animated.timing(ripple, { toValue: 1, duration: 900, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+        Animated.spring(seal, { toValue: 1, friction: 5, tension: 120, useNativeDriver: NATIVE_DRIVER }),
+        Animated.timing(ripple, { toValue: 1, duration: 900, easing: Easing.out(Easing.quad), useNativeDriver: NATIVE_DRIVER }),
       ]),
     ]);
     anim.start();

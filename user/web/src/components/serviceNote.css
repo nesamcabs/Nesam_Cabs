@@ -1,0 +1,20 @@
+/* The service note under the tabs, and its Details dialog. Kept very small: one slim line. */
+.svc-note { display: flex; align-items: center; gap: 7px; margin: 6px 0 8px; padding: 4px 6px 4px 9px; border: 1px solid var(--line, #e3e7ee); border-radius: 8px; background: var(--surface, #fff); }
+.svc-note__icon { flex: none; width: 14px; height: 14px; color: var(--brand-ink, var(--brand, #c8181f)); }
+.svc-note__text { flex: 1; min-width: 0; display: grid; gap: 0; }
+.svc-note__text strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink, #14171c); font-size: 0.72rem; font-weight: 800; line-height: 1.25; }
+.svc-note__text span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted, #5b6472); font-size: 0.64rem; line-height: 1.25; }
+.svc-note__more { flex: none; min-height: 22px; padding: 0 9px; border: 1px solid var(--brand-line, #dcdfe4); border-radius: 999px; background: transparent; color: var(--brand-ink, var(--brand, #c8181f)); font: inherit; font-size: 0.66rem; font-weight: 800; cursor: pointer; transition: background 140ms ease; }
+.svc-note__more:hover { background: var(--brand-soft, #f6f6f7); }
+.svc-note__more:focus-visible { outline: 2px solid var(--brand, #c8181f); outline-offset: 2px; }
+
+.svc-dialog { max-width: 440px; }
+.svc-dialog__intro { margin: 0 0 14px; color: var(--muted, #5b6472); font-size: 0.875rem; line-height: 1.5; }
+.svc-dialog__list { list-style: none; display: grid; gap: 14px; margin: 0; padding: 0; }
+.svc-dialog__list li { display: flex; gap: 12px; align-items: flex-start; }
+.svc-dialog__list strong { display: block; color: var(--ink, #14171c); font-size: 0.875rem; font-weight: 800; }
+.svc-dialog__list p { margin: 2px 0 0; color: var(--muted, #5b6472); font-size: 0.8125rem; line-height: 1.5; }
+.svc-dialog__mark { flex: none; display: grid; place-items: center; width: 22px; height: 22px; margin-top: 1px; border-radius: 50%; background: #e7f5ec; color: #1a7a3f; }
+.svc-dialog__mark.is-no { background: var(--danger-soft, #fef1f0); color: var(--danger-ink, #b42318); }
+.svc-dialog__ok { width: 100%; min-height: 48px; border: 0; border-radius: 12px; background: var(--brand, #c8181f); color: #fff; font: inherit; font-size: 1rem; font-weight: 800; cursor: pointer; }
+.svc-dialog__ok:hover { background: var(--brand-hover, #b3141a); }

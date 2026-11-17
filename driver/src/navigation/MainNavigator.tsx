@@ -1,17 +1,18 @@
 // The approved driver's workspace: the responsive frame (sidebar / rail / bottom bar) around one stack whose first page
 // holds the workspace pages. Trip, camera, notification and document pages open above it, inside the same frame.
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import type { RootStackParamList, TabParamList } from './types';
 import { navigationRef } from './navigationRef';
+import { SignOutCtx } from './signOut';
 import { useDriverData } from '../context/DriverData';
 import { HomeScreen } from '../screens/HomeScreen';
 import MarketplaceScreen from '../screens/MarketplaceScreen';
 import { TripsScreen } from '../screens/TripsScreen';
 import { LocalTaxiScreen } from '../screens/LocalTaxiScreen';
 import { TripFlowScreen } from '../screens/TripFlowScreen';
-import { EarningsScreen } from '../screens/EarningsScreen';
+import { EarningsScreen, WalletScreen } from '../screens/EarningsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { ProfileSectionScreen, PROFILE_SECTION_TITLES } from '../screens/ProfileSectionScreen';
 import { PreTripScreen } from '../screens/PreTripScreen';
@@ -32,8 +33,7 @@ import { AppFrame } from '../components/nx/AppFrame';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
 
-const SignOutCtx = createContext<() => void>(() => undefined);
-export const useSignOut = () => useContext(SignOutCtx);
+export { useSignOut } from './signOut';
 
 /** The workspace pages. Their navigation is drawn by AppFrame, so the tab navigator's own bar is hidden. */
 function Pages() {
@@ -42,12 +42,13 @@ function Pages() {
   // gets Marketplace — My Bookings there is its one direct-request exception (Outstation Round Trip).
   const fleet = !!account.driver.vendorId;
   return (
-    <Tab.Navigator initialRouteName="Home" backBehavior="history" screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: nx.page } }} tabBar={() => null}>
-      <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Marketplace" component={MarketplaceScreen} />
+    <Tab.Navigator initialRouteName="Local" backBehavior="history" screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: nx.page } }} tabBar={() => null}>
       <Tab.Screen name="Local" component={LocalTaxiScreen} />
+      <Tab.Screen name="Marketplace" component={MarketplaceScreen} />
       <Tab.Screen name="Trip" component={TripsScreen} />
       {fleet ? null : <Tab.Screen name="Earnings" component={EarningsScreen} />}
+      {fleet ? null : <Tab.Screen name="Wallet" component={WalletScreen} />}
+      <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );

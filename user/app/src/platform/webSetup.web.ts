@@ -7,6 +7,8 @@
 //   3. Share.share falls back to the clipboard where the browser has no share sheet.
 //   4. Page-level CSS: full-viewport height that survives mobile browser chrome,
 //      no rubber-band scrolling, visible keyboard focus.
+//   5. Focus guard: the navigator hides the screen you leave (aria-hidden + display:none) while a button on it can still hold
+//      focus, which the browser reports as "Blocked aria-hidden on an element because its descendant retained focus".
 // (Responsive layout itself lives in theme/responsive.ts and components/layout.tsx.)
 import { Alert, Linking, Share, type AlertButton, type AlertOptions, type ShareContent } from 'react-native';
 import { showDialog } from './domDialog';
@@ -97,7 +99,22 @@ function installLayout(): void {
   document.head.appendChild(style);
 }
 
+/** Moves focus out of any region that has just been hidden from assistive technology, before the browser checks it. */
+function installFocusGuard(): void {
+  const release = (): void => {
+    const active = document.activeElement as HTMLElement | null;
+    if (!active || active === document.body) return;
+    if (active.closest('[aria-hidden="true"]')) active.blur();
+  };
+  // Observer callbacks run as microtasks: after React hides the screen, before the browser rebuilds the accessibility tree.
+  const target = document.body ?? document.documentElement;
+  new MutationObserver(release).observe(target, { subtree: true, attributes: true, attributeFilter: ['aria-hidden', 'style', 'hidden'] });
+}
+
 installAlert();
 installLinking();
 installShare();
-if (typeof document !== 'undefined') installLayout();
+if (typeof document !== 'undefined') {
+  installLayout();
+  installFocusGuard();
+}

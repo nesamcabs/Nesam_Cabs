@@ -14,6 +14,7 @@ import { DESKTOP_NAV_MIN, DesktopTopBar, MenuButton, NotificationsAction, Pressa
 import { SiteFooter } from '../components/SiteFooter';
 import { GoButton, LocationField, PillTabs, RouteRail, ScheduleCell } from '../components/BookForm';
 import { Icon } from '../components/Icon';
+import { ServiceNote } from '../components/ServiceNote';
 import { serviceSlogan } from '../utils/serviceSlogan';
 import { useDockPad } from '../context/Dock';
 import { setResumeFares, useAuthGate } from '../context/AuthGate';
@@ -36,7 +37,7 @@ import { formatTime } from '../utils/format';
 import { haversineKm, isValidLatLng } from '../utils/geo';
 import { colors, fonts, space } from '../theme';
 import { HEROES, NESAM } from '../assets/images';
-import { useRideFocus } from '../navigation/MainNavigator';
+import { useRideFocus } from '../navigation/RideFocus';
 
 /** The service switcher inside the booking card on wide windows (phones use the floating bottom bar). */
 const DESKTOP_SERVICES: { key: HomeService; label: string; image: ImageSourcePropType }[] = [
@@ -59,6 +60,8 @@ const dayHint = (d: Date): string => {
 };
 /** Round trips are booked for up to this many days (the server's roundTrip.maxDays). */
 const RT_MAX_DAYS = SCHEDULE_MAX_DAYS;
+/** A same-day round-trip package ends at 11:45 PM and the shortest one runs 5 hours, so a pickup after 6:45 PM is an overnight trip. */
+const OVERNIGHT_AFTER_MIN = 18 * 60 + 45;
 /** A round trip ends on the last of its days, at the pickup time (the server counts calendar days). */
 const tripEndFor = (pickup: Date, days: number): Date => {
   const end = new Date(pickup);
@@ -101,14 +104,39 @@ export function BookScreen() {
   const isMulti = service === 'multicity';
   const isRound = service === 'outstation' && tripType === 'Round Trip';
 
+  // A pickup after 6:45 PM cannot finish a same-day package (they all end at 11:45 PM; the shortest runs 5 hours), so the trip becomes an
+  // overnight 2-day trip by itself and the stepper cannot go below 2 days. Moving the pickup earlier again returns it to 1 day.
+  const overnight = isRound && !!scheduledAt && scheduledAt.getHours() * 60 + scheduledAt.getMinutes() > OVERNIGHT_AFTER_MIN;
+  const minDays = overnight ? 2 : 1;
+  const [autoOvernight, setAutoOvernight] = useState(false);
+  useEffect(() => {
+    if (!isRound) return;
+    if (overnight && days < 2) {
+      setDays(2);
+      setAutoOvernight(true);
+    } else if (!overnight && autoOvernight) {
+      setDays(1);
+      setAutoOvernight(false);
+    }
+  }, [overnight, isRound]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!isRound || !scheduledAt) {
       if (tripEndAt) update({ tripEndAt: null });
       return;
     }
     const end = tripEndFor(scheduledAt, days);
-    if (!tripEndAt || tripEndAt.getTime() !== end.getTime()) update({ tripEndAt: end });
+    const patch: Partial<typeof draft> = {};
+    if (!tripEndAt || tripEndAt.getTime() !== end.getTime()) patch.tripEndAt = end;
+    // The package list depends on the days: a package picked for other days no longer applies.
+    if (draft.tripDays !== days) { patch.tripDays = days; patch.timePackage = ''; }
+    if (Object.keys(patch).length) update(patch);
   }, [scheduledAt, days, isRound]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The package list can make the trip longer (an overnight package makes it 2 days): the Days stepper follows it.
+  useEffect(() => {
+    if (isRound && draft.tripDays > days && draft.tripDays <= RT_MAX_DAYS) setDays(draft.tripDays);
+  }, [draft.tripDays]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fill the pickup from GPS once, unless the customer already chose one.
   const pickupFromGps = useRef(false);
@@ -406,6 +434,8 @@ export function BookScreen() {
                 />
               ) : null}
 
+              {service === 'outstation' ? <ServiceNote kind={tripType === 'Round Trip' ? 'roundtrip' : 'oneway'} /> : isMulti ? <ServiceNote kind="multicity" /> : null}
+
               {isMulti ? (
                 <MulticityForm />
               ) : (
@@ -454,28 +484,25 @@ export function BookScreen() {
                   <View style={styles.formRow}>
                     <ScheduleCell label="Pickup date" value={formatDay(pickupDay)} icon="calendar-days" chip={dayHint(pickupDay)} error={fieldError.date} onPress={() => openDate()} />
                     <ScheduleCell label="Pickup time" value={scheduledAt ? formatTime(scheduledAt).replace(/^0/, '') : ''} icon="clock" error={fieldError.time} onPress={() => openTime()} />
-                  </View>
-
-                  {isRound ? (
-                    <View>
+                    {isRound ? (
+                      // Days sits to the right of the time: a compact − / + stepper in the same row.
                       <View style={styles.daysCell}>
-                        <Text style={styles.cellLabel}>Days</Text>
+                        <Text style={styles.cellLabel} numberOfLines={1}>{overnight ? 'Trip days' : 'Days'}</Text>
                         <View style={styles.stepper}>
-                          <Pressable accessibilityRole="button" accessibilityLabel="One day fewer" disabled={days <= 1} onPress={() => setDays((n) => Math.max(1, n - 1))} style={[styles.stepBtn, days <= 1 && styles.stepBtnOff]}>
+                          <Pressable accessibilityRole="button" accessibilityLabel="One day fewer" disabled={days <= minDays} onPress={() => { setAutoOvernight(false); setDays((n) => Math.max(minDays, n - 1)); }} style={[styles.stepBtn, days <= minDays && styles.stepBtnOff]}>
                             <Text style={styles.stepText}>−</Text>
                           </Pressable>
-                          <Text style={styles.stepValue}>
+                          <Text style={styles.stepValue} numberOfLines={1}>
                             {days} {days === 1 ? 'day' : 'days'}
                           </Text>
-                          <Pressable accessibilityRole="button" accessibilityLabel="One day more" disabled={days >= RT_MAX_DAYS} onPress={() => setDays((n) => Math.min(RT_MAX_DAYS, n + 1))} style={[styles.stepBtn, days >= RT_MAX_DAYS && styles.stepBtnOff]}>
+                          <Pressable accessibilityRole="button" accessibilityLabel="One day more" disabled={days >= RT_MAX_DAYS} onPress={() => { setAutoOvernight(false); setDays((n) => Math.min(RT_MAX_DAYS, n + 1)); }} style={[styles.stepBtn, days >= RT_MAX_DAYS && styles.stepBtnOff]}>
                             <Text style={styles.stepText}>+</Text>
                           </Pressable>
                         </View>
-                        <Text style={styles.daysEnd}>Ends {dayHint(tripEndFor(pickupDay, days))}</Text>
                       </View>
-                      {fieldError.return ? <Text style={styles.errorText}>{fieldError.return}</Text> : null}
-                    </View>
-                  ) : null}
+                    ) : null}
+                  </View>
+                  {isRound && fieldError.return ? <Text style={styles.errorText}>{fieldError.return}</Text> : null}
 
                   {isAirport ? (
                     <View style={styles.flight}>
@@ -553,14 +580,14 @@ const styles = StyleSheet.create({
   formRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
   addStop: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 38, paddingHorizontal: 18, borderWidth: 1, borderColor: '#DAC0C9', borderRadius: 6, backgroundColor: colors.white },
   addStopText: { fontFamily: fonts.bold, fontSize: 14, color: colors.ink },
-  daysCell: { paddingHorizontal: 12, paddingTop: 22, paddingBottom: 10, borderWidth: 1, borderColor: '#DAC0C9', borderRadius: 6, backgroundColor: colors.white },
+  daysCell: { flex: 0.95, minWidth: 0, justifyContent: 'center', paddingHorizontal: 6, paddingTop: 20, paddingBottom: 6, borderWidth: 1, borderColor: '#DAC0C9', borderRadius: 6, backgroundColor: colors.white },
   cellLabel: { position: 'absolute', top: 8, left: 14, fontFamily: fonts.extraBold, fontSize: 10.4, letterSpacing: 0.42, textTransform: 'uppercase', color: colors.muted },
   cellLabelDark: { fontFamily: fonts.extraBold, fontSize: 10.4, letterSpacing: 0.42, textTransform: 'uppercase', color: colors.muted, marginBottom: 6 },
   stepper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  stepBtn: { width: 38, height: 38, borderRadius: 4, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
+  stepBtn: { width: 26, height: 28, borderRadius: 4, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
   stepBtnOff: { opacity: 0.35 },
-  stepText: { fontFamily: fonts.medium, fontSize: 22, lineHeight: 26, color: '#FFFFFF' },
-  stepValue: { fontFamily: fonts.semiBold, fontSize: 16, color: colors.ink },
+  stepText: { fontFamily: fonts.medium, fontSize: 18, lineHeight: 22, color: '#FFFFFF' },
+  stepValue: { flexShrink: 1, fontFamily: fonts.semiBold, fontSize: 12, color: colors.ink, textAlign: 'center' },
   daysEnd: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted, marginTop: 6, textAlign: 'center' },
   errorText: { fontFamily: fonts.medium, fontSize: 12, lineHeight: 17, color: colors.danger },
   flight: { },

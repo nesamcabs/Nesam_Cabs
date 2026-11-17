@@ -1,7 +1,7 @@
 // Live data for an approved driver, subscribed once per session (mirrors
 // driver/web/src/DriverWorkspace.tsx). Screens read from here; every listener
 // is torn down on sign-out because the provider is keyed by uid.
-import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   DriverAccount,
   DriverEarningsSummary,
@@ -148,7 +148,8 @@ export function DriverDataProvider({ account, children }: { account: DriverAccou
   const shifts = fleetDriver ? fleetShifts : NO_SHIFTS;
   const shiftsLoaded = fleetDriver ? fleetShiftsLoaded : true;
   const [shiftsKey, setShiftsKey] = useState(0);
-  const refreshShifts = () => setShiftsKey((k) => k + 1);
+  // Stable on purpose: screens call this from an effect that depends on it, so a new function per change would loop forever.
+  const refreshShifts = useCallback(() => setShiftsKey((k) => k + 1), []);
   useEffect(() => {
     if (!fleetDriver) return undefined;
     return subscribeToMyShifts(
@@ -249,7 +250,7 @@ export function DriverDataProvider({ account, children }: { account: DriverAccou
       shiftsLoaded,
       refreshShifts,
     };
-  }, [account, bookings, bookingsLoaded, bookingsError, activeTrip, canBrowse, rawOffers, offersError, myTripRequests, payouts, notifications, penalties, deviceWarning, wallet, ledger, walletError, rules, cancellations, cancelPolicy, shifts, shiftsLoaded, shiftsKey]);
+  }, [account, bookings, bookingsLoaded, bookingsError, activeTrip, canBrowse, rawOffers, offersError, myTripRequests, payouts, notifications, penalties, deviceWarning, wallet, ledger, walletError, rules, cancellations, cancelPolicy, shifts, shiftsLoaded, refreshShifts]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

@@ -10,7 +10,7 @@ import { Card, MenuGroup, MenuRow, Notice, Row, TextButton } from '../components
 import { ScrollView } from '../components/layout';
 import { AppHeader } from '../components/brand';
 import { isConfirmationSoundOn, playConfirmationSound, setConfirmationSound } from '../services/confirmationSound';
-import { COMPANY_LEGAL_NAME, SUPPORT_EMAIL, SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY } from '../config/constants';
+import { COMPANY_LEGAL_NAME, COPYRIGHT_HOLDER, SUPPORT_EMAIL, SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY } from '../config/constants';
 import { callFunction } from '../services/callables';
 import { colors, fonts, space } from '../theme';
 
@@ -82,7 +82,7 @@ export function SettingsScreen() {
           <Row label="Email" value={SUPPORT_EMAIL} />
           <Row label="App version" value={Constants.expoConfig?.version ?? '1.0.0'} />
           <View style={{ height: space.sm }} />
-          <Text style={styles.text}>© {new Date().getFullYear()} {COMPANY_LEGAL_NAME}. All rights reserved.</Text>
+          <Text style={styles.text}>© {new Date().getFullYear()} {COPYRIGHT_HOLDER}. All rights reserved.</Text>
         </Card>
         <MenuGroup>
           <MenuRow icon="phone" title="Call NESAM" subtitle={SUPPORT_PHONE_DISPLAY} onPress={() => void Linking.openURL(`tel:${SUPPORT_PHONE}`)} />

@@ -51,6 +51,19 @@ export function pickupTimeOptions(date: string, slots: readonly string[], now = 
   return out;
 }
 
+/** A same-day round-trip package ends at 11:45 PM and the shortest one runs 5 hours, so a pickup after 6:45 PM is an overnight trip. */
+export const OVERNIGHT_AFTER_MIN = 18 * 60 + 45;
+/** Minutes after midnight of an "hh:mm" time, or -1 when it is not one. */
+export const pickupMinutes = (t: string): number => {
+  const m = /^(\d{2}):(\d{2})$/.exec(t);
+  return m ? Number(m[1]) * 60 + Number(m[2]) : -1;
+};
+/** The calendar date `n` days after a YYYY-MM-DD date (plain calendar arithmetic). */
+export const addDaysISO = (iso: string, n: number): string => {
+  const [y, m, d] = iso.split('-').map(Number);
+  return toDateInput(new Date(y!, m! - 1, d! + n));
+};
+
 export const latestPickup = (now = Date.now()) => new Date(now + SCHEDULE_MAX_DAYS * 86400000);
 
 /** Location problems explained for a browser (the shared texts talk about phone settings). */

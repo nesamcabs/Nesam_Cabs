@@ -6,6 +6,7 @@ import { CATEGORY_LABEL, TONE_COLORS, toneOf } from '../utils/notificationModel'
 import { playTone } from '../services/notificationService';
 import { Icon } from './Icon';
 import { colors, fonts, space } from '../theme';
+import { NATIVE_DRIVER } from '../utils/nativeDriver';
 
 /** A notification older than this is history, not news — it never pops up. */
 const FRESH_MS = 5 * 60 * 1000;
@@ -82,15 +83,15 @@ function PopupCard({
 
   useEffect(() => {
     Animated.parallel([
-      Animated.spring(translateY, { toValue: 0, speed: 40, bounciness: 8, useNativeDriver: true }),
-      Animated.timing(opacity, { toValue: 1, duration: 220, useNativeDriver: true }),
+      Animated.spring(translateY, { toValue: 0, speed: 40, bounciness: 8, useNativeDriver: NATIVE_DRIVER }),
+      Animated.timing(opacity, { toValue: 1, duration: 220, useNativeDriver: NATIVE_DRIVER }),
     ]).start();
   }, [translateY, opacity]);
 
   const dismiss = () => {
     Animated.parallel([
-      Animated.timing(translateY, { toValue: -30, duration: 180, useNativeDriver: true }),
-      Animated.timing(opacity, { toValue: 0, duration: 180, useNativeDriver: true }),
+      Animated.timing(translateY, { toValue: -30, duration: 180, useNativeDriver: NATIVE_DRIVER }),
+      Animated.timing(opacity, { toValue: 0, duration: 180, useNativeDriver: NATIVE_DRIVER }),
     ]).start(() => onClose());
   };
 
@@ -125,16 +126,18 @@ function PopupCard({
             {n.message}
           </Text>
         </View>
+        {/* Room for the dismiss button, which is a sibling of the banner (a button inside a button is invalid HTML on the web). */}
+        <View style={styles.closeSlot} />
+      </Pressable>
         <Pressable
           onPress={dismiss}
           hitSlop={10}
           accessibilityRole="button"
           accessibilityLabel="Dismiss notification"
-          style={styles.closeBtn}
+          style={[styles.closeBtn, styles.closeAbs]}
         >
           <Icon name="x" size={15} color="#9A958C" />
         </Pressable>
-      </Pressable>
     </Animated.View>
   );
 }
@@ -216,6 +219,8 @@ const styles = StyleSheet.create({
     color: '#66615A',
     marginTop: 2,
   },
+  closeSlot: { width: 33, height: 28 },
+  closeAbs: { position: 'absolute', right: 8, top: 0, bottom: 0, marginLeft: 0 },
   closeBtn: {
     padding: 6,
     marginLeft: 6,

@@ -1,5 +1,7 @@
 import { bookingAddOnsOf, withBookingAddOns, type BookingAddOns } from './domain/bookingAddOns';
 import { withNightAllowance, type NightAllowanceConfig } from './domain/nightAllowance';
+import { withHillCharge } from './domain/hillCharge';
+import { detectHillStations, distinctHillStations, hillChargeFor, type HillMatch } from './domain/hillStations';
 import { loadNightAllowance } from './nightAllowanceConfig';
 import { withPlatformFee, type PlatformFeeConfig } from './domain/platformFee';
 import { loadPlatformFee } from './platformFeeConfig';
@@ -14,7 +16,7 @@ import { fareServiceKey } from './fareScope';
 // the snapshot records which source priced the booking.
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { PUBLIC_CALLABLE_ORIGINS } from './corsOrigins';
-import { FieldValue, Transaction } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp, Transaction } from 'firebase-admin/firestore';
 import { db } from './admin';
 import { auditInTx } from './audit';
 import { DutyClass, dutyClassOf } from './domain/eligibility';
@@ -24,7 +26,7 @@ import { CATEGORY_GST_RATE, FareAdjustmentInput, calculateFare, isOutstation, se
 import {
   CONFIRMED_TARIFF_V2, FixedRouteFare, completeAirportRates, defaultRentalHours, quoteAirport, PricingSnapshot, QuoteResult, TARIFF_CLASSES, TariffClass, TariffConfig, TariffError, cityDropFare, classRates, istDate, localFareFor, matchFixedRoute, paise,
   parseFixedRouteFare, parseTariffConfig, gstOn, quoteFixedRoute, quoteLocalPickupDrop, quoteOneWay, quoteRentalPackage, quoteRoundTrip, quoteRoundTripMini, quoteRoundTripOvernightCombo, r2, withinCityZone, scopedTariffForBrand,
-  calendarDays, finalizeFare, multicityRatesFor, quoteMulticity, displayMarkupPercent,
+  calendarDays, finalizeFare, multicityRatesFor, quoteMulticity, displayMarkupPercent, quoteRoundTripTimeBased, timeBasedContext,
 } from './domain/tariff';
 import { gstComponents } from './domain/gst';
 import { multicityBookingAmounts } from './domain/multicitySnapshot';
@@ -142,6 +144,39 @@ export async function sharedCityId(pickup: GeoPlace, drop: GeoPlace): Promise<st
   return a && a === b ? a : null;
 }
 
+/**
+ * The booking-document fields of a time-based round trip: the return time the package implies, and a small public summary
+ * (package, hour limit, coverage end, Morning Return 9 AM cutoff) the apps and the Morning Return reminders read.
+ */
+export function timePackageFields(tb: NonNullable<PricingSnapshot['timeBased']>, endDate: string | null, days: number): Record<string, unknown> {
+  return {
+    tripEndAt: Timestamp.fromMillis(tb.coverageEndMs), endDate, billableDays: days,
+    timePackage: {
+      id: tb.packageId, kind: tb.kind, label: tb.label, hours: tb.hours, includedKm: tb.base.includedKm, days: tb.days ?? days, ...(tb.dayKm ? { dayKm: tb.dayKm } : {}), autoDays: tb.autoDays === true,
+      coverageEndAt: Timestamp.fromMillis(tb.coverageEndMs),
+      ...(tb.morningCutoffMs ? { morningCutoffAt: Timestamp.fromMillis(tb.morningCutoffMs), upgradeLabel: tb.upgrade?.label ?? 'Next-Day Return', upgradeIncludedKm: tb.upgrade?.includedKm ?? 0, upgraded: false } : {}),
+    },
+  };
+}
+
+/** A full tariff save (older clients) replaces the round-trip rates; the separately edited time-based packages carry over unchanged. */
+function keepTimeBased(next: TariffConfig['roundTrip'], before: TariffConfig['roundTrip'] | undefined): TariffConfig['roundTrip'] {
+  if (!before) return next;
+  const classes = { ...next.classes };
+  for (const cls of TARIFF_CLASSES) {
+    const keep = before.classes[cls]?.timeBased;
+    if (classes[cls] && keep && !classes[cls]!.timeBased) classes[cls] = { ...classes[cls]!, timeBased: keep };
+  }
+  return { ...next, classes, ...(next.timeBased ?? before.timeBased ? { timeBased: next.timeBased ?? before.timeBased } : {}) };
+}
+
+/** Trip days of a request (1, 2, 3 …), or null when none were asked for. */
+export function tripDaysOf(v: unknown): number | null {
+  if (v == null || v === '') return null;
+  if (typeof v !== 'number' || !Number.isInteger(v) || v < 1 || v > 60) throw new HttpsError('invalid-argument', 'Choose the number of trip days (1 to 60).');
+  return v;
+}
+
 /** Whole rental hours from a request, or null when none were asked for. */
 export function rentalHoursOf(v: unknown): number | null {
   if (v == null) return null;
@@ -185,6 +220,23 @@ export interface PriceInput {
   platformFee?: PlatformFeeConfig | null;
   /** The common night allowance setting (Pricing → Night allowance). Absent = none. */
   nightAllowance?: NightAllowanceConfig | null;
+  /** Time-based Round Trip (Customer UX v7): the trip days the customer chose (the return time is never asked) and the package picked. */
+  tripDays?: number | null;
+  timePackage?: string;
+  /** A customer booking (web / app): with the time-based round trip on, the return time follows the days and the package. Office bookings keep exact dates unless a package is named. */
+  customerChannel?: boolean;
+  /** The round trip's intermediate stops (hill stations are detected on the pickup, the stops and the drop). */
+  stops?: GeoPlace[];
+  /** Set by priceBooking: a hill station is on the trip (the 5-hour / 8-hour packages and the mini fares are not offered). */
+  hillTrip?: boolean;
+}
+
+/** The hill stations a One Way / Round Trip's pickup, stops and drop are in (empty when the hill setting is off or it is another service). */
+export function hillStationsOfTrip(i: Pick<PriceInput, 'tariff' | 'tripType' | 'multicity' | 'pickup' | 'drop' | 'stops'>): HillMatch[] {
+  const cfg = i.tariff?.hillStation;
+  if (!cfg?.enabled || i.multicity || (i.tripType !== 'One Way' && i.tripType !== 'Round Trip')) return [];
+  const at = (p: GeoPlace, role: 'pickup' | 'stop' | 'drop') => ({ role, name: p.name, address: p.address, lat: p.lat, lng: p.lng });
+  return detectHillStations([at(i.pickup, 'pickup'), ...(i.stops ?? []).map((p) => at(p, 'stop')), at(i.drop, 'drop')], cfg);
 }
 
 export interface PriceResult {
@@ -195,6 +247,8 @@ export interface PriceResult {
   outstation: boolean;
   /** true when a percentage commission would apply (older category pricing). */
   usesCommissionPolicy: boolean;
+  /** Hill stations found on the trip, and whether a Hill Station Allowance / Charge was added for them. */
+  hill?: { stations: { id: string; name: string; tamil: string }[]; matches: HillMatch[]; charged: boolean };
 }
 
 /**
@@ -203,9 +257,14 @@ export interface PriceResult {
  * discloses them in the breakup. The fare itself is unchanged: these are billed only for the extras actually used.
  */
 export function priceBooking(i: PriceInput): PriceResult {
-  const priced = withNightAllowance(priceBookingWithoutAddOns(i), i.pickupAt, i.nightAllowance);
+  const matches = hillStationsOfTrip(i);
+  const night = withNightAllowance(priceBookingWithoutAddOns(matches.length ? { ...i, hillTrip: true } : i), i.pickupAt, i.nightAllowance);
+  // Hill Station Allowance / Charge: its own line, from the vehicle class's One-Way or Round-Trip slab (see domain/hillStations.ts).
+  const charge = matches.length && (i.tripType === 'One Way' || i.tripType === 'Round Trip') ? hillChargeFor(i.tariff?.hillStation, tariffClassOf(i.category), i.tripType, matches) : null;
+  const priced = withHillCharge(night, charge);
   const withAddOns = withBookingAddOns(priced, i.addOns, i.category.fare.extras, i.tariff?.petCharge ?? 0);
-  return withPlatformFee(withAddOns, i.platformFee, i.multicity);
+  const result = withPlatformFee(withAddOns, i.platformFee, i.multicity);
+  return matches.length ? { ...result, hill: { stations: distinctHillStations(matches), matches, charged: !!charge } } : result;
 }
 
 function priceBookingWithoutAddOns(i: PriceInput): PriceResult {
@@ -362,6 +421,13 @@ function priceBookingCore(i: PriceInput): PriceResult {
           pickupMs: i.pickupAt.getTime(), endMs: i.tripEndAt ? i.tripEndAt.getTime() : null, discount,
           adjustmentPercent: i.adjustment?.percent ?? 0, adjustmentDirection: i.adjustment?.direction, fuel: i.fuel,
         };
+        // Time-based round trip (Customer UX v7): customers choose days, never a return time; an office booking uses it when a package is named.
+        if (klass && timeBasedContext(cfg, klass) && (i.customerChannel || i.timePackage)) {
+          const days = i.tripDays ?? (i.tripEndAt ? calendarDays(i.pickupAt.getTime(), i.tripEndAt.getTime()) : null) ?? 1;
+          return quoteRoundTripTimeBased({ ...roundTripInput, fuel: undefined, tripDays: days, timePackage: i.timePackage, hill: i.hillTrip === true });
+        }
+        // Hill stations never use the short same-day / evening mini fares: straight to the standard package.
+        if (i.hillTrip) return quoteRoundTrip(roundTripInput);
         // A short same-day trip or an evening-to-morning combo auto-upgrades to the standard calendar
         // package the moment it runs past the mini slab's hour/km limits (both return null then).
         return quoteRoundTripMini(roundTripInput) ?? quoteRoundTripOvernightCombo(roundTripInput) ?? quoteRoundTrip(roundTripInput);
@@ -469,8 +535,12 @@ export const saveTariffConfig = onCall(async (request) => {
       ...(submitted.airport ?? before?.airport ? { airport: submitted.airport ?? before?.airport } : {}),
       ...(submitted.localPickupDrop ?? before?.localPickupDrop ? { localPickupDrop: submitted.localPickupDrop ?? before?.localPickupDrop } : {}),
       ...(submitted.rentalPackages ?? before?.rentalPackages ? { rentalPackages: submitted.rentalPackages ?? before?.rentalPackages } : {}),
+      // The time-based round trip packages are edited only by their own section: a full tariff save never drops them.
+      roundTrip: keepTimeBased(submitted.roundTrip, before?.roundTrip),
       // The extra-charge rates are edited only by their own section: a full tariff save never drops them.
       ...(before?.extraCharges ? { extraCharges: before.extraCharges } : {}),
+      // The hill station slabs are edited only by their own section too.
+      ...(before?.hillStation ? { hillStation: before.hillStation } : {}),
       ...(before?.displayMarkup ? { displayMarkup: before.displayMarkup } : {}),
     };
     if (parsed.enabled && !Object.keys(parsed.oneWay.classes).length && !Object.keys(parsed.roundTrip.classes).length) {
@@ -589,6 +659,7 @@ export const quoteBooking = onCall({ timeoutSeconds: 60, cors: PUBLIC_CALLABLE_O
   const problem = pickupWindowProblem(when, now, window);
   if (problem || !when) throw new HttpsError('invalid-argument', problem || 'Choose the pickup date and time.');
   const tripEndAt = tripType === 'Round Trip' ? parsePickupInstant(input.tripEndAt) : null;
+  const tripDays = tripType === 'Round Trip' && !multicity ? tripDaysOf(input.tripDays) : null;
   const route = await routeLookup;
   // A Multicity tour is billed on the whole itinerary, even when it ends where it began.
   const pricingRoute = multicity ? route : await roundTripPricingRoute(route, tripType, pickup, drop, stops.length);
@@ -617,25 +688,33 @@ export const quoteBooking = onCall({ timeoutSeconds: 60, cors: PUBLIC_CALLABLE_O
     .map(({ d, c }) => {
       const category = { ...c, tariffClass: d.data().tariffClass, dutyClass: d.data().dutyClass };
       const matched = matchAuthoritativeService(onlineMasters, { tripType, categoryId: c.id, distanceKm: route.distanceKm, pickupType: pickup.type, dropType: drop.type, context: 'customer' });
-      const base = { addOns: bookingAddOnsOf(input.addOns), boardingState, recipientState, recipientAddressState: recipientAddressState(customer?.data()), category, route: pricingRoute, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, rentalHours: tripType === 'Local Rental' ? rentalHoursOf(input.rentalHours) : null, brand, fixedRoutes, localCityId, serviceId: matched?.id ?? '', multicity, platformFee, nightAllowance };
+      const base = { addOns: bookingAddOnsOf(input.addOns), boardingState, recipientState, recipientAddressState: recipientAddressState(customer?.data()), category, route: pricingRoute, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, rentalHours: tripType === 'Local Rental' ? rentalHoursOf(input.rentalHours) : null, brand, fixedRoutes, localCityId, serviceId: matched?.id ?? '', multicity, platformFee, nightAllowance, tripDays, customerChannel: true, stops, timePackage: typeof input.timePackage === 'string' ? input.timePackage : undefined };
       try {
         assertCatalogAvailable(onlineMasters,tripType,category.id);
         assertBookable(rules, category.name);
-        const before = priceBooking(base);
-        let couponMessage = '', discount = 0;
-        if (code && coupons) {
-          const r = validateCoupon(coupons.docs.map((x) => mapCoupon(x.id, x.data())), code, {
-            subtotal: before.fare.subtotal, categoryId: c.id, service: before.service, isFirstBooking: prior.length === 0,
-            customerUses: prior.filter((b) => normalizeCode(b.couponCode || '') === code).length,
-            pickupAt: when, completedTrips: prior.filter((b) => b.status === 'Completed').length,
-            pickupText: `${pickup.name} ${pickup.address ?? ''}`, dropText: `${drop.name} ${drop.address ?? ''}`,
-            fixedRoute: before.pricing.model === 'city_drop_package' || before.pricing.model === 'fixed_route', peakAdjusted: adjustment?.direction === 'increase',
-          });
-          if (r.ok) { discount = r.coupon.discount; couponMessage = r.coupon.message; } else couponMessage = r.message;
-        } else if (code) couponMessage = 'Sign in to apply this code.';
-        const priced = discount > 0 ? priceBooking({ ...base, discount }) : before;
-        // The same limit check a booking makes, so a quote the customer sees can always be booked.
-        assertWithinLimits(rules, { categoryName: category.name, customerFare: priced.fare.total, partnerPayout: partnerPayoutRupees(adjustPartner(priced.pricing, rules)) });
+        // Prices one package of this category (coupon and limits included): the same path createBooking takes.
+        const priceOne = (timePackage?: string) => {
+          const b = timePackage ? { ...base, timePackage } : base;
+          const before = priceBooking(b);
+          let couponMessage = '', discount = 0;
+          if (code && coupons) {
+            const r = validateCoupon(coupons.docs.map((x) => mapCoupon(x.id, x.data())), code, {
+              subtotal: before.fare.subtotal, categoryId: c.id, service: before.service, isFirstBooking: prior.length === 0,
+              customerUses: prior.filter((bk) => normalizeCode(bk.couponCode || '') === code).length,
+              pickupAt: when, completedTrips: prior.filter((bk) => bk.status === 'Completed').length,
+              pickupText: `${pickup.name} ${pickup.address ?? ''}`, dropText: `${drop.name} ${drop.address ?? ''}`,
+              fixedRoute: before.pricing.model === 'city_drop_package' || before.pricing.model === 'fixed_route', peakAdjusted: adjustment?.direction === 'increase',
+            });
+            if (r.ok) { discount = r.coupon.discount; couponMessage = r.coupon.message; } else couponMessage = r.message;
+          } else if (code) couponMessage = 'Sign in to apply this code.';
+          const priced = discount > 0 ? priceBooking({ ...b, discount }) : before;
+          assertWithinLimits(rules, { categoryName: category.name, customerFare: priced.fare.total, partnerPayout: partnerPayoutRupees(adjustPartner(priced.pricing, rules)) });
+          return { before, priced, discount, couponMessage };
+        };
+        const first = priceOne(base.timePackage);
+        const before = first.before;
+        let couponMessage = first.couponMessage, discount = first.discount;
+        const priced = first.priced;
         // The same trip on the CNG rate card, when this class has one and the fare came from the per-km tariff.
         let cng: { fare: typeof priced.fare; breakup: typeof priced.breakup; extraKmRate: number; strikeTotal?: number } | null = null;
         if (c.cngEnabled === true && (priced.pricing.model === 'one_way_standard' || priced.pricing.model === 'round_trip_calendar') && !input.fuelType) {
@@ -644,15 +723,37 @@ export const quoteBooking = onCall({ timeoutSeconds: 60, cors: PUBLIC_CALLABLE_O
             cng = { fare: alt.fare, breakup: alt.breakup, extraKmRate: (alt.pricing.gstInclusiveBase?.extraKmRatePaise ?? alt.pricing.extraKmRatePaise) / 100, ...struck(alt.fare.total) };
           } catch { cng = null; }
         }
+        // Time-based round trip: every package this pickup time and route allows, priced the same way (the customer picks one).
+        let packages: Array<Record<string, unknown>> | undefined;
+        if (priced.pricing.timeBased) {
+          packages = [];
+          for (const id of ['same:eight', 'same:five', 'same:full', 'morning', 'next']) {
+            try {
+              const one = id === priced.pricing.timeBased.packageId ? first : priceOne(id);
+              const tb = one.priced.pricing.timeBased!;
+              const up = tb.upgrade;
+              packages.push({
+                id, kind: tb.kind, label: tb.label, hours: tb.hours, includedKm: tb.base.includedKm, days: one.priced.pricing.days, ...(tb.dayKm ? { dayKm: tb.dayKm } : {}),
+                fare: one.priced.fare, breakup: one.priced.breakup, couponMessage: one.couponMessage, couponApplied: one.discount > 0,
+                endAt: new Date(tb.coverageEndMs).toISOString(), extraKmRate: one.priced.pricing.extraKmRatePaise / 100, ...struck(one.priced.fare.total),
+                ...(tb.morningCutoffMs ? { morningCutoffAt: new Date(tb.morningCutoffMs).toISOString() } : {}),
+                ...(up ? { upgrade: { label: up.label, includedKm: up.includedKm, packageFare: up.farePaise / 100, increase: (up.farePaise - tb.base.farePaise) / 100 } } : {}),
+              });
+            } catch { /* this package is not offered for this pickup time, route or category */ }
+          }
+        }
         return {
           cng,
+          ...(packages ? { packages, autoDays: priced.pricing.timeBased?.autoDays === true, selectedPackage: priced.pricing.timeBased?.packageId } : {}),
+          ...(priced.hill ? { hill: { stations: priced.hill.stations, charged: priced.hill.charged, amount: priced.pricing.hillStation ? (priced.pricing.hillStation.grossAmount ?? priced.pricing.hillStation.amount) : 0 } } : {}),
           categoryId: c.id, addOnRates: { carrierCharge: category.fare.extras?.carrierCharge ?? 0, petCharge: tariff?.petCharge ?? 0 }, ok: true as const, fare: priced.fare, breakup: priced.breakup, service: priced.service, ...struck(priced.fare.total),
           model: priced.pricing.model, days: priced.pricing.days, includedKm: priced.pricing.includedKm, rentalHours: priced.pricing.rentalHours ?? null,
           // The customer-facing extra-KM rate (as entered when the fare includes GST).
           extraKmRate: (priced.pricing.gstInclusiveBase?.extraKmRatePaise ?? priced.pricing.extraKmRatePaise) / 100, gstIncluded: priced.pricing.gstInFare === true, couponMessage, couponApplied: discount > 0,
         };
       } catch (e) {
-        return { categoryId: c.id, ok: false as const, error: e instanceof HttpsError ? e.message : 'This category cannot be priced right now.' };
+        const detail = e instanceof HttpsError ? (e.details as { code?: string } | undefined)?.code : undefined;
+        return { categoryId: c.id, ok: false as const, error: e instanceof HttpsError ? e.message : 'This category cannot be priced right now.', ...(detail ? { code: detail } : {}) };
       }
     });
   // The whole journey the fare is based on: a round trip drives out through its stops and back (pricing doubles
@@ -663,6 +764,8 @@ export const quoteBooking = onCall({ timeoutSeconds: 60, cors: PUBLIC_CALLABLE_O
     route: { distanceKm: Math.round(route.distanceKm * 10) / 10, durationMin: Math.round(route.durationMin) },
     trip: { distanceKm: Math.round(tripRoute.distanceKm * tripFactor * 10) / 10, durationMin: Math.round(tripRoute.durationMin * tripFactor) },
     service: quotes.find((q) => q.ok)?.service ?? '',
+    /** Hill stations found on the pickup, stops and drop (the 5-hour / 8-hour packages are not offered for them). */
+    hillStations: (quotes.find((q) => q.ok && 'hill' in q && q.hill) as { hill?: { stations: unknown } } | undefined)?.hill?.stations ?? [],
     /** Limited service here: the office confirms the booking before it is accepted. */
     limitedAvailability: rules.availability === 'Limited',
     quotes,

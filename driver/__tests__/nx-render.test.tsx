@@ -70,6 +70,9 @@ jest.mock('../src/context/DriverData', () => ({
       bookings: mockBookings,
       bookingsLoaded: true,
       bookingsError: '',
+      shifts: [],
+      shiftsLoaded: true,
+      refreshShifts: () => undefined,
       activeTrip: mockActiveTrip,
       upcomingTrips,
       nextTrip: upcomingTrips[0] ?? null,
@@ -103,7 +106,7 @@ import { ProfileSectionScreen } from '../src/screens/ProfileSectionScreen';
 import MarketplaceScreen from '../src/screens/MarketplaceScreen';
 import { TripsScreen } from '../src/screens/TripsScreen';
 import { TripFlowScreen } from '../src/screens/TripFlowScreen';
-import { EarningsScreen } from '../src/screens/EarningsScreen';
+import { EarningsScreen, WalletScreen } from '../src/screens/EarningsScreen';
 import { ProfileScreen } from '../src/screens/ProfileScreen';
 import { NotificationsScreen } from '../src/screens/NotificationsScreen';
 import { NxSwipe } from '../src/components/nx/Swipe';
@@ -165,23 +168,27 @@ describe('tab screens render', () => {
     expect(text).not.toContain('Available duties');
   });
 
-  it('My Trips shows the three tabs with counts', () => {
+  it('My Trips shows the tabs with counts, started trips under Active', () => {
     const text = textOf(mount(<TripsScreen />));
     expect(text).toContain('Upcoming (2)');
+    expect(text).toContain('Active (0)');
     expect(text).toContain('Completed (1)');
     expect(text).toContain('Cancelled (1)');
   });
 
   it('Earnings, Wallet, Profile and Notifications render their sections', () => {
-    // Earnings and wallet are one page: balance, credited earnings, settlement review, activity and payout account.
+    // Driver 2.0 splits money in two: Earnings (credited, settlement review, activity) and Wallet (balance, payout account).
     const money = textOf(mount(<EarningsScreen />));
-    expect(money).toContain('AVAILABLE BALANCE');
-    expect(money).toContain('₹8,450');
     expect(money).toContain('Credited earnings');
     expect(money).toContain('Under settlement review');
-    expect(money).toContain('Payout account');
     expect(money).toContain('Trips (');
     expect(money).toContain('Payouts (');
+    expect(money).toContain('Open wallet');
+    expect(money).not.toContain('AVAILABLE BALANCE');
+    const wallet = textOf(mount(<WalletScreen />));
+    expect(wallet).toContain('AVAILABLE BALANCE');
+    expect(wallet).toContain('₹8,450');
+    expect(wallet).toContain('Payout account');
     expect(textOf(mount(<ProfileScreen />))).toContain('Document verification');
     expect(textOf(mount(<ProfileScreen />))).toContain('Contact & payout account');
     expect(textOf(mount(<NotificationsScreen />))).toContain('New duty');
@@ -218,9 +225,10 @@ describe('tab screens render', () => {
   });
 
   it('navigation: owner-drivers get every page, fleet drivers only theirs; trip pages highlight My Trips', () => {
-    expect(navItemsFor(false).map((i) => i.id)).toEqual(['Home', 'Marketplace', 'Local', 'Trip', 'Earnings', 'Profile']);
-    expect(navItemsFor(false).filter((i) => i.phone)).toHaveLength(5);
-    expect(navItemsFor(true).map((i) => i.id)).toEqual(['Home', 'Marketplace', 'Local', 'Trip', 'Profile']);
+    // Driver 2.0: Drive · Bookings · My Trips · Earnings · Wallet (+ the sidebar-only Overview and Profile).
+    expect(navItemsFor(false).map((i) => i.id)).toEqual(['Local', 'Marketplace', 'Trip', 'Earnings', 'Wallet', 'Home', 'Profile']);
+    expect(navItemsFor(false).filter((i) => i.phone).map((i) => i.label)).toEqual(['Drive', 'Bookings', 'My Trips', 'Earnings']);
+    expect(navItemsFor(true).map((i) => i.id)).toEqual(['Local', 'Marketplace', 'Trip', 'Home', 'Profile']);
     expect(navOwner('TripFlow')).toBe('Trip');
     expect(navOwner('PreTrip')).toBe('Trip');
     expect(navOwner('Notifications')).toBeNull();

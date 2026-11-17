@@ -9,8 +9,8 @@ import { Text } from './Text';
 import { KeyboardAvoid, useKeyboardHeight } from '../KeyboardAvoid';
 import { useDriverData } from '../../context/DriverData';
 import { usePresence } from '../../hooks/usePresence';
-import { EMERGENCY_NUMBER, SUPPORT_EMAIL, SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY } from '../../config/constants';
-import { PAGE_TITLES, useCurrentRoute } from '../../navigation/navItems';
+import { COPYRIGHT_HOLDER, EMERGENCY_NUMBER, SUPPORT_EMAIL, SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY } from '../../config/constants';
+import { PAGE_TITLES, goTab, useCurrentRoute } from '../../navigation/navItems';
 import { nx, nxRadius, nxShadow } from '../../theme/nx';
 import { NxBrand } from './Brand';
 import { NxDialog } from './Dialog';
@@ -155,14 +155,17 @@ export function NxStatusPill() {
 
 // ── Top bar ─────────────────────────────────────────────────────────────────
 
-function NxTopbar({ title, subtitle, gutter }: { title: string; subtitle: string; gutter: number }) {
+export function NxTopbar({ title, subtitle, gutter, status = true }: { title: string; subtitle: string; gutter: number; /** The duty-status switch. The Drive page has its own, on the map. */ status?: boolean }) {
   const navigation = useNavigation();
-  const { unreadCount } = useDriverData();
+  const { unreadCount, account } = useDriverData();
   const { openSupport } = useShell();
   const { phone, narrow } = useLayout();
+  const name = account.driver.name || 'Driver';
+  const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('') || 'D';
+  const avatar = narrow ? 37 : 40;
   const actions = (
     <View style={[styles.actions, narrow && { gap: 5 }]}>
-      <NxStatusPill />
+      {status ? <NxStatusPill /> : null}
       <NxIconButton icon="help" label="Support and emergency help" color={nx.red} onPress={() => openSupport()} size={narrow ? 37 : 40} />
       <NxIconButton
         icon="bell"
@@ -171,6 +174,15 @@ function NxTopbar({ title, subtitle, gutter }: { title: string; subtitle: string
         onPress={() => navigation.navigate('Notifications')}
         size={narrow ? 37 : 40}
       />
+      {/* The Driver 2.0 header: the avatar opens the profile and account type. */}
+      <Pressable
+        onPress={() => goTab('Profile')}
+        accessibilityRole="button"
+        accessibilityLabel={`${name}, open profile`}
+        style={(s) => [styles.avatarButton, { width: avatar, height: avatar, borderRadius: avatar / 2 }, s.pressed && { opacity: 0.8 }]}
+      >
+        <Text style={styles.avatarInitials}>{initials}</Text>
+      </Pressable>
     </View>
   );
   if (phone) {
@@ -240,7 +252,7 @@ export function NxScreen({
             <View style={[styles.footer, frame.phone && { justifyContent: 'center' }]}>
               <View style={styles.footerLeft}>
                 <NxIcon name="shield" size={12} color={nx.subtle} />
-                <Text style={styles.footerText}>{'NESAM TOURS & TRAVELS PRIVATE LIMITED'}</Text>
+                <Text style={styles.footerText}>{COPYRIGHT_HOLDER}</Text>
               </View>
               {frame.phone ? null : <Text style={styles.footerText}>Made for every mile.</Text>}
             </View>
@@ -255,19 +267,50 @@ export function NxScreen({
  * A screen built around a live map instead of a scrolling column of panels: the map fills the whole body, and `children`
  * sit in a compact panel over it — a floating bottom sheet on phones, a side column beside the map on wide screens.
  * `map` is a render prop so the caller's <LiveMap> always gets `fill: true` (no border/radius of its own; this frame
- * supplies the chrome around it).
+ * supplies the chrome around it). `overlay` floats over the top of the map (location chip, status, next duty) and
+ * `floating` sits just above the sheet at the right edge (the locate button).
  */
-export function NxMapScreen({ map, children, title, subtitle }: { map: (opts: { fill: true }) => React.ReactNode; children: React.ReactNode; title?: string; subtitle?: string }) {
+export function NxMapScreen({
+  map,
+  children,
+  overlay,
+  floating,
+  title,
+  subtitle,
+  status = true,
+}: {
+  map: (opts: { fill: true }) => React.ReactNode;
+  children: React.ReactNode;
+  overlay?: React.ReactNode;
+  floating?: React.ReactNode;
+  title?: string;
+  subtitle?: string;
+  /** Show the duty-status switch in the top bar. */
+  status?: boolean;
+}) {
   const frame = useFrame();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   const [routeTitle, routeSubtitle] = PAGE_TITLES[frame.route] ?? ['NESAM Driver', ''];
+  const edge = frame.phone ? frame.gutter : 16;
   return (
     <SafeAreaView style={styles.root} edges={frame.sideNav ? ['top', 'right'] : ['top', 'left', 'right']}>
-      <NxTopbar title={title ?? routeTitle} subtitle={subtitle ?? routeSubtitle} gutter={frame.gutter} />
+      <NxTopbar title={title ?? routeTitle} subtitle={subtitle ?? routeSubtitle} gutter={frame.gutter} status={status} />
       {frame.dashboard ? (
         <View style={[styles.mapSplit, { paddingHorizontal: frame.gutter, paddingBottom: insets.bottom + 20 }]}>
-          <View style={styles.mapPane}>{map({ fill: true })}</View>
+          <View style={styles.mapPane}>
+            {map({ fill: true })}
+            {overlay ? (
+              <View pointerEvents="box-none" style={[styles.overlay, { padding: edge }]}>
+                {overlay}
+              </View>
+            ) : null}
+            {floating ? (
+              <View pointerEvents="box-none" style={[styles.floating, { right: edge, bottom: edge }]}>
+                {floating}
+              </View>
+            ) : null}
+          </View>
           <ScrollView style={styles.sidePane} contentContainerStyle={{ paddingVertical: 18, paddingLeft: 20 }} keyboardShouldPersistTaps="handled">
             {children}
           </ScrollView>
@@ -275,9 +318,20 @@ export function NxMapScreen({ map, children, title, subtitle }: { map: (opts: { 
       ) : (
         <View style={{ flex: 1 }}>
           <View style={StyleSheet.absoluteFill}>{map({ fill: true })}</View>
+          {overlay ? (
+            <View pointerEvents="box-none" style={[styles.overlay, { padding: edge }]}>
+              {overlay}
+            </View>
+          ) : null}
           <View pointerEvents="box-none" style={styles.sheetWrap}>
+            {floating ? (
+              <View pointerEvents="box-none" style={[styles.floatingRow, { paddingHorizontal: edge }]}>
+                {floating}
+              </View>
+            ) : null}
             <View style={[styles.sheet, { maxHeight: height * 0.6 }]}>
-              <ScrollView contentContainerStyle={{ padding: frame.gutter, paddingBottom: frame.bottomNav ? 20 : insets.bottom + 20 }} keyboardShouldPersistTaps="handled">
+              <View style={styles.grabber} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />
+              <ScrollView contentContainerStyle={{ paddingHorizontal: frame.gutter, paddingTop: 10, paddingBottom: frame.bottomNav ? 18 : insets.bottom + 18 }} keyboardShouldPersistTaps="handled">
                 {children}
               </ScrollView>
             </View>
@@ -294,12 +348,18 @@ const styles = StyleSheet.create({
   mapPane: { flex: 1.3, minWidth: 0, borderRadius: nxRadius.panel, borderWidth: 1, borderColor: nx.line, overflow: 'hidden', ...nxShadow },
   sidePane: { flex: 1, minWidth: 0, maxWidth: 420 },
   sheetWrap: { position: 'absolute', left: 0, right: 0, bottom: 0 },
+  overlay: { position: 'absolute', top: 0, left: 0, right: 0, gap: 10 },
+  floating: { position: 'absolute' },
+  floatingRow: { alignItems: 'flex-end', marginBottom: 12 },
+  grabber: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: nx.fieldLine, marginTop: 9 },
   sheet: { backgroundColor: nx.white, borderTopLeftRadius: 22, borderTopRightRadius: 22, borderWidth: 1, borderColor: nx.line, shadowColor: '#162033', shadowOpacity: 0.1, shadowRadius: 20, shadowOffset: { width: 0, height: -4 }, elevation: 14 },
   phoneBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, minHeight: 72, paddingVertical: 13, backgroundColor: nx.white, borderBottomWidth: 1, borderBottomColor: nx.line },
   wideBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, paddingTop: 26, paddingBottom: 18, backgroundColor: nx.page },
   pageTitle: { fontSize: 27, lineHeight: 34, fontWeight: '700', letterSpacing: -0.9, color: nx.ink },
   pageSubtitle: { fontSize: 12.5, color: nx.muted, marginTop: 3 },
   actions: { flexDirection: 'row', alignItems: 'center', gap: 7, flexShrink: 0 },
+  avatarButton: { alignItems: 'center', justifyContent: 'center', backgroundColor: nx.redSoft, borderWidth: 1, borderColor: nx.redBar },
+  avatarInitials: { fontSize: 13, fontWeight: '800', color: nx.red, letterSpacing: -0.2 },
   status: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 40, paddingVertical: 7, paddingHorizontal: 9, borderRadius: 24, backgroundColor: nx.statusBg, borderWidth: 1, borderColor: nx.statusBorder },
   statusOff: { backgroundColor: '#F0F1F3', borderColor: '#E2E4E8' },
   statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: nx.statusGreen },

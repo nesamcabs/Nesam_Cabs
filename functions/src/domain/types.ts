@@ -103,6 +103,8 @@ export interface FareBreakdown {
   nightCharge: number;
   /** Platform fee included in the taxable amount (before GST); absent when there is none. */
   platformFee?: number;
+  /** Hill Station Allowance / Charge included in the taxable amount (before GST); absent when there is none. */
+  hillCharge?: number;
   driverAllowance: number;
   minimumFareAdjustment: number;
   /** Pre-GST difference from an admin-authorised fare override (see bookings.fareOverride). */

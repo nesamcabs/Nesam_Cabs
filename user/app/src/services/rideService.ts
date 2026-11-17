@@ -325,8 +325,13 @@ export interface RideRequestInput {
   scheduledAt: Date | null;
   /** Round trips: when the trip ends. Billing counts Indian calendar dates from pickup to this instant. */
   tripEndAt?: Date | null;
+  /** Round trips: the trip days chosen, and (time-based) the package picked — the server works out the return time from them. */
+  tripDays?: number | null;
+  timePackage?: string | null;
   /** The customer ticked the booking terms. The server rejects a request without it. */
   termsAccepted: boolean;
+  /** Morning Return only: the strict 9:00 AM cutoff and the automatic upgrade were accepted. */
+  morningCutoffAccepted?: boolean;
   /** WhatsApp number for booking updates: same as the mobile number, or a country code and number. */
   whatsapp?: { sameAsMobile: boolean; countryCode?: string; number?: string };
   /** Optional email for the confirmation and receipt (the profile email is used when blank). */
@@ -349,17 +354,19 @@ export interface RideRequestResult {
 const pendingBookingIds = new Map<string, string>();
 export async function createRideRequest(input: RideRequestInput): Promise<RideRequestResult> {
   if (!input.scheduledAt || !Number.isFinite(input.scheduledAt.getTime())) throw new Error('Choose your pickup date and time.');
-  if (input.tripType === 'Round Trip' && (!input.tripEndAt || !Number.isFinite(input.tripEndAt.getTime()))) throw new Error('Choose when your round trip ends.');
+  if (input.tripType === 'Round Trip' && !input.tripDays && (!input.tripEndAt || !Number.isFinite(input.tripEndAt.getTime()))) throw new Error('Choose how many days your round trip runs.');
   const bSource = input.bookingSource || input.source || input.brand || '';
-  const key = JSON.stringify([input.profile.uid, input.pickup.lat, input.pickup.lng, ...(input.stops ?? []).flatMap((p) => [p.lat, p.lng]), input.drop.lat, input.drop.lng, input.category.id, input.tripType, input.multicity === true, input.scheduledAt?.toISOString(), input.tripEndAt?.toISOString(), input.couponCode, bSource, input.rentalHours ?? null, input.addOns?.roofCarrier === true, input.addOns?.pets === true]);
+  const key = JSON.stringify([input.profile.uid, input.pickup.lat, input.pickup.lng, ...(input.stops ?? []).flatMap((p) => [p.lat, p.lng]), input.drop.lat, input.drop.lng, input.category.id, input.tripType, input.multicity === true, input.scheduledAt?.toISOString(), input.tripEndAt?.toISOString(), input.tripDays ?? '', input.timePackage ?? '', input.couponCode, bSource, input.rentalHours ?? null, input.addOns?.roofCarrier === true, input.addOns?.pets === true]);
   const requestId = pendingBookingIds.get(key) ?? doc(collection(db, BOOKINGS)).id;
   pendingBookingIds.set(key, requestId);
   // An advance booking request: it waits for NESAM's review and is not offered to any partner until then.
-  await callBackend('createBooking', { requestId, pickup: input.pickup, drop: input.drop, stops: input.tripType === 'Round Trip' ? input.stops ?? [] : [], termsAccepted: input.termsAccepted === true,
+  await callBackend('createBooking', { requestId, pickup: input.pickup, drop: input.drop, stops: input.tripType === 'Round Trip' ? input.stops ?? [] : [], termsAccepted: input.termsAccepted === true, ...(input.morningCutoffAccepted === true ? { morningCutoffAccepted: true } : {}),
     categoryId: input.category.id, tripType: input.multicity && input.tripType === 'Round Trip' ? 'Multicity' : input.tripType, expectedFare: input.fare.total,
     addOns: input.addOns, paymentMethod: input.paymentMethod, couponCode: input.couponCode, notes: input.notes, fuelType: input.fuelType === 'cng' ? 'cng' : undefined,
     whatsapp: input.whatsapp, email: input.email || undefined,
     scheduledAt: input.scheduledAt.toISOString(), tripEndAt: input.tripType === 'Round Trip' ? input.tripEndAt?.toISOString() : undefined,
+    tripDays: input.tripType === 'Round Trip' && !input.multicity && input.tripDays ? input.tripDays : undefined,
+    timePackage: input.tripType === 'Round Trip' && !input.multicity && input.timePackage ? input.timePackage : undefined,
     rentalHours: input.tripType === 'Local Rental' && input.rentalHours ? input.rentalHours : undefined,
     source: bSource || undefined,
     bookingSource: bSource || undefined,

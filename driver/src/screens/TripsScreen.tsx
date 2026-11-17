@@ -9,9 +9,10 @@ import { useNow } from '../hooks/useNow';
 import { useDriverData } from '../context/DriverData';
 import { NxScreen } from '../components/nx/Shell';
 import { NxGrid } from '../components/nx/layout';
-import { NxBadge, NxButton, NxEmpty, NxNote, NxPanel, NxPills, placeName } from '../components/nx/primitives';
+import { NxBadge, NxButton, NxEmpty, NxNote, NxPanel, NxPills, NxTextButton, placeName } from '../components/nx/primitives';
+import { NxIcon } from '../components/nx/Icon';
 import { TripCard } from '../components/nx/TripCard';
-import { payoutLabel, tripWhen } from '../components/nx/tripFormat';
+import { payoutLabel, tripIsActive, tripStageLabel, tripWhen } from '../components/nx/tripFormat';
 import { goTab } from '../navigation/navItems';
 import type { TabParamList } from '../navigation/types';
 import type { TripDetails } from '../types/driver';
@@ -20,12 +21,15 @@ import { formatINR } from '../utils/format';
 import { formatDate } from '../utils/time';
 import { nx } from '../theme/nx';
 
-type Tab = 'upcoming' | 'completed' | 'cancelled';
+type Tab = 'upcoming' | 'active' | 'completed' | 'cancelled';
 const SETTLED: Record<string, string> = { pending: 'Settlement pending', available: 'Settled', cancelled: 'Reversed' };
 
 export function TripsScreen({ route }: Partial<BottomTabScreenProps<TabParamList, 'Trip'>>) {
   const navigation = useNavigation();
-  const { upcomingTrips, completedTrips, cancelledTrips, ledger, cancellations } = useDriverData();
+  const { upcomingTrips: assigned, completedTrips, cancelledTrips, ledger, cancellations } = useDriverData();
+  // A trip that has been started (photos, heading to pickup, on trip) sits under Active; the rest are upcoming.
+  const activeTrips = assigned.filter(tripIsActive);
+  const upcomingTrips = assigned.filter((t) => !tripIsActive(t));
   const released = cancellations.filter((r) => r.status === 'Approved' && !cancelledTrips.some((t) => t.id === r.bookingId));
   const wanted = route?.params?.tab;
   const [tab, setTab] = useState<Tab>(wanted ?? 'upcoming');
@@ -39,7 +43,17 @@ export function TripsScreen({ route }: Partial<BottomTabScreenProps<TabParamList
   const open = (t: TripDetails) => navigation.navigate('TripFlow', { bookingId: t.id });
 
   let body: React.ReactNode;
-  if (tab === 'upcoming') {
+  if (tab === 'active') {
+    body = activeTrips.length ? (
+      <NxGrid columns={2} gap={18}>
+        {activeTrips.map((t) => (
+          <TripCard key={t.id} trip={t} now={now} onOpen={() => open(t)} />
+        ))}
+      </NxGrid>
+    ) : (
+      <NxEmpty icon="trip" title="No active trip" message="A trip you have started will appear here until it is completed." />
+    );
+  } else if (tab === 'upcoming') {
     body = upcomingTrips.length ? (
       <NxGrid columns={2} gap={18}>
         {upcomingTrips.map((t) => (
@@ -47,7 +61,7 @@ export function TripsScreen({ route }: Partial<BottomTabScreenProps<TabParamList
         ))}
       </NxGrid>
     ) : (
-      <NxEmpty icon="trip" title="No upcoming duties" message="Accepted duties will appear here." action={<NxButton title="Browse duties" onPress={() => goTab('Home')} />} />
+      <NxEmpty icon="trip" title="No upcoming duties" message="Accepted duties will appear here." action={<NxButton title="Find a duty" trailingIcon="arrow" onPress={() => goTab('Marketplace')} />} />
     );
   } else if (tab === 'completed') {
     body = completedTrips.length ? (
@@ -84,10 +98,23 @@ export function TripsScreen({ route }: Partial<BottomTabScreenProps<TabParamList
         onChange={setTab}
         options={[
           { value: 'upcoming', label: `Upcoming (${upcomingTrips.length})` },
+          { value: 'active', label: `Active (${activeTrips.length})` },
           { value: 'completed', label: `Completed (${completedTrips.length})` },
           { value: 'cancelled', label: `Cancelled (${cancelledTrips.length + released.length})` },
         ]}
       />
+      {activeTrips[0] && tab === 'upcoming' ? (
+        <View style={styles.strip}>
+          <NxIcon name="navigate" size={18} color={nx.green} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={styles.stripTitle}>You have a trip in progress</Text>
+            <Text style={styles.stripSub} numberOfLines={1}>
+              {tripStageLabel(activeTrips[0])} · {placeName(activeTrips[0].pickup.address)} → {placeName(activeTrips[0].drop.address)}
+            </Text>
+          </View>
+          <NxTextButton title="Resume" trailingIcon="chevron" color={nx.green} onPress={() => open(activeTrips[0]!)} />
+        </View>
+      ) : null}
       {body}
       <NxNote>Duty changes and cancellation requests are reviewed by NESAM. Call the office from Help if you need a change.</NxNote>
     </NxScreen>
@@ -148,6 +175,9 @@ function CancelledCard({ trip, onOpen }: { trip: TripDetails; onOpen: () => void
 }
 
 const styles = StyleSheet.create({
+  strip: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 13, marginBottom: 17, borderRadius: 13, borderWidth: 1, borderColor: '#D6EEE2', backgroundColor: nx.greenSoft },
+  stripTitle: { fontSize: 12, fontWeight: '700', color: nx.green },
+  stripSub: { fontSize: 10.5, color: nx.green, marginTop: 1 },
   card: { padding: 20, marginBottom: 0, flex: 1 },
   meta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
   metaText: { fontSize: 11.5, color: nx.muted },

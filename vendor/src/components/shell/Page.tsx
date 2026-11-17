@@ -9,7 +9,7 @@ import { KeyboardAvoid } from '../KeyboardAvoid';
 import { goBack } from '../../navigation/navigationRef';
 import { colors, fontFamily } from '../../theme';
 import { useLayout } from '../../theme/responsive';
-import { COMPANY_LEGAL_NAME } from '../../config/constants';
+import { COPYRIGHT_HOLDER } from '../../config/constants';
 
 // Pages that show no back arrow: the five sections plus the pages opened from the header and menus. Only record detail pages keep one.
 const SECTION_PAGES = ['Trips', 'Bookings', 'Fleet', 'Earnings', 'Wallet', 'Helpdesk', 'Account', 'Alerts', 'Business', 'Agreements', 'Documents', 'MyBids', 'FleetAdd', 'Duty'];
@@ -51,7 +51,7 @@ export function Page({
           <View style={[styles.footer, !wide && { justifyContent: 'center' }]}>
             <View style={styles.footerLeft}>
               <Ionicons name="shield-checkmark-outline" size={12} color="#989DA6" />
-              <Text style={styles.footerText}>{COMPANY_LEGAL_NAME}</Text>
+              <Text style={styles.footerText}>{COPYRIGHT_HOLDER}</Text>
             </View>
             {wide ? <Text style={styles.footerText}>Made for every mile.</Text> : null}
           </View>

@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAvoid } from '../components/KeyboardAvoid';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
-import { useRideFocus } from '../navigation/MainNavigator';
+import { useRideFocus } from '../navigation/RideFocus';
 import { useCustomerData } from '../context/CustomerData';
 import { Avatar, Badge, Button, Disclosure, FlowFooter, Notice, Screen, type BadgeTone } from '../components/ui';
 import { Content, ScrollView } from '../components/layout';

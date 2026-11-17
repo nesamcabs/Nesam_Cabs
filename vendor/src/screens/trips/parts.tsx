@@ -114,7 +114,7 @@ export function DutyRow({ trip: t, bid, onAction, list }: { trip: MarketTrip; bi
       time={pickup ? timeText(pickup) : t.pickup.time || '—'}
       from={marketFrom(t)}
       to={marketTo(t)}
-      service={marketType(t)}
+      service={t.packageLine ? `${marketType(t)} · ${t.packageLine.split(' · ')[0]}` : marketType(t)}
       distance={km}
       vehicle={carLine}
       payout={t.offeredPayout > 0 ? rupees(t.offeredPayout) : 'Your quote'}

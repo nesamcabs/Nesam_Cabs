@@ -1,6 +1,6 @@
 // GENERATED from driver/web/src/components/nx/icons.ts — the reference's SVG symbols (first 23) plus the matching extras
 // (alert, logout, camera, edit, trash, plus, bank). Same 24-unit grid; drawn with 1.8 round strokes by Icon.tsx.
-export type NxIconName = 'home' | 'trip' | 'chart' | 'wallet' | 'user' | 'bell' | 'arrow' | 'chevron' | 'calendar' | 'clock' | 'pin' | 'car' | 'check' | 'shield' | 'help' | 'close' | 'refresh' | 'power' | 'info' | 'copy' | 'phone' | 'document' | 'distance' | 'alert' | 'logout' | 'camera' | 'edit' | 'trash' | 'plus' | 'bank' | 'marketplace' | 'taxi' | 'navigate' | 'pause' | 'play' | 'map' | 'list';
+export type NxIconName = 'home' | 'trip' | 'chart' | 'wallet' | 'user' | 'bell' | 'arrow' | 'chevron' | 'calendar' | 'clock' | 'pin' | 'car' | 'check' | 'shield' | 'help' | 'close' | 'refresh' | 'power' | 'info' | 'copy' | 'phone' | 'document' | 'distance' | 'alert' | 'logout' | 'camera' | 'edit' | 'trash' | 'plus' | 'bank' | 'marketplace' | 'taxi' | 'navigate' | 'pause' | 'play' | 'map' | 'list' | 'locate';
 
 export interface IconEl {
   tag: 'path' | 'circle' | 'rect' | 'line' | 'polyline';
@@ -44,5 +44,6 @@ export const ICON_DATA: Record<NxIconName, { viewBox: string; els: IconEl[] }> =
   pause: { viewBox: '0 0 24 24', els: [{"tag":"rect","a":{"x":"6","y":"5","width":"4","height":"14","rx":"1"}},{"tag":"rect","a":{"x":"14","y":"5","width":"4","height":"14","rx":"1"}}] },
   play: { viewBox: '0 0 24 24', els: [{"tag":"path","a":{"d":"M7 4.5v15l12-7.5z"}}] },
   map: { viewBox: '0 0 24 24', els: [{"tag":"path","a":{"d":"M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20z"}},{"tag":"path","a":{"d":"M9 4v13.5m6-11V20"}}] },
+  locate: { viewBox: '0 0 24 24', els: [{"tag":"circle","a":{"cx":"12","cy":"12","r":"7"}},{"tag":"circle","a":{"cx":"12","cy":"12","r":"2"}},{"tag":"path","a":{"d":"M12 2v3m0 14v3M2 12h3m14 0h3"}}] },
   list: { viewBox: '0 0 24 24', els: [{"tag":"path","a":{"d":"M9 6h11M9 12h11M9 18h11M4.5 6h.1m-.1 6h.1m-.1 6h.1"}}] },
 };

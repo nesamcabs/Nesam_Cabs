@@ -14,6 +14,8 @@ export interface MarketTrip {
   travelDate: string;
   service: string;
   tripType: string;
+  /** Round Trip: the time-based package sold (Customer UX v7), one line, e.g. "Next-Day Return · 400 km included · ends 17 Nov, 11:45 pm". */
+  packageLine?: string;
   vehicleCategory: string;
   /** The category's id, and its display name set in the admin panel (e.g. "Wagon R or Similar"); `vehicleCategory` stays the class used for matching. */
   vehicleCategoryId: string;
@@ -86,6 +88,7 @@ export interface VendorBooking {
   completedAt: Date | null;
   pickupAt: Date | null;
   tripType: string;
+  packageLine?: string;
   includedKm: number;
   tripSubStatus: string;
   paymentStatus: string;
@@ -142,6 +145,8 @@ export interface FleetVehicle {
   id: string;
   vehicleNumber: string;
   category: string;
+  /** The duty class the category maps to; absent on older vehicle records. */
+  vehicleClass?: string;
   make: string;
   model: string;
   year: string;

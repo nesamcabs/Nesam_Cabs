@@ -136,6 +136,26 @@ export function buildTariffFareBreakup(category: RideCategory, fare: FareBreakdo
     const extras = lines.filter((l) => l.treatment === 'extra');
     return { schema: 1, lines, packageTotal: fare.total, knownExtras: extras.reduce((s, l) => s + (l.amount ?? 0), 0), hasActualsExtras: extras.some((l) => l.amount === null) };
   }
+  if (pricing.model === 'round_trip_time_based' && pricing.timeBased) {
+    const tb = pricing.timeBased;
+    const clock = (m: number) => `${((Math.floor(m / 60) + 11) % 12) + 1}:${String(m % 60).padStart(2, '0')} ${m >= 720 ? 'PM' : 'AM'}`;
+    const km = tb.base.includedKm;
+    const detail = tb.kind === 'morning'
+      ? `Return by ${clock(540)} next morning (strict) · ${km} KM included · driver allowance included for both days`
+      : tb.kind === 'next_day'
+      ? `Two calendar days, valid until ${clock(tb.cutoffMin)} on the second day · ${km} KM included · driver allowance included`
+      : tb.hours ? `Up to ${tb.hours} hours and ${km} KM · driver allowance included`
+      : `Valid until ${clock(tb.cutoffMin)} the same day · ${km} KM included · driver allowance included`;
+    const beyond = Math.max(0, Math.round((pricing.quotedKm - km) * 10) / 10);
+    const head: FareLine[] = [
+      { key: 'package', label: tb.label, amount: fare.baseFare, treatment: 'included', detail },
+      ...(fare.distanceFare > 0 ? [{ key: 'distance', label: 'Estimated distance beyond the package', amount: fare.distanceFare, treatment: 'included' as const, detail: `${beyond} KM at ${num2(pricing.extraKmRatePaise)}/KM (billed on the kilometres actually driven)` }] : []),
+    ];
+    const rest = base.lines.filter((l) => !['base', 'distance', 'time', 'night', 'driverAllowance', 'minimum'].includes(l.key));
+    const lines = [...head, ...extrasBlock(rest).map((l) => (l.key === 'extraKm' ? { ...l, detail: `${num2(pricing.extraKmRatePaise)} per KM beyond the ${km} KM included` } : l))];
+    const extras = lines.filter((l) => l.treatment === 'extra');
+    return { schema: 1, lines, packageTotal: fare.total, knownExtras: extras.reduce((sum, l) => sum + (l.amount ?? 0), 0), hasActualsExtras: extras.some((l) => l.amount === null) };
+  }
   if (pricing.model === 'round_trip_mini') {
     const head: FareLine[] = [{
       key: 'package', label: 'Short round trip package', amount: fare.baseFare, treatment: 'included',

@@ -9,6 +9,7 @@ import { NxBrand } from './nx/Brand';
 import { NxIcon, type NxIconName } from './nx/Icon';
 import { useLayout } from './nx/layout';
 import { nx } from '../theme/nx';
+import { COPYRIGHT_HOLDER } from '../config/constants';
 
 const FEATURES: { icon: NxIconName; title: string; text: string }[] = [
   { icon: 'trip', title: 'Duties that fit your car', text: 'See the payout before you accept. No surprises.' },
@@ -27,7 +28,7 @@ export function AuthFrame({ children, footer }: { children: React.ReactNode; foo
         </View>
       )}
       {children}
-      {footer ?? <Text style={styles.legal}>NESAM Tours & Travels Private Limited · Made for every mile.</Text>}
+      {footer ?? <Text style={styles.legal}>{COPYRIGHT_HOLDER} · Made for every mile.</Text>}
     </View>
   );
   return (
@@ -60,7 +61,7 @@ export function AuthFrame({ children, footer }: { children: React.ReactNode; foo
               </View>
               <View style={styles.panelFoot}>
                 <NxIcon name="shield" size={13} color={nx.walletMuted} />
-                <Text style={styles.panelFootText}>NESAM TOURS & TRAVELS PRIVATE LIMITED</Text>
+                <Text style={styles.panelFootText}>{COPYRIGHT_HOLDER}</Text>
               </View>
             </View>
           ) : null}

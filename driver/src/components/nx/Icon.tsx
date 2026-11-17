@@ -1,6 +1,10 @@
 import React from 'react';
+import { Platform } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { ICON_DATA, type IconEl, type NxIconName as DataName } from './iconData';
+
+/** Icons are decorative. The web DOM only knows aria-hidden; the native names would be unknown attributes there (React warns). */
+const HIDDEN_FROM_READERS = (Platform.OS === 'web' ? { 'aria-hidden': true } : { accessibilityElementsHidden: true, importantForAccessibility: 'no-hide-descendants' }) as Record<string, unknown>;
 
 /** "back" is the reference's chevron turned to point left, as the website does. */
 export type NxIconName = DataName | 'back';
@@ -37,8 +41,7 @@ export function NxIcon({ name, size = 18, color, strokeWidth = 1.8 }: { name: Nx
       strokeLinecap="round"
       strokeLinejoin="round"
       style={name === 'back' ? { transform: [{ rotate: '180deg' }] } : undefined}
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
+      {...HIDDEN_FROM_READERS}
     >
       {data.els.map(draw)}
     </Svg>

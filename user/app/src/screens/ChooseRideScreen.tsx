@@ -11,10 +11,12 @@ import { Content, ScrollView } from '../components/layout';
 import { AppHeader, getVehicleImage } from '../components/brand';
 import { Icon } from '../components/Icon';
 import { FareLines } from '../components/FareLines';
+import { RoundVehiclePackage } from '../components/RoundVehiclePackage';
 import { useBookingDraft } from '../context/BookingDraft';
 import { getRoute } from '../services/geoService';
 import { calculateFare, hasEstimate, isOutstation } from '../services/pricingService';
 import { buildFareBreakup } from '../utils/fareBreakup';
+import { earliestSlot, scheduleProblem } from '../utils/bookingRules';
 import { categoryLabel } from '../utils/categoryLabel';
 import { GST_RATE, SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY } from '../config/constants';
 import type { FareBreakdown, RideCategory } from '../types';
@@ -25,11 +27,25 @@ const dayText = (d: Date) => `${d.getDate()} ${d.toLocaleDateString('en-IN', { m
 
 export function ChooseRideScreen() {
   const navigation = useNavigation();
-  const { draft, update, route, setRoute, routeKey, categories, categoryStatus, adjustment, serverQuote } = useBookingDraft();
+  const { draft, update, route, setRoute, routeKey, categories, categoryStatus, adjustment, serverQuote, packages, selectedPackage, autoDays, customQuote, hillStations } = useBookingDraft();
   const { pickup, drop, tripType, scheduledAt, tripEndAt, categoryId } = draft;
   const [fareFor, setFareFor] = useState<string | null>(null);
   const [routeError, setRouteError] = useState('');
   const [now] = useState(() => Date.now());
+  // The pickup is checked against the real clock, not the moment this page opened: a pickup that slips under the minimum lead
+  // while the rider is choosing can no longer be quoted or booked, and the page says so instead of just turning Continue off.
+  const [clock, setClock] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setClock(Date.now()), 15000);
+    return () => clearInterval(id);
+  }, []);
+  const timeProblem = scheduledAt ? scheduleProblem(scheduledAt, clock) : '';
+  const useEarliestPickup = () => {
+    if (!scheduledAt) return;
+    const next = earliestSlot(Date.now());
+    const shift = next.getTime() - scheduledAt.getTime();
+    update({ scheduledAt: next, ...(tripEndAt ? { tripEndAt: new Date(tripEndAt.getTime() + shift) } : {}), timePackage: '' });
+  };
 
   useEffect(() => {
     if (!pickup || !drop || route) return undefined;
@@ -77,11 +93,13 @@ export function ChooseRideScreen() {
   const tooFar = route ? route.distanceKm > 1500 : false;
   const entryOf = (id?: string) => server?.quotes.find((x) => x.categoryId === id);
   const selectedEntry = entryOf(selected?.id);
-  const canContinue = !!route && !!selectedQuote && !tooFar && !!server && !!entryOf(selected?.id)?.ok;
+  const canContinue = !!route && !!selectedQuote && !tooFar && !timeProblem && !!server && !!entryOf(selected?.id)?.ok;
   const quoteLoading = !!route && !server && serverQuote.status === 'loading';
   const quoteProblem = !route
     ? ''
-    : tooFar
+    : timeProblem
+      ? `${timeProblem} Fares are confirmed only for a pickup that can still be booked.`
+      : tooFar
       ? `This trip is too long to book online. Please call us on ${SUPPORT_PHONE_DISPLAY} to arrange it.`
       : !scheduledAt
         ? 'Choose a pickup date and time to see confirmed fares.'
@@ -91,6 +109,7 @@ export function ChooseRideScreen() {
             ? selectedEntry.error || 'This cab cannot be booked for this trip. Please choose another cab.'
             : '';
 
+  const roundPick = tripType === 'Round Trip' && !draft.multicity;
   const fareSheet = categories.find((c) => c.id === fareFor) ?? null;
   const fareSheetQuote = fareSheet ? quotes.get(fareSheet.id) ?? null : null;
   const included = route ? Math.round(route.distanceKm * (tripType === 'Round Trip' ? 2 : 1)) : 0;
@@ -125,8 +144,73 @@ export function ChooseRideScreen() {
         <Notice message={routeError} />
         {categoryStatus === 'error' ? <Notice message="We couldn’t load the available vehicles. Please check your connection and try again." style={{ marginTop: space.md }} /> : categoryStatus === 'unavailable' ? <Notice tone="warning" message={`No vehicles are configured for online booking right now. Please call ${SUPPORT_PHONE_DISPLAY}.`} style={{ marginTop: space.md }} /> : null}
 
+        {customQuote ? (
+          <Notice tone="warning" message={`Round trips of ${draft.tripDays} days are quoted individually. Please call ${SUPPORT_PHONE_DISPLAY} for a custom quote, or choose fewer days.`} style={{ marginTop: space.md }} />
+        ) : null}
+
+        {hillStations.length ? (
+          <Notice tone="info" message={`Hill station trip · ${hillStations.map((h) => h.name).join(', ')}. A separate “Hill Station Allowance / Charge” is added to your fare.${draft.tripType === 'Round Trip' ? ' The 5-hour and 8-hour packages do not apply to hill stations.' : ''}`} style={{ marginTop: space.md }} />
+        ) : null}
+
+        {/* Time-based round trip: the packages this pickup time and route allow */}
+        {!roundPick && packages.length ? (
+          <View style={styles.pkgs} accessibilityRole="radiogroup" accessibilityLabel="Round-trip packages">
+            <Text style={styles.pkgsTitle} accessibilityRole="header">Choose your round-trip package</Text>
+            {autoDays ? <Text style={styles.pkgsAuto}>No same-day package fits this pickup time and trip, so it is planned as a {packages[0]?.days ?? 2}-day trip.</Text> : null}
+            {packages.map((p) => {
+              const on = p.id === selectedPackage?.id;
+              const end = new Date(p.endAt);
+              const split = p.dayKm && p.dayKm.length > 1 ? ` (First day: ${p.dayKm[0]} km + ${p.dayKm.length === 2 ? 'Next day' : 'Each next day'}: ${p.dayKm[1]} km)` : '';
+              const detail = p.kind === 'morning' ? 'Overnight · back by 9:00 AM (strict)' : p.hours ? `Up to ${p.hours} hours` : p.kind === 'next_day' ? `${p.days} calendar days${split}` : 'Full day';
+              return (
+                <Pressable
+                  key={p.id}
+                  onPress={() => update({ timePackage: p.id })}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: on }}
+                  accessibilityLabel={`${p.label}, ${formatINR(p.fare.total)}`}
+                  style={[styles.pkg, on && styles.pkgOn]}
+                >
+                  <View style={[styles.choice, on && styles.choiceOn]}>
+                    <Icon name="check" size={10} color={on ? colors.white : 'transparent'} strokeWidth={3} />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={styles.pkgName}>{p.label}</Text>
+                    <Text style={styles.pkgSub}>{detail} · {p.includedKm} km included</Text>
+                    <Text style={styles.pkgSub}><Text style={{ fontWeight: '700' }}>{p.kind === 'morning' ? 'Return by' : 'Ends'} {dayText(end)}, {formatTime(end).replace(/^0/, '')}</Text> · Driver bata included · Extra {formatINR(p.extraKmRate)}/km</Text>
+                    {p.upgrade ? <Text style={styles.pkgNote}>Still running after {formatTime(new Date(p.morningCutoffAt ?? p.endAt)).replace(/^0/, '')}? It upgrades to {p.upgrade.label} (+{formatINR(p.upgrade.increase)}, {p.upgrade.includedKm} km included).</Text> : null}
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={styles.pkgPrice}>{formatINR(p.fare.total)}</Text>
+                    <Text style={styles.pkgSub}>incl. GST</Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+            <Text style={styles.pkgSub}>Driver bata included. Toll, parking and state permit extra. Your package is the minimum charge; a longer or farther trip moves to the next package.</Text>
+          </View>
+        ) : null}
+
+        {roundPick ? (
+          <RoundVehiclePackage
+            categories={categories}
+            selected={selected}
+            entryOf={entryOf}
+            quotes={quotes}
+            packages={packages}
+            selectedPackage={selectedPackage}
+            autoDays={autoDays}
+            fuelCng={fuelCng}
+            serverReady={!!server}
+            onPickVehicle={(c) => update({ categoryId: c.id, fuelType: fuelCng && entryOf(c.id)?.ok && entryOf(c.id)?.cng ? 'cng' : '' })}
+            onPickPackage={(id) => update({ timePackage: id })}
+            onFuel={(c, cng) => update({ categoryId: c.id, fuelType: cng ? 'cng' : '' })}
+            onFareBreakup={(id) => setFareFor(id)}
+          />
+        ) : null}
+
         {/* Cab cards */}
-        <Content style={{ gap: 12 }}>
+        {roundPick ? null : <Content style={{ gap: 12 }}>
           {categories.map((c) => {
             const on = selected?.id === c.id;
             const quote = quotes.get(c.id);
@@ -202,9 +286,12 @@ export function ChooseRideScreen() {
               </View>
             );
           })}
-        </Content>
+        </Content>}
 
         <Notice message={quoteProblem} onRetry={serverQuote.status === 'error' ? serverQuote.retry : undefined} style={{ marginTop: space.md }} />
+        {timeProblem && scheduledAt && scheduledAt.getTime() < clock + 31 * 60000 ? (
+          <Button title={`Use the earliest pickup · ${dayText(earliestSlot(clock))}, ${formatTime(earliestSlot(clock)).replace(/^0/, '')}`} icon="clock" variant="secondary" onPress={useEarliestPickup} style={{ marginBottom: 12 }} />
+        ) : null}
         {tooFar ? <Button title={`Call NESAM · ${SUPPORT_PHONE_DISPLAY}`} icon="phone" variant="secondary" onPress={() => void Linking.openURL(`tel:${SUPPORT_PHONE}`)} style={{ marginBottom: 12 }} /> : null}
         {/* The cab list is the last content in this ScrollView, so the gap above Back / Home is set here. */}
         <View style={{ marginTop: space.md }}>
@@ -263,6 +350,15 @@ function Fact({ tint, icon, text }: { tint: keyof typeof FACT; icon: 'seat-belt'
 }
 
 const styles = StyleSheet.create({
+  pkgs: { marginTop: space.md, padding: 12, gap: 8, borderWidth: 1, borderColor: '#E3C5CD', borderRadius: 10, backgroundColor: colors.white },
+  pkgsTitle: { fontFamily: fonts.bold, fontSize: 15, color: colors.text },
+  pkgsAuto: { fontFamily: fonts.regular, fontSize: 12, color: '#7a4b00', backgroundColor: '#fff7e6', padding: 8, borderRadius: 8 },
+  pkg: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 10, borderWidth: 1.5, borderColor: '#DAC0C9', borderRadius: 10 },
+  pkgOn: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+  pkgName: { fontFamily: fonts.bold, fontSize: 14, color: colors.text },
+  pkgSub: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.muted, marginTop: 1 },
+  pkgNote: { fontFamily: fonts.regular, fontSize: 11.5, color: '#7a4b00', marginTop: 3 },
+  pkgPrice: { fontFamily: fonts.bold, fontSize: 15, color: colors.text },
   root: { flex: 1, backgroundColor: colors.bg },
   pad: { padding: space.xl },
   scroll: { paddingHorizontal: space.xl, paddingTop: space.md, paddingBottom: 24 },

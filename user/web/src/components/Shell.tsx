@@ -1,8 +1,8 @@
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Fragment, Suspense, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useSearchParams } from 'react-router-dom';
 import { useCustomerData } from '@core/context/CustomerData';
 import { formatPhone } from '@core/utils/format';
-import { COMPANY_LEGAL_NAME, SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY } from '@core/config/constants';
+import { COPYRIGHT_HOLDER, SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY } from '@core/config/constants';
 import { useInbox } from '@/state/Inbox';
 import { useAuth } from '@/state/Auth';
 import { useBooking } from '@/state/Booking';
@@ -72,16 +72,38 @@ function BottomNav() {
   const onRentals = /^\/local-rentals(\/|$)/.test(location.pathname);
   const current: ServiceId | null = profilePicked ? null : onLocal ? 'local' : onRentals ? (params.get('mode') === 'pickup' ? 'pickup' : 'rental') : onHome ? (parseService(params.get('service')) ?? (location.pathname === '/' ? 'pickup' : serviceOfTrip(draft.tripType))) : null;
 
+  // On the Local Rentals page the two ways to book it sit either side of the Local button: Pickup & Drop on its left, Hourly Rental on
+  // its right. They switch ?mode= in the address, which the page reads. The other services stay one tap away from the back arrow.
+  const mode = params.get('mode') === 'hourly' ? 'hourly' : 'pickup';
+  const services = barServices().filter((s) => !onRentals || s.id === 'outstation' || s.id === 'rental');
+  const modeLink = (m: 'pickup' | 'hourly') => (
+    <Link key={m} to={`/local-rentals?mode=${m}`} replace className={`tabbar__link tabbar__link--mode ${mode === m ? 'is-on' : ''}`} aria-current={mode === m ? 'page' : undefined}>
+      <span className="tabbar__icon">
+        <span className="tabbar__mode" aria-hidden="true">
+          <Icon name={m === 'pickup' ? 'taxi-route' : 'car-clock'} size={22} />
+        </span>
+      </span>
+      <span className="tabbar__label">{m === 'pickup' ? 'Pickup & Drop' : 'Hourly Rental'}</span>
+    </Link>
+  );
+
   return (
     <nav className="tabbar" aria-label="Services">
-      {barServices().map((s) => (
-        <Link key={s.id} to={s.id === 'local' ? '/local-taxi' : serviceHref(s.id)} className={`tabbar__link ${current === s.id || (s.id === 'rental' && current === 'pickup') ? 'is-active' : ''}`} aria-current={current === s.id || (s.id === 'rental' && current === 'pickup') ? 'page' : undefined}>
-          <span className="tabbar__icon">
-            <img className="tabbar__img" src={NAV_ICON[s.id]} alt="" width={s.id === 'outstation' ? 46 : 44} height={s.id === 'outstation' ? 46 : 44} draggable={false} />
-          </span>
-          <span className="tabbar__label">{SHORT_LABEL[s.id] ?? s.label}</span>
-        </Link>
-      ))}
+      {services.map((s) => {
+        const active = current === s.id || (s.id === 'rental' && current === 'pickup');
+        return (
+          <Fragment key={s.id}>
+            {onRentals && s.id === 'rental' ? modeLink('pickup') : null}
+            <Link to={s.id === 'local' ? '/local-taxi' : onRentals && s.id === 'rental' ? `/local-rentals?mode=${mode}` : serviceHref(s.id)} className={`tabbar__link ${active ? 'is-active' : ''}`} aria-current={active ? 'page' : undefined}>
+              <span className="tabbar__icon">
+                <img className="tabbar__img" src={NAV_ICON[s.id]} alt="" width={s.id === 'outstation' ? 46 : 44} height={s.id === 'outstation' ? 46 : 44} draggable={false} />
+              </span>
+              <span className="tabbar__label">{SHORT_LABEL[s.id] ?? s.label}</span>
+            </Link>
+            {onRentals && s.id === 'rental' ? modeLink('hourly') : null}
+          </Fragment>
+        );
+      })}
       <TripsTab picked={profilePicked} onPick={() => setProfilePicked(true)} />
     </nav>
   );
@@ -384,7 +406,7 @@ function Footer() {
           </nav>
         </div>
         <div className="footer__legal">
-          <span>© {new Date().getFullYear()} NESAM Cabs · A Unit of {COMPANY_LEGAL_NAME}</span>
+          <span>© {new Date().getFullYear()} NESAM Cabs · A Unit of {COPYRIGHT_HOLDER}</span>
           <span>Cash or UPI to your driver · nothing is charged when you book</span>
         </div>
       </div>

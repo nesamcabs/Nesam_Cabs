@@ -21,7 +21,7 @@ import { loadPlatformFee } from './platformFeeConfig';
 import { loadNightAllowance } from './nightAllowanceConfig';
 import { adjustPartner, assertBookable, assertWithinLimits, availabilityFields, evaluateRules, loadServiceRules, partnerPayoutRupees, ruleServiceText } from './serviceRules';
 import { createContactInTx, maskPhone } from './contacts';
-import { customerFareContext, loadTariffConfig, priceBooking, rentalHoursOf, tariffClassOf, trustedCustomerPlace } from './quote';
+import { customerFareContext, loadTariffConfig, priceBooking, rentalHoursOf, tariffClassOf, timePackageFields, trustedCustomerPlace, tripDaysOf } from './quote';
 import { assertLegalAccepted } from './legal';
 import { nextBookingCode } from './bookingSequence';
 import { splitPricing } from './domain/pricingPrivacy';
@@ -104,11 +104,13 @@ export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (requ
   // Fixed route and Local Pickup & Drop fares, matched on master-location ids exactly as the quote was.
   const { fixedRoutes, localCityId } = await customerFareContext(tripType, pickup, drop, route.distanceKm);
   // A round trip is billed by Indian calendar date, so the customer states when it ends.
+  // Time-based round trip: the customer states the trip DAYS and picks a package; the return time follows from them (see domain/timeBased.ts).
+  const tripDays = tripType === 'Round Trip' && !multicity ? tripDaysOf(input.tripDays) : null;
   let tripEndAt: Date | null = null;
   if (tripType === 'Round Trip') {
     tripEndAt = parsePickupInstant(input.tripEndAt);
-    if (!tripEndAt) throw new HttpsError('invalid-argument', 'Choose the date and time your round trip ends.');
-    if (tripEndAt.getTime() < when.getTime()) throw new HttpsError('invalid-argument', 'The trip cannot end before it starts.');
+    if (!tripEndAt && !tripDays) throw new HttpsError('invalid-argument', 'Choose the date and time your round trip ends.');
+    if (tripEndAt && tripEndAt.getTime() < when.getTime()) throw new HttpsError('invalid-argument', 'The trip cannot end before it starts.');
   }
   const pushes: { id: string; input: NotifyInput }[] = [];
   const serviceRules = await serviceRulesRead;
@@ -193,7 +195,7 @@ export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (requ
     const recipientState = recipientGstState(customer.data());
     const fuel = input.fuelType === 'cng' ? ('cng' as const) : undefined;
     if (fuel && category.cngEnabled !== true) throw new HttpsError('failed-precondition', 'CNG is not offered on this vehicle.');
-    const priceInput = { addOns: bookingAddOnsOf(input.addOns ?? input.tripExtras), fuel, boardingState, recipientState, recipientAddressState: recipientAddressState(customer.data()), category, route: pricingRoute, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, rentalHours: tripType === 'Local Rental' ? rentalHoursOf(input.rentalHours) : null, brand: bookingBrand, fixedRoutes, localCityId, serviceId, multicity, platformFee, nightAllowance };
+    const priceInput = { addOns: bookingAddOnsOf(input.addOns ?? input.tripExtras), fuel, boardingState, recipientState, recipientAddressState: recipientAddressState(customer.data()), category, route: pricingRoute, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, rentalHours: tripType === 'Local Rental' ? rentalHoursOf(input.rentalHours) : null, brand: bookingBrand, fixedRoutes, localCityId, serviceId, multicity, platformFee, nightAllowance, tripDays, customerChannel: true, stops, timePackage: typeof input.timePackage === 'string' ? input.timePackage : undefined };
     const beforeDiscount = priceBooking(priceInput);
     // The percentage commission (if an older policy still exists) only prices duties on the category engine; confirmed
     // tariff duties carry fixed partner rates. A missing commission never blocks a booking.
@@ -218,6 +220,10 @@ export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (requ
     }
     const pricedRaw = priceBooking({ ...priceInput, discount });
     const priced = { ...pricedRaw, pricing: adjustPartner(pricedRaw.pricing, rules) };
+    // Morning Return has a strict 9:00 AM cutoff and an automatic upgrade: the customer accepts both on their own, and the server insists.
+    if (priced.pricing.timeBased?.kind === 'morning' && input.morningCutoffAccepted !== true) {
+      throw new HttpsError('failed-precondition', 'Accept the 9:00 AM Morning Return cutoff and the automatic upgrade to book this package.', { reason: 'morning_cutoff_not_accepted' });
+    }
     assertWithinLimits(rules, { categoryName: category.name, customerFare: priced.fare.total, partnerPayout: partnerPayoutRupees(priced.pricing) });
     const fare = priced.fare, breakup = priced.breakup;
     if (!Number.isFinite(input.expectedFare) || fare.total !== input.expectedFare) {
@@ -244,13 +250,15 @@ export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (requ
       service, serviceId, tripType, vehicle: category.name, vehicleCategory: category.name, vehicleCategoryId: category.id,
       passengerSeatsRequired: category.seats, dutyClass: dutyClassOf({ dutyClass: category.dutyClass, name: category.name, seats: category.seats }) ?? '', tariffClass: tariffClassOf(category) ?? '',
       fare: fare.total, fareBreakdown: fare, fareBreakup: breakup, addOns: bookingAddOnsOf(input.addOns), pricing: storedPricing, fareVerified: true, ...(commission ? { commission } : {}), distanceKm: fare.distanceKm, durationMin: fare.durationMin,
-      ...(tripEndAt ? { tripEndAt: Timestamp.fromDate(tripEndAt), endDate: priced.pricing.endDate, billableDays: priced.pricing.days } : {}),
+      ...(priced.pricing.timeBased ? timePackageFields(priced.pricing.timeBased, priced.pricing.endDate, priced.pricing.days)
+        : tripEndAt ? { tripEndAt: Timestamp.fromDate(tripEndAt), endDate: priced.pricing.endDate, billableDays: priced.pricing.days } : {}),
       discountDetails: fare.discountDetail ?? null, globalAdjustmentApplied: fare.globalAdjustment ?? null,
       routeEstimated: false, couponCode, discount, notes: text(input.notes), payment: 'Pending', paymentStatus: 'Unpaid',
       paymentMethod: input.paymentMethod === 'UPI' ? 'UPI' : 'Cash',
       ...(fuel ? { fuelType: fuel } : {}),
       rideTiming: 'scheduled', bookingType: 'advance', scheduledAt: Timestamp.fromDate(when), pickupAt: Timestamp.fromDate(when),
       termsAccepted: true, termsAcceptedAt: stamp,
+      ...(priced.pricing.timeBased?.kind === 'morning' ? { morningCutoffAccepted: true, morningCutoffAcceptedAt: stamp } : {}),
       date, time, status: 'Pending', tripSubStatus: 'Not Started', source: bookingSource, bookingSource, brand: bookingSource, ...availabilityFields(rules), createdAt: stamp, updatedAt: stamp,
     });
     // Raw contact details live in booking_contacts (staff + the customer); partners get the masked number only.

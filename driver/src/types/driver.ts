@@ -284,6 +284,8 @@ export interface TripDetails {
   /** Hourly Rental: the booked package hours, the KM it includes and the rate for each extra hour. */
   rentalHours?: number | null;
   includedKm?: number | null;
+  /** Round Trip: the time-based package sold. */
+  timePackage?: TimePackageInfo | null;
   extraHourRate?: number | null;
   /** When the customer's journey started (server stamp): the rental clock runs from here. */
   tripStartedAt?: Date | null;
@@ -296,7 +298,21 @@ export interface TripDetails {
 }
 
 /** An open marketplace offer a driver may accept. */
+/** A time-based round trip package (Customer UX v7): what was sold and when it must end. */
+export interface TimePackageInfo {
+  label: string;
+  kind: 'same_day' | 'next_day' | 'morning' | '';
+  includedKm: number;
+  /** When the package's coverage ends (ms). */
+  endMs: number | null;
+  /** Morning Return: the strict cutoff (ms) after which it upgrades to the Next-Day Return. */
+  morningCutoffMs: number | null;
+  upgraded: boolean;
+}
+
 export interface MarketplaceOffer {
+  /** Round Trip: the time-based package sold. */
+  timePackage?: TimePackageInfo | null;
   addOns?: { roofCarrier: boolean; pets: boolean };
   id: string;
   bookingId: string;
