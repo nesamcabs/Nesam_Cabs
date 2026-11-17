@@ -19,7 +19,7 @@ interface RequiredDoc {
 }
 
 /**
- * Stops the app until the signed-in person has accepted the current published
+ * Stops the apps until the signed-in person has accepted the current published
  * terms, privacy policy and consents for their role (a new version asks again).
  * If nothing is published, or the status can't be read, it lets them through.
  */
