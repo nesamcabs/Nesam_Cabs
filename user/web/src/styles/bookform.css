@@ -1200,3 +1200,9 @@
 
 /* Round trip: a pickup after 6:45 PM is an overnight trip (the days stepper starts at 2). */
 .bf-days__tag { display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 999px; background: var(--brand-soft, #f6f6f7); color: var(--brand-ink, #b3141a); font-size: 0.62rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; vertical-align: middle; }
+
+/* A service the admin has switched off: greyed out and labelled, not selectable. */
+.bf-service.is-off { opacity: .55; cursor: not-allowed; }
+.bf-service__off { display: block; margin-top: 2px; color: #b42318; font-size: 10px; font-weight: 700; line-height: 1.2; }
+.tab.is-off { opacity: .55; cursor: not-allowed; }
+.tab__note { margin-left: 6px; color: #b42318; font-size: 10px; font-weight: 700; }

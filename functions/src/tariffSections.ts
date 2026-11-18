@@ -5,7 +5,7 @@ import { parseRentalPackageRule } from './domain/tariff';
 // edit, bumps the tariff version and writes the audit entry in the same transaction. A saved tariff only
 // changes NEW quotes: a booking keeps the pricing snapshot it was quoted with.
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { FieldValue } from 'firebase-admin/firestore';
+import { FieldValue, type DocumentData } from 'firebase-admin/firestore';
 import { db } from './admin';
 import { auditInTx } from './audit';
 import { parseHillStationConfig } from './domain/hillStations';
@@ -106,16 +106,35 @@ function applyBaseRates(base: TariffConfig, d: Record<string, unknown>): TariffC
 
 // ── Section: Local Pickup & Drop ────────────────────────────────────────────
 
-async function cityOf(id: unknown): Promise<{ id: string; name: string }> {
+/**
+ * The place a Local Pickup & Drop fare is saved for: an active City of the location master, or an active zone of a City
+ * (an "Area / Locality" record). A zone's fare is used for trips that start in that zone and stay in its City; a vehicle class
+ * with no enabled zone fare keeps the City's fare (functions/src/quote.ts, zoneIdOf).
+ */
+async function cityOf(id: unknown): Promise<{ id: string; name: string; parentCityId?: string }> {
   if (typeof id !== 'string' || !id || id.includes('/')) throw bad('Choose a city.');
   const snap = await db.doc(`locations/${id}`).get();
   const l = snap.data();
-  if (!snap.exists || !l || l.type !== 'City') throw bad('That is not a city in the location master.');
-  if (l.status !== 'Active') throw bad('That city is not active in the location master.');
-  return { id: snap.id, name: text(l.name, 80) || text(l.city, 80) || snap.id };
+  if (!snap.exists || !l || (l.type !== 'City' && l.type !== 'Area / Locality')) throw bad('That is not a city or zone in the location master.');
+  if (l.status !== 'Active') throw bad(`That ${l.type === 'City' ? 'city' : 'zone'} is not active in the location master.`);
+  const name = text(l.name, 80) || text(l.area, 80) || text(l.city, 80) || snap.id;
+  if (l.type === 'City') return { id: snap.id, name };
+  const parentCityId = await zoneCityId(snap.id, l);
+  if (!parentCityId) throw bad('That zone is not linked to an active city. Set its city in Locations first.');
+  return { id: snap.id, name, parentCityId };
 }
 
-function applyLocal(base: TariffConfig, city: { id: string; name: string }, cls: TariffClass, f: Record<string, unknown>): TariffConfig {
+/** The active City a zone belongs to: its parent record when that is a City, else the one active City with the same name and state. */
+async function zoneCityId(zoneId: string, z: DocumentData): Promise<string | null> {
+  const parent = typeof z.parentLocationId === 'string' && z.parentLocationId && !z.parentLocationId.includes('/') ? await db.doc(`locations/${z.parentLocationId}`).get() : null;
+  if (parent?.exists && parent.data()?.type === 'City' && parent.data()?.status === 'Active') return parent.id;
+  if (!z.city) return null;
+  const cities = await db.collection('locations').where('type', '==', 'City').where('status', '==', 'Active').where('city', '==', z.city).get();
+  const same = cities.docs.filter((d) => d.id !== zoneId && (!z.state || !d.data().state || d.data().state === z.state));
+  return same.length === 1 ? same[0]!.id : null;
+}
+
+function applyLocal(base: TariffConfig, city: { id: string; name: string; parentCityId?: string }, cls: TariffClass, f: Record<string, unknown>): TariffConfig {
   if (typeof f.enabled !== 'boolean') throw bad('Choose whether this fare is enabled.');
   const existing = base.localPickupDrop?.[city.id];
   const fare = {
@@ -126,7 +145,7 @@ function applyLocal(base: TariffConfig, city: { id: string; name: string }, cls:
     waitingPerHour: amount(f.waitingPerHour, 'Waiting charge', false),
     enabled: f.enabled,
   };
-  return { ...base, localPickupDrop: { ...(base.localPickupDrop ?? {}), [city.id]: { cityName: city.name, classes: { ...(existing?.classes ?? {}), [cls]: fare } } } };
+  return { ...base, localPickupDrop: { ...(base.localPickupDrop ?? {}), [city.id]: { cityName: city.name, ...(city.parentCityId ? { parentCityId: city.parentCityId } : {}), classes: { ...(existing?.classes ?? {}), [cls]: fare } } } };
 }
 
 /**
@@ -634,7 +653,7 @@ export const saveTariffSection = onCall(async (request) => {
     } else if (section === 'localPickupDrop' && city) {
       const cls = classOf(input.class);
       next = applyLocal(base, city, cls, obj(input.data, 'The fare'));
-      meta = { section, cityId: city.id, cityName: city.name, class: cls };
+      meta = { section, cityId: city.id, cityName: city.name, class: cls, ...(city.parentCityId ? { zoneOfCityId: city.parentCityId } : {}) };
     } else if (section === 'localPickupDropBulk' && bulkCities) {
       const r = applyLocalBulk(base, obj(obj(input.data, 'The fares').fares, 'The city fares'), bulkCities);
       next = r.next;

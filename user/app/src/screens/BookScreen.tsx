@@ -24,6 +24,7 @@ import { MulticityForm } from '../components/MulticityForm';
 import { TimePickerSheet } from '../components/TimePickerSheet';
 import { useCustomerData } from '../context/CustomerData';
 import { useBookingDraft, type HomeService } from '../context/BookingDraft';
+import { UNAVAILABLE_TEXT, useServiceAvailability, type ServiceKey } from '../hooks/useServiceAvailability';
 import { useDeviceLocation } from '../hooks/useDeviceLocation';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { LOCATION_ERROR_TEXT, reverseGeocode } from '../services/geoService';
@@ -102,6 +103,10 @@ export function BookScreen() {
   const isAirport = service === 'airport';
   const isMulti = service === 'multicity';
   const isRound = service === 'outstation' && tripType === 'Round Trip';
+  // A service the admin has switched off shows "Currently unavailable" and cannot be searched.
+  const avail = useServiceAvailability();
+  const serviceKey: ServiceKey | null = service === 'outstation' ? (tripType === 'Round Trip' ? 'Round Trip' : 'One Way') : service === 'airport' ? 'Airport Taxi' : service === 'multicity' ? 'Multicity' : null;
+  const serviceOff = serviceKey ? avail.off(serviceKey) : false;
 
   // A pickup from 6:46 PM to 12:59 AM cannot finish a same-day package (they all end at 11:45 PM; the shortest runs 5 hours), so the trip
   // becomes an overnight 2-day trip by itself and the stepper cannot go below 2 days. Moving the pickup earlier again returns it to 1 day.
@@ -255,6 +260,10 @@ export function BookScreen() {
     const first = Object.values(errs).find(Boolean);
     if (!online) {
       setProblem('You are offline. Check your connection and try again.');
+      return;
+    }
+    if (serviceOff) {
+      setProblem(`${serviceKey} is ${UNAVAILABLE_TEXT.toLowerCase()}. Please choose another service.`);
       return;
     }
     setProblem('');
@@ -518,6 +527,7 @@ export function BookScreen() {
                     </View>
                   ) : null}
 
+                  {serviceOff ? <Notice tone="warning" message={`${serviceKey} — ${UNAVAILABLE_TEXT.toLowerCase()}`} style={{ marginBottom: space.sm }} /> : null}
                   {problem ? <Text style={styles.errorText}>{problem}</Text> : null}
                   <GoButton title="Let’s Go !" onPress={findCab} />
                 </View>

@@ -66,7 +66,8 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
   // ── Places: everywhere, every place that has a rule, and places added here (in state → city → area order) ──────────
   const places = useMemo(() => {
     const all = new Map<string, Place>([["||", { state: "", city: "", area: "" }]]);
-    for (const r of live) { const p = { state: r.scope.state, city: r.scope.city, area: r.scope.area }; all.set(keyOf(p), p); }
+    // Only standing rules make a row; a place with only date-based or special rules is listed under the table instead.
+    for (const r of live) if (standing(r)) { const p = { state: r.scope.state, city: r.scope.city, area: r.scope.area }; all.set(keyOf(p), p); }
     for (const p of added) all.set(keyOf(p), p);
     return [...all.values()].sort((a, b) => (a.state || "").localeCompare(b.state || "") || (a.city || "").localeCompare(b.city || "") || (a.area || "").localeCompare(b.area || ""));
   }, [live, added]);
@@ -76,7 +77,15 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
   // ── What applies at each place, worked out like the booking server ─────────────────────────────────────────────────
   const ownRule = (p: Place, kind: RuleKind) => rankRules(live.filter((r) => isOwn(r) && standing(r) && r.kind === kind && samePlace(r, p)))[0];
   const wider = (p: Place, kind: RuleKind, skip?: ServiceRule) => rankRules(live.filter((r) => standing(r) && r.kind === kind && r.id !== skip?.id && covers(r, p)))[0];
-  const fromText = (r?: ServiceRule) => !r ? "default" : `${r.brand ? "" : "All brands · "}${label({ state: r.scope.state, city: r.scope.city, area: r.scope.area })}`;
+  /** Where an inherited value comes from, in words: "the All brands rule for Dindigul", "the wider rule for Tamil Nadu". */
+  const fromText = (r?: ServiceRule) => {
+    if (!r) return "the default";
+    const at = label({ state: r.scope.state, city: r.scope.city, area: r.scope.area });
+    if (isOwn(r)) return `the rule for ${at}`;
+    return r.brand ? `an older ${BRAND_LABELS[r.brand as keyof typeof BRAND_LABELS] ?? r.brand} rule for all services (${at})` : `the All brands rule for ${at}`;
+  };
+  /** The short tag after an inherited value in the Status box. */
+  const tagOf = (r?: ServiceRule) => !r ? "default" : !isOwn(r) ? "shared" : "wider";
   const view = (p: Place) => {
     const d = drafts[keyOf(p)] ?? {};
     const ownA = ownRule(p, "availability"), ownC = ownRule(p, "categories"), ownP = ownRule(p, "pricing");
@@ -161,7 +170,7 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
 
   // ── The table ──────────────────────────────────────────────────────────────────────────────────────────────────
   const columns: RateColumn[] = [
-    { key: "avail", name: "Status", group: "Booking", width: 150 },
+    { key: "avail", name: "Status", group: "Booking", width: 172 },
     ...vehicles.map((v) => ({ key: `cat:${v.name}`, name: v.name, group: "Cabs shown" })),
     { key: "cust", name: "Customer fare", group: "Price change (%)", width: 108 },
     { key: "part", name: "Partner pay", group: "Price change (%)", width: 108 },
@@ -170,12 +179,14 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
   const rows: RateRow[] = places.map((p) => {
     const v = view(p);
     const hasOwn = v.avail !== "" || v.cats !== null || v.cust !== "" || v.part !== "";
+    // A row that exists only because of a rule this brand & service does not own says so.
+    const sharedOnly = !v.ownA && !v.ownC && !v.ownP && live.some((r) => standing(r) && !isOwn(r) && samePlace(r, p));
     return {
-      key: keyOf(p), label: label(p), unit: level(p),
+      key: keyOf(p), label: label(p), unit: sharedOnly ? `${level(p)} · shared` : level(p),
       cell: (col: string) => {
         if (col === "avail") return {
           value: v.avail, inherited: v.avail === "",
-          options: [{ value: "", label: `${v.inheritedAvail} (wider)` }, ...AVAIL.map((a) => ({ value: a, label: a }))],
+          options: [{ value: "", label: `${v.inheritedAvail} (${tagOf(v.inhA)})` }, ...AVAIL.map((a) => ({ value: a, label: a }))],
           title: v.avail === "" ? `Follows ${fromText(v.inhA)}` : "Set for this place",
           onChange: (x: string) => setDraft(p, { avail: x as Draft["avail"] }),
         };
@@ -214,7 +225,8 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
 
   // Rules that are not table cells: with dates, pickup-only / drop-only, switched off, or a second rule for the same place.
   const inTable = new Set(places.flatMap((p) => (["availability", "categories", "pricing"] as RuleKind[]).map((k) => ownRule(p, k)?.id).filter(Boolean) as string[]));
-  const special = live.filter((r) => isOwn(r) && !inTable.has(r.id));
+  // Also the rules this page inherits (All brands, or older rules saved for every service), so their source is visible.
+  const special = live.filter((r) => !inTable.has(r.id));
 
   const brandName = fareScope.brand === "common" ? "All brands (shared)" : BRAND_LABELS[fareScope.brand];
   const where = `${brandName} → ${serviceLabel(fareScope.service)}`;
@@ -267,14 +279,14 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
         <Problems items={problems} />
       </SettingCard>
 
-      <SettingCard title="Date-based and special rules"
-        description="Rules with pickup dates (festivals, strikes, peak days), pickup-only or drop-only rules, and rules that are switched off. While a date rule runs it replaces the table for its place when its priority is higher."
+      <SettingCard title="Date-based, special and inherited rules"
+        description="Rules with pickup dates (festivals, strikes, peak days), pickup-only or drop-only rules, rules that are switched off, and rules inherited from All brands or saved for every service. While a date rule runs it replaces the table for its place when its priority is higher."
         aside={canEdit && loaded && !loadError ? <MenuButton label="Add a date-based rule" buttonLabel="Add date rule" items={[
           { label: "Booking open / paused", icon: "toggle-right", onSelect: () => onAddRule("availability") },
           { label: "Cabs shown", icon: "car-front", onSelect: () => onAddRule("categories") },
           { label: "Price change", icon: "indian-rupee", onSelect: () => onAddRule("pricing") },
         ]} /> : null}>
-        {special.length ? renderRules(special) : <CardBody><p className="fm-sub">No date-based or special rules for {where}.</p></CardBody>}
+        {special.length ? renderRules(special) : <CardBody><p className="fm-sub">No date-based, special or inherited rules for {where}.</p></CardBody>}
       </SettingCard>
     </div>
   );

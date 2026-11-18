@@ -485,6 +485,9 @@ export interface TabItem {
   label: string;
   count?: number;
   icon?: string;
+  /** Not selectable (e.g. a service the admin has switched off); `note` says why. */
+  disabled?: boolean;
+  note?: string;
 }
 
 export function Tabs({
@@ -510,11 +513,13 @@ export function Tabs({
             type="button"
             role="tab"
             aria-selected={is}
-            className={`tab ${is ? 'is-active' : ''}`}
+            className={`tab ${is ? 'is-active' : ''} ${t.disabled ? 'is-off' : ''}`}
+            disabled={t.disabled}
             onClick={() => onChange(t.id)}
           >
             {t.icon ? <Icon name={t.icon} size={16} /> : null}
             <span>{t.label}</span>
+            {t.disabled && t.note ? <span className="tab__note">{t.note}</span> : null}
             {typeof t.count === 'number' ? <span className="tab__count">{t.count}</span> : null}
           </button>
         );

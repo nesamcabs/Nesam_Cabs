@@ -4,7 +4,7 @@ import { subscribeLocations } from "../services/adminFirestoreService";
 import { saveTariffSection } from "../services/bookingOpsService";
 import { saveLocation, deriveLocationCode, type LocationForm } from "../services/locationService";
 import { auth } from "../services/firebase";
-import { CITIES_BY_STATE } from "../domain/placeDirectory";
+import { CITIES_BY_STATE, directoryZones } from "../domain/placeDirectory";
 import { GST_STATES } from "../domain/gstStates";
 import { ActionError } from "../services/callables";
 import {
@@ -15,12 +15,13 @@ import { useCan } from "./AccessContext";
 import { Modal } from "./Feedback";
 import { Badge, Button, DataTable, EmptyState, Icon, toneForStatus } from "./ui";
 import { StageBar } from "./ui/ListKit";
-import { Problems, RateTable, SaveBar, SettingCard, vehicleColumns, type VehicleCol } from "./RateTable";
+import { CardBody, Problems, RateTable, SaveBar, SettingCard, vehicleColumns, type VehicleCol } from "./RateTable";
 
 type Tab = "Rental packages" | "Pickup & Drop";
 const TABS: Tab[] = ["Rental packages", "Pickup & Drop"];
 
 const num = (s: string) => (s.trim() === "" ? NaN : Number(s));
+const lc = (s?: string) => (s ?? "").trim().toLowerCase();
 const text = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? String(v) : "");
 
 /** Local fares: fixed Rental packages by vehicle category and hours, and the Pickup & Drop fare of each city. */
@@ -31,6 +32,10 @@ export default function LocalFares({ initialTab = "Rental packages", initialCity
   const [tab, setTab] = useState<Tab>(only ?? initialTab);
   const [locations, setLocations] = useState<MasterLocation[]>([]);
   const [cityId, setCityId] = useState("");
+  // Pickup & Drop: State, District, City, then the whole city or one of its zones.
+  const [stateSel, setStateSel] = useState("");
+  const [districtSel, setDistrictSel] = useState("");
+  const [zoneId, setZoneId] = useState("");
   const [edit, setEdit] = useState<
     | { kind: "package"; cls: TariffClass; hours: number }
     | { kind: "minimum"; cls: TariffClass }
@@ -85,6 +90,53 @@ export default function LocalFares({ initialTab = "Rental packages", initialCity
     }
   };
   const city = cities.find((c) => c.id === cityId);
+  // A city chosen elsewhere (or added from the built-in list) also sets its state and district.
+  useEffect(() => {
+    if (!city) return;
+    setStateSel((s) => s || city.state || "");
+    setDistrictSel((d) => (d && lc(d) === lc(city.district) ? d : city.district || ""));
+  }, [city]);
+  const states = useMemo(() => {
+    const names = new Set(cities.map((c) => c.state).filter(Boolean));
+    if (canEdit) for (const b of builtIn) names.add(b.state);
+    return [...names].sort((a, b) => a.localeCompare(b));
+  }, [cities, builtIn, canEdit]);
+  const inState = cities.filter((c) => !stateSel || lc(c.state) === lc(stateSel));
+  const districts = [...new Set(inState.map((c) => c.district?.trim()).filter((d): d is string => !!d))].sort((a, b) => a.localeCompare(b));
+  const cityChoices = inState.filter((c) => !districtSel || lc(c.district) === lc(districtSel));
+  const builtInChoices = canEdit && !districtSel ? builtIn.filter((b) => !stateSel || lc(b.state) === lc(stateSel)) : [];
+  // The city's zones: active "Area / Locality" records whose parent is the city (or, with no parent, the same city name and state).
+  const cityName = city ? city.name || city.city : "";
+  const zones = useMemo(() => !city ? [] : locations
+    .filter((l) => l.type === "Area / Locality" && l.status === "Active" && (l.parentLocationId === city.id || (!l.parentLocationId && lc(l.city) === lc(city.city || city.name) && (!l.state || !city.state || lc(l.state) === lc(city.state)))))
+    .sort((a, b) => (a.name || a.area || "").localeCompare(b.name || b.area || "")), [locations, city]);
+  const zone = zones.find((z) => z.id === zoneId);
+  const builtInZones = city && canEdit ? directoryZones(cityName).filter((z) => !zones.some((m) => lc(m.name || m.area) === lc(z))) : [];
+  const [pendingZone, setPendingZone] = useState("");
+  useEffect(() => {
+    if (!pendingZone) return;
+    const found = zones.find((z) => lc(z.name || z.area) === lc(pendingZone));
+    if (found) { setZoneId(found.id); setPendingZone(""); }
+  }, [zones, pendingZone]);
+  const addZone = async (name: string) => {
+    if (!city || !name || adding) return;
+    setAddError("");
+    setAdding(true);
+    const form: LocationForm = {
+      name, code: deriveLocationCode(`${cityName} ${name}`), type: "Area / Locality", state: city.state, district: city.district ?? "", city: city.city || cityName, area: name, pincode: "", address: "",
+      parentLocationId: city.id, lat: "", lng: "", placeId: "", pickupEnabled: true, dropEnabled: true, onlineBookingEnabled: true, adminBookingEnabled: true,
+      serviceIds: [], status: "Active", displayOrder: locations.length + 1,
+    };
+    try {
+      await saveLocation(form, null, locations, auth.currentUser?.uid || "");
+      setPendingZone(name);
+    } catch (err) {
+      setAddError(err instanceof Error ? err.message : "The zone could not be added to Locations.");
+    } finally {
+      setAdding(false);
+    }
+  };
+  const zoneHasOwn = (id: string) => Object.values(tariff?.localPickupDrop?.[id]?.classes ?? {}).some((f) => validLocalFare(f) && f?.enabled);
   const version = tariff?.version ?? 0;
   const ready = tariff !== undefined && !error;
   const done = (t: string) => { setEdit(null); onToast(t); };
@@ -135,19 +187,57 @@ export default function LocalFares({ initialTab = "Rental packages", initialCity
       )}
 
       {ready && tab === "Pickup & Drop" && (
-        <section aria-labelledby="pd-h">
-          <h3 id="pd-h" className="text-[15px] font-bold text-ink">Local Pickup &amp; Drop</h3>
-          <p className="text-[12px] text-muted mb-3">Fare = the greater of the road distance and the minimum billable kilometres, times the rate per kilometre. The 130 km Outstation minimum does not apply here.</p>
-          <label className="ds-field mb-3" style={{ maxWidth: 360 }}>
-            <span>City</span>
-            <select className="ds-select" value={cityId} disabled={adding} onChange={(e) => void pickCity(e.target.value)}>
-              <option value="">{adding ? "Adding city…" : "Choose a city…"}</option>
-              {cities.length > 0 && <optgroup label="In Locations">{cities.map((c) => <option key={c.id} value={c.id}>{c.name || c.city}{c.state ? ` · ${c.state}` : ""}</option>)}</optgroup>}
-              {canEdit && builtIn.length > 0 && <optgroup label="Add from the built-in list">{builtIn.map((b) => <option key={b.key} value={b.key}>{b.name} · {b.state}</option>)}</optgroup>}
-            </select>
-          </label>
-          {addError && <p className="ds-error" role="alert">{addError}</p>}
-          {city && <PickupDropMatrix key={city.id} city={city} vehicles={vehicles} canEdit={canEdit} onToast={onToast} />}
+        <section aria-label="Local Pickup and Drop" className="space-y-4">
+          <SettingCard title="Local Pickup & Drop"
+            description="Choose a city, then set the rates for the whole city or for one of its zones. Zone rates are used for trips that start in that zone and stay in the city; a vehicle without zone rates uses the city rates.">
+            <CardBody>
+              <div className="fm-place-picker">
+                <label className="fm-mini"><span>State</span>
+                  <select className="ds-select" value={stateSel} onChange={(e) => { setStateSel(e.target.value); setDistrictSel(""); setCityId(""); setZoneId(""); }}>
+                    <option value="">All states</option>
+                    {states.map((st) => <option key={st} value={st}>{st}</option>)}
+                  </select>
+                </label>
+                <label className="fm-mini"><span>District</span>
+                  <select className="ds-select" value={districtSel} disabled={!districts.length} onChange={(e) => { setDistrictSel(e.target.value); setCityId(""); setZoneId(""); }}>
+                    <option value="">{districts.length ? "All districts" : "No districts saved"}</option>
+                    {districts.map((d) => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </label>
+                <label className="fm-mini"><span>City</span>
+                  <select className="ds-select" value={cityId} disabled={adding} onChange={(e) => { setZoneId(""); void pickCity(e.target.value); }}>
+                    <option value="">{adding ? "Adding..." : cityChoices.length || builtInChoices.length ? "Choose a city" : "No cities here"}</option>
+                    {cityChoices.length > 0 && <optgroup label="In Locations">{cityChoices.map((c) => <option key={c.id} value={c.id}>{c.name || c.city}{!stateSel && c.state ? ` · ${c.state}` : ""}</option>)}</optgroup>}
+                    {builtInChoices.length > 0 && <optgroup label="Add from the built-in list">{builtInChoices.map((b) => <option key={b.key} value={b.key}>{b.name}{!stateSel ? ` · ${b.state}` : ""}</option>)}</optgroup>}
+                  </select>
+                </label>
+              </div>
+              {addError && <p className="ds-error mt-2" role="alert">{addError}</p>}
+            </CardBody>
+            {city && (
+              <CardBody className="fm-body--inline">
+                <div className="fm-seg" role="tablist" aria-label={`Zones of ${cityName}`}>
+                  <button type="button" role="tab" aria-selected={!zoneId} className={!zoneId ? "is-on" : ""} onClick={() => setZoneId("")}>Whole city</button>
+                  {zones.map((z) => (
+                    <button key={z.id} type="button" role="tab" aria-selected={zoneId === z.id} className={zoneId === z.id ? "is-on" : ""} onClick={() => setZoneId(z.id)}>
+                      {z.name || z.area}{zoneHasOwn(z.id) ? <span className="fm-seg__dot" title="Has its own rates" /> : null}
+                    </button>
+                  ))}
+                </div>
+                {builtInZones.length > 0 && (
+                  <label className="fm-inline-field">
+                    <span>Add a zone</span>
+                    <select className="ds-select" value="" disabled={adding} onChange={(e) => void addZone(e.target.value)}>
+                      <option value="">{adding ? "Adding..." : "Choose a zone"}</option>
+                      {builtInZones.map((z) => <option key={z} value={z}>{z}</option>)}
+                    </select>
+                  </label>
+                )}
+                {!zones.length && !builtInZones.length ? <span className="fm-hint">No zones for {cityName} yet. Add areas of this city in Locations to price them separately.</span> : null}
+              </CardBody>
+            )}
+          </SettingCard>
+          {city && <PickupDropMatrix key={zone?.id ?? city.id} place={zone ?? city} cityName={cityName} cityFares={zone ? tariff?.localPickupDrop?.[city.id]?.classes : undefined} vehicles={vehicles} canEdit={canEdit} onToast={onToast} />}
         </section>
       )}
 
@@ -236,8 +326,15 @@ const PD_FIELDS: { key: PdKey; label: string; unit: string; zeroOk?: boolean }[]
 ];
 const pdOf = (f?: Partial<LocalFare>): PdDraft => ({ minKm: text(f?.minKm), rate: text(f?.customerRate), exKm: text(f?.extraKmRate), wait: text(f?.waitingPerHour), partner: text(f?.partnerRate), enabled: f?.enabled ?? false });
 
-/** One city's Pickup & Drop fares: the rates down the side, the vehicles across the top, one Save for every changed vehicle. */
-function PickupDropMatrix({ city, vehicles, canEdit, onToast }: { city: MasterLocation; vehicles?: VehicleCol[]; canEdit: boolean; onToast: (t: string) => void }) {
+/**
+ * One city's (or one zone's) Pickup & Drop fares: the rates down the side, the vehicles across the top, one Save for every changed
+ * vehicle. For a zone, `cityFares` are the city's rates: a vehicle whose zone rates are off uses them (shown in grey).
+ */
+function PickupDropMatrix({ place, cityName, cityFares, vehicles, canEdit, onToast }: {
+  place: MasterLocation; cityName: string; cityFares?: Partial<Record<TariffClass, Partial<LocalFare>>>; vehicles?: VehicleCol[]; canEdit: boolean; onToast: (t: string) => void;
+}) {
+  const city = place;
+  const isZone = place.type !== "City";
   // Only the rate classes an active vehicle category is priced as.
   const classes = TARIFF_CLASSES.filter((c) => !vehicles?.length || vehicles.some((v) => v.cls === c));
   const { tariff } = useTariff();
@@ -262,7 +359,13 @@ function PickupDropMatrix({ city, vehicles, canEdit, onToast }: { city: MasterLo
     return "";
   };
   const problems = classes.map((c) => (errorOf(c) ? `${nameOf(c)}: ${errorOf(c)}` : "")).filter(Boolean);
-  const name = city.name || city.city;
+  const name = isZone ? `${place.name || place.area} (${cityName})` : place.name || place.city;
+  // A zone's empty box shows the city's rate in grey.
+  const cityText = (c: TariffClass, k: PdKey) => {
+    const f = cityFares?.[c];
+    if (!f || !validLocalFare(f) || !f.enabled) return "";
+    return text(k === "minKm" ? f.minKm : k === "rate" ? f.customerRate : k === "exKm" ? f.extraKmRate : k === "wait" ? f.waitingPerHour : f.partnerRate);
+  };
 
   const save = async () => {
     if (!canEdit || busy || !changed.length || problems.length) return;
@@ -295,17 +398,21 @@ function PickupDropMatrix({ city, vehicles, canEdit, onToast }: { city: MasterLo
   const configured = (c: TariffClass) => validLocalFare(tariff?.localPickupDrop?.[city.id]?.classes?.[c]);
   return (
     <SettingCard title={`Pickup & Drop · ${name}`}
-      description="Fare = the greater of the road distance and the minimum billable km, times the price per km. The 130 km Outstation minimum does not apply."
-      footer={canEdit ? <SaveBar reason={reason} onReason={setReason} onSave={save} busy={busy} disabled={!changed.length || problems.length > 0} message={message} note="Fill every box of a vehicle to save it. Switch it on to quote it." /> : null}>
+      description={isZone
+        ? `Rates for trips that start in this zone and stay in ${cityName}. Grey numbers are the city rates, used by any vehicle whose zone rates are off.`
+        : "Fare = the greater of the road distance and the minimum billable km, times the price per km. The 130 km Outstation minimum does not apply."}
+      footer={canEdit ? <SaveBar reason={reason} onReason={setReason} onSave={save} busy={busy} disabled={!changed.length || problems.length > 0} message={message}
+        note={isZone ? "Fill every box of a vehicle and switch on Use zone rates to price it here." : "Fill every box of a vehicle to save it. Switch it on to quote it."} /> : null}>
       <RateTable label={`Pickup and Drop fares in ${name}`} disabled={!canEdit || busy}
         columns={(() => {
-          const statusOf = (c: TariffClass) => errorOf(c) ? { tone: "warn" as const, text: "Check", title: errorOf(c) } : !configured(c) && !dirtyOf(c) ? { tone: "off" as const, text: "Not set" } : undefined;
+          const statusOf = (c: TariffClass) => errorOf(c) ? { tone: "warn" as const, text: "Check", title: errorOf(c) }
+            : !configured(c) && !dirtyOf(c) ? { tone: "off" as const, text: isZone ? "City rates" : "Not set" } : undefined;
           return vehicles?.length ? vehicleColumns(vehicles, (c) => classes.includes(c), statusOf) : classes.map((c) => ({ key: c, name: nameOf(c), status: statusOf(c) }));
         })()}
         groups={[
-          { title: "Customer pays", rows: PD_FIELDS.filter((f) => f.key !== "partner").map((f) => ({ key: f.key, label: f.label, unit: f.unit, required: true, cell: (c: string) => { const v = draftOf(c as TariffClass)[f.key]; return { value: v, own: v !== "", onChange: (next: string) => set(c as TariffClass, { [f.key]: next } as Partial<PdDraft>) }; } })) },
-          { title: "Partner gets", rows: PD_FIELDS.filter((f) => f.key === "partner").map((f) => ({ key: f.key, label: f.label, unit: f.unit, required: true, cell: (c: string) => { const v = draftOf(c as TariffClass)[f.key]; return { value: v, own: v !== "", onChange: (next: string) => set(c as TariffClass, { [f.key]: next } as Partial<PdDraft>) }; } })) },
-          { title: "Availability", rows: [{ key: "enabled", label: "Quote to customers", cell: (c: string) => ({ checked: draftOf(c as TariffClass).enabled, onToggle: (on: boolean) => set(c as TariffClass, { enabled: on }), title: draftOf(c as TariffClass).enabled ? "On" : "Off" }) }] },
+          { title: "Customer pays", rows: PD_FIELDS.filter((f) => f.key !== "partner").map((f) => ({ key: f.key, label: f.label, unit: f.unit, required: true, cell: (c: string) => { const v = draftOf(c as TariffClass)[f.key]; return { value: v, own: v !== "", placeholder: isZone ? cityText(c as TariffClass, f.key) || "—" : undefined, onChange: (next: string) => set(c as TariffClass, { [f.key]: next } as Partial<PdDraft>) }; } })) },
+          { title: "Partner gets", rows: PD_FIELDS.filter((f) => f.key === "partner").map((f) => ({ key: f.key, label: f.label, unit: f.unit, required: true, cell: (c: string) => { const v = draftOf(c as TariffClass)[f.key]; return { value: v, own: v !== "", placeholder: isZone ? cityText(c as TariffClass, f.key) || "—" : undefined, onChange: (next: string) => set(c as TariffClass, { [f.key]: next } as Partial<PdDraft>) }; } })) },
+          { title: "Availability", rows: [{ key: "enabled", label: isZone ? "Use zone rates" : "Quote to customers", cell: (c: string) => ({ checked: draftOf(c as TariffClass).enabled, onToggle: (on: boolean) => set(c as TariffClass, { enabled: on }), title: draftOf(c as TariffClass).enabled ? "On" : "Off" }) }] },
         ]} />
       <Problems items={problems} />
     </SettingCard>

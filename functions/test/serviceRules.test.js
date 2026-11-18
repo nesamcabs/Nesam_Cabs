@@ -77,6 +77,29 @@ test('local pickup fare uses city minimum without the outstation floor', () => {
   assert.equal(T.localFareFor(config, 'salem', 'sedan'), null);
 });
 
+test('a pickup zone uses its own enabled fare per class and keeps the city fare for the others', () => {
+  const fare = (customerRate, enabled = true) => ({ minKm: 10, customerRate, partnerRate: customerRate - 5, extraKmRate: customerRate + 2, waitingPerHour: 60, enabled });
+  const config = T.parseTariffConfig({
+    ...T.CONFIRMED_TARIFF_V2,
+    localPickupDrop: {
+      theni: { cityName: 'Theni', classes: { sedan: fare(20), suv: fare(26) } },
+      bodi: { cityName: 'Bodinayakanur', parentCityId: 'theni', classes: { sedan: fare(24), suv: fare(30, false) } },
+    },
+  });
+  assert.equal(config.localPickupDrop.bodi.parentCityId, 'theni');
+  // Sedan from the zone: the zone's own fare.
+  assert.equal(T.localFareIdFor(config, 'theni', 'bodi', 'sedan'), 'bodi');
+  assert.equal(T.quoteLocalPickupDrop({ config, cityId: 'bodi', tariffClass: 'sedan', routeKm: 5, durationMin: 20, pickupMs: at.getTime(), tripType: 'One Way' }).fare.total, 252);
+  // SUV: the zone's fare is switched off, so the city fare applies.
+  assert.equal(T.localFareIdFor(config, 'theni', 'bodi', 'suv'), 'theni');
+  // No zone, or a zone with no fare for the class: the city fare.
+  assert.equal(T.localFareIdFor(config, 'theni', null, 'sedan'), 'theni');
+  assert.equal(T.localFareIdFor(config, 'theni', 'elsewhere', 'sedan'), 'theni');
+  // Not inside one city: never a local fare, even when the pickup zone has one.
+  assert.equal(T.localFareIdFor(config, null, 'bodi', 'sedan'), null);
+  assert.equal(T.localFareIdFor(config, 'theni', 'bodi', 'crysta'), null);
+});
+
 test('rental package honors included GST and refuses unsupported durations', () => {
   const config = T.parseTariffConfig({ ...T.CONFIRMED_TARIFF_V2, rentalPackages: { sedan: { minHours: 4, packages: { '4': { customerFare: 1050, partnerPayout: 800, includedKm: 40, extraKmRate: 15, extraHourRate: 150, gstMode: 'included', enabled: true } } } } });
   const q = T.quoteRentalPackage({ config, hours: 4, tariffClass: 'sedan', routeKm: 20, durationMin: 240, pickupMs: at.getTime(), tripType: 'One Way' });

@@ -33,7 +33,7 @@ export const DEFAULT_SERVICES: { id: string; name: string; serviceType: string; 
   airport?: boolean; outstation?: { oneWay: boolean; roundTrip: boolean } }[] = [
   { id: "svc_one_way_taxi", name: "One Way Taxi", serviceType: "One Way Taxi", icon: "🚖", displayOrder: 1, featured: true, outstation: { oneWay: true, roundTrip: false },
     shortDescription: "Pay only for the drop: a cab from your pickup to your destination." },
-  { id: "svc_outstation_round_trip", name: "Outstation Round Trip", serviceType: "Outstation Cab", icon: "🧳", displayOrder: 2, featured: true, outstation: { oneWay: true, roundTrip: true },
+  { id: "svc_outstation_round_trip", name: "Outstation Round Trip", serviceType: "Outstation Cab", icon: "🧳", displayOrder: 2, featured: true, outstation: { oneWay: false, roundTrip: true },
     shortDescription: "Go, stay and come back with the same driver, with stops along the way." },
   { id: "svc_multicity", name: "Multicity Tour", serviceType: "Multicity", icon: "🗺️", displayOrder: 3, featured: true,
     shortDescription: "One cab through several cities, priced for the whole itinerary." },
@@ -41,6 +41,8 @@ export const DEFAULT_SERVICES: { id: string; name: string; serviceType: string; 
     shortDescription: "A cab and driver by the hour for city use." },
   { id: "svc_airport_taxi", name: "Airport Taxi", serviceType: "Airport Taxi", icon: "✈️", displayOrder: 5, featured: false, airport: true,
     shortDescription: "On-time pickups and drops for airport transfers." },
+  { id: "svc_local_pickup_drop", name: "Pickup & Drop", serviceType: "Local Pickup & Drop", icon: "📍", displayOrder: 6, featured: false,
+    shortDescription: "A cab from one place to another inside your city." },
 ];
 
 /** Creates the default services that are not saved yet (matched by id or by service type). Returns how many were added. */

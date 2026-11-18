@@ -27,7 +27,7 @@ import { loadNightAllowance } from './nightAllowanceConfig';
 import { adjustPartner, assertBookable, assertWithinLimits, availabilityFields, evaluateRules, loadServiceRules, partnerPayoutRupees, ruleServiceText } from './serviceRules';
 import { loadCommissionPolicy } from './commission';
 import { createContactInTx, maskPhone } from './contacts';
-import { loadFixedRoutes, loadTariffConfig, priceBooking, rentalHoursOf, sharedCityId, tariffClassOf, timePackageFields, tripDaysOf } from './quote';
+import { loadFixedRoutes, loadTariffConfig, priceBooking, rentalHoursOf, sharedCityId, tariffClassOf, timePackageFields, tripDaysOf, zoneIdOf } from './quote';
 import { notifyInTx, pushAfterCommit, NotifyInput, inr } from './notify';
 import { nextBookingCode } from './bookingSequence';
 import { businessContract, availableBusinessCredit } from './domain/business';
@@ -180,6 +180,7 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
   if(businessId && !/^[A-Za-z0-9_-]{1,128}$/.test(businessId))throw new HttpsError('invalid-argument','Invalid business account.');
   // Master-location places carry canonical ids, so a local trip inside one city can use that city's Local Pickup & Drop fare.
   const localCityId = tripType === 'One Way' && !isOutstation(route.distanceKm) ? await sharedCityId(pickup, drop) : null;
+  const localZoneId = localCityId ? await zoneIdOf(pickup, localCityId) : null;
   const rentalHours = tripType === 'Local Rental' ? rentalHoursOf(input.rentalHours) : null;
 
   const result = await db.runTransaction(async (tx) => {
@@ -257,7 +258,7 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
 
     const boardingState = await fareBoardingState(tariff, pickup);
     const recipientState = recipientGstState(business?.data() ?? customer?.data());
-    const priceInput = { addOns: bookingAddOnsOf(input.addOns ?? input.tripExtras), boardingState, recipientState, recipientAddressState: recipientAddressState(business?.data() ?? customer?.data()), category, route, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, adminDiscount: discountIn, localCityId, rentalHours, fixedRoutes, serviceId, businessContract:contract, brand: bookingChannel, platformFee, nightAllowance, tripDays, timePackage, stops };
+    const priceInput = { addOns: bookingAddOnsOf(input.addOns ?? input.tripExtras), boardingState, recipientState, recipientAddressState: recipientAddressState(business?.data() ?? customer?.data()), category, route, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, adminDiscount: discountIn, localCityId, localZoneId, rentalHours, fixedRoutes, serviceId, businessContract:contract, brand: bookingChannel, platformFee, nightAllowance, tripDays, timePackage, stops };
     // Coupon: the same server checks as customer checkout (validity, usage limits, minimum fare,
     // category / service, audience) against the fare before discount; then the booking is priced with it.
     let couponDiscount = 0;

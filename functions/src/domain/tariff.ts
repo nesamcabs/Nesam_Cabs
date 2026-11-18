@@ -95,7 +95,8 @@ export interface AirportClassRates { customerBase?: number; partnerBase?: number
 /** Local Pickup & Drop fare of one vehicle class in one city: max(road km, minKm) × rate. */
 export interface LocalFareEntry { minKm: number; customerRate: number; partnerRate: number; extraKmRate: number; waitingPerHour: number; enabled: boolean }
 /** Keyed by the canonical City record id in `locations`; `cityName` is a display copy only. */
-export interface LocalCityFares { cityName: string; classes: Partial<Record<TariffClass, LocalFareEntry>> }
+/** One City's (or one zone's) Local Pickup & Drop fares. A zone carries the id of its City (`parentCityId`). */
+export interface LocalCityFares { cityName: string; parentCityId?: string; classes: Partial<Record<TariffClass, LocalFareEntry>> }
 export const RENTAL_HOURS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] as const;
 export type RentalHours = (typeof RENTAL_HOURS)[number];
 export type GstMode = 'included' | 'excluded';
@@ -341,7 +342,7 @@ function parseLocalPickupDrop(v: unknown): Record<string, LocalCityFares> | unde
       const e = parseLocalFare(raw.classes?.[c]);
       if (e) classes[c] = e;
     }
-    out[cityId] = { cityName: typeof raw.cityName === 'string' ? raw.cityName : cityId, classes };
+    out[cityId] = { cityName: typeof raw.cityName === 'string' ? raw.cityName : cityId, ...(typeof raw.parentCityId === 'string' && raw.parentCityId ? { parentCityId: raw.parentCityId } : {}), classes };
   }
   return Object.keys(out).length ? out : undefined;
 }
@@ -1162,6 +1163,16 @@ export function localFareFor(cfg: TariffConfig, cityId: string, cls: TariffClass
   const city = cfg.localPickupDrop?.[cityId];
   const fare = city?.classes[cls];
   return city && fare && fare.enabled ? { cityName: city.cityName, fare } : null;
+}
+
+/**
+ * Which saved Local Pickup & Drop fare a trip uses for a class: the pickup zone's own fare when it is enabled, else the City's;
+ * null when neither is enabled (the trip is then priced as a normal One Way).
+ */
+export function localFareIdFor(cfg: TariffConfig, cityId: string | null | undefined, zoneId: string | null | undefined, cls: TariffClass): string | null {
+  if (!cityId) return null;
+  if (zoneId && localFareFor(cfg, zoneId, cls)) return zoneId;
+  return localFareFor(cfg, cityId, cls) ? cityId : null;
 }
 
 /**

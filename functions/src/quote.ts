@@ -24,7 +24,7 @@ import { buildFareBreakup, buildTariffFareBreakup, FareBreakup, withExtraChargeL
 import { scopedExtraChargesSnapshot } from './domain/scopedExtraCharges';
 import { CATEGORY_GST_RATE, FareAdjustmentInput, calculateFare, isOutstation, serviceName } from './domain/pricing';
 import {
-  CONFIRMED_TARIFF_V2, FixedRouteFare, completeAirportRates, defaultRentalHours, quoteAirport, PricingSnapshot, QuoteResult, TARIFF_CLASSES, TariffClass, TariffConfig, TariffError, cityDropFare, classRates, istDate, localFareFor, matchFixedRoute, paise,
+  CONFIRMED_TARIFF_V2, FixedRouteFare, completeAirportRates, defaultRentalHours, quoteAirport, PricingSnapshot, QuoteResult, TARIFF_CLASSES, TariffClass, TariffConfig, TariffError, cityDropFare, classRates, istDate, localFareIdFor, matchFixedRoute, paise,
   parseFixedRouteFare, parseTariffConfig, gstOn, quoteFixedRoute, quoteLocalPickupDrop, quoteOneWay, quoteRentalPackage, quoteRoundTrip, quoteRoundTripMini, quoteRoundTripOvernightCombo, r2, withinCityZone, scopedTariffForBrand,
   calendarDays, finalizeFare, multicityRatesFor, quoteMulticity, displayMarkupPercent, quoteRoundTripTimeBased, timeBasedContext,
 } from './domain/tariff';
@@ -140,6 +140,49 @@ async function cityIdOf(place: GeoPlace): Promise<string | null> {
   return cityByPlace(place);
 }
 
+/** An active zone ("Area / Locality") of the location master and the City it belongs to. */
+interface ZoneRecord { id: string; names: string[]; parentId: string; cityNames: string[]; state: string }
+let zoneCache: { at: number; zones: ZoneRecord[] } | null = null;
+
+async function activeZones(): Promise<ZoneRecord[]> {
+  if (zoneCache && Date.now() - zoneCache.at < CITY_TTL_MS) return zoneCache.zones;
+  const snap = await db.collection('locations').where('type', '==', 'Area / Locality').where('status', '==', 'Active').get();
+  const zones = snap.docs.map((d) => {
+    const l = d.data();
+    return {
+      id: d.id, names: [...new Set([norm(l.name), norm(l.area), norm(l.normalizedName)].filter(Boolean))],
+      parentId: typeof l.parentLocationId === 'string' ? l.parentLocationId : '', cityNames: [norm(l.city)].filter(Boolean), state: norm(l.state),
+    };
+  });
+  zoneCache = { at: Date.now(), zones };
+  return zones;
+}
+
+/**
+ * The zone of the pickup inside its City, for zone Local Pickup & Drop rates: the master location the rider chose (or the
+ * record above it) when it is one of the City's zones, else the one zone of that City named in the address. null when none.
+ */
+export async function zoneIdOf(place: GeoPlace, cityId: string): Promise<string | null> {
+  const [zones, cities] = await Promise.all([activeZones(), activeCities()]);
+  const city = cities.find((c) => c.id === cityId);
+  if (!city) return null;
+  const mine = zones.filter((z) => z.parentId === cityId || (!z.parentId && z.cityNames.some((n) => city.names.includes(n)) && (!z.state || !city.state || z.state === city.state)));
+  if (!mine.length) return null;
+  if (place.id && place.id !== 'pin' && !place.id.startsWith('google-')) {
+    let id = place.id;
+    for (let hop = 0; hop < 4; hop++) {
+      if (mine.some((z) => z.id === id)) return id;
+      const snap = await db.doc(`locations/${id}`).get();
+      const l = snap.data();
+      if (!snap.exists || !l || l.type === 'City' || typeof l.parentLocationId !== 'string' || !l.parentLocationId) break;
+      id = l.parentLocationId;
+    }
+  }
+  const parts = new Set([String((place as GeoPlace & { name?: string }).name ?? ''), ...String(place.address ?? '').split(',')].map(norm).filter(Boolean));
+  const named = mine.filter((z) => z.names.some((n) => parts.has(n)));
+  return named.length === 1 ? named[0]!.id : null;
+}
+
 /** The City both places belong to, for Local Pickup & Drop pricing; null when they differ or cannot be resolved. */
 export async function sharedCityId(pickup: GeoPlace, drop: GeoPlace): Promise<string | null> {
   const [a, b] = await Promise.all([cityIdOf(pickup), cityIdOf(drop)]);
@@ -206,6 +249,8 @@ export interface PriceInput {
   adminDiscount?: Parameters<typeof calculateFare>[0]['adminDiscount'];
   /** Canonical City both places belong to (see sharedCityId). Enables Local Pickup & Drop pricing. */
   localCityId?: string | null;
+  /** The pickup's zone in that City (see zoneIdOf): its own Pickup & Drop rates win for a class that has them enabled. */
+  localZoneId?: string | null;
   /** Local Rental only: the package the customer chose, in hours. */
   rentalHours?: number | null;
   /** Enabled fixed route fares and the booked service. Only places with canonical location ids (never a map pin) can match one. */
@@ -391,8 +436,10 @@ function priceBookingCore(i: PriceInput): PriceResult {
   }
   // A One Way trip inside one City (within the outstation threshold) takes that City's fare, even when one end is the
   // city's airport: the rider chose Pickup & Drop, and Airport Taxi is priced as its own service (tripType 'Airport Taxi').
-  if (effectiveTariff && klass && i.localCityId && i.tripType === 'One Way' && !outstation && localFareFor(effectiveTariff, i.localCityId, klass)) {
-    const tariff = effectiveTariff, cityId = i.localCityId;
+  // The pickup zone's own rates for this class when enabled, else the City's.
+  const localId = effectiveTariff && klass ? localFareIdFor(effectiveTariff, i.localCityId, i.localZoneId, klass) : null;
+  if (effectiveTariff && klass && localId && i.tripType === 'One Way' && !outstation) {
+    const tariff = effectiveTariff, cityId = localId;
     const q = withDiscounts((discount) => quoteLocalPickupDrop({ config: tariff, tariffClass: klass, tripType: 'One Way', cityId, discount, ...timing, ...adjust }));
     return { fare: q.fare, pricing: { ...q.pricing, brand: i.brand, brandScoped: !!(i.brand && i.tariff?.brandOverrides?.[i.brand]) }, service, outstation, breakup: buildTariffFareBreakup(i.category, q.fare, false, q.pricing), usesCommissionPolicy: false };
   }
@@ -585,14 +632,15 @@ export async function trustedCustomerPlace(place: GeoPlace, requestedId: unknown
 }
 
 /** Fixed route fares and the shared City a customer trip may use (the same inputs the office booking passes). */
-export async function customerFareContext(tripType: TripType, pickup: GeoPlace, drop: GeoPlace, distanceKm: number): Promise<{ fixedRoutes: FixedRouteFare[]; localCityId: string | null }> {
+export async function customerFareContext(tripType: TripType, pickup: GeoPlace, drop: GeoPlace, distanceKm: number): Promise<{ fixedRoutes: FixedRouteFare[]; localCityId: string | null; localZoneId: string | null }> {
   const masters = pickup.id !== 'pin' && drop.id !== 'pin';
   const [fixedRoutes, localCityId] = await Promise.all([
     tripType === 'One Way' && masters ? loadFixedRoutes() : Promise.resolve([]),
     // Any place can be in a City (a master location, a Google search result or a map pin): see cityIdOf.
     tripType === 'One Way' && !isOutstation(distanceKm) ? sharedCityId(pickup, drop) : Promise.resolve(null),
   ]);
-  return { fixedRoutes, localCityId };
+  const localZoneId = localCityId ? await zoneIdOf(pickup, localCityId) : null;
+  return { fixedRoutes, localCityId, localZoneId };
 }
 
 /**
@@ -665,7 +713,7 @@ export const quoteBooking = onCall({ timeoutSeconds: 60, cors: PUBLIC_CALLABLE_O
   const route = await routeLookup;
   // A Multicity tour is billed on the whole itinerary, even when it ends where it began.
   const pricingRoute = multicity ? route : await roundTripPricingRoute(route, tripType, pickup, drop, stops.length);
-  const [{ fixedRoutes, localCityId }, customer] = await Promise.all([customerFareContext(tripType, pickup, drop, route.distanceKm), customerRead]);
+  const [{ fixedRoutes, localCityId, localZoneId }, customer] = await Promise.all([customerFareContext(tripType, pickup, drop, route.distanceKm), customerRead]);
   if (customer?.exists && !approved(customer.data()!.status)) throw new HttpsError('permission-denied', 'Your account is not active.');
   // A coupon is only checked for an existing customer account.
   const customerId = customer?.exists ? uid : null;
@@ -690,7 +738,7 @@ export const quoteBooking = onCall({ timeoutSeconds: 60, cors: PUBLIC_CALLABLE_O
     .map(({ d, c }) => {
       const category = { ...c, tariffClass: d.data().tariffClass, dutyClass: d.data().dutyClass };
       const matched = matchAuthoritativeService(onlineMasters, { tripType, categoryId: c.id, distanceKm: route.distanceKm, pickupType: pickup.type, dropType: drop.type, context: 'customer' });
-      const base = { addOns: bookingAddOnsOf(input.addOns), boardingState, recipientState, recipientAddressState: recipientAddressState(customer?.data()), category, route: pricingRoute, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, rentalHours: tripType === 'Local Rental' ? rentalHoursOf(input.rentalHours) : null, brand, fixedRoutes, localCityId, serviceId: matched?.id ?? '', multicity, platformFee, nightAllowance, tripDays, customerChannel: true, stops, timePackage: typeof input.timePackage === 'string' ? input.timePackage : undefined };
+      const base = { addOns: bookingAddOnsOf(input.addOns), boardingState, recipientState, recipientAddressState: recipientAddressState(customer?.data()), category, route: pricingRoute, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, rentalHours: tripType === 'Local Rental' ? rentalHoursOf(input.rentalHours) : null, brand, fixedRoutes, localCityId, localZoneId, serviceId: matched?.id ?? '', multicity, platformFee, nightAllowance, tripDays, customerChannel: true, stops, timePackage: typeof input.timePackage === 'string' ? input.timePackage : undefined };
       try {
         assertCatalogAvailable(onlineMasters,tripType,category.id);
         assertBookable(rules, category.name);

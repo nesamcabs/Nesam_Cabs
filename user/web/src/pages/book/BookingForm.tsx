@@ -14,6 +14,7 @@ import { Icon } from '@/components/Icon';
 import { LocationPicker, type PickerConfig } from '@/components/LocationPicker';
 import { TimePicker, formatTime12 } from '@/components/TimePicker';
 import { useBooking } from '@/state/Booking';
+import { UNAVAILABLE_TEXT, useServiceAvailability, type ServiceKey } from '@/lib/serviceAvailability';
 import { useAuth } from '@/state/Auth';
 import { setPendingReturn } from '@/lib/pendingReturn';
 import { saveDraft, RENTAL_PACKAGE_HOURS } from '@/lib/draft';
@@ -73,8 +74,20 @@ export function BookingForm({
   const { trips, savedPlaces } = useCustomerData();
   const { position } = useDeviceLocation(true, true);
   const { online } = useOnline();
+  const avail = useServiceAvailability();
   const { pickup, drop, scheduledAt, tripEndAt, tripType } = draft;
   const isRound = service === 'outstation' && tripType === 'Round Trip';
+  // Services the admin has switched off (Admin → Services) show as "Currently unavailable" and cannot be searched.
+  const keyOf = (id: ServiceId, trip: 'One Way' | 'Round Trip' = tripType === 'Round Trip' ? 'Round Trip' : 'One Way'): ServiceKey | null =>
+    id === 'outstation' ? trip : id === 'airport' ? 'Airport Taxi' : id === 'rental' ? 'Local Rental' : id === 'pickup' ? 'Pickup & Drop' : id === 'multicity' ? 'Multicity' : null;
+  const serviceOff = (id: ServiceId): boolean => {
+    if (id === 'outstation') return avail.off('One Way') && avail.off('Round Trip');
+    if (id === 'rental') return avail.off('Local Rental') && avail.off('Pickup & Drop');
+    const k = keyOf(id);
+    return !!k && avail.off(k);
+  };
+  const currentKey = keyOf(service);
+  const currentOff = currentKey ? avail.off(currentKey) : false;
 
   const [picker, setPicker] = useState<'pickup' | 'drop' | null>(null);
   const [stopPicker, setStopPicker] = useState<number | 'new' | null>(null);
@@ -191,6 +204,7 @@ export function BookingForm({
   const validate = (): Errors => {
     const e: Errors = {};
     if (!online) e.form = 'You’re offline. Reconnect to see fares.';
+    else if (currentOff) e.form = `${currentKey} is currently unavailable. Please choose another service.`;
     if (!pickup) e.pickup = service === 'airport' && airportField === 'pickup' ? 'Choose the airport.' : 'Choose your pickup location.';
     if (service !== 'rental' && !drop) e.drop = service === 'airport' && airportField === 'drop' ? 'Choose the airport.' : 'Choose your drop location.';
     if (service === 'rental' && !draft.rentalHours) e.hours = 'Select the rental hours.';
@@ -304,12 +318,14 @@ export function BookingForm({
           // The rental slot is the "Local Rentals" button: it holds both the hourly rental and the pickup & drop.
           const grouped = s.id === 'rental';
           const active = grouped ? isLocalRentals(service) : service === s.id;
+          const off = serviceOff(s.id);
           return (
-            <button key={s.id} type="button" className={`bf-service ${active ? 'is-active' : ''}`} aria-pressed={active} aria-controls="bf-form" onClick={() => (grouped && isLocalRentals(service) ? undefined : onService(s.id))}>
+            <button key={s.id} type="button" className={`bf-service ${active ? 'is-active' : ''} ${off ? 'is-off' : ''}`} aria-pressed={active} aria-disabled={off || undefined} disabled={off} title={off ? UNAVAILABLE_TEXT : undefined} aria-controls="bf-form" onClick={() => (grouped && isLocalRentals(service) ? undefined : onService(s.id))}>
               <span className="bf-service__icon">
                 <ServiceIcon id={s.id} size={30} />
               </span>
               <span>{grouped ? LOCAL_RENTALS_LABEL : s.label}</span>
+              {off ? <small className="bf-service__off">{UNAVAILABLE_TEXT}</small> : null}
             </button>
           );
         })}
@@ -324,8 +340,8 @@ export function BookingForm({
             setErrors({});
           }}
           items={[
-            { id: 'rental', label: 'Hourly Rental' },
-            { id: 'pickup', label: 'Pickup & Drop' },
+            { id: 'rental', label: 'Hourly Rental', disabled: avail.off('Local Rental'), note: UNAVAILABLE_TEXT },
+            { id: 'pickup', label: 'Pickup & Drop', disabled: avail.off('Pickup & Drop'), note: UNAVAILABLE_TEXT },
           ]}
         />
       ) : null}
@@ -339,8 +355,8 @@ export function BookingForm({
             setErrors({});
           }}
           items={[
-            { id: 'One Way', label: 'One Way' },
-            { id: 'Round Trip', label: 'Round Trip' },
+            { id: 'One Way', label: 'One Way', disabled: avail.off('One Way'), note: UNAVAILABLE_TEXT },
+            { id: 'Round Trip', label: 'Round Trip', disabled: avail.off('Round Trip'), note: UNAVAILABLE_TEXT },
           ]}
         />
       ) : service === 'airport' ? (
