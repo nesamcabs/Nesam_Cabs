@@ -21,6 +21,7 @@ import { RouteMap } from '@/components/RouteMap';
 import { FareBreakdown } from '@/components/FareBreakdown';
 import { tripFareLines } from '@/lib/fareLines';
 import { amountDue, isPaid, payableAmount, upiLink } from '@/lib/tripMoney';
+import { PayOnline } from '@/components/PayOnline';
 import { buildTripShareText, shareText } from '@/lib/share';
 import { printReceipt } from '@/lib/receipt';
 import { useDeviceLocation, useOnline } from '@/lib/hooks';
@@ -382,6 +383,7 @@ export function RidePage() {
           </div>
         </div>
       ) : (
+        <>
         <div className="pay-box">
           <div>
             <small className="eyebrow">{trip.paymentMethod === 'UPI' ? 'Pay by UPI' : 'Pay your driver in cash'}</small>
@@ -397,6 +399,8 @@ export function RidePage() {
             </a>
           ) : null}
         </div>
+        <PayOnline trip={trip} />
+        </>
       )
     ) : null;
 

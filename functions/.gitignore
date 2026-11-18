@@ -27,3 +27,6 @@ firestore-debug.log
 *.tsbuildinfo
 coverage/
 .eslintcache
+
+# Local emulator secrets — never commit
+.secret.local

@@ -9,6 +9,7 @@ import { FieldValue, type DocumentData } from 'firebase-admin/firestore';
 import { db } from './admin';
 import { auditInTx } from './audit';
 import { parseHillStationConfig } from './domain/hillStations';
+import { MAX_EXTRA_SLABS, extraSlabId, isExtraSlabId, type ExtraSlab, type ExtraSlabId } from './domain/timeBased';
 import {
   BrandFareOverride, RENTAL_HOURS, RentalPackage, TARIFF_CLASSES, TariffClass, TariffConfig, TimeBasedClassRates, TimeBasedSettings, DEFAULT_TIME_BASED, parseRentalPackage, parseTariffConfig, rentalMinHours,
 } from './domain/tariff';
@@ -334,6 +335,24 @@ function applyRoundTripTimeBased(base: TariffConfig, d: Record<string, unknown>)
   if (settings.lateNightEndMinutes >= settings.nextDayEightFromMinutes) throw bad('The late-night group must end before the 8-hour first-day start.');
   if (settings.cutoffMinutes <= settings.eightHours * 60) throw bad('The booked cutoff must be later than the longest short package.');
   if (settings.morningCutoffMinutes >= 12 * 60) throw bad('The Morning Return cutoff must be before noon.');
+  // Extra hour slabs (optional): each is a whole number of hours with its own round-trip km limit.
+  if (sIn.extraSlabs !== undefined && sIn.extraSlabs !== null) {
+    if (!Array.isArray(sIn.extraSlabs)) throw bad('The extra hour slabs must be a list.');
+    if (sIn.extraSlabs.length > MAX_EXTRA_SLABS) throw bad(`Add at most ${MAX_EXTRA_SLABS} extra hour slabs.`);
+    const seen = new Set<number>();
+    const list: ExtraSlab[] = [];
+    for (const raw of sIn.extraSlabs as unknown[]) {
+      const e = obj(raw, 'An extra hour slab');
+      const hours = amount(e.hours, 'The extra slab hours', true);
+      if (!Number.isInteger(hours) || hours < 1 || hours > 23) throw bad('Extra slab hours must be a whole number from 1 to 23.');
+      if (hours === settings.fiveHours || hours === settings.eightHours) throw bad(`A ${hours}-hour package already exists. Choose other hours for the extra slab.`);
+      if (seen.has(hours)) throw bad(`There are two ${hours}-hour slabs. Each slab needs its own hours.`);
+      if (hours * 60 >= settings.cutoffMinutes) throw bad(`A ${hours}-hour slab cannot end before the booked cutoff.`);
+      seen.add(hours);
+      list.push({ hours, kmLimit: amount(e.kmLimit, `The ${hours}-hour slab kilometre limit`, true) });
+    }
+    if (list.length) settings.extraSlabs = list.sort((a, b) => a.hours - b.hours);
+  }
   next.roundTrip.timeBased = settings;
   const classes = obj(d.classes, 'The class amounts');
   for (const [key, raw] of Object.entries(classes)) {
@@ -353,6 +372,24 @@ function applyRoundTripTimeBased(base: TariffConfig, d: Record<string, unknown>)
       eightFare: amount(m.eightFare, `${cls} 8-hour customer fare`, true), eightKm: amount(m.eightKm, `${cls} 8-hour included kilometres`, true), eightPartner: amount(m.eightPartner, `${cls} 8-hour partner payout`, true),
       ...(anyMorning ? { morningFare: amount(m.morningFare, `${cls} Morning Return customer fare`, true), morningKm: amount(m.morningKm, `${cls} Morning Return included kilometres`, true), morningPartner: amount(m.morningPartner, `${cls} Morning Return partner payout`, true) } : {}),
     };
+    // Extra hour slabs: optional per class (a class without amounts for a slab is simply not offered it), all three amounts or none.
+    if (m.extra !== undefined && m.extra !== null) {
+      const ex = obj(m.extra, `The ${cls} extra hour slabs`);
+      const out: NonNullable<TimeBasedClassRates['extra']> = {};
+      for (const [id, raw] of Object.entries(ex)) {
+        if (!isExtraSlabId(id) || !(settings.extraSlabs ?? []).some((x) => extraSlabId(x.hours) === id)) continue;
+        const sid: ExtraSlabId = id;
+        if (raw === null) continue;
+        const e = obj(raw, `The ${cls} ${id.slice(1)}-hour slab`);
+        const vals = [e.fare, e.km, e.partner];
+        if (vals.every((v) => v === undefined || v === null || v === '')) continue;
+        const h = id.slice(1);
+        const row = { fare: amount(e.fare, `${cls} ${h}-hour customer fare`, true), km: amount(e.km, `${cls} ${h}-hour included kilometres`, true), partner: amount(e.partner, `${cls} ${h}-hour partner payout`, true) };
+        out[sid] = row;
+        if (row.partner > row.fare) throw bad(`${cls}: the ${h}-hour partner payout cannot be above the customer fare.`);
+      }
+      if (Object.keys(out).length) tb.extra = out;
+    }
     if (tb.fiveFare >= tb.eightFare) throw bad(`${cls}: the 5-hour fare must be lower than the 8-hour fare.`);
     if (tb.fiveKm >= tb.eightKm) throw bad(`${cls}: the 5-hour kilometres must be fewer than the 8-hour kilometres.`);
     next.roundTrip.classes[cls] = { ...current, timeBased: tb };

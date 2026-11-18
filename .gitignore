@@ -244,3 +244,6 @@ storybook-static/
 .mise.local.toml
 .mise.toml.local
 .tool-versions.local
+
+# Local emulator secrets (firebase functions) — never commit
+**/.secret.local

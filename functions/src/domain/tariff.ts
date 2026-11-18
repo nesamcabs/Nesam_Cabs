@@ -18,7 +18,7 @@ import { FareBreakdown } from './types';
 import { ExtraChargesConfig, ExtraChargesSnapshot, parseExtraCharges } from './extraCharges';
 import {
   DEFAULT_TIME_BASED, SLAB_LABEL, TimeBasedClassRates, TimeBasedSettings, TimeBasedSnapshot, SlabAmounts, SlabId, istInstant, istMinutes, morningEligible,
-  nextDayFirstSlab, resolveTimeBasedFinal, sameDaySlabs, slabsOf, fullDaySlab, morningCutoffOf,
+  nextDayFirstSlab, resolveTimeBasedFinal, sameDaySlabs, slabsOf, fullDaySlab, morningCutoffOf, slabLabel, isExtraSlabId, MAX_EXTRA_SLABS, type ExtraSlab,
 } from './timeBased';
 export type { TimeBasedClassRates, TimeBasedSettings, TimeBasedSnapshot } from './timeBased';
 export { DEFAULT_TIME_BASED } from './timeBased';
@@ -279,7 +279,15 @@ export function parseTimeBasedClassRates(r: unknown): TimeBasedClassRates | unde
   if (!isPos(o.fiveFare) || !isPos(o.fiveKm) || !isPos(o.fivePartner) || !isPos(o.eightFare) || !isPos(o.eightKm) || !isPos(o.eightPartner)) return undefined;
   const morning = isPos(o.morningFare) && isPos(o.morningKm) && isPos(o.morningPartner)
     ? { morningFare: o.morningFare as number, morningKm: o.morningKm as number, morningPartner: o.morningPartner as number } : {};
-  return { fiveFare: o.fiveFare, fiveKm: o.fiveKm, fivePartner: o.fivePartner, eightFare: o.eightFare, eightKm: o.eightKm, eightPartner: o.eightPartner, ...morning };
+  // Extra hour slabs: only complete entries under a valid id ('h6') count; the slab must also exist in the settings to be offered.
+  const extra: NonNullable<TimeBasedClassRates['extra']> = {};
+  if (o.extra && typeof o.extra === 'object') {
+    for (const [id, v] of Object.entries(o.extra as Record<string, unknown>)) {
+      const e = v as Record<string, unknown> | null;
+      if (isExtraSlabId(id) && e && isPos(e.fare) && isPos(e.km) && isPos(e.partner)) extra[id] = { fare: e.fare as number, km: e.km as number, partner: e.partner as number };
+    }
+  }
+  return { fiveFare: o.fiveFare, fiveKm: o.fiveKm, fivePartner: o.fivePartner, eightFare: o.eightFare, eightKm: o.eightKm, eightPartner: o.eightPartner, ...morning, ...(Object.keys(extra).length ? { extra } : {}) };
 }
 
 export function parseTimeBasedSettings(v: unknown): TimeBasedSettings | undefined {
@@ -295,9 +303,27 @@ export function parseTimeBasedSettings(v: unknown): TimeBasedSettings | undefine
     shortKmLimit: isPos(o.shortKmLimit) ? o.shortKmLimit : D.shortKmLimit, fiveKmLimit: isPos(o.fiveKmLimit) ? o.fiveKmLimit : D.fiveKmLimit,
     lateNightEndMinutes: minute(o.lateNightEndMinutes, D.lateNightEndMinutes), fiveHours: hours(o.fiveHours, D.fiveHours), eightHours: hours(o.eightHours, D.eightHours),
   };
+  const extra = parseExtraSlabs(o.extraSlabs, s);
+  if (extra.length) s.extraSlabs = extra;
   // Inconsistent boundaries would make the offered packages overlap: fall back to the confirmed ones.
   if (s.fiveHours >= s.eightHours || s.nextDayEightFromMinutes >= s.nextDayFiveFromMinutes || s.cutoffMinutes <= s.eightHours * 60 || s.fiveKmLimit > s.shortKmLimit || s.lateNightEndMinutes >= s.nextDayEightFromMinutes) return { ...D, enabled: s.enabled };
   return s;
+}
+
+/** Extra hour slabs from the saved settings: whole hours 1–23, not the 5-hour / 8-hour hours, ending by the cutoff, unique, at most 8. */
+export function parseExtraSlabs(v: unknown, s: Pick<TimeBasedSettings, 'fiveHours' | 'eightHours' | 'cutoffMinutes'>): ExtraSlab[] {
+  if (!Array.isArray(v)) return [];
+  const seen = new Set<number>();
+  const out: ExtraSlab[] = [];
+  for (const raw of v) {
+    const e = raw as Record<string, unknown> | null;
+    const h = e?.hours;
+    if (typeof h !== 'number' || !Number.isInteger(h) || h < 1 || h > 23 || h === s.fiveHours || h === s.eightHours || seen.has(h) || h * 60 >= s.cutoffMinutes) continue;
+    if (!isPos(e?.kmLimit)) continue;
+    seen.add(h);
+    out.push({ hours: h, kmLimit: e!.kmLimit as number });
+  }
+  return out.sort((a, b) => a.hours - b.hours).slice(0, MAX_EXTRA_SLABS);
 }
 
 /** Attaches each class's time-based amounts (only when complete) to the parsed round-trip classes. */
@@ -906,7 +932,7 @@ export interface TimePackageOption {
   /** Short slabs only. */
   hours: number | null;
   /** Day-1 slab of a Next-Day Return. */
-  day1: SlabId | null;
+  day1: 'five' | 'eight' | 'full' | null;
   includedKm: number;
   farePaise: number;
   partnerPaise: number;
@@ -957,9 +983,10 @@ export function planTimeBasedRoundTrip(i: { config: TariffConfig; tariffClass: T
   const pm = istMinutes(i.pickupMs);
   if (i.tripDays === 1) {
     for (const slab of sameDaySlabs({ settings: s, pickupMs: i.pickupMs, roundTripKm, estMinutes, hill: i.hill })) {
-      const a = slabs[slab];
+      const a = slabs[slab as keyof typeof slabs];
+      if (!a) continue; // an extra hour slab this class has no amounts for
       options.push({
-        id: `same:${slab}`, kind: 'same_day', label: SLAB_LABEL[slab], hours: a.hours, day1: null, includedKm: a.includedKm, farePaise: a.farePaise, partnerPaise: a.partnerPaise,
+        id: `same:${slab}`, kind: 'same_day', label: slabLabel(slab), hours: a.hours, day1: null, includedKm: a.includedKm, farePaise: a.farePaise, partnerPaise: a.partnerPaise,
         endMs: slab === 'full' ? istInstant(i.pickupMs, 0, s.cutoffMinutes) : i.pickupMs + (a.hours ?? 0) * 3_600_000, days: 1, dayKm: [a.includedKm],
       });
     }
@@ -1019,7 +1046,7 @@ export function quoteRoundTripTimeBased(i: QuoteInput): QuoteResult {
   }
   const timeBased: TimeBasedSnapshot = {
     kind: opt.kind, packageId: opt.id, label: opt.label, pickupMs: i.pickupMs, pickupMin, cutoffMin: s.cutoffMinutes, days: opt.days, hours: opt.hours, coverageEndMs: opt.endMs,
-    limits: { fiveHours: s.fiveHours, eightHours: s.eightHours, shortKmLimit: s.shortKmLimit },
+    limits: { fiveHours: s.fiveHours, eightHours: s.eightHours, shortKmLimit: s.shortKmLimit, ...(s.extraSlabs?.length ? { extra: s.extraSlabs } : {}) },
     base: { farePaise: opt.farePaise, partnerPaise: opt.partnerPaise, includedKm: opt.includedKm, hours: opt.hours },
     ...(opt.kind === 'same_day' ? { slabs, allowed: plan.options.filter((o) => o.kind === 'same_day').map((o) => o.id.slice(5) as SlabId), selected: opt.id.slice(5) as SlabId } : {}),
     ...(opt.day1 ? { day1: opt.day1 } : {}),

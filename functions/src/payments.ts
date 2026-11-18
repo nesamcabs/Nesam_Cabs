@@ -111,6 +111,8 @@ export const createRazorpayOrder = onCall({ secrets: [RAZORPAY_KEY_ID, RAZORPAY_
   const keyId = RAZORPAY_KEY_ID.value();
   const keySecret = RAZORPAY_KEY_SECRET.value();
   if (!configured(keyId, keySecret)) throw new HttpsError('failed-precondition', 'PAYMENT_NOT_CONFIGURED');
+  // The office can switch customer online payments off (Payments › Online payments) without touching the keys.
+  if ((await db.doc('settings/payments').get()).data()?.onlineEnabled === false) throw new HttpsError('failed-precondition', 'ONLINE_PAYMENTS_OFF');
   const { bookingId } = (request.data ?? {}) as { bookingId?: string };
   if (typeof bookingId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(bookingId)) throw new HttpsError('invalid-argument', 'bookingId is required.');
   const ref = db.doc(`bookings/${bookingId}`);

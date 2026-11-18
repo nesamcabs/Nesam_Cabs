@@ -27,6 +27,7 @@ import { loadNightAllowance } from './nightAllowanceConfig';
 import { adjustPartner, assertBookable, assertWithinLimits, availabilityFields, evaluateRules, loadServiceRules, partnerPayoutRupees, ruleServiceText } from './serviceRules';
 import { loadCommissionPolicy } from './commission';
 import { createContactInTx, maskPhone } from './contacts';
+import { withTripPincodes } from './placePincode';
 import { loadFixedRoutes, loadTariffConfig, priceBooking, rentalHoursOf, sharedCityId, tariffClassOf, timePackageFields, tripDaysOf, zoneIdOf } from './quote';
 import { notifyInTx, pushAfterCommit, NotifyInput, inr } from './notify';
 import { nextBookingCode } from './bookingSequence';
@@ -155,8 +156,11 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
     if (tripEndAt && tripEndAt.getTime() < when.getTime()) throw new HttpsError('invalid-argument', 'The trip cannot end before it starts.');
   }
   const [pickupR, dropR] = await Promise.all([resolvePlace(input, 'pickup'), resolvePlace(input, 'drop')]);
-  const pickup = pickupR.place, drop = dropR.place;
-  const stops = rawStops.flatMap((s: unknown) => { const p = pinPlace(s, 'stop'); return p ? [p] : []; });
+  let pickup = pickupR.place, drop = dropR.place;
+  let stops = rawStops.flatMap((s: unknown) => { const p = pinPlace(s, 'stop'); return p ? [p] : []; });
+  // Hill stations are found by pincode: one in the address costs nothing; a bare pin is looked up (only for One Way / Round Trip with hill stations on).
+  const hillOn = tripType === 'One Way' || tripType === 'Round Trip' ? (await loadTariffConfig())?.hillStation?.enabled === true : false;
+  ({ pickup, drop, stops } = await withTripPincodes({ hillEnabled: hillOn, tripType, pickup, drop, stops }));
   // A round trip with stops may end where it began (a closed circuit); otherwise pickup and drop must differ.
   if (!stops.length && distanceKm(pickup, drop) < 0.1) throw new HttpsError('invalid-argument', 'Pickup and drop must be different locations.');
   const itinerary = [pickup, ...stops, drop];
@@ -248,9 +252,11 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
     const bookingChannel = resolveAndValidateBrand({ brand: rawChan }, request, true);
     assertServiceSupported(bookingChannel, tripType);
 
-    const rules = evaluateRules(serviceRules, pickup, drop, when, ruleServiceText(pickup, drop, route.distanceKm, tripType, service), bookingChannel, fareServiceKey(tripType));
+    const evalRules = (pkg?: string) => evaluateRules(serviceRules, pickup, drop, when, ruleServiceText(pickup, drop, route.distanceKm, tripType, service), bookingChannel, fareServiceKey(tripType), undefined, pkg);
+
+    let rules = evalRules();
     assertBookable(rules, category.name);
-    const adjustment = rules.customer ?? effectiveAdjustment(adjustmentDoc, now);
+    let adjustment = rules.customer ?? effectiveAdjustment(adjustmentDoc, now);
     let contract: ReturnType<typeof businessContract> = null;
     try { contract=business?businessContract(business.data()!,{pickup,drop,service,tripType,category:category.name,km:route.distanceKm*(tripType==='Round Trip'?2:1)}):null; }
     catch(e){throw new HttpsError('failed-precondition',(e as Error).message);}
@@ -282,6 +288,16 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
       if (!checked.ok) throw new HttpsError('failed-precondition', checked.message);
       couponDiscount = checked.coupon.discount;
       usedCoupon = couponDocs.docs.find((d) => normalizeCode(d.data().code || '') === couponCode);
+    }
+    // A Round Trip price change may be limited to some time-based packages: once the package is known, price it with exactly its rules.
+    if (serviceRules.some((r) => r.packages?.length)) {
+      const chosen = priceBooking(priceInput).pricing.timeBased?.packageId;
+      if (chosen) {
+        rules = evalRules(chosen);
+        assertBookable(rules, category.name);
+        adjustment = rules.customer ?? effectiveAdjustment(adjustmentDoc, now);
+        priceInput.adjustment = adjustment;
+      }
     }
     const pricedRaw = priceBooking({ ...priceInput, ...(couponDiscount ? { discount: couponDiscount } : {}) });
     const priced = { ...pricedRaw, pricing: adjustPartner(pricedRaw.pricing, rules) };

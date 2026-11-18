@@ -5,6 +5,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { GeoPlace, RideCategory } from './domain/types';
 import { AdminDiscountInput } from './domain/pricing';
 import { inIndia, text } from './shared';
+import { validPincode } from './domain/hillStations';
 
 export interface WhatsappContact {
   countryCode: string;
@@ -73,7 +74,8 @@ export function pinPlace(v: unknown, role: 'pickup' | 'drop' | 'stop'): GeoPlace
   if (address.length < 3) throw new HttpsError('invalid-argument', `Add the ${role} address for the selected map point.`);
   // Short name: the part of the address before the first comma.
   const name = text(p.name, 120) || address.split(',')[0].trim().slice(0, 120);
-  return { id: 'pin', name, address, lat: p.lat as number, lng: p.lng as number, type: p.type === 'airport' ? 'airport' : 'other' };
+  const pincode = validPincode(p.pincode);
+  return { id: 'pin', name, address, lat: p.lat as number, lng: p.lng as number, type: p.type === 'airport' ? 'airport' : 'other', ...(pincode ? { pincode } : {}) };
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;

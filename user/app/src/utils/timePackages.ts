@@ -78,17 +78,24 @@ export function timePackageView(data: ServerQuoteResponse | null, wanted: string
 export function packageRuleText(packages: ServerTimePackage[], clock: (at: Date) => string): string {
   if (!packages.length) return '';
   const find = (id: string) => packages.find((p) => p.id === id);
-  const five = find('same:five');
-  const eight = find('same:eight');
   const full = find('same:full');
   const next = find('next');
   const morning = packages.find((p) => p.kind === 'morning');
   if (morning) return `Choose ${morning.label} or ${next?.label ?? 'the next package'}. The ${clock(new Date(morning.morningCutoffAt ?? morning.endAt))} ${morning.label} cutoff is fixed.`;
   if (full) {
     const end = clock(new Date(full.endAt));
-    if (five && eight) return `Over ${five.hours} hours → ${eight.label}. Over ${eight.hours} hours or ${eight.includedKm} km → ${full.label}. Return by ${end}.`;
-    if (five) return `${five.label} or ${full.label} fits this pickup. Over ${five.hours} hours → ${full.label}. Return by ${end}.`;
-    if (eight) return `Over ${eight.hours} hours or ${eight.includedKm} km → ${full.label}. Return by ${end}.`;
+    // The short slabs offered (built-in 5-hour / 8-hour and any extra hour slabs), shortest first.
+    const shorts = packages.filter((p) => p.kind === 'same_day' && p.id !== 'same:full' && p.hours).sort((a, b) => (a.hours ?? 0) - (b.hours ?? 0));
+    if (shorts.length === 1) {
+      const only = shorts[0]!;
+      return only.id === 'same:eight'
+        ? `Over ${only.hours} hours or ${only.includedKm} km → ${full.label}. Return by ${end}.`
+        : `${only.label} or ${full.label} fits this pickup. Over ${only.hours} hours → ${full.label}. Return by ${end}.`;
+    }
+    if (shorts.length > 1) {
+      const steps = shorts.map((p, i) => (i < shorts.length - 1 ? `Over ${p.hours} hours → ${shorts[i + 1]!.label}.` : `Over ${p.hours} hours or ${p.includedKm} km → ${full.label}.`));
+      return `${steps.join(' ')} Return by ${end}.`;
+    }
     return `${full.label} ends at ${end} on your pickup date. Extra kilometres follow your selected vehicle rate.`;
   }
   if (next) return `${next.label} is valid until ${clock(new Date(next.endAt))} on the last day. Driver bata for all days is included.`;

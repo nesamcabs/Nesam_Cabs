@@ -70,3 +70,28 @@ test('captured webhook rejects wrong currency, noncaptured status and invalid am
     }
   } finally { db.collectionGroup = original; }
 });
+
+// ── Payment gateway controls (paymentGateway.ts) ──
+const { planGatewayRefund, gatewayMode, maskKeyId } = require('../lib/paymentGateway');
+
+test('a gateway refund is split over online payments newest first and never above what is left on each', () => {
+  const pays = [{ paymentId: 'pay_new', paidPaise: 50000, refundedPaise: 10000 }, { paymentId: 'pay_old', paidPaise: 100000, refundedPaise: 0 }];
+  assert.deepEqual(planGatewayRefund(pays, 30000), [{ paymentId: 'pay_new', amountPaise: 30000 }]);
+  assert.deepEqual(planGatewayRefund(pays, 60000), [{ paymentId: 'pay_new', amountPaise: 40000 }, { paymentId: 'pay_old', amountPaise: 20000 }]);
+});
+
+test('a gateway refund larger than the online payments is refused, not partly sent', () => {
+  const pays = [{ paymentId: 'pay_a', paidPaise: 50000, refundedPaise: 0 }];
+  assert.equal(planGatewayRefund(pays, 50001), null);
+  assert.equal(planGatewayRefund(pays, 50), null, 'below ₹1');
+  assert.equal(planGatewayRefund([{ paymentId: 'pay_b', paidPaise: 50000, refundedPaise: 50000 }], 100), null, 'already fully refunded');
+});
+
+test('the panel learns the gateway mode and a masked key id, never the key', () => {
+  assert.equal(gatewayMode('rzp_live_ABCDEFGH1234'), 'live');
+  assert.equal(gatewayMode('rzp_test_ABCDEFGH1234'), 'test');
+  assert.equal(gatewayMode('UNSET'), 'unset');
+  assert.equal(gatewayMode(''), 'unset');
+  assert.equal(maskKeyId('rzp_live_ABCDEFGH1234'), 'rzp_live_…1234');
+  assert.equal(maskKeyId('UNSET'), '');
+});

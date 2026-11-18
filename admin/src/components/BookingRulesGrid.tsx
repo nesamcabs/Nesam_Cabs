@@ -1,19 +1,19 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { rankRules, saveRule, setRuleStatus, type Adjustment, type RuleKind, type ServiceRule } from "../services/serviceRulesService";
+import { rankRules, saveRule, setRuleStatus, type RuleKind, type ServiceRule } from "../services/serviceRulesService";
 import { BRAND_LABELS, serviceLabel, type FareWorkspaceScope } from "../services/tariffService";
 import MenuButton from "./ui/MenuButton";
 import { Button } from "./ui";
 import { CardBody, Problems, RateTable, SaveBar, SettingCard, type RateColumn, type RateRow, type VehicleCol } from "./RateTable";
 
-// Booking rules on one page: one row per place, and across the top whether bookings are open, which cabs customers see and any
-// price change. Each changed cell is saved as an ordinary service rule (service_rules), exactly what the booking server applies
+// Booking rules on one page: one row per place, and across the top whether bookings are open and which cabs customers see.
+// (Price changes have their own table, PriceChangeRules, where each change names its service and packages.) Each changed cell is saved as an ordinary service rule (service_rules), exactly what the booking server applies
 // (functions/src/serviceRules.ts evaluateRules): the brand's own rule first, then the most specific place, then the higher priority.
 // A row that is not set here follows the wider place above it. Rules with dates, pickup-only / drop-only rules and switched-off
 // rules are not table cells; they stay in the list under the table.
 
 export interface Place { state: string; city: string; area: string }
 type Avail = "Available" | "Limited" | "Paused";
-type Draft = { avail?: "" | Avail; cats?: string[] | null; cust?: string; part?: string };
+type Draft = { avail?: "" | Avail; cats?: string[] | null };
 
 const AVAIL: Avail[] = ["Available", "Limited", "Paused"];
 const keyOf = (p: Place) => `${p.state}|${p.city}|${p.area}`;
@@ -23,14 +23,6 @@ const samePlace = (r: ServiceRule, p: Place) => norm(r.scope.state) === norm(p.s
 const covers = (r: ServiceRule, p: Place) => (!r.scope.state || norm(r.scope.state) === norm(p.state)) && (!r.scope.city || norm(r.scope.city) === norm(p.city)) && (!r.scope.area || norm(r.scope.area) === norm(p.area));
 /** A standing rule the table can show and edit: on, no dates, for pickup or drop. */
 const standing = (r: ServiceRule) => r.status === "Enabled" && r.schedule.mode === "Always" && (r.scope.side ?? "Pickup or drop") === "Pickup or drop";
-const signed = (a?: Adjustment) => (!a || a.mode === "Normal" ? "0" : `${a.mode === "Decrease" ? "-" : ""}${a.percent}`);
-const shownSigned = (a?: Adjustment) => (!a || a.mode === "Normal" ? "0" : `${a.mode === "Decrease" ? "−" : "+"}${a.percent}`);
-const adjOf = (v: string): Adjustment | null => {
-  if (v.trim() === "") return null;
-  const n = Number(v);
-  return n === 0 ? { mode: "Normal", percent: 0 } : { mode: n > 0 ? "Increase" : "Decrease", percent: Math.abs(n) };
-};
-const sameAdj = (a?: Adjustment, b?: Adjustment) => signed(a) === signed(b);
 const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.some((y) => norm(y) === norm(x)));
 
 export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, canEdit, loaded, loadError, stateName, stateOptions, citiesOf, areasOf, onToast, renderRules, onAddRule }: {
@@ -88,14 +80,12 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
   const tagOf = (r?: ServiceRule) => !r ? "default" : !isOwn(r) ? "shared" : "wider";
   const view = (p: Place) => {
     const d = drafts[keyOf(p)] ?? {};
-    const ownA = ownRule(p, "availability"), ownC = ownRule(p, "categories"), ownP = ownRule(p, "pricing");
-    const inhA = wider(p, "availability", ownA), inhC = wider(p, "categories", ownC), inhP = wider(p, "pricing", ownP);
+    const ownA = ownRule(p, "availability"), ownC = ownRule(p, "categories");
+    const inhA = wider(p, "availability", ownA), inhC = wider(p, "categories", ownC);
     const avail = d.avail !== undefined ? d.avail : (ownA?.availability ?? "");
     const cats = d.cats !== undefined ? d.cats : (ownC?.categories?.length ? ownC.categories : null);
-    const cust = d.cust !== undefined ? d.cust : ownP ? signed(ownP.customer) : "";
-    const part = d.part !== undefined ? d.part : ownP ? signed(ownP.partner) : "";
     const inheritedCats = inhC?.categories?.length ? inhC.categories : null;
-    return { ownA, ownC, ownP, inhA, inhC, inhP, avail, cats, cust, part, inheritedAvail: (inhA?.availability ?? "Available") as Avail, inheritedCats };
+    return { ownA, ownC, inhA, inhC, avail, cats, inheritedAvail: (inhA?.availability ?? "Available") as Avail, inheritedCats };
   };
   const setDraft = (p: Place, patch: Draft) => { setMessage(null); setDrafts((all) => ({ ...all, [keyOf(p)]: { ...all[keyOf(p)], ...patch } })); };
 
@@ -117,20 +107,6 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
       // Switching a cab off and on again leaves a place as it was: nothing to save.
       else if (!v.ownC && sameSet(v.cats, v.inheritedCats ?? catNames)) { /* same as the wider place */ }
       else if (!v.ownC || !sameSet(v.cats, v.ownC.categories ?? [])) ops.push({ place: p, kind: "categories", action: v.ownC ? "update" : "create", rule: v.ownC, patch: { categories: v.cats } });
-    }
-    // Price change
-    const bad = [v.cust, v.part].some((x) => x.trim() !== "" && !(Number.isFinite(Number(x)) && Math.abs(Number(x)) < 100));
-    if (bad) problems.push(`${name}: a price change must be between −99% and +99%.`);
-    else if (v.cust.trim() === "" && v.part.trim() === "") { if (v.ownP) ops.push({ place: p, kind: "pricing", action: "remove", rule: v.ownP }); }
-    else {
-      const customer = adjOf(v.cust) ?? v.inhP?.customer ?? { mode: "Normal", percent: 0 };
-      const partner = adjOf(v.part) ?? v.inhP?.partner ?? { mode: "Normal", percent: 0 };
-      if (customer.mode === "Normal" && partner.mode === "Normal") {
-        if (v.ownP) ops.push({ place: p, kind: "pricing", action: "remove", rule: v.ownP });
-        else if (v.inhP) problems.push(`${name}: to charge the normal price here while ${fromText(v.inhP)} has a price change, change that wider rule or add a small change for this place.`);
-      } else if (!v.ownP || !sameAdj(customer, v.ownP.customer) || !sameAdj(partner, v.ownP.partner)) {
-        ops.push({ place: p, kind: "pricing", action: v.ownP ? "update" : "create", rule: v.ownP, patch: { customer, partner } });
-      }
     }
   }
   const pending = ops.length > 0;
@@ -172,15 +148,13 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
   const columns: RateColumn[] = [
     { key: "avail", name: "Status", group: "Booking", width: 172 },
     ...vehicles.map((v) => ({ key: `cat:${v.name}`, name: v.name, group: "Cabs shown" })),
-    { key: "cust", name: "Customer fare", group: "Price change (%)", width: 108 },
-    { key: "part", name: "Partner pay", group: "Price change (%)", width: 108 },
     { key: "reset", name: "", group: "", width: 86 },
   ];
   const rows: RateRow[] = places.map((p) => {
     const v = view(p);
-    const hasOwn = v.avail !== "" || v.cats !== null || v.cust !== "" || v.part !== "";
+    const hasOwn = v.avail !== "" || v.cats !== null;
     // A row that exists only because of a rule this brand & service does not own says so.
-    const sharedOnly = !v.ownA && !v.ownC && !v.ownP && live.some((r) => standing(r) && !isOwn(r) && samePlace(r, p));
+    const sharedOnly = !v.ownA && !v.ownC && live.some((r) => standing(r) && !isOwn(r) && samePlace(r, p));
     return {
       key: keyOf(p), label: label(p), unit: sharedOnly ? `${level(p)} · shared` : level(p),
       cell: (col: string) => {
@@ -203,20 +177,9 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
             },
           };
         }
-        if (col === "cust" || col === "part") {
-          const value = col === "cust" ? v.cust : v.part;
-          const inherited = col === "cust" ? v.inhP?.customer : v.inhP?.partner;
-          return {
-            value, own: value !== "", min: -99, max: 99, step: "1",
-            placeholder: shownSigned(inherited),
-            bad: value.trim() !== "" && !(Number.isFinite(Number(value)) && Math.abs(Number(value)) < 100),
-            title: value === "" ? `Follows ${fromText(v.inhP)}. Type 10 for +10%, -5 for −5%.` : "Type 10 for +10%, -5 for −5%, 0 for the normal price.",
-            onChange: (x: string) => setDraft(p, col === "cust" ? { cust: x } : { part: x }),
-          };
-        }
         return {
           display: hasOwn && canEdit
-            ? <button type="button" className="fm-linkbtn" title="Follow the wider place again" onClick={() => setDraft(p, { avail: "", cats: null, cust: "", part: "" })}>Reset</button>
+            ? <button type="button" className="fm-linkbtn" title="Follow the wider place again" onClick={() => setDraft(p, { avail: "", cats: null })}>Reset</button>
             : "",
         };
       },
@@ -224,9 +187,10 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
   });
 
   // Rules that are not table cells: with dates, pickup-only / drop-only, switched off, or a second rule for the same place.
-  const inTable = new Set(places.flatMap((p) => (["availability", "categories", "pricing"] as RuleKind[]).map((k) => ownRule(p, k)?.id).filter(Boolean) as string[]));
+  // Standing price changes are in the Price changes table below, not here.
+  const inTable = new Set(places.flatMap((p) => (["availability", "categories"] as RuleKind[]).map((k) => ownRule(p, k)?.id).filter(Boolean) as string[]));
   // Also the rules this page inherits (All brands, or older rules saved for every service), so their source is visible.
-  const special = live.filter((r) => !inTable.has(r.id));
+  const special = live.filter((r) => !inTable.has(r.id) && !(r.kind === "pricing" && standing(r)));
 
   const brandName = fareScope.brand === "common" ? "All brands (shared)" : BRAND_LABELS[fareScope.brand];
   const where = `${brandName} → ${serviceLabel(fareScope.service)}`;
@@ -243,7 +207,7 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
     <div className="space-y-4">
       <SettingCard label={`Booking rules for ${where}`}
         title={`Booking rules · ${where}`}
-        description="One row per place. Choose whether bookings are open, which cabs customers can book and any price change. A faded cell follows the wider place above it; change it to set this place on its own."
+        description="One row per place. Choose whether bookings are open and which cabs customers can book. Price changes are set per service in the table below. A faded cell follows the wider place above it; change it to set this place on its own."
         footer={canEdit
           ? <SaveBar reason={reason} onReason={setReason} onSave={save} busy={busy} disabled={!pending || problems.length > 0 || !loaded || !!loadError} message={message}
               note={pending ? `${ops.length} change${ops.length === 1 ? "" : "s"} not saved yet.` : "Faded = follows the wider place. Limited = the office confirms each booking."} />

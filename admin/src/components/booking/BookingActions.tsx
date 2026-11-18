@@ -4,7 +4,7 @@ import { ConfirmDialog, Modal } from "../Feedback";
 import PostingOptions, { postingPayload, usePostingOptions } from "./PostingOptions";
 import { Field, Notice, inputCls, inputErrCls, primaryBtn, secondaryBtn } from "../FormKit";
 import {
-  assignDriver, assignVendor, approveBooking, cancelBooking, publishToMarketplace, recordPayment, rejectBooking, updateRefund, voidPayment,
+  assignDriver, assignVendor, approveBooking, cancelBooking, publishToMarketplace, recordPayment, rejectBooking, updateRefund, refundGatewayPayment, voidPayment,
   type CollectorType, type PaymentMethodName,
 } from "../../services/bookingOpsService";
 import { ActionError } from "../../services/callables";
@@ -466,6 +466,22 @@ export function RefundModal({ booking, onClose, onDone }: { booking: Booking; on
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Paid online: the refund can go straight back to the customer's card / UPI / bank through Razorpay.
+  const paidOnline = booking.paymentSummary?.paidByMethod?.Gateway ?? 0;
+  const canGateway = paidOnline > 0 && !!r && ["Pending", "Processing", "Failed"].includes(r.status);
+  const [confirmGateway, setConfirmGateway] = useState(false);
+  const sendGateway = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const out = await refundGatewayPayment(booking.id);
+      onDone(`Refund of ${rupees(out.amount)} sent to the customer's original payment through Razorpay (${out.refunds.map((x) => x.id).join(", ")}).`);
+    } catch (e) {
+      setError(msg(e, "Razorpay could not send the refund."));
+      setBusy(false);
+      setConfirmGateway(false);
+    }
+  };
   const go = async () => {
     setBusy(true);
     setError(null);
@@ -482,6 +498,22 @@ export function RefundModal({ booking, onClose, onDone }: { booking: Booking; on
       footer={<><button onClick={onClose} disabled={busy} className={secondaryBtn}>Cancel</button><button onClick={go} disabled={busy || options.length === 0} className={primaryBtn}>{busy ? "Saving…" : "Update refund"}</button></>}>
       <div className="space-y-3 text-sm">
         {error && <Notice tone="error">{error}</Notice>}
+        {canGateway && (
+          <div className="rounded-xl border border-green-200 bg-green-50 p-3">
+            <div className="font-semibold text-green-900">Refund to the original online payment</div>
+            <p className="text-xs text-green-800 mt-1">
+              {rupees(paidOnline)} of this booking was paid online. Razorpay can send {rupees(r?.amount ?? 0)} back to the customer's card, UPI or bank, and the refund is then completed here with Razorpay's reference. It usually reaches the customer in 5–7 working days.
+            </p>
+            {confirmGateway ? (
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button onClick={sendGateway} disabled={busy} className={primaryBtn}>{busy ? "Sending…" : `Yes, refund ${rupees(r?.amount ?? 0)} now`}</button>
+                <button onClick={() => setConfirmGateway(false)} disabled={busy} className={secondaryBtn}>Not now</button>
+              </div>
+            ) : (
+              <button onClick={() => setConfirmGateway(true)} disabled={busy} className={`${secondaryBtn} mt-2`}>Refund through Razorpay</button>
+            )}
+          </div>
+        )}
         {options.length === 0 ? <Notice tone="info">This refund is {r?.status?.toLowerCase()} and can no longer be changed.</Notice> : (
           <>
             <Field label="New status" required><select value={status} onChange={(e) => setStatus(e.target.value as typeof status)} className={inputCls}>{options.map((o) => <option key={o}>{o}</option>)}</select></Field>

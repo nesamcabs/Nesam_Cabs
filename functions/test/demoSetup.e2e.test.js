@@ -119,7 +119,7 @@ for (const brand of brands) {
 
 test('4. Round Trip to a hill station: no 5-hour / 8-hour package, a separate Hill Station line, for every vehicle', async () => {
   await restartRouting(40, 60);
-  const r = ok(await quote('nesam', { tripType: 'Round Trip', pickup: pin('Coimbatore', 11.0168, 76.9558), drop: pin('Ooty', 11.4102, 76.695), tripDays: 1, tripEndAt: istInstant(3, '09:00') }));
+  const r = ok(await quote('nesam', { tripType: 'Round Trip', pickup: pin('Coimbatore', 11.0168, 76.9558), drop: pin('Ooty', 11.4102, 76.695, { address: 'Ooty, Tamil Nadu 643001, India' }), tripDays: 1, tripEndAt: istInstant(3, '09:00') }));
   assert.ok(r.hillStations.some((h) => /ooty/i.test(h.name)));
   for (const q of r.quotes) {
     assert.equal(q.ok, true, `${q.categoryId}: ${q.error}`);

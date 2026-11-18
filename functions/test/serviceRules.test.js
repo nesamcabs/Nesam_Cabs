@@ -125,3 +125,52 @@ test('fixed route honors direction, category, date and explicit peak exclusion',
   assert.equal(q.pricing.fixedRouteVersion, 2);
 });
 
+
+// ── Price change by service and by Round Trip package ──
+const price = (id, patch = {}) => ({ id, kind: 'pricing', status: 'Enabled', priority: 1, scope: { state: '', city: 'Chennai', area: '', side: 'Pickup or drop' }, service: 'Round Trip', customer: { mode: 'Increase', percent: 10 }, partner: { mode: 'Normal', percent: 0 }, ...patch });
+const rt = (rules, pkg, fareService = 'Round Trip', brand = 'nesam') => evaluateRules(rules, pickup, drop, at, 'Outstation Round Trip', brand, fareService, undefined, pkg);
+
+test('a price change for one service never touches another service', () => {
+  const rules = [price('rt', { fareService: 'Round Trip', brand: 'nesam' })];
+  assert.equal(rt(rules, undefined, 'Round Trip').customer.percent, 10);
+  assert.equal(rt(rules, undefined, 'One Way').customer, null);
+  assert.equal(rt(rules, undefined, 'Round Trip', 'people_taxi').customer, null, 'another brand');
+});
+
+test('a rule for the service beats an all-services rule at the same place', () => {
+  const rules = [price('all', { customer: { mode: 'Increase', percent: 5 } }), price('rt', { fareService: 'Round Trip', customer: { mode: 'Increase', percent: 12 } })];
+  assert.equal(rt(rules, undefined).customer.percent, 12);
+  assert.equal(rt(rules, undefined, 'One Way').customer.percent, 5, 'other services still get the all-services change');
+});
+
+test('a package-specific price change applies only to its packages, and beats the all-packages change', () => {
+  const rules = [
+    price('everything', { fareService: 'Round Trip', customer: { mode: 'Increase', percent: 5 } }),
+    price('short', { fareService: 'Round Trip', customer: { mode: 'Increase', percent: 15 }, packages: ['same:five', 'same:h3'] }),
+  ];
+  assert.equal(rt(rules, 'same:five').customer.percent, 15);
+  assert.equal(rt(rules, 'same:h3').customer.percent, 15);
+  assert.equal(rt(rules, 'same:full').customer.percent, 5);
+  assert.equal(rt(rules, undefined).customer.percent, 5, 'no package chosen yet: only the all-packages change');
+  const onlyShort = [rules[1]];
+  assert.equal(rt(onlyShort, 'same:full').customer, null);
+  assert.equal(rt(onlyShort, undefined).customer, null);
+});
+
+test('the partner payout change follows the same package scope', () => {
+  const rules = [price('p', { fareService: 'Round Trip', customer: { mode: 'Normal', percent: 0 }, partner: { mode: 'Decrease', percent: 4 }, packages: ['morning'] })];
+  assert.deepEqual(rt(rules, 'morning').partner, { direction: 'decrease', percent: 4 });
+  assert.equal(rt(rules, 'next').partner, null);
+});
+
+test('saving: packages are only for a Round Trip price change and must be real package ids', () => {
+  const { parseRule } = require('../lib/serviceRules');
+  const base = { kind: 'pricing', name: 'Chennai short packages', priority: 1, scope: { city: 'Chennai' }, service: 'Round Trip', brand: 'nesam', fareService: 'Round Trip', customer: { mode: 'Increase', percent: 8 } };
+  const ok = parseRule({ ...base, packages: ['same:h6', 'same:five', 'same:five'] }, new Set());
+  assert.deepEqual(ok.packages, ['same:five', 'same:h6'], 'sorted and de-duplicated');
+  assert.equal(parseRule({ ...base, packages: [] }, new Set()).packages, undefined, 'empty = every package');
+  assert.throws(() => parseRule({ ...base, fareService: 'One Way', packages: ['same:five'] }, new Set()), /only be chosen for a Round Trip/);
+  assert.throws(() => parseRule({ ...base, packages: ['same:h24'] }, new Set()), /not a Round Trip package/);
+  assert.throws(() => parseRule({ ...base, packages: ['fast'] }, new Set()), /not a Round Trip package/);
+  assert.throws(() => parseRule({ ...base, brand: 'nesam', fareService: '' }, new Set()), /exact service/);
+});

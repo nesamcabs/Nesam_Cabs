@@ -57,3 +57,4 @@ export { ltSetAvailability, ltUpdateLocation, ltRespondOffer, ltDriverAdvance } 
 export { ltCreatePaymentOrder, ltVerifyPayment } from './localTaxi/payFns';
 export { ltDispatchSweep } from './localTaxi/sweep';
 export { onVendorApplicationSubmitted } from './vendorOnboarding';
+export { getPaymentOptions, getPaymentGatewayStatus, setOnlinePayments, refundGatewayPayment } from './paymentGateway';

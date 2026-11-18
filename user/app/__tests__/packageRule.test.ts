@@ -58,3 +58,13 @@ describe('requestedTripDays', () => {
     expect(requestedTripDays({ tripDays: 3 })).toBe(3);
   });
 });
+
+describe('packageRuleText with extra hour slabs', () => {
+  it('walks the whole ladder, shortest first', () => {
+    const three = pkg({ id: 'same:h3', label: '3-Hour Return', hours: 3, includedKm: 60 });
+    const ten = pkg({ id: 'same:h10', label: '10-Hour Return', hours: 10, includedKm: 200 });
+    expect(packageRuleText([ten, eight, five, three, full], clock)).toBe(
+      'Over 3 hours → 5-Hour Return. Over 5 hours → 8-Hour Return. Over 8 hours → 10-Hour Return. Over 10 hours or 200 km → Full-Day Return. Return by 18:15.',
+    );
+  });
+});

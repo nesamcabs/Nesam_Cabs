@@ -37,3 +37,11 @@ jest.mock('firebase/firestore', () => {
 
 // Callable transport is covered by the backend emulator integration suite.
 jest.mock('firebase/functions', () => ({ getFunctions: jest.fn(), httpsCallable: jest.fn() }));
+
+// react-native-webview needs its native module; tests render a plain View in its place.
+jest.mock('react-native-webview', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  const WebView = (props) => React.createElement(View, { testID: 'webview', style: props.style });
+  return { __esModule: true, WebView, default: WebView };
+});

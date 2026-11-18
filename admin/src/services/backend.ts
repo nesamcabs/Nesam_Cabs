@@ -17,6 +17,8 @@ const ownAddress = typeof window !== 'undefined' ? window.location.origin : '';
 const API_URL = (configuredUrl || (import.meta.env.VITE_USE_FIREBASE_CALLABLES === 'true' ? '' : ownAddress)).replace(/\/+$/, '');
 
 export const usesHttpApi = API_URL.length > 0;
+/** The HTTP API base (empty when calls go to Firebase callables), e.g. for showing the Razorpay webhook address. */
+export const apiBaseUrl = API_URL;
 
 // Diagnostics: one line per server call in the browser console (prefix [NESAM API]).
 // Never logs the token or the request data (which can hold customer details).

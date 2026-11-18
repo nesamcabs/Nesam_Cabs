@@ -117,7 +117,7 @@ export function loadDraft(): BookingDraft {
       tripEndAt: scheduled && endAt && !Number.isNaN(endAt.getTime()) && endAt.getTime() >= scheduled.getTime() ? endAt : null,
       daysAuto: d.daysAuto === true,
       tripDays: typeof d.tripDays === 'number' && Number.isInteger(d.tripDays) && d.tripDays >= 1 && d.tripDays <= 60 ? d.tripDays : 1,
-      timePackage: typeof d.timePackage === 'string' && /^(same:(five|eight|full)|next|morning)$/.test(d.timePackage) ? d.timePackage : '',
+      timePackage: typeof d.timePackage === 'string' && /^(same:(five|eight|full|h([1-9]|1\d|2[0-3]))|next|morning)$/.test(d.timePackage) ? d.timePackage : '',
       categoryId: typeof d.categoryId === 'string' ? d.categoryId : '',
       payment: d.payment === 'UPI' ? 'UPI' : 'Cash',
       fuelType: d.fuelType === 'cng' ? 'cng' : '',

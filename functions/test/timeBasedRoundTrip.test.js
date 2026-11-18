@@ -325,3 +325,52 @@ test('Hill station trips: no 5-hour / 8-hour package, a 1-day pickup before 3 PM
   const p = T.planTimeBasedRoundTrip({ config: cfg, tariffClass: 'sedan', pickupMs: IST('2026-11-17T09:00:00'), routeKm: 40, durationMin: 60, tripDays: 1, hill: true });
   assert.deepEqual(p.options.map((x) => x.id), ['same:full']);
 });
+
+// ── Extra hour slabs added by the office (Pricing › Time-based round trip › Add hour slab) ──
+const withSlabs = (extraSlabs, extra) => T.parseTariffConfig({
+  ...T.CONFIRMED_TARIFF_V2, version: 8, enabled: true,
+  roundTrip: { maxDays: 30, timeBased: { enabled: true, extraSlabs }, classes: { sedan: { ...sedan, timeBased: { ...sedan.timeBased, extra } } } },
+  roundTripExtras: { sedan: { extraKmRate: 14, waitingPerHour: 150 } },
+});
+const slabCfg = withSlabs([{ hours: 3, kmLimit: 60 }, { hours: 10, kmLimit: 200 }], { h3: { fare: 1400, km: 60, partner: 1250 }, h10: { fare: 3300, km: 200, partner: 2950 } });
+const planWith = (c, pickup, o = {}) => T.planTimeBasedRoundTrip({ config: c, tariffClass: 'sedan', pickupMs: IST(pickup), routeKm: o.km ?? 20, durationMin: o.min ?? 40, tripDays: o.days ?? 1 });
+
+test('extra hour slabs are offered with the built-in ones, longest first, each within its own km limit', () => {
+  // 40 km round trip, 80 min: every short slab fits.
+  assert.deepEqual(ids(planWith(slabCfg, '2026-11-17T09:00:00')), ['same:h10', 'same:eight', 'same:five', 'same:h3', 'same:full']);
+  const h3 = planWith(slabCfg, '2026-11-17T09:00:00').options.find((o) => o.id === 'same:h3');
+  assert.equal(h3.label, '3-Hour Return');
+  assert.equal(h3.farePaise / 100, 1400);
+  assert.equal(h3.includedKm, 60);
+  // 160 km round trip, 3 h drive: beyond the 3-hour slab's 60 km and the 8-hour 150 km, but the 10-hour slab (200 km) still fits.
+  assert.deepEqual(ids(planWith(slabCfg, '2026-11-17T09:00:00', { km: 80, min: 90 })), ['same:h10', 'same:full']);
+});
+
+test('an extra slab is not offered where it cannot end by the cutoff, or for a class without amounts', () => {
+  // 3:30 PM + 10 h is past 11:45 PM: no 10-hour slab.
+  assert.equal(ids(planWith(slabCfg, '2026-11-17T15:30:00')).includes('same:h10'), false);
+  const noAmounts = withSlabs([{ hours: 3, kmLimit: 60 }], undefined);
+  assert.equal(ids(planWith(noAmounts, '2026-11-17T09:00:00')).includes('same:h3'), false);
+});
+
+test('bad extra slabs are dropped when the tariff is read (duplicates, the 5h/8h hours, past the cutoff)', () => {
+  const s = { fiveHours: 5, eightHours: 8, cutoffMinutes: 1425 };
+  assert.deepEqual(T.parseExtraSlabs([{ hours: 6, kmLimit: 120 }, { hours: 6, kmLimit: 90 }, { hours: 5, kmLimit: 80 }, { hours: 24, kmLimit: 300 }, { hours: 2.5, kmLimit: 40 }, { hours: 3 }], s), [{ hours: 6, kmLimit: 120 }]);
+  assert.deepEqual(T.parseExtraSlabs('nope', s), []);
+});
+
+test('a booked trip that outgrows its slab moves up through the extra slabs by hours, never down', () => {
+  const q = T.quoteRoundTripTimeBased({ config: slabCfg, tariffClass: 'sedan', tripType: 'Round Trip', routeKm: 20, durationMin: 40, pickupMs: IST('2026-11-17T09:00:00'), endMs: IST('2026-11-17T23:45:00'), tripDays: 1, timePackage: 'same:h3' });
+  const tb = q.pricing.timeBased;
+  assert.equal(tb.selected, 'h3');
+  assert.deepEqual(tb.limits.extra.map((x) => x.hours), [3, 10]);
+  const at = (h) => IST('2026-11-17T09:00:00') + h * 3_600_000;
+  assert.equal(TB.resolveTimeBasedFinal(tb, { endMs: at(2.5), totalKm: 50 }).slab, 'h3');
+  assert.equal(TB.resolveTimeBasedFinal(tb, { endMs: at(4), totalKm: 50 }).slab, 'five');
+  assert.equal(TB.resolveTimeBasedFinal(tb, { endMs: at(9), totalKm: 120 }).slab, 'h10');
+  assert.equal(TB.resolveTimeBasedFinal(tb, { endMs: at(9), totalKm: 120 }).label, '10-Hour Return');
+  assert.equal(TB.resolveTimeBasedFinal(tb, { endMs: at(11), totalKm: 120 }).slab, 'full');
+  // Booked on the 10-hour slab and back in 2 hours: it stays on the 10-hour slab.
+  const q10 = T.quoteRoundTripTimeBased({ config: slabCfg, tariffClass: 'sedan', tripType: 'Round Trip', routeKm: 20, durationMin: 40, pickupMs: IST('2026-11-17T09:00:00'), endMs: IST('2026-11-17T23:45:00'), tripDays: 1, timePackage: 'same:h10' });
+  assert.equal(TB.resolveTimeBasedFinal(q10.pricing.timeBased, { endMs: at(2), totalKm: 30 }).slab, 'h10');
+});

@@ -183,3 +183,21 @@ export const acceptLegalDocuments = (role: string, docs: RequiredLegalDoc[], che
     role, confirmed: true, accept: docs.map((d) => ({ key: d.key, version: d.version })), checkboxText, source: "admin_web",
     device: { platform: "web", appVersion: "admin" },
   });
+
+// ── Payment gateway (Razorpay) ──
+export interface GatewayStatus {
+  keyConfigured: boolean;
+  mode: "live" | "test" | "unset";
+  keyIdHint: string;
+  webhookConfigured: boolean;
+  onlineEnabled: boolean;
+  updatedByName: string;
+  updatedAt: string | null;
+}
+/** Whether Razorpay keys and the webhook secret are set (never the keys themselves), the mode, and the office's online switch. */
+export const getPaymentGatewayStatus = () => callFunction<Record<string, never>, GatewayStatus>("getPaymentGatewayStatus", {});
+/** The office's on/off switch for customer online payments (UPI, cards, net banking through Razorpay). */
+export const setOnlinePayments = (enabled: boolean) => callFunction<{ enabled: boolean }, { onlineEnabled: boolean }>("setOnlinePayments", { enabled });
+/** Sends the booking's pending refund back to the customer's original online payment through Razorpay, then completes it. */
+export const refundGatewayPayment = (bookingId: string) =>
+  callFunction<{ bookingId: string }, { refunded: boolean; amount: number; refunds: { id: string; status: string; amount: number }[] }>("refundGatewayPayment", { bookingId }, 90000);

@@ -21,9 +21,30 @@
 //
 // All amounts below are integer paise, exactly as the tariff stores them.
 
-export type SlabId = 'five' | 'eight' | 'full';
-export const SLAB_RANK: Readonly<Record<SlabId, number>> = { five: 1, eight: 2, full: 3 };
-export const SLAB_LABEL: Readonly<Record<SlabId, string>> = { five: '5-Hour Return', eight: '8-Hour Return', full: 'Full-Day Return' };
+/**
+ * A same-day slab: the built-in 5-hour ('five') and 8-hour ('eight') packages, the Full Day, and any extra hour slabs the office adds
+ * on the Pricing page ('h3', 'h6', 'h10' …: `h` + the slab's hours). Extra slabs are optional per vehicle class.
+ */
+export type ExtraSlabId = `h${number}`;
+export type SlabId = 'five' | 'eight' | 'full' | ExtraSlabId;
+export const SLAB_RANK: Readonly<Record<'five' | 'eight' | 'full', number>> = { five: 1, eight: 2, full: 3 };
+export const SLAB_LABEL: Readonly<Record<'five' | 'eight' | 'full', string>> = { five: '5-Hour Return', eight: '8-Hour Return', full: 'Full-Day Return' };
+/** At most this many extra hour slabs (the customer sees them all on one screen). */
+export const MAX_EXTRA_SLABS = 8;
+export const extraSlabId = (hours: number): ExtraSlabId => `h${hours}` as ExtraSlabId;
+export const isExtraSlabId = (id: string): id is ExtraSlabId => /^h([1-9]|1\d|2[0-3])$/.test(id);
+/** The name a customer sees: "5-Hour Return", "Full-Day Return", "6-Hour Return". */
+export function slabLabel(id: SlabId): string {
+  return id === 'five' || id === 'eight' || id === 'full' ? SLAB_LABEL[id] : `${id.slice(1)}-Hour Return`;
+}
+
+/** One office-defined hour slab, shared by every class (the amounts are per class). */
+export interface ExtraSlab {
+  /** Whole hours, 1–23; never the 5-hour or 8-hour package's own hours. */
+  hours: number;
+  /** Offered only up to this round-trip distance (km); a trip that runs farther moves to a bigger slab. */
+  kmLimit: number;
+}
 export type TimePackageKind = 'same_day' | 'next_day' | 'morning';
 
 /** Settings shared by every vehicle class. Minutes are minutes after IST midnight. */
@@ -45,6 +66,8 @@ export interface TimeBasedSettings {
   lateNightEndMinutes: number;
   fiveHours: number;
   eightHours: number;
+  /** Extra hour slabs the office added (sorted by hours). Absent / empty = only the 5-hour and 8-hour packages. */
+  extraSlabs?: ExtraSlab[];
 }
 
 export const DEFAULT_TIME_BASED: Readonly<TimeBasedSettings> = {
@@ -58,6 +81,8 @@ export interface TimeBasedClassRates {
   eightFare: number; eightKm: number; eightPartner: number;
   /** Morning Return — all three together or none (the option is then not offered for the class). */
   morningFare?: number; morningKm?: number; morningPartner?: number;
+  /** Amounts of the extra hour slabs for this class, by slab id ('h6'). A slab without amounts here is not offered for the class. */
+  extra?: Partial<Record<ExtraSlabId, { fare: number; km: number; partner: number }>>;
 }
 
 /** The class's Round Trip day rates the Full-Day package is derived from. */
@@ -81,7 +106,7 @@ export interface TimeBasedSnapshot {
   hours: number | null;
   /** When this package's coverage ends (an instant). */
   coverageEndMs: number;
-  limits: { fiveHours: number; eightHours: number; shortKmLimit: number };
+  limits: { fiveHours: number; eightHours: number; shortKmLimit: number; /** Extra hour slabs in force when booked. */ extra?: ExtraSlab[] };
   /** The booked package's own fare, partner payout and included km (without any estimated extra km). */
   base: SlabAmounts;
   /** Included km of each calendar day (e.g. [150, 250]); shown on the package card. */
@@ -91,10 +116,10 @@ export interface TimeBasedSnapshot {
   allowed?: SlabId[];
   selected?: SlabId;
   /** Next-Day / multi-day: the slab charged for the pickup day (every further day is a Full Day). */
-  day1?: SlabId;
+  day1?: 'five' | 'eight' | 'full';
   /** Morning Return only. */
   morningCutoffMs?: number;
-  upgrade?: { packageId: string; label: string; farePaise: number; partnerPaise: number; includedKm: number; day1: SlabId; coverageEndMs: number };
+  upgrade?: { packageId: string; label: string; farePaise: number; partnerPaise: number; includedKm: number; day1: 'five' | 'eight' | 'full'; coverageEndMs: number };
   /** The customer asked for 1 day but the pickup is too late for any same-day package, so 2 days were quoted. */
   autoDays?: boolean;
 }
@@ -123,12 +148,29 @@ export function fullDaySlab(r: DayRates): SlabAmounts {
   };
 }
 
-export function slabsOf(settings: TimeBasedSettings, day: DayRates, t: TimeBasedClassRates): Record<SlabId, SlabAmounts> {
-  return {
+export type SlabTable = Record<'five' | 'eight' | 'full', SlabAmounts> & Partial<Record<ExtraSlabId, SlabAmounts>>;
+
+export function slabsOf(settings: TimeBasedSettings, day: DayRates, t: TimeBasedClassRates): SlabTable {
+  const out: SlabTable = {
     five: { farePaise: paiseOf(t.fiveFare), partnerPaise: paiseOf(t.fivePartner), includedKm: t.fiveKm, hours: settings.fiveHours },
     eight: { farePaise: paiseOf(t.eightFare), partnerPaise: paiseOf(t.eightPartner), includedKm: t.eightKm, hours: settings.eightHours },
     full: fullDaySlab(day),
   };
+  for (const x of settings.extraSlabs ?? []) {
+    const id = extraSlabId(x.hours);
+    const a = t.extra?.[id];
+    if (a && a.fare > 0 && a.km > 0 && a.partner > 0) out[id] = { farePaise: paiseOf(a.fare), partnerPaise: paiseOf(a.partner), includedKm: a.km, hours: x.hours };
+  }
+  return out;
+}
+
+/** The short slabs (built-in and extra) with their hours and km limit, shortest first. */
+export function shortLadder(s: Pick<TimeBasedSettings, 'fiveHours' | 'eightHours' | 'shortKmLimit' | 'fiveKmLimit' | 'extraSlabs'>): { id: SlabId; hours: number; kmLimit: number }[] {
+  return [
+    { id: 'five' as SlabId, hours: s.fiveHours, kmLimit: s.fiveKmLimit },
+    { id: 'eight' as SlabId, hours: s.eightHours, kmLimit: s.shortKmLimit },
+    ...(s.extraSlabs ?? []).map((x) => ({ id: extraSlabId(x.hours) as SlabId, hours: x.hours, kmLimit: x.kmLimit })),
+  ].sort((a, b) => a.hours - b.hours);
 }
 
 export interface SameDayInput {
@@ -154,15 +196,20 @@ export function sameDaySlabs(i: SameDayInput): SlabId[] {
   const fiveMin = s.fiveHours * 60, eightMin = s.eightHours * 60;
   const km = Math.round(i.roundTripKm * 10) / 10;
   if (!i.hill) {
-    if (pm + eightMin <= s.cutoffMinutes && km <= s.shortKmLimit && i.estMinutes <= eightMin) out.push('eight');
-    if (pm + fiveMin <= s.cutoffMinutes && km <= s.fiveKmLimit && i.estMinutes <= fiveMin) out.push('five');
+    // Longest short slab first, as before (8-hour, then 5-hour); extra hour slabs take their place by hours.
+    for (const x of [...shortLadder(s)].reverse()) {
+      if (x.id === 'eight') { if (pm + eightMin <= s.cutoffMinutes && km <= s.shortKmLimit && i.estMinutes <= eightMin) out.push('eight'); continue; }
+      if (x.id === 'five') { if (pm + fiveMin <= s.cutoffMinutes && km <= s.fiveKmLimit && i.estMinutes <= fiveMin) out.push('five'); continue; }
+      const m = x.hours * 60;
+      if (pm + m <= s.cutoffMinutes && km <= x.kmLimit && i.estMinutes <= m) out.push(x.id);
+    }
   }
   if (pm < s.nextDayEightFromMinutes && pm + i.estMinutes <= s.cutoffMinutes) out.push('full');
   return out;
 }
 
 /** Day-1 slab of a Next-Day / multi-day Return by the ORIGINAL pickup time (3 PM / 10 PM / 1 AM boundaries). */
-export function nextDayFirstSlab(s: TimeBasedSettings, pickupMs: number): SlabId {
+export function nextDayFirstSlab(s: TimeBasedSettings, pickupMs: number): 'five' | 'eight' | 'full' {
   const pm = istMinutes(pickupMs);
   if (pm < s.lateNightEndMinutes) return 'five';
   return pm < s.nextDayEightFromMinutes ? 'full' : pm < s.nextDayFiveFromMinutes ? 'eight' : 'five';
@@ -187,6 +234,11 @@ export function morningEligible(s: TimeBasedSettings, t: TimeBasedClassRates | u
 
 export function slabFits(s: TimeBasedSettings, slab: SlabId, hours: number, km: number, pickupMin: number): boolean {
   if (slab === 'full') return true;
+  if (slab !== 'five' && slab !== 'eight') {
+    const x = (s.extraSlabs ?? []).find((e) => extraSlabId(e.hours) === slab);
+    if (!x) return false;
+    return hours <= x.hours + 1e-9 && km <= x.kmLimit && pickupMin + x.hours * 60 <= s.cutoffMinutes;
+  }
   const limit = slab === 'five' ? s.fiveHours : s.eightHours;
   if (hours > limit + 1e-9) return false;
   if (slab === 'five' ? !(km < s.shortKmLimit) : km > s.shortKmLimit) return false;
@@ -211,17 +263,23 @@ export interface FinalTimeBased {
  * Morning Return still running after 9:00 AM becomes the Next-Day Return of the original pickup time.
  */
 export function resolveTimeBasedFinal(tb: TimeBasedSnapshot, actual: { startMs?: number | null; endMs: number; totalKm: number }): FinalTimeBased {
-  const s: TimeBasedSettings = { ...DEFAULT_TIME_BASED, enabled: true, cutoffMinutes: tb.cutoffMin, fiveHours: tb.limits.fiveHours, eightHours: tb.limits.eightHours, shortKmLimit: tb.limits.shortKmLimit };
+  const s: TimeBasedSettings = {
+    ...DEFAULT_TIME_BASED, enabled: true, cutoffMinutes: tb.cutoffMin, fiveHours: tb.limits.fiveHours, eightHours: tb.limits.eightHours, shortKmLimit: tb.limits.shortKmLimit,
+    extraSlabs: tb.limits.extra ?? [],
+  };
   if (tb.kind === 'same_day' && tb.slabs && tb.selected) {
     const start = Number.isFinite(actual.startMs) && (actual.startMs as number) > 0 ? (actual.startMs as number) : tb.pickupMs;
     const hours = Math.max(0, (actual.endMs - start) / 3_600_000);
     const km = Math.round(actual.totalKm * 10) / 10;
-    const needed: SlabId = (['five', 'eight'] as const).find((slab) => tb.slabs![slab] && slabFits(s, slab, hours, km, tb.pickupMin)) ?? 'full';
-    const final: SlabId = SLAB_RANK[needed] > SLAB_RANK[tb.selected] ? needed : tb.selected;
+    // The smallest slab (by hours) the trip fits, never below the booked one.
+    const ladder = shortLadder({ ...s, fiveKmLimit: DEFAULT_TIME_BASED.fiveKmLimit });
+    const needed: SlabId = ladder.map((x) => x.id).find((slab) => tb.slabs![slab] && slabFits(s, slab, hours, km, tb.pickupMin)) ?? 'full';
+    const rank = (id: SlabId) => (id === 'full' ? Infinity : ladder.find((x) => x.id === id)?.hours ?? Infinity);
+    const final: SlabId = rank(needed) > rank(tb.selected) ? needed : tb.selected;
     const a = tb.slabs[final] ?? tb.slabs[tb.selected]!;
     const coverageEndMs = istInstant(tb.pickupMs, 0, tb.cutoffMin);
     return {
-      slab: final, label: SLAB_LABEL[final], farePaise: a.farePaise, partnerPaise: a.partnerPaise, includedKm: a.includedKm, upgraded: final !== tb.selected,
+      slab: final, label: slabLabel(final), farePaise: a.farePaise, partnerPaise: a.partnerPaise, includedKm: a.includedKm, upgraded: final !== tb.selected,
       coverageExceeded: actual.endMs > coverageEndMs, coverageEndMs,
     };
   }

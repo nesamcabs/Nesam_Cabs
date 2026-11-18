@@ -34,11 +34,19 @@ export interface ServiceRule {
   categories?: string[];
   customer?: Adjustment;
   partner?: Adjustment;
+  /**
+   * Pricing rules for a Round Trip only: the time-based packages the change applies to ('same:five', 'same:h6', 'same:full', 'next',
+   * 'morning'). Absent / empty = every package. A package-specific rule beats an all-packages rule at the same place.
+   */
+  packages?: string[];
   limit?: RuleLimit;
   name?: string;
   reason?: string;
   version?: number;
 }
+
+/** A time-based Round Trip package id: 'same:five' | 'same:eight' | 'same:full' | 'same:h6' (extra hour slab) | 'next' | 'morning'. */
+export const PACKAGE_ID = /^(same:(five|eight|full|h([1-9]|1\d|2[0-3]))|next|morning)$/;
 
 export interface RuleOutcome {
   availability: 'Available' | 'Limited' | 'Paused';
@@ -117,16 +125,24 @@ export function ruleServiceText(pickup: GeoPlace, drop: GeoPlace, distanceKm: nu
 /** Most specific location wins (area, city, state, everywhere), then a service-specific rule, then the higher priority. */
 const specificity = (r: ServiceRule) => (norm(r.scope?.area) ? 3 : norm(r.scope?.city) ? 2 : norm(r.scope?.state) ? 1 : 0);
 const serviceSpecific = (r: ServiceRule) => (norm(r.service) && norm(r.service) !== 'all' ? 1 : 0);
+/** A rule written for one fare service beats one written for every service, at the same place. */
+const fareServiceSpecific = (r: ServiceRule) => (r.fareService ? 1 : 0);
+/** A rule for named packages beats one for every package. */
+const packageSpecific = (r: ServiceRule) => (r.packages?.length ? 1 : 0);
 const top = (rules: ServiceRule[]) =>
-  [...rules].sort((a, b) => Number(!!b.brand) - Number(!!a.brand) || specificity(b) - specificity(a) || serviceSpecific(b) - serviceSpecific(a) || (b.priority ?? 0) - (a.priority ?? 0) || a.id.localeCompare(b.id))[0] ?? null;
+  [...rules].sort((a, b) => Number(!!b.brand) - Number(!!a.brand) || specificity(b) - specificity(a) || fareServiceSpecific(b) - fareServiceSpecific(a) || packageSpecific(b) - packageSpecific(a) || serviceSpecific(b) - serviceSpecific(a) || (b.priority ?? 0) - (a.priority ?? 0) || a.id.localeCompare(b.id))[0] ?? null;
 const adj = (a: ServiceRule['customer']) => (a && a.mode !== 'Normal' && a.percent > 0 && a.percent < 100 ? { direction: (a.mode === 'Increase' ? 'increase' : 'decrease') as 'increase' | 'decrease', percent: a.percent } : null);
 
-export function evaluateRules(rules: ServiceRule[], pickup: GeoPlace, drop: GeoPlace, at: Date, service: string, brand?: string, fareService?: string, itinerary?: GeoPlace[]): RuleOutcome {
+/**
+ * `packageId` is the time-based Round Trip package being priced. A pricing rule that names packages applies only to those; without a
+ * package id (a trip that is not a time-based Round Trip, or the first look before a package is chosen) only all-packages rules apply.
+ */
+export function evaluateRules(rules: ServiceRule[], pickup: GeoPlace, drop: GeoPlace, at: Date, service: string, brand?: string, fareService?: string, itinerary?: GeoPlace[], packageId?: string): RuleOutcome {
   const legs = itinerary && itinerary.length > 1 ? itinerary.slice(1).map((p, n) => [itinerary[n], p]) : [[pickup, drop]];
   const hit = rules.filter((r) => (!r.brand || r.brand === brand) && (!r.fareService || r.fareService === fareService) && r.status === 'Enabled' && legs.some(([a, b]) => applies(r, a, b, at, service)));
   const av = top(hit.filter((r) => r.kind === 'availability'));
   const cats = top(hit.filter((r) => r.kind === 'categories'));
-  const price = top(hit.filter((r) => r.kind === 'pricing'));
+  const price = top(hit.filter((r) => r.kind === 'pricing' && (!r.packages?.length || (!!packageId && r.packages.includes(packageId)))));
   const customer = adj(price?.customer);
   return {
     availability: av?.availability ?? 'Available',
@@ -198,7 +214,7 @@ function summarize(r: Partial<StoredRule> | undefined | null): string {
   if (!r) return '';
   if (r.kind === 'availability') return r.availability ?? 'Available';
   if (r.kind === 'categories') return (r.categories ?? []).join(' · ');
-  if (r.kind === 'pricing') return `Customer ${adjText(r.customer)} · Partner ${adjText(r.partner)}`;
+  if (r.kind === 'pricing') return `Customer ${adjText(r.customer)} · Partner ${adjText(r.partner)}${r.fareService ? ` · ${r.fareService}` : ' · all services'}${r.packages?.length ? ` · ${r.packages.join(', ')}` : ''}`;
   return r.limit ? `${r.limit.target} ₹${r.limit.min}–₹${r.limit.max}` : '';
 }
 const whereText = (s: Partial<StoredRule['scope']> | undefined) => [s?.area, s?.city, s?.state && (STATE_NAMES[s.state] ?? s.state)].filter(Boolean).join(', ') || 'All locations';
@@ -220,7 +236,7 @@ function isoOf(v: unknown, label: string): string | undefined {
   return new Date(ms).toISOString();
 }
 
-function parseRule(v: any, categoryNames: Set<string>): StoredRule {
+export function parseRule(v: any, categoryNames: Set<string>): StoredRule {
   if (!v || typeof v !== 'object') throw new HttpsError('invalid-argument', 'The rule is missing.');
   const kind = KINDS.find((k) => k === v.kind);
   if (!kind) throw new HttpsError('invalid-argument', 'Choose the type of setting.');
@@ -259,6 +275,18 @@ function parseRule(v: any, categoryNames: Set<string>): StoredRule {
     rule.customer = adjustmentOf(v.customer, 'customer fare');
     rule.partner = adjustmentOf(v.partner, 'partner payout');
     if (rule.customer.mode === 'Normal' && rule.partner.mode === 'Normal') throw new HttpsError('invalid-argument', 'Choose an increase or decrease for the customer fare or the partner payout.');
+    // Packages: only a Round Trip price change can name them.
+    if (v.packages !== undefined && v.packages !== null) {
+      if (!Array.isArray(v.packages)) throw new HttpsError('invalid-argument', 'The packages must be a list.');
+      const ids = Array.from(new Set(v.packages.map((p: unknown) => (typeof p === 'string' ? p.trim() : '')))).filter(Boolean) as string[];
+      if (ids.length) {
+        if (rule.fareService !== 'Round Trip') throw new HttpsError('invalid-argument', 'Packages can only be chosen for a Round Trip price change.');
+        const badId = ids.find((p) => !PACKAGE_ID.test(p));
+        if (badId) throw new HttpsError('invalid-argument', `"${badId}" is not a Round Trip package.`);
+        if (ids.length > 16) throw new HttpsError('invalid-argument', 'Choose up to 16 packages.');
+        rule.packages = ids.sort();
+      }
+    }
   } else {
     const l = v.limit ?? {};
     const target = (['Customer fare', 'Partner payout'] as const).find((t) => t === l.target);
@@ -282,7 +310,8 @@ const windowOf = (r: { schedule?: StoredRule['schedule'] }) => {
 };
 
 /** Two enabled settings of the same type, place, service and priority must not overlap in time. */
-async function assertNoConflict(tx: Transaction, id: string, next: Pick<StoredRule, 'kind' | 'priority' | 'scope' | 'service' | 'schedule' | 'brand' | 'fareService'>): Promise<void> {
+const packagesKey = (p?: string[]) => (p?.length ? [...p].sort().join(',') : '');
+async function assertNoConflict(tx: Transaction, id: string, next: Pick<StoredRule, 'kind' | 'priority' | 'scope' | 'service' | 'schedule' | 'brand' | 'fareService' | 'packages'>): Promise<void> {
   const snap = await tx.get(db.collection('service_rules').where('status', '==', 'Enabled'));
   const [f1, t1] = windowOf(next);
   const clash = snap.docs.find((d) => {
@@ -292,6 +321,8 @@ async function assertNoConflict(tx: Transaction, id: string, next: Pick<StoredRu
     if (r.kind !== next.kind || r.priority !== next.priority) return false;
     if (norm(r.scope?.state) !== norm(next.scope.state) || norm(r.scope?.city) !== norm(next.scope.city) || norm(r.scope?.area) !== norm(next.scope.area)) return false;
     if (norm(r.service) !== norm(next.service)) return false;
+    // Price changes for different packages of the same place do not overlap.
+    if (packagesKey(r.packages) !== packagesKey(next.packages)) return false;
     const [f2, t2] = windowOf(r);
     return f1 < t2 && f2 < t1;
   });

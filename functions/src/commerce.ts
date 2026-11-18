@@ -21,6 +21,8 @@ import { loadPlatformFee } from './platformFeeConfig';
 import { loadNightAllowance } from './nightAllowanceConfig';
 import { adjustPartner, assertBookable, assertWithinLimits, availabilityFields, evaluateRules, loadServiceRules, partnerPayoutRupees, ruleServiceText } from './serviceRules';
 import { createContactInTx, maskPhone } from './contacts';
+import { withTripPincodes } from './placePincode';
+import { validPincode } from './domain/hillStations';
 import { customerFareContext, loadTariffConfig, priceBooking, rentalHoursOf, tariffClassOf, timePackageFields, trustedCustomerPlace, tripDaysOf } from './quote';
 import { assertLegalAccepted } from './legal';
 import { nextBookingCode } from './bookingSequence';
@@ -35,7 +37,8 @@ import { FAST, WARM } from './hotOptions';
 
 function place(v: any): GeoPlace {
   if (!v || !inIndia(v.lat, v.lng)) throw new HttpsError('invalid-argument', 'Choose valid pickup and drop locations in India.');
-  return { id: 'pin', name: text(v.name, 120), address: text(v.address), lat: v.lat, lng: v.lng, type: v.type === 'airport' ? 'airport' : 'other' };
+  const pincode = validPincode(v.pincode);
+  return { id: 'pin', name: text(v.name, 120), address: text(v.address), lat: v.lat, lng: v.lng, type: v.type === 'airport' ? 'airport' : 'other', ...(pincode ? { pincode } : {}) };
 }
 
 export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (request) => {
@@ -79,7 +82,7 @@ export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (requ
   if (rawStops.length > 8) throw new HttpsError('invalid-argument', 'Add no more than 8 intermediate stops.');
   if (rawStops.length && input.tripType !== 'Round Trip' && !multicity) throw new HttpsError('invalid-argument', 'Intermediate stops are available for round trips only.');
   if (multicity && !rawStops.length) throw new HttpsError('invalid-argument', 'Add at least one city between your pickup and your final drop.');
-  const [pickup, drop, ...stops] = await Promise.all([
+  let [pickup, drop, ...stops] = await Promise.all([
     trustedCustomerPlace(place(input.pickup), input.pickup?.id),
     trustedCustomerPlace(place(input.drop), input.drop?.id),
     ...rawStops.map((stop: any) => trustedCustomerPlace(place(stop), stop?.id)),
@@ -112,6 +115,9 @@ export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (requ
     if (!tripEndAt && !tripDays) throw new HttpsError('invalid-argument', 'Choose the date and time your round trip ends.');
     if (tripEndAt && tripEndAt.getTime() < when.getTime()) throw new HttpsError('invalid-argument', 'The trip cannot end before it starts.');
   }
+  // Hill stations are found by pincode: one written in the place's address costs nothing; a bare pin is looked up (only for One Way / Round Trip with hill stations on).
+  const hillEnabled = !multicity && (tripType === 'One Way' || tripType === 'Round Trip') ? (await loadTariffConfig())?.hillStation?.enabled === true : false;
+  ({ pickup, drop, stops } = await withTripPincodes({ hillEnabled, tripType, multicity, pickup, drop, stops }));
   const pushes: { id: string; input: NotifyInput }[] = [];
   const serviceRules = await serviceRulesRead;
   // The coupon list and the customer's earlier bookings are only needed to check a coupon.
@@ -188,15 +194,24 @@ export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (requ
       context: 'customer',
     });
     const serviceId = multicity ? 'multicity' : matchedService?.id || '';
-    const rules = evaluateRules(serviceRules, pickup, drop, when, multicity ? 'Multicity' : ruleServiceText(pickup, drop, route.distanceKm, tripType), bookingBrand, multicity ? 'Multicity' : fareServiceKey(tripType), itinerary);
+    const evalRules = (pkg?: string) => evaluateRules(serviceRules, pickup, drop, when, multicity ? 'Multicity' : ruleServiceText(pickup, drop, route.distanceKm, tripType), bookingBrand, multicity ? 'Multicity' : fareServiceKey(tripType), itinerary, pkg);
+    let rules = evalRules();
     assertBookable(rules, category.name);
-    const adjustment = rules.customer ?? effectiveAdjustment(adjustmentDoc, now);
+    let adjustment = rules.customer ?? effectiveAdjustment(adjustmentDoc, now);
     const boardingState = await fareBoardingState(tariff, pickup, input.pickup?.id);
     const recipientState = recipientGstState(customer.data());
     const fuel = input.fuelType === 'cng' ? ('cng' as const) : undefined;
     if (fuel && category.cngEnabled !== true) throw new HttpsError('failed-precondition', 'CNG is not offered on this vehicle.');
     const priceInput = { addOns: bookingAddOnsOf(input.addOns ?? input.tripExtras), fuel, boardingState, recipientState, recipientAddressState: recipientAddressState(customer.data()), category, route: pricingRoute, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, rentalHours: tripType === 'Local Rental' ? rentalHoursOf(input.rentalHours) : null, brand: bookingBrand, fixedRoutes, localCityId, localZoneId, serviceId, multicity, platformFee, nightAllowance, tripDays, customerChannel: true, stops, timePackage: typeof input.timePackage === 'string' ? input.timePackage : undefined };
-    const beforeDiscount = priceBooking(priceInput);
+    let beforeDiscount = priceBooking(priceInput);
+    // A Round Trip price change may be limited to some time-based packages: once the package is known, price it with exactly its rules.
+    if (serviceRules.some((r) => r.packages?.length) && beforeDiscount.pricing.timeBased) {
+      rules = evalRules(beforeDiscount.pricing.timeBased.packageId);
+      assertBookable(rules, category.name);
+      adjustment = rules.customer ?? effectiveAdjustment(adjustmentDoc, now);
+      priceInput.adjustment = adjustment;
+      beforeDiscount = priceBooking(priceInput);
+    }
     // The percentage commission (if an older policy still exists) only prices duties on the category engine; confirmed
     // tariff duties carry fixed partner rates. A missing commission never blocks a booking.
     const commission = beforeDiscount.usesCommissionPolicy

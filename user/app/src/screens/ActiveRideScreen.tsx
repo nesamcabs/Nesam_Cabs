@@ -17,6 +17,7 @@ import { ConfirmationArt } from '../components/ConfirmationArt';
 import { CancelRideSheet } from '../components/CancelRideSheet';
 import { RatingCard } from '../components/RatingCard';
 import { TripReceipt } from '../components/TripReceipt';
+import { PayOnline } from '../components/PayOnline';
 import { FareLines, tripFareLines } from '../components/FareLines';
 import { SafetySheet, shareTrip } from '../components/SafetySheet';
 import { subscribeToBoardingOtp, subscribeToBooking } from '../services/rideService';
@@ -260,6 +261,7 @@ export function ActiveRideScreen({ route, navigation }: Props) {
                   : `Pay the fare by ${trip.paymentMethod === 'UPI' ? 'UPI' : 'cash'} to your driver. Final charges are reviewed when your trip closes.`}
             </Text>
           </View>
+          {isCancelled ? null : <PayOnline trip={trip} prefill={{ name: profile.name || undefined, contact: profile.phone || undefined, email: profile.email || undefined }} />}
         </View>
 
         {/* Trip progress: the five customer milestones */}

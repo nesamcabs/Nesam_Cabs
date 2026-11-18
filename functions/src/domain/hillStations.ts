@@ -1,53 +1,95 @@
 // Hill station charge (Customer UX v8 · "Round Trip & Hill Station Developer Guide", section 08).
 //
-// A One Way or Round Trip whose pickup, destination or any stop is in a Tamil Nadu hill station gets a Hill Station Allowance /
-// Charge, billed as its OWN line (never mixed into the base or package fare) from the vehicle class's configured slab:
+// A One Way or Round Trip whose pickup, destination or any stop is in a hill station of Tamil Nadu, Karnataka (Bangalore side
+// included) or Kerala gets a Hill Station Allowance / Charge, billed as its OWN line (never mixed into the base or package fare)
+// from the vehicle class's configured slab:
 //   One Way    : base fare + driver bata + extra km + hill charge (One-Way slab) + toll / permit
 //   Round Trip : package fare + extra km + hill charge (Round-Trip slab) + toll / permit
 // Hill station trips never use the 5-hour / 8-hour short packages: they go straight to the Full Day or the multi-day slab.
 //
-// Detection uses the map position of each place (the latitude / longitude the map API returned for the pickup, drop and stops):
-// a place is "in" a hill station when it lies within that station's radius. A place whose name or address names the hill station
-// (Tamil or English) counts too when it is within a wider ring, so a hamlet on the hill road is found by its address and a
-// town on a road that merely carries the hill's name ("Ooty Road, Coimbatore") is not.
+// Detection is by POSTAL PINCODE only — there is no distance or radius calculation. Each hill station lists the India Post
+// pincodes that cover the hill and the country around it (about 10 km of the hill station, taken from the post offices that
+// deliver there). A trip place is "in" a hill station when its pincode is one of them. The place's pincode is the one the map
+// search wrote in its address (Google's formatted addresses carry it), the one the app sent, or — for a bare map pin — the one
+// the server reverse-geocodes (placePincode.ts). A place with no pincode is not a hill-station place; nothing is guessed.
+//
+// A pincode is the smallest area India Post publishes, so a few pincodes also deliver to a plains town beside the hill (the
+// Nelliyampathy pincode also covers Nemmara). Where a pincode mostly delivers to a plains town (Sirumalai with Dindigul city,
+// B R Hills with Yelandur) the hill is left out rather than flagging that town. Admin can add pincodes to a station, add a station
+// or switch one off (business_config/tariff_v2 → hillStation.stations / disabledStations).
 //
 // Pure helpers only (no Firestore, no map calls) so the quote, the booking snapshot, the final fare and the tests share one rule.
 import type { TariffClass } from './tariff';
 
+export type HillState = 'Tamil Nadu' | 'Karnataka' | 'Kerala';
+
 export interface HillStation {
   id: string;
   name: string;
-  /** Tamil name, shown beside the English one. */
+  /** Tamil name, shown beside the English one ('' when there is no common Tamil spelling). */
   tamil: string;
-  /** Lower-case English spellings and Tamil spellings that identify the station in a place name or address. */
-  aliases: string[];
-  lat: number;
-  lng: number;
-  /** A place within this many km of the centre is in the hill station. */
-  radiusKm: number;
+  state: HillState;
+  /** India Post pincodes (six digits) that cover the hill station and about 10 km around it. */
+  pincodes: string[];
 }
 
-/** A named place is also taken to be in the hill station when it is within this multiple of the radius. */
-export const NAME_RING_FACTOR = 2.5;
+const st = (id: string, name: string, tamil: string, state: HillState, pincodes: string[]): HillStation => ({ id, name, tamil, state, pincodes });
 
-/** The Tamil Nadu hill stations of the developer guide. Centres are approximate; radii cover the town and its sightseeing hill roads. */
+/**
+ * The hill stations of the developer guide, with the pincodes of the post offices on and around each hill (India Post office list;
+ * each pincode checked against the office names it delivers to). Edit here, or per deployment from the admin hill-station setting.
+ */
 export const HILL_STATIONS: readonly HillStation[] = [
-  { id: 'ooty', name: 'Ooty', tamil: 'ஊட்டி', aliases: ['ooty', 'udhagamandalam', 'udagamandalam', 'ootacamund', 'உதகமண்டலம்', 'ஊட்டி'], lat: 11.4102, lng: 76.695, radiusKm: 16 },
-  { id: 'kodaikanal', name: 'Kodaikanal', tamil: 'கொடைக்கானல்', aliases: ['kodaikanal', 'kodaikkanal', 'கொடைக்கானல்'], lat: 10.2381, lng: 77.4892, radiusKm: 14 },
-  { id: 'yercaud', name: 'Yercaud', tamil: 'ஏற்காடு', aliases: ['yercaud', 'yercadu', 'ஏற்காடு'], lat: 11.7753, lng: 78.2097, radiusKm: 10 },
-  { id: 'coonoor', name: 'Coonoor', tamil: 'குன்னூர்', aliases: ['coonoor', 'coonur', 'kunnur', 'குன்னூர்'], lat: 11.3531, lng: 76.7959, radiusKm: 9 },
-  { id: 'kotagiri', name: 'Kotagiri', tamil: 'கோத்தகிரி', aliases: ['kotagiri', 'kothagiri', 'கோத்தகிரி'], lat: 11.421, lng: 76.8606, radiusKm: 9 },
-  { id: 'valparai', name: 'Valparai', tamil: 'வால்பாறை', aliases: ['valparai', 'valpparai', 'வால்பாறை'], lat: 10.3267, lng: 76.951, radiusKm: 14 },
-  { id: 'megamalai', name: 'Megamalai', tamil: 'மேகமலை', aliases: ['megamalai', 'meghamalai', 'high wavys', 'highwavys', 'மேகமலை'], lat: 9.67, lng: 77.38, radiusKm: 16 },
-  { id: 'kolli-hills', name: 'Kolli Hills', tamil: 'கொல்லிமலை', aliases: ['kolli hills', 'kolli malai', 'kollimalai', 'kolli hill', 'கொல்லிமலை'], lat: 11.25, lng: 78.34, radiusKm: 14 },
-  { id: 'yelagiri', name: 'Yelagiri', tamil: 'ஏலகிரி', aliases: ['yelagiri', 'elagiri', 'yelagiri hills', 'ஏலகிரி'], lat: 12.58, lng: 78.64, radiusKm: 8 },
-  { id: 'kolukkumalai', name: 'Kolukkumalai', tamil: 'கொழுக்குமலை', aliases: ['kolukkumalai', 'kolukumalai', 'kolukku malai', 'kolukkumalai tea', 'கொழுக்குமலை'], lat: 10.07, lng: 77.23, radiusKm: 12 },
-  { id: 'jawadhu-hills', name: 'Jawadhu Hills', tamil: 'ஜவ்வாது மலை', aliases: ['jawadhu', 'javadhu', 'jawadi', 'jawadhu hills', 'javadi hills', 'ஜவ்வாது'], lat: 12.58, lng: 78.83, radiusKm: 22 },
-  { id: 'manjolai', name: 'Manjolai', tamil: 'மாஞ்சோலை', aliases: ['manjolai', 'manjolai estate', 'upper kodayar', 'மாஞ்சோலை'], lat: 8.58, lng: 77.42, radiusKm: 12 },
-  { id: 'kalvarayan-hills', name: 'Kalvarayan Hills', tamil: 'கல்வராயன் மலை', aliases: ['kalvarayan', 'kalrayan', 'kalvarayan hills', 'kalrayan hills', 'கல்வராயன்'], lat: 11.85, lng: 78.72, radiusKm: 25 },
-  { id: 'sirumalai', name: 'Sirumalai', tamil: 'சிறுமலை', aliases: ['sirumalai', 'sirumalai hills', 'சிறுமலை'], lat: 10.15, lng: 78.0, radiusKm: 14 },
-  { id: 'topslip', name: 'Topslip', tamil: 'டாப்ஸ்லிப்', aliases: ['topslip', 'top slip', 'டாப்ஸ்லிப்'], lat: 10.47, lng: 76.85, radiusKm: 12 },
+  // ── Tamil Nadu ──
+  st('ooty', 'Ooty', 'ஊட்டி', 'Tamil Nadu', ['643001', '643002', '643003', '643004', '643005', '643006', '643007', '643202', '643215', '643243']),
+  st('coonoor', 'Coonoor', 'குன்னூர்', 'Tamil Nadu', ['643101', '643102', '643103', '643105', '643201', '643202', '643213', '643214', '643215', '643218', '643231', '643243']),
+  st('kotagiri', 'Kotagiri', 'கோத்தகிரி', 'Tamil Nadu', ['643201', '643206', '643214', '643216', '643217']),
+  st('kodaikanal', 'Kodaikanal', 'கொடைக்கானல்', 'Tamil Nadu', ['624101', '624103']),
+  st('yercaud', 'Yercaud', 'ஏற்காடு', 'Tamil Nadu', ['636601', '636602']),
+  st('valparai', 'Valparai', 'வால்பாறை', 'Tamil Nadu', ['642125', '642127']),
+  st('topslip', 'Topslip', 'டாப்ஸ்லிப்', 'Tamil Nadu', ['642133']),
+  st('megamalai', 'Megamalai', 'மேகமலை', 'Tamil Nadu', ['625519']),
+  st('kolli-hills', 'Kolli Hills', 'கொல்லிமலை', 'Tamil Nadu', ['637411']),
+  st('yelagiri', 'Yelagiri', 'ஏலகிரி', 'Tamil Nadu', ['635853']),
+  st('jawadhu-hills', 'Jawadhu Hills', 'ஜவ்வாது மலை', 'Tamil Nadu', ['635703']),
+  st('kalvarayan-hills', 'Kalvarayan Hills', 'கல்வராயன் மலை', 'Tamil Nadu', ['606209']),
+  st('manjolai', 'Manjolai', 'மாஞ்சோலை', 'Tamil Nadu', ['627420']),
+  st('kolukkumalai', 'Kolukkumalai', 'கொழுக்குமலை', 'Tamil Nadu', ['685618']),
+  // ── Kerala ──
+  st('munnar', 'Munnar', 'மூணாறு', 'Kerala', ['685565', '685612', '685613', '685614', '685616']),
+  st('thekkady', 'Thekkady', 'தேக்கடி', 'Kerala', ['685509']),
+  st('vagamon', 'Vagamon', 'வாகமன்', 'Kerala', ['685501', '685503']),
+  st('peermade', 'Peermade', 'பீர்மேடு', 'Kerala', ['685531']),
+  st('ponmudi', 'Ponmudi', 'பொன்முடி', 'Kerala', ['695551']),
+  st('wayanad', 'Wayanad', 'வயநாடு', 'Kerala', ['673121', '673123', '673575', '673576', '673577']),
+  st('nelliyampathy', 'Nelliyampathy', 'நெல்லியம்பதி', 'Kerala', ['678508']),
+  // ── Karnataka (Coorg, the Chikmagalur and Western Ghats hills, and the Bangalore side) ──
+  st('madikeri', 'Madikeri (Coorg)', 'குடகு', 'Karnataka', ['571201']),
+  st('bhagamandala', 'Bhagamandala · Talacauvery', '', 'Karnataka', ['571247']),
+  st('chikmagalur', 'Chikmagalur · Mullayanagiri', 'சிக்மகளூர்', 'Karnataka', ['577101', '577130', '577131']),
+  st('kemmangundi', 'Kemmangundi', '', 'Karnataka', ['577137']),
+  st('sakleshpur', 'Sakleshpur', '', 'Karnataka', ['573134']),
+  st('agumbe', 'Agumbe', '', 'Karnataka', ['577411']),
+  st('kudremukh', 'Kudremukh', '', 'Karnataka', ['577142']),
+  st('nandi-hills', 'Nandi Hills · Skandagiri', '', 'Karnataka', ['562103']),
 ];
+
+// ── Pincodes ─────────────────────────────────────────────────────────────────
+
+const PINCODE = /^[1-9]\d{5}$/;
+/** The six-digit pincode in `v` (a string or number), or '' when it is not a valid Indian pincode. */
+export function validPincode(v: unknown): string {
+  const s = typeof v === 'number' && Number.isInteger(v) ? String(v) : typeof v === 'string' ? v.trim() : '';
+  return PINCODE.test(s) ? s : '';
+}
+
+/** The pincode written in a place's address or name ("… Tamil Nadu 643001, India"): the last standalone six-digit number, or ''. */
+export function pincodeIn(text: unknown): string {
+  if (typeof text !== 'string') return '';
+  const found = [...text.matchAll(/(?<![\d-])([1-9]\d{5})(?![\d-])/g)];
+  const last = found[found.length - 1];
+  return last ? last[1]! : '';
+}
 
 // ── Configuration (business_config/tariff_v2 → hillStation) ──────────────────
 
@@ -61,7 +103,7 @@ export interface HillStationConfig {
   chargePer: 'trip' | 'station';
   /** The slab of each vehicle class. A class with no slab is never charged here (nothing is invented). */
   classes: Partial<Record<TariffClass, HillClassRates>>;
-  /** Extra or corrected stations (matched by id over the built-in list). */
+  /** Extra or corrected stations (matched by id over the built-in list): their pincodes replace the built-in ones. */
   stations?: HillStation[];
   /** Built-in station ids that must not be treated as hill stations. */
   disabledStations?: string[];
@@ -73,16 +115,18 @@ const slabOf = (v: unknown): HillSlab | undefined => {
   const o = v as Record<string, unknown>;
   return isAmount(o.customer) && isAmount(o.partner) ? { customer: o.customer, partner: o.partner } : undefined;
 };
+const STATES: readonly HillState[] = ['Tamil Nadu', 'Karnataka', 'Kerala'];
 const stationOf = (v: unknown): HillStation | null => {
   if (!v || typeof v !== 'object') return null;
   const o = v as Record<string, unknown>;
   const id = typeof o.id === 'string' ? o.id.trim().toLowerCase() : '';
   const name = typeof o.name === 'string' ? o.name.trim().slice(0, 80) : '';
   if (!/^[a-z0-9-]{2,40}$/.test(id) || !name) return null;
-  if (typeof o.lat !== 'number' || typeof o.lng !== 'number' || !(o.lat >= 6 && o.lat <= 37 && o.lng >= 67 && o.lng <= 98)) return null;
-  if (typeof o.radiusKm !== 'number' || !(o.radiusKm >= 1 && o.radiusKm <= 60)) return null;
-  const aliases = (Array.isArray(o.aliases) ? o.aliases : []).filter((a): a is string => typeof a === 'string' && a.trim().length >= 3).map((a) => a.trim().toLowerCase().slice(0, 60)).slice(0, 12);
-  return { id, name, tamil: typeof o.tamil === 'string' ? o.tamil.trim().slice(0, 80) : '', aliases: aliases.length ? aliases : [name.toLowerCase()], lat: o.lat, lng: o.lng, radiusKm: o.radiusKm };
+  const pincodes = [...new Set((Array.isArray(o.pincodes) ? o.pincodes : []).map(validPincode).filter(Boolean))].slice(0, 60);
+  // A station without pincodes cannot be detected (an older radius-style entry is dropped here).
+  if (!pincodes.length) return null;
+  const state = STATES.find((s) => s === o.state) ?? 'Tamil Nadu';
+  return { id, name, tamil: typeof o.tamil === 'string' ? o.tamil.trim().slice(0, 80) : '', state, pincodes };
 };
 
 /** Parses the stored section; anything malformed is dropped (treated as not configured). `classKeys` are the valid tariff classes. */
@@ -97,8 +141,8 @@ export function parseHillStationConfig(raw: unknown, classKeys: readonly string[
       if (oneWay || roundTrip) classes[cls as TariffClass] = { ...(oneWay ? { oneWay } : {}), ...(roundTrip ? { roundTrip } : {}) };
     }
   }
-  const stations = (Array.isArray(o.stations) ? o.stations : []).map(stationOf).filter((s): s is HillStation => s !== null).slice(0, 60);
-  const disabled = (Array.isArray(o.disabledStations) ? o.disabledStations : []).filter((x): x is string => typeof x === 'string').slice(0, 60);
+  const stations = (Array.isArray(o.stations) ? o.stations : []).map(stationOf).filter((s): s is HillStation => s !== null).slice(0, 80);
+  const disabled = (Array.isArray(o.disabledStations) ? o.disabledStations : []).filter((x): x is string => typeof x === 'string').slice(0, 80);
   return {
     enabled: o.enabled === true, chargePer: o.chargePer === 'station' ? 'station' : 'trip', classes,
     ...(stations.length ? { stations } : {}), ...(disabled.length ? { disabledStations: disabled } : {}),
@@ -116,7 +160,8 @@ export function hillStationsOf(cfg?: HillStationConfig | null): HillStation[] {
 // ── Detection ────────────────────────────────────────────────────────────────
 
 export type HillRole = 'pickup' | 'stop' | 'drop';
-export interface HillPlaceInput { role: HillRole; name?: string; address?: string; lat: number; lng: number }
+/** A trip place: its pincode, or the address / name the pincode is read from. */
+export interface HillPlaceInput { role: HillRole; name?: string; address?: string; pincode?: string }
 export interface HillMatch {
   id: string;
   name: string;
@@ -124,44 +169,21 @@ export interface HillMatch {
   /** The place of the trip that is in this hill station. */
   role: HillRole;
   placeName: string;
-  /** 'location': within the station's radius. 'name': named by the place and within the wider ring. */
-  via: 'location' | 'name';
-  distanceKm: number;
+  /** The pincode that matched. */
+  pincode: string;
 }
 
-const R_KM = 6371;
-/** Great-circle distance in km. */
-export function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
-  const rad = (d: number) => (d * Math.PI) / 180;
-  const dLat = rad(b.lat - a.lat), dLng = rad(b.lng - a.lng);
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
-  return 2 * R_KM * Math.asin(Math.min(1, Math.sqrt(h)));
+/** The pincode of a trip place: the one it carries, else the one written in its address, else in its name. */
+export function placePincode(p: Pick<HillPlaceInput, 'name' | 'address' | 'pincode'>): string {
+  return validPincode(p.pincode) || pincodeIn(p.address) || pincodeIn(p.name);
 }
 
-const normText = (v: unknown): string => (typeof v === 'string' ? v : '').toLowerCase().normalize('NFC').replace(/[^\p{L}\p{M}\p{N}]+/gu, ' ').replace(/\s+/g, ' ').trim();
-const ASCII = /^[a-z0-9 ]+$/;
-function namesStation(text: string, s: HillStation): boolean {
-  if (!text) return false;
-  const padded = ` ${text} `;
-  return s.aliases.some((alias) => {
-    const a = normText(alias);
-    if (!a) return false;
-    // English aliases match whole words ("ooty" is not "footy"); Tamil aliases match as text (Tamil words take suffixes).
-    return ASCII.test(a) ? padded.includes(` ${a} `) : text.includes(a);
-  });
-}
-
-/** The nearest station that holds the place (by position, or by name within the wider ring), or null. */
-export function hillStationOf(p: Pick<HillPlaceInput, 'name' | 'address' | 'lat' | 'lng'>, stations: readonly HillStation[] = HILL_STATIONS): { station: HillStation; via: 'location' | 'name'; distanceKm: number } | null {
-  if (!Number.isFinite(p.lat) || !Number.isFinite(p.lng)) return null;
-  const text = normText(`${p.name ?? ''} ${p.address ?? ''}`);
-  let best: { station: HillStation; via: 'location' | 'name'; distanceKm: number } | null = null;
-  for (const station of stations) {
-    const distanceKm = haversineKm(p, station);
-    const via = distanceKm <= station.radiusKm ? 'location' : distanceKm <= station.radiusKm * NAME_RING_FACTOR && namesStation(text, station) ? 'name' : null;
-    if (via && (!best || distanceKm < best.distanceKm)) best = { station, via, distanceKm };
-  }
-  return best;
+/** The hill station whose pincodes include the place's pincode, or null. */
+export function hillStationOf(p: Pick<HillPlaceInput, 'name' | 'address' | 'pincode'>, stations: readonly HillStation[] = HILL_STATIONS): { station: HillStation; pincode: string } | null {
+  const pincode = placePincode(p);
+  if (!pincode) return null;
+  const station = stations.find((s) => s.pincodes.includes(pincode));
+  return station ? { station, pincode } : null;
 }
 
 /** Every hill station the trip's pickup, stops and drop are in (one entry per place; the same station can appear for several places). */
@@ -171,10 +193,7 @@ export function detectHillStations(places: readonly HillPlaceInput[], cfg?: Hill
   for (const place of places) {
     const hit = hillStationOf(place, stations);
     if (!hit) continue;
-    out.push({
-      id: hit.station.id, name: hit.station.name, tamil: hit.station.tamil, role: place.role, placeName: (place.name || place.address || '').slice(0, 120),
-      via: hit.via, distanceKm: Math.round(hit.distanceKm * 10) / 10,
-    });
+    out.push({ id: hit.station.id, name: hit.station.name, tamil: hit.station.tamil, role: place.role, placeName: (place.name || place.address || '').slice(0, 120), pincode: hit.pincode });
   }
   return out;
 }

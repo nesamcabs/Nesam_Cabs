@@ -27,6 +27,8 @@ export interface ServiceRule {
   categories?: string[];
   customer?: Adjustment;
   partner?: Adjustment;
+  /** Round Trip price changes only: the time-based packages the change applies to ('same:five', 'same:h6', 'next' …). Absent = every package. */
+  packages?: string[];
   limit?: { target: "Customer fare" | "Partner payout"; category: string; min: number; max: number; reference: string };
   reason: string;
   history?: { action: string; reason: string; byName: string; byUid?: string; at: Timestamp; rule?: string; location?: string; before?: string; after?: string }[];
@@ -45,7 +47,7 @@ export function subscribeServiceRules(cb: (rows: ServiceRule[]) => void, onError
 export const summary = (r: Omit<ServiceRule, "id">) =>
   r.kind === "availability" ? r.availability ?? "Available"
   : r.kind === "categories" ? (r.categories ?? []).join(" · ")
-  : r.kind === "pricing" ? `Customer ${adjText(r.customer)} · Partner ${adjText(r.partner)}`
+  : r.kind === "pricing" ? `Customer ${adjText(r.customer)} · Partner ${adjText(r.partner)}${r.fareService ? ` · ${r.fareService === "Local Rental" ? "Hourly Rental" : r.fareService}` : " · all services"}${r.packages?.length ? ` · ${r.packages.length} package${r.packages.length === 1 ? "" : "s"}` : ""}`
   : r.limit ? `${r.limit.target} ₹${r.limit.min}–₹${r.limit.max}` : "";
 
 export const adjText = (a?: Adjustment) => (!a || a.mode === "Normal" ? "normal" : `${a.mode === "Increase" ? "+" : "−"}${a.percent}%`);
@@ -55,6 +57,7 @@ const payloadOf = (r: Omit<ServiceRule, "id" | "history" | "updatedBy" | "update
   brand: r.brand ?? "", fareService: r.fareService ?? "", kind: r.kind, name: r.name, priority: r.priority, scope: r.scope, service: r.service, schedule: r.schedule,
   ...(r.availability ? { availability: r.availability } : {}), ...(r.categories ? { categories: r.categories } : {}),
   ...(r.customer ? { customer: r.customer } : {}), ...(r.partner ? { partner: r.partner } : {}), ...(r.limit ? { limit: r.limit } : {}),
+  ...(r.packages?.length ? { packages: r.packages } : {}),
 });
 
 /** Creates or edits a rule on the server (validated, audited, history kept). Rejects with the server's message. */
@@ -94,5 +97,7 @@ export const rankRules = (list: ServiceRule[]) =>
   [...list].sort((a, b) => {
     const spec = (r: ServiceRule) => (r.scope.area ? 3 : r.scope.city ? 2 : r.scope.state ? 1 : 0);
     const svc = (r: ServiceRule) => (r.service && r.service.toLowerCase() !== "all" ? 1 : 0);
-    return Number(!!b.brand) - Number(!!a.brand) || spec(b) - spec(a) || svc(b) - svc(a) || (b.priority ?? 0) - (a.priority ?? 0) || a.id.localeCompare(b.id);
+    const fs = (r: ServiceRule) => (r.fareService ? 1 : 0);
+    const pk = (r: ServiceRule) => (r.packages?.length ? 1 : 0);
+    return Number(!!b.brand) - Number(!!a.brand) || spec(b) - spec(a) || fs(b) - fs(a) || pk(b) - pk(a) || svc(b) - svc(a) || (b.priority ?? 0) - (a.priority ?? 0) || a.id.localeCompare(b.id);
   });

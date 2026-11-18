@@ -12,6 +12,7 @@ import { NxDialog } from '../components/nx/Dialog';
 import { NxIcon, type NxIconName } from '../components/nx/Icon';
 import { NxBadge, NxButton, NxCardHeading, NxEmpty, NxField, NxFormError, NxInfo, NxListItem, NxPanel, NxPills, NxRow, NxTextButton, placeName } from '../components/nx/primitives';
 import { payoutLabel } from '../components/nx/tripFormat';
+import { DepositCard, DuesCard } from '../components/nx/PartnerPayments';
 import { goTab } from '../navigation/navItems';
 import { DriverActionError, MIN_PAYOUT, requestPayout, validatePayoutAmount } from '../services/driverService';
 import { last7Days, tripEarningStatus } from '../utils/ledger';
@@ -88,6 +89,12 @@ function MoneyScreen({ mode }: { mode: 'earnings' | 'wallet' }) {
         </NxInfo>
       ) : null}
       {mode === 'wallet' ? <BalanceCard /> : null}
+      {mode === 'wallet' ? (
+        <>
+          <DuesCard />
+          <DepositCard />
+        </>
+      ) : null}
       {wallet.available < 0 ? (
         <NxInfo tone="amber" style={styles.pageNote}>
           Cash fares you collected exceed your earnings; upcoming earnings settle this first.

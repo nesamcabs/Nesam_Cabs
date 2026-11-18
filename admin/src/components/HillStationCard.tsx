@@ -7,14 +7,20 @@ import { CardBody, Problems, RateTable, SaveBar, SettingCard, vehicleColumns, ty
 
 /**
  * Hill Station Allowance / Charge (Customer UX v8, 16 Nov 2026, section 08). A One Way or Round Trip whose pickup, stop or destination is
- * in a Tamil Nadu hill station is detected automatically from the map position of each place, and the vehicle's slab is added to the fare
+ * in a hill station of Tamil Nadu, Karnataka or Kerala is detected automatically from the postal pincode of each place (no radius), and the vehicle's slab is added to the fare
  * as its own line — "Hill Station Allowance / Charge" — never mixed into the base or package fare:
  *   One Way    : base fare + driver bata + extra km + hill charge (One-Way slab) + toll / permit
  *   Round Trip : package fare + extra km + hill charge (Round-Trip slab) + toll / permit
  * Hill stations never use the 5-Hour / 8-Hour packages. Amounts follow the fare's GST setting (entered with GST included or added on top).
  * Applies to every brand, like the rate cards it sits on.
  */
-const STATIONS = ["Ooty", "Kodaikanal", "Yercaud", "Coonoor", "Kotagiri", "Valparai", "Megamalai", "Kolli Hills", "Yelagiri", "Kolukkumalai", "Jawadhu Hills", "Manjolai", "Kalvarayan Hills", "Sirumalai", "Topslip"];
+// The built-in hill stations, by state (functions/src/domain/hillStations.ts holds the pincodes of each).
+const STATIONS: { state: string; names: string[] }[] = [
+  { state: "Tamil Nadu", names: ["Ooty", "Coonoor", "Kotagiri", "Kodaikanal", "Yercaud", "Valparai", "Topslip", "Megamalai", "Kolli Hills", "Yelagiri", "Jawadhu Hills", "Kalvarayan Hills", "Manjolai", "Kolukkumalai"] },
+  { state: "Kerala", names: ["Munnar", "Thekkady", "Vagamon", "Peermade", "Ponmudi", "Wayanad", "Nelliyampathy"] },
+  { state: "Karnataka", names: ["Madikeri (Coorg)", "Bhagamandala · Talacauvery", "Chikmagalur · Mullayanagiri", "Kemmangundi", "Sakleshpur", "Agumbe", "Kudremukh", "Nandi Hills · Skandagiri"] },
+];
+const STATION_COUNT = STATIONS.reduce((n, g) => n + g.names.length, 0);
 const FIELDS = ["owCustomer", "owPartner", "rtCustomer", "rtPartner"] as const;
 type Field = (typeof FIELDS)[number];
 type Draft = Record<Field, string>;
@@ -106,7 +112,7 @@ export default function HillStationCard({ vehicles, service }: { vehicles?: Vehi
   ];
   return (
     <SettingCard title="Hill station charge"
-      description="Added as its own fare line when the pickup, a stop or the drop is in a hill station. Hill stations never use the 5-hour / 8-hour packages. Amounts follow the fare's GST setting."
+      description="Added as its own fare line when the pickup, a stop or the drop is in a hill station (found by the place's postal pincode). Hill stations never use the 5-hour / 8-hour packages. Amounts follow the fare's GST setting."
       footer={<SaveBar reason={reason} onReason={setReason} onSave={save} busy={busy} disabled={!changed || !!anyError || !canEdit} message={message} note="Always on. Leave both boxes of a trip type empty for no charge." />}>
       <CardBody className="fm-body--inline">
         <label className="fm-inline-field">
@@ -117,8 +123,9 @@ export default function HillStationCard({ vehicles, service }: { vehicles?: Vehi
           </select>
         </label>
         <details className="fm-details">
-          <summary>{STATIONS.length} hill stations detected</summary>
-          <p>{STATIONS.join(", ")}.</p>
+          <summary>{STATION_COUNT} hill stations detected by pincode</summary>
+          {STATIONS.map((g) => <p key={g.state}><strong>{g.state}:</strong> {g.names.join(", ")}.</p>)}
+          <p>A place counts when its address pincode is one of the post-office pincodes covering the hill and about 10 km around it. A place with no pincode is not treated as a hill station.</p>
         </details>
       </CardBody>
       {cards.length === 0

@@ -21,6 +21,7 @@ import "./pricingReference.css";
 import VehicleCategoriesPage from "./VehicleCategories";
 import FareMatrix from "../components/FareMatrix";
 import BookingRulesGrid from "../components/BookingRulesGrid";
+import PriceChangeRules from "../components/PriceChangeRules";
 import type { VehicleCol } from "../components/RateTable";
 import ExtraChargeRulesCard from "../components/ExtraChargeRulesCard";
 import { registerFareWorkspaceGuard } from "../services/fareWorkspaceGuard";
@@ -394,6 +395,14 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
               citiesOf={(state) => locationOptions([...directoryCities(stateKey(state)), ...locationRows.filter((l) => stateKey(l.state) === stateKey(state)).map((l) => l.city)])}
               areasOf={(state, city) => locationOptions([...directoryZones(city), ...locationRows.filter((l) => (!state || stateKey(l.state) === stateKey(state)) && locationKey(l.city) === locationKey(city)).map((l) => l.area)])}
               onToast={show} renderRules={(list) => ruleTable(list)} onAddRule={(kind) => setSheet({ kind: "new", ruleKind: kind })} />
+            <div className="mt-4">
+              <PriceChangeRules rules={rules.filter((r) => r.kind === "pricing" && (!r.brand || r.brand === scopeBrand))} fareScope={fareScope}
+                canEdit={canEdit} loaded={loaded} loadError={loadError} stateName={stateName}
+                stateOptions={[...GST_STATES.map(([c, n]) => ({ value: c, label: n })), ...otherStates.map((st) => ({ value: st, label: st }))]}
+                citiesOf={(state) => locationOptions([...directoryCities(stateKey(state)), ...locationRows.filter((l) => stateKey(l.state) === stateKey(state)).map((l) => l.city)])}
+                areasOf={(state, city) => locationOptions([...directoryZones(city), ...locationRows.filter((l) => (!state || stateKey(l.state) === stateKey(state)) && locationKey(l.city) === locationKey(city)).map((l) => l.area)])}
+                onToast={show} />
+            </div>
           </div>
         )
       )}

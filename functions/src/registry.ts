@@ -107,6 +107,13 @@ export const CALLABLES: Readonly<Record<string, CallableLike>> = Object.freeze({
   verifyDuesPayment: fns.verifyDuesPayment,
   setSecurityDeposit: fns.setSecurityDeposit,
   requestDepositRefund: fns.requestDepositRefund,
+  createDepositPayment: fns.createDepositPayment,
+  verifyDepositPayment: fns.verifyDepositPayment,
+  // payment gateway (Razorpay) options, status, office switch and refunds
+  getPaymentOptions: fns.getPaymentOptions,
+  getPaymentGatewayStatus: fns.getPaymentGatewayStatus,
+  setOnlinePayments: fns.setOnlinePayments,
+  refundGatewayPayment: fns.refundGatewayPayment,
   // identity, legal, security
   reportSecurityEvent: fns.reportSecurityEvent,
   getIntegrityNonce: fns.getIntegrityNonce,

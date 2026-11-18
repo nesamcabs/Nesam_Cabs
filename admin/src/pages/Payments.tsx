@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import SettlementQueue from "../components/SettlementQueue";
+import GatewayPanel from "../components/GatewayPanel";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import type { Booking, PaymentTransaction } from "../types";
 import { subscribeBookings, subscribePayments, subscribeToCollection } from "../services/adminFirestoreService";
@@ -160,7 +161,7 @@ export default function Payments({ onSelectBooking }: { onSelectBooking?: (id: s
         <div>
           <h1 className="text-[20px] font-bold text-ink">Payment Transactions & Collections</h1>
           <p className="text-[13px] text-muted">
-            Verified customer payments for completed trips. Customers pay by UPI (to the company) or cash (to the driver).
+            Verified customer payments for completed trips. Customers pay online (Razorpay), by UPI to the company, or cash to the driver.
           </p>
         </div>
         <button
@@ -171,6 +172,8 @@ export default function Payments({ onSelectBooking }: { onSelectBooking?: (id: s
           Record Payment ({awaiting.length} awaiting)
         </button>
       </div>
+
+      <GatewayPanel onToast={(t) => show(t)} />
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

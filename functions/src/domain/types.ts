@@ -40,6 +40,8 @@ export interface LocationItem {
 export interface GeoPlace extends LocationItem {
   lat: number;
   lng: number;
+  /** Postal pincode of the place (six digits) — what hill-station detection works from. Filled from the address or a reverse geocode. */
+  pincode?: string;
 }
 
 export interface RouteInfo {

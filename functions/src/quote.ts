@@ -1,7 +1,8 @@
 import { bookingAddOnsOf, withBookingAddOns, type BookingAddOns } from './domain/bookingAddOns';
 import { withNightAllowance, type NightAllowanceConfig } from './domain/nightAllowance';
 import { withHillCharge } from './domain/hillCharge';
-import { detectHillStations, distinctHillStations, hillChargeFor, type HillMatch } from './domain/hillStations';
+import { detectHillStations, distinctHillStations, hillChargeFor, validPincode, type HillMatch } from './domain/hillStations';
+import { withTripPincodes } from './placePincode';
 import { loadNightAllowance } from './nightAllowanceConfig';
 import { withPlatformFee, type PlatformFeeConfig } from './domain/platformFee';
 import { loadPlatformFee } from './platformFeeConfig';
@@ -282,7 +283,8 @@ export interface PriceInput {
 export function hillStationsOfTrip(i: Pick<PriceInput, 'tariff' | 'tripType' | 'multicity' | 'pickup' | 'drop' | 'stops'>): HillMatch[] {
   const cfg = i.tariff?.hillStation;
   if (!cfg?.enabled || i.multicity || (i.tripType !== 'One Way' && i.tripType !== 'Round Trip')) return [];
-  const at = (p: GeoPlace, role: 'pickup' | 'stop' | 'drop') => ({ role, name: p.name, address: p.address, lat: p.lat, lng: p.lng });
+  // Hill stations are found by pincode: the place's own, or the one written in its address (placePincode.ts fills a bare pin in).
+  const at = (p: GeoPlace, role: 'pickup' | 'stop' | 'drop') => ({ role, name: p.name, address: p.address, pincode: p.pincode });
   return detectHillStations([at(i.pickup, 'pickup'), ...(i.stops ?? []).map((p) => at(p, 'stop')), at(i.drop, 'drop')], cfg);
 }
 
@@ -615,7 +617,8 @@ import { rateLimited } from './http/util';
 
 function placeOf(v: any, role: string): GeoPlace {
   if (!v || !inIndia(v.lat, v.lng)) throw new HttpsError('invalid-argument', `Choose a valid ${role} location in India.`);
-  return { id: 'pin', name: text(v.name, 120), address: text(v.address), lat: v.lat, lng: v.lng, type: v.type === 'airport' ? 'airport' : 'other' };
+  const pincode = validPincode(v.pincode);
+  return { id: 'pin', name: text(v.name, 120), address: text(v.address), lat: v.lat, lng: v.lng, type: v.type === 'airport' ? 'airport' : 'other', ...(pincode ? { pincode } : {}) };
 }
 
 /**
@@ -670,7 +673,7 @@ export const quoteBooking = onCall({ timeoutSeconds: 60, cors: PUBLIC_CALLABLE_O
   if (rawStops.length > 8) throw new HttpsError('invalid-argument', 'Add no more than 8 intermediate stops.');
   if (rawStops.length && tripType !== 'Round Trip') throw new HttpsError('invalid-argument', 'Intermediate stops are available for round trips only.');
   if (multicity && !rawStops.length) throw new HttpsError('invalid-argument', 'Add at least one city between your pickup and your final drop.');
-  const [pickup, drop, ...stops] = await Promise.all([
+  let [pickup, drop, ...stops] = await Promise.all([
     trustedCustomerPlace(placeOf(input.pickup, 'pickup'), input.pickup?.id),
     trustedCustomerPlace(placeOf(input.drop, 'drop'), input.drop?.id),
     ...rawStops.map((stop: any) => trustedCustomerPlace(placeOf(stop, 'stop'), stop?.id)),
@@ -718,6 +721,8 @@ export const quoteBooking = onCall({ timeoutSeconds: 60, cors: PUBLIC_CALLABLE_O
   // A coupon is only checked for an existing customer account.
   const customerId = customer?.exists ? uid : null;
   const [categories, tariff, adjustmentDoc, couponsRead, historyRead, serviceRules, policy, servicesSnap, platformFee, nightAllowance] = await catalogue;
+  // Hill stations are detected from each place's pincode; a pin with none in its address is looked up (only when hill stations are on).
+  ({ pickup, drop, stops } = await withTripPincodes({ hillEnabled: tariff?.hillStation?.enabled === true, tripType, multicity, pickup, drop, stops }));
   // A coupon is only checked for an existing customer account.
   const coupons = customerId ? couponsRead : null;
   const history = customerId ? historyRead : null;
@@ -726,8 +731,11 @@ export const quoteBooking = onCall({ timeoutSeconds: 60, cors: PUBLIC_CALLABLE_O
   // Display only: the % shown as a higher struck-out price above each fare. The fare itself is never changed by it.
   const strikePercent = displayMarkupPercent(tariff, brand, multicity ? 'Multicity' : fareServiceKey(tripType));
   const struck = (total: number) => (strikePercent > 0 ? { strikeTotal: Math.round(total * (1 + strikePercent / 100)) } : {});
-  const rules = evaluateRules(serviceRules, pickup, drop, when, multicity ? 'Multicity' : ruleServiceText(pickup, drop, route.distanceKm, tripType), brand, multicity ? 'Multicity' : fareServiceKey(tripType), itinerary);
-  const adjustment = rules.customer ?? effectiveAdjustment(adjustmentDoc, now);
+  const evalRules = (pkg?: string) => evaluateRules(serviceRules, pickup, drop, when, multicity ? 'Multicity' : ruleServiceText(pickup, drop, route.distanceKm, tripType), brand, multicity ? 'Multicity' : fareServiceKey(tripType), itinerary, pkg);
+  const rules = evalRules();
+  const packageRules = serviceRules.some((r) => r.packages?.length);
+  const defaultAdjustment = effectiveAdjustment(adjustmentDoc, now);
+  const adjustment = rules.customer ?? defaultAdjustment;
   const code = normalizeCode(text(input.couponCode, 50));
   const prior = history ? history.docs.map((d) => d.data()).filter((b) => b.status !== 'Cancelled' && b.status !== 'Rejected') : [];
   const onlineMasters: ServiceMasterDoc[] = servicesSnap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
@@ -744,7 +752,9 @@ export const quoteBooking = onCall({ timeoutSeconds: 60, cors: PUBLIC_CALLABLE_O
         assertBookable(rules, category.name);
         // Prices one package of this category (coupon and limits included): the same path createBooking takes.
         const priceOne = (timePackage?: string) => {
-          const b = timePackage ? { ...base, timePackage } : base;
+          // A price change may be limited to some packages: each package is priced with exactly its own rules.
+          const pr = packageRules && timePackage ? evalRules(timePackage) : rules;
+          const b = timePackage ? { ...base, timePackage, adjustment: pr.customer ?? defaultAdjustment } : base;
           const before = priceBooking(b);
           let couponMessage = '', discount = 0;
           if (code && coupons) {
@@ -753,15 +763,17 @@ export const quoteBooking = onCall({ timeoutSeconds: 60, cors: PUBLIC_CALLABLE_O
               customerUses: prior.filter((bk) => normalizeCode(bk.couponCode || '') === code).length,
               pickupAt: when, completedTrips: prior.filter((bk) => bk.status === 'Completed').length,
               pickupText: `${pickup.name} ${pickup.address ?? ''}`, dropText: `${drop.name} ${drop.address ?? ''}`,
-              fixedRoute: before.pricing.model === 'city_drop_package' || before.pricing.model === 'fixed_route', peakAdjusted: adjustment?.direction === 'increase',
+              fixedRoute: before.pricing.model === 'city_drop_package' || before.pricing.model === 'fixed_route', peakAdjusted: b.adjustment?.direction === 'increase',
             });
             if (r.ok) { discount = r.coupon.discount; couponMessage = r.coupon.message; } else couponMessage = r.message;
           } else if (code) couponMessage = 'Sign in to apply this code.';
           const priced = discount > 0 ? priceBooking({ ...b, discount }) : before;
-          assertWithinLimits(rules, { categoryName: category.name, customerFare: priced.fare.total, partnerPayout: partnerPayoutRupees(adjustPartner(priced.pricing, rules)) });
+          assertWithinLimits(pr, { categoryName: category.name, customerFare: priced.fare.total, partnerPayout: partnerPayoutRupees(adjustPartner(priced.pricing, pr)) });
           return { before, priced, discount, couponMessage };
         };
-        const first = priceOne(base.timePackage);
+        let first = priceOne(base.timePackage);
+        // No package chosen yet: the cheapest was priced with the all-packages rules; price it again with its own.
+        if (packageRules && !base.timePackage && first.priced.pricing.timeBased) first = priceOne(first.priced.pricing.timeBased.packageId);
         const before = first.before;
         let couponMessage = first.couponMessage, discount = first.discount;
         const priced = first.priced;
@@ -777,7 +789,12 @@ export const quoteBooking = onCall({ timeoutSeconds: 60, cors: PUBLIC_CALLABLE_O
         let packages: Array<Record<string, unknown>> | undefined;
         if (priced.pricing.timeBased) {
           packages = [];
-          for (const id of ['same:eight', 'same:five', 'same:full', 'morning', 'next']) {
+          const lim = priced.pricing.timeBased.limits;
+          const shortIds = [
+            { id: 'same:eight', h: lim.eightHours }, { id: 'same:five', h: lim.fiveHours },
+            ...(lim.extra ?? []).map((x) => ({ id: `same:h${x.hours}`, h: x.hours })),
+          ].sort((a, b) => b.h - a.h).map((x) => x.id);
+          for (const id of [...shortIds, 'same:full', 'morning', 'next']) {
             try {
               const one = id === priced.pricing.timeBased.packageId ? first : priceOne(id);
               const tb = one.priced.pricing.timeBased!;

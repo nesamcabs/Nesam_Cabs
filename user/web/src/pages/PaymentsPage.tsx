@@ -7,6 +7,7 @@ import { Icon } from '@/components/Icon';
 import { useAuth } from '@/state/Auth';
 import { useSeo } from '@/lib/seo';
 import { PolicyLinks } from '@/pages/PolicySections';
+import { PayOnline } from '@/components/PayOnline';
 
 export function PaymentsPage() {
   useSeo({ title: 'Payments & Refunds', noindex: true });
@@ -121,6 +122,11 @@ export function PaymentsPage() {
                     </span>
                     <Icon name="chevron-right" size={18} />
                   </Link>
+                  {completed && t.paid && t.paid.balanceDue >= 1 ? (
+                    <div className="pay-row__pay">
+                      <PayOnline trip={t} compact />
+                    </div>
+                  ) : null}
                 </li>
               );
             })}
