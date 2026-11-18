@@ -177,7 +177,7 @@ export function ChooseRideScreen() {
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={styles.pkgName}>{p.label}</Text>
                     <Text style={styles.pkgSub}>{detail} · {p.includedKm} km included</Text>
-                    <Text style={styles.pkgSub}><Text style={{ fontWeight: '700' }}>{p.kind === 'morning' ? 'Return by' : 'Ends'} {dayText(end)}, {formatTime(end).replace(/^0/, '')}</Text> · Driver bata included · Extra {formatINR(p.extraKmRate)}/km</Text>
+                    <Text style={styles.pkgSub}><Text style={{ fontWeight: '700' }}>Return by {dayText(end)}, {formatTime(end).replace(/^0/, '')}</Text> · Driver bata included · Extra {formatINR(p.extraKmRate)}/km</Text>
                     {p.upgrade ? <Text style={styles.pkgNote}>Still running after {formatTime(new Date(p.morningCutoffAt ?? p.endAt)).replace(/^0/, '')}? It upgrades to {p.upgrade.label} (+{formatINR(p.upgrade.increase)}, {p.upgrade.includedKm} km included).</Text> : null}
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>

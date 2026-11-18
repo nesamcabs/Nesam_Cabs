@@ -15,6 +15,7 @@ import { CabIcon, FuelPick, type FuelChoice } from '@/components/CabParts';
 import { FareDialog, FlowBar, PromoControl } from './parts';
 import { RoundVehiclePackage } from './RoundVehiclePackage';
 import { EditTripDialog } from './EditTripDialog';
+import { packageClock, packageDay } from '@core/utils/timePackages';
 
 const TOO_FAR_KM = 1500;
 type Sort = 'recommended' | 'low' | 'high';
@@ -97,7 +98,7 @@ export function ChooseStep() {
                   </span>
                   {scheduledAt ? <span className="trip-sum__when">{formatDate(scheduledAt)}, {formatTime(scheduledAt)}</span> : null}
                   {tripType === 'Round Trip' && !draft.multicity && q.selectedPackage ? (
-                    <span className="trip-sum__when">{q.selectedPackage.days} calendar {q.selectedPackage.days === 1 ? 'day' : 'days'} · Return by {formatDate(new Date(q.selectedPackage.endAt))}, {formatTime(new Date(q.selectedPackage.endAt))}</span>
+                    <span className="trip-sum__when">{q.selectedPackage.days} calendar {q.selectedPackage.days === 1 ? 'day' : 'days'} · Return by {packageDay(new Date(q.selectedPackage.endAt))}, {packageClock(new Date(q.selectedPackage.endAt))}</span>
                   ) : null}
                   {route && tripType !== 'Local Rental' ? <span>{formatDistance(q.trip?.distanceKm ?? route.totalDistanceKm ?? route.distanceKm)} · about {formatDuration(q.trip?.durationMin ?? route.totalDurationMin ?? route.durationMin)}</span> : null}
                 </p>
@@ -187,7 +188,7 @@ export function ChooseStep() {
                   {q.packages.map((p) => {
                     const on = p.id === q.selectedPackage?.id;
                     const end = new Date(p.endAt);
-                    const sameDay = scheduledAt ? formatDate(end) === formatDate(scheduledAt) : true;
+                    const sameDay = scheduledAt ? packageDay(end) === packageDay(scheduledAt) : true;
                     const dayLabel = p.days === 1 ? 'Same day' : `${p.days} calendar days`;
                     const split = p.dayKm && p.dayKm.length > 1
                       ? ` (First day: ${p.dayKm[0]} km + ${p.dayKm.length === 2 ? 'Next day' : `Each next day`}: ${p.dayKm[1]} km)`
@@ -212,8 +213,8 @@ export function ChooseStep() {
                         <span className="pkg__body">
                           <strong>{p.label}</strong>
                           <small>{detail} · {p.includedKm} km included</small>
-                          <small><b>{p.kind === 'morning' ? 'Return by' : 'Ends'} {sameDay ? '' : `${formatDate(end)}, `}{formatTime(end)}</b> · Driver bata included · Extra {formatINR(p.extraKmRate)}/km</small>
-                          {p.upgrade ? <small className="pkg__note">Still running after {formatTime(new Date(p.morningCutoffAt ?? p.endAt))}? It upgrades to {p.upgrade.label} (+{formatINR(p.upgrade.increase)}, {p.upgrade.includedKm} km included).</small> : null}
+                          <small><b>Return by {sameDay ? '' : `${packageDay(end)}, `}{packageClock(end)}</b> · Driver bata included · Extra {formatINR(p.extraKmRate)}/km</small>
+                          {p.upgrade ? <small className="pkg__note">Still running after {packageClock(new Date(p.morningCutoffAt ?? p.endAt))}? It upgrades to {p.upgrade.label} (+{formatINR(p.upgrade.increase)}, {p.upgrade.includedKm} km included).</small> : null}
                         </span>
                         <span className="pkg__price">
                           {p.strikeTotal && p.strikeTotal > p.fare.total ? <s>{formatINR(Math.round((p.fare.taxableAmount * p.strikeTotal) / p.fare.total))}</s> : null}
@@ -241,6 +242,7 @@ export function ChooseStep() {
                 hasCng={!!selected && !!cngOf(selected)}
                 scheduledAt={scheduledAt}
                 loading={categoryStatus === 'loading'}
+                quoteLoading={q.quoteLoading}
                 onPickVehicle={chooseCategory}
                 onPickPackage={(id) => update({ timePackage: id })}
                 onFuel={chooseFuel}

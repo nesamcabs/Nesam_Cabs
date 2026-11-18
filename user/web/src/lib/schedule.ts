@@ -51,7 +51,7 @@ export function pickupTimeOptions(date: string, slots: readonly string[], now = 
   return out;
 }
 
-/** A same-day round-trip package ends at 11:45 PM and the shortest one runs 5 hours, so a pickup after 6:45 PM is an overnight trip. */
+/** A same-day round-trip package ends at 11:45 PM and the shortest one runs 5 hours, so a pickup after 6:45 PM (and before 1:00 AM, see isOvernightPickup in @core/utils/timePackages) is an overnight trip. */
 export const OVERNIGHT_AFTER_MIN = 18 * 60 + 45;
 /** Minutes after midnight of an "hh:mm" time, or -1 when it is not one. */
 export const pickupMinutes = (t: string): number => {

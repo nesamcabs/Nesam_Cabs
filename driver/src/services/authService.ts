@@ -63,7 +63,16 @@ export function describePhoneAuthError(error: unknown): string {
     case 'auth/captcha-check-failed':
     case 'auth/invalid-app-credential':
       return 'The security check failed. Please try again.';
+    case 'auth/unauthorized-domain':
+    case 'auth/app-not-authorized':
+      return 'This website address is not approved for phone sign-in yet. Please contact support.';
+    case 'auth/invalid-api-key':
+    case 'auth/api-key-not-valid.-please-pass-a-valid-api-key.':
+      return 'Phone sign-in is not set up correctly for this app. Please contact support.';
+    case 'auth/internal-error':
+      return 'The verification service had a problem. Please try again in a moment.';
     default:
-      return 'Unable to complete verification. Please try again.';
+      // The code is shown so a failure that is not listed above can be reported and fixed.
+      return `Unable to complete verification${code ? ` (${code})` : ''}. Please try again.`;
   }
 }

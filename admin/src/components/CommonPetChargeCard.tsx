@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useCan, useCanDo } from './AccessContext';
 import { useTariff } from '../services/tariffService';
 import { saveTariffSection } from '../services/bookingOpsService';
-import { Button } from './ui';
+import { CardBody, SaveBar, SettingCard } from './RateTable';
 
 export default function CommonPetChargeCard() {
   const { tariff } = useTariff();
@@ -25,14 +25,21 @@ export default function CommonPetChargeCard() {
       setMessage(error instanceof Error ? error.message : 'Could not save the pet travel charge. Please retry.');
     } finally { setBusy(false); }
   };
+  const canSave = !busy && valid && Number(amount) !== saved && canPrice && canEditSettings && tariff !== undefined;
   return (
-    <section className="min-w-0 rounded-xl border border-line p-3" aria-label="Pet travel charge">
-      <label className="ds-field max-w-sm"><span className="flex items-center justify-between gap-1"><span className="text-[12px] font-bold text-ink">Pet travel charge</span><span className="text-[11px] text-muted">₹/trip</span></span>
-        <input className="ds-input" type="number" min="0" max="100000" step="0.01" value={amount} disabled={busy || !canPrice || !canEditSettings} onChange={e => { setAmount(e.target.value); setMessage(''); }} />
-      </label>
-      {!valid ? <p role="alert" className="text-xs text-bad mt-2">Enter a price from INR 0 to 100,000.</p> : null}
-      <div className="mt-3"><Button onClick={() => void save()} disabled={busy || !valid || Number(amount) === saved || !canPrice || !canEditSettings || tariff === undefined}>{busy ? 'Saving…' : 'Save pet charge'}</Button></div>
-      {message ? <p role="status" className="text-xs mt-2">{message}</p> : null}
-    </section>
+    <SettingCard title="Pet travel charge" description="One amount per trip for every brand, service and vehicle."
+      footer={<SaveBar onSave={() => void save()} busy={busy} disabled={!canSave} message={message ? { ok: !/could not|error/i.test(message), text: message } : null} />}>
+      <CardBody>
+        <label className="fm-inline-field">
+          <span>Charge</span>
+          <span className="fm-affix fm-affix--pre">
+            <span>₹</span>
+            <input className={`fm-input is-own ${!valid ? "is-bad" : ""}`} type="number" min="0" max="100000" step="0.01" value={amount} disabled={busy || !canPrice || !canEditSettings} onChange={e => { setAmount(e.target.value); setMessage(''); }} aria-label="Pet travel charge per trip" />
+          </span>
+          <small className="fm-hint">per trip</small>
+        </label>
+        {!valid ? <p role="alert" className="ds-error mt-2">Enter a price from ₹0 to ₹1,00,000.</p> : null}
+      </CardBody>
+    </SettingCard>
   );
 }

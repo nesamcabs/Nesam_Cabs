@@ -3,7 +3,7 @@ import { saveTariffSection } from "../services/bookingOpsService";
 import { ActionError } from "../services/callables";
 import { BRAND_LABELS, useTariff, type FareWorkspaceScope } from "../services/tariffService";
 import { useCan, useCanDo } from "./AccessContext";
-import { Button } from "./ui";
+import { CardBody, SaveBar, SettingCard } from "./RateTable";
 
 /**
  * Strike-through price: a percentage added on top of the real fare and shown crossed out above it in the customer apps.
@@ -45,21 +45,22 @@ export default function DisplayMarkupCard({ scope }: { scope: FareWorkspaceScope
   };
 
   return (
-    <section className="ds-panel ds-panel-pad" aria-label="Struck-out price">
-      <h3 className="text-[15px] font-bold text-ink mb-1">Struck-out price</h3>
-      <fieldset disabled={!canEdit || busy} className="flex flex-wrap items-end gap-3 min-w-0">
-        <label className="ds-field" style={{ width: 150 }}>
-          <span>Increase by (%)</span>
-          <input className="ds-input text-right" type="number" inputMode="decimal" min={0} max={300} step="0.5" value={value} placeholder={inherited ? `${inherited} (shared)` : "None"} onChange={(e) => setValue(e.target.value)} />
-        </label>
-        <label className="ds-field" style={{ flex: "1 1 220px" }}>
-          <span>Reason for change</span>
-          <input className="ds-input" value={reason} onChange={(e) => setReason(e.target.value)} />
-        </label>
-        <Button variant="primary" onClick={save} loading={busy} disabled={invalid || !changed || !canEdit}>Save</Button>
-      </fieldset>
-      {invalid ? <p className="ds-error mt-2" role="alert">Enter a percentage above 0 and up to 300, or leave it blank for none.</p> : null}
-      {message ? <p className={message.ok ? "text-[12px] text-ok mt-2" : "ds-error mt-2"} role="status">{message.text}</p> : null}
-    </section>
+    <SettingCard title="Struck-out price"
+      description={<>Shown crossed out above the real fare in the customer apps. Display only: the fare, GST and partner pay do not change.{example ? <> Example: a ₹1,000 fare shows <s>₹{example.toLocaleString("en-IN")}</s>.</> : null}</>}
+      footer={<SaveBar reason={reason} onReason={setReason} onSave={save} busy={busy} disabled={invalid || !changed || !canEdit} message={message} note={`Applies to ${where}.`} />}>
+      <CardBody>
+        <fieldset disabled={!canEdit || busy} className="min-w-0">
+          <label className="fm-inline-field">
+            <span>Increase by</span>
+            <span className="fm-affix">
+              <input className={`fm-input ${value.trim() ? "is-own" : ""} ${invalid ? "is-bad" : ""}`} type="number" inputMode="decimal" min={0} max={300} step="0.5" value={value} placeholder={inherited ? String(inherited) : "None"} onChange={(e) => setValue(e.target.value)} aria-label="Increase by percent" />
+              <span>%</span>
+            </span>
+            {inherited && !value.trim() ? <small className="fm-hint">Shared: {inherited}%</small> : null}
+          </label>
+        </fieldset>
+        {invalid ? <p className="ds-error mt-2" role="alert">Enter a percentage above 0 and up to 300, or leave it blank for none.</p> : null}
+      </CardBody>
+    </SettingCard>
   );
 }

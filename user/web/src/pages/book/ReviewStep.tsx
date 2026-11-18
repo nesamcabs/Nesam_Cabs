@@ -5,6 +5,7 @@ import type { FareBreakdown as Fare } from '@core/types';
 import { useCustomerData } from '@/state/customer';
 import { createRideRequest } from '@core/services/rideService';
 import { buildFareBreakup } from '@core/utils/fareBreakup';
+import { packageClock, packageDay, requestedTripDays } from '@core/utils/timePackages';
 import { scheduleProblem } from '@core/utils/bookingRules';
 import { formatDate, formatDistance, formatDuration, formatINR, formatTime, isValidEmail, isValidIndianMobile } from '@core/utils/format';
 import { describeError } from '@core/utils/retry';
@@ -225,7 +226,7 @@ export function ReviewStep() {
         notes: fullNotes,
         scheduledAt,
         tripEndAt: tripType === 'Round Trip' ? tripEndAt : null,
-        tripDays: tripType === 'Round Trip' && !draft.multicity ? draft.tripDays : null,
+        tripDays: tripType === 'Round Trip' && !draft.multicity ? requestedTripDays(draft) : null,
         timePackage: tripType === 'Round Trip' && !draft.multicity ? q.selectedPackage?.id ?? null : null,
         rentalHours: tripType === 'Local Rental' ? draft.rentalHours : null,
         termsAccepted,
@@ -262,6 +263,11 @@ export function ReviewStep() {
     <div className="flow-page flow-page--review cb">
       <div className="cb__wrap">
         <h1 className="sr-only">Complete your booking</h1>
+        {tripType === 'Round Trip' && !draft.multicity && q.selectedPackage ? (
+          <p className="cb-pkgline" role="note">
+            <strong>{q.selectedPackage.label}</strong> · {q.selectedPackage.includedKm} km included · {q.selectedPackage.days} calendar {q.selectedPackage.days === 1 ? 'day' : 'days'} · Return by {packageDay(new Date(q.selectedPackage.endAt))}, {packageClock(new Date(q.selectedPackage.endAt))} · Extra {formatINR(q.selectedPackage.extraKmRate)}/km
+          </p>
+        ) : null}
 
         <section className="cb__section" aria-label="Passenger & Contact Details">
           <div className={`cb-field${nameError && tried ? ' is-invalid' : ''}`}>
@@ -454,7 +460,7 @@ export function ReviewStep() {
               <label className="cb-terms__row cb-terms__row--cutoff">
                 <input type="checkbox" className="cb-tick" data-cutoff="" checked={cutoffAccepted} onChange={(e) => setCutoffFor(e.target.checked ? cutoffKey : '')} />
                 <span className="cb-terms__text">
-                  I accept the strict {formatTime(new Date(morning.morningCutoffAt ?? morning.endAt))} cutoff on {formatDate(new Date(morning.morningCutoffAt ?? morning.endAt))}.
+                  I accept the strict {packageClock(new Date(morning.morningCutoffAt ?? morning.endAt))} cutoff on {packageDay(new Date(morning.morningCutoffAt ?? morning.endAt))}.
                   {morning.upgrade ? ` A trip still running after it becomes ${morning.upgrade.label} (+${formatINR(morning.upgrade.increase)}, ${morning.upgrade.includedKm} km included), with no grace period.` : ''}
                 </span>
               </label>

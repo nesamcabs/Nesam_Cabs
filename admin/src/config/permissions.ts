@@ -72,6 +72,8 @@ export const PAGE_ACCESS: Record<string, Permission | null | "super"> = {
   earnings: "finance",
   "vendor-finance": "finance",
   "security-deposit": "finance",
+  // One button that fills every pricing and catalogue setting with demo data: Super Admin only.
+  "demo-setup": "super",
   penalties: "compliance",
   reports: "reports",
   notifications: "engagement",
@@ -114,6 +116,7 @@ export const PAGE_MODULE: Record<string, StaffModule | StaffModule[]> = {
   earnings: "Accounts",
   "vendor-finance": "Accounts",
   "security-deposit": "Accounts",
+  "demo-setup": "Settings",
   invoices: "Invoices",
   penalties: "Penalties",
   reports: "Reports & GST",

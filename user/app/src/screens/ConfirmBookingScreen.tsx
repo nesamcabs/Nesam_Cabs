@@ -22,6 +22,7 @@ import { categoryLabel } from '../utils/categoryLabel';
 import type { AppliedCoupon, FareBreakdown, PaymentMethod } from '../types';
 import { formatDate, formatINR, formatPhone, formatTime, isValidIndianMobile } from '../utils/format';
 import { describeError } from '../utils/retry';
+import { requestedTripDays } from '../utils/timePackages';
 import { colors, fonts, space } from '../theme';
 import { NOTES_MAX, composeBookingNotes, scheduleProblem, whatsappProblem } from '../utils/bookingRules';
 import {
@@ -201,7 +202,7 @@ export function ConfirmBookingScreen() {
         bookingSource: 'nesam',
         brand: 'nesam',
         tripEndAt: tripType === 'Round Trip' ? draft.tripEndAt : null,
-        tripDays: tripType === 'Round Trip' && !draft.multicity ? draft.tripDays : null,
+        tripDays: tripType === 'Round Trip' && !draft.multicity ? requestedTripDays(draft) : null,
         timePackage: tripType === 'Round Trip' && !draft.multicity ? selectedPackage?.id ?? null : null,
         stops: tripType === 'Round Trip' ? draft.stops : [],
         multicity: draft.multicity,

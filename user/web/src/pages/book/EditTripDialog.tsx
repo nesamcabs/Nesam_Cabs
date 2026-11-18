@@ -1,6 +1,6 @@
 // "Edit your pickup" (Customer UX 9.0): change the pickup date, time and — for a Round Trip — the trip days without leaving the vehicle
 // page. The fares and packages are recalculated by the server as soon as the booking changes. The same overnight rule as the booking
-// form applies: a pickup after 6:45 PM is a 2-day trip, and the stepper cannot go below it.
+// form applies: a pickup from 6:46 PM to 12:59 AM is a 2-day trip, and the stepper cannot go below it.
 import { useState } from 'react';
 import { scheduleProblem } from '@core/utils/bookingRules';
 import { formatDate } from '@core/utils/format';
@@ -8,7 +8,8 @@ import { Dialog } from '@/components/ui';
 import { Icon } from '@/components/Icon';
 import { TimePicker, formatTime12 } from '@/components/TimePicker';
 import { useBooking } from '@/state/Booking';
-import { OVERNIGHT_AFTER_MIN, addDaysISO, combineDateTime, earliestSlot, latestPickup, pickupMinutes, toDateInput, toTimeInput } from '@/lib/schedule';
+import { addDaysISO, combineDateTime, earliestSlot, latestPickup, toDateInput, toTimeInput } from '@/lib/schedule';
+import { isOvernightPickup } from '@core/utils/timePackages';
 import './editTrip.css';
 
 /** Round trips are booked for up to this many days (the server's roundTrip.maxDays). */
@@ -25,7 +26,7 @@ export function EditTripDialog({ onClose }: { onClose: () => void }) {
   const [timeOpen, setTimeOpen] = useState(false);
   const [error, setError] = useState('');
 
-  const overnight = round && OVERNIGHT_AFTER_MIN < pickupMinutes(time);
+  const overnight = round && isOvernightPickup(combineDateTime(date, time));
   const minDays = overnight ? 2 : 1;
   const firstDay = toDateInput(earliestSlot());
   const lastDay = toDateInput(latestPickup());
@@ -34,7 +35,7 @@ export function EditTripDialog({ onClose }: { onClose: () => void }) {
     setTime(t);
     setError('');
     if (!round) return;
-    const night = OVERNIGHT_AFTER_MIN < pickupMinutes(t);
+    const night = isOvernightPickup(combineDateTime(date, t));
     if (night && days < 2) { setDays(2); setAuto(true); }
     else if (!night && auto) { setDays(1); setAuto(false); }
   };
@@ -51,7 +52,7 @@ export function EditTripDialog({ onClose }: { onClose: () => void }) {
     if (problem) return setError(problem);
     update(
       round
-        ? { scheduledAt: at, tripEndAt: combineDateTime(addDaysISO(date, days - 1), time), tripDays: days, timePackage: '' }
+        ? { scheduledAt: at, tripEndAt: combineDateTime(addDaysISO(date, days - 1), time), tripDays: days, daysAuto: false, timePackage: '' }
         : { scheduledAt: at, tripEndAt: null, timePackage: '' },
     );
     onClose();

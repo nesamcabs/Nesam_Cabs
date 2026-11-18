@@ -45,6 +45,7 @@ import Communication from "./pages/Communication";
 import StaffRoles from "./pages/StaffRoles";
 import SecurityEvents from "./pages/SecurityEvents";
 import LegalDocuments from "./pages/LegalDocuments";
+import DemoSetup from "./pages/DemoSetup";
 import LegalGate from "./components/LegalGate";
 import B2BIntegrations from "./pages/B2BIntegrations";
 import NewBooking, { type NewBookingDraft } from "./pages/NewBooking";
@@ -114,6 +115,7 @@ const pageMeta: Record<string, { title: string; breadcrumb: string[] }> = {
   settings: { title: "Settings", breadcrumb: ["Office", ""] },
   security: { title: "Security & Audit", breadcrumb: ["Office", "Staff activity"] },
   legal: { title: "Terms, Privacy & Consent", breadcrumb: ["Office", "Terms & Privacy"] },
+  "demo-setup": { title: "Demo data setup", breadcrumb: ["Administration", "Demo data setup"] },
   support: { title: "Help & support", breadcrumb: ["Office", "Support"] },
 };
 
@@ -358,6 +360,8 @@ function AdminShell({ session }: { session: AdminSession }) {
         return <SecurityEvents onOpenBooking={(id) => openTarget("booking-detail", id)} />;
       case "legal":
         return <LegalDocuments />;
+      case "demo-setup":
+        return <DemoSetup />;
       case "support":
         return <Support onOpenBooking={(id) => openTarget("booking-detail", id)} onNavigate={navigate} />;
 

@@ -19,7 +19,7 @@ import FixedRouteFares from "../components/FixedRouteFares";
 import LocalFares from "../components/LocalFares";
 import "./pricingReference.css";
 import VehicleCategoriesPage from "./VehicleCategories";
-import BrandServiceFareWorkspace from "../components/BrandServiceFareWorkspace";
+import FareMatrix from "../components/FareMatrix";
 import ExtraChargeRulesCard from "../components/ExtraChargeRulesCard";
 import { registerFareWorkspaceGuard } from "../services/fareWorkspaceGuard";
 import { BRANDS, BRAND_LABELS, BRAND_SUPPORTED_SERVICES, CLASS_LABEL, TARIFF_CLASSES, WORKSPACE_SERVICES, PICKUP_DROP, serviceLabel, tariffClassOfCategory, type FareWorkspaceScope, type TariffClass } from "../services/tariffService";
@@ -28,6 +28,7 @@ import { directoryCities, directoryZones } from "../domain/placeDirectory";
 import DisplayMarkupCard from "../components/DisplayMarkupCard";
 import TimeBasedRoundTripCard from "../components/TimeBasedRoundTripCard";
 import HillStationCard from "../components/HillStationCard";
+import CommonPetChargeCard from "../components/CommonPetChargeCard";
 import { refDateTime } from "../domain/officeStage";
 
 type Tab = "Brand & service fares" | "Booking availability" | "Cab types" | "Pricing rules" | "GST calculation" | "Platform fee" | "Night allowance";
@@ -64,7 +65,7 @@ const Ta = ({ children }: { children: ReactNode }) => <span className="block tex
 /** What the page shows, kept by the app while the Pricing & Fare Management page is open so Back can put it back. */
 /** Inside Cab types: the customer-visibility rules, or the master Vehicle Categories management. */
 export type CabSection = "Customer cab rules" | "Vehicle categories";
-export type PricingView = { tab: Tab; sel: Sel; filter: (typeof STATUS_FILTERS)[number]; scrollY: number; fareScope?: FareWorkspaceScope; fareClass?: TariffClass; cabSection?: CabSection; pickupDrop?: boolean };
+export type PricingView = { tab: Tab; sel: Sel; filter: (typeof STATUS_FILTERS)[number]; scrollY: number; fareScope?: FareWorkspaceScope; cabSection?: CabSection; pickupDrop?: boolean };
 /** Where the older Vehicle Categories entry points land: Service & Fare Settings → Vehicles → Vehicle categories. */
 export const CATEGORIES_VIEW: PricingView = { tab: "Cab types", sel: { state: "", city: "", area: "" }, filter: "All", scrollY: 0, cabSection: "Vehicle categories", fareScope: { brand: "common", service: "One Way" } };
 
@@ -83,11 +84,8 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
     if (workspaceBusy.current || next === fareFuel) return;
     setFareFuel(next);
   };
-  const [fareClass, setFareClass] = useState<TariffClass>(restore?.fareClass ?? "sedan");
   // The "Pickup & Drop" choice of the Service list shows the city-wise fares. Its rules, GST and display price follow One Way.
   const [pickupDrop, setPickupDrop] = useState(restore?.pickupDrop ?? false);
-  // The vehicle chip that was clicked. Several categories can share one rate class, so the class alone cannot say which chip is on.
-  const [fareCategory, setFareCategory] = useState("");
   const gstDirty = useRef(false), gstBusy = useRef(false);
   const workspaceDirty = useRef(false);
   const workspaceBusy = useRef(false);
@@ -123,11 +121,6 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
     if (workspaceBusy.current || gstBusy.current || (sheet && !inlineKind) || (next.brand === fareScope.brand && next.service === fareScope.service)) return;
     if ((workspaceDirty.current || gstDirty.current) && !window.confirm("Discard the unsaved rates in " + scopeLabel + "?")) return;
     setFareScope(next);
-  };
-  const changeClass = (next: TariffClass) => {
-    if (workspaceBusy.current || next === fareClass) return;
-    if (workspaceDirty.current && !window.confirm("Discard the unsaved rates in " + scopeLabel + " → " + CLASS_LABEL[fareClass] + "?")) return;
-    setFareClass(next);
   };
   const changeTab = (next: Tab) => {
     if (inlineKind) setSheet(null); // leaving an in-page tool view goes back to the page the menu item points at
@@ -172,7 +165,7 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
   const activeOf = (k: RuleKind) => rankRules(scoped.filter((r) => r.kind === k && phaseOf(r, now) === "Active"));
   const where = sel.area || sel.city || (sel.state ? stateName(sel.state) : "All locations");
   const catNames = categories.filter((c) => c.status === "Active").map((c) => c.name);
-  const savedView = (): PricingView => ({ tab, sel, filter, scrollY: window.scrollY, fareScope, fareClass, cabSection, pickupDrop });
+  const savedView = (): PricingView => ({ tab, sel, filter, scrollY: window.scrollY, fareScope, cabSection, pickupDrop });
   const selectPickupDrop = () => {
     if (workspaceBusy.current) return;
     if (!pickupDrop && workspaceDirty.current && !window.confirm("Discard the unsaved rates in " + scopeLabel + "?")) return;
@@ -249,16 +242,20 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
   type NavItem = { key: string; label: string; hint: string; icon: IconName; on?: boolean; opens?: boolean; go: () => void; disabledReason?: string };
   const fixedOff = fareScope.service !== "One Way" || pickupDrop ? "Fixed route fares are for One Way. Choose Service → One Way." : undefined;
   const navGroups: { title: string; items: NavItem[] }[] = [
-    { title: "Fares", items: [
+    // These four follow the Brand / Service choice above them, so they sit right under it.
+    { title: "For this brand & service", items: [
       { key: "base", label: "Fares", hint: "Customer price, partner pay, CNG and extra charges", icon: "calculator", on: !inlineKind && tab === "Brand & service fares", go: () => changeTab("Brand & service fares") },
       { key: "tax", label: "GST & tax", hint: "How GST is worked out and shown", icon: "files", on: !inlineKind && tab === "GST calculation", go: () => changeTab("GST calculation") },
-      { key: "platformFee", label: "Platform fee", hint: "A common fee on bookings, by service", icon: "wallet", on: !inlineKind && tab === "Platform fee", go: () => changeTab("Platform fee") },
-      { key: "nightAllowance", label: "Night allowance", hint: "A common amount for pickups from 11 PM to 6 AM", icon: "alarm-clock", on: !inlineKind && tab === "Night allowance", go: () => changeTab("Night allowance") },
       { key: "fixed", label: "Fixed route fares", hint: "An agreed fare for one route", icon: "route", on: inlineKind === "fixed", go: () => setSheet({ kind: "fixed" }), disabledReason: fixedOff },
       { key: "rules", label: "Booking rules", hint: "Availability, cabs and pricing rules", icon: "toggle-right", on: !inlineKind && isRuleSection, go: () => {
         setCabSection("Customer cab rules");
         changeTab(tab === "Cab types" || tab === "Pricing rules" ? tab : "Booking availability");
       } },
+    ] },
+    // Common to every brand and service: the Brand / Service choice is not used for these.
+    { title: "All brands & services", items: [
+      { key: "platformFee", label: "Platform fee", hint: "A common fee on bookings, by service", icon: "wallet", on: !inlineKind && tab === "Platform fee", go: () => changeTab("Platform fee") },
+      { key: "nightAllowance", label: "Night allowance", hint: "A common amount for pickups from 11 PM to 6 AM", icon: "alarm-clock", on: !inlineKind && tab === "Night allowance", go: () => changeTab("Night allowance") },
     ] },
     { title: "Vehicles", items: [
       { key: "categories", label: "Vehicle categories", hint: "Names, seats, photos and CNG", icon: "car", on: !inlineKind && tab === "Cab types" && cabSection === "Vehicle categories", go: () => { setCabSection("Vehicle categories"); changeTab("Cab types"); } },
@@ -273,13 +270,22 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
   const vehicleChoices: { key: string; label: string; cls: TariffClass; shared: boolean; cng: boolean }[] = activeCats.length
     ? activeCats.map((c) => ({ key: c.id, label: c.name, cls: tariffClassOfCategory(c), cng: c.cngEnabled === true, shared: activeCats.filter((o) => tariffClassOfCategory(o) === tariffClassOfCategory(c)).length > 1 }))
     : TARIFF_CLASSES.map((cls) => ({ key: cls, label: CLASS_LABEL[cls], cls, shared: false, cng: false }));
-  // Only the chosen vehicle is on; when none was chosen yet, the first vehicle of the current class.
-  const selectedVehicle = vehicleChoices.find((v) => v.key === fareCategory && v.cls === fareClass) ?? vehicleChoices.find((v) => v.cls === fareClass);
+  // Every vehicle is shown on the page, one rate card each. Categories that share a rate class (Hatchback and Sedan) share one card,
+  // because they are priced from the same saved rates: two cards would edit the same numbers twice.
+  const vehicleCards = vehicleChoices.reduce<{ cls: TariffClass; names: string[]; categoryId: string; cng: boolean }[]>((cards, v) => {
+    const card = cards.find((c) => c.cls === v.cls);
+    if (card) { card.names.push(v.label); card.cng = card.cng || v.cng; }
+    else cards.push({ cls: v.cls, names: [v.label], categoryId: v.key, cng: v.cng });
+    return cards;
+  }, []);
+  // The name each rate class is shown with everywhere on this page ("Hatchback / Sedan").
+  const classNames: Partial<Record<TariffClass, string>> = Object.fromEntries(vehicleCards.map((c) => [c.cls, c.names.join(" / ")]));
+
   // The platform fee and the night allowance are common settings for every brand, so the brand / service picker is not shown for them.
   const showScope = inlineKind !== "history" && !(tab === "Cab types" && cabSection === "Vehicle categories" && !inlineKind) && !((tab === "Platform fee" || tab === "Night allowance") && !inlineKind);
   // Where a setting applies (brand, service, fuel, vehicle) is chosen in the side menu; the page itself only repeats the rule in one line.
-  const scopeNav = showScope ? (
-    <div className="fs-nav__group fs-nav__scope">
+  const scopeFields = showScope ? (
+    <>
       <div className="fs-scope-heading">
         <span className="fs-scope-heading__icon"><Icon name="sliders-horizontal" /></span>
         <div><strong>Applies to</strong><small>Choose your fare setup</small></div>
@@ -317,24 +323,23 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
           </select>
         </label>
       )}
-      {tab === "Brand & service fares" && !pickupDrop && (
-        <label className="fs-nav__field">
-          <span>Vehicle</span>
-          <select className="ds-select" value={selectedVehicle?.key ?? ""} onChange={(e) => {
-            const v = vehicleChoices.find((x) => x.key === e.target.value);
-            if (v) { setFareCategory(v.key); changeClass(v.cls); }
-          }}>
-            {vehicleChoices.map((v) => <option key={v.key} value={v.key}>{v.label}</option>)}
-          </select>
-        </label>
-      )}
-    </div>
+    </>
   ) : null;
-  // When the saved vehicle list has no vehicle of the class on screen, show the first vehicle instead of an empty choice.
-  useEffect(() => {
-    const first = vehicleChoices[0];
-    if (activeCats.length && first && !vehicleChoices.some((v) => v.cls === fareClass) && !workspaceDirty.current) setFareClass(first.cls);
-  }, [categories]); // eslint-disable-line react-hooks/exhaustive-deps
+  const renderNavGroup = (g: { title: string; items: NavItem[] }) => (
+    <div className="fs-nav__group" key={g.title}>
+      <span className="fs-nav__title">{g.title}</span>
+      {g.items.map((it) => (
+        <button key={it.key} type="button" className={`fs-nav__item ${it.on ? "is-on" : ""}`} aria-current={it.on ? "page" : undefined} onClick={it.go} disabled={!!it.disabledReason} title={it.disabledReason ?? it.hint}>
+          <Icon name={it.icon} />
+          <span className="fs-nav__text"><strong>{it.label}</strong></span>
+          {it.opens ? <Icon name="chevron-right" /> : null}
+        </button>
+      ))}
+    </div>
+  );
+  // The four pages that follow the Brand / Service choice live in the same box as the choice; everything else is a separate box below.
+  const scopedGroup = navGroups[0];
+  const otherGroups = navGroups.slice(1);
 
   return (
     <div className="ds-page-body fare-reference u27-settings-page u11-settings-page">
@@ -343,30 +348,31 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
       <PageHeader title="Service & Fare Settings" />
 
       <div className="fs-shell">
-        <nav className="fs-nav" aria-label="Fare settings sections">
-          {scopeNav}
-          {navGroups.map((g) => (
-            <div className="fs-nav__group" key={g.title}>
-              <span className="fs-nav__title">{g.title}</span>
-              {g.items.map((it) => (
-                <button key={it.key} type="button" className={`fs-nav__item ${it.on ? "is-on" : ""}`} aria-current={it.on ? "page" : undefined} onClick={it.go} disabled={!!it.disabledReason} title={it.disabledReason ?? it.hint}>
-                  <Icon name={it.icon} />
-                  <span className="fs-nav__text"><strong>{it.label}</strong></span>
-                  {it.opens ? <Icon name="chevron-right" /> : null}
-                </button>
-              ))}
-            </div>
-          ))}
+        <aside className="fs-side">
+        <nav className="fs-nav fs-nav__scope" aria-label="Fare settings for this brand and service">
+          {scopeFields}
+          <div className="fs-nav__group--scoped">{renderNavGroup(scopedGroup)}</div>
         </nav>
+        <nav className="fs-nav" aria-label="Other fare settings sections">
+          {otherGroups.map(renderNavGroup)}
+        </nav>
+        </aside>
         <div className="fs-main">
       {!inlineKind && <>
-      {tab === "Brand & service fares" && pickupDrop && <LocalFares only="Pickup & Drop" initialTab="Pickup & Drop" initialCity={sel.city} onToast={show} />}
+      {tab === "Brand & service fares" && pickupDrop && <LocalFares only="Pickup & Drop" initialTab="Pickup & Drop" initialCity={sel.city} onToast={show} names={classNames} />}
       {tab === "Brand & service fares" && !pickupDrop && <div className="space-y-4">
-        <BrandServiceFareWorkspace scope={fareScope} vehicleClass={fareClass} vehicleName={selectedVehicle?.label} categoryId={activeCats.length ? selectedVehicle?.key : undefined} cngEnabled={selectedVehicle?.cng} fuel={fuelApplies ? fareFuel : "petrol"} onDirtyChange={dirty => { workspaceDirty.current = dirty; }} onBusyChange={busy => { workspaceBusy.current = busy; }} />
+        {/* One table for every service: rates down the side, vehicles across the top (Hourly Rental: one row per package). */}
+        <FareMatrix scope={fareScope} fuel={fuelApplies ? fareFuel : "petrol"}
+          cards={vehicleCards.map((card) => ({ cls: card.cls, name: card.names.join(" / "), categoryId: activeCats.length ? card.categoryId : undefined, cng: card.cng }))}
+          onDirtyChange={dirty => { workspaceDirty.current = dirty; }} onBusyChange={busy => { workspaceBusy.current = busy; }} />
+        {/* Then the settings that sit on top of these rates, in the order a fare is built: packages, hill charge, how extras are billed, pet charge, display price. */}
+        {fareScope.service === "Round Trip" ? <TimeBasedRoundTripCard names={classNames} /> : null}
+        {fareScope.service === "Round Trip" || fareScope.service === "One Way" ? <HillStationCard names={classNames} /> : null}
         {fareFuel !== "cng" || !fuelApplies ? <ExtraChargeRulesCard /> : null}
-        {fareScope.service === "Round Trip" ? <TimeBasedRoundTripCard /> : null}
-        {fareScope.service === "Round Trip" || fareScope.service === "One Way" ? <HillStationCard /> : null}
-        <DisplayMarkupCard scope={fareScope} />
+        <div className="fm-pair">
+          <CommonPetChargeCard />
+          <DisplayMarkupCard scope={fareScope} />
+        </div>
       </div>}
       {tab === "Platform fee" && <PlatformFeeCard />}
       {tab === "Night allowance" && <NightAllowanceCard />}

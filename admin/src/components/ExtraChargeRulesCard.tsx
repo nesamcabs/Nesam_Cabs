@@ -3,7 +3,7 @@ import { saveTariffSection } from "../services/bookingOpsService";
 import { ActionError } from "../services/callables";
 import { useTariff } from "../services/tariffService";
 import { useCan, useCanDo } from "./AccessContext";
-import { Button, Icon } from "./ui";
+import { CardBody, SaveBar, SettingCard } from "./RateTable";
 
 /**
  * The four rules every waiting / hill / roof-carrier charge needs before it can be billed automatically
@@ -54,27 +54,26 @@ export default function ExtraChargeRulesCard() {
   };
 
   return (
-    <section className="ds-panel ds-panel-pad" aria-label="Rules for extra charges" id="fare-extra-settings">
-      <h3 className="text-[15px] font-bold text-ink mb-1">Rules for extra charges</h3>
-            <p className={`flex items-center gap-1.5 text-[12px] mb-3 ${complete ? "text-ok" : "text-bad"}`} role="status">
-        <Icon name={complete ? "circle-check" : "circle-alert"} size={13} /> {complete ? "Set." : "Not complete."}
-      </p>
-      <fieldset disabled={!canEdit || busy} className="grid grid-cols-1 md:grid-cols-2 gap-3 min-w-0">
-        <label className="ds-field"><span>Free waiting at each stop (minutes)</span><input className="ds-input" type="number" min={0} max={1440} step={1} value={free} onChange={(e) => setFree(e.target.value)} /></label>
-        <label className="ds-field"><span>Round waiting up to every (minutes)</span><input className="ds-input" type="number" min={1} max={1440} step={1} value={step} onChange={(e) => setStep(e.target.value)} /></label>
-        <label className="ds-field"><span>Rounding</span>
-          <select className="ds-select" value={scope} onChange={(e) => setScope(e.target.value)}>
-            <option value="">Not decided</option><option value="per_stop">Each stop on its own</option><option value="combined">All stops added together</option>
-          </select>
-        </label>
-        <label className="ds-field"><span>GST on extra charges</span>
-          <select className="ds-select" value={tax} onChange={(e) => setTax(e.target.value)}>
-            <option value="">Not decided</option><option value="no_gst">No GST</option><option value="tariff_gst">Add the booking's GST rate</option>
-          </select>
-        </label>
-        <div><Button variant="primary" onClick={save} loading={busy} disabled={!changed}>Save rules</Button></div>
-      </fieldset>
-      {message && <p className={message.ok ? "text-[12px] text-ok mt-2" : "ds-error mt-2"} role="status">{message.text}</p>}
-    </section>
+    <SettingCard id="fare-extra-settings" title="Rules for extra charges"
+      description="Used for waiting, hill and roof carrier charges on every brand, service and vehicle. Until all four are set, extras wait for office review."
+      aside={<span className={`fm-chip fm-chip--${complete ? "ok" : "warn"}`}>{complete ? "Set" : "Not complete"}</span>}
+      footer={<SaveBar onSave={save} busy={busy} disabled={!changed || !canEdit} message={message} saveLabel="Save rules" />}>
+      <CardBody>
+        <fieldset disabled={!canEdit || busy} className="fm-mini-grid min-w-0">
+          <label className="fm-mini"><span>Free waiting per stop (min)</span><input className="ds-input text-right" type="number" min={0} max={1440} step={1} value={free} onChange={(e) => setFree(e.target.value)} /></label>
+          <label className="fm-mini"><span>Round waiting up to (min)</span><input className="ds-input text-right" type="number" min={1} max={1440} step={1} value={step} onChange={(e) => setStep(e.target.value)} /></label>
+          <label className="fm-mini"><span>Rounding</span>
+            <select className="ds-select" value={scope} onChange={(e) => setScope(e.target.value)}>
+              <option value="">Not decided</option><option value="per_stop">Each stop on its own</option><option value="combined">All stops added together</option>
+            </select>
+          </label>
+          <label className="fm-mini"><span>GST on extra charges</span>
+            <select className="ds-select" value={tax} onChange={(e) => setTax(e.target.value)}>
+              <option value="">Not decided</option><option value="no_gst">No GST</option><option value="tariff_gst">Add the booking's GST rate</option>
+            </select>
+          </label>
+        </fieldset>
+      </CardBody>
+    </SettingCard>
   );
 }

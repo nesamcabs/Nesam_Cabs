@@ -16,6 +16,7 @@ import { GoButton, LocationField, PillTabs, RouteRail, ScheduleCell } from '../c
 import { Icon } from '../components/Icon';
 import { ServiceNote } from '../components/ServiceNote';
 import { serviceSlogan } from '../utils/serviceSlogan';
+import { isOvernightPickup } from '../utils/timePackages';
 import { useDockPad } from '../context/Dock';
 import { setResumeFares, useAuthGate } from '../context/AuthGate';
 import { PlaceSearchModal } from '../components/PlaceSearchModal';
@@ -60,8 +61,6 @@ const dayHint = (d: Date): string => {
 };
 /** Round trips are booked for up to this many days (the server's roundTrip.maxDays). */
 const RT_MAX_DAYS = SCHEDULE_MAX_DAYS;
-/** A same-day round-trip package ends at 11:45 PM and the shortest one runs 5 hours, so a pickup after 6:45 PM is an overnight trip. */
-const OVERNIGHT_AFTER_MIN = 18 * 60 + 45;
 /** A round trip ends on the last of its days, at the pickup time (the server counts calendar days). */
 const tripEndFor = (pickup: Date, days: number): Date => {
   const end = new Date(pickup);
@@ -104,9 +103,9 @@ export function BookScreen() {
   const isMulti = service === 'multicity';
   const isRound = service === 'outstation' && tripType === 'Round Trip';
 
-  // A pickup after 6:45 PM cannot finish a same-day package (they all end at 11:45 PM; the shortest runs 5 hours), so the trip becomes an
-  // overnight 2-day trip by itself and the stepper cannot go below 2 days. Moving the pickup earlier again returns it to 1 day.
-  const overnight = isRound && !!scheduledAt && scheduledAt.getHours() * 60 + scheduledAt.getMinutes() > OVERNIGHT_AFTER_MIN;
+  // A pickup from 6:46 PM to 12:59 AM cannot finish a same-day package (they all end at 11:45 PM; the shortest runs 5 hours), so the trip
+  // becomes an overnight 2-day trip by itself and the stepper cannot go below 2 days. Moving the pickup earlier again returns it to 1 day.
+  const overnight = isRound && isOvernightPickup(scheduledAt);
   const minDays = overnight ? 2 : 1;
   const [autoOvernight, setAutoOvernight] = useState(false);
   useEffect(() => {
@@ -129,14 +128,14 @@ export function BookScreen() {
     const patch: Partial<typeof draft> = {};
     if (!tripEndAt || tripEndAt.getTime() !== end.getTime()) patch.tripEndAt = end;
     // The package list depends on the days: a package picked for other days no longer applies.
-    if (draft.tripDays !== days) { patch.tripDays = days; patch.timePackage = ''; }
+    if (draft.tripDays !== days) { patch.tripDays = days; patch.daysAuto = false; patch.timePackage = ''; }
     if (Object.keys(patch).length) update(patch);
   }, [scheduledAt, days, isRound]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The package list can make the trip longer (an overnight package makes it 2 days): the Days stepper follows it.
   useEffect(() => {
-    if (isRound && draft.tripDays > days && draft.tripDays <= RT_MAX_DAYS) setDays(draft.tripDays);
-  }, [draft.tripDays]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (isRound && draft.tripDays <= RT_MAX_DAYS && (draft.tripDays > days || (draft.daysAuto && draft.tripDays !== days))) setDays(draft.tripDays);
+  }, [draft.tripDays, draft.daysAuto]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fill the pickup from GPS once, unless the customer already chose one.
   const pickupFromGps = useRef(false);

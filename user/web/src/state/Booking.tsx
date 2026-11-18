@@ -24,6 +24,7 @@ import { BookingCtx } from './bookingContext';
 import { useServerQuotes, type ServerQuoteState } from '@core/hooks/useServerQuotes';
 import type { HillStationInfo, ServerCategoryQuote, ServerTimePackage } from '@core/services/quoteService';
 import { scheduleProblem } from '@core/utils/bookingRules';
+import { requestedTripDays } from '@core/utils/timePackages';
 import { useCustomerData } from '@core/context/CustomerData';
 import { useAuth } from '@/state/Auth';
 
@@ -87,9 +88,9 @@ export function BookingProvider({ children }: { children: ReactNode }) {
     (patch) => setDraft((d) => ({ ...d, ...(typeof patch === 'function' ? patch(d) : patch) })),
     [],
   );
-  const reset = useCallback(() => setDraft((d) => ({ ...d, drop: null, stops: [], scheduledAt: null, tripEndAt: null, tripDays: 1, timePackage: '', tripType: 'One Way', multicity: false, roofCarrier: false, pets: false, promoCode: '', notes: '' })), []);
+  const reset = useCallback(() => setDraft((d) => ({ ...d, drop: null, stops: [], scheduledAt: null, tripEndAt: null, tripDays: 1, daysAuto: false, timePackage: '', tripType: 'One Way', multicity: false, roofCarrier: false, pets: false, promoCode: '', notes: '' })), []);
   // A repeat booking always needs a fresh future pickup: the old schedule is never carried over.
-  const startFrom = useCallback<BookingValue['startFrom']>((pickup, drop) => setDraft((d) => ({ ...d, pickup, drop, stops: [], scheduledAt: null, tripEndAt: null, tripDays: 1, timePackage: '', multicity: false, roofCarrier: false, pets: false, promoCode: '' })), []);
+  const startFrom = useCallback<BookingValue['startFrom']>((pickup, drop) => setDraft((d) => ({ ...d, pickup, drop, stops: [], scheduledAt: null, tripEndAt: null, tripDays: 1, daysAuto: false, timePackage: '', multicity: false, roofCarrier: false, pets: false, promoCode: '' })), []);
 
   const routeStops = draft.tripType === 'Round Trip' ? draft.stops : [];
   const isRoundTrip = draft.tripType === 'Round Trip';
@@ -155,7 +156,7 @@ export function BookingProvider({ children }: { children: ReactNode }) {
       scheduledAt: scheduledAt.toISOString(),
       tripEndAt: tripType === 'Round Trip' && tripEndAt ? tripEndAt.toISOString() : null,
       // Time-based round trip: the server works out the return time and the packages from the days chosen (the package pick is made on screen).
-      tripDays: tripType === 'Round Trip' && !draft.multicity ? draft.tripDays : null,
+      tripDays: tripType === 'Round Trip' && !draft.multicity ? requestedTripDays(draft) : null,
       rentalHours: tripType === 'Local Rental' ? draft.rentalHours : null,
       addOns: { roofCarrier: draft.roofCarrier, pets: draft.pets },
       couponCode: promoCode || '',
@@ -295,12 +296,20 @@ export function useBookingQuote(): BookingQuote {
   }, [categories, categoryId, route, tripType, pickupTime, adjustment, coupons, trips, promoCode, pickup, drop, serverQuote, draft.fuelType, draft.timePackage]);
 
   // Auto-Days sync (Customer UX v8): choosing an overnight package (Morning Return, Next-Day Return) when 1 day was asked for makes the
-  // trip 2 days — the form's Days and the summary change together. Never the other way: a trip the rider chose for 3 or more days
-  // is never cut back to 2 when the pickup time or the package changes.
+  // trip 2 days — the form's Days and the summary change together. Those auto days follow the package both ways (the server is still asked
+  // for the rider's own 1 day, so the same-day packages stay on the list and an earlier pickup returns the trip to 1 day). Days the rider
+  // chose themselves are never cut back: a trip of 3 or more days is never reduced to 2 when the pickup time or the package changes.
   const picked = result.selectedPackage;
   useEffect(() => {
-    if (draft.tripType !== 'Round Trip' || draft.multicity || !draft.scheduledAt || !picked || picked.days <= draft.tripDays) return;
-    update({ tripDays: picked.days, timePackage: picked.id, tripEndAt: new Date(draft.scheduledAt.getTime() + (picked.days - 1) * 86_400_000) });
-  }, [picked?.id, picked?.days, draft.tripDays, draft.tripType, draft.multicity, draft.scheduledAt]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (draft.tripType !== 'Round Trip' || draft.multicity || !draft.scheduledAt || !picked) return;
+    const start = draft.scheduledAt;
+    const endFor = (days: number) => new Date(start.getTime() + (days - 1) * 86_400_000);
+    if (draft.daysAuto) {
+      if (picked.days <= 1) update({ tripDays: 1, daysAuto: false, tripEndAt: endFor(1) });
+      else if (picked.days !== draft.tripDays) update({ tripDays: picked.days, tripEndAt: endFor(picked.days) });
+      return;
+    }
+    if (picked.days > draft.tripDays) update({ tripDays: picked.days, daysAuto: draft.tripDays === 1, timePackage: picked.id, tripEndAt: endFor(picked.days) });
+  }, [picked?.id, picked?.days, draft.tripDays, draft.daysAuto, draft.tripType, draft.multicity, draft.scheduledAt]); // eslint-disable-line react-hooks/exhaustive-deps
   return result;
 }

@@ -1020,9 +1020,17 @@ details.ds-disclosure > summary { cursor: pointer; font-size: 12px; font-weight:
   gap: 20px;
   align-items: start;
 }
-.fs-nav {
+/* Left column: two separate boxes. The "Applies to" box chooses the setup; the menu box below lists the pages. */
+.fs-side {
   position: sticky;
   top: 92px;
+  display: grid;
+  gap: 16px;
+  max-height: calc(100vh - 108px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.fs-nav {
   display: grid;
   gap: 14px;
   padding: 12px;
@@ -1030,12 +1038,18 @@ details.ds-disclosure > summary { cursor: pointer; font-size: 12px; font-weight:
   border-radius: 12px;
   background: #fff;
 }
+/* The pages that follow the Brand / Service choice get a quiet accent so it is clear which ones depend on the box above. */
+.fs-nav__group--scoped { display: grid; }
+.fs-nav__group--scoped .fs-nav__group { gap: 2px; }
+.fs-nav__group--scoped .fs-nav__title { padding-left: 2px; color: var(--color-brand-ink, #b4232c); }
+/* With the dropdowns above them, the pages that follow the choice are set apart by a thin rule. */
+.fs-nav__scope > .fs-scope-heading ~ .fs-nav__group--scoped { padding-top: 12px; border-top: 1px dashed #cfd8e8; }
 .fs-nav__group {
   display: grid;
   gap: 2px;
 }
 /* "Applies to": brand, service, fuel and vehicle as stacked dropdowns at the top of the side menu. */
-.fs-nav .fs-nav__scope { display: grid; gap: 14px; margin: 0 0 12px; padding: 16px 12px; border: 1px solid #e6e9f0; border-radius: 16px; background: linear-gradient(155deg, #f6f8fc 0%, #fff 65%); box-shadow: 0 4px 16px rgb(15 23 42 / 0.035); }
+.fs-side .fs-nav__scope { display: grid; gap: 14px; margin: 0; padding: 16px 14px; border: 1px solid #d5dcea; border-top: 3px solid #5b7bb5; border-radius: 14px; background: linear-gradient(155deg, #eef2fa 0%, #fff 70%); box-shadow: 0 6px 18px rgb(15 23 42 / 0.06); }
 .fs-scope-heading { display: flex; align-items: center; gap: 10px; padding: 0 2px 12px; border-bottom: 1px solid #e8ecf3; }
 .fs-scope-heading__icon { display: grid; place-items: center; flex: 0 0 34px; height: 34px; border: 1px solid #e2e7f0; border-radius: 11px; background: #fff; color: var(--color-ink); }
 .fs-scope-heading__icon svg { width: 17px; height: 17px; }
@@ -1212,7 +1226,18 @@ details.ds-disclosure > summary { cursor: pointer; font-size: 12px; font-weight:
   .fs-shell {
     grid-template-columns: minmax(0, 1fr);
   }
-  /* Phones and tablets: the menu becomes one row you can swipe sideways. */
+  /* Phones and tablets: the "Applies to" box stays full width; the menu becomes one row you can swipe sideways. */
+  .fs-side {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    gap: 12px;
+  }
+  /* The Applies to box keeps its stacked layout; only the plain menu box becomes a swipe row. */
+  .fs-side .fs-nav__scope { display: grid; overflow: visible; }
+  .fs-side .fs-nav__scope .fs-nav__group { display: grid; }
+  .fs-side .fs-nav__scope .fs-nav__title { display: block; }
+  .fs-side .fs-nav__scope .fs-nav__item { width: 100%; }
   .fs-nav {
     position: static;
     display: flex;
@@ -1301,11 +1326,7 @@ html {
   transform: none !important;
 }
 /* The menu stays in view below the fixed top bar. It never traps the mouse wheel: the page always scrolls. */
-.fs-nav {
-  top: 92px;
-  max-height: calc(100vh - 108px);
-  overflow-y: auto;
-}
+/* (sticky, max-height and scrolling now live on .fs-side) */
 
 /* Rate boxes: a soft grey outline (the default outline colour is black). */
 .ds-fare-group__body .ds-field,
@@ -1461,3 +1482,147 @@ html { scroll-padding-top: 96px; }
 @media (forced-colors: active) {
   .lt-mode-btn[aria-pressed='true'] { outline: 2px solid Highlight; border-color: Highlight; }
 }
+
+/* ── Fare table: rates down the side, vehicles across the top ────────────────────────────────────────────────────── */
+.fm-card { border: 1px solid var(--color-line); border-radius: 12px; background: #fff; overflow: hidden; }
+.fm-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 14px 18px; }
+.fm-title { font-size: 15px; color: var(--color-ink); }
+.fm-sub { margin: 3px 0 0; font-size: 12px; color: var(--color-muted); }
+.fm-scroll { overflow-x: auto; border-top: 1px solid var(--color-line); }
+.fm-table { width: 100%; min-width: 560px; table-layout: fixed; border-collapse: collapse; font-size: 13px; }
+.fm-table th, .fm-table td { padding: 0 14px; height: 44px; border-bottom: 1px solid #f0f2f6; vertical-align: middle; }
+.fm-table tbody tr:last-child > * { border-bottom: 0; }
+.fm-table tbody tr:not(.fm-group):hover > * { background: #fafbfd; }
+
+/* Header: vehicle names with a small status underneath. */
+.fm-table thead th { height: auto; padding: 12px 14px; background: #fafbfc; border-bottom: 1px solid var(--color-line); }
+.fm-corner { position: sticky; left: 0; z-index: 2; width: 250px; text-align: left; color: var(--color-faint, #8793a5); font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.fm-vehicle { text-align: center; }
+.fm-vehicle__name { display: block; font-size: 13px; font-weight: 750; color: var(--color-ink); line-height: 1.3; }
+.fm-chip { display: inline-flex; align-items: center; gap: 4px; margin-top: 5px; padding: 1px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 650; }
+.fm-chip::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.fm-chip--ok { background: #ecf8f0; color: #17703a; }
+.fm-chip--warn { background: #fdeeee; color: #b4232c; }
+.fm-chip--off { background: #f0f2f6; color: #637087; }
+
+/* Section rows: a quiet label, not a heavy bar. */
+.fm-group th { height: auto; padding: 16px 14px 6px; background: #fff; border-bottom: 1px solid #f0f2f6; color: var(--color-brand-ink, #b4232c); font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-align: left; text-transform: uppercase; }
+.fm-table tbody tr.fm-group:first-child th { padding-top: 12px; }
+
+/* Field name and unit on one line. */
+.fm-field { position: sticky; left: 0; z-index: 1; background: #fff; text-align: left; font-weight: 600; color: var(--color-ink); }
+.fm-field__row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.fm-field__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fm-field__unit { flex: none; color: var(--color-faint, #8793a5); font-size: 11px; font-weight: 500; }
+.fm-req { margin-left: 2px; color: var(--color-bad, #c0262d); font-weight: 800; }
+
+/* Boxes: compact and centred. Grey placeholder = shared price; dark bold = this brand's own price. */
+.fm-table td { position: relative; text-align: center; }
+.fm-input { box-sizing: border-box; width: 100%; max-width: 132px; height: 32px; padding: 0 10px; border: 1px solid #e3e7ee; border-radius: 8px; background: #fff; color: var(--color-ink); font: inherit; font-weight: 700; text-align: right; -moz-appearance: textfield; appearance: textfield; transition: border-color 140ms ease, box-shadow 140ms ease; }
+.fm-input::-webkit-outer-spin-button, .fm-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.fm-input::placeholder { color: #a7b0bf; font-weight: 500; }
+.fm-input:hover { border-color: #c5cedc; }
+.fm-input:focus { outline: none; border-color: #779bd5; box-shadow: 0 0 0 3px rgb(119 155 213 / .18); }
+.fm-input.is-own { border-color: #cfd6e2; }
+.fm-input.is-bad { border-color: #c0262d; background: #fff5f5; }
+.fm-input:disabled { cursor: not-allowed; background: #f8f9fb; }
+.fm-dot { position: absolute; top: 9px; right: calc(50% - 62px); width: 6px; height: 6px; border-radius: 50%; background: #e0a100; }
+
+.fm-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 20px; padding: 10px 18px; border-top: 1px solid var(--color-line); background: #fafbfc; font-size: 11.5px; color: var(--color-muted); }
+.fm-legend span { display: inline-flex; align-items: center; gap: 7px; }
+.fm-key { display: inline-grid; place-items: center; min-width: 30px; height: 20px; padding: 0 6px; border: 1px solid #e3e7ee; border-radius: 5px; background: #fff; color: #a7b0bf; font-size: 11px; font-weight: 500; }
+.fm-key--own { border-color: #cfd6e2; color: var(--color-ink); font-weight: 700; }
+.fm-problems { display: grid; gap: 4px; margin: 0; padding: 10px 18px; list-style: none; border-top: 1px solid var(--color-line); font-size: 12px; color: var(--color-bad, #c0262d); }
+.fm-problems li { display: flex; align-items: flex-start; gap: 6px; }
+.fm-problems svg { flex: none; margin-top: 2px; }
+.fm-note { margin: 0; padding: 10px 18px; border-top: 1px solid var(--color-line); font-size: 12px; color: var(--color-muted); }
+
+/* ── Setting cards (RateTable.tsx): head, body, footer, inline fields, switch ─────────────────────────────────────── */
+.fm-head { align-items: flex-start; }
+.fm-title { font-size: 15px; font-weight: 750; line-height: 1.3; color: var(--color-ink); }
+.fm-sub { max-width: 760px; line-height: 1.45; }
+.fm-body { padding: 0 18px 16px; }
+.fm-body--inline { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 28px; }
+.fm-scroll + .fm-problems, .fm-scroll + .fm-note { border-top: 1px solid var(--color-line); }
+fieldset > .fm-scroll { border-top: 1px solid var(--color-line); }
+
+/* A label and its control on one line ("Charge [Once per trip ▾]", "Increase by [10] %"). */
+.fm-inline-field { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.fm-inline-field > span:first-child { color: var(--color-ink-2, #334155); font-size: 12.5px; font-weight: 650; }
+.fm-inline-field > .ds-select { width: auto; min-width: 240px; height: 36px; min-height: 36px; }
+.fm-affix { display: inline-flex; align-items: center; gap: 8px; }
+.fm-affix > span { color: var(--color-muted); font-size: 13px; font-weight: 650; }
+.fm-affix .fm-input { width: 120px; max-width: none; height: 36px; }
+.fm-hint { color: var(--color-muted); font-size: 11.5px; }
+
+/* "15 hill stations detected" / "How packages are offered": closed by default, a quiet link-like line. */
+.fm-details { font-size: 12px; color: var(--color-muted); }
+.fm-details > summary { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; list-style: none; font-weight: 650; color: #4a5a78; }
+.fm-details > summary::-webkit-details-marker { display: none; }
+.fm-details > summary::before { content: ""; width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform 150ms ease; }
+.fm-details[open] > summary::before { transform: rotate(45deg); }
+.fm-details > p, .fm-details > ul { margin: 8px 0 0; padding: 10px 12px; border-radius: 8px; background: #f7f9fc; line-height: 1.5; }
+.fm-details > ul { display: grid; gap: 4px; padding-left: 28px; list-style: disc; }
+.fm-body > .fm-details { margin-top: 14px; }
+
+/* Small labelled fields in an even grid (time-based package settings, extra-charge rules). */
+.fm-mini-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px 14px; }
+.fm-mini { display: grid; gap: 5px; min-width: 0; }
+.fm-mini > span { color: #637087; font-size: 11px; font-weight: 650; }
+.fm-mini > .ds-input, .fm-mini > .ds-select { box-sizing: border-box; width: 100%; height: 36px; min-height: 36px; }
+
+/* Footer: note or legend on the left, reason and Save on the right. */
+.fm-foot { padding: 12px 18px; border-top: 1px solid var(--color-line); background: #fafbfc; }
+.fm-foot__row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
+.fm-foot__note { flex: 1 1 240px; min-width: 0; color: var(--color-muted); font-size: 11.5px; }
+.fm-foot__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; }
+.fm-reason { box-sizing: border-box; width: 260px; max-width: 100%; height: 36px; min-height: 36px; }
+.fm-msg { display: flex; align-items: center; gap: 6px; margin: 8px 0 0; font-size: 12px; }
+.fm-msg--ok { color: var(--color-ok, #17703a); }
+.fm-msg--bad { color: var(--color-bad, #c0262d); }
+.fm-legend-inline { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; }
+.fm-legend-inline > span { display: inline-flex; align-items: center; gap: 7px; }
+
+/* On / off switch (header "On for customers" and table cells). */
+.fm-onswitch { display: inline-flex; align-items: center; gap: 9px; padding: 6px 12px 6px 8px; border: 1px solid var(--color-line); border-radius: 999px; background: #fff; color: var(--color-muted); font-size: 12.5px; font-weight: 650; cursor: pointer; white-space: nowrap; }
+.fm-onswitch.is-on { border-color: #b9e2c7; background: #f1faf4; color: #17703a; }
+.fm-switch { position: relative; display: inline-block; flex: none; width: 34px; height: 20px; vertical-align: middle; }
+.fm-switch > input { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.fm-switch > span { position: absolute; inset: 0; border-radius: 999px; background: #d3d9e3; transition: background 150ms ease; }
+.fm-switch > span::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgb(15 23 42 / .25); transition: transform 150ms ease; }
+.fm-switch > input:checked + span { background: #22a05a; }
+.fm-switch > input:checked + span::after { transform: translateX(14px); }
+.fm-switch > input:focus-visible + span { outline: 2px solid #c7d8fa; outline-offset: 2px; }
+.fm-switch > input:disabled { cursor: not-allowed; }
+.fm-switch > input:disabled + span { opacity: .55; }
+
+/* Read-only value in a table cell (Full-Day Return). */
+.fm-readonly { display: inline-block; min-width: 84px; color: var(--color-ink); font-size: 12.5px; font-weight: 700; }
+
+/* Cards on the Fares page sit as one even column. */
+.fs-main .space-y-4 > .fm-card + .fm-card { margin-top: 16px; }
+@media (max-width: 640px) {
+  .fm-head, .fm-body, .fm-foot { padding-left: 14px; padding-right: 14px; }
+  .fm-reason { width: 100%; }
+  .fm-foot__actions { width: 100%; }
+  .fm-foot__actions > button { flex: 1; }
+  .fm-inline-field > .ds-select { min-width: 0; width: 100%; }
+}
+
+/* Section headings in the fare tables: centred across the table, in capitals, with a thin rule either side. */
+.fm-group th { padding: 16px 14px 8px; text-align: center; font-size: 11.5px; letter-spacing: .12em; }
+.fm-group th::before, .fm-group th::after { content: ""; display: inline-block; width: 48px; height: 1px; margin: 0 12px; vertical-align: middle; background: #f0c9cc; }
+.fm-table tbody tr.fm-group:first-child th { padding-top: 14px; }
+
+/* Hourly rental: which package value the table shows. */
+.fm-seg { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px; border: 1px solid var(--color-line); border-radius: 10px; background: #f5f7fa; }
+.fm-seg > button { padding: 6px 12px; border: 0; border-radius: 7px; background: none; color: var(--color-muted); font: inherit; font-size: 12px; font-weight: 650; cursor: pointer; }
+.fm-seg > button:hover { color: var(--color-ink); }
+.fm-seg > button.is-on { background: #fff; color: var(--color-ink); box-shadow: 0 1px 3px rgb(15 23 42 / .1); }
+.fm-seg > button:focus-visible { outline: 2px solid #c7d8fa; outline-offset: 1px; }
+
+/* Two small cards side by side (pet charge, struck-out price). */
+.fm-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; align-items: stretch; }
+.fm-pair > .fm-card { display: flex; flex-direction: column; }
+.fm-pair > .fm-card > .fm-foot { margin-top: auto; }
+.fs-main .space-y-4 > .fm-pair { margin-top: 16px; }

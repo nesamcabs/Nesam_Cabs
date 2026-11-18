@@ -1,4 +1,4 @@
-import { packageRuleText } from '../src/utils/timePackages';
+import { isOvernightPickup, istMinutesOf, packageRuleText, requestedTripDays } from '../src/utils/timePackages';
 import { SERVICE_COPY } from '../src/data/serviceCopy';
 import type { ServerTimePackage } from '../src/services/quoteService';
 
@@ -33,5 +33,28 @@ describe('SERVICE_COPY', () => {
       expect(JSON.stringify(c)).not.toMatch(/₹|\bRs\b/);
       expect(kind).toBeTruthy();
     }
+  });
+});
+
+const at = (iso: string) => new Date(`${iso}+05:30`);
+
+describe('isOvernightPickup (Customer UX v8: no same-day package after 6:45 PM or at 12:00–12:59 AM)', () => {
+  it('is false up to 6:45 PM and from 1:00 AM', () => {
+    for (const t of ['2026-11-20T01:00:00', '2026-11-20T09:00:00', '2026-11-20T14:59:00', '2026-11-20T15:00:00', '2026-11-20T18:45:00']) expect(isOvernightPickup(at(t))).toBe(false);
+  });
+  it('is true from 6:46 PM until 12:59 AM', () => {
+    for (const t of ['2026-11-20T18:46:00', '2026-11-20T22:00:00', '2026-11-20T23:59:00', '2026-11-21T00:00:00', '2026-11-21T00:59:00']) expect(isOvernightPickup(at(t))).toBe(true);
+  });
+  it('reads IST clock time, not the device zone', () => {
+    expect(istMinutesOf(new Date('2026-11-20T12:30:00Z'))).toBe(18 * 60); // 6:00 PM IST
+    expect(isOvernightPickup(null)).toBe(false);
+  });
+});
+
+describe('requestedTripDays', () => {
+  it('asks the server for 1 day while the 2 days are only the overnight package, and for the chosen days otherwise', () => {
+    expect(requestedTripDays({ tripDays: 2, daysAuto: true })).toBe(1);
+    expect(requestedTripDays({ tripDays: 2, daysAuto: false })).toBe(2);
+    expect(requestedTripDays({ tripDays: 3 })).toBe(3);
   });
 });

@@ -59,7 +59,7 @@ export function RoundVehiclePackage(p: RoundVehiclePackageProps) {
   };
   const endOf = (x: ServerTimePackage) => {
     const end = new Date(x.endAt);
-    return `${x.kind === 'morning' ? 'Return by' : 'Ends'} ${dayText(end)}, ${clock(end)}`;
+    return `Return by ${dayText(end)}, ${clock(end)}`;
   };
 
   return (

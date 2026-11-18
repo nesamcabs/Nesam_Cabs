@@ -3,6 +3,37 @@
 // package, and from then on every screen reads that package's fare as if it were the vehicle's only fare.
 import type { HillStationInfo, ServerCategoryQuote, ServerQuoteResponse, ServerTimePackage } from '../services/quoteService';
 
+const IST_OFFSET_MS = 19_800_000;
+const DAY_MS = 86_400_000;
+/** Minutes after IST midnight of an instant (0–1439): the packages are defined on IST clock time, whatever zone the device is in. */
+export const istMinutesOf = (d: Date): number => Math.floor(((((d.getTime() + IST_OFFSET_MS) % DAY_MS) + DAY_MS) % DAY_MS) / 60_000);
+
+/** "17 Nov" — the way the guide writes a package's return date. */
+export const packageDay = (d: Date): string => `${d.getDate()} ${d.toLocaleDateString('en-IN', { month: 'short' })}`;
+/** "11:45 PM" / "9:00 AM" — no leading zero, upper-case meridiem. */
+export const packageClock = (d: Date): string => d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true }).toUpperCase();
+
+/** A same-day package ends at 11:45 PM and the shortest runs 5 hours, so a pickup after 6:45 PM can never finish the same day. */
+export const OVERNIGHT_AFTER_MIN = 18 * 60 + 45;
+/** Pickups before 1:00 AM (12:00–12:59 AM) still belong to the previous night: no same-day package either (Customer UX v8 §04). */
+export const LATE_NIGHT_END_MIN = 60;
+
+/** True when a round trip picked up at this instant has no same-day package, so it is at least a 2-day trip (6:46 PM – 12:59 AM). */
+export function isOvernightPickup(at: Date | null | undefined): boolean {
+  if (!at || Number.isNaN(at.getTime())) return false;
+  const m = istMinutesOf(at);
+  return m > OVERNIGHT_AFTER_MIN || m < LATE_NIGHT_END_MIN;
+}
+
+/**
+ * The days the server is asked about. When the trip became 2 days only because the rider picked an overnight package
+ * (`daysAuto`), the server is still asked for the rider's own 1 day, so the same-day packages stay on the list and
+ * moving the pickup earlier brings the trip back to 1 day. Days the rider chose themselves are always sent as chosen.
+ */
+export function requestedTripDays(d: { tripDays: number; daysAuto?: boolean }): number {
+  return d.daysAuto ? 1 : d.tripDays;
+}
+
 /** The vehicle's quote with the picked package's fare, breakup, included km and days in place of the default package's. */
 export function withTimePackage(x: ServerCategoryQuote, wanted: string): ServerCategoryQuote {
   if (!x.ok || !x.packages?.length) return x;

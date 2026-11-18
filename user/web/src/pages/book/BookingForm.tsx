@@ -19,7 +19,8 @@ import { setPendingReturn } from '@/lib/pendingReturn';
 import { saveDraft, RENTAL_PACKAGE_HOURS } from '@/lib/draft';
 import { useDeviceLocation, useLivePickupDefault, useOnline } from '@/lib/hooks';
 import { ClockIcon, SwapIcon } from '@/components/CabParts';
-import { combineDateTime, defaultPickup, latestPickup, toDateInput, toTimeInput, OVERNIGHT_AFTER_MIN, addDaysISO, pickupMinutes } from '@/lib/schedule';
+import { combineDateTime, defaultPickup, latestPickup, toDateInput, toTimeInput, addDaysISO } from '@/lib/schedule';
+import { isOvernightPickup } from '@core/utils/timePackages';
 import { ServiceNote } from '@/components/ServiceNote';
 import { LOCAL_RENTALS_LABEL, SERVICES, SERVICE_TITLE, isLocalRentals, type ServiceId } from '@/lib/services';
 import { AIRPORTS, QUICK_CITIES, isAirportPlace } from './content';
@@ -125,9 +126,9 @@ export function BookingForm({
     const n = Math.round((Date.parse(toDateInput(tripEndAt)) - Date.parse(toDateInput(scheduledAt))) / 86400000) + 1;
     return n >= 1 && n <= RT_MAX_DAYS ? n : 1;
   });
-  // A pickup after 6:45 PM cannot finish a same-day package (they all end at 11:45 PM; the shortest runs 5 hours), so the trip becomes an
-  // overnight 2-day trip by itself and the stepper cannot go below 2 days. Moving the pickup earlier again returns it to 1 day.
-  const overnight = isRound && OVERNIGHT_AFTER_MIN < pickupMinutes(time);
+  // A pickup from 6:46 PM to 12:59 AM cannot finish a same-day package (they all end at 11:45 PM; the shortest runs 5 hours), so the trip
+  // becomes an overnight 2-day trip by itself and the stepper cannot go below 2 days. Moving the pickup earlier again returns it to 1 day.
+  const overnight = isRound && isOvernightPickup(combineDateTime(date, time));
   const minDays = overnight ? 2 : 1;
   const [autoOvernight, setAutoOvernight] = useState(false);
   useEffect(() => {
@@ -141,7 +142,7 @@ export function BookingForm({
     const patch: Partial<typeof draft> = {};
     if ((end?.getTime() ?? null) !== (tripEndAt?.getTime() ?? null)) patch.tripEndAt = end;
     // The package list depends on the days; a package picked for other days no longer applies.
-    if (tripDays !== draft.tripDays) { patch.tripDays = tripDays; patch.timePackage = ''; }
+    if (tripDays !== draft.tripDays) { patch.tripDays = tripDays; patch.daysAuto = false; patch.timePackage = ''; }
     if (Object.keys(patch).length) update(patch);
   }, [date, time, days, isRound]); // eslint-disable-line react-hooks/exhaustive-deps
 

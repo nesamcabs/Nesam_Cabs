@@ -1390,7 +1390,8 @@
 .rvp { display: grid; gap: 12px; margin: 0 0 18px; }
 .rvp__title { margin: 0; font-size: 1.15rem; font-weight: 700; }
 /* One horizontal row of vehicles (Customer UX 9.0): it scrolls sideways on a narrow screen instead of wrapping. */
-.rvp__tabs { display: flex; gap: 8px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; padding-bottom: 4px; scrollbar-width: thin; }
+.rvp__tabs { display: flex; gap: 8px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; padding-bottom: 4px; scrollbar-width: none; -ms-overflow-style: none; }
+.rvp__tabs::-webkit-scrollbar { display: none; width: 0; height: 0; }
 .rvp__tabs > .rvp__tab { flex: 1 0 84px; scroll-snap-align: start; }
 .rvp__tab { display: grid; justify-items: center; gap: 4px; padding: 8px 6px; cursor: pointer; border: 1.5px solid var(--line, #e3e6ec); border-radius: 10px; background: var(--surface, #fff); color: inherit; font: inherit; font-weight: 600; font-size: .88rem; }
 .rvp__tab img { width: 72px; height: 42px; object-fit: contain; }
@@ -1426,3 +1427,8 @@
 /* The one-line package rule under the round-trip packages (Customer UX 9.0). */
 .rvp__rule { display: flex; align-items: flex-start; gap: 8px; margin: 12px 0 0; padding: 10px 12px; border: 1px solid var(--line, #e3e7ee); border-radius: 10px; background: var(--surface, #fff); color: var(--muted, #5b6472); font-size: .8125rem; line-height: 1.45; }
 .rvp__rule svg { flex: none; margin-top: 2px; color: var(--brand-ink, var(--brand, #c8181f)); }
+
+.rvp__tab small { color: var(--muted, #5b6472); font-size: .7rem; font-weight: 700; white-space: nowrap; }
+.rvp__tab.is-on small { color: inherit; }
+.rvp__wait { display: grid; gap: 10px; }
+.rvp__skel { display: block; height: 92px; border-radius: 12px; }

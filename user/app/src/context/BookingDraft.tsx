@@ -6,7 +6,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import type { Coupon, GeoPlace, RideCategory, RouteInfo, TripType } from '../types';
 import { useServerQuotes, type ServerQuoteState } from '../hooks/useServerQuotes';
 import { scheduleProblem } from '../utils/bookingRules';
-import { timePackageView, type TimePackageView } from '../utils/timePackages';
+import { requestedTripDays, timePackageView, type TimePackageView } from '../utils/timePackages';
 import type { HillStationInfo, ServerTimePackage } from '../services/quoteService';
 import {
   subscribeToCoupons,
@@ -30,6 +30,8 @@ export interface BookingDraft {
   tripEndAt: Date | null;
   /** Round trips: how many calendar days the trip lasts (the return time is never asked; the package decides it). */
   tripDays: number;
+  /** True when `tripDays` was raised from 1 to 2 only because an overnight package was picked; the server is then still asked for 1 day. */
+  daysAuto: boolean;
   /** Round trips (time-based): the package picked — 'same:eight' | 'same:five' | 'same:full' | 'next' | 'morning'; '' = the cheapest that fits. */
   timePackage: string;
   categoryId: string;
@@ -108,6 +110,7 @@ export function BookingDraftProvider({ authKey = '', children }: { authKey?: str
     scheduledAt: null,
     tripEndAt: null,
     tripDays: 1,
+    daysAuto: false,
     timePackage: '',
     categoryId: '',
     airportDirection: 'to',
@@ -159,7 +162,7 @@ export function BookingDraftProvider({ authKey = '', children }: { authKey?: str
   const reset = useCallback(() => {
     lastOutstation.current = 'One Way';
     setServiceState('outstation');
-    setDraft((d) => ({ ...d, drop: null, stops: [], scheduledAt: null, tripEndAt: null, tripDays: 1, timePackage: '', tripType: 'One Way', flightNumber: '', airportDirection: 'to', promoCode: '', roofCarrier: false, pets: false, rentalHours: null, fuelType: '', multicity: false }));
+    setDraft((d) => ({ ...d, drop: null, stops: [], scheduledAt: null, tripEndAt: null, tripDays: 1, daysAuto: false, timePackage: '', tripType: 'One Way', flightNumber: '', airportDirection: 'to', promoCode: '', roofCarrier: false, pets: false, rentalHours: null, fuelType: '', multicity: false }));
   }, []);
   const setRoute = useCallback((key: string, info: RouteInfo) => setRouteState({ key, info }), []);
 
@@ -177,7 +180,7 @@ export function BookingDraftProvider({ authKey = '', children }: { authKey?: str
       tripType: draft.multicity && tripType === 'Round Trip' ? ('Multicity' as const) : tripType,
       scheduledAt: scheduledAt.toISOString(),
       tripEndAt: tripType === 'Round Trip' && tripEndAt ? tripEndAt.toISOString() : null,
-      tripDays: tripType === 'Round Trip' && !draft.multicity ? draft.tripDays : null,
+      tripDays: tripType === 'Round Trip' && !draft.multicity ? requestedTripDays(draft) : null,
       addOns: { roofCarrier: draft.roofCarrier, pets: draft.pets },
       couponCode: promoCode || '',
       rentalHours: tripType === 'Local Rental' ? draft.rentalHours : null,
@@ -189,13 +192,21 @@ export function BookingDraftProvider({ authKey = '', children }: { authKey?: str
   const serverQuote = useMemo<ServerQuoteState>(() => ({ ...rawQuote, data: view.data }), [rawQuote, view.data]);
 
   // Auto-Days sync (Customer UX v8): choosing an overnight package (Morning Return, Next-Day Return) when fewer days were asked for makes
-  // the trip that many days, in the form and the summary together. Never the other way: 3 or more days are never cut back to 2.
+  // the trip that many days, in the form and the summary together. Those auto days follow the package both ways (the server is still asked
+  // for the rider's own 1 day, so the same-day packages stay available and an earlier pickup returns the trip to 1 day); days the rider
+  // chose themselves are never cut back (3 or more days are never reduced to 2).
   const picked = view.selected;
   useEffect(() => {
-    if (draft.tripType !== 'Round Trip' || draft.multicity || !draft.scheduledAt || !picked || picked.days <= draft.tripDays) return;
+    if (draft.tripType !== 'Round Trip' || draft.multicity || !draft.scheduledAt || !picked) return;
     const start = draft.scheduledAt;
-    update({ tripDays: picked.days, timePackage: picked.id, tripEndAt: new Date(start.getTime() + (picked.days - 1) * 86_400_000) });
-  }, [picked?.id, picked?.days, draft.tripDays, draft.tripType, draft.multicity, draft.scheduledAt]); // eslint-disable-line react-hooks/exhaustive-deps
+    const endFor = (days: number) => new Date(start.getTime() + (days - 1) * 86_400_000);
+    if (draft.daysAuto) {
+      if (picked.days <= 1) update({ tripDays: 1, daysAuto: false, tripEndAt: endFor(1) });
+      else if (picked.days !== draft.tripDays) update({ tripDays: picked.days, tripEndAt: endFor(picked.days) });
+      return;
+    }
+    if (picked.days > draft.tripDays) update({ tripDays: picked.days, daysAuto: draft.tripDays === 1, timePackage: picked.id, tripEndAt: endFor(picked.days) });
+  }, [picked?.id, picked?.days, draft.tripDays, draft.daysAuto, draft.tripType, draft.multicity, draft.scheduledAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const value = useMemo<BookingDraftValue>(
     () => ({ draft, service, setService, update, reset, route, setRoute, routeKey, categories, categoryStatus, adjustment, coupons, serverQuote, packages: view.packages, selectedPackage: view.selected, autoDays: view.autoDays, customQuote: view.customQuote, hillStations: view.hillStations }),

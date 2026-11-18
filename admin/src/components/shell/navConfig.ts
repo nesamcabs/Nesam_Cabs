@@ -86,6 +86,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: "staff", label: "Staff & Access", icon: "shield-user" },
       { id: "security", label: "Staff activity", icon: "history" },
       { id: "settings", label: "Settings", icon: "settings" },
+      { id: "demo-setup", label: "Demo data setup", icon: "database-backup" },
     ],
   },
 ];

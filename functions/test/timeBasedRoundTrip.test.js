@@ -309,3 +309,19 @@ test('stored snapshot → final fare: Morning Return upgrade survives GST-inclus
   // Upgraded payout = the 8-hour payout (₹2,500) + one full day (12.6 × 250 + ₹400 = ₹3,550); no extra km on the 400 km inclusion.
   assert.equal(done.partnerPaise / 100, 6050);
 });
+
+// Client contract (Customer UX v8 §05 Auto-Days sync): a rider who asked for 1 day and then picks an overnight package keeps being quoted
+// as 1 day (the clients send the requested days), so the same-day packages stay on the list and every package id they offered is accepted.
+test('1 day requested at 5 PM: the overnight packages are accepted and the 5-hour package stays offered; 2 days requested drops it', () => {
+  assert.deepEqual(ids(plan('2026-11-17T17:00:00', { days: 1 })), ['same:five', 'morning', 'next']);
+  assert.equal(quote('2026-11-17T17:00:00', 'next', { days: 1 }).pricing.days, 2);
+  assert.equal(quote('2026-11-17T17:00:00', 'morning', { days: 1 }).pricing.days, 2);
+  assert.equal(quote('2026-11-17T17:00:00', 'same:five', { days: 1 }).pricing.days, 1);
+  assert.deepEqual(ids(plan('2026-11-17T17:00:00', { days: 2 })), ['morning', 'next']);
+  assert.throws(() => quote('2026-11-17T17:00:00', 'same:five', { days: 2 }), (e) => e.code === 'package-unavailable');
+});
+
+test('Hill station trips: no 5-hour / 8-hour package, a 1-day pickup before 3 PM goes straight to the Full Day', () => {
+  const p = T.planTimeBasedRoundTrip({ config: cfg, tariffClass: 'sedan', pickupMs: IST('2026-11-17T09:00:00'), routeKm: 40, durationMin: 60, tripDays: 1, hill: true });
+  assert.deepEqual(p.options.map((x) => x.id), ['same:full']);
+});

@@ -3,7 +3,7 @@ import { saveTariffSection } from "../services/bookingOpsService";
 import { ActionError } from "../services/callables";
 import { CLASS_LABEL, TARIFF_CLASSES, useTariff, type TariffClass } from "../services/tariffService";
 import { useCan, useCanDo } from "./AccessContext";
-import { Button } from "./ui";
+import { CardBody, Problems, RateTable, SaveBar, SettingCard } from "./RateTable";
 
 /**
  * Hill Station Allowance / Charge (Customer UX v8, 16 Nov 2026, section 08). A One Way or Round Trip whose pickup, stop or destination is
@@ -22,27 +22,26 @@ const EMPTY: Draft = { owCustomer: "", owPartner: "", rtCustomer: "", rtPartner:
 const num = (v: string): number | null => (v.trim() === "" ? null : Number(v));
 const text = (n: number | undefined) => (n === undefined ? "" : String(n));
 
-export default function HillStationCard() {
+export default function HillStationCard({ names }: { names?: Partial<Record<TariffClass, string>> } = {}) {
   const { tariff } = useTariff();
   const pricingAccess = useCan("pricing");
   const settingsEdit = useCanDo("Settings", "edit");
   const canEdit = pricingAccess && settingsEdit;
   const saved = tariff?.hillStation;
-  const [enabled, setEnabled] = useState(false);
   const [chargePer, setChargePer] = useState<"trip" | "station">("trip");
   const [rows, setRows] = useState<Partial<Record<TariffClass, Draft>>>({});
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
-  const cards = useMemo(() => TARIFF_CLASSES.filter((c) => tariff?.roundTrip?.classes?.[c] || tariff?.oneWay?.classes?.[c]), [tariff]);
+  // Only the rate classes a vehicle category uses (the server keeps every other class's saved slabs as they are).
+  const cards = useMemo(() => TARIFF_CLASSES.filter((c) => (tariff?.roundTrip?.classes?.[c] || tariff?.oneWay?.classes?.[c]) && (!names || names[c])), [tariff, names]);
   const toDraft = (c: TariffClass): Draft => {
     const row = saved?.classes?.[c];
     return { owCustomer: text(row?.oneWay?.customer), owPartner: text(row?.oneWay?.partner), rtCustomer: text(row?.roundTrip?.customer), rtPartner: text(row?.roundTrip?.partner) };
   };
 
   useEffect(() => {
-    setEnabled(saved?.enabled === true);
     setChargePer(saved?.chargePer === "station" ? "station" : "trip");
     setRows(Object.fromEntries(TARIFF_CLASSES.map((c) => [c, toDraft(c)])) as Partial<Record<TariffClass, Draft>>);
     setReason("");
@@ -62,7 +61,8 @@ export default function HillStationCard() {
   };
   const anyError = cards.map(slabError).find(Boolean) ?? "";
   const hasAny = cards.some((c) => FIELDS.some((f) => (rows[c]?.[f] ?? "").trim() !== ""));
-  const needsData = enabled && !hasAny;
+  // Always on: the charge applies whenever a vehicle has an amount; with no amounts there is nothing to charge.
+  const enabled = hasAny;
 
   const snapshot = (en: boolean, per: string, r: Array<Draft | undefined>) => JSON.stringify([en, per, r.map((d) => FIELDS.map((f) => (d?.[f] ?? "").trim()))]);
   const changed = snapshot(saved?.enabled === true, saved?.chargePer === "station" ? "station" : "trip", cards.map((c) => toDraft(c))) !== snapshot(enabled, chargePer, cards.map((c) => rows[c]));
@@ -70,7 +70,7 @@ export default function HillStationCard() {
   const setField = (c: TariffClass, f: Field, v: string) => setRows((r) => ({ ...r, [c]: { ...(r[c] ?? EMPTY), [f]: v } }));
 
   const save = async () => {
-    if (!canEdit || busy || !changed || anyError || needsData) return;
+    if (!canEdit || busy || !changed || anyError) return;
     if (reason.trim().length < 5) return setMessage({ ok: false, text: "Add a short reason." });
     setBusy(true);
     setMessage(null);
@@ -85,7 +85,7 @@ export default function HillStationCard() {
       }
       await saveTariffSection({ section: "hillStation", expectedVersion: tariff?.version ?? 0, reason: reason.trim(), data: { enabled, chargePer, classes } });
       setReason("");
-      setMessage({ ok: true, text: enabled ? "Saved. New One Way and Round Trip quotes to hill stations now carry this charge as a separate line; bookings already made keep what they were sold." : "Saved. Hill station charges are switched off." });
+      setMessage({ ok: true, text: enabled ? "Saved. New One Way and Round Trip quotes to hill stations carry this charge as a separate line; bookings already made keep what they were sold." : "Saved. No vehicle has a hill station charge." });
     } catch (err) {
       setMessage({ ok: false, text: err instanceof ActionError ? err.message : "It was not saved. Please try again." });
     } finally {
@@ -93,66 +93,36 @@ export default function HillStationCard() {
     }
   };
 
-  const input = "ds-input text-right";
+  const columns = cards.map((c) => { const err = slabError(c); return { key: c, name: names?.[c] ?? CLASS_LABEL[c], status: err ? { tone: "warn" as const, text: "Check", title: err } : undefined }; });
+  const slabRows = (k: "ow" | "rt") => [
+    { key: `${k}Customer`, label: "Customer charge", unit: "₹", cell: (c: string) => ({ value: rows[c as TariffClass]?.[`${k}Customer` as Field] ?? "", onChange: (v: string) => setField(c as TariffClass, `${k}Customer` as Field, v), own: (rows[c as TariffClass]?.[`${k}Customer` as Field] ?? "") !== "" }) },
+    { key: `${k}Partner`, label: "Partner payout", unit: "₹", cell: (c: string) => ({ value: rows[c as TariffClass]?.[`${k}Partner` as Field] ?? "", onChange: (v: string) => setField(c as TariffClass, `${k}Partner` as Field, v), own: (rows[c as TariffClass]?.[`${k}Partner` as Field] ?? "") !== "" }) },
+  ];
+  const problems = [
+    ...cards.map((c) => slabError(c) ? `${names?.[c] ?? CLASS_LABEL[c]}: ${slabError(c)}` : "").filter(Boolean),
+  ];
   return (
-    <section className="ds-panel ds-panel-pad" aria-label="Hill station charge">
-      <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
-        <div style={{ flex: "1 1 260px", minWidth: 0 }}>
-          <h3 className="text-[15px] font-bold text-ink mb-1">Hill Station Allowance / Charge</h3>
-          <p className="text-[12px] text-muted">
-            Detected automatically from the map position of the pickup, every stop and the destination, and shown to the customer as its own fare line. Hill stations never use the 5-hour / 8-hour packages. Amounts follow the fare's GST setting.
-          </p>
-        </div>
-        <label className="inline-flex items-center gap-2 text-[13px] font-semibold">
-          <input type="checkbox" checked={enabled} disabled={!canEdit || busy} onChange={(e) => setEnabled(e.target.checked)} />
-          Switch on for customers
-        </label>
-      </div>
-
-      <p className="text-[12px] text-muted mb-3"><strong className="text-ink">Detected hill stations:</strong> {STATIONS.join(", ")}.</p>
-
-      <fieldset disabled={!canEdit || busy} className="min-w-0">
-        <label className="ds-field" style={{ maxWidth: 320 }}>
-          <span>Charge the slab</span>
-          <select className="ds-input" value={chargePer} onChange={(e) => setChargePer(e.target.value as "trip" | "station")}>
-            <option value="trip">Once per trip (default)</option>
+    <SettingCard title="Hill station charge"
+      description="Added as its own fare line when the pickup, a stop or the drop is in a hill station. Hill stations never use the 5-hour / 8-hour packages. Amounts follow the fare's GST setting."
+      footer={<SaveBar reason={reason} onReason={setReason} onSave={save} busy={busy} disabled={!changed || !!anyError || !canEdit} message={message} note="Always on. Leave both boxes of a trip type empty for no charge." />}>
+      <CardBody className="fm-body--inline">
+        <label className="fm-inline-field">
+          <span>Charge</span>
+          <select className="ds-select" value={chargePer} disabled={!canEdit || busy} onChange={(e) => setChargePer(e.target.value as "trip" | "station")}>
+            <option value="trip">Once per trip</option>
             <option value="station">Once for every hill station visited</option>
           </select>
         </label>
-
-        <div className="mt-3 space-y-3">
-          {cards.length === 0 ? <p className="text-[12px] text-muted">Save the One Way or Round Trip rate card for a category first.</p> : null}
-          {cards.map((c) => {
-            const d = rows[c] ?? EMPTY;
-            const err = slabError(c);
-            return (
-              <div key={c} className="rounded-lg border border-line p-3" style={{ minWidth: 0 }}>
-                <strong className="text-[13px] block mb-2">{CLASS_LABEL[c]}</strong>
-                {([["ow", "One-way slab"], ["rt", "Round-trip slab"]] as const).map(([k, label]) => (
-                  <div key={k} className="mb-2">
-                    <span className="text-[12px] font-semibold text-ink">{label}</span>
-                    <div className="grid gap-2 mt-1" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))" }}>
-                      <label className="ds-field"><span>Customer charge (₹)</span><input className={input} type="number" min={0} step="0.01" inputMode="decimal" value={d[`${k}Customer` as Field]} onChange={(e) => setField(c, `${k}Customer` as Field, e.target.value)} /></label>
-                      <label className="ds-field"><span>Partner payout (₹)</span><input className={input} type="number" min={0} step="0.01" inputMode="decimal" value={d[`${k}Partner` as Field]} onChange={(e) => setField(c, `${k}Partner` as Field, e.target.value)} /></label>
-                    </div>
-                  </div>
-                ))}
-                {err ? <p className="ds-error" role="alert">{err}</p> : null}
-              </div>
-            );
-          })}
-        </div>
-        {needsData ? <p className="ds-error mt-2" role="alert">Enter a hill station slab for at least one category before switching this on.</p> : null}
-
-        <div className="flex flex-wrap items-end gap-3 mt-3">
-          <label className="ds-field" style={{ flex: "1 1 220px" }}>
-            <span>Reason for change</span>
-            <input className="ds-input" value={reason} onChange={(e) => setReason(e.target.value)} />
-          </label>
-          <Button variant="primary" onClick={save} loading={busy} disabled={!changed || !!anyError || needsData || !canEdit}>Save</Button>
-        </div>
-      </fieldset>
-      {message ? <p className={message.ok ? "text-[12px] text-ok mt-2" : "ds-error mt-2"} role="status">{message.text}</p> : null}
-    </section>
+        <details className="fm-details">
+          <summary>{STATIONS.length} hill stations detected</summary>
+          <p>{STATIONS.join(", ")}.</p>
+        </details>
+      </CardBody>
+      {cards.length === 0
+        ? <CardBody><p className="fm-sub">Save the One Way or Round Trip rate card for a vehicle first.</p></CardBody>
+        : <RateTable label="Hill station charge by vehicle" disabled={!canEdit || busy} columns={columns}
+            groups={[{ title: "One-way trip", rows: slabRows("ow") }, { title: "Round trip", rows: slabRows("rt") }]} />}
+      <Problems items={problems} />
+    </SettingCard>
   );
 }

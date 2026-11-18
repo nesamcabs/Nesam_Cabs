@@ -4,6 +4,7 @@ import { ActionError } from "../services/callables";
 import { CLASS_LABEL, TARIFF_CLASSES, inr, useTariff, type TariffClass, type TimeBasedClassRates, type TimeBasedSettings } from "../services/tariffService";
 import { useCan, useCanDo } from "./AccessContext";
 import { Button } from "./ui";
+import { CardBody, Problems, RateTable, SaveBar, SettingCard } from "./RateTable";
 
 /**
  * Time-based Round Trip (Customer UX v8, 16 Nov 2026). Customers choose trip DAYS, never a return time:
@@ -30,13 +31,12 @@ const toDraft = (t?: Partial<TimeBasedClassRates>): Draft => Object.fromEntries(
 /** The values worked out in "Customer UX v8" for the Sedan; partner payouts are suggested at the same share as the Sedan's Round Trip rate. */
 const UX_V7_SEDAN = { fiveFare: 2080, fiveKm: 100, eightFare: 2780, eightKm: 150, morningFare: 4500, morningKm: 250 };
 
-export default function TimeBasedRoundTripCard() {
+export default function TimeBasedRoundTripCard({ names }: { names?: Partial<Record<TariffClass, string>> } = {}) {
   const { tariff } = useTariff();
   const pricingAccess = useCan("pricing");
   const settingsEdit = useCanDo("Settings", "edit");
   const canEdit = pricingAccess && settingsEdit;
   const saved = tariff?.roundTrip?.timeBased;
-  const [enabled, setEnabled] = useState(false);
   const [times, setTimes] = useState({ cutoff: "23:45", morning: "09:00", eight: "15:00", five: "22:00", late: "01:00" });
   const [limits, setLimits] = useState({ km: "150", fiveKm: "100", five: "5", eight: "8" });
   const [rows, setRows] = useState<Partial<Record<TariffClass, Draft>>>({});
@@ -44,11 +44,11 @@ export default function TimeBasedRoundTripCard() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
-  const cards = useMemo(() => TARIFF_CLASSES.filter((c) => tariff?.roundTrip?.classes?.[c]), [tariff]);
+  // Only the rate classes a vehicle category uses (the server keeps every other class's saved packages as they are).
+  const cards = useMemo(() => TARIFF_CLASSES.filter((c) => tariff?.roundTrip?.classes?.[c] && (!names || names[c])), [tariff, names]);
 
   useEffect(() => {
     const s = { ...DEFAULTS, ...(saved ?? {}) };
-    setEnabled(s.enabled === true);
     setTimes({ cutoff: clock(s.cutoffMinutes), morning: clock(s.morningCutoffMinutes), eight: clock(s.nextDayEightFromMinutes), five: clock(s.nextDayFiveFromMinutes), late: clock(s.lateNightEndMinutes) });
     setLimits({ km: String(s.shortKmLimit), fiveKm: String(s.fiveKmLimit), five: String(s.fiveHours), eight: String(s.eightHours) });
     setRows(Object.fromEntries(TARIFF_CLASSES.map((c) => [c, toDraft(tariff?.roundTrip?.classes?.[c]?.timeBased)])) as Partial<Record<TariffClass, Draft>>);
@@ -85,7 +85,8 @@ export default function TimeBasedRoundTripCard() {
   };
   const anyClassError = cards.map(classError).find(Boolean) ?? "";
   const anyData = cards.some((c) => FIELDS.some((f) => (rows[c]?.[f] ?? "").trim() !== ""));
-  const needsData = enabled && !anyData;
+  // Always on: Round Trip is time-based whenever a vehicle has its packages; with none it stays calendar-day pricing.
+  const enabled = anyData;
 
   const currentSnapshot = JSON.stringify([saved?.enabled === true, saved ? [saved.cutoffMinutes, saved.morningCutoffMinutes, saved.nextDayEightFromMinutes, saved.nextDayFiveFromMinutes, saved.shortKmLimit, saved.fiveKmLimit ?? DEFAULTS.fiveKmLimit, saved.lateNightEndMinutes ?? DEFAULTS.lateNightEndMinutes, saved.fiveHours, saved.eightHours] : null, cards.map((c) => toDraft(tariff?.roundTrip?.classes?.[c]?.timeBased))]);
   const draftSnapshot = JSON.stringify([enabled, saved || enabled || anyData ? [cutoff, morning, eightFrom, fiveFrom, kmLimit, fiveKmLimit, lateEnd, five, eight] : null, cards.map((c) => rows[c] ?? EMPTY)]);
@@ -93,16 +94,39 @@ export default function TimeBasedRoundTripCard() {
 
   const setField = (c: TariffClass, f: Field, v: string) => setRows((r) => ({ ...r, [c]: { ...(r[c] ?? EMPTY), [f]: v } }));
 
-  const fillSedan = () => {
+  // One click for a demo: the Sedan exactly as in the guide; every other vehicle scaled by how its own Full-Day Return (km per day × rate + allowance)
+  // compares with the Sedan's, rounded to ₹10, with the guide's included km (Morning Return uses the vehicle's own daily km). Partner payouts keep
+  // each vehicle's partner/customer rate share. These are DEMO amounts — replace them with the real ones before going live.
+  const fillAllDemo = () => {
+    const full = (c: TariffClass) => { const r = tariff?.roundTrip?.classes?.[c]; return r?.customerRate !== undefined && r.minKmPerDay !== undefined ? r.customerRate * r.minKmPerDay + (r.customerBata ?? 0) : null; };
+    const sedanFull = full("sedan") ?? 4000;
+    const to10 = (n: number) => String(Math.round(n / 10) * 10);
+    const next: Partial<Record<TariffClass, Draft>> = {};
+    for (const c of cards) {
+      const rt = tariff?.roundTrip?.classes?.[c];
+      const f = full(c);
+      const k = c === "sedan" || f === null ? 1 : f / sedanFull;
+      const share = rt?.customerRate && rt.partnerRate ? rt.partnerRate / rt.customerRate : 0.9;
+      const morningKm = c === "sedan" ? UX_V7_SEDAN.morningKm : Math.max(UX_V7_SEDAN.morningKm, rt?.minKmPerDay ?? 0);
+      const fare = (base: number) => (c === "sedan" ? String(base) : to10(base * k));
+      const pay = (base: number) => to10((c === "sedan" ? base : base * k) * share);
+      next[c] = {
+        fiveFare: fare(UX_V7_SEDAN.fiveFare), fiveKm: String(UX_V7_SEDAN.fiveKm), fivePartner: pay(UX_V7_SEDAN.fiveFare),
+        eightFare: fare(UX_V7_SEDAN.eightFare), eightKm: String(UX_V7_SEDAN.eightKm), eightPartner: pay(UX_V7_SEDAN.eightFare),
+        morningFare: fare(UX_V7_SEDAN.morningFare), morningKm: String(morningKm), morningPartner: pay(UX_V7_SEDAN.morningFare),
+      };
+    }
+    setRows((r) => ({ ...r, ...next }));
+    // The guide's shared settings (11:45 PM / 9:00 AM cutoffs, 3 PM / 10 PM / 1 AM boundaries, 5 h / 8 h, 100 / 150 km), and the switch on.
+    setTimes({ cutoff: clock(DEFAULTS.cutoffMinutes), morning: clock(DEFAULTS.morningCutoffMinutes), eight: clock(DEFAULTS.nextDayEightFromMinutes), five: clock(DEFAULTS.nextDayFiveFromMinutes), late: clock(DEFAULTS.lateNightEndMinutes) });
+    setLimits({ km: String(DEFAULTS.shortKmLimit), fiveKm: String(DEFAULTS.fiveKmLimit), five: String(DEFAULTS.fiveHours), eight: String(DEFAULTS.eightHours) });
     const sedan = tariff?.roundTrip?.classes?.sedan;
-    const share = sedan?.customerRate && sedan.partnerRate ? sedan.partnerRate / sedan.customerRate : 0.9;
-    const partner = (fare: number) => String(Math.round(fare * share));
-    setRows((r) => ({ ...r, sedan: { fiveFare: String(UX_V7_SEDAN.fiveFare), fiveKm: String(UX_V7_SEDAN.fiveKm), fivePartner: partner(UX_V7_SEDAN.fiveFare), eightFare: String(UX_V7_SEDAN.eightFare), eightKm: String(UX_V7_SEDAN.eightKm), eightPartner: partner(UX_V7_SEDAN.eightFare), morningFare: String(UX_V7_SEDAN.morningFare), morningKm: String(UX_V7_SEDAN.morningKm), morningPartner: partner(UX_V7_SEDAN.morningFare) } }));
-    setMessage({ ok: true, text: "Sedan filled from Customer UX v8. Partner payouts are suggestions at the Sedan's partner/customer rate share — confirm them before saving." });
+    const check = sedan && full("sedan") !== 4000 ? ` Note: the Sedan Full-Day Return in the rate card above is ${inr(full("sedan"))}, not the guide's ₹4,000 (250 km × ₹14 + ₹500 allowance) — change the rate card if that is not intended.` : "";
+    setMessage({ ok: true, text: `Filled ${cards.length} vehicle${cards.length === 1 ? "" : "s"}: the Sedan exactly as in Customer UX v8, the others as DEMO amounts scaled from their Round Trip rate card, and they are live once saved. Review, add a reason and press Save.${check}` });
   };
 
   const save = async () => {
-    if (!canEdit || busy || !changed || settingsError || anyClassError || needsData) return;
+    if (!canEdit || busy || !changed || settingsError || anyClassError) return;
     if (reason.trim().length < 5) return setMessage({ ok: false, text: "Add a short reason." });
     setBusy(true);
     setMessage(null);
@@ -141,80 +165,62 @@ export default function TimeBasedRoundTripCard() {
     `Past ${eight} hours or ${kmLimit} km a booked short package moves up to the next slab (never down). Hill stations skip the ${five}-hour / ${eight}-hour packages.`,
   ];
 
-  const input = "ds-input text-right";
+  const nameOf = (c: TariffClass) => names?.[c] ?? CLASS_LABEL[c];
+  const columns = cards.map((c) => { const err = classError(c); return { key: c, name: nameOf(c), status: err ? { tone: "warn" as const, text: "Check", title: err } : undefined }; });
+  const pkgRows = (key: "five" | "eight" | "morning") => ([["Fare", "Customer fare", "₹"], ["Km", "Included km", "km"], ["Partner", "Partner payout", "₹"]] as const).map(([suffix, label, unit]) => {
+    const f = `${key}${suffix}` as Field;
+    return { key: f, label, unit, cell: (c: string) => { const v = rows[c as TariffClass]?.[f] ?? ""; return { value: v, own: v !== "", onChange: (next: string) => setField(c as TariffClass, f, next) }; } };
+  });
+  const fullDayRow = {
+    key: "fullDay", label: "Full-Day Return", unit: "₹",
+    cell: (c: string) => {
+      const rt = tariff?.roundTrip?.classes?.[c as TariffClass];
+      const full = rt?.customerRate !== undefined && rt.minKmPerDay !== undefined ? rt.customerRate * rt.minKmPerDay + (rt.customerBata ?? 0) : null;
+      return { display: full !== null ? inr(full) : "—", title: full !== null ? `${rt?.minKmPerDay} km × ${inr(rt?.customerRate)} + ${inr(rt?.customerBata)} allowance` : "Set the Round Trip rate card first" };
+    },
+  };
+  const problems = [
+    ...cards.map((c) => classError(c) ? `${nameOf(c)}: ${classError(c)}` : "").filter(Boolean),
+    ...(settingsError ? [settingsError] : []),
+  ];
+  const timeField = (label: string, k: keyof typeof times) => <label className="fm-mini"><span>{label}</span><input className="ds-input" type="time" value={times[k]} onChange={(e) => setTimes({ ...times, [k]: e.target.value })} /></label>;
+  const numField = (label: string, k: keyof typeof limits, step = "1") => <label className="fm-mini"><span>{label}</span><input className="ds-input text-right" type="number" min={1} step={step} value={limits[k]} onChange={(e) => setLimits({ ...limits, [k]: e.target.value })} /></label>;
   return (
-    <section className="ds-panel ds-panel-pad" aria-label="Time-based round trip">
-      <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
-        <div style={{ flex: "1 1 260px", minWidth: 0 }}>
-          <h3 className="text-[15px] font-bold text-ink mb-1">Time-based round trip</h3>
-          <p className="text-[12px] text-muted">Customers choose days, not a return time. Fares below include driver allowance. Full-Day Return is the Round Trip day set in the rate card above.</p>
-        </div>
-        <label className="inline-flex items-center gap-2 text-[13px] font-semibold">
-          <input type="checkbox" checked={enabled} disabled={!canEdit || busy} onChange={(e) => setEnabled(e.target.checked)} />
-          Switch on for customers
-        </label>
-      </div>
-
+    <SettingCard title="Time-based round trip"
+      description="Customers choose days, not a return time. Package fares include driver allowance. Full-Day Return comes from the Round Trip rates above."
+      aside={<div className="flex flex-wrap items-center gap-2">{canEdit && cards.length > 0 ? <Button size="sm" variant="secondary" onClick={fillAllDemo}>Fill demo values</Button> : null}</div>}
+      footer={<SaveBar reason={reason} onReason={setReason} onSave={save} busy={busy} disabled={!changed || !!settingsError || !!anyClassError || !canEdit} message={message} note="Morning Return is optional: fill all three boxes or none." />}>
       <fieldset disabled={!canEdit || busy} className="min-w-0">
-        <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>
-          <label className="ds-field"><span>Booked cutoff</span><input className="ds-input" type="time" value={times.cutoff} onChange={(e) => setTimes({ ...times, cutoff: e.target.value })} /></label>
-          <label className="ds-field"><span>Morning Return cutoff</span><input className="ds-input" type="time" value={times.morning} onChange={(e) => setTimes({ ...times, morning: e.target.value })} /></label>
-          <label className="ds-field"><span>Next-day 8-hour from</span><input className="ds-input" type="time" value={times.eight} onChange={(e) => setTimes({ ...times, eight: e.target.value })} /></label>
-          <label className="ds-field"><span>Next-day 5-hour from</span><input className="ds-input" type="time" value={times.five} onChange={(e) => setTimes({ ...times, five: e.target.value })} /></label>
-          <label className="ds-field"><span>Short package hours</span><input className={input} type="number" min={1} step="0.5" value={limits.five} onChange={(e) => setLimits({ ...limits, five: e.target.value })} /></label>
-          <label className="ds-field"><span>Medium package hours</span><input className={input} type="number" min={1} step="0.5" value={limits.eight} onChange={(e) => setLimits({ ...limits, eight: e.target.value })} /></label>
-          <label className="ds-field"><span>Late-night group ends</span><input className="ds-input" type="time" value={times.late} onChange={(e) => setTimes({ ...times, late: e.target.value })} /></label>
-          <label className="ds-field"><span>5-hour km limit</span><input className={input} type="number" min={1} value={limits.fiveKm} onChange={(e) => setLimits({ ...limits, fiveKm: e.target.value })} /></label>
-          <label className="ds-field"><span>8-hour km limit</span><input className={input} type="number" min={1} value={limits.km} onChange={(e) => setLimits({ ...limits, km: e.target.value })} /></label>
-        </div>
-        {settingsError ? <p className="ds-error mt-2" role="alert">{settingsError}</p> : null}
-
-        {rule ? (
-          <ul className="mt-3 space-y-1 text-[12px] text-muted" aria-label="How packages are offered">
-            {rule.map((line) => <li key={line}>• {line}</li>)}
-          </ul>
-        ) : null}
-
-        <div className="mt-4 space-y-3">
-          {cards.length === 0 ? <p className="text-[12px] text-muted">Save the Round Trip rate card for a category first; the time-based packages sit on top of it.</p> : null}
-          {cards.map((c) => {
-            const rt = tariff?.roundTrip?.classes?.[c];
-            const d = rows[c] ?? EMPTY;
-            const fullFare = rt?.customerRate !== undefined && rt.minKmPerDay !== undefined ? rt.customerRate * rt.minKmPerDay + (rt.customerBata ?? 0) : null;
-            const err = classError(c);
-            return (
-              <div key={c} className="rounded-lg border border-line p-3" style={{ minWidth: 0 }}>
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                  <strong className="text-[13px]">{CLASS_LABEL[c]}</strong>
-                  <span className="text-[12px] text-muted">Full-Day Return: {fullFare !== null ? `${inr(fullFare)} (${rt?.minKmPerDay} km × ${inr(rt?.customerRate)} + ${inr(rt?.customerBata)} allowance)` : "—"}</span>
-                  {c === "sedan" ? <Button variant="secondary" onClick={fillSedan} disabled={!canEdit}>Fill from UX v8</Button> : null}
-                </div>
-                {([["five", "5-hour"], ["eight", "8-hour"], ["morning", "Morning Return (optional)"]] as const).map(([key, label]) => (
-                  <div key={key} className="mb-2">
-                    <span className="text-[12px] font-semibold text-ink">{label}</span>
-                    <div className="grid gap-2 mt-1" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))" }}>
-                      <label className="ds-field"><span>Customer fare (₹)</span><input className={input} type="number" min={0} step="0.01" inputMode="decimal" value={d[`${key}Fare` as Field]} onChange={(e) => setField(c, `${key}Fare` as Field, e.target.value)} /></label>
-                      <label className="ds-field"><span>Included km</span><input className={input} type="number" min={0} step="1" inputMode="decimal" value={d[`${key}Km` as Field]} onChange={(e) => setField(c, `${key}Km` as Field, e.target.value)} /></label>
-                      <label className="ds-field"><span>Partner payout (₹)</span><input className={input} type="number" min={0} step="0.01" inputMode="decimal" value={d[`${key}Partner` as Field]} onChange={(e) => setField(c, `${key}Partner` as Field, e.target.value)} /></label>
-                    </div>
-                  </div>
-                ))}
-                {err ? <p className="ds-error" role="alert">{err}</p> : null}
-              </div>
-            );
-          })}
-        </div>
-        {needsData ? <p className="ds-error mt-2" role="alert">Enter the 5-hour and 8-hour amounts for at least one category before switching this on.</p> : null}
-
-        <div className="flex flex-wrap items-end gap-3 mt-3">
-          <label className="ds-field" style={{ flex: "1 1 220px" }}>
-            <span>Reason for change</span>
-            <input className="ds-input" value={reason} onChange={(e) => setReason(e.target.value)} />
-          </label>
-          <Button variant="primary" onClick={save} loading={busy} disabled={!changed || !!settingsError || !!anyClassError || needsData || !canEdit}>Save</Button>
-        </div>
+        <CardBody>
+          <div className="fm-mini-grid">
+            {timeField("Booked cutoff", "cutoff")}
+            {timeField("Morning Return by", "morning")}
+            {timeField("Next-day 8-hour from", "eight")}
+            {timeField("Next-day 5-hour from", "five")}
+            {timeField("Late-night group ends", "late")}
+            {numField("Short package (hours)", "five", "0.5")}
+            {numField("Medium package (hours)", "eight", "0.5")}
+            {numField("5-hour km limit", "fiveKm")}
+            {numField("8-hour km limit", "km")}
+          </div>
+          {rule ? (
+            <details className="fm-details">
+              <summary>How packages are offered</summary>
+              <ul>{rule.map((line) => <li key={line}>{line}</li>)}</ul>
+            </details>
+          ) : null}
+        </CardBody>
       </fieldset>
-      {message ? <p className={message.ok ? "text-[12px] text-ok mt-2" : "ds-error mt-2"} role="status">{message.text}</p> : null}
-    </section>
+      {cards.length === 0
+        ? <CardBody><p className="fm-sub">Save the Round Trip rate card for a vehicle first; these packages sit on top of it.</p></CardBody>
+        : <RateTable label="Time-based round trip packages by vehicle" disabled={!canEdit || busy} columns={columns}
+            groups={[
+              { title: "Full day", rows: [fullDayRow] },
+              { title: `${limits.five || 5}-hour package`, rows: pkgRows("five") },
+              { title: `${limits.eight || 8}-hour package`, rows: pkgRows("eight") },
+              { title: "Morning Return (optional)", rows: pkgRows("morning") },
+            ]} />}
+      <Problems items={problems} />
+    </SettingCard>
   );
 }

@@ -14,6 +14,8 @@ export interface BookingDraft {
   tripEndAt: Date | null;
   /** Round trips: how many calendar days the trip lasts. The return time is never asked; the package decides it. */
   tripDays: number;
+  /** True when `tripDays` was raised from 1 to 2 only because an overnight package was picked; the server is then still asked for 1 day. */
+  daysAuto: boolean;
   /** Round trips (time-based): the package the rider picked ('same:eight' | 'same:five' | 'same:full' | 'next' | 'morning'); '' = the cheapest that fits. */
   timePackage: string;
   categoryId: string;
@@ -55,6 +57,7 @@ export const EMPTY_DRAFT: BookingDraft = {
   scheduledAt: null,
   tripEndAt: null,
   tripDays: 1,
+  daysAuto: false,
   timePackage: '',
   categoryId: '',
   payment: 'Cash',
@@ -112,6 +115,7 @@ export function loadDraft(): BookingDraft {
       scheduledAt: scheduled,
       // The end only makes sense after a still-valid pickup.
       tripEndAt: scheduled && endAt && !Number.isNaN(endAt.getTime()) && endAt.getTime() >= scheduled.getTime() ? endAt : null,
+      daysAuto: d.daysAuto === true,
       tripDays: typeof d.tripDays === 'number' && Number.isInteger(d.tripDays) && d.tripDays >= 1 && d.tripDays <= 60 ? d.tripDays : 1,
       timePackage: typeof d.timePackage === 'string' && /^(same:(five|eight|full)|next|morning)$/.test(d.timePackage) ? d.timePackage : '',
       categoryId: typeof d.categoryId === 'string' ? d.categoryId : '',

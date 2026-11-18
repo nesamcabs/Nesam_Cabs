@@ -7,7 +7,7 @@ import { formatDate, formatINR, formatTime } from '@core/utils/format';
 import { Icon } from '@/components/Icon';
 import { categoryName, categoryPhoto } from '@/lib/categories';
 import { FuelPick, type FuelChoice } from '@/components/CabParts';
-import { packageRuleText } from '@core/utils/timePackages';
+import { packageClock, packageDay, packageRuleText } from '@core/utils/timePackages';
 
 /** The short class name on a vehicle tab: "Sedan", "SUV", "Innova", "Crysta". */
 export function vehicleTabLabel(name: string): string {
@@ -28,6 +28,8 @@ interface Props {
   hasCng: boolean;
   scheduledAt: Date | null;
   loading: boolean;
+  /** The booking server is still pricing this trip. */
+  quoteLoading?: boolean;
   onPickVehicle: (c: RideCategory) => void;
   onPickPackage: (id: string) => void;
   onFuel: (c: RideCategory, f: FuelChoice) => void;
@@ -50,16 +52,23 @@ export function RoundVehiclePackage(p: Props) {
   };
   const endText = (x: ServerTimePackage) => {
     const end = new Date(x.endAt);
-    const same = p.scheduledAt ? formatDate(end) === formatDate(p.scheduledAt) : true;
-    return `${x.kind === 'morning' ? 'Return by' : 'Ends'} ${same ? '' : `${formatDate(end)}, `}${formatTime(end)}`;
+    const same = p.scheduledAt ? packageDay(end) === packageDay(p.scheduledAt) : true;
+    return `Return by ${same ? '' : `${packageDay(end)}, `}${packageClock(end)}`;
   };
   const upgradeNote = (x: ServerTimePackage) =>
     x.upgrade ? (
       <span className="pkg__note">
-        Still running after {formatTime(new Date(x.morningCutoffAt ?? x.endAt))}? It upgrades to {x.upgrade.label} (+{formatINR(x.upgrade.increase)}, {x.upgrade.includedKm} km included).
+        Still running after {packageClock(new Date(x.morningCutoffAt ?? x.endAt))}? It upgrades to {x.upgrade.label} (+{formatINR(x.upgrade.increase)}, {x.upgrade.includedKm} km included).
       </span>
     ) : null;
   const photo = selected ? categoryPhoto(selected) : '';
+  /** The lowest package fare a vehicle has for this trip (what "From ₹…" on its tab shows). */
+  const from = (c: RideCategory): number | null => {
+    const e = p.entries.get(c.id);
+    if (!e?.ok) return null;
+    const list = e.packages?.length ? e.packages.map((x) => x.fare.taxableAmount) : e.fare ? [e.fare.taxableAmount] : [];
+    return list.length ? Math.min(...list) : null;
+  };
   const reason = selected ? p.unavailable.get(selected.id) : '';
   const fare = selected && entry?.ok ? entry.fare : undefined;
 
@@ -75,6 +84,7 @@ export function RoundVehiclePackage(p: Props) {
             <button key={c.id} type="button" role="radio" aria-checked={on} disabled={off} className={`rvp__tab ${on ? 'is-on' : ''}`} onClick={() => p.onPickVehicle(c)} title={off ? p.unavailable.get(c.id) : undefined}>
               <img src={categoryPhoto(c)} alt="" loading="lazy" decoding="async" />
               <span>{vehicleTabLabel(c.name)}</span>
+              {from(c) ? <small>From {formatINR(from(c)!)}</small> : null}
             </button>
           );
         })}
@@ -91,6 +101,16 @@ export function RoundVehiclePackage(p: Props) {
         <p className="pkgs__auto"><Icon name="clock" size={15} /> No same-day package fits this pickup time and trip, so it is planned as a {packages[0].days}-day trip.</p>
       ) : null}
       {reason ? <p className="rvp__na" role="alert">{reason}</p> : null}
+      {!packages.length && !fare && !reason && selected ? (
+        p.quoteLoading || p.entries.size === 0 ? (
+          <div className="rvp__wait" aria-busy="true" aria-label="Getting packages and fares">
+            <span className="skeleton rvp__skel" />
+            <span className="skeleton rvp__skel" />
+          </div>
+        ) : (
+          <p className="rvp__na" role="status">Packages and fares for {vehicleTabLabel(selected.name)} are not available for this trip right now. Please choose another vehicle or call us to book.</p>
+        )
+      ) : null}
 
       {packages.length ? (
         <div className="rvp__list" role="radiogroup" aria-label="Round-trip packages">
@@ -148,7 +168,7 @@ export function RoundVehiclePackage(p: Props) {
         </div>
       ) : null}
 
-      {packages.length ? <p className="rvp__rule"><Icon name="clock" size={15} /> <span>{packageRuleText(packages, formatTime)}</span></p> : null}
+      {packages.length ? <p className="rvp__rule"><Icon name="clock" size={15} /> <span>{packageRuleText(packages, packageClock)}</span></p> : null}
 
       {selected && p.hasCng ? <FuelPick name={`fuel-${selected.id}`} value={p.fuel} onChange={(f) => p.onFuel(selected, f)} /> : null}
 

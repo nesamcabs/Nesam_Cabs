@@ -129,6 +129,37 @@ function applyLocal(base: TariffConfig, city: { id: string; name: string }, cls:
   return { ...base, localPickupDrop: { ...(base.localPickupDrop ?? {}), [city.id]: { cityName: city.name, classes: { ...(existing?.classes ?? {}), [cls]: fare } } } };
 }
 
+/**
+ * Local Pickup & Drop fares for many cities in one save (the demo setup covers every city of the location master).
+ * `fares` maps a city id to the fare of each vehicle class; every fare is checked exactly like a single save. A city that is not an
+ * active City of the location master is skipped (and counted), never saved.
+ */
+const MAX_BULK_CITIES = 800;
+async function citiesOf(ids: string[]): Promise<Map<string, { id: string; name: string }>> {
+  if (ids.length > MAX_BULK_CITIES) throw bad(`Save at most ${MAX_BULK_CITIES} cities at a time.`);
+  const out = new Map<string, { id: string; name: string }>();
+  for (let i = 0; i < ids.length; i += 300) {
+    const refs = ids.slice(i, i + 300).filter((id) => id && !id.includes('/')).map((id) => db.doc(`locations/${id}`));
+    if (!refs.length) continue;
+    for (const snap of await db.getAll(...refs)) {
+      const l = snap.data();
+      if (snap.exists && l && l.type === 'City' && l.status === 'Active') out.set(snap.id, { id: snap.id, name: text(l.name, 80) || text(l.city, 80) || snap.id });
+    }
+  }
+  return out;
+}
+
+function applyLocalBulk(base: TariffConfig, fares: Record<string, unknown>, cities: Map<string, { id: string; name: string }>): { next: TariffConfig; saved: number; skipped: number } {
+  let next = base, saved = 0, skipped = 0;
+  for (const [cityId, byClass] of Object.entries(fares)) {
+    const city = cities.get(cityId);
+    if (!city) { skipped += 1; continue; }
+    for (const [key, raw] of Object.entries(obj(byClass, `The ${city.name} fares`))) next = applyLocal(next, city, classOf(key), obj(raw, `The ${city.name} ${key} fare`));
+    saved += 1;
+  }
+  return { next, saved, skipped };
+}
+
 // ── Section: extra charges (waiting, hill, roof carrier) ────────────────────
 
 /** One rate of one side: null / missing = not configured (the value is removed); a number ≥ 0 is stored — 0 is an explicit "no charge". */
@@ -549,6 +580,8 @@ export const saveTariffSection = onCall(async (request) => {
   const section = input.section;
   const city = section === 'localPickupDrop' ? await cityOf(input.cityId) : null;
   const extraNames = section === 'extraCharges' ? await extraCategoryNames(obj(input.data, 'The extra charges')) : null;
+  const bulkCities = section === 'localPickupDropBulk' ? await citiesOf(Object.keys(obj(obj(input.data, 'The fares').fares, 'The city fares'))) : null;
+  let bulkResult: { saved: number; skipped: number } | null = null;
 
   const ref = db.doc(TARIFF_DOC);
   return db.runTransaction(async (tx) => {
@@ -602,6 +635,11 @@ export const saveTariffSection = onCall(async (request) => {
       const cls = classOf(input.class);
       next = applyLocal(base, city, cls, obj(input.data, 'The fare'));
       meta = { section, cityId: city.id, cityName: city.name, class: cls };
+    } else if (section === 'localPickupDropBulk' && bulkCities) {
+      const r = applyLocalBulk(base, obj(obj(input.data, 'The fares').fares, 'The city fares'), bulkCities);
+      next = r.next;
+      bulkResult = { saved: r.saved, skipped: r.skipped };
+      meta = { section, cities: r.saved, skipped: r.skipped };
     } else if (section === 'extraCharges' && extraNames) {
       const r = applyExtraCharges(base, obj(input.data, 'The extra charges'), extraNames);
       next = r.next;
@@ -652,6 +690,6 @@ export const saveTariffSection = onCall(async (request) => {
       action: 'tariff_section_saved', entity: 'tariff', entityId: 'v2', performedBy: actor.uid, performedByName: actor.name, role: 'admin',
       previous: before ? { version: before.version } : null, next: { version }, meta, reason,
     });
-    return { version, ...(section === 'extraCharges' ? { extraChargesVersion: next.extraCharges?.version ?? 0 } : {}) };
+    return { version, ...(section === 'extraCharges' ? { extraChargesVersion: next.extraCharges?.version ?? 0 } : {}), ...(bulkResult ?? {}) };
   });
 });
