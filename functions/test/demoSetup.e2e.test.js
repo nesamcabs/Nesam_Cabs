@@ -135,7 +135,7 @@ for (const brand of brands) {
     for (const q of ow.quotes) { assert.equal(q.ok, true, `One Way ${q.categoryId}: ${q.error}`); assert.ok(q.fare.total > 0); }
     await restartRouting(25, 40);
     const ap = ok(await quote(brand, { tripType: 'Airport Taxi', pickup: pin('Madurai city', 9.9252, 78.1198), drop: pin('Madurai Airport', 9.8345, 78.0934, { type: 'airport' }) }));
-    for (const q of ap.quotes) { assert.equal(q.ok, true, `Airport ${q.categoryId}: ${q.error}`); assert.ok(q.fare.total >= 1000); }
+    for (const q of ap.quotes) { assert.equal(q.ok, true, `Airport ${q.categoryId}: ${q.error}`); assert.ok(q.fare.total >= 900); }
     await restartRouting(1, 5);
     const rental = ok(await quote(brand, { tripType: 'Local Rental', rentalHours: 8, pickup: pin('Madurai', 9.9195, 78.1193), drop: pin('Madurai city', 9.9252, 78.1198) }));
     for (const q of rental.quotes) { assert.equal(q.ok, true, `Rental ${q.categoryId}: ${q.error}`); assert.ok(q.fare.total > 2000, `${q.categoryId} ${q.fare.total}`); }
@@ -226,4 +226,18 @@ test('11. fallback for older Cloud Functions: the whole-tariff save restores the
   assert.equal(after.enabled, true);
   assert.equal(after.version, before.version + 1);
   assert.ok(all);
+});
+
+test('12. every vehicle is priced from its own rates: Hatchback has its own class and costs less than the Sedan, on every service', async () => {
+  await restartRouting(60, 70);
+  const t = { tripType: 'One Way', pickup: pin('Theni', 10.0301, 77.4901), drop: pin('Madurai', 9.9401, 78.1301) };
+  const r = ok(await quote('nesam', t));
+  const price = (id) => r.quotes.find((q) => q.categoryId === id).fare.total;
+  assert.ok(price('cat-0') < price('cat-1'), `Hatchback ${price('cat-0')} < Sedan ${price('cat-1')}`);
+  assert.ok(price('cat-1') < price('cat-2') && price('cat-2') < price('cat-3') && price('cat-3') < price('cat-4') && price('cat-4') < price('cat-5'), 'Sedan < SUV 6+1 < SUV 7+1 < Innova < Crysta');
+  const stored = (await db.doc('business_config/tariff_v2').get()).data();
+  assert.ok(stored.oneWay.classes.hatchback.customerRate < stored.oneWay.classes.sedan.customerRate);
+  const rtq = ok(await quote('nesam', { ...rt, tripDays: 1, tripEndAt: istInstant(3, '09:00'), pickup: pin('Theni', 10.0302, 77.4902) }));
+  const full = (id) => rtq.quotes.find((q) => q.categoryId === id).packages.find((p) => p.id === 'same:full').fare.total;
+  assert.ok(full('cat-0') < full('cat-1'), 'Hatchback Full Day is cheaper than the Sedan one');
 });

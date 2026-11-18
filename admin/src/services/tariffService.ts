@@ -4,14 +4,16 @@ import { subscribeToDocument } from "./adminFirestoreService";
 
 /** Vehicle classes the tariff prices. Innova has its own rates only once saved; until then it is priced at the SUV rates. */
 // "suv" is SUV 6+1 and "suv7" is SUV 7+1; a class with no rates of its own (Innova, SUV 7+1) uses the SUV rates.
-export type TariffClass = "sedan" | "suv" | "suv7" | "innova" | "crysta";
-export const TARIFF_CLASSES: readonly TariffClass[] = ["sedan", "suv", "suv7", "innova", "crysta"];
+export type TariffClass = "hatchback" | "sedan" | "suv" | "suv7" | "innova" | "crysta";
+export const TARIFF_CLASSES: readonly TariffClass[] = ["hatchback", "sedan", "suv", "suv7", "innova", "crysta"];
 export const FALLS_BACK_TO_SUV = (c: TariffClass): boolean => c === "innova" || c === "suv7";
-export const CLASS_LABEL: Record<TariffClass, string> = { sedan: "Sedan", suv: "SUV 6+1", suv7: "SUV 7+1", innova: "Innova", crysta: "Innova Crysta" };
+/** Every vehicle is priced from its own rates; until they are entered it uses a sibling's (Hatchback → Sedan, Innova and SUV 7+1 → SUV 6+1). */
+export const FALLBACK_CLASS = (c: TariffClass): TariffClass | undefined => (c === "innova" || c === "suv7" ? "suv" : c === "hatchback" ? "sedan" : undefined);
+export const CLASS_LABEL: Record<TariffClass, string> = { hatchback: "Hatchback", sedan: "Sedan", suv: "SUV 6+1", suv7: "SUV 7+1", innova: "Innova", crysta: "Innova Crysta" };
 
 export const RENTAL_HOURS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] as const;
 /** Minimum rental hours of a category that has none saved yet (the server applies the same default). */
-export const DEFAULT_RENTAL_MIN_HOURS: Record<TariffClass, number> = { sedan: 1, suv: 1, suv7: 1, innova: 1, crysta: 1 };
+export const DEFAULT_RENTAL_MIN_HOURS: Record<TariffClass, number> = { hatchback: 1, sedan: 1, suv: 1, suv7: 1, innova: 1, crysta: 1 };
 
 /** A class's CNG rate card as saved on the base rates (the server keeps it only when complete). */
 export interface CngRates { customerRate: number; customerBata: number; partnerRate: number; partnerBata: number; extraKmRate?: number; minKmPerDay?: number }
@@ -30,17 +32,17 @@ export interface RoundTripRates extends OneWayRates { minKmPerDay: number; timeB
  * domain/eligibility.ts dutyClassOf): a saved tariffClass, then a saved dutyClass, then the name, then the seats.
  */
 export function tariffClassOfCategory(c: { name?: string; seatingCapacity?: number; recommendedPassengers?: number; tariffClass?: unknown; dutyClass?: unknown }): TariffClass {
-  const saved = String(c.tariffClass ?? "").trim().toLowerCase();
-  if ((TARIFF_CLASSES as readonly string[]).includes(saved)) return saved as TariffClass;
+  // A tariffClass saved on the category (an older "Priced as" setting) is ignored: each vehicle is priced from its own name and seats.
   const duty = String(c.dutyClass ?? "").trim().toLowerCase();
   if (duty === "suv6") return "suv";
-  if ((["sedan", "suv7", "innova", "crysta"] as string[]).includes(duty)) return duty as TariffClass;
+  if ((["sedan", "suv7", "innova", "crysta"] as string[]).includes(duty)) return duty === "sedan" && /(hatch|wagon\s?r|alto|i10|celerio|kwid|tiago|micro)/i.test(c.name || "") ? "hatchback" : (duty as TariffClass);
   const name = (c.name || "").trim().toLowerCase();
   const seats = Number(c.seatingCapacity) || Number(c.recommendedPassengers) || 4;
   if (/crysta/.test(name)) return "crysta";
   if (/innova/.test(name)) return "innova";
   if (/(suv|xuv|ertiga|marazzo|carens|xl6|scorpio|fortuner|muv|mpv)/.test(name)) return seats >= 7 || /7\s*\+\s*1/.test(name) ? "suv7" : "suv";
-  if (/(sedan|dzire|etios|aura|verna|mini|hatch|micro|swift|wagon|alto|auto)/.test(name)) return "sedan";
+  if (/(hatch|wagon\s?r|alto|i10|celerio|kwid|tiago|micro)/.test(name)) return "hatchback";
+  if (/(sedan|dzire|etios|aura|verna|mini|swift|auto)/.test(name)) return "sedan";
   return seats >= 7 ? "suv7" : seats >= 6 ? "suv" : "sedan";
 }
 export interface OutstationExtra { extraKmRate: number; waitingPerHour: number }
@@ -145,7 +147,7 @@ export interface Tariff {
 export function outstationExtraFor(t: Tariff | null | undefined, cls: TariffClass, trip: "One Way" | "Round Trip") {
   const specific = trip === "One Way" ? t?.oneWayExtras : t?.roundTripExtras;
   return specific?.[cls] ?? t?.outstationExtras?.[cls]
-    ?? (FALLS_BACK_TO_SUV(cls) ? specific?.suv ?? t?.outstationExtras?.suv : undefined);
+    ?? (FALLBACK_CLASS(cls) ? specific?.[FALLBACK_CLASS(cls)!] ?? t?.outstationExtras?.[FALLBACK_CLASS(cls)!] : undefined);
 }
 
 /** Live tariff document: undefined = loading, null = nothing saved yet. */

@@ -6,6 +6,7 @@ import { db } from './admin';
 import { auditInTx } from './audit';
 import { parseNightAllowance, type NightAllowanceConfig } from './domain/nightAllowance';
 import { requirePermission, requireAction } from './shared';
+import { TARIFF_CLASSES } from './domain/tariff';
 
 export const NIGHT_ALLOWANCE_DOC = 'business_config/night_allowance';
 
@@ -26,7 +27,18 @@ export const saveNightAllowance = onCall(async (request) => {
   if (typeof amount !== 'number' || !Number.isFinite(amount) || amount < 0 || amount > MAX_RUPEES) {
     throw new HttpsError('invalid-argument', `Enter the night allowance in rupees, from 0 to ${MAX_RUPEES.toLocaleString('en-IN')}.`);
   }
-  if (enabled && !(amount > 0)) throw new HttpsError('invalid-argument', 'Enter an amount above zero, or switch the night allowance off.');
+  // Per-vehicle amounts (Pricing → Fares): each class is checked here; a class left out keeps what it had, and 0 means "none for this vehicle".
+  let sentClasses: Record<string, number> | null = null;
+  if (input.classes !== undefined && input.classes !== null) {
+    if (typeof input.classes !== 'object' || Array.isArray(input.classes)) throw new HttpsError('invalid-argument', 'Send the night allowance for each vehicle.');
+    sentClasses = {};
+    for (const [k, v] of Object.entries(input.classes as Record<string, unknown>)) {
+      if (!(TARIFF_CLASSES as readonly string[]).includes(k)) throw new HttpsError('invalid-argument', 'Choose a supported vehicle category.');
+      if (typeof v !== 'number' || !Number.isFinite(v) || v < 0 || v > MAX_RUPEES) throw new HttpsError('invalid-argument', `Enter the night allowance for each vehicle from 0 to ${MAX_RUPEES.toLocaleString('en-IN')} rupees.`);
+      sentClasses[k] = Math.round(v * 100) / 100;
+    }
+  }
+  if (enabled && !(amount > 0) && !Object.values(sentClasses ?? {}).some((v) => v > 0)) throw new HttpsError('invalid-argument', 'Enter an amount above zero, or switch the night allowance off.');
 
   const ref = db.doc(NIGHT_ALLOWANCE_DOC);
   return db.runTransaction(async (tx) => {
@@ -36,7 +48,8 @@ export const saveNightAllowance = onCall(async (request) => {
       throw new HttpsError('failed-precondition', 'The night allowance was changed by someone else. Reload and review it before saving.');
     }
     const version = before.version + 1;
-    const next = { enabled, amount: Math.round(amount * 100) / 100, version };
+    const classes = { ...(before.classes ?? {}), ...(sentClasses ?? {}) };
+    const next = { enabled, amount: Math.round(amount * 100) / 100, ...(Object.keys(classes).length ? { classes } : {}), version };
     tx.set(ref, { ...next, updatedBy: actor.uid, updatedByName: actor.name, updatedAt: FieldValue.serverTimestamp() });
     auditInTx(tx, {
       action: 'night_allowance_saved', entity: 'night_allowance', entityId: 'global', performedBy: actor.uid, performedByName: actor.name,

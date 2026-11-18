@@ -54,10 +54,12 @@ export async function loadFixedRoutes(tx?: Transaction): Promise<FixedRouteFare[
 
 /** tariff class of a category: an explicit `tariffClass` on the category record, else its duty class. */
 export function tariffClassOf(category: { tariffClass?: unknown; dutyClass?: unknown; name?: unknown; seats?: unknown }): TariffClass | null {
-  const explicit = typeof category.tariffClass === 'string' ? category.tariffClass.trim().toLowerCase() : '';
-  if ((TARIFF_CLASSES as readonly string[]).includes(explicit)) return explicit as TariffClass;
+  // Every vehicle category is priced from its own rates, found from its name and seats. A `tariffClass` saved on the category record (an
+  // older "Priced as" setting) is ignored: it used to force SUV 7+1 and Innova onto the SUV 6+1 rates.
   const duty: DutyClass | null = dutyClassOf(category);
   if (!duty) return null;
+  // A hatchback has its own rates (it used to share the Sedan's): recognised by the category's name.
+  if (duty === 'sedan' && /(hatch|wagon\s?r|alto|i10|celerio|kwid|tiago|micro)/i.test(String(category.name ?? ''))) return 'hatchback';
   // Innova has its own class; until an Innova rate is saved it is priced at the SUV rate (see classRates).
   return duty === 'sedan' ? 'sedan' : duty === 'crysta' ? 'crysta' : duty === 'innova' ? 'innova' : duty === 'suv7' ? 'suv7' : 'suv';
 }
@@ -258,7 +260,7 @@ export interface PriceResult {
  */
 export function priceBooking(i: PriceInput): PriceResult {
   const matches = hillStationsOfTrip(i);
-  const night = withNightAllowance(priceBookingWithoutAddOns(matches.length ? { ...i, hillTrip: true } : i), i.pickupAt, i.nightAllowance);
+  const night = withNightAllowance(priceBookingWithoutAddOns(matches.length ? { ...i, hillTrip: true } : i), i.pickupAt, i.nightAllowance, tariffClassOf(i.category));
   // Hill Station Allowance / Charge: its own line, from the vehicle class's One-Way or Round-Trip slab (see domain/hillStations.ts).
   const charge = matches.length && (i.tripType === 'One Way' || i.tripType === 'Round Trip') ? hillChargeFor(i.tariff?.hillStation, tariffClassOf(i.category), i.tripType, matches) : null;
   const priced = withHillCharge(night, charge);

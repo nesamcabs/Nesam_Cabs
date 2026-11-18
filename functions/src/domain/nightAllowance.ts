@@ -13,8 +13,10 @@ export const NIGHT_ALLOWANCE_END_HOUR = 6;
 /** The common setting, as saved by an admin. */
 export interface NightAllowanceConfig {
   enabled: boolean;
-  /** Rupees per booking. */
+  /** Rupees per booking: the common amount, used by every vehicle class that has none of its own. */
   amount: number;
+  /** Rupees per booking for one vehicle class (hatchback, sedan, suv, suv7, innova, crysta). 0 = no night allowance for that class. */
+  classes?: Record<string, number>;
   version: number;
 }
 
@@ -31,13 +33,26 @@ const round = (v: number) => Math.round((v + Number.EPSILON) * 100) / 100;
 const MAX_RUPEES = 100000;
 const rate = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 && v <= MAX_RUPEES ? round(v) : 0);
 
+/** A per-class amount: zero is allowed (and means "none for this vehicle"). */
+const classRate = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= MAX_RUPEES ? round(v) : null);
+
 export function parseNightAllowance(d: Record<string, unknown> | undefined | null): NightAllowanceConfig {
-  return { enabled: d?.enabled === true, amount: rate(d?.amount), version: typeof d?.version === 'number' ? d.version : 0 };
+  const classes: Record<string, number> = {};
+  const raw = d?.classes;
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+      const r = classRate(v);
+      if (r !== null) classes[k] = r;
+    }
+  }
+  return { enabled: d?.enabled === true, amount: rate(d?.amount), ...(Object.keys(classes).length ? { classes } : {}), version: typeof d?.version === 'number' ? d.version : 0 };
 }
 
-/** The amount to charge: 0 when the setting is off or empty. */
-export function nightAllowanceFor(config: NightAllowanceConfig | null | undefined): number {
-  return config && config.enabled ? rate(config.amount) : 0;
+/** The amount to charge a vehicle class: 0 when the setting is off or empty; the class's own amount when it has one, else the common amount. */
+export function nightAllowanceFor(config: NightAllowanceConfig | null | undefined, vehicleClass?: string | null): number {
+  if (!config || !config.enabled) return 0;
+  const own = vehicleClass ? config.classes?.[vehicleClass] : undefined;
+  return own !== undefined ? rate(own) : rate(config.amount);
 }
 
 /** Hour of the day (0–23) in India. */
@@ -78,11 +93,11 @@ const GST_KEYS = ['gst', 'cgst', 'sgst', 'utgst', 'igst'];
  * Applies the night allowance to a priced booking when the pickup is between 11 PM and 6 AM and the common setting is on.
  * Adds a "Night allowance" line to the breakup (above GST) and records the charge in the price snapshot.
  */
-export function withNightAllowance(result: PriceResult, pickupAt: Date, config: NightAllowanceConfig | null | undefined): PriceResult {
+export function withNightAllowance(result: PriceResult, pickupAt: Date, config: NightAllowanceConfig | null | undefined, vehicleClass?: string | null): PriceResult {
   if (!isNightAllowanceTime(pickupAt)) return result;
   // The older category engine may already charge its own night charge: never charge twice.
   if ((result.fare.nightCharge ?? 0) > 0) return result;
-  const configured = nightAllowanceFor(config);
+  const configured = nightAllowanceFor(config, vehicleClass);
   if (!configured) return result;
   const included = result.fare.gstDetails?.mode === 'included';
   const amount = included ? round(configured / (1 + result.fare.gstRate)) : configured;

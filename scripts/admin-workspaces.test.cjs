@@ -130,7 +130,7 @@ test('pricing editors and the coupon workspace each have one owner; sidebar entr
     walk(source);
   }
   assert.deepEqual(counts.FareAdjustmentCard, ['Pricing.tsx']);
-  // Base rates are edited only in BrandServiceFareWorkspace (inside Pricing.tsx); the older TariffConfigCard rate editor must not be mounted
+  // Base rates are edited only in FareMatrix (inside Pricing.tsx); the older TariffConfigCard rate editor must not be mounted
   // a second time. (Its city-zone and documented-defaults tools currently have no screen - tracked in docs/PRODUCTION_READINESS.)
   assert.equal(counts.TariffConfigCard, undefined);
   assert.deepEqual(counts.TaxPolicyDialog, ['Invoices.tsx']);

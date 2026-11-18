@@ -65,7 +65,7 @@ function applyBaseRates(base: TariffConfig, d: Record<string, unknown>): TariffC
     const cls = classOf(key);
     // Innova and SUV 7+1 may be cleared (null): they then use the SUV rates again. Every other class must stay configured.
     if (raw === null) {
-      if (cls !== 'innova' && cls !== 'suv7') throw bad('Only the Innova and SUV 7+1 rates can be cleared.');
+      if (cls !== 'innova' && cls !== 'suv7' && cls !== 'hatchback') throw bad('Only the Hatchback, Innova and SUV 7+1 rates can be cleared.');
       delete next.oneWay.classes[cls]; delete next.roundTrip.classes[cls]; delete next.outstationExtras![cls];
       delete next.oneWayExtras![cls]; delete next.roundTripExtras![cls];
       continue;

@@ -94,3 +94,22 @@ test('it combines with the roof carrier add-on without double counting', () => {
   assert.equal(cents(both.fare.taxableAmount - base.fare.taxableAmount), 700);
   assert.equal(both.fare.total, cents(both.fare.taxableAmount + both.fare.gst));
 });
+
+test('per-vehicle night allowance: a class uses its own amount, a class without one uses the common amount, 0 means none', () => {
+  const cfg = night({ amount: 300, classes: { sedan: 100, suv: 250, crysta: 0 } });
+  assert.equal(nightAllowanceFor(cfg, 'sedan'), 100);
+  assert.equal(nightAllowanceFor(cfg, 'suv'), 250);
+  assert.equal(nightAllowanceFor(cfg, 'innova'), 300, 'no amount of its own: the common amount');
+  assert.equal(nightAllowanceFor(cfg, 'crysta'), 0, 'zero is an explicit "none"');
+  assert.equal(nightAllowanceFor(cfg), 300, 'no class given: the common amount');
+  assert.equal(nightAllowanceFor({ ...cfg, enabled: false }, 'sedan'), 0);
+  assert.deepEqual(parseNightAllowance({ enabled: true, amount: 0, classes: { sedan: 100, bad: -1, suv: 'x' }, version: 2 }), { enabled: true, amount: 0, classes: { sedan: 100 }, version: 2 });
+});
+
+test('per-vehicle night allowance is what the booking is charged (SUV class here), and the line shows it', () => {
+  const r = priceBooking(input({ nightAllowance: night({ amount: 300, classes: { suv: 175 } }) }));
+  assert.equal(r.pricing.nightAllowance.amount, 175);
+  assert.ok(r.breakup.lines.some((l) => l.key === 'night' && l.amount === 175));
+  const none = priceBooking(input({ nightAllowance: night({ amount: 300, classes: { suv: 0 } }) }));
+  assert.equal(none.pricing.nightAllowance, undefined);
+});

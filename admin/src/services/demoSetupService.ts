@@ -24,7 +24,7 @@ export const DEMO_STEPS: Omit<DemoStep, "status" | "detail">[] = [
   { id: "cities", label: "Locations · every Indian state and union territory", hint: "432 cities in 36 states and union territories (only the ones missing)" },
   { id: "services", label: "Services", hint: "One Way, Round Trip, Airport, Local Rental, Pickup & Drop, Multicity (only the ones missing)" },
   { id: "tariff", label: "Fares & settings", hint: "Base rates, airport, Round Trip packages (guide v8), hill stations, rentals, extra charges, GST, brand prices, Pickup & Drop in every city" },
-  { id: "fees", label: "Platform fee & night allowance", hint: "Filled in and left switched off, so the guide's fares are not changed" },
+  { id: "fees", label: "Platform fee & night allowance", hint: "Night allowance for every vehicle (11 PM – 6 AM); no platform fee, so the guide's fares stay exact" },
   { id: "enable", label: "Switch the tariff on", hint: "Customers on all three sites start seeing these prices" },
   { id: "fixed", label: "Fixed route fares across India", hint: "Popular routes for Sedan and Innova" },
   { id: "coupons", label: "Offers & coupons", hint: "WELCOME100, NESAM10, ROUNDTRIP5" },
@@ -34,7 +34,7 @@ export const DEMO_STEPS: Omit<DemoStep, "status" | "detail">[] = [
 const errText = (e: unknown) => (e instanceof Error ? e.message : String(e)).replace(/^Firebase: /, "").slice(0, 240);
 const uid = () => auth.currentUser?.uid ?? "";
 
-/** The six demo vehicle categories: names the server maps to the Sedan / SUV / Innova / Crysta tariff classes (Hatchback uses the Sedan rates). */
+/** The six demo vehicle categories: names the server maps to their own tariff class, each with its own rates. */
 const DEMO_CATEGORIES: { name: string; seats: number; description: string; rate: number; bata: number; carrier: number; waiting: number; luggage: string }[] = [
   { name: "Hatchback", seats: 4, description: "Swift, Wagon R, i10 or similar — 4 seats, AC", rate: 15, bata: 400, carrier: 0, waiting: 150, luggage: "2 Bags" },
   { name: "Sedan", seats: 4, description: "Dzire, Etios, Aura or similar — comfortable AC sedans", rate: 15, bata: 400, carrier: 0, waiting: 150, luggage: "2 Bags" },
@@ -158,7 +158,7 @@ export async function publishDemoSetup(opts: PublishOptions): Promise<DemoStep[]
     });
   }
 
-  // 5 · Platform fee and night allowance (left off)
+  // 5 · Night allowance per vehicle; platform fee at zero
   await step("fees", async () => {
     const [fee, night] = await Promise.all([getDoc(doc(db, "business_config", "platform_fee")), getDoc(doc(db, "business_config", "night_allowance"))]);
     let saved = 0;

@@ -1025,17 +1025,17 @@ details.ds-disclosure > summary { cursor: pointer; font-size: 12px; font-weight:
   position: sticky;
   top: 92px;
   display: grid;
-  gap: 16px;
+  gap: 10px;
   max-height: calc(100vh - 108px);
   overflow-y: auto;
   scrollbar-width: thin;
 }
 .fs-nav {
   display: grid;
-  gap: 14px;
-  padding: 12px;
-  border: 1px solid var(--color-line);
-  border-radius: 12px;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid #d9dee7;
+  border-radius: 8px;
   background: #fff;
 }
 /* The pages that follow the Brand / Service choice get a quiet accent so it is clear which ones depend on the box above. */
@@ -1043,24 +1043,24 @@ details.ds-disclosure > summary { cursor: pointer; font-size: 12px; font-weight:
 .fs-nav__group--scoped .fs-nav__group { gap: 2px; }
 .fs-nav__group--scoped .fs-nav__title { padding-left: 2px; color: var(--color-brand-ink, #b4232c); }
 /* With the dropdowns above them, the pages that follow the choice are set apart by a thin rule. */
-.fs-nav__scope > .fs-scope-heading ~ .fs-nav__group--scoped { padding-top: 12px; border-top: 1px dashed #cfd8e8; }
+.fs-nav__scope > .fs-scope-heading ~ .fs-nav__group--scoped { padding-top: 8px; border-top: 1px solid #e3e7ee; }
 .fs-nav__group {
   display: grid;
   gap: 2px;
 }
 /* "Applies to": brand, service, fuel and vehicle as stacked dropdowns at the top of the side menu. */
-.fs-side .fs-nav__scope { display: grid; gap: 14px; margin: 0; padding: 16px 14px; border: 1px solid #d5dcea; border-top: 3px solid #5b7bb5; border-radius: 14px; background: linear-gradient(155deg, #eef2fa 0%, #fff 70%); box-shadow: 0 6px 18px rgb(15 23 42 / 0.06); }
-.fs-scope-heading { display: flex; align-items: center; gap: 10px; padding: 0 2px 12px; border-bottom: 1px solid #e8ecf3; }
-.fs-scope-heading__icon { display: grid; place-items: center; flex: 0 0 34px; height: 34px; border: 1px solid #e2e7f0; border-radius: 11px; background: #fff; color: var(--color-ink); }
-.fs-scope-heading__icon svg { width: 17px; height: 17px; }
-.fs-scope-heading > div { display: grid; gap: 3px; }
-.fs-scope-heading strong { font-size: 13px; font-weight: 800; line-height: 1.2; }
-.fs-scope-heading small { color: var(--color-muted); font-size: 10px; line-height: 1.3; }
-.fs-nav__scope .fs-nav__field { gap: 7px; padding: 0; min-width: 0; }
-.fs-nav__scope .fs-nav__field > span { padding-left: 2px; color: #637087; font-size: 10px; font-weight: 800; letter-spacing: 0.065em; text-transform: uppercase; }
-.fs-nav__scope .fs-nav__field > .ds-select { box-sizing: border-box; width: 100%; min-width: 0; height: 44px; min-height: 44px; border: 1px solid #dce2ed; border-radius: 11px; background-color: #fff; padding-left: 12px; padding-right: 30px; color: var(--color-ink); font-size: 12px; font-weight: 650; box-shadow: 0 2px 3px rgb(15 23 42 / 0.02); transition: border-color 160ms ease, box-shadow 160ms ease; }
-.fs-nav__scope .fs-nav__field > .ds-select:hover { border-color: #aebbd0; }
-.fs-nav__scope .fs-nav__field > .ds-select:focus-visible { outline: 2px solid #c7d8fa; outline-offset: 2px; border-color: #779bd5; }
+.fs-side .fs-nav__scope { display: grid; gap: 8px; margin: 0; padding: 12px; border: 1px solid #d9dee7; border-radius: 8px; background: #fff; box-shadow: none; }
+.fs-scope-heading { display: flex; align-items: center; gap: 8px; padding: 0 0 8px; border-bottom: 1px solid #e3e7ee; }
+.fs-scope-heading__icon { display: grid; place-items: center; flex: 0 0 28px; height: 28px; border: 1px solid #d9dee7; border-radius: 6px; background: #f6f8fb; color: var(--color-ink); }
+.fs-scope-heading__icon svg { width: 15px; height: 15px; }
+.fs-scope-heading > div { display: grid; gap: 1px; }
+.fs-scope-heading strong { font-size: 13px; font-weight: 700; line-height: 1.2; }
+.fs-scope-heading small { color: var(--color-muted); font-size: 11px; line-height: 1.3; }
+.fs-nav__scope .fs-nav__field { gap: 4px; padding: 0; min-width: 0; }
+.fs-nav__scope .fs-nav__field > span { padding-left: 0; color: #5d6b82; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.fs-nav__scope .fs-nav__field > .ds-select { box-sizing: border-box; width: 100%; min-width: 0; height: 36px; min-height: 36px; border: 1px solid #cdd4e0; border-radius: 6px; background-color: #fff; padding-left: 10px; padding-right: 28px; color: var(--color-ink); font-size: 12px; font-weight: 600; box-shadow: none; transition: border-color 120ms ease; }
+.fs-nav__scope .fs-nav__field > .ds-select:hover { border-color: #9aa8bf; }
+.fs-nav__scope .fs-nav__field > .ds-select:focus-visible { outline: 2px solid #c7d8fa; outline-offset: 1px; border-color: #5b7bb5; }
 .fs-nav__field { display: grid; gap: 4px; padding: 0 4px; }
 .fs-nav__field > span { color: var(--color-muted); font-size: 11px; font-weight: 600; }
 .fs-nav__field > .ds-select { width: 100%; min-height: 38px; }
@@ -1077,11 +1077,11 @@ details.ds-disclosure > summary { cursor: pointer; font-size: 12px; font-weight:
 .fs-nav__item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 9px;
   width: 100%;
-  padding: 8px 10px;
+  padding: 7px 10px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 6px;
   background: none;
   color: var(--color-ink);
   text-align: left;
@@ -1626,3 +1626,30 @@ fieldset > .fm-scroll { border-top: 1px solid var(--color-line); }
 .fm-pair > .fm-card { display: flex; flex-direction: column; }
 .fm-pair > .fm-card > .fm-foot { margin-top: auto; }
 .fs-main .space-y-4 > .fm-pair { margin-top: 16px; }
+
+/* A vehicle priced with another vehicle's rates: same values, read-only, on a soft grey band. */
+.fm-table .fm-linked { background: #fafbfc; }
+.fm-table tbody tr:not(.fm-group):hover > .fm-linked { background: #f5f7fa; }
+.fm-mirror { display: inline-flex; align-items: center; justify-content: flex-end; box-sizing: border-box; width: 100%; max-width: 132px; height: 32px; padding: 0 10px; border: 1px dashed #d6dce6; border-radius: 8px; color: #8a94a6; font-size: 12.5px; font-weight: 600; cursor: help; }
+.fm-chip--off { white-space: nowrap; }
+
+/* Column group headings above the vehicle names ("Booking", "Cabs shown", "Price change"). */
+.fm-table thead tr.fm-colgroups th { padding: 10px 6px 0; border-bottom: 0; background: #fafbfc; text-align: center; }
+.fm-colgroups th > span { display: block; padding-bottom: 6px; border-bottom: 2px solid #f0c9cc; color: var(--color-brand-ink, #b4232c); font-size: 10.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+/* A dropdown in a table cell, same size as the number boxes. */
+.fm-select { box-sizing: border-box; width: 100%; max-width: 132px; height: 32px; padding: 0 26px 0 10px; border: 1px solid #e3e7ee; border-radius: 8px; background-color: #fff; color: var(--color-ink); font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.fm-select:hover { border-color: #c5cedc; }
+.fm-select:focus { outline: none; border-color: #779bd5; box-shadow: 0 0 0 3px rgb(119 155 213 / .18); }
+.fm-select.is-inherited { color: #8a94a6; font-weight: 500; }
+/* A switch that only follows a wider place: faded until it is changed here. */
+.fm-switch.is-inherited { opacity: .5; }
+.fm-switch.is-inherited:hover { opacity: .8; }
+/* Small text buttons inside table cells (Reset). */
+.fm-linkbtn { padding: 4px 8px; border: 0; border-radius: 6px; background: none; color: #4a5a78; font: inherit; font-size: 11.5px; font-weight: 650; cursor: pointer; }
+.fm-linkbtn:hover { background: #eef2f8; color: var(--color-ink); }
+.fm-linkbtn:disabled { opacity: .45; cursor: not-allowed; }
+/* Place picker above the booking-rules table. */
+.fm-place-picker { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+.fm-place-picker .fm-mini { width: 190px; }
+.fm-colgroups th > span { margin: 0 4px; }
+.fm-table .fm-select { max-width: 150px; }

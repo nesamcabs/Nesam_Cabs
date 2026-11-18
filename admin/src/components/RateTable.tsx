@@ -1,11 +1,33 @@
 import { Fragment, type ReactNode } from "react";
 import { Button, Icon } from "./ui";
+import type { TariffClass } from "../services/tariffService";
 
 // One look for every fare setting on Service & Fare Settings: a card with a title, a table with the rates down the side and the
 // vehicles across the top, and a footer with the reason and Save. Styles: the "fm-" rules in index.css.
 
 export type Tone = "ok" | "warn" | "off";
-export interface RateColumn { key: string; name: string; status?: { tone: Tone; text: string; title?: string } }
+export interface RateColumn {
+  key: string; name: string; status?: { tone: Tone; text: string; title?: string };
+  /** A vehicle priced with another column's rates: its cells show that column's values, read-only. */
+  linkedTo?: string;
+  /** A heading above several neighbouring columns ("Cabs shown", "Price change"). */
+  group?: string;
+  /** Fixed width in pixels (other columns share the rest). */
+  width?: number;
+}
+
+/** One active vehicle category and the rate class it is priced as (Vehicle categories → "Priced as"). */
+export interface VehicleCol { id: string; name: string; cls: TariffClass; owner: boolean; ownerName: string }
+
+/**
+ * The columns of a fare table: one per vehicle category, in display order. The category that edits a rate class is keyed by the
+ * class; a category priced with another category's rates is a read-only mirror of it.
+ */
+export function vehicleColumns(vehicles: VehicleCol[], has: (cls: TariffClass) => boolean, status?: (cls: TariffClass) => RateColumn["status"]): RateColumn[] {
+  return vehicles.filter((v) => has(v.cls)).map((v) => v.owner
+    ? { key: v.cls, name: v.name, status: status?.(v.cls) }
+    : { key: `cat:${v.id}`, name: v.name, linkedTo: v.cls, status: { tone: "off", text: `${v.ownerName} rates`, title: `${v.name} is the same kind of vehicle as ${v.ownerName} (same name and seats), so they share one set of rates. Give it a distinct name, such as "SUV 7+1" or "Innova", to price it separately.` } });
+}
 export interface RateCell {
   value?: string;
   onChange?: (value: string) => void;
@@ -23,23 +45,51 @@ export interface RateCell {
   checked?: boolean;
   onToggle?: (on: boolean) => void;
   step?: string;
+  min?: number;
+  max?: number;
+  /** A dropdown instead of a number box; the "" option is the inherited choice. */
+  options?: { value: string; label: string }[];
+  /** A switch or dropdown that only follows a wider setting (shown faded until changed here). */
+  inherited?: boolean;
 }
 export interface RateRow { key: string; label: string; unit?: string; required?: boolean; cell: (column: string) => RateCell }
 export interface RateGroup { title: string; rows: RateRow[] }
 
-export function RateTable({ label, columns, groups, disabled, corner = "" }: { label: string; columns: RateColumn[]; groups: RateGroup[]; disabled?: boolean; corner?: string }) {
+export function RateTable({ label, columns, groups, disabled, corner = "", cornerWidth, minWidth }: {
+  label: string; columns: RateColumn[]; groups: RateGroup[]; disabled?: boolean; corner?: string;
+  /** Width of the first (row name) column in pixels, and the table's minimum width before it scrolls sideways. */
+  cornerWidth?: number; minWidth?: number;
+}) {
+  const sized = cornerWidth !== undefined || columns.some((c) => c.width);
   return (
     <fieldset disabled={disabled} className="min-w-0">
       <div className="fm-scroll">
-        <table className="fm-table" aria-label={label}>
+        <table className="fm-table" aria-label={label} style={minWidth ? { minWidth } : undefined}>
+          {sized ? (
+            <colgroup>
+              <col style={{ width: cornerWidth ?? 250 }} />
+              {columns.map((c) => <col key={c.key} style={c.width ? { width: c.width } : undefined} />)}
+            </colgroup>
+          ) : null}
           <thead>
+            {columns.some((c) => c.group) ? (
+              <tr className="fm-colgroups">
+                <th aria-hidden="true" />
+                {columns.reduce<{ name: string; span: number }[]>((out, c) => {
+                  const last = out[out.length - 1];
+                  if (last && last.name === (c.group ?? "")) last.span++;
+                  else out.push({ name: c.group ?? "", span: 1 });
+                  return out;
+                }, []).map((g, i) => <th key={i} colSpan={g.span} scope="colgroup">{g.name ? <span>{g.name}</span> : null}</th>)}
+              </tr>
+            ) : null}
             <tr>
               <th className="fm-corner" scope="col">{corner}</th>
               {columns.map((c) => (
-                <th key={c.key} scope="col" className="fm-vehicle">
-                  <span className="fm-vehicle__name">{c.name}</span>
+                <th key={c.key} scope="col" className={`fm-vehicle ${c.linkedTo ? "fm-linked" : ""}`}>
+                  <span className="fm-vehicle__name" title={c.linkedTo ? c.status?.title : undefined}>{c.name}</span>
                   {/* Only a problem is flagged here; a vehicle that is fine shows just its name. */}
-                  {c.status && c.status.tone !== "ok" ? <span className={`fm-chip fm-chip--${c.status.tone}`} title={c.status.title}>{c.status.text}</span> : null}
+                  {c.status && c.status.tone !== "ok" && !c.linkedTo ? <span className={`fm-chip fm-chip--${c.status.tone}`} title={c.status.title}>{c.status.text}</span> : null}
                 </th>
               ))}
             </tr>
@@ -57,17 +107,27 @@ export function RateTable({ label, columns, groups, disabled, corner = "" }: { l
                       </span>
                     </th>
                     {columns.map((c) => {
+                      if (c.linkedTo) {
+                        const src = r.cell(c.linkedTo);
+                        const shown = src.display ?? (src.onToggle ? (src.checked ? "On" : "Off") : (src.value || src.placeholder || "—"));
+                        return <td key={c.key} className="fm-linked"><span className="fm-mirror" title={c.status?.title}>{shown}</span></td>;
+                      }
                       const cell = r.cell(c.key);
                       return (
                         <td key={c.key}>
                           {cell.display !== undefined ? <span className="fm-readonly" title={cell.title}>{cell.display}</span>
-                            : cell.onToggle ? (
-                              <label className="fm-switch" title={cell.title}>
+                            : cell.options ? (
+                              <select className={`fm-select ${cell.inherited ? "is-inherited" : "is-own"}`} value={cell.value ?? ""} title={cell.title}
+                                aria-label={`${c.name} for ${r.label}`} onChange={(e) => cell.onChange?.(e.target.value)}>
+                                {cell.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                              </select>
+                            ) : cell.onToggle ? (
+                              <label className={`fm-switch ${cell.inherited ? "is-inherited" : ""}`} title={cell.title}>
                                 <input type="checkbox" checked={!!cell.checked} onChange={(e) => cell.onToggle?.(e.target.checked)} aria-label={`${r.label} for ${c.name}`} />
                                 <span aria-hidden="true" />
                               </label>
                             ) : (
-                              <input type="number" min={0} step={cell.step ?? "any"} inputMode="decimal"
+                              <input type="number" min={cell.min ?? 0} max={cell.max} step={cell.step ?? "any"} inputMode="decimal"
                                 className={`fm-input ${cell.own ? "is-own" : ""} ${cell.bad ? "is-bad" : ""}`}
                                 aria-label={`${r.label} for ${c.name}`} title={cell.title || undefined}
                                 placeholder={cell.placeholder ?? "—"} value={cell.value ?? ""}

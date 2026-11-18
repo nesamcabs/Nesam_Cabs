@@ -15,20 +15,23 @@ const SERVICES = [
 ] as const;
 type ServiceId = (typeof SERVICES)[number]["id"];
 
-interface Rule { enabled: boolean; percent: string; min: string; cap: string }
+interface Rule { percent: string; min: string; cap: string }
 type Form = Record<ServiceId, Rule>;
 interface Stored { version: number; services?: Partial<Record<ServiceId, { enabled?: boolean; percent?: number; min?: number; cap?: number }>>; updatedByName?: string }
 
-const SUGGESTED = { percent: "5", min: "50", cap: "250" };
+// No on/off switch: a service charges a fee when it has a percentage or a minimum above zero, and none when both are zero.
+const SUGGESTED = { percent: "0", min: "0", cap: "0" };
+const on = (r: Rule) => Number(r.percent) > 0 || Number(r.min) > 0;
 const MAX_RUPEES = 100000;
 const inr = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 
-const blank = (): Form => Object.fromEntries(SERVICES.map((s) => [s.id, { enabled: false, ...SUGGESTED }])) as Form;
+const blank = (): Form => Object.fromEntries(SERVICES.map((s) => [s.id, { ...SUGGESTED }])) as Form;
 const fromStored = (d: Stored | null | undefined): Form => {
   const f = blank();
   for (const s of SERVICES) {
     const r = d?.services?.[s.id];
-    if (r) f[s.id] = { enabled: r.enabled === true, percent: String(r.percent ?? SUGGESTED.percent), min: String(r.min ?? SUGGESTED.min), cap: String(r.cap ?? SUGGESTED.cap) };
+    // A fee an older save left switched off shows as zero (no fee).
+    if (r && r.enabled === true) f[s.id] = { percent: String(r.percent ?? SUGGESTED.percent), min: String(r.min ?? SUGGESTED.min), cap: String(r.cap ?? SUGGESTED.cap) };
   }
   return f;
 };
@@ -57,7 +60,6 @@ function problemOf(f: Form): string | null {
     if (r.percent.trim() === "" || !Number.isFinite(percent) || percent < 0 || percent > 100) return `${s.label}: enter a percentage from 0 to 100.`;
     if (r.min.trim() === "" || !Number.isFinite(min) || min < 0 || min > MAX_RUPEES) return `${s.label}: enter the minimum fee in rupees (0 for none).`;
     if (r.cap.trim() === "" || !Number.isFinite(cap) || cap < 0 || cap > MAX_RUPEES) return `${s.label}: enter the maximum fee in rupees (0 for no maximum).`;
-    if (r.enabled && percent <= 0 && min <= 0) return `${s.label}: set a percentage or a minimum fee above zero, or switch it off.`;
     if (cap > 0 && cap < min) return `${s.label}: the maximum cannot be lower than the minimum.`;
   }
   return null;
@@ -102,7 +104,7 @@ export default function PlatformFeeCard() {
     setMsg(null);
     try {
       await savePlatformFee({
-        services: Object.fromEntries(SERVICES.map((s) => [s.id, { enabled: form[s.id].enabled, percent: Number(form[s.id].percent), min: Number(form[s.id].min), cap: Number(form[s.id].cap) }])),
+        services: Object.fromEntries(SERVICES.map((s) => [s.id, { enabled: on(form[s.id]), percent: Number(form[s.id].percent), min: Number(form[s.id].min), cap: Number(form[s.id].cap) }])),
         expectedVersion: stored?.version ?? 0,
       });
       setDirty(false);
@@ -115,7 +117,7 @@ export default function PlatformFeeCard() {
   };
 
   const fare = Number(sample);
-  const activeCount = SERVICES.filter((s) => form[s.id].enabled).length;
+  const activeCount = SERVICES.filter((s) => on(form[s.id])).length;
 
   return (
     <section className="bg-white rounded-2xl border border-line shadow-sm p-5 space-y-4" aria-label="Platform fee">
@@ -147,7 +149,6 @@ export default function PlatformFeeCard() {
           <thead>
             <tr className="text-left text-xs uppercase tracking-wide text-muted">
               <th className="py-2 pr-3 font-bold">Service</th>
-              <th className="py-2 pr-3 font-bold">On</th>
               <th className="py-2 pr-3 font-bold">% of fare</th>
               <th className="py-2 pr-3 font-bold">Minimum ₹</th>
               <th className="py-2 pr-3 font-bold">Maximum ₹</th>
@@ -163,14 +164,11 @@ export default function PlatformFeeCard() {
                     <div className="font-semibold text-ink">{s.label}</div>
                     <div className="text-xs text-muted">{s.hint}</div>
                   </td>
-                  <td className="py-2.5 pr-3">
-                    <input type="checkbox" checked={r.enabled} onChange={(e) => set(s.id, { enabled: e.target.checked })} disabled={!canEdit} aria-label={`Platform fee on for ${s.label}`} className="w-4 h-4 accent-brand" />
-                  </td>
                   <td className="py-2.5 pr-3"><input value={r.percent} onChange={(e) => set(s.id, { percent: number(e.target.value) })} inputMode="decimal" disabled={!canEdit} aria-label={`${s.label} percentage`} className={`${inputCls} w-20`} /></td>
                   <td className="py-2.5 pr-3"><input value={r.min} onChange={(e) => set(s.id, { min: number(e.target.value) })} inputMode="decimal" disabled={!canEdit} aria-label={`${s.label} minimum`} className={`${inputCls} w-24`} /></td>
                   <td className="py-2.5 pr-3"><input value={r.cap} onChange={(e) => set(s.id, { cap: number(e.target.value) })} inputMode="decimal" disabled={!canEdit} aria-label={`${s.label} maximum`} className={`${inputCls} w-24`} /></td>
                   <td className="py-2.5 text-xs">
-                    {r.enabled ? (
+                    {on(r) ? (
                       <span className="text-body"><strong className="text-ink">{inr(feeFor(r, fare))}</strong> · {describe(r)}</span>
                     ) : (
                       <span className="text-muted">No fee</span>

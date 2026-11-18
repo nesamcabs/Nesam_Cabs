@@ -10,15 +10,16 @@
 //    Innova ₹19–22, Crysta ₹23–27; 8-hour rentals ₹2,400–2,800 sedan, ₹3,800–4,300 Innova, ₹4,800–5,500 Crysta; hill-road allowance ₹500–1,500).
 //    They are DEMO amounts, easy to replace later in Admin → Pricing.
 
-export type DemoClass = 'sedan' | 'suv' | 'suv7' | 'innova' | 'crysta';
-export const DEMO_CLASSES: readonly DemoClass[] = ['sedan', 'suv', 'suv7', 'innova', 'crysta'];
-export const CLASS_NAME: Record<DemoClass, string> = { sedan: 'Sedan', suv: 'SUV 6+1', suv7: 'SUV 7+1', innova: 'Innova', crysta: 'Innova Crysta' };
+export type DemoClass = 'hatchback' | 'sedan' | 'suv' | 'suv7' | 'innova' | 'crysta';
+export const DEMO_CLASSES: readonly DemoClass[] = ['hatchback', 'sedan', 'suv', 'suv7', 'innova', 'crysta'];
+export const CLASS_NAME: Record<DemoClass, string> = { hatchback: 'Hatchback', sedan: 'Sedan', suv: 'SUV 6+1', suv7: 'SUV 7+1', innova: 'Innova', crysta: 'Innova Crysta' };
 
 export const DEMO_REASON = 'Demo data setup (Round Trip guide v8)';
 
 interface Rate { ow: [number, number, number, number]; rt: [number, number, number, number]; extra: { waiting: number } }
 /** [customerRate, customerBata, partnerRate, partnerBata] for One Way (ow) and Round Trip (rt). */
 const RATES: Record<DemoClass, Rate> = {
+  hatchback: { ow: [14, 350, 12.6, 260], rt: [13, 450, 11.7, 350], extra: { waiting: 120 } },
   sedan: { ow: [15, 400, 13.5, 300], rt: [14, 500, 12.6, 400], extra: { waiting: 150 } },
   suv: { ow: [20, 400, 18, 300], rt: [19, 500, 17.1, 400], extra: { waiting: 200 } },
   suv7: { ow: [21, 450, 18.9, 350], rt: [20, 500, 18, 400], extra: { waiting: 200 } },
@@ -47,23 +48,26 @@ export function timeBasedAmounts(c: DemoClass) {
 
 /** Hill station allowance [oneWay customer, oneWay partner, roundTrip customer, roundTrip partner]. */
 const HILL: Record<DemoClass, [number, number, number, number]> = {
+  hatchback: [450, 350, 700, 560],
   sedan: [500, 400, 800, 650], suv: [600, 500, 1000, 800], suv7: [700, 550, 1100, 900], innova: [800, 650, 1200, 1000], crysta: [1000, 800, 1500, 1250],
 };
 
 /** Local Pickup & Drop (inside one city): [minKm, customerRate, partnerRate, extraKmRate, waitingPerHour]. */
 const LOCAL: Record<DemoClass, [number, number, number, number, number]> = {
+  hatchback: [5, 14, 12, 14, 100],
   sedan: [5, 16, 14, 16, 120], suv: [5, 22, 19, 22, 160], suv7: [5, 24, 21, 24, 170], innova: [5, 26, 23, 26, 200], crysta: [5, 32, 28, 32, 250],
 };
 /** Airport transfer [customerBase, partnerBase, includedKm, extraKmRate, partnerExtraKmRate, waitingPerHour]. */
 const AIRPORT: Record<DemoClass, [number, number, number, number, number, number]> = {
+  hatchback: [950, 780, 25, 13, 11, 120],
   sedan: [1100, 900, 25, 14, 12, 150], suv: [1500, 1250, 25, 19, 17, 200], suv7: [1600, 1320, 25, 20, 18, 200], innova: [1800, 1500, 25, 21, 19, 250], crysta: [2300, 1900, 25, 24, 21, 300],
 };
 
 /** Rental packages: sedan [fare, km] per hours; other classes scale the fare. */
 const RENTAL_SEDAN: Record<number, [number, number]> = { 4: [1400, 40], 5: [1700, 50], 6: [1950, 60], 8: [2500, 80], 10: [2950, 100], 12: [3400, 120] };
-const RENTAL_SCALE: Record<DemoClass, number> = { sedan: 1, suv: 1.35, suv7: 1.45, innova: 1.6, crysta: 2 };
-const RENTAL_MIN_HOURS: Record<DemoClass, number> = { sedan: 4, suv: 4, suv7: 4, innova: 4, crysta: 6 };
-const EXTRA_HOUR: Record<DemoClass, number> = { sedan: 250, suv: 330, suv7: 350, innova: 400, crysta: 500 };
+const RENTAL_SCALE: Record<DemoClass, number> = { hatchback: 0.9, sedan: 1, suv: 1.35, suv7: 1.45, innova: 1.6, crysta: 2 };
+const RENTAL_MIN_HOURS: Record<DemoClass, number> = { hatchback: 4, sedan: 4, suv: 4, suv7: 4, innova: 4, crysta: 6 };
+const EXTRA_HOUR: Record<DemoClass, number> = { hatchback: 220, sedan: 250, suv: 330, suv7: 350, innova: 400, crysta: 500 };
 
 export interface TariffCall {
   /** Stable key for the progress list. */
@@ -89,6 +93,7 @@ const classOfName = (name: string): DemoClass => {
   if (/innova/.test(n)) return 'innova';
   if (/7\s*\+\s*1/.test(n)) return 'suv7';
   if (/(suv|xuv|ertiga|marazzo|scorpio|muv|mpv)/.test(n)) return 'suv';
+  if (/(hatch|wagon\s?r|alto|i10|celerio|kwid|tiago|micro)/.test(n)) return 'hatchback';
   return 'sedan';
 };
 
@@ -268,19 +273,19 @@ export function tariffInputWithLocalFares(stored: any, fares: Record<string, Rec
   return { ...(plain(rest) as Record<string, unknown>), localPickupDrop: plain(local), enabled: stored?.enabled === true, expectedVersion: typeof version === 'number' ? version : 0, reason };
 }
 
-/** savePlatformFee payload: a sensible fee per service, left OFF so it does not change the fares of the guide. */
+/** savePlatformFee payload: no platform fee (0 % and ₹0 everywhere), so the fares stay exactly the guide's. Enter a fee per service later in Fares. */
 export const PLATFORM_FEE_DEMO = {
   services: {
-    outstation: { enabled: false, percent: 2, min: 20, cap: 150 },
-    local: { enabled: false, percent: 3, min: 10, cap: 60 },
-    rental: { enabled: false, percent: 2, min: 20, cap: 120 },
-    airport: { enabled: false, percent: 2, min: 15, cap: 100 },
-    multicity: { enabled: false, percent: 2, min: 30, cap: 250 },
+    outstation: { enabled: false, percent: 0, min: 0, cap: 0 },
+    local: { enabled: false, percent: 0, min: 0, cap: 0 },
+    rental: { enabled: false, percent: 0, min: 0, cap: 0 },
+    airport: { enabled: false, percent: 0, min: 0, cap: 0 },
+    multicity: { enabled: false, percent: 0, min: 0, cap: 0 },
   },
 };
 
-/** saveNightAllowance payload: ₹150 for pickups from 11 PM to 6 AM, left OFF so the guide's fares are not changed. */
-export const NIGHT_ALLOWANCE_DEMO = { enabled: false, amount: 150 };
+/** saveNightAllowance payload: ₹150–300 per vehicle for pickups from 11 PM to 6 AM, always on (a vehicle with 0 has none). */
+export const NIGHT_ALLOWANCE_DEMO = { enabled: true, amount: 150, classes: { hatchback: 120, sedan: 150, suv: 200, suv7: 200, innova: 250, crysta: 300 } };
 
 /** Popular One Way routes across India with an agreed fare: [from, to, approximate km]. Sedan ≈ ₹14/km + ₹300, Innova ≈ ₹20/km + ₹450 (rounded to ₹50). Partner payout ≈ 88%. */
 export const FIXED_ROUTES_DEMO: [string, string, number][] = [

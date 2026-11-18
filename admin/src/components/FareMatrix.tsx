@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   BRAND_LABELS,
-  FALLS_BACK_TO_SUV,
+  FALLBACK_CLASS,
   RENTAL_HOURS,
   getInheritingBrands,
   inr,
@@ -18,7 +18,7 @@ import { ActionError } from "../services/callables";
 import { useCan, useCanDo } from "./AccessContext";
 import { Badge, Button, Icon } from "./ui";
 import { Modal, Toast, useToast } from "./Feedback";
-import { CardBody, Problems, RateTable, SaveBar, SettingCard, SharedLegend } from "./RateTable";
+import { CardBody, Problems, RateTable, SaveBar, SettingCard, SharedLegend, vehicleColumns, type VehicleCol } from "./RateTable";
 import { NUM_KEYS, OLD_RULE_KEYS, PKG_FIELDS, emptyForm, formOf, type Form, type NumKey, type PkgField } from "./fareForm";
 import RentalPackageBuilder from "./RentalPackageBuilder";
 
@@ -38,8 +38,8 @@ function rowsOf(t: Tariff | null | undefined, scope: FareWorkspaceScope, card: M
   const cls = card.cls;
   const service = scope.service;
   const perDay = service === "Round Trip" || service === "Multicity";
-  const oneWay = t?.oneWay?.classes?.[cls] ?? (FALLS_BACK_TO_SUV(cls) ? t?.oneWay?.classes?.suv : undefined);
-  const roundTrip = t?.roundTrip?.classes?.[cls] ?? (FALLS_BACK_TO_SUV(cls) ? t?.roundTrip?.classes?.suv : undefined);
+  const oneWay = t?.oneWay?.classes?.[cls] ?? (FALLBACK_CLASS(cls) ? t?.oneWay?.classes?.[FALLBACK_CLASS(cls)!] : undefined);
+  const roundTrip = t?.roundTrip?.classes?.[cls] ?? (FALLBACK_CLASS(cls) ? t?.roundTrip?.classes?.[FALLBACK_CLASS(cls)!] : undefined);
   const base = service === "One Way" ? oneWay : roundTrip; // Multicity inherits the Round Trip card
   const outstation = service === "One Way" ? outstationExtraFor(t, cls, "One Way") : perDay ? outstationExtraFor(t, cls, "Round Trip") : undefined;
   const oldExtras = t?.extraCharges?.categories?.[card.categoryId ?? ""] ?? t?.extraCharges?.categories?.[`cat-${cls}`] ?? t?.extraCharges?.categories?.[cls];
@@ -97,8 +97,10 @@ function rowsOf(t: Tariff | null | undefined, scope: FareWorkspaceScope, card: M
   return rows;
 }
 
-export default function FareMatrix({ scope, cards, fuel = "petrol", onDirtyChange, onBusyChange }: {
+export default function FareMatrix({ scope, cards, vehicles, fuel = "petrol", onDirtyChange, onBusyChange }: {
   scope: FareWorkspaceScope;
+  /** Every active vehicle category, one column each (categories sharing a rate class mirror the one that edits it). */
+  vehicles?: VehicleCol[];
   /** One column per rate class (categories that share a class share a column). */
   cards: MatrixCard[];
   fuel?: "petrol" | "cng";
@@ -373,7 +375,12 @@ export default function FareMatrix({ scope, cards, fuel = "petrol", onDirtyChang
           </CardBody>
         )}
         <RateTable label={`Fares for ${where}`} disabled={!canEdit || busy || !!loadError}
-          columns={cards.map((c) => { const s = statuses.get(c.cls)!; return { key: c.cls, name: c.name, status: { tone: s.tone, text: s.short, title: s.text } }; })}
+          columns={(() => {
+            const statusOf = (cls: TariffClass) => { const s = statuses.get(cls); return s ? { tone: s.tone, text: s.short, title: s.text } : undefined; };
+            return vehicles?.length
+              ? vehicleColumns(vehicles, (cls) => cards.some((c) => c.cls === cls), statusOf)
+              : cards.map((c) => ({ key: c.cls, name: c.name, status: statusOf(c.cls) }));
+          })()}
           groups={[...(isRental ? [pkgGroup] : []), ...groups.map((g) => ({
             title: showCng && g !== "extras" ? `CNG · ${GROUP_TITLE[g]}` : GROUP_TITLE[g],
             rows: baseRows.map((r, i) => ({ r, i })).filter(({ r }) => r.group === g).map(({ r, i }) => ({
@@ -409,7 +416,7 @@ export default function FareMatrix({ scope, cards, fuel = "petrol", onDirtyChang
         <Modal title={`Fill packages · ${builderCard.name}`} onClose={() => setBuilderFor(null)} footer={<Button onClick={() => setBuilderFor(null)}>Close</Button>}>
           <RentalPackageBuilder key={builderFor} disabled={!canEdit || busy}
             initialRule={formFor(builderFor).rentalRule ?? (brand !== "common" ? t?.brandOverrides?.common?.["Local Rental"]?.[builderFor]?.rentalPackageRule : undefined)}
-            hourly={t?.rental?.classes?.[builderFor] ?? (FALLS_BACK_TO_SUV(builderFor) ? t?.rental?.classes?.suv : undefined)}
+            hourly={t?.rental?.classes?.[builderFor] ?? (FALLBACK_CLASS(builderFor) ? t?.rental?.classes?.[FALLBACK_CLASS(builderFor)!] : undefined)}
             onGenerate={(rentalRule, generated) => {
               const cls = builderFor;
               setForms((p) => {

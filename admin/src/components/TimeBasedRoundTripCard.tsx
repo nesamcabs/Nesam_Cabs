@@ -4,7 +4,7 @@ import { ActionError } from "../services/callables";
 import { CLASS_LABEL, TARIFF_CLASSES, inr, useTariff, type TariffClass, type TimeBasedClassRates, type TimeBasedSettings } from "../services/tariffService";
 import { useCan, useCanDo } from "./AccessContext";
 import { Button } from "./ui";
-import { CardBody, Problems, RateTable, SaveBar, SettingCard } from "./RateTable";
+import { CardBody, Problems, RateTable, SaveBar, SettingCard, vehicleColumns, type VehicleCol } from "./RateTable";
 
 /**
  * Time-based Round Trip (Customer UX v8, 16 Nov 2026). Customers choose trip DAYS, never a return time:
@@ -31,7 +31,7 @@ const toDraft = (t?: Partial<TimeBasedClassRates>): Draft => Object.fromEntries(
 /** The values worked out in "Customer UX v8" for the Sedan; partner payouts are suggested at the same share as the Sedan's Round Trip rate. */
 const UX_V7_SEDAN = { fiveFare: 2080, fiveKm: 100, eightFare: 2780, eightKm: 150, morningFare: 4500, morningKm: 250 };
 
-export default function TimeBasedRoundTripCard({ names }: { names?: Partial<Record<TariffClass, string>> } = {}) {
+export default function TimeBasedRoundTripCard({ vehicles }: { vehicles?: VehicleCol[] } = {}) {
   const { tariff } = useTariff();
   const pricingAccess = useCan("pricing");
   const settingsEdit = useCanDo("Settings", "edit");
@@ -45,7 +45,7 @@ export default function TimeBasedRoundTripCard({ names }: { names?: Partial<Reco
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   // Only the rate classes a vehicle category uses (the server keeps every other class's saved packages as they are).
-  const cards = useMemo(() => TARIFF_CLASSES.filter((c) => tariff?.roundTrip?.classes?.[c] && (!names || names[c])), [tariff, names]);
+  const cards = useMemo(() => TARIFF_CLASSES.filter((c) => tariff?.roundTrip?.classes?.[c] && (!vehicles?.length || vehicles.some((v) => v.cls === c))), [tariff, vehicles]);
 
   useEffect(() => {
     const s = { ...DEFAULTS, ...(saved ?? {}) };
@@ -165,8 +165,9 @@ export default function TimeBasedRoundTripCard({ names }: { names?: Partial<Reco
     `Past ${eight} hours or ${kmLimit} km a booked short package moves up to the next slab (never down). Hill stations skip the ${five}-hour / ${eight}-hour packages.`,
   ];
 
-  const nameOf = (c: TariffClass) => names?.[c] ?? CLASS_LABEL[c];
-  const columns = cards.map((c) => { const err = classError(c); return { key: c, name: nameOf(c), status: err ? { tone: "warn" as const, text: "Check", title: err } : undefined }; });
+  const nameOf = (c: TariffClass) => vehicles?.find((v) => v.cls === c && v.owner)?.name ?? CLASS_LABEL[c];
+  const statusOf = (c: TariffClass) => { const err = classError(c); return err ? { tone: "warn" as const, text: "Check", title: err } : undefined; };
+  const columns = vehicles?.length ? vehicleColumns(vehicles, (c) => cards.includes(c), statusOf) : cards.map((c) => ({ key: c, name: nameOf(c), status: statusOf(c) }));
   const pkgRows = (key: "five" | "eight" | "morning") => ([["Fare", "Customer fare", "₹"], ["Km", "Included km", "km"], ["Partner", "Partner payout", "₹"]] as const).map(([suffix, label, unit]) => {
     const f = `${key}${suffix}` as Field;
     return { key: f, label, unit, cell: (c: string) => { const v = rows[c as TariffClass]?.[f] ?? ""; return { value: v, own: v !== "", onChange: (next: string) => setField(c as TariffClass, f, next) }; } };

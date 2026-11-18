@@ -15,7 +15,7 @@ import { useCan } from "./AccessContext";
 import { Modal } from "./Feedback";
 import { Badge, Button, DataTable, EmptyState, Icon, toneForStatus } from "./ui";
 import { StageBar } from "./ui/ListKit";
-import { Problems, RateTable, SaveBar, SettingCard } from "./RateTable";
+import { Problems, RateTable, SaveBar, SettingCard, vehicleColumns, type VehicleCol } from "./RateTable";
 
 type Tab = "Rental packages" | "Pickup & Drop";
 const TABS: Tab[] = ["Rental packages", "Pickup & Drop"];
@@ -25,7 +25,7 @@ const text = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? Stri
 
 /** Local fares: fixed Rental packages by vehicle category and hours, and the Pickup & Drop fare of each city. */
 /** `only` shows a single section without the tab bar (rental packages are now edited in Brand & service fares). */
-export default function LocalFares({ initialTab = "Rental packages", initialCity = "", onToast, only, names }: { initialTab?: Tab; initialCity?: string; onToast: (t: string) => void; only?: Tab; names?: Partial<Record<TariffClass, string>> }) {
+export default function LocalFares({ initialTab = "Rental packages", initialCity = "", onToast, only, vehicles }: { initialTab?: Tab; initialCity?: string; onToast: (t: string) => void; only?: Tab; vehicles?: VehicleCol[] }) {
   const { tariff, error } = useTariff();
   const canEdit = useCan("pricing");
   const [tab, setTab] = useState<Tab>(only ?? initialTab);
@@ -147,7 +147,7 @@ export default function LocalFares({ initialTab = "Rental packages", initialCity
             </select>
           </label>
           {addError && <p className="ds-error" role="alert">{addError}</p>}
-          {city && <PickupDropMatrix key={city.id} city={city} names={names} canEdit={canEdit} onToast={onToast} />}
+          {city && <PickupDropMatrix key={city.id} city={city} vehicles={vehicles} canEdit={canEdit} onToast={onToast} />}
         </section>
       )}
 
@@ -237,7 +237,9 @@ const PD_FIELDS: { key: PdKey; label: string; unit: string; zeroOk?: boolean }[]
 const pdOf = (f?: Partial<LocalFare>): PdDraft => ({ minKm: text(f?.minKm), rate: text(f?.customerRate), exKm: text(f?.extraKmRate), wait: text(f?.waitingPerHour), partner: text(f?.partnerRate), enabled: f?.enabled ?? false });
 
 /** One city's Pickup & Drop fares: the rates down the side, the vehicles across the top, one Save for every changed vehicle. */
-function PickupDropMatrix({ city, names, canEdit, onToast }: { city: MasterLocation; names?: Partial<Record<TariffClass, string>>; canEdit: boolean; onToast: (t: string) => void }) {
+function PickupDropMatrix({ city, vehicles, canEdit, onToast }: { city: MasterLocation; vehicles?: VehicleCol[]; canEdit: boolean; onToast: (t: string) => void }) {
+  // Only the rate classes an active vehicle category is priced as.
+  const classes = TARIFF_CLASSES.filter((c) => !vehicles?.length || vehicles.some((v) => v.cls === c));
   const { tariff } = useTariff();
   const savedOf = (c: TariffClass) => pdOf(tariff?.localPickupDrop?.[city.id]?.classes?.[c]);
   const [drafts, setDrafts] = useState<Partial<Record<TariffClass, PdDraft>>>({});
@@ -246,9 +248,9 @@ function PickupDropMatrix({ city, names, canEdit, onToast }: { city: MasterLocat
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const draftOf = (c: TariffClass) => drafts[c] ?? savedOf(c);
   const dirtyOf = (c: TariffClass) => !!drafts[c] && JSON.stringify(drafts[c]) !== JSON.stringify(savedOf(c));
-  const changed = TARIFF_CLASSES.filter(dirtyOf);
+  const changed = classes.filter(dirtyOf);
   const set = (c: TariffClass, patch: Partial<PdDraft>) => { setMessage(null); setDrafts((d) => ({ ...d, [c]: { ...(d[c] ?? savedOf(c)), ...patch } })); };
-  const nameOf = (c: TariffClass) => names?.[c] ?? CLASS_LABEL[c];
+  const nameOf = (c: TariffClass) => vehicles?.find((v) => v.cls === c && v.owner)?.name ?? CLASS_LABEL[c];
   const errorOf = (c: TariffClass): string => {
     if (!dirtyOf(c)) return "";
     const d = draftOf(c);
@@ -259,7 +261,7 @@ function PickupDropMatrix({ city, names, canEdit, onToast }: { city: MasterLocat
     }
     return "";
   };
-  const problems = TARIFF_CLASSES.map((c) => (errorOf(c) ? `${nameOf(c)}: ${errorOf(c)}` : "")).filter(Boolean);
+  const problems = classes.map((c) => (errorOf(c) ? `${nameOf(c)}: ${errorOf(c)}` : "")).filter(Boolean);
   const name = city.name || city.city;
 
   const save = async () => {
@@ -296,7 +298,10 @@ function PickupDropMatrix({ city, names, canEdit, onToast }: { city: MasterLocat
       description="Fare = the greater of the road distance and the minimum billable km, times the price per km. The 130 km Outstation minimum does not apply."
       footer={canEdit ? <SaveBar reason={reason} onReason={setReason} onSave={save} busy={busy} disabled={!changed.length || problems.length > 0} message={message} note="Fill every box of a vehicle to save it. Switch it on to quote it." /> : null}>
       <RateTable label={`Pickup and Drop fares in ${name}`} disabled={!canEdit || busy}
-        columns={TARIFF_CLASSES.map((c) => ({ key: c, name: nameOf(c), status: errorOf(c) ? { tone: "warn" as const, text: "Check", title: errorOf(c) } : !configured(c) && !dirtyOf(c) ? { tone: "off" as const, text: "Not set" } : undefined }))}
+        columns={(() => {
+          const statusOf = (c: TariffClass) => errorOf(c) ? { tone: "warn" as const, text: "Check", title: errorOf(c) } : !configured(c) && !dirtyOf(c) ? { tone: "off" as const, text: "Not set" } : undefined;
+          return vehicles?.length ? vehicleColumns(vehicles, (c) => classes.includes(c), statusOf) : classes.map((c) => ({ key: c, name: nameOf(c), status: statusOf(c) }));
+        })()}
         groups={[
           { title: "Customer pays", rows: PD_FIELDS.filter((f) => f.key !== "partner").map((f) => ({ key: f.key, label: f.label, unit: f.unit, required: true, cell: (c: string) => { const v = draftOf(c as TariffClass)[f.key]; return { value: v, own: v !== "", onChange: (next: string) => set(c as TariffClass, { [f.key]: next } as Partial<PdDraft>) }; } })) },
           { title: "Partner gets", rows: PD_FIELDS.filter((f) => f.key === "partner").map((f) => ({ key: f.key, label: f.label, unit: f.unit, required: true, cell: (c: string) => { const v = draftOf(c as TariffClass)[f.key]; return { value: v, own: v !== "", onChange: (next: string) => set(c as TariffClass, { [f.key]: next } as Partial<PdDraft>) }; } })) },

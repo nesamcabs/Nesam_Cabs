@@ -23,7 +23,6 @@ import {
   type CategoryForm,
 } from "../services/categoryService";
 import { mapVehicle } from "../services/vehicleService";
-import { CLASS_LABEL, tariffClassOfCategory } from "../services/tariffService";
 import { ConfirmDialog, ErrorBanner, Modal, Toast, useToast } from "../components/Feedback";
 import { Button } from "../components/ui";
 
@@ -442,6 +441,7 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
         onChange={(e) => { void handleRowImage(e.target.files?.[0]); e.target.value = ""; }} />
 
       {/* Brand tabs: each brand manages its own categories and car images */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
       <div role="tablist" aria-label="Brand" className="flex flex-wrap gap-2">
         {BRAND_IMAGE_BRANDS.map((b) => {
           const on = b.id === brand;
@@ -462,15 +462,7 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
           );
         })}
       </div>
-
-      {/* Top Action Header Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          {embedded ? <h2 className="text-[16px] font-bold text-ink">{brandName} — Vehicle Categories</h2> : <h1 className="text-[20px] font-bold text-ink">{brandName} — Vehicle Categories</h1>}
-          <p className="text-[12px] text-muted mt-0.5">Categories and car images customers see on the {brandName} site. Changes here do not affect the other brands.</p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 ml-auto">
           <button
             type="button"
             onClick={() => setShowAddExisting(true)}
@@ -480,14 +472,6 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
             Add existing category{notOffered.length ? ` (${notOffered.length})` : ""}
           </button>
           <button
-            type="button"
-            onClick={() => setShowBulk(true)}
-            disabled={!brandCategories.length}
-            className="flex items-center gap-2 px-4 py-2.5 text-[13px] font-semibold text-ink bg-white border border-line rounded-lg shadow-sm hover:bg-hover transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Upload car images
-          </button>
-          <button
             onClick={handleOpenAdd}
             className="flex items-center gap-2 px-4 py-2.5 text-[13px] font-semibold text-white rounded-lg shadow-sm hover:opacity-90 transition-all cursor-pointer"
             style={{ background: accent }}
@@ -495,9 +479,18 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
             </svg>
-            + Add Vehicle Category
+            Add Vehicle Category
           </button>
         </div>
+      </div>
+
+      {/* Heading */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          {embedded ? <h2 className="text-[16px] font-bold text-ink">{brandName} — Vehicle Categories</h2> : <h1 className="text-[20px] font-bold text-ink">{brandName} — Vehicle Categories</h1>}
+          <p className="text-[12px] text-muted mt-0.5">Categories and car images customers see on the {brandName} site. Changes here do not affect the other brands.</p>
+        </div>
+
       </div>
 
       {/* Summary Stats Cards */}
@@ -640,9 +633,6 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
                   <th className="px-4 py-3 text-center text-[11px] font-semibold text-faint uppercase tracking-wide">
                     Seating & Luggage
                   </th>
-                  <th className="px-4 py-3 text-left text-[11px] font-semibold text-faint uppercase tracking-wide">
-                    Priced as
-                  </th>
                   <th className="px-4 py-3 text-center text-[11px] font-semibold text-faint uppercase tracking-wide">
                     Vehicles
                   </th>
@@ -687,36 +677,16 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
                                   cat.icon || "🚘"
                                 )}
                               </div>
-                              {/* The category name on a small number-plate badge, under the car. */}
-                              <span
-                                title={cat.name}
-                                className="block max-w-full truncate rounded-[3px] border border-ink bg-[#FFD84D] px-1.5 py-px text-center text-[8px] font-extrabold uppercase leading-[12px] tracking-wider text-ink"
-                              >
-                                {cat.name}
-                              </span>
                             </div>
                             <div>
                               <div className="flex items-center gap-2">
                                 <span className="text-[13px] font-bold text-ink">{cat.description?.trim() || cat.name}</span>
-                                {cat.code && (
-                                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 font-bold uppercase">
-                                    {cat.code}
-                                  </span>
-                                )}
-                                {cat.cngEnabled && (
-                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-100 text-green-800 font-bold uppercase">CNG</span>
-                                )}
                               </div>
                               {cat.description?.trim() && cat.description.trim() !== cat.name && (
                                 <div className="text-[11px] text-faint line-clamp-1 max-w-xs">
                                   {cat.name}
                                 </div>
                               )}
-                              <div className="text-[10px] text-faint mt-0.5">
-                                {cat.brandImages?.[brand] ? `${brandName} image` : carImage ? "Shared image" : "No car image"}
-                                {" · "}
-                                {otherBrands.length ? `Also on ${otherBrands.map(brandLabel).join(", ")}` : `${brandName} only`}
-                              </div>
                             </div>
                           </div>
                         </td>
@@ -729,12 +699,6 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
                           <div className="text-[10px] text-faint">
                             {cat.luggageCapacity || "Standard luggage"}
                           </div>
-                        </td>
-
-                        {/* Rate class: which rates in Service & Fare Settings → Fares price this vehicle */}
-                        <td className="px-4 py-3.5">
-                          <div className="text-[12px] font-semibold text-ink">{CLASS_LABEL[tariffClassOfCategory(cat)]} rates</div>
-                          <div className="text-[10px] text-faint">Set in Fares</div>
                         </td>
 
                         {/* Vehicle Count */}
@@ -809,7 +773,7 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
       {/* Add / Edit Category Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden my-8">
+          <div className="bg-white rounded-2xl max-w-5xl w-full shadow-2xl overflow-hidden my-8">
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-line flex items-center justify-between bg-surface-2">
               <div>
@@ -829,41 +793,20 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
               </button>
             </div>
 
-            {/* Navigation Tabs */}
-            <div className="flex flex-wrap border-b border-line bg-hover px-6 pt-2">
-              {([
-                { id: "basic", label: "Category Info" },
-                { id: "specs", label: "Vehicle Specs" },
-              ] as { id: FormTab; label: string }[]).map((tab) => (
-                <button
-                  type="button"
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`px-4 py-2 text-[12px] font-semibold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
-                    activeTab === tab.id
-                      ? "border-brand text-brand bg-white rounded-t-lg"
-                      : "border-transparent text-muted hover:text-ink"
-                  }`}
-                >
-                  {tab.label}
-                  {tabHasError(tab.id) && <span className="w-1.5 h-1.5 rounded-full bg-red-600" aria-label="has errors" />}
-                </button>
-              ))}
-            </div>
-
-            {/* Form Form Container */}
+            {/* Form: one screen, grouped into cards — details and specs on the left, the car image on the right, availability below. */}
             <form onSubmit={handleSave} noValidate>
-              <fieldset disabled={saving} className="p-6 space-y-4 max-h-[60vh] overflow-y-auto min-w-0">
+              <fieldset disabled={saving} className="p-5 max-h-[70vh] overflow-y-auto min-w-0 space-y-4 bg-gray-50">
                 {formError && (
                   <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-semibold">
                     ⚠️ {formError}
                   </div>
                 )}
 
-                {/* TAB 1: BASIC INFO */}
-                {activeTab === "basic" && (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-start">
+                  <div className="lg:col-span-3 space-y-4">
+                    <section className="rounded-xl border border-line bg-white p-4 space-y-3" aria-label="Category details">
+                      <h4 className="text-[11px] font-bold uppercase tracking-wide text-faint">Category details</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-[11px] font-bold text-ink mb-1">
                           Category Name *
@@ -892,8 +835,7 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
                         />
                         {errNode("code")}
                       </div>
-                    </div>
-
+                      </div>
                     <div>
                       <label className="block text-[11px] font-bold text-ink mb-1">
                         Display Text
@@ -908,125 +850,10 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
                       />
                     </div>
 
-                    <section aria-label="Category images" className="space-y-2">
-                      <h4 className="text-sm font-bold">{brandName} car image</h4>
-                      <p className="text-xs text-muted">Shown on the {brandName} site only. Without one, {brandName} uses the shared car image below.</p>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <CategoryMediaField
-                          label={`${brandName} car image`}
-                          kind="car"
-                          plateText={formData.name}
-                          value={formData.brandImages[brand] || ''}
-                          file={brandFiles[brand] ?? null}
-                          disabled={saving}
-                          onChange={(file, clear) => {
-                            setBrandFiles(current => ({ ...current, [brand]: file }));
-                            if (clear) setFormData(current => { const next = { ...current.brandImages }; delete next[brand]; return { ...current, brandImages: next }; });
-                          }}
-                        />
-                      </div>
-                      <details className="pt-2 rounded-lg border border-line p-3">
-                        <summary className="cursor-pointer text-[12px] font-bold text-ink">Shared artwork and other brands' car images</summary>
-                        <p className="text-xs text-muted my-2">The icon and shared car image are used by every brand that has no car image of its own.</p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <CategoryMediaField label="Category icon" kind="icon" value={formData.iconUrl} file={iconFile} disabled={saving} onChange={(file, clear) => { setIconFile(file); if (clear) setFormData(current => ({ ...current, iconUrl: '' })); }} />
-                          <CategoryMediaField label="Shared car image" kind="car" plateText={formData.name} value={formData.imageUrl} file={carFile} disabled={saving} onChange={(file, clear) => { setCarFile(file); if (clear) setFormData(current => ({ ...current, imageUrl: '' })); }} />
-                          {BRAND_IMAGE_BRANDS.filter((b) => b.id !== brand).map((b) => (
-                            <CategoryMediaField
-                              key={b.id}
-                              label={`${b.name} car image`}
-                              kind="car"
-                              plateText={formData.name}
-                              value={formData.brandImages[b.id] || ''}
-                              file={brandFiles[b.id] ?? null}
-                              disabled={saving}
-                              onChange={(file, clear) => {
-                                setBrandFiles(current => ({ ...current, [b.id]: file }));
-                                if (clear) setFormData(current => { const next = { ...current.brandImages }; delete next[b.id]; return { ...current, brandImages: next }; });
-                              }}
-                            />
-                          ))}
-                        </div>
-                      </details>
-                      {errNode('iconUrl')}{errNode('imageUrl')}
                     </section>
 
-                    <fieldset className="rounded-lg border border-line p-3">
-                      <legend className="px-1 text-[11px] font-bold text-ink">Offered on</legend>
-                      <div className="flex flex-wrap gap-4">
-                        {BRAND_IMAGE_BRANDS.map((b) => {
-                          const checked = formData.brands.includes(b.id);
-                          const lastOne = checked && formData.brands.length === 1;
-                          return (
-                            <label key={b.id} className="flex items-center gap-2 text-[12px] font-semibold text-ink cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                disabled={lastOne}
-                                title={lastOne ? "A category must be offered on at least one brand." : undefined}
-                                onChange={(e) => setFormData(current => ({
-                                  ...current,
-                                  brands: e.target.checked ? [...new Set([...current.brands, b.id])] : current.brands.filter((x) => x !== b.id),
-                                }))}
-                                className="w-4 h-4 accent-brand"
-                              />
-                              {b.name}
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </fieldset>
-
-                    <label className="flex items-center gap-3 p-3 rounded-xl border border-line bg-gray-50 max-w-xs cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formData.cngEnabled === true}
-                        onChange={(e) => setFormData({ ...formData, cngEnabled: e.target.checked })}
-                        className="w-4 h-4 accent-brand"
-                      />
-                      <span className="text-[12px] font-semibold text-ink">CNG available</span>
-                    </label>
-
-                    <div className="max-w-xs">
-                      <label className="block text-[11px] font-bold text-ink mb-1">Status on {brandName}</label>
-                      <select
-                        value={formData.status === "Inactive" || formData.brandStatus[brand] === "Inactive" ? "Inactive" : "Active"}
-                        onChange={(e) => setFormData(current => {
-                          const brandStatus = { ...current.brandStatus };
-                          if (e.target.value === "Inactive") brandStatus[brand] = "Inactive"; else delete brandStatus[brand];
-                          // Switching a globally inactive category on from here turns it on for this brand only.
-                          if (e.target.value === "Active" && current.status === "Inactive") {
-                            for (const b of BRAND_IMAGE_BRANDS) if (b.id !== brand) brandStatus[b.id] = "Inactive";
-                            return { ...current, status: "Active", brandStatus };
-                          }
-                          return { ...current, brandStatus };
-                        })}
-                        className="w-full p-2.5 border border-line rounded-lg text-[12px] focus:outline-none focus:border-brand"
-                      >
-                        <option value="Active">Active (Selectable)</option>
-                        <option value="Inactive">Inactive (Hidden)</option>
-                      </select>
-                    </div>
-                  </div>
-                )}
-
-                {/* TAB 2: SPECS */}
-                {activeTab === "specs" && (
-                  <div className="space-y-4">
-                    <section className="rounded-lg border border-line p-4 space-y-3">
-                      <h3 className="font-bold text-sm">Roof carrier charge</h3>
-                      <p className="text-xs text-muted">Per trip, only when selected. Applies to all vehicles in this category across all brands, using the booking's GST setting. Enter 0 for no extra charge.</p>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {([['carrierCharge', 'Roof carrier charge']] as const).map(([key, label]) => (
-                          <label key={key} className="block text-xs font-semibold">{label} (INR / trip)
-                            <input type="number" min="0" max="100000" step="0.01" value={formData.fare[key]}
-                              onChange={(e) => setFormData({ ...formData, fare: { ...formData.fare, [key]: Number(e.target.value) } })}
-                              className="mt-1 w-full p-2.5 border border-line rounded-lg" />
-                            {errNode(`fare.${key}`)}
-                          </label>
-                        ))}
-                      </div>
-                    </section>
+                    <section className="rounded-xl border border-line bg-white p-4 space-y-3" aria-label="Vehicle specs">
+                      <h4 className="text-[11px] font-bold uppercase tracking-wide text-faint">Vehicle specs</h4>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-[11px] font-bold text-ink mb-1">
@@ -1075,8 +902,117 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
                         {errNode("displayOrder")}
                       </div>
                     </div>
+                    </section>
+
+                    <section className="rounded-xl border border-line bg-white p-4 space-y-3" aria-label="Availability">
+                      <h4 className="text-[11px] font-bold uppercase tracking-wide text-faint">Availability</h4>
+                    <fieldset>
+                      <legend className="mb-1.5 text-[11px] font-bold text-ink">Offered on</legend>
+                      <div className="flex flex-wrap gap-4">
+                        {BRAND_IMAGE_BRANDS.map((b) => {
+                          const checked = formData.brands.includes(b.id);
+                          const lastOne = checked && formData.brands.length === 1;
+                          return (
+                            <label key={b.id} className="flex items-center gap-2 text-[12px] font-semibold text-ink cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                disabled={lastOne}
+                                title={lastOne ? "A category must be offered on at least one brand." : undefined}
+                                onChange={(e) => setFormData(current => ({
+                                  ...current,
+                                  brands: e.target.checked ? [...new Set([...current.brands, b.id])] : current.brands.filter((x) => x !== b.id),
+                                }))}
+                                className="w-4 h-4 accent-brand"
+                              />
+                              {b.name}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </fieldset>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                    <div>
+                      <label className="block text-[11px] font-bold text-ink mb-1">Status on {brandName}</label>
+                      <select
+                        value={formData.status === "Inactive" || formData.brandStatus[brand] === "Inactive" ? "Inactive" : "Active"}
+                        onChange={(e) => setFormData(current => {
+                          const brandStatus = { ...current.brandStatus };
+                          if (e.target.value === "Inactive") brandStatus[brand] = "Inactive"; else delete brandStatus[brand];
+                          // Switching a globally inactive category on from here turns it on for this brand only.
+                          if (e.target.value === "Active" && current.status === "Inactive") {
+                            for (const b of BRAND_IMAGE_BRANDS) if (b.id !== brand) brandStatus[b.id] = "Inactive";
+                            return { ...current, status: "Active", brandStatus };
+                          }
+                          return { ...current, brandStatus };
+                        })}
+                        className="w-full p-2.5 border border-line rounded-lg text-[12px] focus:outline-none focus:border-brand"
+                      >
+                        <option value="Active">Active (Selectable)</option>
+                        <option value="Inactive">Inactive (Hidden)</option>
+                      </select>
+                    </div>
+                    <label className="flex items-center gap-3 p-3 rounded-xl border border-line bg-gray-50 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.cngEnabled === true}
+                        onChange={(e) => setFormData({ ...formData, cngEnabled: e.target.checked })}
+                        className="w-4 h-4 accent-brand"
+                      />
+                      <span className="text-[12px] font-semibold text-ink">CNG available</span>
+                    </label>
+
+                      </div>
+                    </section>
                   </div>
-                )}
+
+                  <section className="lg:col-span-2 rounded-xl border border-line bg-white p-4 space-y-3" aria-label="Car images">
+                    <h4 className="text-[11px] font-bold uppercase tracking-wide text-faint">{brandName} car image</h4>
+                    <section aria-label="Category images" className="space-y-2">
+                                            <p className="text-xs text-muted">Shown on the {brandName} site only. Without one, {brandName} uses the shared car image below.</p>
+                      <div className="grid grid-cols-1 gap-3">
+                        <CategoryMediaField
+                          label={`${brandName} car image`}
+                          kind="car"
+                          plateText={formData.name}
+                          value={formData.brandImages[brand] || ''}
+                          file={brandFiles[brand] ?? null}
+                          disabled={saving}
+                          onChange={(file, clear) => {
+                            setBrandFiles(current => ({ ...current, [brand]: file }));
+                            if (clear) setFormData(current => { const next = { ...current.brandImages }; delete next[brand]; return { ...current, brandImages: next }; });
+                          }}
+                        />
+                      </div>
+                      <details className="pt-2 rounded-lg border border-line p-3">
+                        <summary className="cursor-pointer text-[12px] font-bold text-ink">Shared artwork and other brands' car images</summary>
+                        <p className="text-xs text-muted my-2">The icon and shared car image are used by every brand that has no car image of its own.</p>
+                        <div className="grid grid-cols-1 gap-3">
+                          <CategoryMediaField label="Category icon" kind="icon" value={formData.iconUrl} file={iconFile} disabled={saving} onChange={(file, clear) => { setIconFile(file); if (clear) setFormData(current => ({ ...current, iconUrl: '' })); }} />
+                          <CategoryMediaField label="Shared car image" kind="car" plateText={formData.name} value={formData.imageUrl} file={carFile} disabled={saving} onChange={(file, clear) => { setCarFile(file); if (clear) setFormData(current => ({ ...current, imageUrl: '' })); }} />
+                          {BRAND_IMAGE_BRANDS.filter((b) => b.id !== brand).map((b) => (
+                            <CategoryMediaField
+                              key={b.id}
+                              label={`${b.name} car image`}
+                              kind="car"
+                              plateText={formData.name}
+                              value={formData.brandImages[b.id] || ''}
+                              file={brandFiles[b.id] ?? null}
+                              disabled={saving}
+                              onChange={(file, clear) => {
+                                setBrandFiles(current => ({ ...current, [b.id]: file }));
+                                if (clear) setFormData(current => { const next = { ...current.brandImages }; delete next[b.id]; return { ...current, brandImages: next }; });
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </details>
+                      {errNode('iconUrl')}{errNode('imageUrl')}
+                    </section>
+
+                  </section>
+                </div>
               </fieldset>
 
               {/* Modal Footer */}

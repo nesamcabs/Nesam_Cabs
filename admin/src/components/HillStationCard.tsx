@@ -3,7 +3,7 @@ import { saveTariffSection } from "../services/bookingOpsService";
 import { ActionError } from "../services/callables";
 import { CLASS_LABEL, TARIFF_CLASSES, useTariff, type TariffClass } from "../services/tariffService";
 import { useCan, useCanDo } from "./AccessContext";
-import { CardBody, Problems, RateTable, SaveBar, SettingCard } from "./RateTable";
+import { CardBody, Problems, RateTable, SaveBar, SettingCard, vehicleColumns, type VehicleCol } from "./RateTable";
 
 /**
  * Hill Station Allowance / Charge (Customer UX v8, 16 Nov 2026, section 08). A One Way or Round Trip whose pickup, stop or destination is
@@ -22,7 +22,8 @@ const EMPTY: Draft = { owCustomer: "", owPartner: "", rtCustomer: "", rtPartner:
 const num = (v: string): number | null => (v.trim() === "" ? null : Number(v));
 const text = (n: number | undefined) => (n === undefined ? "" : String(n));
 
-export default function HillStationCard({ names }: { names?: Partial<Record<TariffClass, string>> } = {}) {
+/** `service` is the Service chosen in "Applies to": One Way shows only the one-way slab, Round Trip only the round-trip slab (both are still saved together). */
+export default function HillStationCard({ vehicles, service }: { vehicles?: VehicleCol[]; service?: "One Way" | "Round Trip" } = {}) {
   const { tariff } = useTariff();
   const pricingAccess = useCan("pricing");
   const settingsEdit = useCanDo("Settings", "edit");
@@ -35,7 +36,7 @@ export default function HillStationCard({ names }: { names?: Partial<Record<Tari
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   // Only the rate classes a vehicle category uses (the server keeps every other class's saved slabs as they are).
-  const cards = useMemo(() => TARIFF_CLASSES.filter((c) => (tariff?.roundTrip?.classes?.[c] || tariff?.oneWay?.classes?.[c]) && (!names || names[c])), [tariff, names]);
+  const cards = useMemo(() => TARIFF_CLASSES.filter((c) => (tariff?.roundTrip?.classes?.[c] || tariff?.oneWay?.classes?.[c]) && (!vehicles?.length || vehicles.some((v) => v.cls === c))), [tariff, vehicles]);
   const toDraft = (c: TariffClass): Draft => {
     const row = saved?.classes?.[c];
     return { owCustomer: text(row?.oneWay?.customer), owPartner: text(row?.oneWay?.partner), rtCustomer: text(row?.roundTrip?.customer), rtPartner: text(row?.roundTrip?.partner) };
@@ -93,13 +94,15 @@ export default function HillStationCard({ names }: { names?: Partial<Record<Tari
     }
   };
 
-  const columns = cards.map((c) => { const err = slabError(c); return { key: c, name: names?.[c] ?? CLASS_LABEL[c], status: err ? { tone: "warn" as const, text: "Check", title: err } : undefined }; });
+  const nameOf = (c: TariffClass) => vehicles?.find((v) => v.cls === c && v.owner)?.name ?? CLASS_LABEL[c];
+  const statusOf = (c: TariffClass) => { const err = slabError(c); return err ? { tone: "warn" as const, text: "Check", title: err } : undefined; };
+  const columns = vehicles?.length ? vehicleColumns(vehicles, (c) => cards.includes(c), statusOf) : cards.map((c) => ({ key: c, name: nameOf(c), status: statusOf(c) }));
   const slabRows = (k: "ow" | "rt") => [
     { key: `${k}Customer`, label: "Customer charge", unit: "₹", cell: (c: string) => ({ value: rows[c as TariffClass]?.[`${k}Customer` as Field] ?? "", onChange: (v: string) => setField(c as TariffClass, `${k}Customer` as Field, v), own: (rows[c as TariffClass]?.[`${k}Customer` as Field] ?? "") !== "" }) },
     { key: `${k}Partner`, label: "Partner payout", unit: "₹", cell: (c: string) => ({ value: rows[c as TariffClass]?.[`${k}Partner` as Field] ?? "", onChange: (v: string) => setField(c as TariffClass, `${k}Partner` as Field, v), own: (rows[c as TariffClass]?.[`${k}Partner` as Field] ?? "") !== "" }) },
   ];
   const problems = [
-    ...cards.map((c) => slabError(c) ? `${names?.[c] ?? CLASS_LABEL[c]}: ${slabError(c)}` : "").filter(Boolean),
+    ...cards.map((c) => slabError(c) ? `${nameOf(c)}: ${slabError(c)}` : "").filter(Boolean),
   ];
   return (
     <SettingCard title="Hill station charge"
@@ -121,7 +124,7 @@ export default function HillStationCard({ names }: { names?: Partial<Record<Tari
       {cards.length === 0
         ? <CardBody><p className="fm-sub">Save the One Way or Round Trip rate card for a vehicle first.</p></CardBody>
         : <RateTable label="Hill station charge by vehicle" disabled={!canEdit || busy} columns={columns}
-            groups={[{ title: "One-way trip", rows: slabRows("ow") }, { title: "Round trip", rows: slabRows("rt") }]} />}
+            groups={[...(service !== "Round Trip" ? [{ title: "One-way trip", rows: slabRows("ow") }] : []), ...(service !== "One Way" ? [{ title: "Round trip", rows: slabRows("rt") }] : [])]} />}
       <Problems items={problems} />
     </SettingCard>
   );
