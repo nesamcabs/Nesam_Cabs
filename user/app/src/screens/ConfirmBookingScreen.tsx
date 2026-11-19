@@ -2,6 +2,7 @@
 // the booking server's fare, cash/UPI payment, WhatsApp contact validation, coupon checks,
 // the terms gate and duplicate-submit protection.
 import React, { useEffect, useRef, useState } from 'react';
+import { getPaymentOptions } from '../services/paymentService';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAvoid } from '../components/KeyboardAvoid';
@@ -50,6 +51,14 @@ export function ConfirmBookingScreen() {
   const { online } = useNetworkStatus();
 
   const [payment, setPayment] = useState<PaymentMethod>('Cash');
+  // Pay the driver later (default), or pay online now with Razorpay when the office has online payment on.
+  const [onlineOn, setOnlineOn] = useState(false);
+  const [payNow, setPayNow] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void getPaymentOptions().then((o) => { if (alive) setOnlineOn(o.online); });
+    return () => { alive = false; };
+  }, []);
   const [promoInput, setPromoInput] = useState(promoCode);
   const [notes, setNotes] = useState('');
   const [someoneElse, setSomeoneElse] = useState(false);
@@ -213,7 +222,7 @@ export function ConfirmBookingScreen() {
       reset();
       navigation.reset({
         index: 1,
-        routes: [{ name: 'Tabs' }, { name: 'ActiveRide', params: { bookingId: res.id, unconfirmed: res.unconfirmed, justBooked: true } }],
+        routes: [{ name: 'Tabs' }, { name: 'ActiveRide', params: { bookingId: res.id, unconfirmed: res.unconfirmed, justBooked: true, payNow: onlineOn && payNow } }],
       });
     } catch (e) {
       const currentFare = (e as { details?: { fare?: FareBreakdown } }).details?.fare;
@@ -355,6 +364,16 @@ export function ConfirmBookingScreen() {
           {promoCode ? <TextButton title="Remove code" icon="x" size={11} onPress={removePromo} style={{ alignSelf: 'flex-start' }} /> : null}
         </View>
 
+        {/* Pay later or pay online now (Razorpay): shown only when the office has online payment on. */}
+        {onlineOn ? (
+          <>
+            <Text style={styles.heading}>Choose payment</Text>
+            <View accessibilityRole="radiogroup">
+              <RadioCard selected={!payNow} onPress={() => setPayNow(false)} title="Book now, pay later" subtitle="Pay your driver at the end of the trip" />
+              <RadioCard selected={payNow} onPress={() => setPayNow(true)} title="Pay online now" subtitle="UPI, cards, net banking, wallets · Secured by Razorpay" />
+            </View>
+          </>
+        ) : null}
         {/* Payment: hidden while customer payment options are switched off (every booking is pay-later). */}
         {CUSTOMER_PAYMENTS_ENABLED ? (
           <>

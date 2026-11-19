@@ -354,3 +354,11 @@
   85% { transform: translateY(-6px); }
   100% { transform: none; }
 }
+
+/* Result of an online payment started at checkout (Razorpay), and the Pay online button under it. */
+.dn-pay { margin: 16px 0; display: grid; gap: 10px; }
+.payon__note { margin: 0; padding: 10px 12px; border-radius: var(--r-sm, 10px); font-size: .86rem; font-weight: 600; line-height: 1.4; }
+.payon__note--paid { background: #e8f8ee; color: #11773a; }
+.payon__note--pending { background: #eef3ff; color: #1b3a8a; }
+.payon__note--dismissed { background: #fff6e0; color: #7a4b00; }
+.payon__note--error { background: #fef1f0; color: #b42318; }

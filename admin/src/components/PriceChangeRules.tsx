@@ -169,7 +169,7 @@ export default function PriceChangeRules({ rules, fareScope, canEdit, loaded, lo
 
   const total = rows.length;
   return (
-    <SettingCard label="Price changes" title="Price changes by service"
+    <SettingCard id="rules-prices" label="Price changes" title="Price changes by service"
       description="Raise or lower the customer fare or the partner pay for a place, for the services you choose. A Round Trip change can cover all packages or only some (for example just the short hour slabs). A rule for one service beats an all-services rule; a rule for named packages beats an all-packages rule."
       footer={canEdit
         ? <SaveBar reason={reason} onReason={setReason} onSave={save} busy={busy} disabled={!pending || problems.length > 0 || !loaded || !!loadError} message={message}

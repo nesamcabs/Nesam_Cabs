@@ -18,6 +18,7 @@ import { composeNotes, notesRoom } from '@/lib/notes';
 import { PolicyLinks } from '@/pages/PolicySections';
 import { categoryName, categoryPhoto } from '@/lib/categories';
 import { FareDialog } from './parts';
+import { payBookingOnline, useOnlinePaymentAvailable } from '@/lib/onlinePayment';
 import { DIAL_CODES, splitPhone } from '@/lib/countryCodes';
 import './review.css';
 
@@ -36,6 +37,10 @@ export function ReviewStep() {
   const q = !liveQ.quote && liveQ.quoteLoading && lastQ.current.quote ? { ...lastQ.current, quoteLoading: true, authoritative: false } : liveQ;
   const { online } = useOnline();
   const [submitting, setSubmitting] = useState(false);
+  // Pay the driver later (default) or pay online now with Razorpay. Online is offered only when the office has it on.
+  const onlineOn = useOnlinePaymentAvailable(!!profile);
+  const [payMode, setPayMode] = useState<'later' | 'online'>('later');
+  const payOnline = payMode === 'online' && onlineOn;
   const [submitError, setSubmitError] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
   // Morning Return: the strict 9:00 AM cutoff and the automatic upgrade are accepted on their own, per package.
@@ -240,7 +245,11 @@ export function ReviewStep() {
       });
       // The confirmation page clears the draft once it is showing: clearing it here would make the booking page
       // redirect home before this navigation lands, and the confirmation would never appear.
-      navigate(`/book/done/${res.id}`, { replace: true, state: { confirmed: true } });
+      // Paying online: the booking exists now, so open Razorpay for its balance. Closing it or a failed payment never loses the booking.
+      const payResult = payOnline
+        ? await payBookingOnline(res.id, 'Ride booking', { name: customerName.trim(), contact: `${contactCode}${contactNumber}`, email: email.trim() || undefined })
+        : null;
+      navigate(`/book/done/${res.id}`, { replace: true, state: { confirmed: true, payment: payResult } });
     } catch (e: unknown) {
       const err = e as { code?: string; fare?: Fare };
       if (err.code === 'fare-changed' && err.fare) {
@@ -398,14 +407,33 @@ export function ReviewStep() {
         ) : null}
 
         <section className="cb__section" aria-label="Payment">
-          <div className="cb-pay" role="radiogroup" aria-label="Payment mode">
-            <span className="cb-pay__icon" aria-hidden="true"><Icon name="wallet" size={26} /></span>
-            <span className="cb-pay__sep" aria-hidden="true" />
-            <span className="cb-pay__text">
-              <strong>Book now, pay later</strong>
-              <small>Pay your driver at the end of the trip.</small>
-            </span>
-            <input type="radio" className="cb-radio" name="pay" value="Cash" checked readOnly aria-label="Book now, pay later" />
+          <div className="cb-payopts" role="radiogroup" aria-label="Payment mode">
+            <div
+              className={`cb-pay cb-pay--opt ${payOnline ? '' : 'is-on'}`} role="radio" aria-checked={!payOnline} tabIndex={0}
+              onClick={() => setPayMode('later')} onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); setPayMode('later'); } }}
+            >
+              <span className="cb-pay__icon" aria-hidden="true"><Icon name="wallet" size={26} /></span>
+              <span className="cb-pay__sep" aria-hidden="true" />
+              <span className="cb-pay__text">
+                <strong>Book now, pay later</strong>
+                <small>Pay your driver at the end of the trip.</small>
+              </span>
+              <input type="radio" className="cb-radio" name="pay" value="later" checked={!payOnline} readOnly tabIndex={-1} aria-label="Book now, pay later" />
+            </div>
+            {onlineOn ? (
+              <div
+                className={`cb-pay cb-pay--opt ${payOnline ? 'is-on' : ''}`} role="radio" aria-checked={payOnline} tabIndex={0}
+                onClick={() => setPayMode('online')} onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); setPayMode('online'); } }}
+              >
+                <span className="cb-pay__icon" aria-hidden="true"><Icon name="shield-check" size={26} /></span>
+                <span className="cb-pay__sep" aria-hidden="true" />
+                <span className="cb-pay__text">
+                  <strong>Pay online now</strong>
+                  <small>UPI, cards, net banking, wallets · Secured by Razorpay</small>
+                </span>
+                <input type="radio" className="cb-radio" name="pay" value="online" checked={payOnline} readOnly tabIndex={-1} aria-label="Pay online now" />
+              </div>
+            ) : null}
           </div>
 
           {applied ? (
@@ -478,7 +506,7 @@ export function ReviewStep() {
             </button>
             <button type="button" className="cb-confirm" disabled={submitting} onClick={submit}>
               {submitting ? <span className="cb-confirm__spin" aria-hidden="true" /> : null}
-              <span>{profile ? 'Confirm' : 'Sign in'}</span>
+              <span>{profile ? (payOnline ? 'Pay & confirm' : 'Confirm') : 'Sign in'}</span>
               <span className="cb-confirm__arrow" aria-hidden="true"><Icon name="arrow-right" size={20} /></span>
             </button>
           </div>

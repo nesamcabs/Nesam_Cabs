@@ -9,6 +9,7 @@ import { Icon } from '@/components/Icon';
 import { useBooking } from '@/state/Booking';
 import type { TripRecord, TripType } from '@core/types';
 import { BookingConfirmedOverlay } from '@/components/BookingConfirmedOverlay';
+import { PayOnline } from '@/components/PayOnline';
 import './done.css';
 
 const BRAND_LOGO = { src: '/nesam/logo.webp', alt: 'NESAM Cabs' };
@@ -65,6 +66,8 @@ export function DonePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  // The payment attempt made on the review page (if the rider chose Pay online): shown here in words.
+  const payState = (location.state as { payment?: { status: string; message: string } | null } | null)?.payment ?? null;
   const { trips } = useCustomerData();
   const trip = trips.find((t) => t.id === id);
   const { reset } = useBooking();
@@ -165,6 +168,13 @@ export function DonePage() {
               {h.tone === 'pending' ? 'Awaiting Dispatch Review' : h.title}
             </p>
           </section>
+
+          {trip.status !== 'Cancelled' && trip.status !== 'Rejected' ? (
+            <section className="dn-pay" aria-label="Payment">
+              {payState ? <p className={`payon__note payon__note--${payState.status}`} role={payState.status === 'error' ? 'alert' : 'status'}>{payState.message}</p> : null}
+              <PayOnline trip={trip} />
+            </section>
+          ) : null}
         </div>
       </div>
       <div className="done-actions">

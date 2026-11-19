@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { rankRules, saveRule, setRuleStatus, type RuleKind, type ServiceRule } from "../services/serviceRulesService";
 import { BRAND_LABELS, serviceLabel, type FareWorkspaceScope } from "../services/tariffService";
-import MenuButton from "./ui/MenuButton";
 import { Button } from "./ui";
 import { CardBody, Problems, RateTable, SaveBar, SettingCard, type RateColumn, type RateRow, type VehicleCol } from "./RateTable";
 
@@ -25,7 +24,27 @@ const covers = (r: ServiceRule, p: Place) => (!r.scope.state || norm(r.scope.sta
 const standing = (r: ServiceRule) => r.status === "Enabled" && r.schedule.mode === "Always" && (r.scope.side ?? "Pickup or drop") === "Pickup or drop";
 const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.some((y) => norm(y) === norm(x)));
 
-export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, canEdit, loaded, loadError, stateName, stateOptions, citiesOf, areasOf, onToast, renderRules, onAddRule }: {
+/** The two kinds this table edits; price changes have their own table (PriceChangeRules). */
+const TABLE_KINDS: RuleKind[] = ["availability", "categories"];
+
+/**
+ * The rules that are NOT cells of the booking table or rows of the price-change table: with dates, pickup-only / drop-only, switched
+ * off, a second rule for the same place, or inherited. The page lists them in DateRules, where they can be edited in place.
+ */
+export function specialRules(rules: ServiceRule[], isOwn: (r: ServiceRule) => boolean): ServiceRule[] {
+  const live = rules.filter((r) => r.status !== "Removed" && r.kind !== "limit");
+  const inTable = new Set<string>();
+  const groups = new Map<string, ServiceRule[]>();
+  for (const r of live) {
+    if (!TABLE_KINDS.includes(r.kind) || !isOwn(r) || !standing(r)) continue;
+    const key = `${r.kind}|${keyOf(r.scope)}`;
+    groups.set(key, [...(groups.get(key) ?? []), r]);
+  }
+  for (const list of groups.values()) inTable.add(rankRules(list)[0]!.id);
+  return live.filter((r) => !inTable.has(r.id) && !(r.kind === "pricing" && standing(r)));
+}
+
+export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, canEdit, loaded, loadError, stateName, stateOptions, citiesOf, areasOf, onToast }: {
   /** Every rule for this brand & service, including shared (All brands) rules it inherits; removed rules may be included. */
   rules: ServiceRule[];
   /** A rule saved for this brand & service (the others are inherited). */
@@ -40,9 +59,6 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
   citiesOf: (state: string) => string[];
   areasOf: (state: string, city: string) => string[];
   onToast: (text: string) => void;
-  /** The usual rule list (edit, preview, switch on / off) for rules that are not table cells. */
-  renderRules: (list: ServiceRule[]) => ReactNode;
-  onAddRule: (kind: RuleKind) => void;
 }) {
   const live = useMemo(() => rules.filter((r) => r.status !== "Removed" && r.kind !== "limit"), [rules]);
   const catNames = vehicles.map((v) => v.name);
@@ -58,8 +74,8 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
   // ── Places: everywhere, every place that has a rule, and places added here (in state → city → area order) ──────────
   const places = useMemo(() => {
     const all = new Map<string, Place>([["||", { state: "", city: "", area: "" }]]);
-    // Only standing rules make a row; a place with only date-based or special rules is listed under the table instead.
-    for (const r of live) if (standing(r)) { const p = { state: r.scope.state, city: r.scope.city, area: r.scope.area }; all.set(keyOf(p), p); }
+    // Only standing booking / cab rules make a row; date-based and special rules are listed in their own section, price changes in theirs.
+    for (const r of live) if (standing(r) && TABLE_KINDS.includes(r.kind)) { const p = { state: r.scope.state, city: r.scope.city, area: r.scope.area }; all.set(keyOf(p), p); }
     for (const p of added) all.set(keyOf(p), p);
     return [...all.values()].sort((a, b) => (a.state || "").localeCompare(b.state || "") || (a.city || "").localeCompare(b.city || "") || (a.area || "").localeCompare(b.area || ""));
   }, [live, added]);
@@ -186,12 +202,6 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
     };
   });
 
-  // Rules that are not table cells: with dates, pickup-only / drop-only, switched off, or a second rule for the same place.
-  // Standing price changes are in the Price changes table below, not here.
-  const inTable = new Set(places.flatMap((p) => (["availability", "categories"] as RuleKind[]).map((k) => ownRule(p, k)?.id).filter(Boolean) as string[]));
-  // Also the rules this page inherits (All brands, or older rules saved for every service), so their source is visible.
-  const special = live.filter((r) => !inTable.has(r.id) && !(r.kind === "pricing" && standing(r)));
-
   const brandName = fareScope.brand === "common" ? "All brands (shared)" : BRAND_LABELS[fareScope.brand];
   const where = `${brandName} → ${serviceLabel(fareScope.service)}`;
   const cityChoices = pick.state ? citiesOf(pick.state) : [];
@@ -205,8 +215,8 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
 
   return (
     <div className="space-y-4">
-      <SettingCard label={`Booking rules for ${where}`}
-        title={`Booking rules · ${where}`}
+      <SettingCard id="rules-places" label={`Booking rules for ${where}`}
+        title={`Places and cabs · ${where}`}
         description="One row per place. Choose whether bookings are open and which cabs customers can book. Price changes are set per service in the table below. A faded cell follows the wider place above it; change it to set this place on its own."
         footer={canEdit
           ? <SaveBar reason={reason} onReason={setReason} onSave={save} busy={busy} disabled={!pending || problems.length > 0 || !loaded || !!loadError} message={message}
@@ -241,16 +251,6 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
           : !loaded ? <CardBody><p className="fm-sub" role="status">Loading saved rules…</p></CardBody>
           : <RateTable label={`Booking rules for ${where}`} disabled={!canEdit || busy} columns={columns} groups={[{ title: "", rows }]} cornerWidth={210} minWidth={500 + vehicles.length * 92} />}
         <Problems items={problems} />
-      </SettingCard>
-
-      <SettingCard title="Date-based, special and inherited rules"
-        description="Rules with pickup dates (festivals, strikes, peak days), pickup-only or drop-only rules, rules that are switched off, and rules inherited from All brands or saved for every service. While a date rule runs it replaces the table for its place when its priority is higher."
-        aside={canEdit && loaded && !loadError ? <MenuButton label="Add a date-based rule" buttonLabel="Add date rule" items={[
-          { label: "Booking open / paused", icon: "toggle-right", onSelect: () => onAddRule("availability") },
-          { label: "Cabs shown", icon: "car-front", onSelect: () => onAddRule("categories") },
-          { label: "Price change", icon: "indian-rupee", onSelect: () => onAddRule("pricing") },
-        ]} /> : null}>
-        {special.length ? renderRules(special) : <CardBody><p className="fm-sub">No date-based, special or inherited rules for {where}.</p></CardBody>}
       </SettingCard>
     </div>
   );

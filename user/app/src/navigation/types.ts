@@ -11,7 +11,7 @@ export type TabParamList = {
 
 export type RootStackParamList = {
   Tabs: NavigatorScreenParams<TabParamList> | undefined;
-  ActiveRide: { bookingId: string; unconfirmed?: boolean; /** Show the booking-confirmed ticket first (set right after booking). */ justBooked?: boolean };
+  ActiveRide: { bookingId: string; unconfirmed?: boolean; /** Show the booking-confirmed ticket first (set right after booking). */ payNow?: boolean; justBooked?: boolean };
   SavedPlaces: undefined;
   Offers: undefined;
   Support: { bookingId?: string } | undefined;

@@ -737,3 +737,9 @@
 
 .cb-pkgline { margin: 0 0 12px; padding: 10px 12px; border: 1px solid var(--line, #e3e6ec); border-radius: var(--r-sm, 10px); background: var(--brand-soft, #f6f6f7); color: var(--ink, #111); font-size: .84rem; line-height: 1.45; }
 .cb-pkgline strong { color: var(--brand-ink, inherit); }
+
+/* Payment choice: book now and pay the driver, or pay online now (Razorpay). */
+.cb-payopts { display: grid; gap: 10px; }
+.cb-pay--opt { cursor: pointer; }
+.cb-pay--opt:not(.is-on) { background: #fff; border-left-color: var(--line, #dde3ee); }
+.cb-pay--opt:focus-visible { outline: 3px solid color-mix(in srgb, var(--brand, #c8181f) 40%, transparent); outline-offset: 2px; }

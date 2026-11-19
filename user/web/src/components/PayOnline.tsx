@@ -26,7 +26,7 @@ export function PayOnline({ trip, compact = false }: { trip: TripRecord; compact
   }, []);
 
   const due = amountDue(trip);
-  const blocked = trip.status === 'Cancelled' || trip.status === 'Rejected' || trip.status === 'Pending';
+  const blocked = trip.status === 'Cancelled' || trip.status === 'Rejected';
   if (!online || due < 1 || blocked) return msg?.tone === 'success' ? <Notice tone="success">{msg.text}</Notice> : null;
 
   const profile = state.status === 'ready' || state.status === 'on-hold' ? state.profile : null;

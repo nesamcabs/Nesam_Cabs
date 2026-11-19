@@ -28,7 +28,7 @@ export function bookingAmountDue(trip: TripRecord): number {
   return trip.paid ? Math.max(0, Math.round(trip.paid.balanceDue)) : Math.round((trip.fareBreakdown?.total ?? trip.fare) + trip.tollCharges + (trip.extraCharges ?? 0));
 }
 
-export function PayOnline({ trip, prefill }: { trip: TripRecord; prefill?: CheckoutLabels['prefill'] }) {
+export function PayOnline({ trip, prefill, autoStart = false, onAutoStarted }: { trip: TripRecord; prefill?: CheckoutLabels['prefill']; /** Open the payment straight away (the rider chose "Pay online now" when booking). */ autoStart?: boolean; onAutoStarted?: () => void }) {
   const [online, setOnline] = useState(false);
   const [order, setOrder] = useState<GatewayOrder | null>(null);
   const [busy, setBusy] = useState(false);
@@ -44,7 +44,8 @@ export function PayOnline({ trip, prefill }: { trip: TripRecord; prefill?: Check
   }, []);
 
   const due = bookingAmountDue(trip);
-  const blocked = trip.status === 'Cancelled' || trip.status === 'Rejected' || trip.status === 'Pending';
+  // A booking still awaiting NESAM's review can be paid: if it is rejected the payment becomes a refund the office sends back through Razorpay.
+  const blocked = trip.status === 'Cancelled' || trip.status === 'Rejected';
   const labels = useMemo<CheckoutLabels>(
     () => ({ name: COMPANY_NAME, description: `Booking ${trip.bookingId}`, color: colors.primary, prefill }),
     [trip.bookingId, prefill],
@@ -94,6 +95,15 @@ export function PayOnline({ trip, prefill }: { trip: TripRecord; prefill?: Check
     },
     [trip.id],
   );
+
+  const started = React.useRef(false);
+  useEffect(() => {
+    if (!autoStart || started.current || !online || due < 1 || blocked) return;
+    started.current = true;
+    onAutoStarted?.();
+    void start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart, online, due, blocked]);
 
   if (!online || due < 1 || blocked) return msg?.tone === 'success' ? <Notice tone="success" message={msg.text} style={{ marginTop: space.md }} /> : null;
 

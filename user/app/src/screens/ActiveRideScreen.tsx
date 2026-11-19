@@ -36,7 +36,7 @@ const dayText = (d: Date) => `${d.getDate()} ${d.toLocaleDateString('en-IN', { m
 const CHIP_TONE = (bg: string): BadgeTone => (bg === '#EEF7F2' ? 'success' : bg === '#FEF3C7' ? 'warning' : bg === '#FFDDDD' ? 'danger' : 'info');
 
 export function ActiveRideScreen({ route, navigation }: Props) {
-  const { bookingId, unconfirmed, justBooked } = route.params;
+  const { bookingId, unconfirmed, justBooked, payNow } = route.params;
   const { profile } = useCustomerData();
   const { dismiss, undismiss } = useRideFocus();
   const [trip, setTrip] = useState<TripRecord | null>(null);
@@ -261,7 +261,7 @@ export function ActiveRideScreen({ route, navigation }: Props) {
                   : `Pay the fare by ${trip.paymentMethod === 'UPI' ? 'UPI' : 'cash'} to your driver. Final charges are reviewed when your trip closes.`}
             </Text>
           </View>
-          {isCancelled ? null : <PayOnline trip={trip} prefill={{ name: profile.name || undefined, contact: profile.phone || undefined, email: profile.email || undefined }} />}
+          {isCancelled ? null : <PayOnline trip={trip} autoStart={payNow === true && !justBooked} onAutoStarted={() => navigation.setParams({ payNow: false })} prefill={{ name: profile.name || undefined, contact: profile.phone || undefined, email: profile.email || undefined }} />}
         </View>
 
         {/* Trip progress: the five customer milestones */}
