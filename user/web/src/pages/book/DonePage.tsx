@@ -66,17 +66,19 @@ export function DonePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  // The payment attempt made on the review page (if the rider chose Pay online): shown here in words.
-  const payState = (location.state as { payment?: { status: string; message: string } | null } | null)?.payment ?? null;
+  // What the review page handed over: a snapshot, because this page clears the router state once it has been read. When the rider chose
+  // "Pay online now", the booking is confirmed only after the payment is complete.
+  const [handover] = useState(() => (location.state as { confirmed?: boolean; online?: boolean; payment?: { status: string; message: string } | null } | null) ?? {});
+  const payState = handover.payment ?? null;
   const { trips } = useCustomerData();
   const trip = trips.find((t) => t.id === id);
   const { reset } = useBooking();
-  const [booked, setBooked] = useState(() => (location.state as { confirmed?: boolean } | null)?.confirmed === true);
+  const [booked, setBooked] = useState(() => handover.confirmed === true && !(handover.online === true && handover.payment?.status !== 'paid'));
 
   // The flag is consumed: reloading or coming back to this page never shows the celebration again. Arriving straight
   // from "Confirm booking", the draft has done its job and is cleared here.
   useEffect(() => {
-    if (booked) {
+    if (handover.confirmed === true) {
       reset();
       navigate(location.pathname, { replace: true, state: null });
     }
@@ -84,7 +86,13 @@ export function DonePage() {
 
   if (!trip) return <PageLoader label="Loading your booking details…" />;
 
-  const h = headline(trip);
+  const paidInFull = !!trip.paid && trip.paid.totalPaid > 0 && trip.paid.balanceDue < 1;
+  const awaitingPayment = handover.online === true && payState?.status !== 'paid' && !paidInFull;
+  const h = awaitingPayment
+    ? payState?.status === 'pending'
+      ? { title: 'Confirming your payment', text: 'We are confirming your payment. Your booking is confirmed as soon as it is received.', tone: 'pending' as const }
+      : { title: 'Complete your payment to confirm', text: 'Your booking is saved. It is confirmed once your online payment is completed.', tone: 'pending' as const }
+    : headline(trip);
   const at = trip.scheduledAt;
 
   return (

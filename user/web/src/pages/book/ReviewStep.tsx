@@ -19,6 +19,7 @@ import { PolicyLinks } from '@/pages/PolicySections';
 import { categoryName, categoryPhoto } from '@/lib/categories';
 import { FareDialog } from './parts';
 import { payBookingOnline, useOnlinePaymentAvailable } from '@/lib/onlinePayment';
+import { holdBookingConfirmed } from '@/lib/paymentHold';
 import { DIAL_CODES, splitPhone } from '@/lib/countryCodes';
 import './review.css';
 
@@ -215,7 +216,10 @@ export function ReviewStep() {
         passengerMobile: forOther ? passengerMobile : '',
         notes,
       });
+      // Paying online: hold the "Booking confirmed" popup until the payment is done, and tell the server to wait for it as well.
+      holdBookingConfirmed(payOnline);
       const res = await createRideRequest({
+        awaitPayment: payOnline,
         fuelType: draft.fuelType === 'cng' ? 'cng' : undefined,
         profile,
         pickup,
@@ -249,7 +253,7 @@ export function ReviewStep() {
       const payResult = payOnline
         ? await payBookingOnline(res.id, 'Ride booking', { name: customerName.trim(), contact: `${contactCode}${contactNumber}`, email: email.trim() || undefined })
         : null;
-      navigate(`/book/done/${res.id}`, { replace: true, state: { confirmed: true, payment: payResult } });
+      navigate(`/book/done/${res.id}`, { replace: true, state: { confirmed: true, payment: payResult, online: payOnline } });
     } catch (e: unknown) {
       const err = e as { code?: string; fare?: Fare };
       if (err.code === 'fare-changed' && err.fare) {
@@ -259,6 +263,7 @@ export function ReviewStep() {
       }
       setSubmitError(describeError(e, 'We couldn’t submit your booking request. Please check your connection and try again.'));
     } finally {
+      holdBookingConfirmed(false);
       submittingRef.current = false;
       setSubmitting(false);
     }

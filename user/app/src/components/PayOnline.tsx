@@ -28,7 +28,7 @@ export function bookingAmountDue(trip: TripRecord): number {
   return trip.paid ? Math.max(0, Math.round(trip.paid.balanceDue)) : Math.round((trip.fareBreakdown?.total ?? trip.fare) + trip.tollCharges + (trip.extraCharges ?? 0));
 }
 
-export function PayOnline({ trip, prefill, autoStart = false, onAutoStarted }: { trip: TripRecord; prefill?: CheckoutLabels['prefill']; /** Open the payment straight away (the rider chose "Pay online now" when booking). */ autoStart?: boolean; onAutoStarted?: () => void }) {
+export function PayOnline({ trip, prefill, autoStart = false, onAutoStarted, onPaid }: { trip: TripRecord; prefill?: CheckoutLabels['prefill']; /** Open the payment straight away (the rider chose "Pay online now" when booking). */ autoStart?: boolean; onAutoStarted?: () => void; /** Called once the server has verified the payment as received. */ onPaid?: () => void }) {
   const [online, setOnline] = useState(false);
   const [order, setOrder] = useState<GatewayOrder | null>(null);
   const [busy, setBusy] = useState(false);
@@ -82,6 +82,7 @@ export function PayOnline({ trip, prefill, autoStart = false, onAutoStarted }: {
       setMsg({ tone: 'info', text: 'Confirming your payment…' });
       try {
         const v = await verifyBookingPayment(trip.id, m);
+        if (v.status === 'paid') onPaid?.();
         setMsg(
           v.status === 'paid'
             ? { tone: 'success', text: v.balanceDue && v.balanceDue > 0 ? `Payment received. Balance ${formatINR(v.balanceDue)}.` : 'Payment received. Thank you!' }

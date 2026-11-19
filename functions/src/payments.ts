@@ -15,6 +15,8 @@ import { db } from './admin';
 import { auditInTx } from './audit';
 import { summarizePayments } from './domain/bookingFlow';
 import { derivedPaymentFields, txnsRef } from './bookingPayments';
+import { formatDateTime12 } from './domain/time';
+import { inr, notify } from './notify';
 
 export const RAZORPAY_KEY_ID = defineSecret('RAZORPAY_KEY_ID');
 export const RAZORPAY_KEY_SECRET = defineSecret('RAZORPAY_KEY_SECRET');
@@ -58,13 +60,13 @@ export interface GatewayReceipt { bookingId: string; paymentId: string; orderId:
 export async function recordGatewayReceipt(r: GatewayReceipt): Promise<{ recorded: boolean; status: string; balanceDue: number }> {
   const ref = db.doc(`bookings/${r.bookingId}`);
   const txId = gatewayTxnId(r.paymentId);
-  return db.runTransaction(async (tx) => {
+  const out = await db.runTransaction(async (tx) => {
     const [snap, existing, all] = await Promise.all([tx.get(ref), tx.get(txnsRef(r.bookingId).doc(txId)), tx.get(txnsRef(r.bookingId))]);
     if (!snap.exists) throw new HttpsError('not-found', 'Booking not found.');
     const b = snap.data()!;
     if (existing.exists) {
       const s = (b.paymentSummary ?? {}) as { status?: string; balanceDue?: number };
-      return { recorded: false, status: String(s.status ?? ''), balanceDue: Number(s.balanceDue ?? 0) };
+      return { recorded: false, status: String(s.status ?? ''), balanceDue: Number(s.balanceDue ?? 0), confirm: null };
     }
     const amount = r.amountPaise / 100;
     const code = String(b.bookingId || r.bookingId);
@@ -80,7 +82,9 @@ export async function recordGatewayReceipt(r: GatewayReceipt): Promise<{ recorde
     // The last transaction closes the balance → label it final.
     if (summary.status === 'Paid') txn.kind = 'final';
     tx.create(txnsRef(r.bookingId).doc(txId), txn);
-    tx.update(ref, { ...fields, updatedAt: FieldValue.serverTimestamp() });
+    // A booking that was waiting for its online payment is confirmed to the rider now (once): the flag is cleared in the same write.
+    const confirm = b.awaitingOnlinePayment === true ? { customerId: String(b.customerId ?? ''), brand: String(b.brand ?? b.bookingSource ?? ''), code, pickup: String(b.pickup ?? ''), drop: String(b.drop ?? ''), when: (b.scheduledAt as Timestamp | undefined)?.toDate?.() ?? null, fare: Number(b.fare ?? 0) } : null;
+    tx.update(ref, { ...fields, ...(confirm ? { awaitingOnlinePayment: FieldValue.delete() } : {}), updatedAt: FieldValue.serverTimestamp() });
     tx.set(db.doc(`payments/${r.bookingId}_${txId}`), {
       id: `${r.bookingId}_${txId}`, bookingId: code, bookingDocumentId: r.bookingId, customerId: b.customerId ?? '', customer: b.customer ?? '', amount,
       method: 'Gateway', status: 'Success', gateway: 'Razorpay', reference: r.paymentId, date: new Date().toISOString(), verifiedBy: 'razorpay', collectorType: 'system',
@@ -91,8 +95,19 @@ export async function recordGatewayReceipt(r: GatewayReceipt): Promise<{ recorde
       action: 'payment_recorded', entity: 'payment', entityId: txId, performedBy: 'razorpay', performedByName: 'Razorpay', role: 'system', bookingId: r.bookingId,
       next: { amount, method: 'Gateway', source: r.source, totalPaid: summary.totalPaid, balanceDue: summary.balanceDue, status: summary.status },
     });
-    return { recorded: true, status: summary.status, balanceDue: summary.balanceDue };
+    return { recorded: true, status: summary.status, balanceDue: summary.balanceDue, confirm };
   });
+  if (out.confirm?.customerId) {
+    const c = out.confirm;
+    // Never fails the payment; one notification per booking (dedupeKey), even if the webhook and the checkout callback both arrive.
+    await notify({
+      recipientType: 'customer', ...(c.brand ? { brand: c.brand } : {}), recipientId: c.customerId, category: 'bookings', severity: 'success', sound: 'approval', push: true,
+      title: 'Booking confirmed',
+      message: `Your booking ${c.code}${c.when ? ` for ${formatDateTime12(c.when)}` : ''} (${c.pickup} → ${c.drop}) is confirmed and your online payment is received. Fare ${inr(c.fare)}. We will share the driver details before pickup.`,
+      bookingId: r.bookingId, bookingCode: c.code, dedupeKey: `booking_confirmed_${r.bookingId}`, cta: { label: 'View trip', page: 'trips', bookingId: r.bookingId },
+    } as Parameters<typeof notify>[0]).catch((err) => console.warn('booking confirmed notice failed', err));
+  }
+  return { recorded: out.recorded, status: out.status, balanceDue: out.balanceDue };
 }
 
 /** Marks a provider payment that did not succeed. It never touches the balance. */

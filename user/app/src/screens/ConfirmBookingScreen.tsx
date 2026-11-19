@@ -218,11 +218,13 @@ export function ConfirmBookingScreen() {
         rentalHours: tripType === 'Local Rental' ? draft.rentalHours : null,
         termsAccepted,
         ...(morning ? { morningCutoffAccepted: true } : {}),
+        // Paying online now: the booking is confirmed to the rider only after the payment is complete.
+        awaitPayment: onlineOn && payNow,
       });
       reset();
       navigation.reset({
         index: 1,
-        routes: [{ name: 'Tabs' }, { name: 'ActiveRide', params: { bookingId: res.id, unconfirmed: res.unconfirmed, justBooked: true, payNow: onlineOn && payNow } }],
+        routes: [{ name: 'Tabs' }, { name: 'ActiveRide', params: { bookingId: res.id, unconfirmed: res.unconfirmed, justBooked: !(onlineOn && payNow), payNow: onlineOn && payNow } }],
       });
     } catch (e) {
       const currentFare = (e as { details?: { fare?: FareBreakdown } }).details?.fare;

@@ -274,6 +274,8 @@ export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (requ
       rideTiming: 'scheduled', bookingType: 'advance', scheduledAt: Timestamp.fromDate(when), pickupAt: Timestamp.fromDate(when),
       termsAccepted: true, termsAcceptedAt: stamp,
       ...(priced.pricing.timeBased?.kind === 'morning' ? { morningCutoffAccepted: true, morningCutoffAcceptedAt: stamp } : {}),
+      // The rider chose "Pay online now": the booking is confirmed to them only once the online payment is recorded.
+      ...(input.awaitPayment === true ? { awaitingOnlinePayment: true } : {}),
       date, time, status: 'Pending', tripSubStatus: 'Not Started', source: bookingSource, bookingSource, brand: bookingSource, ...availabilityFields(rules), createdAt: stamp, updatedAt: stamp,
     });
     // Raw contact details live in booking_contacts (staff + the customer); partners get the masked number only.
@@ -302,14 +304,15 @@ export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (requ
       bookingId: requestId, bookingCode, cta: { label: 'Review booking', page: 'booking-detail', bookingId: requestId }, push: true, sentBy: uid,
     };
     pushes.push({ id: notifyInTx(tx, n), input: n });
-    // The customer gets the same "Booking confirmed" in their own inbox (and as a phone push) the moment they book, on every site.
+    // The customer gets "Booking confirmed" in their own inbox (and as a phone push) the moment they book, on every site — except when they
+    // chose to pay online now: then it is sent only once the payment has been recorded (see recordGatewayReceipt), never before.
     const toCustomer: NotifyInput = {
       recipientType: 'customer', brand: bookingSource, recipientId: uid, category: 'bookings', severity: 'success', sound: 'approval',
       title: 'Booking confirmed',
       message: `Your booking ${bookingCode} for ${formatDateTime12(when)} (${pickup.name} → ${drop.name}) is confirmed. Fare ${inr(fare.total)}. We will share the driver details before pickup.`,
       bookingId: requestId, bookingCode, cta: { label: 'View trip', page: 'trips', bookingId: requestId }, push: true, sentBy: uid,
     };
-    pushes.push({ id: notifyInTx(tx, toCustomer), input: toCustomer });
+    if (input.awaitPayment !== true) pushes.push({ id: notifyInTx(tx, toCustomer), input: toCustomer });
     return { id: requestId, fare: fare.total, created: true as const };
   });
   // Both swallow their own failures (a booking is never failed by a notification), so they run side by side.

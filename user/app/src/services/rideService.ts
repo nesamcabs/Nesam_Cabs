@@ -332,6 +332,8 @@ export interface RideRequestInput {
   termsAccepted: boolean;
   /** Morning Return only: the strict 9:00 AM cutoff and the automatic upgrade were accepted. */
   morningCutoffAccepted?: boolean;
+  /** The rider chose "Pay online now": the server confirms the booking to them only after the online payment is recorded. */
+  awaitPayment?: boolean;
   /** WhatsApp number for booking updates: same as the mobile number, or a country code and number. */
   whatsapp?: { sameAsMobile: boolean; countryCode?: string; number?: string };
   /** Optional email for the confirmation and receipt (the profile email is used when blank). */
@@ -360,7 +362,7 @@ export async function createRideRequest(input: RideRequestInput): Promise<RideRe
   const requestId = pendingBookingIds.get(key) ?? doc(collection(db, BOOKINGS)).id;
   pendingBookingIds.set(key, requestId);
   // An advance booking request: it waits for NESAM's review and is not offered to any partner until then.
-  await callBackend('createBooking', { requestId, pickup: input.pickup, drop: input.drop, stops: input.tripType === 'Round Trip' ? input.stops ?? [] : [], termsAccepted: input.termsAccepted === true, ...(input.morningCutoffAccepted === true ? { morningCutoffAccepted: true } : {}),
+  await callBackend('createBooking', { requestId, pickup: input.pickup, drop: input.drop, stops: input.tripType === 'Round Trip' ? input.stops ?? [] : [], termsAccepted: input.termsAccepted === true, ...(input.morningCutoffAccepted === true ? { morningCutoffAccepted: true } : {}), ...(input.awaitPayment === true ? { awaitPayment: true } : {}),
     categoryId: input.category.id, tripType: input.multicity && input.tripType === 'Round Trip' ? 'Multicity' : input.tripType, expectedFare: input.fare.total,
     addOns: input.addOns, paymentMethod: input.paymentMethod, couponCode: input.couponCode, notes: input.notes, fuelType: input.fuelType === 'cng' ? 'cng' : undefined,
     whatsapp: input.whatsapp, email: input.email || undefined,

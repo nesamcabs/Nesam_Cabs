@@ -37,6 +37,9 @@ const CHIP_TONE = (bg: string): BadgeTone => (bg === '#EEF7F2' ? 'success' : bg 
 
 export function ActiveRideScreen({ route, navigation }: Props) {
   const { bookingId, unconfirmed, justBooked, payNow } = route.params;
+  // Booked with "Pay online now": the booked ticket is shown only after the payment is received.
+  const justBookedPay = React.useRef(false);
+  if (payNow) justBookedPay.current = true;
   const { profile } = useCustomerData();
   const { dismiss, undismiss } = useRideFocus();
   const [trip, setTrip] = useState<TripRecord | null>(null);
@@ -261,7 +264,7 @@ export function ActiveRideScreen({ route, navigation }: Props) {
                   : `Pay the fare by ${trip.paymentMethod === 'UPI' ? 'UPI' : 'cash'} to your driver. Final charges are reviewed when your trip closes.`}
             </Text>
           </View>
-          {isCancelled ? null : <PayOnline trip={trip} autoStart={payNow === true && !justBooked} onAutoStarted={() => navigation.setParams({ payNow: false })} prefill={{ name: profile.name || undefined, contact: profile.phone || undefined, email: profile.email || undefined }} />}
+          {isCancelled ? null : <PayOnline trip={trip} autoStart={payNow === true && !justBooked} onAutoStarted={() => navigation.setParams({ payNow: false })} onPaid={() => { if (payNow || justBookedPay.current) navigation.setParams({ justBooked: true, payNow: false }); }} prefill={{ name: profile.name || undefined, contact: profile.phone || undefined, email: profile.email || undefined }} />}
         </View>
 
         {/* Trip progress: the five customer milestones */}

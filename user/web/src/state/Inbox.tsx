@@ -2,6 +2,7 @@
 // header popup (components/HeaderNotice), one at a time; nothing is invented to fill the list.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { subscribeToNotifications } from '@core/services/partnerNotifications';
+import { isHoldingBookingConfirmed } from '@/lib/paymentHold';
 import type { PartnerNotification } from '@core/types/notifications';
 
 interface InboxValue {
@@ -66,7 +67,8 @@ export function InboxProvider({ userId, children }: { userId?: string | null; ch
       for (const n of list) {
         if (seen.current.has(n.id)) continue;
         seen.current.add(n.id);
-        if (!n.read) fresh.push(n);
+        // Paying online right now: "Booking confirmed" is not shown until the payment is complete.
+        if (!n.read && !(isHoldingBookingConfirmed() && n.title === 'Booking confirmed')) fresh.push(n);
       }
       // Oldest first, so the popups follow the order they arrived in.
       if (fresh.length) setQueue((q) => [...q, ...fresh.sort((a, b) => a.createdAtMs - b.createdAtMs)].slice(-10));
