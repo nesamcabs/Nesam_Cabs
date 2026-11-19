@@ -116,4 +116,10 @@ function startRoutingStub(port = 8765, km = 80, min = 90) {
   return new Promise((resolve) => server.listen(port, '127.0.0.1', () => resolve(server)));
 }
 
-module.exports = { admin, db, TS, PROJECT, FS, FN, tokenFor, call, rest, clientPatch, clientCreate, inHours, istInstant, place, rid, bookAs, booking, market, until, startRoutingStub };
+// The admin-set tariff every booking is priced from (tests use the unit-test sample rate card; production values come from the admin panel).
+async function seedTariff(extra = {}) {
+  const { CONFIRMED_TARIFF_V2 } = require('./support/confirmedTariff');
+  await db.doc('business_config/tariff_v2').set({ ...CONFIRMED_TARIFF_V2, version: 1, enabled: true, ...extra });
+}
+
+module.exports = { seedTariff, admin, db, TS, PROJECT, FS, FN, tokenFor, call, rest, clientPatch, clientCreate, inHours, istInstant, place, rid, bookAs, booking, market, until, startRoutingStub };

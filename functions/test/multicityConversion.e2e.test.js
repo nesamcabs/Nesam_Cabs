@@ -1,4 +1,5 @@
 const test = require('node:test'), assert = require('node:assert/strict');
+const { CONFIRMED_TARIFF_V2 } = require('./support/confirmedTariff');
 const H = require('./helpers.e2e');
 const { db, call, TS, inHours, place, rest } = H;
 const admin = 'multicity-master', customer = 'multicity-rider';
@@ -10,7 +11,7 @@ test.before(async () => {
   await db.doc(`customers/${customer}`).set({ status: 'Active', name: 'Tour Customer', phone: '+919000000001' });
   await db.doc('settings/config').set({ smsEnabled: false, emailEnabled: false, whatsappEnabled: false, pushEnabled: false });
   await db.doc('vehicle_categories/tour-sedan').set({ name: 'Sedan', status: 'Active', tariffClass: 'sedan', dutyClass: 'sedan', seats: 4, seatingCapacity: 4 });
-  const saved = await call(admin, 'saveTariffConfig', { useConfirmedDefaults: true, enabled: true, reason: 'Multicity emulator fixture' });
+  const saved = await call(admin, 'saveTariffConfig', { ...CONFIRMED_TARIFF_V2, enabled: true, reason: 'Multicity emulator fixture' });
   assert.equal(saved.ok, true, JSON.stringify(saved));
 });
 test.after(async () => { if (routing) await new Promise(resolve => routing.close(resolve)); });

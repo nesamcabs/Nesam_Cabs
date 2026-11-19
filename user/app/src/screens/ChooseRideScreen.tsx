@@ -14,8 +14,8 @@ import { FareLines } from '../components/FareLines';
 import { RoundVehiclePackage } from '../components/RoundVehiclePackage';
 import { useBookingDraft } from '../context/BookingDraft';
 import { getRoute } from '../services/geoService';
-import { calculateFare, hasEstimate, isOutstation } from '../services/pricingService';
-import { buildFareBreakup } from '../utils/fareBreakup';
+import { isOutstation } from '../services/pricingService';
+import { breakupFromFare } from '../utils/fareBreakup';
 import { earliestSlot, scheduleProblem } from '../utils/bookingRules';
 import { categoryLabel } from '../utils/categoryLabel';
 import { GST_RATE, SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY } from '../config/constants';
@@ -94,10 +94,9 @@ export function ChooseRideScreen() {
   const server = serverQuote.status === 'ready' ? serverQuote.data : null;
   const fuelCng = draft.fuelType === 'cng';
   const quotes = new Map<string, FareBreakdown>();
+  // The booking server's quote is the only price: the app never calculates a fare.
   if (server) {
     for (const x of server.quotes) if (x.ok && x.fare) quotes.set(x.categoryId, x.categoryId === categoryId && fuelCng && x.cng ? x.cng.fare : x.fare);
-  } else if (route) {
-    for (const c of categories) if (hasEstimate(c)) quotes.set(c.id, calculateFare({ category: c, route, tripType, pickupTime, adjustment }));
   }
 
   const selected: RideCategory | null = offered.find((c) => c.id === categoryId) ?? offered[0] ?? null;
@@ -233,9 +232,9 @@ export function ChooseRideScreen() {
             const photo = c.imageUrl ? { uri: c.imageUrl } : getVehicleImage(c.name);
             const bagText = `${c.luggageCapacity ?? (c.seats >= 6 ? 4 : 2)} bags`;
             const seatText = `${c.seats} seats`;
-            const extraRate = entry?.ok && cardCng && entry.cng ? entry.cng.extraKmRate : entry?.ok && entry.extraKmRate ? entry.extraKmRate : c.fare.extras?.extraKmRate ?? (outstation && c.fare.outstationPerKmRate ? c.fare.outstationPerKmRate : c.fare.perKmRate);
-            const includedKm = entry?.includedKm ?? (c.fare.baseKm > 0 ? c.fare.baseKm : (route ? included : 0));
-            const inclLine = `${entry?.ok && entry.rentalHours ? `${entry.rentalHours} hours · ` : ''}${includedKm > 0 ? `${includedKm} km included · Extra km ₹${extraRate}` : `Extra km ₹${extraRate}`}`;
+            const extraRate = entry?.ok && cardCng && entry.cng ? entry.cng.extraKmRate : entry?.ok && entry.extraKmRate ? entry.extraKmRate : 0;
+            const includedKm = entry?.includedKm ?? 0;
+            const inclLine = !entry?.ok ? '' : `${entry.rentalHours ? `${entry.rentalHours} hours · ` : ''}${includedKm > 0 ? `${includedKm} km included` : ''}${includedKm > 0 && extraRate > 0 ? ' · ' : ''}${extraRate > 0 ? `Extra km ₹${extraRate}` : ''}`;
             const strikeTotal = (cardCng && entry?.ok && entry.cng ? entry.cng.strikeTotal : entry?.ok ? entry.strikeTotal : 0) ?? 0;
             const strike = quote && strikeTotal > 0 ? strikeTotal : 0;
             const unavailReason = !serverQuote.data ? '' : entry && !entry.ok ? entry.error || 'Not available for this trip' : '';
@@ -336,7 +335,7 @@ export function ChooseRideScreen() {
       <Sheet visible={!!fareSheet} onClose={() => setFareFor(null)} title={fareSheet ? `${fareSheet.name} fare` : 'Fare'} subtitle="Prices include GST.">
         {fareSheet && fareSheetQuote ? (
           <>
-            <FareLines lines={buildFareBreakup(fareSheet, fareSheetQuote, outstation).lines} total={fareSheetQuote.total} estimated={!server} />
+            <FareLines lines={(entryOf(fareSheet.id)?.breakup ?? breakupFromFare(fareSheetQuote)).lines} total={fareSheetQuote.total} />
             <Text style={styles.note}>Toll, parking and state tax are paid separately against receipts. The cab assigned may differ in model from the photo.</Text>
           </>
         ) : null}

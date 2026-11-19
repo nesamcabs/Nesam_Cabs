@@ -1,4 +1,5 @@
 const test = require('node:test'), assert = require('node:assert/strict');
+const { CONFIRMED_TARIFF_V2 } = require('./support/confirmedTariff');
 const H = require('./helpers.e2e');
 const { db, call, rid, TS, place, istInstant } = H;
 const A = 'fare-controls-master', brands = ['nesam','people_taxi','onewaycarrentals'];
@@ -32,7 +33,7 @@ test.before(async()=>{
   await db.doc('customers/control-customer').set({status:'Active',name:'Synthetic rider',phone:'+919000000001'});
   for (const [id,p] of [['control-pickup',pickup],['control-drop',drop],['control-stop',stop]]) await db.doc('locations/'+id).set({...p,type:id==='control-drop'?'Airport':'City',city:p.name,state:'33',status:'Active'});
   for (const [id,name,cls] of [['control-sedan','Sedan','sedan'],['control-suv','SUV 7+1','suv']]) await db.doc('vehicle_categories/'+id).set({name,status:'Active',tariffClass:cls,dutyClass:cls,seats:4,seatingCapacity:4,fare:{baseFare:70,baseKm:2,perKmRate:16,minimumFare:100}});
-  ok(await call(A,'saveTariffConfig',{useConfirmedDefaults:true,enabled:true,reason:'Controls emulator setup'}));
+  ok(await call(A,'saveTariffConfig',{...CONFIRMED_TARIFF_V2,enabled:true,reason:'Controls emulator setup'}));
   const rentalVersion=(await db.doc('business_config/tariff_v2').get()).data().version;
   ok(await call(A,'saveTariffSection',{section:'rentalPackage',class:'sedan',hours:12,expectedVersion:rentalVersion,reason:'Synthetic explicit rental fixture',data:{customerFare:1800,partnerPayout:1200,includedKm:120,extraKmRate:25,extraHourRate:180,gstMode:'excluded',enabled:true}}));
   // Airport requires an explicit complete transfer rate; all values are synthetic.

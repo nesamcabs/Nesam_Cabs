@@ -3,6 +3,7 @@
 //   ROUTING_URL=http://127.0.0.1:8765 npx firebase-tools@13 emulators:exec --config ../firebase.e2e.json \
 //     --project demo-nesam --only auth,firestore,functions "node --test test/integration.e2e.test.js"
 const test = require('node:test');
+const { CONFIRMED_TARIFF_V2 } = require('./support/confirmedTariff');
 const assert = require('node:assert/strict');
 const { createHmac } = require('node:crypto');
 const H = require('./helpers.e2e');
@@ -64,7 +65,7 @@ test.before(async () => {
   await db.doc('vehicles/vehPTop').set({ vendorId: '', docStatus: 'Approved', status: 'Active', vehicleNumber: 'TN06KL6006', seatingCapacity: 4, make: 'Maruti', model: 'Dzire', assignedDriverId: U.ownerTop });
   await db.doc(`drivers/${U.ownerTop}`).set({ status: 'Approved', name: 'Top', phone: '+919791234572', presenceStatus: 'Online', fleetStatus: 'Active', assignedVehicleId: 'vehPTop', rating: 4.9 });
   // Confirmed tariff on (explicit admin action, audited).
-  const r = await call(U.admin, 'saveTariffConfig', { useConfirmedDefaults: true, enabled: true, reason: 'Emulator setup' });
+  const r = await call(U.admin, 'saveTariffConfig', { ...CONFIRMED_TARIFF_V2, enabled: true, reason: 'Emulator setup' });
   assert.equal(r.ok, true, JSON.stringify(r));
 });
 

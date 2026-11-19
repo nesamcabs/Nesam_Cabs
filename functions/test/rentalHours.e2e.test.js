@@ -1,4 +1,5 @@
 const test = require('node:test');
+const { CONFIRMED_TARIFF_V2 } = require('./support/confirmedTariff');
 const assert = require('node:assert/strict');
 const H = require('./helpers.e2e');
 const { db, call, place, inHours, rid } = H;
@@ -14,7 +15,7 @@ test.before(async () => {
   await db.doc(`customers/${rider}`).set({ status: 'Approved', name: 'Rental Rider', phone: '+919000000001' });
   await db.doc('settings/config').set({ smsEnabled: false, emailEnabled: false, whatsappEnabled: false, pushEnabled: false });
   await db.doc('vehicle_categories/rental-test').set({ name: 'Sedan', tariffClass: 'sedan', status: 'Active', seatingCapacity: 4, fare: { perKmRate: 16 } });
-  ok(await call(admin, 'saveTariffConfig', { enabled: true, useConfirmedDefaults: true, reason: 'Rental duration range test fixture' }));
+  ok(await call(admin, 'saveTariffConfig', { enabled: true, ...CONFIRMED_TARIFF_V2, reason: 'Rental duration range test fixture' }));
 });
 test.after(async () => { if (routing) await new Promise(resolve => routing.close(resolve)); });
 

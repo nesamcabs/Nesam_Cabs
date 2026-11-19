@@ -1,57 +1,13 @@
-import { calculateFare, isCouponLive, isNightTime, serviceName, validateCoupon, type CouponContext } from '../src/services/pricingService';
-import { DEFAULT_RIDE_CATEGORIES, GST_RATE, OUTSTATION_THRESHOLD_KM } from '../src/config/constants';
-import type { Coupon, GeoPlace, RouteInfo } from '../src/types';
+import { isCouponLive, isNightTime, serviceName, validateCoupon, type CouponContext } from '../src/services/pricingService';
+import type { Coupon, GeoPlace } from '../src/types';
 
-const sedan = DEFAULT_RIDE_CATEGORIES.find((c) => c.id === 'sedan')!;
-const route = (distanceKm: number, durationMin: number): RouteInfo => ({ distanceKm, durationMin, path: [], estimated: false });
 const noon = new Date(2026, 8, 28, 12, 0);
 const night = new Date(2026, 8, 28, 23, 0);
 
-describe('calculateFare', () => {
-  it('prices a local daytime ride exactly like the Web engine', () => {
-    const f = calculateFare({ category: sedan, route: route(10, 30), tripType: 'One Way', pickupTime: noon });
-    // base 70 + (10-2)*16 + 30*1.75 → 70 + 128 + 53 = 251
-    expect(f.baseFare).toBe(70);
-    expect(f.distanceFare).toBe(128);
-    expect(f.timeFare).toBe(53);
-    expect(f.nightCharge).toBe(0);
-    expect(f.driverAllowance).toBe(0);
-    expect(f.subtotal).toBe(251);
-    expect(f.gst).toBe(Math.round(251 * GST_RATE));
-    expect(f.total).toBe(251 + f.gst);
-  });
-
-  it('applies the minimum fare', () => {
-    const f = calculateFare({ category: sedan, route: route(0.5, 3), tripType: 'One Way', pickupTime: noon });
-    expect(f.subtotal).toBe(sedan.fare.minimumFare);
-    expect(f.minimumFareAdjustment).toBeGreaterThan(0);
-  });
-
-  it('adds night charge between 22:00 and 06:00', () => {
+describe('isNightTime', () => {
+  it('is the 22:00 to 06:00 window', () => {
     expect(isNightTime(night)).toBe(true);
     expect(isNightTime(noon)).toBe(false);
-    const f = calculateFare({ category: sedan, route: route(10, 30), tripType: 'One Way', pickupTime: night });
-    expect(f.nightCharge).toBe(sedan.fare.nightCharge);
-  });
-
-  it('prices outstation per km with driver allowance and no time billing', () => {
-    const f = calculateFare({ category: sedan, route: route(OUTSTATION_THRESHOLD_KM + 60, 120), tripType: 'One Way', pickupTime: noon });
-    expect(f.timeFare).toBe(0);
-    expect(f.driverAllowance).toBe(sedan.fare.driverAllowance);
-  });
-
-  it('doubles distance for round trips', () => {
-    const one = calculateFare({ category: sedan, route: route(20, 40), tripType: 'One Way', pickupTime: noon });
-    const two = calculateFare({ category: sedan, route: route(20, 40), tripType: 'Round Trip', pickupTime: noon });
-    expect(two.distanceKm).toBe(40);
-    expect(two.total).toBeGreaterThan(one.total);
-  });
-
-  it('never discounts below zero and taxes the discounted amount', () => {
-    const f = calculateFare({ category: sedan, route: route(10, 30), tripType: 'One Way', pickupTime: noon, discount: 100000 });
-    expect(f.discount).toBe(f.subtotal);
-    expect(f.taxableAmount).toBe(0);
-    expect(f.total).toBe(0);
   });
 });
 

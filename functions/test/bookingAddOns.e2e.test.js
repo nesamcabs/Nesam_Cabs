@@ -1,4 +1,5 @@
 const test = require('node:test');
+const { CONFIRMED_TARIFF_V2 } = require('./support/confirmedTariff');
 const assert = require('node:assert/strict');
 const H = require('./helpers.e2e');
 const { db, call, rid, place, inHours } = H;
@@ -14,7 +15,7 @@ test.before(async () => {
   await db.doc('settings/config').set({ smsEnabled: false, emailEnabled: false, whatsappEnabled: false, pushEnabled: false });
   await db.doc('business_config/commission').set({ base: 'taxable', global: { rate: 10 }, version: 1 });
   await db.doc('vehicle_categories/addon-suv').set({ name: 'SUV', status: 'Active', tariffClass: 'suv', seatingCapacity: 6, fare: { perKmRate: 18, carrierCharge: 300, petCharge: 200 } });
-  ok(await call(admin, 'saveTariffConfig', { useConfirmedDefaults: true, enabled: true, reason: 'Isolated add-on integration test' }));
+  ok(await call(admin, 'saveTariffConfig', { ...CONFIRMED_TARIFF_V2, enabled: true, reason: 'Isolated add-on integration test' }));
   ok(await call(admin, 'saveTariffSection', { section: 'petCharge', latest: true, data: { petCharge: 200 }, reason: 'Common pet price integration fixture' }));
 });
 test.after(async () => { if (routing) await new Promise(resolve => routing.close(resolve)); });

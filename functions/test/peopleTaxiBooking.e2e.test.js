@@ -1,5 +1,6 @@
 // The booking call exactly as the People Taxi website sends it (brand "peopletaxi", add-ons, WhatsApp, email), for every trip type.
 const test = require('node:test');
+const { CONFIRMED_TARIFF_V2 } = require('./support/confirmedTariff');
 const assert = require('node:assert/strict');
 const H = require('./helpers.e2e');
 const { db, call, inHours, place, rid } = H;
@@ -35,7 +36,7 @@ test.before(async () => {
   await db.doc('settings/config').set({ smsEnabled: false, emailEnabled: false, whatsappEnabled: false, pushEnabled: false });
   await db.doc('vehicle_categories/pt-sedan').set({ name: 'Sedan', status: 'Active', code: 'sedan', tariffClass: 'sedan', dutyClass: 'sedan', seatingCapacity: 4, seats: 4, displayOrder: 1, fare: { baseFare: 70, baseKm: 2, perKmRate: 16, perMinuteRate: 1.75, minimumFare: 100, nightAllowance: 50, outstationDriverBattaPerDay: 400, outstationPerKmRate: 13 } });
   for (const [id, p] of [['g-theni', theni], ['g-madurai', madurai], ['g-trichy', trichy]]) await db.doc(`locations/${id}`).set({ ...p, id, status: 'Active', state: '33', type: 'City', city: p.name });
-  const saved = await call(U.admin, 'saveTariffConfig', { useConfirmedDefaults: true, enabled: true, reason: 'People Taxi payload fixture' });
+  const saved = await call(U.admin, 'saveTariffConfig', { ...CONFIRMED_TARIFF_V2, enabled: true, reason: 'People Taxi payload fixture' });
   assert.equal(saved.ok, true, JSON.stringify(saved));
 });
 test.after(async () => { if (routing) await new Promise((r) => routing.close(r)); });

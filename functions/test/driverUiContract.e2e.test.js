@@ -6,6 +6,7 @@
 //   • duplicate submissions of a trip step change nothing.
 //   npm run test:e2e   (runs together with the other emulator suites)
 const test = require('node:test');
+const { CONFIRMED_TARIFF_V2 } = require('./support/confirmedTariff');
 const assert = require('node:assert/strict');
 const H = require('./helpers.e2e');
 const { db, call, rest, clientPatch, inHours, place, rid, bookAs, booking, market } = H;
@@ -31,7 +32,7 @@ test.before(async () => {
   await db.doc('vehicles/vehUiOwner').set({ vendorId: '', docStatus: 'Approved', status: 'Active', vehicleNumber: 'TN03EF9003', seatingCapacity: 4, make: 'Maruti', model: 'Dzire', assignedDriverId: U.owner });
   await db.doc(`drivers/${U.owner}`).set({ status: 'Approved', name: 'Selvam', phone: '+919791234569', presenceStatus: 'Online', fleetStatus: 'Active', assignedVehicleId: 'vehUiOwner', assignedVehicleNumber: 'TN03EF9003', rating: 4.2 });
   await db.doc(`drivers/${U.stranger}`).set({ status: 'Approved', name: 'Other', phone: '+919791234500', presenceStatus: 'Online', fleetStatus: 'Active' });
-  const r = await call(U.admin, 'saveTariffConfig', { useConfirmedDefaults: true, enabled: true, reason: 'Emulator setup' });
+  const r = await call(U.admin, 'saveTariffConfig', { ...CONFIRMED_TARIFF_V2, enabled: true, reason: 'Emulator setup' });
   assert.equal(r.ok, true, JSON.stringify(r));
 });
 

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import type { Booking } from "../types";
 import { AdminBookingError, normalizePhone, updateBookingContact, emailError } from "../services/adminBookingService";
 import { approveBooking } from "../services/bookingOpsService";
@@ -10,7 +10,7 @@ import { AssignDriverModal, AssignVendorModal, CancelBookingModal, RejectDialog 
 import { AcceptedByCell, AssignmentCell, BookingExpand, CustomerCell, DateCell, FareCell, PayoutCell, RouteCell, TripTypeCell, VehicleCell } from "../components/booking/OfficeCells";
 import { AssignOnBehalfDrawer, PublishDutyDrawer, PublishedDutyDrawer } from "../components/booking/DutyDrawers";
 import Enquiries from "../components/booking/Enquiries";
-import { effectiveStatus, subscribeEnquiries, type Enquiry } from "../services/enquiryService";
+import { type Enquiry } from "../services/enquiryService";
 import { paymentOf } from "../domain/bookingFlow";
 import {
   OFFICE_STAGES, TRIP_TABS, displayTripType, agreedPayoutOf, assignmentDeadline, bookingTabOf, customerGroups, fareOf, matchesTripType, officeStageOf, officeStatusLabel, refDate, refTime, tripTabOf, type OfficeStage, type TripTab,
@@ -77,10 +77,6 @@ export default function Bookings({ onSelectBooking, initialTab, onNewBooking, on
 }) {
   const [stage, setStage] = useState<OfficeStage>((OFFICE_STAGES as readonly string[]).includes(initialTab ?? "") ? (initialTab as OfficeStage) : "New bookings");
   const [view, setView] = useState<"list" | "enquiries">(initialTab === "Enquiries" ? "enquiries" : "list");
-  // Customer quote requests (Multicity and other enquiries) waiting for the travel desk; shown on the
-  // Enquiries & quotes button so they are not missed among the bookings.
-  const [newEnquiries, setNewEnquiries] = useState(0);
-  useEffect(() => subscribeEnquiries((rows) => setNewEnquiries(rows.filter((e) => effectiveStatus(e) === "New").length)), []);
   const [f, setF] = useState<Filters>(NO_FILTERS);
   const [sort, setSort] = useState<Sort>("earliest");
   const [tripTab, setTripTab] = useState<TripTab>("All trips");
@@ -266,11 +262,6 @@ export default function Bookings({ onSelectBooking, initialTab, onNewBooking, on
         tabs={OFFICE_STAGES.map((s) => ({ id: s, label: s, count: counts[s], ...STAGE_META[s] }))}
         value={stage}
         onChange={(s) => { setStage(s); setExpanded(null); if (s !== "Accepted" && sort === "overdue") setSort("earliest"); }}
-        aside={
-          <Button variant={newEnquiries ? "secondary" : "ghost"} size="sm" icon="phone-forwarded" onClick={() => setView("enquiries")} aria-label={newEnquiries ? `Enquiries and quotes, ${newEnquiries} new` : undefined}>
-            Enquiries &amp; quotes{newEnquiries ? <Badge tone="red">{newEnquiries} new</Badge> : null}
-          </Button>
-        }
       />
 
       <StageBar

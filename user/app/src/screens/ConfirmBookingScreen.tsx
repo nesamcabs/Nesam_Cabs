@@ -16,9 +16,9 @@ import { FareLines } from '../components/FareLines';
 import { useCustomerData } from '../context/CustomerData';
 import { useBookingDraft } from '../context/BookingDraft';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
-import { calculateFare, isOutstation, serviceName, validateCoupon } from '../services/pricingService';
+import { isOutstation, serviceName, validateCoupon } from '../services/pricingService';
 import { createRideRequest } from '../services/rideService';
-import { buildFareBreakup } from '../utils/fareBreakup';
+import { breakupFromFare } from '../utils/fareBreakup';
 import { categoryLabel } from '../utils/categoryLabel';
 import type { AppliedCoupon, FareBreakdown, PaymentMethod } from '../types';
 import { formatDate, formatINR, formatPhone, formatTime, isValidIndianMobile } from '../utils/format';
@@ -79,9 +79,9 @@ export function ConfirmBookingScreen() {
 
   const goHome = () => navigation.navigate('Tabs', { screen: 'Book' });
   const category = categories.find((c) => c.id === categoryId) ?? categories[0] ?? null;
-  // An add-on is offered only when this vehicle has a price for it (admin → vehicle specs), exactly as on the website.
+  // An add-on is offered only when this vehicle has a price for it (admin → Service & Fare Settings), exactly as on the website.
   const addOnEntry = serverQuoteState.status === 'ready' && category ? serverQuoteState.data?.quotes.find((x) => x.categoryId === category.id && x.ok && x.fare) : undefined;
-  const carrierCharge = addOnEntry?.addOnRates?.carrierCharge ?? category?.fare.extras?.carrierCharge ?? 0;
+  const carrierCharge = addOnEntry?.addOnRates?.carrierCharge ?? 0;
   const petCharge = addOnEntry?.addOnRates?.petCharge ?? 0;
   const hasCarrier = carrierCharge > 0;
   const hasPets = petCharge > 0;
@@ -112,25 +112,13 @@ export function ConfirmBookingScreen() {
   const service = serviceName(pickup, drop, route.distanceKm, tripType);
   const history = trips.filter((t) => t.status !== 'Cancelled' && t.status !== 'Rejected');
 
-  const checkCoupon = (code: string) => {
-    const base = calculateFare({ category, route, tripType, pickupTime, adjustment });
-    return validateCoupon(coupons, code, {
-      subtotal: base.subtotal,
-      categoryId: category.id,
-      service,
-      isFirstBooking: history.length === 0,
-      customerUses: history.filter((t) => t.couponCode.toUpperCase() === code.trim().toUpperCase()).length,
-    });
-  };
-
   // The booking server's own fare for this exact trip, with the promo code checked by the server too.
   const authoritativeEntry = serverQuoteState.status === 'ready' ? serverQuoteState.data?.quotes.find((x) => x.categoryId === category.id && x.ok && x.fare) : undefined;
   const authoritative = !!authoritativeEntry;
-  // Until the server answers, the code is checked locally for the estimate only (an estimate is never submittable).
-  const localCheck = promoCode && !authoritative ? checkCoupon(promoCode) : null;
-  const coupon: AppliedCoupon | null = authoritativeEntry
-    ? authoritativeEntry.couponApplied && promoCode ? { code: promoCode, discount: authoritativeEntry.fare!.discount, message: authoritativeEntry.couponMessage ?? '' } : null
-    : localCheck?.ok ? localCheck.coupon : null;
+  // The promo code is checked by the server only.
+  const coupon: AppliedCoupon | null = authoritativeEntry && authoritativeEntry.couponApplied && promoCode
+    ? { code: promoCode, discount: authoritativeEntry.fare!.discount, message: authoritativeEntry.couponMessage ?? '' }
+    : null;
   const promoMsg = !promoCode
     ? null
     : authoritativeEntry
@@ -139,15 +127,26 @@ export function ConfirmBookingScreen() {
         : { ok: false, text: `Promo not applied: ${authoritativeEntry.couponMessage || 'This code does not apply to this trip.'}` }
       : serverQuoteState.status === 'loading'
         ? { ok: true, text: `Checking ${promoCode}…` }
-        : localCheck && !localCheck.ok
-          ? { ok: false, text: `Promo not applied: ${localCheck.message}` }
-          : null;
+        : null;
 
   const priceKey = JSON.stringify([draft, adjustment?.id, adjustment?.percent]);
-  const localQuote = calculateFare({ category, route, tripType, pickupTime, adjustment, discount: coupon?.discount ?? 0 });
   // On the CNG rate card when the rider chose CNG and this vehicle offers it.
   const cngEntry = draft.fuelType === 'cng' ? authoritativeEntry?.cng ?? null : null;
-  const quote = serverQuote?.key === priceKey ? serverQuote.fare : cngEntry?.fare ?? authoritativeEntry?.fare ?? localQuote;
+  const quote = serverQuote?.key === priceKey ? serverQuote.fare : cngEntry?.fare ?? authoritativeEntry?.fare ?? null;
+  // The booking server's quote is the only price: until it answers there is nothing to review.
+  if (!quote) {
+    return (
+      <SafeAreaView style={styles.root} edges={['top']}>
+<KeyboardAvoid>
+        <AppHeader title="Review & Book" onBack={() => navigation.goBack()} />
+        <View style={styles.pad}>
+          <Notice message={serverQuoteState.status === 'error' ? serverQuoteState.error || 'We could not get your fare. Please go back and try again.' : 'Getting your fare from NESAM…'} />
+          <Button title="Back to Choose your cab" variant="secondary" onPress={() => navigation.goBack()} />
+        </View>
+      </KeyboardAvoid>
+</SafeAreaView>
+    );
+  }
   const outstation = isOutstation(route.distanceKm);
   // Display only: a higher struck-out price above the fare.
   const strikeTotal = (cngEntry ? cngEntry.strikeTotal : authoritativeEntry?.strikeTotal) ?? 0;
@@ -242,8 +241,8 @@ export function ConfirmBookingScreen() {
     }
   };
 
-  const fareBreakup = buildFareBreakup(category, quote, outstation);
-  const includedKm = authoritativeEntry?.includedKm ?? (category.fare.baseKm > 0 ? category.fare.baseKm : 0);
+  const fareBreakup = (cngEntry ? cngEntry.breakup : authoritativeEntry?.breakup) ?? breakupFromFare(quote);
+  const includedKm = authoritativeEntry?.includedKm ?? 0;
   const whenText = scheduledAt ? `${dayText(scheduledAt)} · ${formatTime(scheduledAt).replace(/^0/, '')}` : 'Pickup time not chosen';
   const endText = tripType === 'Round Trip' && tripEndAt ? ` – Return ${dayText(tripEndAt)} · ${formatTime(tripEndAt).replace(/^0/, '')}` : '';
 
@@ -421,7 +420,7 @@ export function ConfirmBookingScreen() {
       </View>
 
       <Sheet visible={fareOpen} onClose={() => setFareOpen(false)} title="Fare details" subtitle="Prices include GST.">
-        <FareLines lines={fareBreakup.lines} total={quote.total} estimated={!authoritative} />
+        <FareLines lines={fareBreakup.lines} total={quote.total} />
         <Text style={[styles.small, { marginTop: space.md }]}>Toll, parking and state tax are paid separately against receipts.</Text>
       </Sheet>
     </KeyboardAvoid>

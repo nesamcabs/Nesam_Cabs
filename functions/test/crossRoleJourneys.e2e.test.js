@@ -1,6 +1,7 @@
 // Cross-Role End-to-End Journeys and Alternate Paths against Firebase Emulators
 // Exercises all four roles (Customer, Vendor, Driver, Admin) and the backend.
 const test = require('node:test');
+const { CONFIRMED_TARIFF_V2 } = require('./support/confirmedTariff');
 const assert = require('node:assert/strict');
 const H = require('./helpers.e2e');
 const { db, TS, call, rest, clientPatch, clientCreate, inHours, istInstant, place, rid, bookAs, booking, market, until } = H;
@@ -103,7 +104,7 @@ test.before(async () => {
 
   // 8. Turn on confirmed tariff v2
   const tariffRes = await call(U.adminSuper, 'saveTariffConfig', {
-    useConfirmedDefaults: true, enabled: true, reason: 'Cross-role E2E setup',
+    ...CONFIRMED_TARIFF_V2, enabled: true, reason: 'Cross-role E2E setup',
   });
   assert.equal(tariffRes.ok, true, JSON.stringify(tariffRes));
 });

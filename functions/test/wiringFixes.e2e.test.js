@@ -1,4 +1,5 @@
 const test=require('node:test'),assert=require('node:assert/strict');
+const { CONFIRMED_TARIFF_V2 } = require('./support/confirmedTariff');
 const H=require('./helpers.e2e');
 const {db,call,rid,inHours,place}=H;
 const {syncPublicContent,publicContent}=require('../lib/publicContent');
@@ -13,7 +14,7 @@ test.before(async()=>{
   oldConfig=(await db.doc('settings/config').get()).data();
   await db.doc(`admins/${admin}`).set({role:'admin',status:'active',staffRole:'super_admin',name:'Fixes admin'});
   await db.doc('vehicle_categories/fix-sedan').set({name:'Sedan',status:'Active',code:'sedan',seatingCapacity:4,fare:{baseFare:70,baseKm:2,perKmRate:16,minimumFare:100}});
-  const tariff=await call(admin,'saveTariffConfig',{useConfirmedDefaults:true,enabled:true,reason:'Regression fixture'});assert.equal(tariff.ok,true,JSON.stringify(tariff));
+  const tariff=await call(admin,'saveTariffConfig',{...CONFIRMED_TARIFF_V2,enabled:true,reason:'Regression fixture'});assert.equal(tariff.ok,true,JSON.stringify(tariff));
 });
 test('business quote uses contract; concurrent bookings cannot overspend credit; holds are enforced',async()=>{
   await db.doc('business_accounts/fix-credit').set({name:'Fix Corp',status:'Active',paymentTerms:'Credit',creditLimit:1050,contractRates:[rate]});

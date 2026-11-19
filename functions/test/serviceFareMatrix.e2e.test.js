@@ -1,5 +1,6 @@
 // Isolated demo-nesam audit of the controls exposed by Service & Fare Settings.
 const test = require('node:test'), assert = require('node:assert/strict');
+const { CONFIRMED_TARIFF_V2 } = require('./support/confirmedTariff');
 const http = require('node:http'), fs = require('node:fs'), path = require('node:path');
 const H = require('./helpers.e2e');
 const { db, call, TS, rid, place, istInstant, rest } = H;
@@ -97,7 +98,7 @@ test.before(async () => {
     await db.doc(`vehicles/fare-vehicle-${cls}`).set({ vendorId: V, docStatus: 'Approved', status: 'Active', vehicleNumber: `TN01AA100${k}`, seatingCapacity: k ? 7 : 4, category: names[k], vehicleClass });
     await db.doc(`drivers/fare-driver-${cls}`).set({ status: 'Approved', vendorId: V, name: 'Matrix Driver', phone: '+919000000002', presenceStatus: 'Online', fleetStatus: 'Active', vehicleType: cls });
   }
-  ok(await call(A, 'saveTariffConfig', { useConfirmedDefaults: true, enabled: true, reason: 'Isolated fare matrix setup' }));
+  ok(await call(A, 'saveTariffConfig', { ...CONFIRMED_TARIFF_V2, enabled: true, reason: 'Isolated fare matrix setup' }));
 });
 test.after(async () => {
   if (routing) await new Promise(resolve => routing.close(resolve));

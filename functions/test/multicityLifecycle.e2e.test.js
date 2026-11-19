@@ -2,6 +2,7 @@
 // publishes it, a vendor bids and is awarded, dispatches a driver, and the driver runs the trip to completion.
 // Checks at each step that the itinerary (the cities in order) and the Multicity fare are carried through intact.
 const test = require('node:test');
+const { CONFIRMED_TARIFF_V2 } = require('./support/confirmedTariff');
 const assert = require('node:assert/strict');
 const H = require('./helpers.e2e');
 const { db, call, inHours, place, rid, booking, market, until } = H;
@@ -38,7 +39,7 @@ test.before(async () => {
   });
   await db.doc('vehicles/mc_veh').set({ vendorId: U.vendor, docStatus: 'Approved', status: 'Active', vehicleNumber: 'TN57MC0001', seatingCapacity: 4, make: 'Maruti', model: 'Dzire', category: 'Sedan' });
   await db.doc(`drivers/${U.driver}`).set({ status: 'Approved', vendorId: U.vendor, name: 'Karthik', phone: '+919791230021', presenceStatus: 'Online', fleetStatus: 'Active', vehicleType: 'sedan' });
-  const saved = await call(U.admin, 'saveTariffConfig', { useConfirmedDefaults: true, enabled: true, reason: 'Multicity lifecycle fixture' });
+  const saved = await call(U.admin, 'saveTariffConfig', { ...CONFIRMED_TARIFF_V2, enabled: true, reason: 'Multicity lifecycle fixture' });
   assert.equal(saved.ok, true, JSON.stringify(saved));
 });
 test.after(async () => { if (routing) await new Promise((r) => routing.close(r)); });

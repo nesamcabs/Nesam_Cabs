@@ -105,6 +105,7 @@ test.before(async () => {
   await new Promise((resolve) => routingStub.listen(8765, '127.0.0.1', resolve));
 
   const fare = { baseFare: 70, baseKm: 2, perKmRate: 16, perMinuteRate: 1.75, minimumFare: 100, nightAllowance: 50, outstationDriverBattaPerDay: 400, outstationPerKmRate: 13 };
+  await db.doc('business_config/tariff_v2').set({ ...require('./support/confirmedTariff').CONFIRMED_TARIFF_V2, version: 1, enabled: true });
   await db.doc('vehicle_categories/sedan').set({ name: 'Sedan', status: 'Active', code: 'sedan', seatingCapacity: 4, displayOrder: 1, fare });
   await db.doc('vehicle_categories/suv').set({ name: 'SUV', status: 'Active', code: 'suv', seatingCapacity: 7, displayOrder: 2, fare: { ...fare, perKmRate: 21 } });
   await db.doc('business_config/commission').set({ base: 'taxable', global: { rate: 10 }, services: {}, categories: {}, version: 1 });

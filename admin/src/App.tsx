@@ -49,7 +49,6 @@ import DemoSetup from "./pages/DemoSetup";
 import LegalGate from "./components/LegalGate";
 import B2BIntegrations from "./pages/B2BIntegrations";
 import NewBooking, { type NewBookingDraft } from "./pages/NewBooking";
-import QuickFare from "./pages/QuickFare";
 import { emptyTrip } from "./components/booking/QuickFare";
 import BusinessAccounts from "./pages/BusinessAccounts";
 import VendorDrivers from "./pages/VendorDrivers";
@@ -74,7 +73,6 @@ const pageMeta: Record<string, { title: string; breadcrumb: string[] }> = {
   dashboard: { title: "Dashboard", breadcrumb: ["Operations"] },
   bookings: { title: "All Bookings", breadcrumb: ["Operations", "Bookings"] },
   "new-booking": { title: "Bookings", breadcrumb: ["Operations", "Bookings"] },
-  "quick-fare": { title: "Quick fare", breadcrumb: ["Operations", "Quick fare"] },
   business: { title: "Business accounts", breadcrumb: ["People & Fleet", ""] },
   "vendor-drivers": { title: "Vendor Drivers", breadcrumb: ["People & Fleet", ""] },
   verification: { title: "Verification", breadcrumb: ["People & Fleet", ""] },
@@ -244,12 +242,6 @@ function AdminShell({ session }: { session: AdminSession }) {
             onConvertEnquiry={(e: Enquiry) => openNewBooking({ trip: undefined as never, categoryId: e.categoryId || "", estimates: undefined as never, enquiry: e })}
           />
         );
-      case "quick-fare":
-        return (
-          <QuickFare
-            onSaved={() => { showToast("Enquiry saved. The fare and terms are retained."); navigate("bookings", "Enquiries"); }}
-          />
-        );
       case "new-booking":
         return (
           <NewBooking
@@ -406,7 +398,6 @@ function AdminShell({ session }: { session: AdminSession }) {
           onNavigate={navigate}
           onOpen={openTarget}
           onCreateBooking={canCreateBooking ? () => openNewBooking() : undefined}
-          onQuickFare={canCreateBooking ? () => navigate("quick-fare") : undefined}
           onOpenMenu={() => setMobileNavOpen(true)}
           userName={session.user.displayName}
           userEmail={session.user.email}

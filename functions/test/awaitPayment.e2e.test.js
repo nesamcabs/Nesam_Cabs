@@ -1,5 +1,6 @@
 // "Pay online now": the rider is told "Booking confirmed" only AFTER the online payment is recorded — never when the booking is first created.
 const test = require('node:test');
+const { CONFIRMED_TARIFF_V2 } = require('./support/confirmedTariff');
 const assert = require('node:assert/strict');
 const H = require('./helpers.e2e');
 const { db, call, inHours, place, rid } = H;
@@ -30,7 +31,7 @@ test.before(async () => {
   await db.doc('settings/config').set({ smsEnabled: false, emailEnabled: false, whatsappEnabled: false, pushEnabled: false });
   await db.doc('vehicle_categories/ap-sedan').set({ name: 'Sedan', status: 'Active', code: 'sedan', tariffClass: 'sedan', dutyClass: 'sedan', seatingCapacity: 4, seats: 4, displayOrder: 1, fare: { baseFare: 0, baseKm: 0, perKmRate: 15, minimumFare: 0, driverAllowance: 0, nightAllowance: 0, waitingChargePerHour: 0, extraHourCharge: 0, extraKmCharge: 15, tollIncluded: false, parkingIncluded: false, permitCharge: 0 } });
   for (const [id, p] of [['ap-theni', theni], ['ap-madurai', madurai]]) await db.doc(`locations/${id}`).set({ ...p, id, status: 'Active', state: '33', type: 'City', city: p.name });
-  const saved = await call(U.admin, 'saveTariffConfig', { useConfirmedDefaults: true, enabled: true, reason: 'await payment fixture' });
+  const saved = await call(U.admin, 'saveTariffConfig', { ...CONFIRMED_TARIFF_V2, enabled: true, reason: 'await payment fixture' });
   assert.equal(saved.ok, true, JSON.stringify(saved));
 });
 test.after(async () => { if (routing) await new Promise((r) => routing.close(r)); });

@@ -1,8 +1,7 @@
 // Rules behind the redesigned Booking, Choose your ride, My Trips and Account screens.
-import { inclusionLine, scheduleProblem, whatsappProblem } from '../src/utils/bookingRules';
+import { quotedInclusionLine, scheduleProblem, whatsappProblem } from '../src/utils/bookingRules';
 import { paymentLabel, paymentRows, tabOfTrip, tripStatusChip } from '../src/utils/tripView';
 import { mapBooking } from '../src/services/rideService';
-import { mapCategory } from '../src/services/pricingService';
 import type { TripRecord } from '../src/types';
 
 const trip = (d: Record<string, unknown>): TripRecord => mapBooking('b1', { customerId: 'c1', bookingId: 'NT1', ...d });
@@ -29,10 +28,12 @@ describe('booking step 3: WhatsApp contact (same rules as the server)', () => {
 });
 
 describe('booking step 2: what the package includes', () => {
-  const cat = (fare: Record<string, unknown>) => mapCategory('c', { name: 'Sedan', status: 'Active', fare: { perKmRate: 14, ...fare } })!;
-  it('uses the category’s own included km and extra-km rate', () => {
-    expect(inclusionLine(cat({ baseKm: 200, extraKmCharge: 15 }), true)).toBe('200 km included · ₹15/km extra');
-    expect(inclusionLine(cat({ baseKm: 0 }), false)).toBe('₹14/km extra');
+  it('shows what the server quote says: included km and extra-km rate, and nothing before it answers', () => {
+    expect(quotedInclusionLine({ ok: true, includedKm: 200, extraKmRate: 15 })).toBe('200 km included · ₹15/km extra');
+    expect(quotedInclusionLine({ ok: true, extraKmRate: 14 })).toBe('₹14/km extra');
+    expect(quotedInclusionLine({ ok: true, rentalHours: 4, includedKm: 40, extraKmRate: 12 })).toBe('4 hours · 40 km included · ₹12/km extra');
+    expect(quotedInclusionLine(undefined)).toBe('');
+    expect(quotedInclusionLine({ ok: false })).toBe('');
   });
 });
 
