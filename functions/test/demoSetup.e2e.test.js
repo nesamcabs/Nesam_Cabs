@@ -13,7 +13,10 @@ const plan = (() => { const m = { exports: {} }; new Function('module', 'exports
 
 const dirSrc = fs.readFileSync(path.join(__dirname, '../../admin/src/domain/placeDirectory.ts'), 'utf8');
 const dirJs = ts.transpileModule(dirSrc, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-const directory = (() => { const m = { exports: {} }; new Function('module', 'exports', dirJs)(m, m.exports); return m.exports; })();
+// placeDirectory.ts imports the zone list next to it: load that file the same way for its `require`.
+const zonesJs = ts.transpileModule(fs.readFileSync(path.join(__dirname, '../../admin/src/domain/placeZones.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+const zones = (() => { const m = { exports: {} }; new Function('module', 'exports', zonesJs)(m, m.exports); return m.exports; })();
+const directory = (() => { const m = { exports: {} }; new Function('module', 'exports', 'require', dirJs)(m, m.exports, (name) => { if (name === './placeZones') return zones; throw new Error(`unexpected import ${name}`); }); return m.exports; })();
 // The same city documents the admin's "Add built-in cities" button writes (fixed ids, no coordinates).
 const cityId = (code, name) => `city_${code}_${name.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;
 const MASTER = Object.entries(directory.CITIES_BY_STATE).flatMap(([code, names]) => names.map((name) => ({ id: cityId(code, name), name, code })));

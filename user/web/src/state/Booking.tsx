@@ -93,10 +93,11 @@ export function BookingProvider({ children }: { children: ReactNode }) {
   const startFrom = useCallback<BookingValue['startFrom']>((pickup, drop) => setDraft((d) => ({ ...d, pickup, drop, stops: [], scheduledAt: null, tripEndAt: null, tripDays: 1, daysAuto: false, timePackage: '', multicity: false, roofCarrier: false, pets: false, promoCode: '' })), []);
 
   const routeStops = draft.tripType === 'Round Trip' ? draft.stops : [];
-  const isRoundTrip = draft.tripType === 'Round Trip';
+  // Only a real Round Trip comes back to the pickup. A Multicity tour (stored as a Round Trip with a flag) ends at its own final drop.
+  const isRoundTrip = draft.tripType === 'Round Trip' && !draft.multicity;
   const baseRouteKey = routeKeyOf(draft.pickup, draft.drop, routeStops);
   // The key also tells a Round Trip apart, so switching trip type measures the way back too.
-  const routeKey = baseRouteKey && isRoundTrip ? `${baseRouteKey}|rt` : baseRouteKey;
+  const routeKey = baseRouteKey && isRoundTrip ? `${baseRouteKey}|rt` : baseRouteKey && draft.multicity ? `${baseRouteKey}|mc` : baseRouteKey;
   const pickupRef = useRef(draft.pickup);
   const dropRef = useRef(draft.drop);
   pickupRef.current = draft.pickup;

@@ -70,7 +70,7 @@ function BottomNav() {
   // Local Taxi has its own pages (/local-taxi…): keep its tab lit there instead of leaving the bar looking like Outstation.
   const onLocal = /^\/local-taxi(\/|$)/.test(location.pathname);
   const onRentals = /^\/local-rentals(\/|$)/.test(location.pathname);
-  const current: ServiceId | null = profilePicked ? null : onLocal ? 'local' : onRentals ? (params.get('mode') === 'pickup' ? 'pickup' : 'rental') : onHome ? (parseService(params.get('service')) ?? (location.pathname === '/' ? 'pickup' : serviceOfTrip(draft.tripType))) : null;
+  const current: ServiceId | null = profilePicked ? null : onLocal ? 'local' : onRentals ? (params.get('mode') === 'pickup' ? 'pickup' : 'rental') : onHome ? (parseService(params.get('service')) ?? (location.pathname === '/' ? 'pickup' : serviceOfTrip(draft.tripType, draft.multicity))) : null;
 
   // On the Local Rentals page the two ways to book it sit either side of the Local button: Pickup & Drop on its left, Hourly Rental on
   // its right. They switch ?mode= in the address, which the page reads. The other services stay one tap away from the back arrow.

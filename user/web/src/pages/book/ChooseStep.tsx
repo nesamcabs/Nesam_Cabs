@@ -33,9 +33,10 @@ export function ChooseStep() {
   // The fuel chosen on each card. CNG is offered only on the cab types the admin enabled it for (and that have CNG rates saved).
   const [fuelPick, setFuelPick] = useState<Record<string, FuelChoice>>({});
   const { pickup, drop, tripType, scheduledAt, categoryId } = draft;
-  // A Round Trip always ends back at the pickup: the drop is simply the last place visited.
+  // A Round Trip always ends back at the pickup: the drop is simply the last place visited. A Multicity tour does not: it ends at its own final drop.
   const sameAsPickup = !!pickup && !!drop && Math.abs(pickup.lat - drop.lat) < 0.0001 && Math.abs(pickup.lng - drop.lng) < 0.0001;
-  const roundVia = tripType === 'Round Trip' ? [...draft.stops, ...(sameAsPickup || !drop ? [] : [drop])] : [];
+  const returnsToPickup = tripType === 'Round Trip' && !draft.multicity;
+  const roundVia = draft.multicity ? draft.stops : returnsToPickup ? [...draft.stops, ...(sameAsPickup || !drop ? [] : [drop])] : [];
 
   // A cab type the office turned off for this location is left out completely: no card, no tab.
   const visible = useMemo(() => categories.filter((c) => !q.hidden.has(c.id)), [categories, q.hidden]);
@@ -98,7 +99,7 @@ export function ChooseStep() {
                 <p className="route-title">
                   <span>{pickup.name}</span>
                   <Icon name="arrow-right" size={14} />
-                  <span>{tripType === 'Round Trip' ? pickup.name : drop.id === 'place-local-disposal' ? 'Local City Disposal' : drop.name}</span>
+                  <span>{returnsToPickup ? pickup.name : drop.id === 'place-local-disposal' ? 'Local City Disposal' : drop.name}</span>
                 </p>
                 {roundVia.length ? <p className="trip-sum__when">Via {roundVia.map((stop) => stop.name).join(' → ')}</p> : null}
                 <p className="trip-sum__meta">
@@ -452,7 +453,7 @@ export function ChooseStep() {
         nextDisabled={!canContinue}
         total={quote?.total}
         hideFare
-        onBack={() => navigate(tripType === 'Local Rental' ? '/local-rentals?mode=hourly' : '/book')}
+        onBack={() => navigate(tripType === 'Local Rental' ? '/local-rentals?mode=hourly' : draft.multicity ? '/book?service=multicity' : '/book')}
         backLabel="Back"
         onHome={() => navigate('/')}
       />

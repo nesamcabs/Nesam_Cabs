@@ -40,15 +40,14 @@ export function buildFareBreakup(category: RideCategory, fare: FareBreakdown, ou
   const lines: FareLine[] = [];
   const add = (l: FareLine) => lines.push(l);
 
+  // No separate "Base package" line: the base fare is part of the distance charge (the minimum kilometres are already charged there).
   add({
-    key: 'base', label: 'Base package', amount: fare.baseFare, treatment: 'included',
-    detail: category.fare.baseKm > 0 ? `Includes ${category.fare.baseKm} KM` : 'Base fare',
-  });
-  add({
-    key: 'distance', label: 'Distance charge', amount: fare.distanceFare, treatment: 'included',
-    detail: fare.distanceFare > 0
-      ? `${fare.distanceKm} KM booked at ${rupees(fare.perKmRate)}/KM beyond the included ${category.fare.baseKm} KM`
-      : `${fare.distanceKm} KM booked, within the included KM`,
+    key: 'distance', label: 'Distance charge', amount: fare.baseFare + fare.distanceFare, treatment: 'included',
+    detail: fare.baseFare > 0 && category.fare.baseKm > 0
+      ? `${fare.distanceKm} KM booked: the first ${category.fare.baseKm} KM at the base fare${fare.distanceFare > 0 ? `, then ${rupees(fare.perKmRate)}/KM` : ''}`
+      : fare.distanceFare > 0
+      ? `${fare.distanceKm} KM booked at ${rupees(fare.perKmRate)}/KM`
+      : `${fare.distanceKm} KM booked`,
   });
   if (fare.timeFare > 0) add({ key: 'time', label: 'Time charge', amount: fare.timeFare, treatment: 'included', detail: `${fare.durationMin} min at ${rupees(fare.perMinuteRate)}/min` });
   if (fare.nightCharge > 0) add({ key: 'night', label: 'Night charge', amount: fare.nightCharge, treatment: 'included', detail: 'Pickup between 10:00 PM and 06:00 AM' });

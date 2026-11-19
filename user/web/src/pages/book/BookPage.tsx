@@ -104,7 +104,7 @@ function Home({ defaultService }: { defaultService?: ServiceId }) {
   }, [rawService, defaultService, navigate, isDesktop]);
 
   // Parse service, mapping legacy 'one-way' / 'round-trip' to 'outstation'
-  const service: ServiceId = parseService(rawService) ?? defaultService ?? serviceOfTrip(draft.tripType);
+  const service: ServiceId = parseService(rawService) ?? defaultService ?? serviceOfTrip(draft.tripType, draft.multicity);
 
   // Determine outstation trip ('One Way' | 'Round Trip')
   const outstationTrip: 'One Way' | 'Round Trip' =
@@ -128,13 +128,19 @@ function Home({ defaultService }: { defaultService?: ServiceId }) {
           : outstationTrip === 'Round Trip'
             ? 'Round Trip'
             : 'One Way';
+    // A Multicity tour left on the draft (the rider came back from the cab list, or picked another service) must not leak into the
+    // Round Trip or One Way form: its cities and its Multicity flag are cleared. Pickup and drop stay.
+    if (draft.multicity) {
+      update((d) => ({ multicity: false, stops: [], tripType: wanted, tripEndAt: wanted === 'Round Trip' ? d.tripEndAt : null, timePackage: '', tripDays: 1, daysAuto: false }));
+      return;
+    }
     if (wanted === draft.tripType) return;
     update((d) => ({
       tripType: wanted,
       drop: d.drop?.id === 'place-local-disposal' && wanted !== 'Local Rental' ? null : d.drop,
       tripEndAt: wanted === 'Round Trip' ? d.tripEndAt : null,
     }));
-  }, [service, outstationTrip]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [service, outstationTrip, draft.multicity]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onService = useCallback(
     (s: ServiceId) => {

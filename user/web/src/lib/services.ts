@@ -83,7 +83,9 @@ export const parseService = (raw: string | null): ServiceId | null => {
   return null;
 };
 
-export const serviceOfTrip = (t: TripType | null | undefined): ServiceId => {
+/** The service a draft belongs to. A Multicity tour is stored as a Round Trip with a flag, but it is its own service, not the Round Trip tab. */
+export const serviceOfTrip = (t: TripType | null | undefined, multicity = false): ServiceId => {
+  if (multicity && t === 'Round Trip') return 'multicity';
   if (t === 'Airport Taxi') return 'airport';
   if (t === 'Local Rental') return 'rental';
   return 'outstation';

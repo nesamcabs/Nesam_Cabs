@@ -157,7 +157,10 @@ export function BookingDraftProvider({ authKey = '', children }: { authKey?: str
     setServiceState(s);
     if (s === 'multicity') return;
     const tripType = s === 'outstation' ? lastOutstation.current : SERVICE_TRIP_TYPE[s];
-    setDraft((d) => (d.tripType === tripType ? d : { ...d, tripType }));
+    // A Multicity tour left on the draft must not leak into the Round Trip or One Way form: its cities and its flag are cleared.
+    setDraft((d) => (d.multicity
+      ? { ...d, multicity: false, stops: [], tripType, tripEndAt: tripType === 'Round Trip' ? d.tripEndAt : null, timePackage: '', tripDays: 1, daysAuto: false }
+      : d.tripType === tripType ? d : { ...d, tripType }));
   }, []);
   const reset = useCallback(() => {
     lastOutstation.current = 'One Way';

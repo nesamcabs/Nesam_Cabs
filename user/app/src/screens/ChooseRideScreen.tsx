@@ -125,7 +125,7 @@ export function ChooseRideScreen() {
   const roundPick = tripType === 'Round Trip' && !draft.multicity;
   const fareSheet = categories.find((c) => c.id === fareFor) ?? null;
   const fareSheetQuote = fareSheet ? quotes.get(fareSheet.id) ?? null : null;
-  const included = route ? Math.round(route.distanceKm * (tripType === 'Round Trip' ? 2 : 1)) : 0;
+  const included = route ? Math.round(route.distanceKm * (roundPick ? 2 : 1)) : 0;
   const serviceBadge = tripType === 'Airport Taxi' ? 'Airport' : tripType;
   // The GST rate the server applied to this fare (admin GST settings), else the default rate until it answers.
   const gstText = (f?: { gstRate?: number } | null) => `${Math.round((typeof f?.gstRate === 'number' ? f.gstRate : GST_RATE) * 10000) / 100}% GST`;
@@ -150,7 +150,7 @@ export function ChooseRideScreen() {
           <Text style={styles.meta}>
             {route ? `${formatDistance(route.distanceKm)} · ` : ''}
             {scheduledAt ? `${dayText(scheduledAt)} · ${formatTime(scheduledAt).replace(/^0/, '')}` : 'Time not set'}
-            {tripType === 'Round Trip' && tripEndAt ? ` – Return ${dayText(tripEndAt)} · ${formatTime(tripEndAt).replace(/^0/, '')}` : ''}
+            {roundPick && tripEndAt ? ` – Return ${dayText(tripEndAt)} · ${formatTime(tripEndAt).replace(/^0/, '')}` : ''}
           </Text>
         </View>
 
