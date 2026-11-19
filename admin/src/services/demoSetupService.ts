@@ -86,10 +86,6 @@ export async function publishDemoSetup(opts: PublishOptions): Promise<DemoStep[]
       const form: CategoryForm = {
         name: c.name, code: "", description: c.description, imageUrl: "", iconUrl: "", icon: "🚘", seatingCapacity: c.seats, luggageCapacity: c.luggage, acSupported: "Both",
         recommendedPassengers: c.seats, displayOrder: have.length + i + 1, cngEnabled: false, status: "Active",
-        fare: {
-          baseFare: 0, baseKm: 0, perKmRate: c.rate, minimumFare: 0, driverAllowance: c.bata, nightAllowance: 0, waitingChargePerHour: c.waiting, extraHourCharge: 250, extraKmCharge: c.rate,
-          tollIncluded: false, parkingIncluded: false, permitCharge: 0, carrierCharge: c.carrier, outstationPerKmRate: c.rate, outstationDriverBattaPerDay: c.bata, outstationMinKmPerDay: 250,
-        },
       };
       await saveCategory(form, null);
       added += 1;

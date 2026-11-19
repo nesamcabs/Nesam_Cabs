@@ -29,7 +29,7 @@ type Need = "positive" | "any";
 interface Def { key: NumKey; label: string; unit: string; base: number | undefined; need?: Need }
 type Group = "customer" | "partner" | "extras";
 interface Row { group: Group; label: string; sub?: string; def: Def }
-export interface MatrixCard { cls: TariffClass; name: string; categoryId?: string; cng: boolean; /** The roof carrier charge the vehicle category already holds: shown as the shared value until one is typed here. */ carrier?: number }
+export interface MatrixCard { cls: TariffClass; name: string; categoryId?: string; cng: boolean }
 
 const GROUP_TITLE: Record<Group, string> = { customer: "Customer pays", partner: "Partner gets", extras: "Extra charges" };
 
@@ -81,7 +81,7 @@ function rowsOf(t: Tariff | null | undefined, scope: FareWorkspaceScope, card: M
     ];
   }
   // Roof carrier and pet travel: what the customer pays (added to the total when the customer ticks it) and what the partner gets.
-  customer = [...customer, d("carrierCharge", "Roof carrier charge", "₹/trip", card.carrier), d("petCharge", "Pet travel charge", "₹/trip", t?.petCharge)];
+  customer = [...customer, d("carrierCharge", "Roof carrier charge", "₹/trip", undefined), d("petCharge", "Pet travel charge", "₹/trip", t?.petCharge)];
   partner = [...partner, d("partnerCarrierCharge", "Roof carrier charge", "₹/trip", oldExtras?.partner?.carrier), d("partnerPetCharge", "Pet travel charge", "₹/trip", undefined)];
 
   const rows: Row[] = [
@@ -347,7 +347,7 @@ export default function FareMatrix({ scope, cards, vehicles, fuel = "petrol", on
 
       {engineOff && (
         <div className="ds-error flex flex-wrap items-center justify-between gap-2" role="status">
-          <span><Icon name="triangle-alert" /> The pricing engine is <strong>off</strong>. Customers are charged the older vehicle category fares for {serviceLabel(service)}, not these.</span>
+          <span><Icon name="triangle-alert" /> The pricing engine is <strong>off</strong>. {serviceLabel(service)} trips priced from these rates are refused until it is switched on.</span>
           {canEdit && brand === "common" ? <Button size="sm" variant="primary" disabled={busy || isDirty} onClick={toggleEngine}>Turn pricing engine on</Button> : <small>Turn it on under Brand → All brands (shared).</small>}
         </div>
       )}

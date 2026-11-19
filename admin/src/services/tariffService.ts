@@ -21,7 +21,9 @@ export interface OneWayRates { customerRate: number; customerBata: number; partn
 /** Time-based round trip (Customer UX v8): 5-hour / 8-hour / Morning Return amounts of one class, in rupees. */
 export interface TimeBasedClassRates { fiveFare: number; fiveKm: number; fivePartner: number; eightFare: number; eightKm: number; eightPartner: number; morningFare?: number; morningKm?: number; morningPartner?: number; extra?: Record<string, { fare: number; km: number; partner: number }> }
 /** Shared settings; minutes are minutes after IST midnight (1425 = 11:45 PM). */
-export interface TimeBasedSettings { enabled: boolean; cutoffMinutes: number; morningCutoffMinutes: number; nextDayEightFromMinutes: number; nextDayFiveFromMinutes: number; shortKmLimit: number; fiveKmLimit?: number; lateNightEndMinutes?: number; fiveHours: number; eightHours: number; extraSlabs?: { hours: number; kmLimit: number }[] }
+/** Names the office gave the round-trip packages (blank = the standard name). */
+export interface PackageNames { five?: string; eight?: string; full?: string; morning?: string; next?: string }
+export interface TimeBasedSettings { enabled: boolean; cutoffMinutes: number; morningCutoffMinutes: number; nextDayEightFromMinutes: number; nextDayFiveFromMinutes: number; shortKmLimit: number; fiveKmLimit?: number; lateNightEndMinutes?: number; fiveHours: number; eightHours: number; extraSlabs?: { hours: number; kmLimit: number; name?: string }[]; names?: PackageNames }
 /** Hill Station Allowance / Charge (Customer UX v8): one One-Way and one Round-Trip slab per vehicle class, rupees. */
 export interface HillSlab { customer: number; partner: number }
 export interface HillStationSettings { enabled: boolean; chargePer: 'trip' | 'station'; classes?: Partial<Record<TariffClass, { oneWay?: HillSlab; roundTrip?: HillSlab }>> }

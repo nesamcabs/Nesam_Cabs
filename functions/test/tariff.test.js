@@ -4,8 +4,9 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const T = require('../lib/domain/tariff');
 const E = require('../lib/domain/eligibility');
+const { CONFIRMED_TARIFF_V2 } = require('./support/confirmedTariff');
 
-const cfg = { ...T.parseTariffConfig({ ...T.CONFIRMED_TARIFF_V2, version: 1, enabled: true }) };
+const cfg = { ...T.parseTariffConfig({ ...CONFIRMED_TARIFF_V2, version: 1, enabled: true }) };
 const IST = (s) => Date.parse(`${s}+05:30`);
 
 test('one-way: 130 km floor — Sedan, SUV and Crysta customer base and partner base', () => {

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { RideCategory } from '@core/types';
 import { SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY } from '@core/config/constants';
-import { buildFareBreakup } from '@core/utils/fareBreakup';
+import { breakupFromFare } from '@core/utils/fareBreakup';
 import { formatDate, formatDistance, formatDuration, formatINR, formatTime } from '@core/utils/format';
 import { BackButton, Badge, Button, EmptyState, Notice } from '@/components/ui';
 import { Icon } from '@/components/Icon';
@@ -81,7 +81,7 @@ export function ChooseStep() {
     if (own?.ok && own.breakup) return own.breakup;
     if (c.id === selected?.id && q.breakup) return q.breakup;
     const f = q.quotes.get(c.id);
-    return f ? buildFareBreakup(c, f, q.outstation) : null;
+    return f ? breakupFromFare(f) : null;
   };
 
   const handleNext = () => {

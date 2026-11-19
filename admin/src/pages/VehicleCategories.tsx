@@ -41,7 +41,7 @@ type FormTab = "basic" | "specs";
 
 const TAB_FIELDS: Record<FormTab, CategoryField[]> = {
   basic: ["name", "code", "imageUrl", "iconUrl"],
-  specs: ["seatingCapacity", "recommendedPassengers", "displayOrder", "fare.carrierCharge"],
+  specs: ["seatingCapacity", "recommendedPassengers", "displayOrder"],
 };
 
 const FIELD_LABELS: Partial<Record<CategoryField, string>> = {
@@ -52,23 +52,9 @@ const FIELD_LABELS: Partial<Record<CategoryField, string>> = {
   seatingCapacity: "Seating capacity",
   recommendedPassengers: "Recommended passengers",
   displayOrder: "Display order",
-  "fare.baseFare": "Base fare",
-  "fare.baseKm": "Base km",
-  "fare.perKmRate": "Per-km rate",
-  "fare.minimumFare": "Minimum fare",
-  "fare.driverAllowance": "Driver allowance",
-  "fare.nightAllowance": "Night allowance",
-  "fare.outstationPerKmRate": "Outstation per-km rate",
-  "fare.outstationDriverBattaPerDay": "Outstation driver batta",
-  "fare.outstationMinKmPerDay": "Outstation minimum km/day",
-  "fare.waitingChargePerHour": "Time charge per hour",
-  "fare.extraHourCharge": "Extra hour charge",
-  "fare.extraKmCharge": "Extra km charge",
-  "fare.permitCharge": "Permit charge",
-  "fare.carrierCharge": "Roof carrier charge",
 };
 
-// A new category starts without prices: every rate must be entered by the admin.
+// A category has no prices: every rate is set in Service & Fare Settings.
 const defaultFormState = {
   id: "",
   name: "",
@@ -87,24 +73,6 @@ const defaultFormState = {
   displayOrder: 1,
   status: "Active" as "Active" | "Inactive",
   cngEnabled: false,
-  fare: {
-    baseFare: 0,
-    baseKm: 0,
-    perKmRate: 0,
-    minimumFare: 0,
-    driverAllowance: 0,
-    nightAllowance: 0,
-    waitingChargePerHour: 0,
-    extraHourCharge: 0,
-    extraKmCharge: 0,
-    tollIncluded: false,
-    parkingIncluded: false,
-    permitCharge: 0,
-    carrierCharge: 0,
-    outstationPerKmRate: 0,
-    outstationDriverBattaPerDay: 0,
-    outstationMinKmPerDay: 0,
-  },
 };
 
 const toForm = (f: typeof defaultFormState): CategoryForm => ({
@@ -124,7 +92,6 @@ const toForm = (f: typeof defaultFormState): CategoryForm => ({
   displayOrder: f.displayOrder,
   status: f.status,
   cngEnabled: f.cngEnabled,
-  fare: { ...f.fare },
 });
 
 const actionError = (e: unknown) =>
@@ -270,24 +237,6 @@ export default function VehicleCategories({ embedded = false }: { embedded?: boo
         displayOrder: cat.displayOrder || 1,
         status: cat.status || "Active",
         cngEnabled: cat.cngEnabled === true,
-        fare: {
-          baseFare: cat.fare?.baseFare ?? 0,
-          baseKm: cat.fare?.baseKm ?? 0,
-          perKmRate: cat.fare?.perKmRate ?? 0,
-          minimumFare: cat.fare?.minimumFare ?? 0,
-          driverAllowance: cat.fare?.driverAllowance ?? 0,
-          nightAllowance: cat.fare?.nightAllowance ?? 0,
-          waitingChargePerHour: cat.fare?.waitingChargePerHour ?? 0,
-          extraHourCharge: cat.fare?.extraHourCharge ?? 0,
-          extraKmCharge: cat.fare?.extraKmCharge ?? 0,
-          tollIncluded: Boolean(cat.fare?.tollIncluded),
-          parkingIncluded: Boolean(cat.fare?.parkingIncluded),
-          permitCharge: cat.fare?.permitCharge ?? 0,
-          carrierCharge: cat.fare?.carrierCharge ?? 0,
-          outstationPerKmRate: cat.fare?.outstationPerKmRate ?? 0,
-          outstationDriverBattaPerDay: cat.fare?.outstationDriverBattaPerDay ?? 0,
-          outstationMinKmPerDay: cat.fare?.outstationMinKmPerDay ?? 0,
-        },
       },
       cat,
     );

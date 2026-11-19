@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { saveTariffSection } from "../services/bookingOpsService";
 import { ActionError } from "../services/callables";
 import { CLASS_LABEL, TARIFF_CLASSES, inr, useTariff, type TariffClass, type TimeBasedClassRates, type TimeBasedSettings } from "../services/tariffService";
 import { useCan, useCanDo } from "./AccessContext";
 import { Button } from "./ui";
-import { CardBody, Problems, RateTable, SaveBar, SettingCard, vehicleColumns, type VehicleCol } from "./RateTable";
+import { CardBody, Problems, RateTable, SaveBar, SettingCard, vehicleColumns, type RateGroup, type RateRow, type VehicleCol } from "./RateTable";
 
 /**
  * Time-based Round Trip (Customer UX v8, 16 Nov 2026). Customers choose trip DAYS, never a return time:
@@ -16,10 +16,20 @@ import { CardBody, Problems, RateTable, SaveBar, SettingCard, vehicleColumns, ty
  * The Full-Day package is the category's own Round Trip day (daily minimum km × rate + allowance) set in the rate card above.
  * Driver allowance is included in every package here. Applies to every brand, like the Round Trip rate card it sits on.
  */
-const DEFAULTS: Required<TimeBasedSettings> = { enabled: false, cutoffMinutes: 1425, morningCutoffMinutes: 540, nextDayEightFromMinutes: 900, nextDayFiveFromMinutes: 1320, shortKmLimit: 150, fiveKmLimit: 100, lateNightEndMinutes: 60, fiveHours: 5, eightHours: 8, extraSlabs: [] };
+const DEFAULTS: Required<TimeBasedSettings> = { enabled: false, cutoffMinutes: 1425, morningCutoffMinutes: 540, nextDayEightFromMinutes: 900, nextDayFiveFromMinutes: 1320, shortKmLimit: 150, fiveKmLimit: 100, lateNightEndMinutes: 60, fiveHours: 5, eightHours: 8, extraSlabs: [], names: {} };
 /** Extra hour slabs the office adds (3-hour, 6-hour, 10-hour …): hours + round-trip km limit, shared by every vehicle; amounts are per vehicle. */
 const MAX_EXTRA_SLABS = 8;
-type SlabDraft = { key: string; hours: string; km: string };
+type SlabDraft = { key: string; hours: string; km: string; name: string };
+/** The packages a customer sees whose names the office can change; the placeholder is the standard name. */
+const NAME_FIELDS = [["five", "5-hour package", "5-Hour Return"], ["eight", "8-hour package", "8-Hour Return"], ["full", "Full-day package", "Full-Day Return"], ["morning", "Morning return", "Morning Return"], ["next", "Overnight (2-day) package", "Next-Day Return"]] as const;
+type NameKey = (typeof NAME_FIELDS)[number][0];
+const MAX_NAME = 40;
+/** The name boxes show the name customers see: the saved one, else the standard one. */
+const namesOf = (n?: Partial<Record<NameKey, string>>): Record<NameKey, string> => Object.fromEntries(NAME_FIELDS.map(([k, , std]) => [k, (n?.[k] ?? "").trim() || std])) as Record<NameKey, string>;
+/** Only a name that differs from the standard one is stored; the standard name keeps following the default. */
+const stored = (v: string, std: string) => (v.trim() === std ? "" : v.trim());
+const STD: Record<NameKey, string> = Object.fromEntries(NAME_FIELDS.map(([k, , std]) => [k, std])) as Record<NameKey, string>;
+const slabStd = (hours: string | number) => `${hours}-Hour Return`;
 type ExtraAmounts = { fare: string; km: string; partner: string };
 const EMPTY_EXTRA: ExtraAmounts = { fare: "", km: "", partner: "" };
 let slabSeq = 0;
@@ -48,21 +58,26 @@ export default function TimeBasedRoundTripCard({ vehicles }: { vehicles?: Vehicl
   const [limits, setLimits] = useState({ km: "150", fiveKm: "100", five: "5", eight: "8" });
   const [rows, setRows] = useState<Partial<Record<TariffClass, Draft>>>({});
   const [slabs, setSlabs] = useState<SlabDraft[]>([]);
+  const [names, setNames] = useState<Record<NameKey, string>>(() => namesOf());
   // Per vehicle, per slab key: the extra slab's fare, included km and partner payout.
   const [extra, setExtra] = useState<Partial<Record<TariffClass, Record<string, ExtraAmounts>>>>({});
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
-  // Only the rate classes a vehicle category uses (the server keeps every other class's saved packages as they are).
-  const cards = useMemo(() => TARIFF_CLASSES.filter((c) => tariff?.roundTrip?.classes?.[c] && (!vehicles?.length || vehicles.some((v) => v.cls === c))), [tariff, vehicles]);
+  // Every rate class a vehicle category uses is a column, so no vehicle is missing; one without a saved Round Trip rate card (the server
+  // needs it first) is shown read-only with a note. Without the vehicle list, only the classes that have a rate card are shown.
+  const hasBase = (c: TariffClass) => !!tariff?.roundTrip?.classes?.[c];
+  const cards = useMemo(() => TARIFF_CLASSES.filter((c) => (vehicles?.length ? vehicles.some((v) => v.cls === c) : !!tariff?.roundTrip?.classes?.[c])), [tariff, vehicles]);
+  const noBase = "Set this vehicle's Round Trip rates in the table above first; its packages sit on top of them.";
 
   useEffect(() => {
     const s = { ...DEFAULTS, ...(saved ?? {}) };
     setTimes({ cutoff: clock(s.cutoffMinutes), morning: clock(s.morningCutoffMinutes), eight: clock(s.nextDayEightFromMinutes), five: clock(s.nextDayFiveFromMinutes), late: clock(s.lateNightEndMinutes) });
     setLimits({ km: String(s.shortKmLimit), fiveKm: String(s.fiveKmLimit), five: String(s.fiveHours), eight: String(s.eightHours) });
     setRows(Object.fromEntries(TARIFF_CLASSES.map((c) => [c, toDraft(tariff?.roundTrip?.classes?.[c]?.timeBased)])) as Partial<Record<TariffClass, Draft>>);
-    setSlabs((s.extraSlabs ?? []).map((x) => ({ key: `h${x.hours}`, hours: String(x.hours), km: String(x.kmLimit) })));
+    setSlabs((s.extraSlabs ?? []).map((x) => ({ key: `h${x.hours}`, hours: String(x.hours), km: String(x.kmLimit), name: x.name || slabStd(x.hours) })));
+    setNames(namesOf(s.names));
     setExtra(Object.fromEntries(TARIFF_CLASSES.map((c) => {
       const ex = tariff?.roundTrip?.classes?.[c]?.timeBased?.extra ?? {};
       return [c, Object.fromEntries(Object.entries(ex).map(([id, v]) => [id, { fare: String(v.fare), km: String(v.km), partner: String(v.partner) }]))];
@@ -126,8 +141,8 @@ export default function TimeBasedRoundTripCard({ vehicles }: { vehicles?: Vehicl
   // Always on: Round Trip is time-based whenever a vehicle has its packages; with none it stays calendar-day pricing.
   const enabled = anyData;
 
-  const currentSnapshot = JSON.stringify([saved?.enabled === true, saved ? [saved.cutoffMinutes, saved.morningCutoffMinutes, saved.nextDayEightFromMinutes, saved.nextDayFiveFromMinutes, saved.shortKmLimit, saved.fiveKmLimit ?? DEFAULTS.fiveKmLimit, saved.lateNightEndMinutes ?? DEFAULTS.lateNightEndMinutes, saved.fiveHours, saved.eightHours, (saved.extraSlabs ?? []).map((x) => [x.hours, x.kmLimit])] : null, cards.map((c) => toDraft(tariff?.roundTrip?.classes?.[c]?.timeBased)), cards.map((c) => extraPayload(tariff?.roundTrip?.classes?.[c]?.timeBased?.extra))]);
-  const draftSnapshot = JSON.stringify([enabled, saved || enabled || anyData ? [cutoff, morning, eightFrom, fiveFrom, kmLimit, fiveKmLimit, lateEnd, five, eight, slabs.map((sl) => [Number(sl.hours), Number(sl.km)])] : null, cards.map((c) => rows[c] ?? EMPTY), cards.map((c) => extraPayload(draftExtraOf(c)))]);
+  const currentSnapshot = JSON.stringify([saved?.enabled === true, saved ? [saved.cutoffMinutes, saved.morningCutoffMinutes, saved.nextDayEightFromMinutes, saved.nextDayFiveFromMinutes, saved.shortKmLimit, saved.fiveKmLimit ?? DEFAULTS.fiveKmLimit, saved.lateNightEndMinutes ?? DEFAULTS.lateNightEndMinutes, saved.fiveHours, saved.eightHours, (saved.extraSlabs ?? []).map((x) => [x.hours, x.kmLimit, stored(x.name ?? "", slabStd(x.hours))]), NAME_FIELDS.map(([k]) => stored(namesOf(saved.names)[k], STD[k]))] : null, cards.map((c) => toDraft(tariff?.roundTrip?.classes?.[c]?.timeBased)), cards.map((c) => extraPayload(tariff?.roundTrip?.classes?.[c]?.timeBased?.extra))]);
+  const draftSnapshot = JSON.stringify([enabled, saved || enabled || anyData ? [cutoff, morning, eightFrom, fiveFrom, kmLimit, fiveKmLimit, lateEnd, five, eight, slabs.map((sl) => [Number(sl.hours), Number(sl.km), stored(sl.name, slabStd(sl.hours))]), NAME_FIELDS.map(([k]) => stored(names[k], STD[k]))] : null, cards.map((c) => rows[c] ?? EMPTY), cards.map((c) => extraPayload(draftExtraOf(c)))]);
   const changed = currentSnapshot !== draftSnapshot;
 
   const setField = (c: TariffClass, f: Field, v: string) => setRows((r) => ({ ...r, [c]: { ...(r[c] ?? EMPTY), [f]: v } }));
@@ -149,7 +164,7 @@ export default function TimeBasedRoundTripCard({ vehicles }: { vehicles?: Vehicl
   const addSlab = () => {
     const used = new Set([five, eight, ...slabs.map((s) => Number(s.hours))]);
     const suggestion = [3, 4, 6, 10, 12, 2, 7, 9, 11].find((h) => !used.has(h)) ?? 1;
-    setSlabs((s) => (s.length >= MAX_EXTRA_SLABS ? s : [...s, { key: newSlabKey(), hours: String(suggestion), km: String(Math.max(20, suggestion * 20)) }]));
+    setSlabs((s) => (s.length >= MAX_EXTRA_SLABS ? s : [...s, { key: newSlabKey(), hours: String(suggestion), km: String(Math.max(20, suggestion * 20)), name: slabStd(suggestion) }]));
   };
   const removeSlab = (key: string) => {
     setSlabs((s) => s.filter((x) => x.key !== key));
@@ -164,7 +179,7 @@ export default function TimeBasedRoundTripCard({ vehicles }: { vehicles?: Vehicl
     const sedanFull = full("sedan") ?? 4000;
     const to10 = (n: number) => String(Math.round(n / 10) * 10);
     const next: Partial<Record<TariffClass, Draft>> = {};
-    for (const c of cards) {
+    for (const c of cards.filter(hasBase)) {
       const rt = tariff?.roundTrip?.classes?.[c];
       const f = full(c);
       const k = c === "sedan" || f === null ? 1 : f / sedanFull;
@@ -195,6 +210,7 @@ export default function TimeBasedRoundTripCard({ vehicles }: { vehicles?: Vehicl
     try {
       const classes: Record<string, unknown> = {};
       for (const c of cards) {
+        if (!hasBase(c)) continue;
         const d = rows[c] ?? EMPTY;
         const has = FIELDS.some((f) => d[f].trim() !== "");
         const had = !!tariff?.roundTrip?.classes?.[c]?.timeBased;
@@ -208,7 +224,7 @@ export default function TimeBasedRoundTripCard({ vehicles }: { vehicles?: Vehicl
       }
       await saveTariffSection({
         section: "roundTripTimeBased", expectedVersion: tariff?.version ?? 0, reason: reason.trim(),
-        data: { enabled, settings: { cutoffMinutes: cutoff, morningCutoffMinutes: morning, nextDayEightFromMinutes: eightFrom, nextDayFiveFromMinutes: fiveFrom, shortKmLimit: kmLimit, fiveKmLimit, lateNightEndMinutes: lateEnd, fiveHours: five, eightHours: eight, extraSlabs: slabs.map((sl) => ({ hours: Number(sl.hours), kmLimit: Number(sl.km) })) }, classes },
+        data: { enabled, settings: { cutoffMinutes: cutoff, morningCutoffMinutes: morning, nextDayEightFromMinutes: eightFrom, nextDayFiveFromMinutes: fiveFrom, shortKmLimit: kmLimit, fiveKmLimit, lateNightEndMinutes: lateEnd, fiveHours: five, eightHours: eight, extraSlabs: slabs.map((sl) => ({ hours: Number(sl.hours), kmLimit: Number(sl.km), ...(stored(sl.name, slabStd(sl.hours)) ? { name: stored(sl.name, slabStd(sl.hours)) } : {}) })), names: Object.fromEntries(NAME_FIELDS.map(([k]) => [k, stored(names[k], STD[k])]).filter(([, v]) => v)) }, classes },
       });
       setReason("");
       setMessage({ ok: true, text: enabled ? "Saved. New Round Trip quotes are now time-based; bookings already made keep the package they were sold." : "Saved. Round Trip quotes use calendar-day pricing." });
@@ -230,18 +246,21 @@ export default function TimeBasedRoundTripCard({ vehicles }: { vehicles?: Vehicl
   ];
 
   const nameOf = (c: TariffClass) => vehicles?.find((v) => v.cls === c && v.owner)?.name ?? CLASS_LABEL[c];
-  const statusOf = (c: TariffClass) => { const err = classError(c); return err ? { tone: "warn" as const, text: "Check", title: err } : undefined; };
+  const statusOf = (c: TariffClass) => {
+    if (!hasBase(c)) return { tone: "off" as const, text: "Needs Round Trip rates", title: noBase };
+    const err = classError(c); return err ? { tone: "warn" as const, text: "Check", title: err } : undefined;
+  };
   const columns = vehicles?.length ? vehicleColumns(vehicles, (c) => cards.includes(c), statusOf) : cards.map((c) => ({ key: c, name: nameOf(c), status: statusOf(c) }));
   const pkgRows = (key: "five" | "eight" | "morning") => ([["Fare", "Customer fare", "₹"], ["Km", "Included km", "km"], ["Partner", "Partner payout", "₹"]] as const).map(([suffix, label, unit]) => {
     const f = `${key}${suffix}` as Field;
-    return { key: f, label, unit, cell: (c: string) => { const v = rows[c as TariffClass]?.[f] ?? ""; return { value: v, own: v !== "", onChange: (next: string) => setField(c as TariffClass, f, next) }; } };
+    return { key: f, label, unit, cell: (c: string) => { if (!hasBase(c as TariffClass)) return { display: "—", title: noBase }; const v = rows[c as TariffClass]?.[f] ?? ""; return { value: v, own: v !== "", onChange: (next: string) => setField(c as TariffClass, f, next) }; } };
   });
   const extraRowsOf = (sl: SlabDraft) => ([["fare", "Customer fare", "₹"], ["km", "Included km", "km"], ["partner", "Partner payout", "₹"]] as const).map(([f, label, unit]) => ({
     key: `${sl.key}-${f}`, label, unit,
-    cell: (c: string) => { const v = extra[c as TariffClass]?.[sl.key]?.[f] ?? ""; return { value: v, own: v !== "", onChange: (next: string) => setExtraField(c as TariffClass, sl.key, f, next) }; },
+    cell: (c: string) => { if (!hasBase(c as TariffClass)) return { display: "—", title: noBase }; const v = extra[c as TariffClass]?.[sl.key]?.[f] ?? ""; return { value: v, own: v !== "", onChange: (next: string) => setExtraField(c as TariffClass, sl.key, f, next) }; },
   }));
   const fullDayRow = {
-    key: "fullDay", label: "Full-Day Return", unit: "₹",
+    key: "fullDay", label: names.full.trim() || STD.full, unit: "₹",
     cell: (c: string) => {
       const rt = tariff?.roundTrip?.classes?.[c as TariffClass];
       const full = rt?.customerRate !== undefined && rt.minKmPerDay !== undefined ? rt.customerRate * rt.minKmPerDay + (rt.customerBata ?? 0) : null;
@@ -253,7 +272,69 @@ export default function TimeBasedRoundTripCard({ vehicles }: { vehicles?: Vehicl
     ...(settingsError ? [settingsError] : []),
   ];
   const timeField = (label: string, k: keyof typeof times) => <label className="fm-mini"><span>{label}</span><input className="ds-input" type="time" value={times[k]} onChange={(e) => setTimes({ ...times, [k]: e.target.value })} /></label>;
-  const numField = (label: string, k: keyof typeof limits, step = "1") => <label className="fm-mini"><span>{label}</span><input className="ds-input text-right" type="number" min={1} step={step} value={limits[k]} onChange={(e) => setLimits({ ...limits, [k]: e.target.value })} /></label>;
+  const setSlab = (key: string, patch: Partial<SlabDraft>) => setSlabs((s) => s.map((x) => {
+    if (x.key !== key) return x;
+    const next = { ...x, ...patch };
+    // A name still on the standard follows the hours ("3-Hour Return" -> "4-Hour Return").
+    if (patch.hours !== undefined && patch.name === undefined && Number(patch.hours) > 0 && (!x.name.trim() || x.name.trim() === slabStd(x.hours))) next.name = slabStd(patch.hours);
+    return next;
+  }));
+  const setName = (k: NameKey, v: string) => setNames((n) => ({ ...n, [k]: v }));
+
+  // Settings that are the same for every vehicle sit in the package's own table, as one box across the vehicle columns.
+  const sharedRow = (key: string, label: string, node: ReactNode, unit?: string): RateRow => ({ key, label, unit, cell: () => ({}), shared: node });
+  const nameRow = (key: string, value: string, standard: string, onChange: (v: string) => void) => sharedRow(`name-${key}`, "Name shown to customers",
+    <div className="fm-shared">
+      <input type="text" className="fm-input fm-input--text" maxLength={MAX_NAME} value={value} placeholder={standard} aria-label={`Name of ${standard}`} onChange={(e) => onChange(e.target.value)} />
+      <span className="fm-shared__hint">{!value.trim() || value.trim() === standard ? "Standard name. Type to rename it." : "Customers see this name"}</span>
+    </div>);
+  const numRow = (key: string, label: string, unit: string, value: string, onChange: (v: string) => void, o: { min?: number; max?: number; step?: string } = {}) => sharedRow(key, label,
+    <div className="fm-shared">
+      <input type="number" className="fm-input" min={o.min ?? 1} max={o.max} step={o.step ?? "1"} inputMode="decimal" value={value} aria-label={label} onChange={(e) => onChange(e.target.value)} />
+    </div>, unit);
+  const timeRow = (key: string, label: string, k: keyof typeof times) => sharedRow(key, label,
+    <div className="fm-shared"><input type="time" className="fm-input fm-input--text" style={{ width: 140 }} value={times[k]} aria-label={label} onChange={(e) => setTimes({ ...times, [k]: e.target.value })} /></div>);
+  const titled = (name: string, std: string, label: string) => (name.trim() && name.trim() !== std ? `${name.trim()} (${label})` : label);
+  const hoursKm = (key: string, hours: string, onHours: (v: string) => void, km: string, onKm: (v: string) => void, opts: { hoursStep?: string } = {}) => [
+    numRow(`${key}-hours`, "Hours allowed", "hours", hours, onHours, { min: opts.hoursStep ? 0.5 : 1, max: opts.hoursStep ? undefined : 23, step: opts.hoursStep ?? "1" }),
+    numRow(`${key}-km`, "Round-trip km limit", "km", km, onKm),
+  ];
+
+  const sortedSlabs = [...slabs].sort((a, b) => Number(a.hours) - Number(b.hours));
+  const groups: RateGroup[] = [
+    { id: "full", title: titled(names.full, STD.full, "Full-day package"), rows: [nameRow("full", names.full, STD.full, (v) => setName("full", v)), fullDayRow] },
+    { id: "five", title: titled(names.five, STD.five, `${limits.five || 5}-hour package`), rows: [
+      nameRow("five", names.five, STD.five, (v) => setName("five", v)),
+      ...hoursKm("five", limits.five, (v) => setLimits({ ...limits, five: v }), limits.fiveKm, (v) => setLimits({ ...limits, fiveKm: v }), { hoursStep: "0.5" }),
+      ...pkgRows("five"),
+    ] },
+    { id: "eight", title: titled(names.eight, STD.eight, `${limits.eight || 8}-hour package`), rows: [
+      nameRow("eight", names.eight, STD.eight, (v) => setName("eight", v)),
+      ...hoursKm("eight", limits.eight, (v) => setLimits({ ...limits, eight: v }), limits.km, (v) => setLimits({ ...limits, km: v }), { hoursStep: "0.5" }),
+      ...pkgRows("eight"),
+    ] },
+    ...sortedSlabs.map((sl) => ({
+      id: `slab-${sl.key}`,
+      title: titled(sl.name, slabStd(sl.hours), `${sl.hours || "?"}-hour slab (extra)`),
+      rows: [
+        nameRow(sl.key, sl.name, Number(sl.hours) > 0 ? slabStd(sl.hours) : "Name", (v) => setSlab(sl.key, { name: v })),
+        ...hoursKm(sl.key, sl.hours, (v) => setSlab(sl.key, { hours: v }), sl.km, (v) => setSlab(sl.key, { km: v })),
+        ...extraRowsOf(sl),
+        sharedRow(`${sl.key}-remove`, "Remove this slab", <div className="fm-shared"><button type="button" className="fm-shared__remove" onClick={() => removeSlab(sl.key)}>Remove {sl.hours || "?"}-hour slab</button><span className="fm-shared__hint">Its amounts for every vehicle are removed too</span></div>),
+      ],
+    })),
+    { id: "morning", title: `${titled(names.morning, STD.morning, "Morning return")} (optional)`, rows: [
+      nameRow("morning", names.morning, STD.morning, (v) => setName("morning", v)),
+      timeRow("morning-by", "Must be back by", "morning"),
+      ...pkgRows("morning"),
+    ] },
+    { id: "next", title: titled(names.next, STD.next, "Overnight (2-day) package"), rows: [
+      nameRow("next", names.next, STD.next, (v) => setName("next", v)),
+      timeRow("next-eight", `${limits.eight || 8}-hour first day from`, "eight"),
+      timeRow("next-five", `${limits.five || 5}-hour first day from`, "five"),
+    ] },
+  ];
+
   return (
     <SettingCard title="Time-based round trip"
       description="Customers choose days, not a return time. Package fares include driver allowance. Full-Day Return comes from the Round Trip rates above."
@@ -263,35 +344,11 @@ export default function TimeBasedRoundTripCard({ vehicles }: { vehicles?: Vehicl
         <CardBody>
           <div className="fm-mini-grid">
             {timeField("Booked cutoff", "cutoff")}
-            {timeField("Morning Return by", "morning")}
-            {timeField("Next-day 8-hour from", "eight")}
-            {timeField("Next-day 5-hour from", "five")}
             {timeField("Late-night group ends", "late")}
-            {numField("Short package (hours)", "five", "0.5")}
-            {numField("Medium package (hours)", "eight", "0.5")}
-            {numField("5-hour km limit", "fiveKm")}
-            {numField("8-hour km limit", "km")}
           </div>
-          <div className="mt-4 rounded-xl border border-line p-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <div className="text-[13px] font-bold text-ink">Extra hour slabs</div>
-                <p className="fm-sub">Add packages like 3, 6 or 10 hours. Set each one's hours and round-trip km limit here, then its fare, included km and partner payout for each vehicle below. A vehicle left empty is not offered that slab.</p>
-              </div>
-              <Button size="sm" variant="secondary" onClick={addSlab} disabled={slabs.length >= MAX_EXTRA_SLABS}>+ Add hour slab</Button>
-            </div>
-            {slabs.length ? (
-              <div className="mt-3 grid gap-2">
-                {slabs.map((sl) => (
-                  <div key={sl.key} className="flex flex-wrap items-end gap-2">
-                    <label className="fm-mini"><span>Hours</span><input className="ds-input text-right" type="number" min={1} max={23} step={1} value={sl.hours} onChange={(e) => setSlabs((s) => s.map((x) => (x.key === sl.key ? { ...x, hours: e.target.value } : x)))} aria-label="Slab hours" /></label>
-                    <label className="fm-mini"><span>Round-trip km limit</span><input className="ds-input text-right" type="number" min={1} step={1} value={sl.km} onChange={(e) => setSlabs((s) => s.map((x) => (x.key === sl.key ? { ...x, km: e.target.value } : x)))} aria-label="Slab km limit" /></label>
-                    <span className="pb-2 text-[12px] text-muted">{Number(sl.hours) > 0 ? `${sl.hours}-Hour Return` : ""}</span>
-                    <Button size="sm" variant="secondary" onClick={() => removeSlab(sl.key)}>Remove</Button>
-                  </div>
-                ))}
-              </div>
-            ) : <p className="fm-sub mt-2">No extra slabs: customers see the {limits.five || 5}-hour, {limits.eight || 8}-hour and Full-Day packages.</p>}
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+            <p className="fm-sub">Each package below has its own name, hours, km limit and amounts. Add packages like 3, 6 or 10 hours with the button; a vehicle left empty is not offered that slab.</p>
+            <Button size="sm" variant="secondary" onClick={addSlab} disabled={slabs.length >= MAX_EXTRA_SLABS}>+ Add hour slab</Button>
           </div>
           {rule ? (
             <details className="fm-details">
@@ -303,14 +360,7 @@ export default function TimeBasedRoundTripCard({ vehicles }: { vehicles?: Vehicl
       </fieldset>
       {cards.length === 0
         ? <CardBody><p className="fm-sub">Save the Round Trip rate card for a vehicle first; these packages sit on top of it.</p></CardBody>
-        : <RateTable label="Time-based round trip packages by vehicle" disabled={!canEdit || busy} columns={columns}
-            groups={[
-              { title: "Full day", rows: [fullDayRow] },
-              { title: `${limits.five || 5}-hour package`, rows: pkgRows("five") },
-              { title: `${limits.eight || 8}-hour package`, rows: pkgRows("eight") },
-              ...[...slabs].sort((a, b) => Number(a.hours) - Number(b.hours)).map((sl) => ({ title: `${sl.hours || "?"}-hour slab (extra, optional)`, rows: extraRowsOf(sl) })),
-              { title: "Morning Return (optional)", rows: pkgRows("morning") },
-            ]} />}
+        : <RateTable label="Time-based round trip packages by vehicle" disabled={!canEdit || busy} columns={columns} groups={groups} />}
       <Problems items={problems} />
     </SettingCard>
   );

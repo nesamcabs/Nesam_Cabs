@@ -23,14 +23,14 @@ export function scopedHillRates(tariff: TariffConfig | null, brand: string | und
  * partner gets. Each comes from the fare table (the brand's own value, else the shared one); when nothing is typed there the older settings still
  * apply: the vehicle category's carrier charge, and the common pet charge. The partner's pet amount has no older setting, so it is 0 until set.
  */
-export function scopedAddOnRates(tariff: TariffConfig | null, brand: string | undefined, service: string, klass: TariffClass | null, categoryCarrier: number | undefined): { carrier: number; pet: number; partnerPet: number } {
+export function scopedAddOnRates(tariff: TariffConfig | null, brand: string | undefined, service: string, klass: TariffClass | null): { carrier: number; pet: number; partnerPet: number } {
   const serviceKey = fareServiceKey(service);
   const shared = klass ? tariff?.brandOverrides?.common?.[serviceKey]?.[klass] : undefined;
   const branded = klass && brand ? tariff?.brandOverrides?.[brand]?.[serviceKey]?.[klass] : undefined;
   const ov = { ...shared, ...branded };
   const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 100000 ? Math.round(v * 100) / 100 : 0);
   return {
-    carrier: ov.carrierCharge !== undefined ? num(ov.carrierCharge) : num(categoryCarrier),
+    carrier: num(ov.carrierCharge),
     pet: ov.petCharge !== undefined ? num(ov.petCharge) : num(tariff?.petCharge),
     partnerPet: num(ov.partnerPetCharge),
   };

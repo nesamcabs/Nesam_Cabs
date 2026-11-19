@@ -2,11 +2,12 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const T = require('../lib/domain/tariff');
 const { rentalHoursOf } = require('../lib/quote');
+const { CONFIRMED_TARIFF_V2 } = require('./support/confirmedTariff');
 const pkg = h => ({ customerFare: h * 100, partnerPayout: h * 70, includedKm: h * 10, extraKmRate: 15, extraHourRate: 100, gstMode: 'excluded', enabled: true });
 
 test('all whole-hour rental packages from 1 through 15 survive parsing and quoting', () => {
   const rentalPackages = Object.fromEntries(T.TARIFF_CLASSES.map(c => [c, { minHours: 10, packages: Object.fromEntries(Array.from({ length: 15 }, (_, i) => [String(i + 1), pkg(i + 1)])) }]));
-  const cfg = T.parseTariffConfig({ ...T.CONFIRMED_TARIFF_V2, rentalPackages, version: 1 });
+  const cfg = T.parseTariffConfig({ ...CONFIRMED_TARIFF_V2, rentalPackages, version: 1 });
   assert.deepEqual(T.RENTAL_HOURS, Array.from({ length: 15 }, (_, i) => i + 1));
   for (const tariffClass of T.TARIFF_CLASSES) {
     assert.equal(T.rentalMinHours(cfg, tariffClass), 1);
@@ -27,7 +28,7 @@ test('request validation rejects invalid durations instead of silently choosing 
 });
 
 test('unsupported and unpriced packages do not invent a fare', () => {
-  const cfg = T.parseTariffConfig(T.CONFIRMED_TARIFF_V2);
+  const cfg = T.parseTariffConfig(CONFIRMED_TARIFF_V2);
   assert.match(T.rentalPackageFor(cfg, 'sedan', 1).error, /not configured/);
   assert.match(T.rentalPackageFor(cfg, 'sedan', 16).error, /not offered/);
 });

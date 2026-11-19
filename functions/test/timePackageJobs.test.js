@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 process.env.GCLOUD_PROJECT ||= 'demo-nesam';
 const T = require('../lib/domain/tariff');
 const { timePackageStep } = require('../lib/timePackageJobs');
+const { CONFIRMED_TARIFF_V2 } = require('./support/confirmedTariff');
 
 const IST = (s) => Date.parse(`${s}+05:30`);
 const sedan = {
@@ -12,7 +13,7 @@ const sedan = {
   timeBased: { fiveFare: 2080, fiveKm: 100, fivePartner: 1870, eightFare: 2780, eightKm: 150, eightPartner: 2500, morningFare: 4500, morningKm: 250, morningPartner: 4050 },
 };
 const config = (extraSlabs, extra) => T.parseTariffConfig({
-  ...T.CONFIRMED_TARIFF_V2, version: 8, enabled: true,
+  ...CONFIRMED_TARIFF_V2, version: 8, enabled: true,
   roundTrip: { maxDays: 30, timeBased: { enabled: true, ...(extraSlabs ? { extraSlabs } : {}) }, classes: { sedan: { ...sedan, timeBased: { ...sedan.timeBased, ...(extra ? { extra } : {}) } } } },
   roundTripExtras: { sedan: { extraKmRate: 14, waitingPerHour: 150 } },
 });

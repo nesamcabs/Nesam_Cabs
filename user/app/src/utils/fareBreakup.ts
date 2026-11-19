@@ -1,7 +1,6 @@
-// Client mirror of the server's fare breakup (functions/src/domain/fareBreakup.ts).
-// A booked trip shows the lines the server stored; this builds the same lines
-// for the quote before booking, so the estimate and the booking never disagree.
-import type { FareBreakdown, FareLine, RideCategory } from '../types';
+// The fare breakup is built by the booking server (functions/src/domain/fareBreakup.ts) and stored on every quote and booking.
+// The app never calculates a fare: this file only turns older records that have no stored breakup into lines.
+import type { FareBreakdown, FareLine } from '../types';
 
 export interface FareBreakup {
   lines: FareLine[];
@@ -11,67 +10,12 @@ export interface FareBreakup {
 
 const rupees = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
 
-export function buildFareBreakup(category: RideCategory, fare: FareBreakdown, outstation: boolean): FareBreakup {
-  const x = category.fare.extras;
-  const lines: FareLine[] = [];
-  const add = (l: FareLine) => lines.push(l);
-
-  // No separate "Base package" line: the base fare is part of the distance charge (the minimum kilometres are already charged there).
-  add({
-    key: 'distance', label: 'Distance charge', amount: fare.baseFare + fare.distanceFare, treatment: 'included',
-    detail: fare.baseFare > 0 && category.fare.baseKm > 0
-      ? `${fare.distanceKm} KM booked: the first ${category.fare.baseKm} KM at the base fare${fare.distanceFare > 0 ? `, then ${rupees(fare.perKmRate)}/KM` : ''}`
-      : fare.distanceFare > 0
-      ? `${fare.distanceKm} KM booked at ${rupees(fare.perKmRate)}/KM`
-      : `${fare.distanceKm} KM booked`,
-  });
-  if (fare.timeFare > 0) add({ key: 'time', label: 'Time charge', amount: fare.timeFare, treatment: 'included', detail: `${fare.durationMin} min at ${rupees(fare.perMinuteRate)}/min` });
-  if (fare.nightCharge > 0) add({ key: 'night', label: 'Night charge', amount: fare.nightCharge, treatment: 'included', detail: 'Pickup between 10:00 PM and 06:00 AM' });
-  add(outstation
-    ? { key: 'driverAllowance', label: 'Driver allowance', amount: fare.driverAllowance, treatment: 'included', detail: 'Outstation trip — included in the fare' }
-    : { key: 'driverAllowance', label: 'Driver allowance', amount: null, treatment: 'not_applicable', detail: 'Not applicable to local trips' });
-  if (fare.minimumFareAdjustment > 0) add({ key: 'minimum', label: 'Minimum fare top-up', amount: fare.minimumFareAdjustment, treatment: 'included', detail: 'Applied so the fare reaches the category minimum' });
-  if (fare.globalAdjustment) {
-    const a = fare.globalAdjustment;
-    add({ key: 'adjustment', label: a.name || 'Fare adjustment', amount: a.amount, treatment: 'included', detail: `${a.direction === 'increase' ? '+' : '−'}${a.percent}% on the package total` });
-  }
-  if (fare.adminAdjustment) add({ key: 'agreed', label: 'Agreed fare adjustment', amount: fare.adminAdjustment, treatment: 'included', detail: 'Authorised by NESAM staff' });
-  if (fare.discount > 0) {
-    const d = fare.discountDetail;
-    add({
-      key: 'discount', label: 'Discount', amount: -fare.discount, treatment: 'included',
-      detail: d?.type === 'percentage' ? `${d.value}% discount` : d?.type === 'fixed' ? `Flat ${rupees(d.value)} discount` : 'Promo discount',
-    });
-  }
-  if (fare.platformFee && fare.platformFee > 0) add({ key: 'platformFee', label: 'Platform fee', amount: fare.platformFee, treatment: 'included', detail: 'Added to the fare' });
-  add({ key: 'gst', label: 'GST', amount: fare.gst, treatment: 'included', detail: 'Added on top of the fare; included in the total payable' });
-
-  // Charges outside the package.
-  add({
-    key: 'extraKm', label: 'Extra KM', amount: null, treatment: 'extra',
-    detail: `${rupees(x?.extraKmRate ?? fare.perKmRate)} per KM beyond the ${fare.distanceKm} KM booked`,
-  });
-  add({
-    key: 'waiting', label: 'Waiting charges', amount: null, treatment: 'extra',
-    detail: x && x.waitingPerHour > 0 ? `${rupees(x.waitingPerHour)} per hour of waiting` : 'Billed at actuals',
-  });
-  add(x?.tollIncluded
-    ? { key: 'toll', label: 'Toll', amount: null, treatment: 'included', detail: 'Included in the fare' }
-    : { key: 'toll', label: 'Toll', amount: null, treatment: 'extra', detail: 'Payable separately at actuals' });
-  add(x?.parkingIncluded
-    ? { key: 'parking', label: 'Parking', amount: null, treatment: 'included', detail: 'Included in the fare' }
-    : { key: 'parking', label: 'Parking', amount: null, treatment: 'extra', detail: 'Payable separately at actuals' });
-  add(outstation
-    ? { key: 'stateTax', label: 'State tax / permit', amount: x && x.permitCharge > 0 ? x.permitCharge : null, treatment: 'extra', detail: x && x.permitCharge > 0 ? 'Payable separately per trip' : 'Payable separately at actuals' }
-    : { key: 'stateTax', label: 'State tax / permit', amount: null, treatment: 'not_applicable', detail: 'Not applicable to local trips' });
-  if (fare.addOns?.roofCarrier) add({ key: 'carrierAddon', label: 'Roof carrier', amount: fare.addOns.carrierCharge, treatment: 'included', detail: 'Selected add-on per trip' });
-  if (fare.addOns?.pets) add({ key: 'petAddon', label: 'Pet travel', amount: fare.addOns.petCharge, treatment: 'included', detail: 'Selected add-on per trip' });
-  if (x && x.carrierCharge > 0 && !fare.addOns?.roofCarrier) add({ key: 'carrier', label: 'Carrier / luggage', amount: x.carrierCharge, treatment: 'extra', detail: 'Payable separately if a carrier is used' });
-
-  return { lines, packageTotal: fare.total };
+/** The lines of a fare for the rare case the server's own breakup is missing (older records): the amounts only. */
+export function breakupFromFare(fare: FareBreakdown): FareBreakup {
+  return { lines: linesFromBreakdown(fare), packageTotal: fare.total };
 }
 
-/** Included lines for a booking stored before the server kept a breakup (no category to describe extras). */
+/** Included lines for a booking stored before the server kept a breakup. */
 export function linesFromBreakdown(fare: FareBreakdown): FareLine[] {
   const lines: FareLine[] = [];
   const add = (key: string, label: string, amount: number, detail = '') => {

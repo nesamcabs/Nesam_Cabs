@@ -25,21 +25,9 @@ export function whatsappProblem(same: boolean, code: string, number: string): st
   return digits.length >= 6 && digits.length <= 14 ? '' : 'Enter a valid WhatsApp number for that country code.';
 }
 
-/** "200 km included · ₹15/km extra" from the category's own configuration. */
-export function inclusionLine(c: RideCategory, outstation: boolean): string {
-  const parts: string[] = [];
-  if (c.fare.baseKm > 0) parts.push(`${c.fare.baseKm} km included`);
-  const extra = c.fare.extras?.extraKmRate ?? (outstation && c.fare.outstationPerKmRate ? c.fare.outstationPerKmRate : c.fare.perKmRate);
-  if (extra > 0) parts.push(`${formatINR(extra)}/km extra`);
-  return parts.join(' · ');
-}
-
-/**
- * The inclusion line of a car from its server quote (the admin tariff: package hours, included KM, extra-KM rate);
- * the category's own wording is used only until the server has answered.
- */
-export function quotedInclusionLine(q: { ok: boolean; includedKm?: number; extraKmRate?: number; rentalHours?: number | null } | undefined, c: RideCategory, outstation: boolean): string {
-  if (!q?.ok) return inclusionLine(c, outstation);
+/** The inclusion line of a car from its server quote (the admin tariff: package hours, included KM, extra-KM rate); blank until the server has answered. */
+export function quotedInclusionLine(q: { ok: boolean; includedKm?: number; extraKmRate?: number; rentalHours?: number | null } | undefined): string {
+  if (!q?.ok) return '';
   const parts: string[] = [];
   if (q.rentalHours) parts.push(`${q.rentalHours} hours`);
   if (q.includedKm && q.includedKm > 0) parts.push(`${q.includedKm} km included`);

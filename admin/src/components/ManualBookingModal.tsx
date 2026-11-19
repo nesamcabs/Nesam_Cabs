@@ -112,7 +112,7 @@ export default function ManualBookingModal({ customers, services, locations, cat
   const rateCard = useMemo(() => {
     if (!liveQuote) return null;
     const hhmm = form.pickupAt ? form.pickupAt.slice(11, 16) : "12:00";
-    const r = calculateCentralFare({ serviceId: form.serviceId, vehicleCategoryId: form.categoryId, distanceKm: liveQuote.quote.distanceKm, pickupTime: hhmm }, fareRules, []);
+    const r = calculateCentralFare({ serviceId: form.serviceId, vehicleCategoryId: form.categoryId, distanceKm: liveQuote.quote.distanceKm, pickupTime: hhmm }, fareRules);
     return r?.matchedRule ? { total: r.grandTotal, name: r.matchedRule.name } : null;
   }, [liveQuote, form.serviceId, form.categoryId, form.pickupAt, fareRules]);
 

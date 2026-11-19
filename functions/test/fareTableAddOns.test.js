@@ -5,13 +5,14 @@ const { priceBooking, addOnRatesOf } = require('../lib/quote');
 const { mapCategory } = require('../lib/domain/pricing');
 const { parseNightAllowance, nightAllowancePartnerFor } = require('../lib/domain/nightAllowance');
 const T = require('../lib/domain/tariff');
+const { CONFIRMED_TARIFF_V2 } = require('./support/confirmedTariff');
 
 // Roof carrier, pet travel and night allowance: what the customer pays and what the partner gets, set per vehicle in the fare table
 // (the night allowance on its own card). The customer amount goes into the total; the partner amount goes into the partner payout.
 
 const policy = { common: { 'One Way': { default: { supplierState: '33', rate: 0.05, mode: 'excluded', classification: 'passenger', reference: 'Approved test policy' } } } };
-const category = () => ({ ...mapCategory('suv', { name: 'SUV', seatingCapacity: 6, fare: { perKmRate: 18, carrierCharge: 300 } }), tariffClass: 'suv' });
-const tariff = (overrides, extra = {}) => T.parseTariffConfig({ ...T.CONFIRMED_TARIFF_V2, version: 1, enabled: true, petCharge: 200, fareGst: policy, ...(overrides ? { brandOverrides: overrides } : {}), ...extra });
+const category = () => ({ ...mapCategory('suv', { name: 'SUV', seatingCapacity: 6 }), tariffClass: 'suv' });
+const tariff = (overrides, extra = {}) => T.parseTariffConfig({ ...CONFIRMED_TARIFF_V2, version: 1, enabled: true, petCharge: 200, fareGst: policy, ...(overrides ? { brandOverrides: overrides } : {}), ...extra });
 const input = (patch = {}) => ({
   category: category(), route: { distanceKm: 160, durationMin: 180 }, tripType: 'One Way',
   pickup: { id: 'pin', name: 'Chennai', address: 'Chennai, Tamil Nadu', lat: 13.08, lng: 80.27, type: 'other' },
@@ -21,12 +22,12 @@ const input = (patch = {}) => ({
 const cents = (v) => Math.round(v * 100) / 100;
 const table = (patch) => ({ common: { 'One Way': { suv: patch } } });
 
-test('with nothing typed in the fare table the older amounts apply: category carrier, common pet, no partner pet', () => {
+test('with nothing typed in the fare table only the common pet price applies: no carrier, no partner pet', () => {
   const rates = addOnRatesOf(input());
-  assert.deepEqual(rates, { carrier: 300, pet: 200, partnerPet: 0 });
+  assert.deepEqual(rates, { carrier: 0, pet: 200, partnerPet: 0 });
 });
 
-test('fare table amounts replace the older ones, and a brand value beats the shared one', () => {
+test('fare table amounts are used, and a brand value beats the shared one', () => {
   const shared = tariff(table({ carrierCharge: 450, petCharge: 350, partnerPetCharge: 120 }));
   assert.deepEqual(addOnRatesOf(input({ tariff: shared })), { carrier: 450, pet: 350, partnerPet: 120 });
   const branded = tariff({ ...table({ carrierCharge: 450, petCharge: 350, partnerPetCharge: 120 }), nesam: { 'One Way': { suv: { petCharge: 500 } } } });
@@ -34,7 +35,7 @@ test('fare table amounts replace the older ones, and a brand value beats the sha
   assert.deepEqual(addOnRatesOf(input({ tariff: branded, brand: 'people_taxi' })), { carrier: 450, pet: 350, partnerPet: 120 });
 });
 
-test('a typed 0 means no charge, not "use the older amount"', () => {
+test('a typed 0 means no charge', () => {
   assert.deepEqual(addOnRatesOf(input({ tariff: tariff(table({ carrierCharge: 0, petCharge: 0 })) })), { carrier: 0, pet: 0, partnerPet: 0 });
 });
 

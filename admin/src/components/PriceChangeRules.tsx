@@ -64,11 +64,11 @@ export default function PriceChangeRules({ rules, fareScope, canEdit, loaded, lo
     const tb = tariff?.roundTrip?.timeBased;
     const five = tb?.fiveHours ?? 5, eight = tb?.eightHours ?? 8;
     const slabs = [
-      { id: "same:five", hours: five, label: `${five}-hour package` },
-      { id: "same:eight", hours: eight, label: `${eight}-hour package` },
-      ...(tb?.extraSlabs ?? []).map((x) => ({ id: `same:h${x.hours}`, hours: x.hours, label: `${x.hours}-hour package` })),
+      { id: "same:five", hours: five, label: tb?.names?.five || `${five}-hour package` },
+      { id: "same:eight", hours: eight, label: tb?.names?.eight || `${eight}-hour package` },
+      ...(tb?.extraSlabs ?? []).map((x) => ({ id: `same:h${x.hours}`, hours: x.hours, label: x.name || `${x.hours}-hour package` })),
     ].sort((a, b) => a.hours - b.hours);
-    return [...slabs.map(({ id, label }) => ({ id, label })), { id: "same:full", label: "Full-Day Return" }, { id: "morning", label: "Morning Return" }, { id: "next", label: "Next-Day / multi-day" }];
+    return [...slabs.map(({ id, label }) => ({ id, label })), { id: "same:full", label: tb?.names?.full || "Full-Day Return" }, { id: "morning", label: tb?.names?.morning || "Morning Return" }, { id: "next", label: tb?.names?.next ? `${tb.names.next} / multi-day` : "Next-Day / multi-day" }];
   }, [tariff]);
   const pkgName = (id: string) => packageChoices.find((p) => p.id === id)?.label ?? id;
 

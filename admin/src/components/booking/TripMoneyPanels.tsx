@@ -24,7 +24,7 @@ const MODEL_LABEL: Record<string, string> = {
   fixed_route: "Fixed route fare",
   airport_transfer: "Airport transfer (base fare + extra KM)",
   business_contract_per_km: "Business contract (per KM)",
-  legacy_category: "Vehicle category fares",
+  legacy_category: "Vehicle category fares (older booking)",
   round_trip_time_based: "Round trip (time-based package)",
 };
 

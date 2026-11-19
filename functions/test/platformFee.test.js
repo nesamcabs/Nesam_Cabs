@@ -5,6 +5,7 @@ const { priceBooking } = require('../lib/quote');
 const { mapCategory } = require('../lib/domain/pricing');
 const P = require('../lib/domain/platformFee');
 const T = require('../lib/domain/tariff');
+const { CONFIRMED_TARIFF_V2 } = require('./support/confirmedTariff');
 
 const rule = (patch = {}) => ({ enabled: true, percent: 5, min: 50, cap: 250, ...patch });
 const cents = (v) => Math.round(v * 100) / 100;
@@ -30,7 +31,7 @@ test('settings are read safely: nothing is on until an admin switches it on', ()
   assert.equal(some.version, 3);
 });
 
-const category = () => ({ ...mapCategory('suv', { name: 'SUV', seatingCapacity: 6, fare: { perKmRate: 18 }, }), tariffClass: 'suv' });
+const category = () => ({ ...mapCategory('suv', { name: 'SUV', seatingCapacity: 6 }), tariffClass: 'suv' });
 const policy = (mode) => ({ common: { 'One Way': { default: { supplierState: '33', rate: 0.05, mode, classification: 'passenger', reference: 'Approved test policy' } } } });
 const config = (services = {}) => ({ version: 1, services: Object.fromEntries(P.PLATFORM_FEE_SERVICES.map((s) => [s, services[s] ?? { enabled: false, percent: 5, min: 50, cap: 250 }])) });
 const input = (patch = {}, mode = 'excluded') => ({
@@ -38,7 +39,7 @@ const input = (patch = {}, mode = 'excluded') => ({
   pickup: { id: 'pin', name: 'Chennai', address: 'Chennai, Tamil Nadu', lat: 13.08, lng: 80.27, type: 'other' },
   drop: { id: 'pin', name: 'Pondicherry', address: 'Pondicherry', lat: 11.94, lng: 79.8, type: 'other' },
   pickupAt: new Date('2026-11-08T12:00:00+05:30'), tripEndAt: null,
-  tariff: T.parseTariffConfig({ ...T.CONFIRMED_TARIFF_V2, version: 1, enabled: true, fareGst: policy(mode) }),
+  tariff: T.parseTariffConfig({ ...CONFIRMED_TARIFF_V2, version: 1, enabled: true, fareGst: policy(mode) }),
   adjustment: null, brand: 'nesam', ...patch,
 });
 

@@ -41,8 +41,9 @@ function HillStationSlabs({ vehicles, service }: { vehicles?: VehicleCol[]; serv
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
-  // Only the rate classes a vehicle category uses (the server keeps every other class's saved slabs as they are).
-  const cards = useMemo(() => TARIFF_CLASSES.filter((c) => (tariff?.roundTrip?.classes?.[c] || tariff?.oneWay?.classes?.[c]) && (!vehicles?.length || vehicles.some((v) => v.cls === c))), [tariff, vehicles]);
+  // Every rate class a vehicle category uses is a column, whether or not its rate card is saved yet (the hill charge is its own line and
+  // the server accepts it for any class). Without the vehicle list, only the classes that have a rate card are shown.
+  const cards = useMemo(() => TARIFF_CLASSES.filter((c) => (vehicles?.length ? vehicles.some((v) => v.cls === c) : !!(tariff?.roundTrip?.classes?.[c] || tariff?.oneWay?.classes?.[c]))), [tariff, vehicles]);
   const toDraft = (c: TariffClass): Draft => {
     const row = saved?.classes?.[c];
     return { owCustomer: text(row?.oneWay?.customer), owPartner: text(row?.oneWay?.partner), rtCustomer: text(row?.roundTrip?.customer), rtPartner: text(row?.roundTrip?.partner) };

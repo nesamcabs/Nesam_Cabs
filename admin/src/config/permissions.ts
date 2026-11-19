@@ -26,7 +26,7 @@ export const PERMISSION_INFO: Record<Permission, { label: string; description: s
   operations: { label: "Operations", description: "Bookings, live trips, marketplace, manual bookings and dispatch" },
   people: { label: "People", description: "Customers, vendors and drivers, including KYC review and approvals" },
   fleet: { label: "Fleet", description: "Vehicles and their document review" },
-  pricing: { label: "Pricing", description: "Vehicle category fares, fare rules, offers and coupons" },
+  pricing: { label: "Pricing", description: "Fare settings, fare rules, offers and coupons" },
   content: { label: "Content", description: "Services, tour packages and locations" },
   finance: { label: "Finance", description: "Payments, invoices, earnings, payouts and fare overrides" },
   compliance: { label: "Compliance", description: "Penalties and disputes" },

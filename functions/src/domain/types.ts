@@ -53,34 +53,6 @@ export interface RouteInfo {
   estimated: boolean;
 }
 
-export interface FareConfig {
-  baseFare: number;
-  baseKm: number;
-  perKmRate: number;
-  perMinuteRate: number;
-  minimumFare: number;
-  nightCharge: number;
-  driverAllowance: number;
-  /** Per-km rate for outstation trips, when the admin configured one. */
-  outstationPerKmRate?: number;
-  /** Charges that are quoted for information and paid separately unless marked included. */
-  extras?: FareExtras;
-}
-
-/** Category-level configuration of the charges outside the package price. */
-export interface FareExtras {
-  /** Rate per hour of waiting beyond the free period (0 = not configured). */
-  waitingPerHour: number;
-  /** Rate for each km beyond the booked distance. */
-  extraKmRate: number;
-  tollIncluded: boolean;
-  parkingIncluded: boolean;
-  /** State tax / permit charge per trip (0 = billed at actuals). */
-  permitCharge: number;
-  /** Carrier / luggage charge per trip (0 = none). */
-  carrierCharge: number;
-}
-
 export interface RideCategory {
   id: string;
   name: string;
@@ -90,7 +62,6 @@ export interface RideCategory {
   iconUrl?: string;
   /** Driver `vehicleType` values that can serve this category. */
   matchVehicleTypes: string[];
-  fare: FareConfig;
   displayOrder: number;
   /** CNG may be chosen for this category (set per category in admin; it also needs a CNG rate card for its class). */
   cngEnabled?: boolean;

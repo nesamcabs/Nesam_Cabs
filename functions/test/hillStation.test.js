@@ -7,6 +7,7 @@ const T = require('../lib/domain/tariff');
 const H = require('../lib/domain/hillStations');
 const { priceBooking } = require('../lib/quote');
 const { mapCategory } = require('../lib/domain/pricing');
+const { CONFIRMED_TARIFF_V2 } = require('./support/confirmedTariff');
 
 const IST = (s) => Date.parse(`${s}+05:30`);
 const sedan = {
@@ -14,11 +15,11 @@ const sedan = {
   timeBased: { fiveFare: 2080, fiveKm: 100, fivePartner: 1870, eightFare: 2780, eightKm: 150, eightPartner: 2500, morningFare: 4500, morningKm: 250, morningPartner: 4050 },
 };
 const hillStation = { enabled: true, chargePer: 'trip', classes: { sedan: { oneWay: { customer: 500, partner: 400 }, roundTrip: { customer: 800, partner: 650 } } } };
-const base = { ...T.CONFIRMED_TARIFF_V2, version: 8, enabled: true, roundTrip: { maxDays: 30, timeBased: { enabled: true }, classes: { sedan } }, roundTripExtras: { sedan: { extraKmRate: 14, waitingPerHour: 150 } } };
+const base = { ...CONFIRMED_TARIFF_V2, version: 8, enabled: true, roundTrip: { maxDays: 30, timeBased: { enabled: true }, classes: { sedan } }, roundTripExtras: { sedan: { extraKmRate: 14, waitingPerHour: 150 } } };
 const cfg = T.parseTariffConfig({ ...base, hillStation });
 const cfgNoHill = T.parseTariffConfig(base);
 
-const category = mapCategory('sedan', { name: 'Sedan', status: 'Active', seatingCapacity: 4, fare: { baseFare: 70, baseKm: 2, perKmRate: 16, minimumFare: 100 } });
+const category = mapCategory('sedan', { name: 'Sedan', status: 'Active', seatingCapacity: 4 });
 // A place as the map search gives it: the pincode is in the formatted address (Google writes "State 643001, India").
 const place = (name, lat, lng, address) => ({ id: 'pin', name, address: address ?? name, lat, lng, type: 'other' });
 const at = (name, lat, lng, state, pin) => place(name, lat, lng, `${name}, ${state} ${pin}, India`);

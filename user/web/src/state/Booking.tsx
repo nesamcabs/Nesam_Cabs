@@ -6,8 +6,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { AppliedCoupon, Coupon, FareBreakdown, GeoPlace, RideCategory, RouteInfo } from '@core/types';
 import {
-  calculateFare,
-  hasEstimate,
   isOutstation,
   serviceName,
   subscribeToCoupons,
@@ -171,7 +169,7 @@ export function BookingProvider({ children }: { children: ReactNode }) {
   // Anything the admin changes that prices a trip (vehicle fares, the price adjustment, coupons) arrives
   // live; its fingerprint makes the quote ask the server again, so new prices show within seconds.
   const pricingStamp = useMemo(
-    () => JSON.stringify([categories.map((c) => [c.id, c.displayOrder, c.fare]), adjustment, coupons.map((c) => [c.code, c.discountValue, c.validUntil])]),
+    () => JSON.stringify([categories.map((c) => [c.id, c.displayOrder]), adjustment, coupons.map((c) => [c.code, c.discountValue, c.validUntil])]),
     [categories, adjustment, coupons],
   );
   const serverQuote = useServerQuotes(quoteRequest, auth.status === 'ready', pricingStamp);
@@ -238,29 +236,11 @@ export function useBookingQuote(): BookingQuote {
 
   const result = useMemo<BookingQuote>(() => {
     const category = categories.find((c) => c.id === categoryId) ?? null;
-    const quotes = new Map<string, FareBreakdown>();
-    if (route) for (const c of categories) if (hasEstimate(c)) quotes.set(c.id, calculateFare({ category: c, route, tripType, pickupTime, adjustment }));
     const outstation = route ? isOutstation(route.distanceKm) : false;
     const service = pickup && drop && route ? serviceName(pickup, drop, route.distanceKm) : 'Local';
     const history = trips.filter((t) => t.status !== 'Cancelled' && t.status !== 'Rejected');
 
-    const checkCoupon = (code: string): CouponResult => {
-      if (!category || !route) return { ok: false, message: 'Choose a ride first.' };
-      const base = quotes.get(category.id) ?? calculateFare({ category, route, tripType, pickupTime, adjustment });
-      return validateCoupon(coupons, code, {
-        subtotal: base.subtotal,
-        categoryId: category.id,
-        service,
-        isFirstBooking: history.length === 0,
-        customerUses: history.filter((t) => t.couponCode.toUpperCase() === code.trim().toUpperCase()).length,
-      });
-    };
-
-    // Re-validated on every change so a discount never outlives the fare it was granted on.
-    const couponCheck = promoCode && category && route ? checkCoupon(promoCode) : null;
-    const coupon = couponCheck?.ok ? couponCheck.coupon : null;
-    // Only the server's quotes are customer-visible. Local calculations remain available for coupon
-    // validation, but showing them while this request is pending makes stale/config-default prices flash.
+    // Only the booking server's quotes exist: the app never calculates a fare.
     const server = serverQuote.status === 'ready' ? serverQuote.data : null;
     // Time-based round trip: a vehicle carries one fare per package; the package the rider picked (else the server's pick) is the one in force.
     const withPackage = (x: ServerCategoryQuote): ServerCategoryQuote => {
@@ -278,6 +258,22 @@ export function useBookingQuote(): BookingQuote {
     const cngChoice = draft.fuelType === 'cng' && chosen?.ok && chosen.cng ? chosen.cng : null;
     const serverFare = cngChoice ? cngChoice.fare : chosen?.ok && chosen.fare ? chosen.fare : null;
     const authoritative = !!serverFare;
+    const checkCoupon = (code: string): CouponResult => {
+      if (!category || !route) return { ok: false, message: 'Choose a ride first.' };
+      // The booking server's own price is the only one: a code is checked against it once it has answered.
+      if (!serverFare) return { ok: false, message: 'The price is still loading. Try again in a moment.' };
+      return validateCoupon(coupons, code, {
+        subtotal: serverFare.subtotal,
+        categoryId: category.id,
+        service,
+        isFirstBooking: history.length === 0,
+        customerUses: history.filter((t) => t.couponCode.toUpperCase() === code.trim().toUpperCase()).length,
+      });
+    };
+
+    // Re-validated on every change so a discount never outlives the fare it was granted on.
+    const couponCheck = promoCode && category && route ? checkCoupon(promoCode) : null;
+    const coupon = couponCheck?.ok ? couponCheck.coupon : null;
     const days = chosen?.ok && typeof chosen.days === 'number' && (chosen.model === 'round_trip_calendar' || chosen.model === 'round_trip_time_based') ? chosen.days : null;
     // The packages shown are the chosen vehicle's; before a vehicle is chosen, the first vehicle that has any.
     const source = (chosen?.ok && chosen.packages?.length ? chosen : (server?.quotes ?? []).find((x) => x.ok && x.packages?.length)) ?? null;

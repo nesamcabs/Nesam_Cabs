@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { evaluateRules, assertBookable, assertWithinLimits, adjustPartner } = require('../lib/serviceRules');
 const T = require('../lib/domain/tariff');
+const { CONFIRMED_TARIFF_V2 } = require('./support/confirmedTariff');
 
 const pickup = { id: 'chennai', name: 'Chennai', city: 'Chennai', state: 'Tamil Nadu', lat: 13, lng: 80 };
 const drop = { id: 'salem', name: 'Salem', city: 'Salem', state: 'Tamil Nadu', lat: 11, lng: 78 };
@@ -54,7 +55,7 @@ test('partner adjustment preserves bata and original booking snapshot', () => {
 });
 
 test('final billing keeps the scoped partner payout and adds only extra usage', () => {
-  const { CONFIRMED_TARIFF_V2, quoteOneWay, quoteRoundTrip, finalizeFare } = require('../lib/domain/tariff');
+  const { quoteOneWay, quoteRoundTrip, finalizeFare } = require('../lib/domain/tariff');
   const pickupMs = Date.parse('2026-11-10T08:00:00+05:30');
   for (const direction of ['Increase','Decrease']) {
     const outcome = evaluate([rule({ kind:'pricing', partner:{mode:direction,percent:10} })]);
@@ -69,7 +70,7 @@ test('final billing keeps the scoped partner payout and adds only extra usage', 
 });
 
 test('local pickup fare uses city minimum without the outstation floor', () => {
-  const config = T.parseTariffConfig({ ...T.CONFIRMED_TARIFF_V2, localPickupDrop: { chennai: { cityName: 'Chennai', classes: { sedan: { minKm: 10, customerRate: 20, partnerRate: 15, extraKmRate: 22, waitingPerHour: 60, enabled: true } } } } });
+  const config = T.parseTariffConfig({ ...CONFIRMED_TARIFF_V2, localPickupDrop: { chennai: { cityName: 'Chennai', classes: { sedan: { minKm: 10, customerRate: 20, partnerRate: 15, extraKmRate: 22, waitingPerHour: 60, enabled: true } } } } });
   const q = T.quoteLocalPickupDrop({ config, cityId: 'chennai', tariffClass: 'sedan', routeKm: 5, durationMin: 20, pickupMs: at.getTime(), tripType: 'One Way' });
   assert.equal(q.fare.total, 210);
   assert.equal(q.pricing.partner.basePaise, 15000);
@@ -80,7 +81,7 @@ test('local pickup fare uses city minimum without the outstation floor', () => {
 test('a pickup zone uses its own enabled fare per class and keeps the city fare for the others', () => {
   const fare = (customerRate, enabled = true) => ({ minKm: 10, customerRate, partnerRate: customerRate - 5, extraKmRate: customerRate + 2, waitingPerHour: 60, enabled });
   const config = T.parseTariffConfig({
-    ...T.CONFIRMED_TARIFF_V2,
+    ...CONFIRMED_TARIFF_V2,
     localPickupDrop: {
       theni: { cityName: 'Theni', classes: { sedan: fare(20), suv: fare(26) } },
       bodi: { cityName: 'Bodinayakanur', parentCityId: 'theni', classes: { sedan: fare(24), suv: fare(30, false) } },
@@ -101,7 +102,7 @@ test('a pickup zone uses its own enabled fare per class and keeps the city fare 
 });
 
 test('rental package honors included GST and refuses unsupported durations', () => {
-  const config = T.parseTariffConfig({ ...T.CONFIRMED_TARIFF_V2, rentalPackages: { sedan: { minHours: 4, packages: { '4': { customerFare: 1050, partnerPayout: 800, includedKm: 40, extraKmRate: 15, extraHourRate: 150, gstMode: 'included', enabled: true } } } } });
+  const config = T.parseTariffConfig({ ...CONFIRMED_TARIFF_V2, rentalPackages: { sedan: { minHours: 4, packages: { '4': { customerFare: 1050, partnerPayout: 800, includedKm: 40, extraKmRate: 15, extraHourRate: 150, gstMode: 'included', enabled: true } } } } });
   const q = T.quoteRentalPackage({ config, hours: 4, tariffClass: 'sedan', routeKm: 20, durationMin: 240, pickupMs: at.getTime(), tripType: 'One Way' });
   assert.equal(q.fare.total, 1050);
   assert.equal(q.pricing.partner.basePaise, 80000);

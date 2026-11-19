@@ -54,27 +54,6 @@ export interface RouteInfo {
   totalDurationMin?: number;
 }
 
-export interface FareConfig {
-  baseFare: number;
-  baseKm: number;
-  perKmRate: number;
-  perMinuteRate: number;
-  minimumFare: number;
-  nightCharge: number;
-  driverAllowance: number;
-  /** Per-km rate for outstation trips, when the admin configured one. */
-  outstationPerKmRate?: number;
-  /** Charges the booking breakup lists separately (waiting, extra km, toll/parking/permit/carrier). */
-  extras?: {
-    waitingPerHour: number;
-    extraKmRate: number;
-    tollIncluded: boolean;
-    parkingIncluded: boolean;
-    permitCharge: number;
-    carrierCharge: number;
-  };
-}
-
 export interface RideCategory {
   id: string;
   name: string;
@@ -85,7 +64,6 @@ export interface RideCategory {
   iconUrl?: string;
   /** Driver `vehicleType` values that can serve this category. */
   matchVehicleTypes: string[];
-  fare: FareConfig;
   displayOrder: number;
 }
 

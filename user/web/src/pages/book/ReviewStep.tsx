@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import type { FareBreakdown as Fare } from '@core/types';
 import { useCustomerData } from '@/state/customer';
 import { createRideRequest } from '@core/services/rideService';
-import { buildFareBreakup } from '@core/utils/fareBreakup';
+import { breakupFromFare } from '@core/utils/fareBreakup';
 import { packageClock, packageDay, requestedTripDays } from '@core/utils/timePackages';
 import { scheduleProblem } from '@core/utils/bookingRules';
 import { formatDate, formatDistance, formatDuration, formatINR, formatTime, isValidEmail, isValidIndianMobile } from '@core/utils/format';
@@ -74,9 +74,9 @@ export function ReviewStep() {
   } = draft;
   const category = q.category;
 
-  // An add-on is offered only when this vehicle has a price for it (admin → vehicle specs). No price, no option.
+  // An add-on is offered only when this vehicle has a price for it (admin → Service & Fare Settings). No price, no option.
   const rates = q.category ? q.entries.get(q.category.id)?.addOnRates : undefined;
-  const carrierCharge = rates?.carrierCharge ?? q.category?.fare.extras?.carrierCharge ?? 0;
+  const carrierCharge = rates?.carrierCharge ?? 0;
   const petCharge = rates?.petCharge ?? 0;
   const hasCarrier = carrierCharge > 0;
   const hasPets = petCharge > 0;
@@ -152,7 +152,7 @@ export function ReviewStep() {
     adjustment?.percent,
   ]);
   const quote = serverQuote?.key === priceKey ? serverQuote.fare : q.quote;
-  const breakup = q.breakup ?? buildFareBreakup(category, quote, q.outstation);
+  const breakup = q.breakup ?? breakupFromFare(quote);
   const airport = tripType === 'Airport Taxi';
 
   const addOnsConfirmed = (!draft.roofCarrier || quote.addOns?.roofCarrier === true) && (!draft.pets || quote.addOns?.pets === true);

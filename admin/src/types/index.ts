@@ -263,26 +263,6 @@ export interface Driver {
   createdAt?: any;
 }
 
-export interface VehicleCategoryFare {
-  baseFare: number;
-  baseKm: number;
-  perKmRate: number;
-  minimumFare: number;
-  driverAllowance: number;
-  nightAllowance: number;
-  waitingChargePerHour: number;
-  extraHourCharge: number;
-  extraKmCharge: number;
-  tollIncluded: boolean;
-  parkingIncluded: boolean;
-  permitCharge: number;
-  /** Carrier / luggage charge per trip, quoted as an extra. */
-  carrierCharge?: number;
-  outstationPerKmRate?: number;
-  outstationDriverBattaPerDay?: number;
-  outstationMinKmPerDay?: number;
-}
-
 export interface VehicleCategory {
   id: string;
   name: string;
@@ -308,7 +288,6 @@ export interface VehicleCategory {
   tariffClass?: string;
   dutyClass?: string;
   status: "Active" | "Inactive";
-  fare: VehicleCategoryFare;
   vehicleCount?: number;
   createdAt?: any;
   updatedAt?: any;

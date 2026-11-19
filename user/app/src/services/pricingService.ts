@@ -53,7 +53,7 @@ const offeredOnThisSite = (d: DocumentData): boolean => {
 // The list is public data (the same for every visitor), so it is safe to keep. It is shown at once on a
 // repeat visit while the live list loads, and is replaced by it as soon as it arrives. Not used on the
 // native app, which has no browser storage.
-const CATEGORY_CACHE_KEY = `categories:v1:${SITE_BRAND}`;
+const CATEGORY_CACHE_KEY = `categories:v2:${SITE_BRAND}`;
 const CATEGORY_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 function deviceStorage(): Storage | null {
@@ -70,7 +70,7 @@ function readCachedCategories(): RideCategory[] {
     if (!raw) return [];
     const saved = JSON.parse(raw) as { at?: number; cats?: unknown };
     if (typeof saved.at !== 'number' || Date.now() - saved.at > CATEGORY_CACHE_MAX_AGE_MS || !Array.isArray(saved.cats)) return [];
-    return (saved.cats as RideCategory[]).filter((c) => c && typeof c.id === 'string' && typeof c.name === 'string' && c.fare && typeof c.fare === 'object');
+    return (saved.cats as RideCategory[]).filter((c) => c && typeof c.id === 'string' && typeof c.name === 'string');
   } catch {
     return [];
   }
@@ -104,14 +104,9 @@ export function warmCategoryImages(cats: RideCategory[]): void {
   }
 }
 
-/** Exported for the server-parity test. */
+/** A category carries no fares: every price comes from the booking server's quote (Service & Fare Settings in the admin panel). */
 export function mapCategory(id: string, d: DocumentData): RideCategory | null {
-  const f = d.fare && typeof d.fare === 'object' ? d.fare : {};
-  const perKmRate = num(f.perKmRate);
-  // Listed even without the older per-km fare: the server prices it from Service & Fare Settings. With no per-km fare
-  // no local estimate is shown for it (see hasEstimate); the server's quote is the only price.
   if (!str(d.name)) return null;
-  const waitingPerHour = num(f.waitingChargePerHour);
   return {
     id,
     name: str(d.name),
@@ -120,162 +115,25 @@ export function mapCategory(id: string, d: DocumentData): RideCategory | null {
     imageUrl: brandImage(d) || str(d.imageUrl) || undefined,
     iconUrl: str(d.iconUrl) || undefined,
     matchVehicleTypes: vehicleTypeAliases(str(d.name), str(d.code)),
-    fare: {
-      baseFare: num(f.baseFare),
-      baseKm: num(f.baseKm),
-      perKmRate,
-      perMinuteRate: f.perMinuteRate != null ? num(f.perMinuteRate) : waitingPerHour > 0 ? waitingPerHour / 60 : 0,
-      minimumFare: num(f.minimumFare),
-      nightCharge: num(f.nightAllowance),
-      driverAllowance: num(f.outstationDriverBattaPerDay) || num(f.driverAllowance),
-      outstationPerKmRate: num(f.outstationPerKmRate) || undefined,
-      extras: {
-        waitingPerHour,
-        extraKmRate: num(f.extraKmCharge) || perKmRate,
-        // Absent flags mean "not included": the customer pays at actuals.
-        tollIncluded: f.tollIncluded === true,
-        parkingIncluded: f.parkingIncluded === true,
-        permitCharge: num(f.permitCharge),
-        carrierCharge: num(f.carrierCharge),
-      },
-    },
     displayOrder: num(d.displayOrder, 99),
   };
 }
 
-export const SPEC_DEFAULT_CATEGORIES: RideCategory[] = [
-  {
-    id: 'cat-sedan',
-    name: 'Sedan',
-    description: 'Dzire, Etios, Aura (4+1 Passengers)',
-    seats: 4,
-    displayOrder: 1,
-    matchVehicleTypes: ['sedan', 'dzire', 'etios', 'aura'],
-    fare: {
-      baseFare: 0,
-      baseKm: 0,
-      perKmRate: 15,
-      perMinuteRate: 0,
-      minimumFare: 1950,
-      nightCharge: 0,
-      driverAllowance: 400,
-      outstationPerKmRate: 15,
-      extras: { waitingPerHour: 0, extraKmRate: 15, tollIncluded: false, parkingIncluded: false, permitCharge: 0, carrierCharge: 0 },
-    },
-  },
-  {
-    id: 'cat-suv-6',
-    name: 'SUV (6+1)',
-    description: 'Maruti Ertiga, Kia Carens (6 Passengers)',
-    seats: 6,
-    displayOrder: 2,
-    matchVehicleTypes: ['suv', 'ertiga', 'carens', 'mpv'],
-    fare: {
-      baseFare: 0,
-      baseKm: 0,
-      perKmRate: 20,
-      perMinuteRate: 0,
-      minimumFare: 2600,
-      nightCharge: 0,
-      driverAllowance: 400,
-      outstationPerKmRate: 20,
-      extras: { waitingPerHour: 0, extraKmRate: 20, tollIncluded: false, parkingIncluded: false, permitCharge: 0, carrierCharge: 300 },
-    },
-  },
-  {
-    id: 'cat-suv-7',
-    name: 'SUV (7+1)',
-    description: 'Mahindra Scorpio, Bolero Neo (7 Passengers)',
-    seats: 7,
-    displayOrder: 3,
-    matchVehicleTypes: ['suv', 'scorpio', 'bolero', 'xuv'],
-    fare: {
-      baseFare: 0,
-      baseKm: 0,
-      perKmRate: 20,
-      perMinuteRate: 0,
-      minimumFare: 2600,
-      nightCharge: 0,
-      driverAllowance: 400,
-      outstationPerKmRate: 20,
-      extras: { waitingPerHour: 0, extraKmRate: 20, tollIncluded: false, parkingIncluded: false, permitCharge: 0, carrierCharge: 400 },
-    },
-  },
-  {
-    id: 'cat-innova',
-    name: 'Innova',
-    description: 'Toyota Innova (Spacious highway comfort, 7 Seater)',
-    seats: 7,
-    displayOrder: 4,
-    matchVehicleTypes: ['innova'],
-    fare: {
-      baseFare: 0,
-      baseKm: 0,
-      perKmRate: 20,
-      perMinuteRate: 0,
-      minimumFare: 2600,
-      nightCharge: 0,
-      driverAllowance: 400,
-      outstationPerKmRate: 20,
-      extras: { waitingPerHour: 0, extraKmRate: 20, tollIncluded: false, parkingIncluded: false, permitCharge: 0, carrierCharge: 400 },
-    },
-  },
-  {
-    id: 'cat-crysta',
-    name: 'Innova Crysta',
-    description: 'Executive Luxury MPV, Premium Highway Driver',
-    seats: 7,
-    displayOrder: 5,
-    matchVehicleTypes: ['crysta', 'innova crysta'],
-    fare: {
-      baseFare: 0,
-      baseKm: 0,
-      perKmRate: 26,
-      perMinuteRate: 0,
-      minimumFare: 3380,
-      nightCharge: 0,
-      driverAllowance: 600,
-      outstationPerKmRate: 26,
-      extras: { waitingPerHour: 0, extraKmRate: 26, tollIncluded: false, parkingIncluded: false, permitCharge: 0, carrierCharge: 400 },
-    },
-  },
-];
-
 export type RideCategoryStatus = 'loading' | 'ready' | 'unavailable' | 'error';
 
-/**
- * Live list of bookable categories — falls back to standard NTT/DEV-SPEC 2.0
- * fleet so online booking is ALWAYS available without waiting for Firestore config.
- */
-export function subscribeToRideCategories(cb: (cats: RideCategory[], status: RideCategoryStatus) => void, configuredOnly = false): () => void {
-  // A repeat visit shows the list saved on this device straight away (instead of the built-in defaults), then the live list.
+/** Live list of bookable categories, exactly as the admin configured them (`vehicle_categories`). There are no built-in categories. */
+export function subscribeToRideCategories(cb: (cats: RideCategory[], status: RideCategoryStatus) => void): () => void {
+  // A repeat visit shows the list saved on this device straight away, then the live list.
   const saved = readCachedCategories();
   if (saved.length) warmCategoryImages(saved);
-  if (configuredOnly) {
-    cb(saved, saved.length ? 'ready' : 'loading');
-    return onSnapshot(query(collection(db, 'vehicle_categories'), where('status', '==', 'Active')), snap => {
-      const cats = snap.docs.filter(d => offeredOnThisSite(d.data())).map(d => mapCategory(d.id, d.data())).filter((category): category is RideCategory => !!category)
-        .sort((a, b) => a.displayOrder - b.displayOrder || a.name.localeCompare(b.name));
-      writeCachedCategories(cats);
-      warmCategoryImages(cats);
-      cb(cats, 'ready');
-    }, () => { if (!saved.length) cb([], 'error'); });
-  }
-  cb(saved.length ? saved : SPEC_DEFAULT_CATEGORIES, 'ready');
-  return onSnapshot(
-    query(collection(db, 'vehicle_categories'), where('status', '==', 'Active')),
-    (snap) => {
-      const cats = snap.docs
-        .filter((d) => offeredOnThisSite(d.data()))
-        .map((d) => mapCategory(d.id, d.data()))
-        .filter((c): c is RideCategory => !!c)
-        .sort((a, b) => a.displayOrder - b.displayOrder || a.name.localeCompare(b.name));
-      writeCachedCategories(cats);
-      warmCategoryImages(cats);
-      cb(cats.length ? cats : SPEC_DEFAULT_CATEGORIES, 'ready');
-    },
-    () => cb(saved.length ? saved : SPEC_DEFAULT_CATEGORIES, 'ready'),
-  );
+  cb(saved, saved.length ? 'ready' : 'loading');
+  return onSnapshot(query(collection(db, 'vehicle_categories'), where('status', '==', 'Active')), snap => {
+    const cats = snap.docs.filter(d => offeredOnThisSite(d.data())).map(d => mapCategory(d.id, d.data())).filter((category): category is RideCategory => !!category)
+      .sort((a, b) => a.displayOrder - b.displayOrder || a.name.localeCompare(b.name));
+    writeCachedCategories(cats);
+    warmCategoryImages(cats);
+    cb(cats, cats.length ? 'ready' : 'unavailable');
+  }, () => { if (!saved.length) cb([], 'error'); });
 }
 
 export function categoryServesVehicle(cat: RideCategory, vehicleType: string): boolean {
@@ -319,7 +177,7 @@ export function isNightTime(d: Date): boolean {
   return h >= NIGHT_START_HOUR || h < NIGHT_END_HOUR;
 }
 
-// ── Fare engine ─────────────────────────────────────────────────────────────
+// ── Fare adjustment (display only: the booking server prices every trip) ────
 
 /** The global percentage adjustment currently in force (festival pricing, a promotion…). */
 export interface FareAdjustment {
@@ -327,76 +185,6 @@ export interface FareAdjustment {
   name: string;
   direction: 'increase' | 'decrease';
   percent: number;
-}
-
-export interface FareInput {
-  category: RideCategory;
-  route: RouteInfo;
-  tripType: TripType;
-  pickupTime: Date;
-  discount?: number;
-  adjustment?: FareAdjustment | null;
-}
-
-/** Whether a local estimate can be shown for a category: only when it still has the older per-km fare. Otherwise the server quote is the price. */
-export const hasEstimate = (category: RideCategory): boolean => category.fare.perKmRate > 0;
-
-export function calculateFare({ category, route, tripType, pickupTime, discount = 0, adjustment = null }: FareInput): FareBreakdown {
-  const f = category.fare;
-  const legs = tripType === 'Round Trip' ? 2 : 1;
-  const km = route.distanceKm * legs;
-  const minutes = route.durationMin * legs;
-  const outstation = isOutstation(route.distanceKm);
-
-  const perKmRate = outstation && f.outstationPerKmRate ? f.outstationPerKmRate : f.perKmRate;
-  // Outstation trips are priced per km plus driver allowance; time isn't billed.
-  const perMinuteRate = outstation ? 0 : f.perMinuteRate;
-
-  const baseFare = Math.round(f.baseFare);
-  const distanceFare = Math.round(Math.max(0, km - f.baseKm) * perKmRate);
-  const timeFare = Math.round(minutes * perMinuteRate);
-  const nightCharge = isNightTime(pickupTime) ? Math.round(f.nightCharge) : 0;
-  // One allowance per 12 hours of driving (covers the return leg on round trips).
-  const driverAllowance = outstation ? Math.round(f.driverAllowance * Math.max(1, Math.ceil(minutes / 720))) : 0;
-
-  const raw = baseFare + distanceFare + timeFare + nightCharge + driverAllowance;
-  const minimumFareAdjustment = Math.max(0, Math.round(f.minimumFare) - raw);
-  const subtotalBeforeAdjustment = raw + minimumFareAdjustment;
-  // One percentage of the pre-adjustment total — never applied on top of itself.
-  const percent = adjustment ? Math.min(100, Math.max(0, adjustment.percent)) : 0;
-  const adjustmentAmount = adjustment && percent > 0 ? (adjustment.direction === 'decrease' ? -1 : 1) * Math.round((subtotalBeforeAdjustment * percent) / 100) : 0;
-  const subtotal = Math.max(0, subtotalBeforeAdjustment + adjustmentAmount);
-  const globalAdjustment = adjustment && percent > 0
-    ? { id: adjustment.id, name: adjustment.name, direction: adjustment.direction, percent, amount: adjustmentAmount }
-    : null;
-  const requested = Math.max(0, Math.round(discount));
-  const discountDetail: DiscountDetail | null = requested > 0 ? { type: 'coupon', value: requested, amount: 0, source: 'coupon', reason: '' } : null;
-  const appliedDiscount = Math.min(requested, subtotal);
-  if (discountDetail) discountDetail.amount = appliedDiscount;
-  const taxableAmount = subtotal - appliedDiscount;
-  const gst = Math.round(taxableAmount * GST_RATE);
-
-  return {
-    subtotalBeforeAdjustment,
-    globalAdjustment,
-    discountDetail,
-    baseFare,
-    distanceFare,
-    timeFare,
-    nightCharge,
-    driverAllowance,
-    minimumFareAdjustment,
-    subtotal,
-    discount: appliedDiscount,
-    taxableAmount,
-    gstRate: GST_RATE,
-    gst,
-    total: taxableAmount + gst,
-    distanceKm: Math.round(km * 10) / 10,
-    durationMin: Math.round(minutes),
-    perKmRate,
-    perMinuteRate,
-  };
 }
 
 /** Effective today on the India calendar, like the server decides it. */

@@ -6,16 +6,16 @@ const { mapCategory } = require('../lib/domain/pricing');
 const { withBookingAddOns, bookingAddOnsOf } = require('../lib/domain/bookingAddOns');
 const { withFareGst } = require('../lib/domain/gst');
 const T = require('../lib/domain/tariff');
+const { CONFIRMED_TARIFF_V2 } = require('./support/confirmedTariff');
 
-const category = () => ({ ...mapCategory('suv', { name: 'SUV', seatingCapacity: 6, fare: {
-  perKmRate: 18, carrierCharge: 300, petCharge: 200,
-} }), tariffClass: 'suv' });
+// Category records carry no fares: the roof carrier price is typed in the admin fare table (Common · One Way · SUV), the pet price in the common pet setting.
+const category = () => ({ ...mapCategory('suv', { name: 'SUV', seatingCapacity: 6 }), tariffClass: 'suv' });
 const input = (patch = {}) => ({
   category: category(), route: { distanceKm: 160, durationMin: 180 }, tripType: 'One Way',
   pickup: { id: 'pin', name: 'Chennai', address: 'Chennai, Tamil Nadu', lat: 13.08, lng: 80.27, type: 'other' },
   drop: { id: 'pin', name: 'Pondicherry', address: 'Pondicherry', lat: 11.94, lng: 79.8, type: 'other' },
   pickupAt: new Date('2026-11-08T10:00:00+05:30'), tripEndAt: null,
-  tariff: T.parseTariffConfig({ ...T.CONFIRMED_TARIFF_V2, version: 1, enabled: true, petCharge: 200, fareGst: { common: { 'One Way': { default: { supplierState: '33', rate: 0.05, mode: 'excluded', classification: 'passenger', reference: 'Approved test policy' } } } } }),
+  tariff: T.parseTariffConfig({ ...CONFIRMED_TARIFF_V2, version: 1, enabled: true, petCharge: 200, brandOverrides: { common: { 'One Way': { suv: { carrierCharge: 300 } } } }, fareGst: { common: { 'One Way': { default: { supplierState: '33', rate: 0.05, mode: 'excluded', classification: 'passenger', reference: 'Approved test policy' } } } } }),
   adjustment: null, ...patch,
 });
 
@@ -25,7 +25,7 @@ test('no selection leaves the quoted fare unchanged', () => {
 });
 
 for (const brand of ['nesam', 'people_taxi', 'onewaycarrentals']) {
-  test(`${brand}: selected carrier and pets are billed at category rates plus GST`, () => {
+  test(`${brand}: selected carrier and pets are billed at the admin fare table rates plus GST`, () => {
     const base = priceBooking(input({ brand }));
     const billed = priceBooking(input({ brand, addOns: { roofCarrier: true, pets: true, carrierCharge: 1, petCharge: 1 } }));
     assert.equal(billed.fare.total, Math.round((base.fare.total + 500 * (1 + base.fare.gstRate)) * 100) / 100);
@@ -51,7 +51,7 @@ test('GST-inclusive add-on prices stay exact and tax split reconciles', () => {
   const base = priceBooking(input());
   const tax = { ...base.fare.gstDetails, mode: 'included', rate: 0.05, split: 'CGST + SGST' };
   const inclusive = { ...base, fare: withFareGst(base.fare, tax, true) };
-  const billed = withBookingAddOns(inclusive, { roofCarrier: true, pets: true }, category().fare.extras, 200);
+  const billed = withBookingAddOns(inclusive, { roofCarrier: true, pets: true }, { carrierCharge: 300 }, 200);
   assert.equal(billed.fare.total, inclusive.fare.total + 500);
   assert.equal(Math.round((billed.fare.taxableAmount + billed.fare.gst) * 100), Math.round(billed.fare.total * 100));
   assert.equal(Math.round((billed.fare.gstDetails.cgst + billed.fare.gstDetails.sgst) * 100), Math.round(billed.fare.gst * 100));
@@ -99,13 +99,9 @@ test('GST-inclusive final-distance billing retains both fees exactly once', () =
   assert.equal(billed.fare.addOns.petCharge, quoted.fare.addOns.petCharge);
 });
 
-test('pet travel uses one common rate and ignores legacy category pet prices', () => {
+test('pet travel uses the one common rate from the admin panel, and none when it is not set', () => {
   const first = input({ addOns: { roofCarrier: false, pets: true } });
-  const second = input({ addOns: { roofCarrier: false, pets: true } });
-  first.category.fare.extras.petCharge = 9999;
-  second.category.fare.extras.petCharge = 1;
   assert.equal(priceBooking(first).fare.addOns.petCharge, 200);
-  assert.equal(priceBooking(second).fare.addOns.petCharge, 200);
   delete first.tariff.petCharge;
   assert.equal(priceBooking(first).fare.addOns.petCharge, 0);
 });

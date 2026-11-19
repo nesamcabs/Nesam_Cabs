@@ -1,12 +1,12 @@
 import type { PriceResult } from '../quote';
 import { gstComponents } from './gst';
-import type { FareBreakdown, FareExtras } from './types';
+import type { FareBreakdown } from './types';
 import type { ExtraChargesSnapshot } from './extraCharges';
 
 export interface BookingAddOns { roofCarrier: boolean; pets: boolean }
 export interface BookingAddOnCharges extends BookingAddOns { carrierCharge: number; petCharge: number; grossAmount?: number }
 
-/** Clients send choices only. Prices always come from the saved vehicle category. */
+/** Clients send choices only. Prices always come from the admin fare settings. */
 export function bookingAddOnsOf(value: unknown): BookingAddOns {
   const v = value && typeof value === 'object' ? value as Record<string, unknown> : {};
   return { roofCarrier: v.roofCarrier === true, pets: v.pets === true };
@@ -21,7 +21,7 @@ export function ratesAfterPrepaidAddOns(snapshot: ExtraChargesSnapshot, carrierP
 }
 
 /** Selected per-trip charges are billed once and snapshotted, independently of later price edits. */
-export function withBookingAddOns(result: PriceResult, selection: unknown, rates?: Pick<FareExtras, 'carrierCharge'>, petRate = 0, partnerPetRate = 0): PriceResult {
+export function withBookingAddOns(result: PriceResult, selection: unknown, rates?: { carrierCharge: number }, petRate = 0, partnerPetRate = 0): PriceResult {
   const selected = bookingAddOnsOf(selection);
   if (!selected.roofCarrier && !selected.pets) return result;
   const included = result.fare.gstDetails?.mode === 'included';

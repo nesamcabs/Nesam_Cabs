@@ -10,7 +10,7 @@ import { db } from "./firebase";
 import { COLLECTIONS, describeDataError } from "./adminFirestoreService";
 import { ActionError, callFunction } from "./callables";
 import type { Booking, MasterLocation, VehicleCategory } from "../types";
-import type { BookingFareBreakdown } from "./bookingFareEngine";
+import type { BookingFareBreakdown } from "./bookingFareTypes";
 import type { PickedPoint } from "../components/MapLocationPicker";
 
 export { ActionError as AdminBookingError, newId as newRequestIdWithPrefix } from "./callables";

@@ -142,39 +142,10 @@ export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (requ
       return { id: requestId, fare: previous.data()!.fare };
     }
     // Several advance bookings may be open at once; there is no "one active booking" limit.
-    let configured = categories.docs.map(d => {
+    const configured = categories.docs.map(d => {
       const c = mapCategory(d.id, d.data());
       return c ? { ...c, tariffClass: d.data().tariffClass, dutyClass: d.data().dutyClass } : null;
     }).filter((c): c is NonNullable<typeof c> => c !== null);
-    if (!configured.length) {
-      configured = [
-        {
-          id: 'cat-sedan', name: 'Sedan', description: 'Swift Dzire, Toyota Etios or similar', seats: 4, displayOrder: 1,
-          matchVehicleTypes: ['sedan', 'dzire', 'etios'], tariffClass: 'sedan', dutyClass: 'sedan',
-          fare: { baseFare: 0, baseKm: 0, perKmRate: 15, perMinuteRate: 0, minimumFare: 1950, nightCharge: 0, driverAllowance: 400, outstationPerKmRate: 15, extras: { waitingPerHour: 0, extraKmRate: 15, tollIncluded: false, parkingIncluded: false, permitCharge: 0, carrierCharge: 400 } },
-        },
-        {
-          id: 'cat-suv-6', name: 'SUV (6+1)', description: 'Maruti Ertiga, Mahindra Marazzo (6 Passengers)', seats: 6, displayOrder: 2,
-          matchVehicleTypes: ['suv', 'ertiga', 'marazzo'], tariffClass: 'suv-6', dutyClass: 'suv-6',
-          fare: { baseFare: 0, baseKm: 0, perKmRate: 20, perMinuteRate: 0, minimumFare: 2600, nightCharge: 0, driverAllowance: 400, outstationPerKmRate: 20, extras: { waitingPerHour: 0, extraKmRate: 20, tollIncluded: false, parkingIncluded: false, permitCharge: 0, carrierCharge: 400 } },
-        },
-        {
-          id: 'cat-suv-7', name: 'SUV (7+1)', description: 'Mahindra Scorpio, Bolero Neo (7 Passengers)', seats: 7, displayOrder: 3,
-          matchVehicleTypes: ['suv', 'scorpio', 'bolero'], tariffClass: 'suv-7', dutyClass: 'suv-7',
-          fare: { baseFare: 0, baseKm: 0, perKmRate: 20, perMinuteRate: 0, minimumFare: 2600, nightCharge: 0, driverAllowance: 400, outstationPerKmRate: 20, extras: { waitingPerHour: 0, extraKmRate: 20, tollIncluded: false, parkingIncluded: false, permitCharge: 0, carrierCharge: 400 } },
-        },
-        {
-          id: 'cat-innova', name: 'Innova', description: 'Toyota Innova (Spacious highway comfort, 7 Seater)', seats: 7, displayOrder: 4,
-          matchVehicleTypes: ['innova'], tariffClass: 'innova', dutyClass: 'innova',
-          fare: { baseFare: 0, baseKm: 0, perKmRate: 20, perMinuteRate: 0, minimumFare: 2600, nightCharge: 0, driverAllowance: 400, outstationPerKmRate: 20, extras: { waitingPerHour: 0, extraKmRate: 20, tollIncluded: false, parkingIncluded: false, permitCharge: 0, carrierCharge: 400 } },
-        },
-        {
-          id: 'cat-crysta', name: 'Innova Crysta', description: 'Executive Luxury MPV, Premium Highway Driver', seats: 7, displayOrder: 5,
-          matchVehicleTypes: ['crysta', 'innova crysta'], tariffClass: 'crysta', dutyClass: 'crysta',
-          fare: { baseFare: 0, baseKm: 0, perKmRate: 26, perMinuteRate: 0, minimumFare: 3380, nightCharge: 0, driverAllowance: 600, outstationPerKmRate: 26, extras: { waitingPerHour: 0, extraKmRate: 26, tollIncluded: false, parkingIncluded: false, permitCharge: 0, carrierCharge: 400 } },
-        },
-      ];
-    }
     const catReq = (input.categoryId || '').trim().toLowerCase();
     const category = configured.find(c =>
       c.id === input.categoryId ||

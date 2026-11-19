@@ -14,7 +14,7 @@ async function main() {
   await db.doc('vendors/audit-vendor').set({uid:'audit-vendor',role:'vendor',companyName:'Audit Fleet',name:'Audit Vendor',phone:'+910000000002',email:'vendor@example.test',status:'APPROVED',createdAt:TS.now()});
   await db.doc('drivers/audit-driver').set({uid:'audit-driver',role:'driver',name:'Audit Driver',phone:'+910000000003',email:'driver@example.test',status:'Approved',docStatus:'Approved',presenceStatus:'Online',fleetStatus:'Active',vendorId:'',assignedVehicleId:'audit-vehicle',assignedVehicleNumber:'TN00AA0001',createdAt:TS.now()});
   await db.doc('vehicles/audit-vehicle').set({vendorId:'',assignedDriverId:'audit-driver',vehicleNumber:'TN00AA0001',make:'Maruti',model:'Dzire',category:'Sedan',seatingCapacity:4,docStatus:'Approved',status:'Active',createdAt:TS.now()});
-  await db.doc('vehicle_categories/audit-sedan').set({name:'Sedan',code:'sedan',seatingCapacity:4,status:'Active',displayOrder:1,fare:{baseFare:70,baseKm:2,perKmRate:16,minimumFare:100}});
+  await db.doc('vehicle_categories/audit-sedan').set({name:'Sedan',code:'sedan',seatingCapacity:4,status:'Active',displayOrder:1});
   await db.doc('services/audit-service').set({name:'Audit One Way',code:'AUDIT_ONEWAY',slug:'audit-one-way',serviceType:'One Way Taxi',status:'Active',onlineBookingEnabled:true,adminBookingEnabled:true,displayOrder:1});
   await db.doc('locations/audit-city').set({name:'Theni',state:'Tamil Nadu',type:'City',status:'Active',latitude:10.0104,longitude:77.4768});
   await db.doc('b2b_partners/audit-b2b').set({name:'Audit Corporate',category:'Corporate',status:'Active'});

@@ -18,7 +18,7 @@ import { FareBreakdown } from './types';
 import { ExtraChargesConfig, ExtraChargesSnapshot, parseExtraCharges } from './extraCharges';
 import {
   DEFAULT_TIME_BASED, SLAB_LABEL, TimeBasedClassRates, TimeBasedSettings, TimeBasedSnapshot, SlabAmounts, SlabId, istInstant, istMinutes, morningEligible,
-  nextDayFirstSlab, resolveTimeBasedFinal, sameDaySlabs, slabsOf, fullDaySlab, morningCutoffOf, slabLabel, isExtraSlabId, MAX_EXTRA_SLABS, type ExtraSlab,
+  nextDayFirstSlab, resolveTimeBasedFinal, sameDaySlabs, slabsOf, fullDaySlab, morningCutoffOf, slabLabel, morningLabel, nextDayLabel, parsePackageNames, cleanPackageName, isExtraSlabId, MAX_EXTRA_SLABS, type ExtraSlab,
 } from './timeBased';
 export type { TimeBasedClassRates, TimeBasedSettings, TimeBasedSnapshot } from './timeBased';
 export { DEFAULT_TIME_BASED } from './timeBased';
@@ -207,45 +207,6 @@ export interface TariffConfig {
   brandOverrides?: Partial<Record<string, Partial<Record<string, Partial<Record<TariffClass, BrandFareOverride>>>>>>;
 }
 
-/** The values the owner confirmed on 09 Oct 2026 (Crysta one-way bata ₹600 supersedes ₹500). */
-export const CONFIRMED_TARIFF_V2: Omit<TariffConfig, 'version' | 'enabled'> = {
-  gstRate: 0.05,
-  oneWay: {
-    minKm: 130,
-    classes: {
-      sedan: { customerRate: 15, customerBata: 400, partnerRate: 13.5, partnerBata: 300 },
-      suv: { customerRate: 20, customerBata: 400, partnerRate: 18, partnerBata: 300 },
-      crysta: { customerRate: 26, customerBata: 600, partnerRate: 24, partnerBata: 400 },
-    },
-  },
-  roundTrip: {
-    maxDays: 30,
-    miniMaxHours: 7,
-    miniMaxKm: 150,
-    classes: {
-      sedan: { customerRate: 14, customerBata: 400, partnerRate: 12.6, partnerBata: 300, minKmPerDay: 250, miniFare: 2600, miniPartnerFare: 2340 },
-      suv: { customerRate: 19, customerBata: 400, partnerRate: 17.1, partnerBata: 300, minKmPerDay: 250, miniFare: 3400, miniPartnerFare: 3060 },
-      crysta: { customerRate: 22, customerBata: 500, partnerRate: 20, partnerBata: 400, minKmPerDay: 300, miniFare: 4700, miniPartnerFare: 4230 },
-    },
-  },
-  rental: {
-    classes: {
-      sedan: { firstHour: 500, laterHour: 350, minHours: 4, minTimeFare: 1550, partnerPerHour: 250 },
-      suv: { firstHour: 700, laterHour: 450, minHours: 5, minTimeFare: 2500, partnerPerHour: 400 },
-      crysta: { firstHour: 800, laterHour: 600, minHours: 10, minTimeFare: 6200, partnerPerHour: 500 },
-    },
-  },
-  cityDrop: {
-    baseKm: 20,
-    zones: [],
-    classes: {
-      sedan: { customerBase: 800, customerExtraKm: 35, partnerBase: 500, partnerExtraKm: 25 },
-      suv: { customerBase: 1200, customerExtraKm: 50, partnerBase: 700, partnerExtraKm: 35 },
-      crysta: { customerBase: 2000, customerExtraKm: 70, partnerBase: 1200, partnerExtraKm: 50 },
-    },
-  },
-};
-
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0;
 
 function rateMap<T extends object>(v: unknown, keys: readonly (keyof T)[]): Partial<Record<TariffClass, T>> {
@@ -308,8 +269,10 @@ export function parseTimeBasedSettings(v: unknown): TimeBasedSettings | undefine
   };
   const extra = parseExtraSlabs(o.extraSlabs, s);
   if (extra.length) s.extraSlabs = extra;
+  const names = parsePackageNames(o.names);
+  if (names) s.names = names;
   // Inconsistent boundaries would make the offered packages overlap: fall back to the confirmed ones.
-  if (s.fiveHours >= s.eightHours || s.nextDayEightFromMinutes >= s.nextDayFiveFromMinutes || s.cutoffMinutes <= s.eightHours * 60 || s.fiveKmLimit > s.shortKmLimit || s.lateNightEndMinutes >= s.nextDayEightFromMinutes) return { ...D, enabled: s.enabled };
+  if (s.fiveHours >= s.eightHours || s.nextDayEightFromMinutes >= s.nextDayFiveFromMinutes || s.cutoffMinutes <= s.eightHours * 60 || s.fiveKmLimit > s.shortKmLimit || s.lateNightEndMinutes >= s.nextDayEightFromMinutes) return { ...D, enabled: s.enabled, ...(names ? { names } : {}) };
   return s;
 }
 
@@ -324,7 +287,8 @@ export function parseExtraSlabs(v: unknown, s: Pick<TimeBasedSettings, 'fiveHour
     if (typeof h !== 'number' || !Number.isInteger(h) || h < 1 || h > 23 || h === s.fiveHours || h === s.eightHours || seen.has(h) || h * 60 >= s.cutoffMinutes) continue;
     if (!isPos(e?.kmLimit)) continue;
     seen.add(h);
-    out.push({ hours: h, kmLimit: e!.kmLimit as number });
+    const name = cleanPackageName(e?.name);
+    out.push({ hours: h, kmLimit: e!.kmLimit as number, ...(name ? { name } : {}) });
   }
   return out.sort((a, b) => a.hours - b.hours).slice(0, MAX_EXTRA_SLABS);
 }
@@ -993,7 +957,7 @@ export function planTimeBasedRoundTrip(i: { config: TariffConfig; tariffClass: T
       const a = slabs[slab as keyof typeof slabs];
       if (!a) continue; // an extra hour slab this class has no amounts for
       options.push({
-        id: `same:${slab}`, kind: 'same_day', label: slabLabel(slab), hours: a.hours, day1: null, includedKm: a.includedKm, farePaise: a.farePaise, partnerPaise: a.partnerPaise,
+        id: `same:${slab}`, kind: 'same_day', label: slabLabel(slab, s), hours: a.hours, day1: null, includedKm: a.includedKm, farePaise: a.farePaise, partnerPaise: a.partnerPaise,
         endMs: slab === 'full' ? istInstant(i.pickupMs, 0, s.cutoffMinutes) : i.pickupMs + (a.hours ?? 0) * 3_600_000, days: 1, dayKm: [a.includedKm],
       });
     }
@@ -1002,7 +966,7 @@ export function planTimeBasedRoundTrip(i: { config: TariffConfig; tariffClass: T
   }
   if (i.tripDays <= 2 && morningEligible(s, t, i.pickupMs, estMinutes, roundTripKm)) {
     options.push({
-      id: 'morning', kind: 'morning', label: 'Morning Return', hours: null, day1: null, includedKm: t.morningKm!, farePaise: paise(t.morningFare!), partnerPaise: paise(t.morningPartner!),
+      id: 'morning', kind: 'morning', label: morningLabel(s), hours: null, day1: null, includedKm: t.morningKm!, farePaise: paise(t.morningFare!), partnerPaise: paise(t.morningPartner!),
       endMs: morningCutoffOf(s, i.pickupMs), days: 2, dayKm: [t.morningKm!],
     });
   }
@@ -1010,7 +974,7 @@ export function planTimeBasedRoundTrip(i: { config: TariffConfig; tariffClass: T
   const day1 = nextDayFirstSlab(s, i.pickupMs);
   const more = days - 1;
   options.push({
-    id: 'next', kind: 'next_day', label: days === 2 ? 'Next-Day Return' : `${days}-Day Round Trip`, hours: null, day1, includedKm: slabs[day1].includedKm + slabs.full.includedKm * more,
+    id: 'next', kind: 'next_day', label: nextDayLabel(days, s), hours: null, day1, includedKm: slabs[day1].includedKm + slabs.full.includedKm * more,
     farePaise: slabs[day1].farePaise + slabs.full.farePaise * more, partnerPaise: slabs[day1].partnerPaise + slabs.full.partnerPaise * more,
     endMs: istInstant(i.pickupMs, days - 1, s.cutoffMinutes), days, dayKm: [slabs[day1].includedKm, ...Array.from({ length: more }, () => slabs.full.includedKm)],
   });
@@ -1047,13 +1011,13 @@ export function quoteRoundTripTimeBased(i: QuoteInput): QuoteResult {
   if (opt.kind === 'morning') {
     const day1 = nextDayFirstSlab(s, i.pickupMs);
     upgrade = {
-      packageId: 'next', label: 'Next-Day Return', day1, includedKm: slabs[day1].includedKm + slabs.full.includedKm, farePaise: slabs[day1].farePaise + slabs.full.farePaise,
+      packageId: 'next', label: nextDayLabel(2, s), day1, includedKm: slabs[day1].includedKm + slabs.full.includedKm, farePaise: slabs[day1].farePaise + slabs.full.farePaise,
       partnerPaise: slabs[day1].partnerPaise + slabs.full.partnerPaise, coverageEndMs: istInstant(i.pickupMs, 1, s.cutoffMinutes),
     };
   }
   const timeBased: TimeBasedSnapshot = {
     kind: opt.kind, packageId: opt.id, label: opt.label, pickupMs: i.pickupMs, pickupMin, cutoffMin: s.cutoffMinutes, days: opt.days, hours: opt.hours, coverageEndMs: opt.endMs,
-    limits: { fiveHours: s.fiveHours, eightHours: s.eightHours, shortKmLimit: s.shortKmLimit, ...(s.extraSlabs?.length ? { extra: s.extraSlabs } : {}) },
+    limits: { fiveHours: s.fiveHours, eightHours: s.eightHours, shortKmLimit: s.shortKmLimit, ...(s.extraSlabs?.length ? { extra: s.extraSlabs } : {}), ...(s.names ? { names: s.names } : {}) },
     base: { farePaise: opt.farePaise, partnerPaise: opt.partnerPaise, includedKm: opt.includedKm, hours: opt.hours },
     ...(opt.kind === 'same_day' ? { slabs, allowed: plan.options.filter((o) => o.kind === 'same_day').map((o) => o.id.slice(5) as SlabId), selected: opt.id.slice(5) as SlabId } : {}),
     ...(opt.day1 ? { day1: opt.day1 } : {}),

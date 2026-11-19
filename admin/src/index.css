@@ -1743,3 +1743,13 @@ html { scroll-padding-top: 150px; }
   .fm-jump__help { margin-left: 0; }
   .fm-form { padding: 14px; }
 }
+
+/* A table row whose one control applies to every vehicle (a package's name, hours, km limit ...). */
+.fm-sharedcell { text-align: left; }
+.fm-shared { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.fm-shared .fm-input { max-width: 132px; }
+.fm-shared .fm-input--text { max-width: 300px; width: 300px; text-align: left; font-weight: 600; }
+.fm-shared__hint { color: #8b95a7; font-size: 11.5px; }
+.fm-shared__remove { padding: 4px 12px; border: 1px solid #e3b8bb; border-radius: 8px; background: #fff; color: #b4232c; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.fm-shared__remove:hover:not(:disabled) { background: #fff3f3; }
+.fm-shared__remove:disabled { opacity: .5; cursor: not-allowed; }

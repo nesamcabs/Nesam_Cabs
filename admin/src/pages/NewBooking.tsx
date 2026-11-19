@@ -171,7 +171,6 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
   const q = chosen?.quote ?? null;
   const business = data.business.find((b) => b.id === trip.businessId);
   const service = data.services.find((s) => s.id === trip.serviceId);
-  const waitingRate = Number((chosen?.category.fare as { waitingChargePerHour?: number } | undefined)?.waitingChargePerHour) || 0;
 
   // Existing customer by mobile number.
   const match = useMemo(() => {
@@ -478,7 +477,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
 
                 <section className="card" aria-labelledby="rv-addons-head">
                   <h2 id="rv-addons-head">Travel add-ons</h2>
-                  <label className="check"><input type="checkbox" className="check__input" checked={trip.carrier} disabled={busy} onChange={e => void changeAddOns({ carrier: e.target.checked })} /><span className="check__label">Roof carrier (+{rupee(chosen?.category.fare?.carrierCharge ?? 0)} / trip)</span></label>
+                  <label className="check"><input type="checkbox" className="check__input" checked={trip.carrier} disabled={busy} onChange={e => void changeAddOns({ carrier: e.target.checked })} /><span className="check__label">Roof carrier (+{rupee(chosen?.quote?.addOnRates?.carrierCharge ?? 0)} / trip)</span></label>
                   <label className="check"><input type="checkbox" className="check__input" checked={trip.pets === true} disabled={busy} onChange={e => void changeAddOns({ pets: e.target.checked })} /><span className="check__label">Travelling with pets (+{rupee(chosen?.quote?.addOnRates?.petCharge ?? 0)} / trip)</span></label>
                   <p className="muted">Selected charges are included in the total and bill. GST follows the fare settings.</p>
                 </section>

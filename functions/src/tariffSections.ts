@@ -9,7 +9,7 @@ import { FieldValue, type DocumentData } from 'firebase-admin/firestore';
 import { db } from './admin';
 import { auditInTx } from './audit';
 import { parseHillStationConfig } from './domain/hillStations';
-import { MAX_EXTRA_SLABS, extraSlabId, isExtraSlabId, type ExtraSlab, type ExtraSlabId } from './domain/timeBased';
+import { MAX_EXTRA_SLABS, MAX_PACKAGE_NAME, PACKAGE_NAME_KEYS, cleanPackageName, extraSlabId, isExtraSlabId, parsePackageNames, type ExtraSlab, type ExtraSlabId } from './domain/timeBased';
 import {
   BrandFareOverride, RENTAL_HOURS, RentalPackage, TARIFF_CLASSES, TariffClass, TariffConfig, TimeBasedClassRates, TimeBasedSettings, DEFAULT_TIME_BASED, parseRentalPackage, parseTariffConfig, rentalMinHours,
 } from './domain/tariff';
@@ -314,7 +314,7 @@ const minuteOfDay = (v: unknown, label: string): number => {
  * is not entered here: it is the class's normal Round Trip day (daily minimum KM × rate + allowance). Switching `enabled` on
  * makes customer Round Trip quotes time-based for every class that has amounts; the others keep calendar pricing.
  */
-function applyRoundTripTimeBased(base: TariffConfig, d: Record<string, unknown>): TariffConfig {
+export function applyRoundTripTimeBased(base: TariffConfig, d: Record<string, unknown>): TariffConfig {
   const next: TariffConfig = { ...base, roundTrip: { ...base.roundTrip, classes: { ...base.roundTrip.classes } } };
   const sIn = obj(d.settings, 'The time-based settings');
   const settings: TimeBasedSettings = {
@@ -349,9 +349,21 @@ function applyRoundTripTimeBased(base: TariffConfig, d: Record<string, unknown>)
       if (seen.has(hours)) throw bad(`There are two ${hours}-hour slabs. Each slab needs its own hours.`);
       if (hours * 60 >= settings.cutoffMinutes) throw bad(`A ${hours}-hour slab cannot end before the booked cutoff.`);
       seen.add(hours);
-      list.push({ hours, kmLimit: amount(e.kmLimit, `The ${hours}-hour slab kilometre limit`, true) });
+      if (typeof e.name === 'string' && e.name.trim().length > MAX_PACKAGE_NAME) throw bad(`The name of the ${hours}-hour package can have at most ${MAX_PACKAGE_NAME} characters.`);
+      const name = cleanPackageName(e.name);
+      list.push({ hours, kmLimit: amount(e.kmLimit, `The ${hours}-hour slab kilometre limit`, true), ...(name ? { name } : {}) });
     }
     if (list.length) settings.extraSlabs = list.sort((a, b) => a.hours - b.hours);
+  }
+  // Package names (optional): what the customer sees instead of "5-Hour Return" etc. A blank name keeps the standard one.
+  if (sIn.names !== undefined && sIn.names !== null) {
+    const namesIn = obj(sIn.names, 'The package names');
+    for (const k of PACKAGE_NAME_KEYS) {
+      const v = namesIn[k];
+      if (typeof v === 'string' && v.trim().length > MAX_PACKAGE_NAME) throw bad(`A package name can have at most ${MAX_PACKAGE_NAME} characters.`);
+    }
+    const names = parsePackageNames(namesIn);
+    if (names) settings.names = names;
   }
   next.roundTrip.timeBased = settings;
   const classes = obj(d.classes, 'The class amounts');

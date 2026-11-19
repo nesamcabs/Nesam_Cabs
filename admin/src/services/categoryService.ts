@@ -1,6 +1,7 @@
 import {
   collection,
   deleteDoc,
+  deleteField,
   doc,
   getDocs,
   query,
@@ -13,7 +14,7 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { COLLECTIONS, describeDataError } from "./adminFirestoreService";
-import type { VehicleCategory, VehicleCategoryFare } from "../types";
+import type { VehicleCategory } from "../types";
 
 export class CategoryActionError extends Error {}
 
@@ -41,9 +42,8 @@ export const categoryStatusForBrand = (cat: Pick<VehicleCategory, "status" | "br
 export const carImageForBrand = (cat: Pick<VehicleCategory, "brandImages" | "imageUrl">, brand: BrandImageKey) =>
   cat.brandImages?.[brand] || cat.imageUrl || "";
 
-export type CategoryForm = Omit<VehicleCategory, "id" | "vehicleCount" | "createdAt" | "updatedAt" | "createdBy" | "fare"> & {
-  fare: Required<VehicleCategoryFare>;
-};
+/** A category carries no fares: every price is set in Service & Fare Settings. */
+export type CategoryForm = Omit<VehicleCategory, "id" | "vehicleCount" | "createdAt" | "updatedAt" | "createdBy">;
 
 export type CategoryField =
   | "name"
@@ -52,27 +52,7 @@ export type CategoryField =
   | "iconUrl"
   | "seatingCapacity"
   | "recommendedPassengers"
-  | "displayOrder"
-  | `fare.${keyof VehicleCategoryFare}`;
-
-export const FARE_FIELD_LIMITS: Record<keyof VehicleCategoryFare, number> = {
-  baseFare: 100000,
-  baseKm: 1000,
-  perKmRate: 1000,
-  minimumFare: 100000,
-  driverAllowance: 100000,
-  nightAllowance: 100000,
-  waitingChargePerHour: 100000,
-  extraHourCharge: 100000,
-  extraKmCharge: 1000,
-  tollIncluded: 1,
-  parkingIncluded: 1,
-  permitCharge: 100000,
-  carrierCharge: 100000,
-  outstationPerKmRate: 1000,
-  outstationDriverBattaPerDay: 100000,
-  outstationMinKmPerDay: 2000,
-};
+  | "displayOrder";
 
 /** "Innova Crysta" → "INNOVA_CRYSTA". */
 export const deriveCategoryCode = (value: string) =>
@@ -115,16 +95,6 @@ export function validateCategory(
   if (!Number.isInteger(form.displayOrder ?? 1) || (form.displayOrder ?? 1) < 1) {
     errors.displayOrder = "Display order must be a whole number of 1 or more.";
   }
-  for (const [key, max] of Object.entries(FARE_FIELD_LIMITS) as [keyof VehicleCategoryFare, number][]) {
-    const value = form.fare[key];
-    if (typeof value !== "number") continue;
-    if (!Number.isFinite(value) || value < 0) errors[`fare.${key}`] = "Must be zero or more.";
-    else if (value > max) errors[`fare.${key}`] = `Must not exceed ${max.toLocaleString("en-IN")}.`;
-  }
-  // Fares are no longer entered on this form (pricing lives in Common price), so a per-km rate is not required here.
-  if (!errors["fare.minimumFare"] && form.fare.minimumFare > 0 && form.fare.minimumFare < form.fare.baseFare) {
-    errors["fare.minimumFare"] = "Minimum fare cannot be lower than the base fare.";
-  }
   return errors;
 }
 
@@ -150,7 +120,6 @@ function payloadFrom(form: CategoryForm) {
     displayOrder: form.displayOrder || 1,
     cngEnabled: form.cngEnabled === true,
     status: form.status,
-    fare: { ...form.fare },
   };
 }
 
@@ -262,7 +231,7 @@ export async function saveCategory(form: CategoryForm, existing: VehicleCategory
       await setDoc(ref, { ...data, id: ref.id, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
       return { id: ref.id, renamed: 0 };
     }
-    await updateDoc(doc(db, COLLECTIONS.VEHICLE_CATEGORIES, existing.id), { ...data, updatedAt: serverTimestamp() });
+    await updateDoc(doc(db, COLLECTIONS.VEHICLE_CATEGORIES, existing.id), { ...data, fare: deleteField(), updatedAt: serverTimestamp() });
   } catch (err) {
     throw new CategoryActionError(describeDataError(err));
   }

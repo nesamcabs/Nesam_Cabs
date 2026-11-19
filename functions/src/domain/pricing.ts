@@ -26,12 +26,8 @@ function vehicleTypeAliases(...labels: string[]): string[] {
 }
 
 export function mapCategory(id: string, d: Record<string, any>): RideCategory | null {
-  const f = d.fare && typeof d.fare === 'object' ? d.fare : {};
-  const perKmRate = num(f.perKmRate);
-  // A category without the older per-km fare is still listed: fares now come from Service & Fare Settings (tariff_v2).
-  // Where only the older category fare could price a trip, priceBooking refuses it instead of charging ₹0.
+  // Category records carry no fares: every price comes from Service & Fare Settings (business_config/tariff_v2).
   if (!str(d.name)) return null;
-  const waitingPerHour = num(f.waitingChargePerHour);
   return {
     id,
     name: str(d.name),
@@ -40,25 +36,6 @@ export function mapCategory(id: string, d: Record<string, any>): RideCategory | 
     imageUrl: str(d.imageUrl) || undefined,
     iconUrl: str(d.iconUrl) || undefined,
     matchVehicleTypes: vehicleTypeAliases(str(d.name), str(d.code)),
-    fare: {
-      baseFare: num(f.baseFare),
-      baseKm: num(f.baseKm),
-      perKmRate,
-      perMinuteRate: f.perMinuteRate != null ? num(f.perMinuteRate) : waitingPerHour > 0 ? waitingPerHour / 60 : 0,
-      minimumFare: num(f.minimumFare),
-      nightCharge: num(f.nightAllowance),
-      driverAllowance: num(f.outstationDriverBattaPerDay) || num(f.driverAllowance),
-      outstationPerKmRate: num(f.outstationPerKmRate) || undefined,
-      extras: {
-        waitingPerHour: waitingPerHour,
-        extraKmRate: num(f.extraKmCharge) || perKmRate,
-        // Absent flags mean "not included": the customer pays at actuals.
-        tollIncluded: f.tollIncluded === true,
-        parkingIncluded: f.parkingIncluded === true,
-        permitCharge: num(f.permitCharge),
-        carrierCharge: num(f.carrierCharge),
-      },
-    },
     displayOrder: num(d.displayOrder, 99),
     cngEnabled: d.cngEnabled === true,
   };
@@ -107,89 +84,7 @@ export interface AdminDiscountInput {
   reason?: string;
 }
 
-export interface FareInput {
-  category: RideCategory;
-  route: RouteInfo;
-  tripType: TripType;
-  pickupTime: Date;
-  /** Coupon discount in rupees (customer bookings). */
-  discount?: number;
-  /** Global percentage adjustment, applied once to the package total. */
-  adjustment?: FareAdjustmentInput | null;
-  /** Admin percentage / fixed discount (admin bookings). */
-  adminDiscount?: AdminDiscountInput | null;
-}
-
-export function calculateFare({ category, route, tripType, pickupTime, discount = 0, adjustment = null, adminDiscount = null }: FareInput): FareBreakdown {
-  if (adminDiscount && discount > 0) throw new Error('A booking takes either a coupon or an admin discount, not both.');
-  const f = category.fare;
-  const legs = tripType === 'Round Trip' ? 2 : 1;
-  const km = route.distanceKm * legs;
-  const minutes = route.durationMin * legs;
-  const outstation = isOutstation(route.distanceKm);
-
-  const perKmRate = outstation && f.outstationPerKmRate ? f.outstationPerKmRate : f.perKmRate;
-  // Outstation trips are priced per km plus driver allowance; time isn't billed.
-  const perMinuteRate = outstation ? 0 : f.perMinuteRate;
-
-  const baseFare = Math.round(f.baseFare);
-  const distanceFare = Math.round(Math.max(0, km - f.baseKm) * perKmRate);
-  const timeFare = Math.round(minutes * perMinuteRate);
-  const nightCharge = isNightTime(pickupTime) ? Math.round(f.nightCharge) : 0;
-  // One allowance per 12 hours of driving (covers the return leg on round trips).
-  const driverAllowance = outstation ? Math.round(f.driverAllowance * Math.max(1, Math.ceil(minutes / 720))) : 0;
-
-  const raw = baseFare + distanceFare + timeFare + nightCharge + driverAllowance;
-  const minimumFareAdjustment = Math.max(0, Math.round(f.minimumFare) - raw);
-  const subtotalBeforeAdjustment = raw + minimumFareAdjustment;
-  // One percentage of the pre-adjustment total. Never applied to an already
-  // adjusted figure, so a later change cannot compound.
-  const percent = adjustment ? Math.min(100, Math.max(0, adjustment.percent)) : 0;
-  const adjustmentAmount = adjustment && percent > 0
-    ? (adjustment.direction === 'decrease' ? -1 : 1) * Math.round((subtotalBeforeAdjustment * percent) / 100)
-    : 0;
-  const subtotal = Math.max(0, subtotalBeforeAdjustment + adjustmentAmount);
-  const globalAdjustment = adjustment && percent > 0
-    ? { id: adjustment.id, name: adjustment.name, direction: adjustment.direction, percent, amount: adjustmentAmount }
-    : null;
-
-  let requested = Math.max(0, Math.round(discount));
-  let discountDetail: DiscountDetail | null = requested > 0 ? { type: 'coupon', value: requested, amount: 0, source: 'coupon', reason: '' } : null;
-  if (adminDiscount) {
-    const v = Math.max(0, adminDiscount.value);
-    requested = adminDiscount.type === 'percentage' ? Math.round((subtotal * Math.min(100, v)) / 100) : Math.round(v);
-    discountDetail = requested > 0 ? { type: adminDiscount.type, value: v, amount: 0, source: 'admin', reason: adminDiscount.reason ?? '' } : null;
-  }
-  // The payable amount can never go below zero.
-  const appliedDiscount = Math.min(requested, subtotal);
-  if (discountDetail) discountDetail.amount = appliedDiscount;
-  const taxableAmount = subtotal - appliedDiscount;
-  const gst = Math.round(taxableAmount * GST_RATE);
-
-  return {
-    subtotalBeforeAdjustment,
-    globalAdjustment,
-    discountDetail,
-    baseFare,
-    distanceFare,
-    timeFare,
-    nightCharge,
-    driverAllowance,
-    minimumFareAdjustment,
-    subtotal,
-    discount: appliedDiscount,
-    taxableAmount,
-    gstRate: GST_RATE,
-    gst,
-    total: taxableAmount + gst,
-    distanceKm: Math.round(km * 10) / 10,
-    durationMin: Math.round(minutes),
-    perKmRate,
-    perMinuteRate,
-  };
-}
-
-/** Splits a GST-inclusive total the way calculateFare rounds GST. */
+/** Splits a GST-inclusive total the way the fare engine rounds GST. */
 export function splitGstInclusive(total: number): { taxableAmount: number; gst: number } {
   let taxable = Math.floor(total / (1 + GST_RATE));
   while (taxable + 1 + Math.round((taxable + 1) * GST_RATE) <= total) taxable++;

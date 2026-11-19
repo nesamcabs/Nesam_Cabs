@@ -5,16 +5,17 @@ const { priceBooking } = require('../lib/quote');
 const { mapCategory } = require('../lib/domain/pricing');
 const { isNightAllowanceTime, nightAllowanceFor, parseNightAllowance } = require('../lib/domain/nightAllowance');
 const T = require('../lib/domain/tariff');
+const { CONFIRMED_TARIFF_V2 } = require('./support/confirmedTariff');
 
 const policy = (mode) => ({ common: { 'One Way': { default: { supplierState: '33', rate: 0.05, mode, classification: 'passenger', reference: 'Approved test policy' } } } });
-const category = (id = 'suv') => ({ ...mapCategory(id, { name: 'SUV', seatingCapacity: 6, fare: { perKmRate: 18 } }), tariffClass: 'suv' });
+const category = (id = 'suv') => ({ ...mapCategory(id, { name: 'SUV', seatingCapacity: 6 }), tariffClass: 'suv' });
 const night = (patch = {}) => ({ enabled: true, amount: 300, version: 1, ...patch });
 const input = (patch = {}, mode = 'excluded') => ({
   category: category(), route: { distanceKm: 160, durationMin: 180 }, tripType: 'One Way',
   pickup: { id: 'pin', name: 'Chennai', address: 'Chennai, Tamil Nadu', lat: 13.08, lng: 80.27, type: 'other' },
   drop: { id: 'pin', name: 'Pondicherry', address: 'Pondicherry', lat: 11.94, lng: 79.8, type: 'other' },
   pickupAt: new Date('2026-11-08T23:30:00+05:30'), tripEndAt: null,
-  tariff: T.parseTariffConfig({ ...T.CONFIRMED_TARIFF_V2, version: 1, enabled: true, fareGst: policy(mode) }),
+  tariff: T.parseTariffConfig({ ...CONFIRMED_TARIFF_V2, version: 1, enabled: true, fareGst: policy(mode) }),
   adjustment: null, brand: 'nesam', nightAllowance: night(), ...patch,
 });
 const at = (hhmm) => new Date(`2026-11-08T${hhmm}:00+05:30`);
@@ -88,8 +89,9 @@ test('the night allowance stays in the final fare', () => {
 });
 
 test('it combines with the roof carrier add-on without double counting', () => {
-  const cat = { ...category(), fare: { ...category().fare, extras: { ...category().fare.extras, carrierCharge: 400 } } };
-  const both = priceBooking(input({ addOns: { roofCarrier: true, pets: false }, category: cat }));
+  const withCarrier = input({ addOns: { roofCarrier: true, pets: false } });
+  withCarrier.tariff = T.parseTariffConfig({ ...CONFIRMED_TARIFF_V2, version: 1, enabled: true, brandOverrides: { common: { 'One Way': { suv: { carrierCharge: 400 } } } }, fareGst: policy('excluded') });
+  const both = priceBooking(withCarrier);
   const base = priceBooking(input({ pickupAt: at('12:00'), nightAllowance: null }));
   assert.equal(cents(both.fare.taxableAmount - base.fare.taxableAmount), 700);
   assert.equal(both.fare.total, cents(both.fare.taxableAmount + both.fare.gst));

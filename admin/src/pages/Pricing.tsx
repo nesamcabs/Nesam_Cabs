@@ -298,7 +298,7 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
       {tab === "Brand & service fares" && !pickupDrop && <div className="space-y-4">
         {/* One table for every service: rates down the side, vehicles across the top (Hourly Rental: one row per package). */}
         <FareMatrix scope={fareScope} fuel={fuelApplies ? fareFuel : "petrol"}
-          vehicles={vehicles} cards={vehicleCards.map((card) => ({ cls: card.cls, name: card.name, categoryId: activeCats.length ? card.categoryId : undefined, cng: card.cng, carrier: activeCats.find((c) => c.id === card.categoryId)?.fare?.carrierCharge }))}
+          vehicles={vehicles} cards={vehicleCards.map((card) => ({ cls: card.cls, name: card.name, categoryId: activeCats.length ? card.categoryId : undefined, cng: card.cng }))}
           onDirtyChange={dirty => { workspaceDirty.current = dirty; }} onBusyChange={busy => { workspaceBusy.current = busy; }} />
         {/* Then the settings that sit on top of these rates, in the order a fare is built: packages, hill charge, how extras are billed, pet charge, display price. */}
         {fareScope.service === "Round Trip" ? <TimeBasedRoundTripCard vehicles={vehicles} /> : null}

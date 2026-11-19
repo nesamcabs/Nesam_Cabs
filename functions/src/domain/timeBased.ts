@@ -33,10 +33,33 @@ export const SLAB_LABEL: Readonly<Record<'five' | 'eight' | 'full', string>> = {
 export const MAX_EXTRA_SLABS = 8;
 export const extraSlabId = (hours: number): ExtraSlabId => `h${hours}` as ExtraSlabId;
 export const isExtraSlabId = (id: string): id is ExtraSlabId => /^h([1-9]|1\d|2[0-3])$/.test(id);
-/** The name a customer sees: "5-Hour Return", "Full-Day Return", "6-Hour Return". */
-export function slabLabel(id: SlabId): string {
-  return id === 'five' || id === 'eight' || id === 'full' ? SLAB_LABEL[id] : `${id.slice(1)}-Hour Return`;
+/** Office-chosen names for the packages a customer sees. Any name left out keeps the standard one ("5-Hour Return"…). */
+export interface PackageNames { five?: string; eight?: string; full?: string; morning?: string; next?: string }
+export const PACKAGE_NAME_KEYS = ['five', 'eight', 'full', 'morning', 'next'] as const;
+export const MAX_PACKAGE_NAME = 40;
+export const MORNING_LABEL = 'Morning Return';
+export const NEXT_DAY_LABEL = 'Next-Day Return';
+/** A name as stored: trimmed, inner spaces collapsed, at most 40 characters; empty means "use the standard name". */
+export function cleanPackageName(v: unknown): string | undefined {
+  if (typeof v !== 'string') return undefined;
+  const s = v.replace(/\s+/g, ' ').trim().slice(0, MAX_PACKAGE_NAME).trim();
+  return s || undefined;
 }
+export function parsePackageNames(v: unknown): PackageNames | undefined {
+  if (!v || typeof v !== 'object') return undefined;
+  const out: PackageNames = {};
+  for (const k of PACKAGE_NAME_KEYS) { const n = cleanPackageName((v as Record<string, unknown>)[k]); if (n) out[k] = n; }
+  return Object.keys(out).length ? out : undefined;
+}
+type NameSource = Pick<TimeBasedSettings, 'names' | 'extraSlabs'>;
+/** The name a customer sees: "5-Hour Return", "Full-Day Return", "6-Hour Return" — or the name the office gave the package. */
+export function slabLabel(id: SlabId, s?: NameSource): string {
+  if (id === 'five' || id === 'eight' || id === 'full') return s?.names?.[id] || SLAB_LABEL[id];
+  return s?.extraSlabs?.find((x) => extraSlabId(x.hours) === id)?.name || `${id.slice(1)}-Hour Return`;
+}
+export const morningLabel = (s?: NameSource): string => s?.names?.morning || MORNING_LABEL;
+/** The overnight package: "Next-Day Return" for 2 days, "3-Day Round Trip" for more. */
+export const nextDayLabel = (days: number, s?: NameSource): string => (days === 2 ? s?.names?.next || NEXT_DAY_LABEL : `${days}-Day Round Trip`);
 
 /** One office-defined hour slab, shared by every class (the amounts are per class). */
 export interface ExtraSlab {
@@ -44,6 +67,8 @@ export interface ExtraSlab {
   hours: number;
   /** Offered only up to this round-trip distance (km); a trip that runs farther moves to a bigger slab. */
   kmLimit: number;
+  /** The name the customer sees instead of "6-Hour Return". */
+  name?: string;
 }
 export type TimePackageKind = 'same_day' | 'next_day' | 'morning';
 
@@ -68,6 +93,8 @@ export interface TimeBasedSettings {
   eightHours: number;
   /** Extra hour slabs the office added (sorted by hours). Absent / empty = only the 5-hour and 8-hour packages. */
   extraSlabs?: ExtraSlab[];
+  /** Names the office gave the packages (shown to customers, bookings and notifications). */
+  names?: PackageNames;
 }
 
 export const DEFAULT_TIME_BASED: Readonly<TimeBasedSettings> = {
@@ -106,7 +133,7 @@ export interface TimeBasedSnapshot {
   hours: number | null;
   /** When this package's coverage ends (an instant). */
   coverageEndMs: number;
-  limits: { fiveHours: number; eightHours: number; shortKmLimit: number; /** Extra hour slabs in force when booked. */ extra?: ExtraSlab[] };
+  limits: { fiveHours: number; eightHours: number; shortKmLimit: number; /** Extra hour slabs in force when booked. */ extra?: ExtraSlab[]; /** Package names in force when booked. */ names?: PackageNames };
   /** The booked package's own fare, partner payout and included km (without any estimated extra km). */
   base: SlabAmounts;
   /** Included km of each calendar day (e.g. [150, 250]); shown on the package card. */
@@ -265,7 +292,7 @@ export interface FinalTimeBased {
 export function resolveTimeBasedFinal(tb: TimeBasedSnapshot, actual: { startMs?: number | null; endMs: number; totalKm: number }): FinalTimeBased {
   const s: TimeBasedSettings = {
     ...DEFAULT_TIME_BASED, enabled: true, cutoffMinutes: tb.cutoffMin, fiveHours: tb.limits.fiveHours, eightHours: tb.limits.eightHours, shortKmLimit: tb.limits.shortKmLimit,
-    extraSlabs: tb.limits.extra ?? [],
+    extraSlabs: tb.limits.extra ?? [], ...(tb.limits.names ? { names: tb.limits.names } : {}),
   };
   if (tb.kind === 'same_day' && tb.slabs && tb.selected) {
     const start = Number.isFinite(actual.startMs) && (actual.startMs as number) > 0 ? (actual.startMs as number) : tb.pickupMs;
@@ -279,7 +306,7 @@ export function resolveTimeBasedFinal(tb: TimeBasedSnapshot, actual: { startMs?:
     const a = tb.slabs[final] ?? tb.slabs[tb.selected]!;
     const coverageEndMs = istInstant(tb.pickupMs, 0, tb.cutoffMin);
     return {
-      slab: final, label: slabLabel(final), farePaise: a.farePaise, partnerPaise: a.partnerPaise, includedKm: a.includedKm, upgraded: final !== tb.selected,
+      slab: final, label: slabLabel(final, s), farePaise: a.farePaise, partnerPaise: a.partnerPaise, includedKm: a.includedKm, upgraded: final !== tb.selected,
       coverageExceeded: actual.endMs > coverageEndMs, coverageEndMs,
     };
   }

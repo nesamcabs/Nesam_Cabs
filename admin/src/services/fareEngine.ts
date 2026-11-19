@@ -3,7 +3,6 @@ import {
   FareCalculationInput,
   FareCalculationResult,
   FareBreakdownItem,
-  VehicleCategory,
 } from "../types";
 
 /**
@@ -93,51 +92,19 @@ export function findMatchingFareRule(
 
 /**
  * QUOTATION RATE-CARD ENGINE (admin / phone bookings)
- * Pure, deterministic fare calculation from fare rules, falling back to the
- * vehicle category's own fare. Returns null when neither is configured —
- * a price is never invented. App bookings are priced by bookingFareEngine.
+ * Pure, deterministic fare calculation from the saved fare rules only.
+ * Returns null when no rule matches: a price is never invented. Booking
+ * quotes are priced by the server (functions/src/quote.ts).
  */
 export function calculateCentralFare(
   input: FareCalculationInput,
   fareRules: FareRule[],
-  vehicleCategories: VehicleCategory[] = [],
   onDate = new Date(),
 ): FareCalculationResult | null {
   const matchedRule = findMatchingFareRule(fareRules, input, onDate);
 
-  // Fallback to the vehicle category's configured fare if no rule matched.
-  const fallbackCat = vehicleCategories.find((c) => c.id === input.vehicleCategoryId);
-  let ruleToUse: Partial<FareRule> | null = matchedRule;
-
-  let fallbackUsed = false;
-  if (!ruleToUse && fallbackCat?.fare && Number(fallbackCat.fare.perKmRate) > 0) {
-    fallbackUsed = true;
-    const f = fallbackCat.fare;
-    // Same policy as the booking server: driver allowance only on outstation
-    // trips (over 40 km one way) and the night allowance from 22:00 to 06:00.
-    const outstation = (input.distanceKm || 0) > 40;
-    ruleToUse = {
-      name: `${fallbackCat.name} category fare`,
-      pricingType: "BASE_PLUS_PER_KM",
-      baseFare: f.baseFare || 0,
-      baseKm: f.baseKm || 0,
-      perKmRate: outstation && f.outstationPerKmRate ? f.outstationPerKmRate : f.perKmRate,
-      minimumFare: f.minimumFare || 0,
-      driverBatta: outstation ? f.outstationDriverBattaPerDay || f.driverAllowance || 0 : 0,
-      nightChargeEnabled: (f.nightAllowance || 0) > 0,
-      nightChargeType: "Fixed",
-      nightChargeValue: f.nightAllowance || 0,
-      nightStartTime: "22:00",
-      nightEndTime: "05:59",
-      waitingChargePerHour: f.waitingChargePerHour || 0,
-      tollMode: f.tollIncluded ? "Included" : "Excluded",
-      parkingMode: f.parkingIncluded ? "Included" : "Excluded",
-      permitCharge: f.permitCharge || 0,
-      status: "Active",
-    };
-  }
-
-  if (!ruleToUse) return null;
+  if (!matchedRule) return null;
+  const ruleToUse: Partial<FareRule> = matchedRule;
 
   const breakdown: FareBreakdownItem[] = [];
   const days = Math.max(1, input.tripDays || 1);
@@ -351,7 +318,7 @@ export function calculateCentralFare(
   breakdown.push({ label: "GST (5%)", amount: gstAmount });
 
   return {
-    matchedRule: fallbackUsed ? null : matchedRule,
+    matchedRule,
     baseFare,
     distanceFare,
     driverBatta,
@@ -368,6 +335,5 @@ export function calculateCentralFare(
     grandTotal,
     billableDistanceKm,
     breakdown,
-    fallbackUsed,
   };
 }

@@ -10,22 +10,20 @@ import { fareBoardingState, recipientAddressState, recipientGstState } from './f
 import { applyFareGst, fareGstFor, fareGstForScope, gstPricingInput, isDefaultFareGst } from './fareGstPricing';
 import { fareServiceKey } from './fareScope';
 // One pricing path for every booking source: customer app/web, Admin manual booking, the
-// quote preview and the final invoice all go through priceBooking(). The confirmed tariff
-// (domain/tariff.ts) is used when finance has enabled it in business_config/tariff_v2;
-// otherwise, and for duties the confirmed tariff does not cover yet (local / airport trips
-// outside a configured city zone), the admin vehicle-category fares remain in force and
-// the snapshot records which source priced the booking.
+// quote preview and the final invoice all go through priceBooking(). Every price comes from the
+// admin panel (Service & Fare Settings, saved in business_config/tariff_v2, fixed route fares and
+// rental packages). A trip the admin has not set a fare for is refused, never priced from a built-in number.
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { PUBLIC_CALLABLE_ORIGINS } from './corsOrigins';
 import { FieldValue, Timestamp, Transaction } from 'firebase-admin/firestore';
 import { db } from './admin';
 import { auditInTx } from './audit';
 import { DutyClass, dutyClassOf } from './domain/eligibility';
-import { buildFareBreakup, buildTariffFareBreakup, FareBreakup, withExtraChargeLines } from './domain/fareBreakup';
+import { buildTariffFareBreakup, FareBreakup, withExtraChargeLines } from './domain/fareBreakup';
 import { scopedAddOnRates, scopedExtraChargesSnapshot, scopedHillRates } from './domain/scopedExtraCharges';
-import { CATEGORY_GST_RATE, FareAdjustmentInput, calculateFare, isOutstation, serviceName } from './domain/pricing';
+import { AdminDiscountInput, CATEGORY_GST_RATE, FareAdjustmentInput, isOutstation, serviceName } from './domain/pricing';
 import {
-  CONFIRMED_TARIFF_V2, FixedRouteFare, completeAirportRates, defaultRentalHours, quoteAirport, PricingSnapshot, QuoteResult, TARIFF_CLASSES, TariffClass, TariffConfig, TariffError, cityDropFare, classRates, istDate, localFareIdFor, matchFixedRoute, paise,
+  FixedRouteFare, completeAirportRates, defaultRentalHours, quoteAirport, PricingSnapshot, QuoteResult, TARIFF_CLASSES, TariffClass, TariffConfig, TariffError, cityDropFare, classRates, istDate, localFareIdFor, matchFixedRoute, paise,
   parseFixedRouteFare, parseTariffConfig, gstOn, quoteFixedRoute, quoteLocalPickupDrop, quoteOneWay, quoteRentalPackage, quoteRoundTrip, quoteRoundTripMini, quoteRoundTripOvernightCombo, r2, withinCityZone, scopedTariffForBrand,
   calendarDays, finalizeFare, multicityRatesFor, quoteMulticity, displayMarkupPercent, quoteRoundTripTimeBased, timeBasedContext,
 } from './domain/tariff';
@@ -247,7 +245,7 @@ export interface PriceInput {
   adjustment: FareAdjustmentInput | null;
   /** Coupon or admin discount in rupees. */
   discount?: number;
-  adminDiscount?: Parameters<typeof calculateFare>[0]['adminDiscount'];
+  adminDiscount?: AdminDiscountInput | null;
   /** Canonical City both places belong to (see sharedCityId). Enables Local Pickup & Drop pricing. */
   localCityId?: string | null;
   /** The pickup's zone in that City (see zoneIdOf): its own Pickup & Drop rates win for a class that has them enabled. */
@@ -307,7 +305,7 @@ export interface PriceResult {
  */
 /** The roof carrier and pet rates a customer sees and is billed for this trip (see scopedAddOnRates). */
 export function addOnRatesOf(i: Pick<PriceInput, 'tariff' | 'brand' | 'tripType' | 'multicity' | 'category'>): { carrier: number; pet: number; partnerPet: number } {
-  return scopedAddOnRates(i.tariff ?? null, i.brand, i.multicity ? 'Multicity' : i.tripType, tariffClassOf(i.category), i.category.fare.extras?.carrierCharge);
+  return scopedAddOnRates(i.tariff ?? null, i.brand, i.multicity ? 'Multicity' : i.tripType, tariffClassOf(i.category));
 }
 
 export function priceBooking(i: PriceInput): PriceResult {
@@ -346,7 +344,7 @@ function priceBookingWithoutAddOns(i: PriceInput): PriceResult {
   if (tax) r.pricing.brandScoped = !!(i.brand && i.tariff?.brandOverrides?.[i.brand]);
   if (tax) {
     const outstation = ['rental_package', 'local_pickup_drop', 'airport_transfer'].includes(r.pricing.model) ? false : r.outstation;
-    r.breakup = r.pricing.source === 'tariff_v2' ? buildTariffFareBreakup(i.category, r.fare, outstation, r.pricing) : buildFareBreakup(i.category, r.fare, outstation);
+    r.breakup = buildTariffFareBreakup(r.fare, outstation, r.pricing);
   }
   const extra = scopedExtraChargesSnapshot(i.tariff, i.brand, i.tripType, tariffClassOf(i.category), i.category.id);
   return extra ? { ...r, pricing: { ...r.pricing, extraCharges: extra }, breakup: withExtraChargeLines(r.breakup, extra) } : r;
@@ -385,7 +383,7 @@ function priceMulticityTour(i: PriceInput): PriceResult {
     if (tax) fare = { ...fare, gstDetails: { ...tax, ...gstComponents(fare.gst, tax.split) } };
   }
   const pricing: PricingSnapshot = { ...amounts.pricing, brandScoped: !!tariff.brandOverrides?.[brand] };
-  return { fare, pricing, service: 'Multicity', outstation: true, breakup: buildTariffFareBreakup(i.category, fare, true, pricing), usesCommissionPolicy: false };
+  return { fare, pricing, service: 'Multicity', outstation: true, breakup: buildTariffFareBreakup(fare, true, pricing), usesCommissionPolicy: false };
 }
 
 function priceBookingCore(i: PriceInput): PriceResult {
@@ -394,7 +392,9 @@ function priceBookingCore(i: PriceInput): PriceResult {
   const service = serviceName(i.pickup, i.drop, i.route.distanceKm, i.tripType);
   const klass = tariffClassOf(i.category);
   const cfg = effectiveTariff && effectiveTariff.enabled ? effectiveTariff : null;
-  const useTariff = !!cfg && !!klass && (i.tripType === 'Round Trip' || (i.tripType === 'One Way' && outstation));
+  // Round Trip, One Way and Airport Taxi trips that no more specific admin fare priced above (an enabled fixed route, Local Pickup & Drop
+  // city or zone fare, city-drop zone, or complete Airport Taxi fares) use the admin One Way / Round Trip rate card.
+  const useTariff = !!cfg && !!klass && (i.tripType === 'Round Trip' || i.tripType === 'One Way' || i.tripType === 'Airport Taxi');
 
   // A coupon or an admin discount, applied the same way on every confirmed-tariff path.
   const withDiscounts = (run: (discount: number) => QuoteResult): QuoteResult => {
@@ -426,7 +426,7 @@ function priceBookingCore(i: PriceInput): PriceResult {
       const c=i.businessContract;
       q.pricing={...q.pricing,model:'business_contract_per_km',businessCustomerRatePaise:paise(c.customerRate),businessGstMode:c.rule.gstMode,extraKmRatePaise:paise(c.customerRate/(c.rule.gstMode==='included'?1+q.pricing.gstRate:1)),partner:{...q.pricing.partner!,minKm:q.pricing.quotedKm,ratePaise:paise(c.partnerRate)},brand:i.brand,brandScoped:!!(i.brand&&i.tariff?.brandOverrides?.[i.brand])};
     }
-    return { fare: q.fare, pricing: { ...q.pricing, brand: i.brand, brandScoped: !!(i.brand && i.tariff?.brandOverrides?.[i.brand]) }, service, outstation, breakup: buildTariffFareBreakup(i.category, q.fare, outstation, q.pricing), usesCommissionPolicy: false };
+    return { fare: q.fare, pricing: { ...q.pricing, brand: i.brand, brandScoped: !!(i.brand && i.tariff?.brandOverrides?.[i.brand]) }, service, outstation, breakup: buildTariffFareBreakup(q.fare, outstation, q.pricing), usesCommissionPolicy: false };
   }
 
   // Fixed rental packages and per-city Local Pickup & Drop fares switch on one by one (each has its own
@@ -439,7 +439,7 @@ function priceBookingCore(i: PriceInput): PriceResult {
     if (!tariff || !klass) throw new HttpsError('failed-precondition', 'Rental packages are not configured for this vehicle.');
     try {
       const q = withDiscounts((discount) => quoteRentalPackage({ config: tariff, tariffClass: klass, tripType: 'One Way', hours, discount, ...timing, ...adjust }));
-      return { fare: q.fare, pricing: { ...q.pricing, brand: i.brand, brandScoped: !!(i.brand && i.tariff?.brandOverrides?.[i.brand]) }, service, outstation, breakup: buildTariffFareBreakup(i.category, q.fare, false, q.pricing), usesCommissionPolicy: false };
+      return { fare: q.fare, pricing: { ...q.pricing, brand: i.brand, brandScoped: !!(i.brand && i.tariff?.brandOverrides?.[i.brand]) }, service, outstation, breakup: buildTariffFareBreakup(q.fare, false, q.pricing), usesCommissionPolicy: false };
     } catch (e) {
       if (e instanceof TariffError) throw new HttpsError('failed-precondition', e.message, { code: e.code });
       throw e;
@@ -452,7 +452,7 @@ function priceBookingCore(i: PriceInput): PriceResult {
   if (effectiveTariff && klass && localId && i.tripType === 'One Way' && !outstation) {
     const tariff = effectiveTariff, cityId = localId;
     const q = withDiscounts((discount) => quoteLocalPickupDrop({ config: tariff, tariffClass: klass, tripType: 'One Way', cityId, discount, ...timing, ...adjust }));
-    return { fare: q.fare, pricing: { ...q.pricing, brand: i.brand, brandScoped: !!(i.brand && i.tariff?.brandOverrides?.[i.brand]) }, service, outstation, breakup: buildTariffFareBreakup(i.category, q.fare, false, q.pricing), usesCommissionPolicy: false };
+    return { fare: q.fare, pricing: { ...q.pricing, brand: i.brand, brandScoped: !!(i.brand && i.tariff?.brandOverrides?.[i.brand]) }, service, outstation, breakup: buildTariffFareBreakup(q.fare, false, q.pricing), usesCommissionPolicy: false };
   }
 
   // Airport transfer: base fare for the included KM plus the extra-KM rate, once every Airport Taxi rate is saved for this
@@ -460,7 +460,36 @@ function priceBookingCore(i: PriceInput): PriceResult {
   const airportRates = cfg && klass && i.tripType === 'Airport Taxi' ? completeAirportRates(cfg, klass) : null;
   if (cfg && klass && airportRates) {
     const q = withDiscounts((discount) => quoteAirport({ config: cfg, tariffClass: klass, tripType: 'One Way', rates: airportRates, discount, ...timing, ...adjust }));
-    return { fare: q.fare, pricing: { ...q.pricing, brand: i.brand, brandScoped: !!(i.brand && i.tariff?.brandOverrides?.[i.brand]) }, service, outstation, breakup: buildTariffFareBreakup(i.category, q.fare, false, q.pricing), usesCommissionPolicy: false };
+    return { fare: q.fare, pricing: { ...q.pricing, brand: i.brand, brandScoped: !!(i.brand && i.tariff?.brandOverrides?.[i.brand]) }, service, outstation, breakup: buildTariffFareBreakup(q.fare, false, q.pricing), usesCommissionPolicy: false };
+  }
+
+  // City drop package: only inside a configured city zone (boundaries are an open decision).
+  const dropRates = cfg && klass ? classRates(cfg.cityDrop.classes, klass) : undefined;
+  if (cfg && klass && i.tripType === 'One Way' && !outstation && dropRates) {
+    const zone = withinCityZone(cfg, i.pickup, i.drop);
+    if (zone) {
+      const pack = cityDropFare(cfg, klass, i.route.distanceKm);
+      const pre = r2(pack.customerPaise / 100);
+      const discount = Math.min(Math.max(0, r2(i.discount ?? 0)), pre);
+      const taxable = r2(pre - discount);
+      const gst = gstOn(taxable, cfg.gstRate);
+      const fare: FareBreakdown = {
+        subtotalBeforeAdjustment: pre, globalAdjustment: null, discountDetail: discount > 0 ? { type: 'coupon', value: discount, amount: discount, source: 'coupon', reason: '' } : null,
+        baseFare: dropRates.customerBase, distanceFare: r2(pre - dropRates.customerBase),
+        timeFare: 0, nightCharge: 0, driverAllowance: 0, minimumFareAdjustment: 0, subtotal: pre, discount, taxableAmount: taxable, gstRate: cfg.gstRate, gst, total: r2(taxable + gst),
+        distanceKm: Math.round(i.route.distanceKm * 10) / 10, durationMin: Math.round(i.route.durationMin), perKmRate: dropRates.customerExtraKm, perMinuteRate: 0,
+      };
+      const pricing: PricingSnapshot = {
+        schema: 2, source: 'tariff_v2', model: 'city_drop_package', tariffVersion: cfg.version, tariffClass: klass, gstRate: cfg.gstRate,
+        quotedKm: Math.max(cfg.cityDrop.baseKm, fare.distanceKm), includedKm: cfg.cityDrop.baseKm, extraKmRatePaise: paise(dropRates.customerExtraKm),
+        customerRatePaise: paise(dropRates.customerExtraKm), customerBataPaise: 0, days: 1, minKmPerDay: cfg.cityDrop.baseKm,
+        packagePaise: pack.customerPaise, discount, adminAdjustment: 0, adjustmentPercent: 0, adjustmentDirection: 'increase',
+        partner: { mode: 'NORMAL_RATE', ratePaise: paise(dropRates.partnerExtraKm), bataPaise: 0, minKm: cfg.cityDrop.baseKm, days: 1, basePaise: pack.partnerPaise },
+        brand: i.brand, brandScoped: !!(i.brand && i.tariff?.brandOverrides?.[i.brand]),
+        pickupDate: '', endDate: null, gates: [`D15: city boundary "${zone.name}" is a configured zone awaiting business confirmation`, 'D05: add-on units and partner share are pending'],
+      };
+      return { fare, pricing, service: 'City drop', outstation: false, breakup: buildTariffFareBreakup(fare, false, pricing), usesCommissionPolicy: false };
+    }
   }
 
   if (cfg && !klass) {
@@ -495,7 +524,7 @@ function priceBookingCore(i: PriceInput): PriceResult {
       const q = withDiscounts(run);
       return {
         fare: q.fare, pricing: { ...q.pricing, brand: i.brand, brandScoped: !!(i.brand && i.tariff?.brandOverrides?.[i.brand]) }, service, outstation,
-        breakup: buildTariffFareBreakup(i.category, q.fare, outstation || i.tripType === 'Round Trip', q.pricing),
+        breakup: buildTariffFareBreakup(q.fare, outstation || i.tripType === 'Round Trip', q.pricing),
         usesCommissionPolicy: false,
       };
     } catch (e) {
@@ -504,61 +533,14 @@ function priceBookingCore(i: PriceInput): PriceResult {
     }
   }
 
-  // City drop package: only inside a configured city zone (boundaries are an open decision).
-  const dropRates = cfg && klass ? classRates(cfg.cityDrop.classes, klass) : undefined;
-  if (cfg && klass && i.tripType === 'One Way' && !outstation && dropRates) {
-    const zone = withinCityZone(cfg, i.pickup, i.drop);
-    if (zone) {
-      const pack = cityDropFare(cfg, klass, i.route.distanceKm);
-      const pre = r2(pack.customerPaise / 100);
-      const discount = Math.min(Math.max(0, r2(i.discount ?? 0)), pre);
-      const taxable = r2(pre - discount);
-      const gst = gstOn(taxable, cfg.gstRate);
-      const fare: FareBreakdown = {
-        subtotalBeforeAdjustment: pre, globalAdjustment: null, discountDetail: discount > 0 ? { type: 'coupon', value: discount, amount: discount, source: 'coupon', reason: '' } : null,
-        baseFare: dropRates.customerBase, distanceFare: r2(pre - dropRates.customerBase),
-        timeFare: 0, nightCharge: 0, driverAllowance: 0, minimumFareAdjustment: 0, subtotal: pre, discount, taxableAmount: taxable, gstRate: cfg.gstRate, gst, total: r2(taxable + gst),
-        distanceKm: Math.round(i.route.distanceKm * 10) / 10, durationMin: Math.round(i.route.durationMin), perKmRate: dropRates.customerExtraKm, perMinuteRate: 0,
-      };
-      const pricing: PricingSnapshot = {
-        schema: 2, source: 'tariff_v2', model: 'city_drop_package', tariffVersion: cfg.version, tariffClass: klass, gstRate: cfg.gstRate,
-        quotedKm: Math.max(cfg.cityDrop.baseKm, fare.distanceKm), includedKm: cfg.cityDrop.baseKm, extraKmRatePaise: paise(dropRates.customerExtraKm),
-        customerRatePaise: paise(dropRates.customerExtraKm), customerBataPaise: 0, days: 1, minKmPerDay: cfg.cityDrop.baseKm,
-        packagePaise: pack.customerPaise, discount, adminAdjustment: 0, adjustmentPercent: 0, adjustmentDirection: 'increase',
-        partner: { mode: 'NORMAL_RATE', ratePaise: paise(dropRates.partnerExtraKm), bataPaise: 0, minKm: cfg.cityDrop.baseKm, days: 1, basePaise: pack.partnerPaise },
-        brand: i.brand, brandScoped: !!(i.brand && i.tariff?.brandOverrides?.[i.brand]),
-        pickupDate: '', endDate: null, gates: [`D15: city boundary "${zone.name}" is a configured zone awaiting business confirmation`, 'D05: add-on units and partner share are pending'],
-      };
-      return { fare, pricing, service: 'City drop', outstation: false, breakup: buildTariffFareBreakup(i.category, fare, false, pricing), usesCommissionPolicy: false };
-    }
-  }
-
-  // Older admin-category engine: local / airport trips and anything while the tariff is off.
-  // A category with no older per-km fare (one added after fares moved to Service & Fare Settings) is never priced at ₹0 here.
-  if (!(i.category.fare.perKmRate > 0)) {
-    throw new HttpsError('failed-precondition', `${i.category.name} is not available for this trip yet.`, { code: 'rate-missing' });
-  }
-  const fare = calculateFare({
-    category: i.category, route: i.route, tripType: i.tripType, pickupTime: i.pickupAt, discount: i.discount ?? 0, adjustment: i.adjustment, adminDiscount: i.adminDiscount ?? null,
-  });
-  const legs = i.tripType === 'Round Trip' ? 2 : 1;
-  const extraRate = i.category.fare.extras?.extraKmRate ?? i.category.fare.perKmRate;
-  const pricing: PricingSnapshot = {
-    schema: 2, source: 'legacy_category', model: 'legacy_category', tariffVersion: 0, tariffClass: klass, gstRate: fare.gstRate,
-    quotedKm: Math.round(i.route.distanceKm * legs * 10) / 10, includedKm: Math.round(i.route.distanceKm * legs * 10) / 10,
-    extraKmRatePaise: paise(extraRate), customerRatePaise: paise(fare.perKmRate), customerBataPaise: 0, days: 1, minKmPerDay: 0,
-    packagePaise: paise(fare.subtotal), discount: fare.discount, adminAdjustment: 0, adjustmentPercent: 0, adjustmentDirection: 'increase', partner: null, pickupDate: '', endDate: null,
-    brand: i.brand, brandScoped: false,
-    gates: cfg ? ['Local / airport duty outside a configured city zone is priced by the vehicle category (confirmed tariff does not cover it yet)'] : ['Confirmed tariff is not enabled; vehicle category fares apply'],
-  };
-  return { fare, pricing, service, outstation, breakup: buildFareBreakup(i.category, fare, outstation), usesCommissionPolicy: true };
+  // Nothing the admin panel has set prices this trip: it is refused, never priced from a built-in number.
+  throw new HttpsError('failed-precondition', `${i.category.name} is not available for this trip yet.`, { code: 'rate-missing' });
 }
 
 // ── Admin: save the tariff configuration ────────────────────────────────────
 
 /**
- * Saves business_config/tariff_v2. Passing `useConfirmedDefaults: true` writes the values the
- * owner confirmed on 09 Oct 2026; `enabled` switches the confirmed tariff on for NEW bookings
+ * Saves business_config/tariff_v2 from the admin panel. `enabled` switches the tariff on for NEW bookings
  * only — a confirmed booking keeps the pricing snapshot it was quoted with.
  */
 export const saveTariffConfig = onCall(async (request) => {
@@ -567,8 +549,7 @@ export const saveTariffConfig = onCall(async (request) => {
   const input = request.data ?? {};
   // `keepSavedRates` only flips the on/off switch: every saved rate, zone and local fare stays as it is.
   const keepSaved = input.keepSavedRates === true;
-  const raw = input.useConfirmedDefaults === true ? { ...CONFIRMED_TARIFF_V2, cityDrop: { ...CONFIRMED_TARIFF_V2.cityDrop, zones: input.cityDrop?.zones ?? [] } } : input;
-  const submitted = parseTariffConfig({ ...raw, enabled: input.enabled === true, version: 0 });
+  const submitted = parseTariffConfig({ ...input, enabled: input.enabled === true, version: 0 });
   if (!submitted) throw new HttpsError('invalid-argument', 'The tariff configuration is invalid.');
   const reason = text(input.reason, 300);
   if (reason.length < 5) throw new HttpsError('invalid-argument', 'Give a short reason for the change.');
@@ -580,7 +561,7 @@ export const saveTariffConfig = onCall(async (request) => {
       throw new HttpsError('failed-precondition', 'The tariff was changed by someone else. Reload and review it before saving.');
     }
     if (keepSaved && !before) throw new HttpsError('failed-precondition', 'No tariff is saved yet. Save base rates first.');
-    // Loading the confirmed values replaces the one-way / round-trip / rental / city-drop rates only; the
+    // A full save replaces the one-way / round-trip / rental / city-drop rates only; the
     // outstation extras, airport fare, Local Pickup & Drop fares and rental packages keep their saved values.
     const parsed: TariffConfig = keepSaved && before ? {
       ...before,

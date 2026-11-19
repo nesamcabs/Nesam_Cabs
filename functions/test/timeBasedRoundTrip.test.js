@@ -4,6 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const T = require('../lib/domain/tariff');
 const TB = require('../lib/domain/timeBased');
+const { CONFIRMED_TARIFF_V2 } = require('./support/confirmedTariff');
 
 const IST = (s) => Date.parse(`${s}+05:30`);
 const sedan = {
@@ -11,7 +12,7 @@ const sedan = {
   timeBased: { fiveFare: 2080, fiveKm: 100, fivePartner: 1870, eightFare: 2780, eightKm: 150, eightPartner: 2500, morningFare: 4500, morningKm: 250, morningPartner: 4050 },
 };
 const cfg = T.parseTariffConfig({
-  ...T.CONFIRMED_TARIFF_V2, version: 7, enabled: true,
+  ...CONFIRMED_TARIFF_V2, version: 7, enabled: true,
   roundTrip: { maxDays: 30, timeBased: { enabled: true }, classes: { sedan } },
   roundTripExtras: { sedan: { extraKmRate: 14, waitingPerHour: 150 } },
 });
@@ -265,7 +266,7 @@ test('IST minute helpers handle UTC dates correctly', () => {
 // ── Through the real pricing path (priceBooking): GST handling, channels and the stored snapshot ──
 const { priceBooking } = require('../lib/quote');
 const { mapCategory } = require('../lib/domain/pricing');
-const category = mapCategory('sedan', { name: 'Sedan', status: 'Active', seatingCapacity: 4, fare: { baseFare: 70, baseKm: 2, perKmRate: 16, minimumFare: 100 } });
+const category = mapCategory('sedan', { name: 'Sedan', status: 'Active', seatingCapacity: 4 });
 const pickup = { id: 'pin', name: 'Theni', address: 'Theni', lat: 10.0104, lng: 77.4768, type: 'other' };
 const drop = { id: 'pin', name: 'Madurai', address: 'Madurai', lat: 9.9195, lng: 78.1193, type: 'other' };
 const price = (o = {}) => priceBooking({
@@ -281,7 +282,7 @@ test('customer price: the entered package amount is the GST-inclusive total (₹
 
 test('customer price: with a GST-excluded rule the 5% is added on top', () => {
   const rule = { rate: 0.05, mode: 'excluded', classification: 'passenger', supplierState: '33', reference: 'GST-2026' };
-  const t = T.parseTariffConfig({ ...T.CONFIRMED_TARIFF_V2, version: 7, enabled: true, roundTrip: { maxDays: 30, timeBased: { enabled: true }, classes: { sedan } }, roundTripExtras: { sedan: { extraKmRate: 14, waitingPerHour: 150 } }, fareGst: { common: { 'Round Trip': { default: rule } } } });
+  const t = T.parseTariffConfig({ ...CONFIRMED_TARIFF_V2, version: 7, enabled: true, roundTrip: { maxDays: 30, timeBased: { enabled: true }, classes: { sedan } }, roundTripExtras: { sedan: { extraKmRate: 14, waitingPerHour: 150 } }, fareGst: { common: { 'Round Trip': { default: rule } } } });
   assert.equal(price({ tariff: t, pkg: 'same:full', extra: { boardingState: '33' } }).fare.total, 4200);
 });
 
@@ -328,7 +329,7 @@ test('Hill station trips: no 5-hour / 8-hour package, a 1-day pickup before 3 PM
 
 // ── Extra hour slabs added by the office (Pricing › Time-based round trip › Add hour slab) ──
 const withSlabs = (extraSlabs, extra) => T.parseTariffConfig({
-  ...T.CONFIRMED_TARIFF_V2, version: 8, enabled: true,
+  ...CONFIRMED_TARIFF_V2, version: 8, enabled: true,
   roundTrip: { maxDays: 30, timeBased: { enabled: true, extraSlabs }, classes: { sedan: { ...sedan, timeBased: { ...sedan.timeBased, extra } } } },
   roundTripExtras: { sedan: { extraKmRate: 14, waitingPerHour: 150 } },
 });
@@ -373,4 +374,52 @@ test('a booked trip that outgrows its slab moves up through the extra slabs by h
   // Booked on the 10-hour slab and back in 2 hours: it stays on the 10-hour slab.
   const q10 = T.quoteRoundTripTimeBased({ config: slabCfg, tariffClass: 'sedan', tripType: 'Round Trip', routeKm: 20, durationMin: 40, pickupMs: IST('2026-11-17T09:00:00'), endMs: IST('2026-11-17T23:45:00'), tripDays: 1, timePackage: 'same:h10' });
   assert.equal(TB.resolveTimeBasedFinal(q10.pricing.timeBased, { endMs: at(2), totalKm: 30 }).slab, 'h10');
+});
+
+test('office-given package names replace the standard ones everywhere a customer sees them (and survive upgrades)', () => {
+  const named = T.parseTariffConfig({
+    ...CONFIRMED_TARIFF_V2, version: 7, enabled: true,
+    roundTrip: {
+      maxDays: 30,
+      timeBased: { enabled: true, names: { five: '  Quick   Trip ', eight: 'Half-Day Saver', full: 'Whole Day', morning: 'Early Bird', next: 'Overnight Stay' }, extraSlabs: [{ hours: 3, kmLimit: 40, name: 'Mini Hop' }] },
+      classes: { sedan: { ...sedan, timeBased: { ...sedan.timeBased, extra: { h3: { fare: 900, km: 40, partner: 800 } } } } },
+    },
+    roundTripExtras: { sedan: { extraKmRate: 14, waitingPerHour: 150 } },
+  });
+  assert.deepEqual(named.roundTrip.timeBased.names, { five: 'Quick Trip', eight: 'Half-Day Saver', full: 'Whole Day', morning: 'Early Bird', next: 'Overnight Stay' });
+  const p = (pickup) => T.planTimeBasedRoundTrip({ config: named, tariffClass: 'sedan', pickupMs: IST(pickup), routeKm: 20, durationMin: 40, tripDays: 1 });
+  const labels = (pk) => Object.fromEntries(p(pk).options.map((o) => [o.id, o.label]));
+  assert.deepEqual(labels('2026-11-17T09:00:00'), { 'same:h3': 'Mini Hop', 'same:eight': 'Half-Day Saver', 'same:five': 'Quick Trip', 'same:full': 'Whole Day' });
+  const night = labels('2026-11-17T16:00:00');
+  assert.equal(night.morning, 'Early Bird');
+  assert.equal(night.next, 'Overnight Stay');
+  // The booking keeps the names; a Morning Return that overruns upgrades to the named overnight package, an outgrown slab keeps its name.
+  const m = T.quoteRoundTripTimeBased({ config: named, tariffClass: 'sedan', tripType: 'Round Trip', routeKm: 20, durationMin: 40, pickupMs: IST('2026-11-17T16:00:00'), endMs: null, tripDays: 2, timePackage: 'morning' }).pricing.timeBased;
+  assert.equal(m.label, 'Early Bird');
+  assert.equal(m.upgrade.label, 'Overnight Stay');
+  assert.equal(TB.resolveTimeBasedFinal(m, { endMs: m.morningCutoffMs + 3_600_000, totalKm: 100 }).label, 'Overnight Stay');
+  const s = T.quoteRoundTripTimeBased({ config: named, tariffClass: 'sedan', tripType: 'Round Trip', routeKm: 20, durationMin: 40, pickupMs: IST('2026-11-17T09:00:00'), endMs: null, tripDays: 1, timePackage: 'same:five' }).pricing.timeBased;
+  assert.equal(TB.resolveTimeBasedFinal(s, { endMs: IST('2026-11-17T09:00:00') + 6 * 3_600_000, totalKm: 120 }).label, 'Half-Day Saver');
+  // Blank / missing names keep the standard ones.
+  assert.equal(TB.slabLabel('five', { names: { five: '' } }), '5-Hour Return');
+  assert.equal(TB.nextDayLabel(3, { names: { next: 'X' } }), '3-Day Round Trip');
+});
+
+test('saving names through the admin section stores them and a reload still has them (5-hour, extra slab, morning, overnight)', () => {
+  const { applyRoundTripTimeBased } = require('../lib/tariffSections');
+  const base = T.parseTariffConfig({ ...T.CONFIRMED_TARIFF_V2, version: 7, enabled: true, roundTrip: { maxDays: 30, timeBased: { enabled: true }, classes: { sedan } }, roundTripExtras: { sedan: { extraKmRate: 14, waitingPerHour: 150 } } });
+  const settings = { cutoffMinutes: 1425, morningCutoffMinutes: 540, nextDayEightFromMinutes: 900, nextDayFiveFromMinutes: 1320, shortKmLimit: 150, fiveKmLimit: 100, lateNightEndMinutes: 60, fiveHours: 5, eightHours: 8,
+    extraSlabs: [{ hours: 3, kmLimit: 60, name: 'Quick Hop' }], names: { five: 'Quick Return', morning: 'Early Bird', next: 'Overnight Stay' } };
+  const next = applyRoundTripTimeBased(base, { enabled: true, settings, classes: { sedan: { ...sedan.timeBased, extra: { h3: { fare: 900, km: 60, partner: 800 } } } } });
+  assert.deepEqual(next.roundTrip.timeBased.names, { five: 'Quick Return', morning: 'Early Bird', next: 'Overnight Stay' });
+  assert.equal(next.roundTrip.timeBased.extraSlabs[0].name, 'Quick Hop');
+  // What Firestore stores is read back by the same parser the quote engine and the admin screen use.
+  const stored = JSON.parse(JSON.stringify(next));
+  const again = T.parseTariffConfig(stored);
+  assert.equal(again.roundTrip.timeBased.names.five, 'Quick Return');
+  assert.equal(again.roundTrip.timeBased.extraSlabs[0].name, 'Quick Hop');
+  const labels = T.planTimeBasedRoundTrip({ config: again, tariffClass: 'sedan', pickupMs: IST('2026-11-17T09:00:00'), routeKm: 20, durationMin: 40, tripDays: 1 }).options.map((o) => o.label);
+  assert.ok(labels.includes('Quick Return') && labels.includes('Quick Hop'));
+  // A name over 40 characters is refused, not cut silently.
+  assert.throws(() => applyRoundTripTimeBased(base, { enabled: true, settings: { ...settings, names: { five: 'x'.repeat(41) } }, classes: { sedan: sedan.timeBased } }), /at most 40/);
 });

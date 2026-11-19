@@ -52,8 +52,12 @@ export interface RateCell {
   /** A switch or dropdown that only follows a wider setting (shown faded until changed here). */
   inherited?: boolean;
 }
-export interface RateRow { key: string; label: string; unit?: string; required?: boolean; cell: (column: string) => RateCell }
-export interface RateGroup { title: string; rows: RateRow[] }
+export interface RateRow {
+  key: string; label: string; unit?: string; required?: boolean; cell: (column: string) => RateCell;
+  /** A setting that is the same for every vehicle (a package's name, hours ...): one control spanning all the vehicle columns. */
+  shared?: ReactNode;
+}
+export interface RateGroup { title: string; rows: RateRow[]; /** Stable key when titles can repeat or change while typing. */ id?: string }
 
 export function RateTable({ label, columns, groups, disabled, corner = "", cornerWidth, minWidth }: {
   label: string; columns: RateColumn[]; groups: RateGroup[]; disabled?: boolean; corner?: string;
@@ -96,7 +100,7 @@ export function RateTable({ label, columns, groups, disabled, corner = "", corne
           </thead>
           <tbody>
             {groups.filter((g) => g.rows.length).map((g) => (
-              <Fragment key={g.title}>
+              <Fragment key={g.id ?? g.title}>
                 {g.title ? <tr className="fm-group"><th colSpan={columns.length + 1} scope="colgroup">{g.title}</th></tr> : null}
                 {g.rows.map((r) => (
                   <tr key={r.key}>
@@ -106,7 +110,7 @@ export function RateTable({ label, columns, groups, disabled, corner = "", corne
                         {r.unit ? <span className="fm-field__unit">{r.unit}</span> : null}
                       </span>
                     </th>
-                    {columns.map((c) => {
+                    {r.shared !== undefined ? <td colSpan={columns.length} className="fm-sharedcell">{r.shared}</td> : columns.map((c) => {
                       if (c.linkedTo) {
                         const src = r.cell(c.linkedTo);
                         const shown = src.display ?? (src.onToggle ? (src.checked ? "On" : "Off") : (src.value || src.placeholder || "—"));
