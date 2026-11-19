@@ -733,9 +733,9 @@ interface FareForm {
 const toMin = (hhmm: string) => { const [h, m] = hhmm.split(":").map(Number); return (h || 0) * 60 + (m || 0); };
 const fromMin = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 const paise = (v: string) => Math.round(Number(v || 0) * 100);
-const SAMPLE_FORM: FareForm = {
-  base: "50", includedKm: "2", perKm: "12", perMin: "1.5", minimum: "80", freeWait: "3", waitPerMin: "2", pickup: "0", platform: "0", commission: "15", distCap: "150",
-  nightOn: false, nightStart: "22:00", nightEnd: "06:00", nightPct: "20", surgeOn: false, surgeX: "1.5", surgeMax: "2", surgeEnd: "", cancelFee: "30", cancelGrace: "2", taxOn: false, taxPct: "5", rounding: "nearest_rupee",
+const BLANK_FORM: FareForm = {
+  base: "", includedKm: "", perKm: "", perMin: "", minimum: "", freeWait: "", waitPerMin: "", pickup: "", platform: "", commission: "", distCap: "",
+  nightOn: false, nightStart: "22:00", nightEnd: "06:00", nightPct: "20", surgeOn: false, surgeX: "1.5", surgeMax: "2", surgeEnd: "", cancelFee: "", cancelGrace: "", taxOn: false, taxPct: "", rounding: "nearest_rupee",
 };
 const formFromConfig = (c: FareConfig): FareForm => ({
   base: String(c.baseFarePaise / 100), includedKm: String(c.includedMeters / 1000), perKm: String(c.perKmPaise / 100), perMin: String(c.perMinutePaise / 100), minimum: String(c.minimumFarePaise / 100),
@@ -757,7 +757,7 @@ const configFromForm = (f: FareForm): FareConfig => ({
 function FaresTab({ zones, fares, categories, tariff, toast }: { zones: LtZone[]; fares: LtFare[]; categories: VehicleCategory[]; tariff: Tariff | null | undefined; toast: (m: string, t?: "success" | "error") => void }) {
   const [zoneId, setZoneId] = useState("");
   const [categoryId, setCategoryId] = useState("");
-  const [form, setForm] = useState<FareForm>(SAMPLE_FORM);
+  const [form, setForm] = useState<FareForm>(BLANK_FORM);
   const [editingId, setEditingId] = useState<string | undefined>();
   const [isSample, setIsSample] = useState(false);
   const [note, setNote] = useState("");
@@ -835,9 +835,7 @@ function FaresTab({ zones, fares, categories, tariff, toast }: { zones: LtZone[]
           <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
             <div className="flex items-center justify-between">
               <strong className="text-[14px]">{editingId ? `Editing draft ${editingId.split("__v")[1] ? `v${editingId.split("__v")[1]}` : ""}` : "New version"}</strong>
-              <Button size="sm" onClick={() => { setForm(SAMPLE_FORM); setIsSample(true); setEditingId(undefined); }}>Load development sample</Button>
             </div>
-            {isSample ? <p className="rounded-lg bg-amber-50 p-2 text-[12px] text-amber-800">Development sample: these are placeholder numbers, not approved business rates. Production blocks activating a sample.</p> : null}
             <div className="grid gap-3 sm:grid-cols-3">
               {text("base", "Base fare (₹)", "Covers the included distance.")}{text("includedKm", "Included distance (km)")}{text("perKm", "Per extra km (₹)")}
               {text("perMin", "Per ride minute (₹)", "Waiting is not counted here.")}{text("minimum", "Minimum fare (₹)")}{text("pickup", "Pickup charge (₹)", "0 = none.")}

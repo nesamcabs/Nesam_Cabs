@@ -15,6 +15,7 @@ import { CabIcon, FuelPick, type FuelChoice } from '@/components/CabParts';
 import { FareDialog, FlowBar, PromoControl } from './parts';
 import { RoundVehiclePackage } from './RoundVehiclePackage';
 import { EditTripDialog } from './EditTripDialog';
+import './tripSummary.css';
 import { packageClock, packageDay } from '@core/utils/timePackages';
 
 const TOO_FAR_KM = 1500;
@@ -96,30 +97,43 @@ export function ChooseStep() {
             <section className="trip-sum trip-sum--compact" aria-label="Trip summary">
               <h1 className="sr-only">Choose your vehicle</h1>
               <div className="trip-sum__body">
-                <p className="route-title">
-                  <span>{pickup.name}</span>
-                  <Icon name="arrow-right" size={14} />
-                  <span>{returnsToPickup ? pickup.name : drop.id === 'place-local-disposal' ? 'Local City Disposal' : drop.name}</span>
-                </p>
-                {roundVia.length ? <p className="trip-sum__when">Via {roundVia.map((stop) => stop.name).join(' → ')}</p> : null}
-                <p className="trip-sum__meta">
-                  <span>
-                    <Badge variant="blue">{tripTypeLabel(draft.multicity ? 'Multicity' : tripType)}</Badge>
-                  </span>
-                  {scheduledAt ? <span className="trip-sum__when">{formatDate(scheduledAt)}, {formatTime(scheduledAt)}</span> : null}
-                  {tripType === 'Round Trip' && !draft.multicity && q.selectedPackage ? (
-                    <span className="trip-sum__when">{q.selectedPackage.days} calendar {q.selectedPackage.days === 1 ? 'day' : 'days'} · Return by {packageDay(new Date(q.selectedPackage.endAt))}, {packageClock(new Date(q.selectedPackage.endAt))}</span>
+                <div className="trip-sum__headrow">
+                  <div className="trip-sum__routebox">
+                    <p className="route-title">
+                      <span>{pickup.name}</span>
+                      <Icon name="arrow-right" size={14} />
+                      <span>{returnsToPickup ? pickup.name : drop.id === 'place-local-disposal' ? 'Local City Disposal' : drop.name}</span>
+                    </p>
+                    {roundVia.length ? <p className="trip-sum__via"><Icon name="route" size={13} /> Via {roundVia.map((stop) => stop.name).join(' → ')}</p> : null}
+                  </div>
+                  {tripType !== 'Local Rental' ? (
+                    <button type="button" className="trip-sum__edit" onClick={() => setEditOpen(true)} aria-label="Edit pickup date, time and trip days">
+                      <Icon name="edit" size={13} /> Edit
+                    </button>
                   ) : null}
-                  {route && tripType !== 'Local Rental' ? <span>{formatDistance(q.trip?.distanceKm ?? route.totalDistanceKm ?? route.distanceKm)} · about {formatDuration(q.trip?.durationMin ?? route.totalDurationMin ?? route.durationMin)}</span> : null}
+                </div>
+                <p className="trip-sum__meta">
+                  <span className="ts-chip ts-chip--type">{tripTypeLabel(draft.multicity ? 'Multicity' : tripType)}</span>
+                  {scheduledAt ? <span className="ts-chip trip-sum__when"><Icon name="calendar" size={14} /> {formatDate(scheduledAt)}, {formatTime(scheduledAt)}</span> : null}
+                  {tripType === 'Round Trip' && !draft.multicity && q.selectedPackage ? (
+                    <span className="ts-chip trip-sum__when"><Icon name="clock" size={14} /> {q.selectedPackage.days} calendar {q.selectedPackage.days === 1 ? 'day' : 'days'} · Return by {packageDay(new Date(q.selectedPackage.endAt))}, {packageClock(new Date(q.selectedPackage.endAt))}</span>
+                  ) : null}
+                  {route && tripType !== 'Local Rental' ? <span className="ts-chip"><Icon name="route" size={14} /> {formatDistance(q.trip?.distanceKm ?? route.totalDistanceKm ?? route.distanceKm)} · about {formatDuration(q.trip?.durationMin ?? route.totalDurationMin ?? route.durationMin)}</span> : null}
                 </p>
-                {tripType !== 'Local Rental' ? (
-                  <button type="button" className="trip-sum__edit" onClick={() => setEditOpen(true)} aria-label="Edit pickup date, time and trip days">
-                    <Icon name="edit" size={13} /> Edit
-                  </button>
-                ) : null}
               </div>
             </section>
             {editOpen ? <EditTripDialog onClose={() => setEditOpen(false)} /> : null}
+
+            {q.hillStations.length ? (
+              <aside className="hillnote" role="status">
+                <span className="hillnote__icon" aria-hidden="true"><Icon name="mountain" size={20} /></span>
+                <div className="hillnote__text">
+                  <strong>Hill station · {q.hillStations.map((h) => h.name).join(', ')}</strong>
+                  <span>A hill station charge is added to your fare{q.breakup?.lines.some((l) => l.key === 'hillStation') ? '.' : ' and confirmed by our team.'}</span>
+                  {tripType === 'Round Trip' ? <span>5-hour and 8-hour packages do not apply.</span> : null}
+                </div>
+              </aside>
+            ) : null}
 
             <div className="choose__notices">
               {!online ? (
@@ -178,13 +192,6 @@ export function ChooseStep() {
               </Notice>
             ) : null}
 
-            {q.hillStations.length ? (
-              <Notice variant="info" icon="info">
-                <strong>Hill station trip · {q.hillStations.map((h) => h.name).join(', ')}.</strong>{' '}
-                A separate “Hill Station Allowance / Charge” is added to your fare{q.breakup?.lines.some((l) => l.key === 'hillStation') ? '' : ' (confirmed by our team)'}.
-                {tripType === 'Round Trip' ? ' The 5-hour and 8-hour packages do not apply to hill stations.' : ''}
-              </Notice>
-            ) : null}
 
             {!roundPick && q.packages.length ? (
               <section className="pkgs" aria-labelledby="pkgs-title">

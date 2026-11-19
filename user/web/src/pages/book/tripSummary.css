@@ -1,0 +1,49 @@
+/* Trip summary card on "Choose your vehicle" — NESAM Cabs: route up top, Edit on the right, trip facts as icon chips, thin red rule on the left.
+   Selectors start with `.choose` so they win over the older compact/theme/desktop rules for this card. */
+.choose .trip-sum.trip-sum--compact {
+  display: block;
+  margin-bottom: 18px;
+  padding: 16px 16px 14px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--brand);
+  border-radius: var(--r-lg);
+  background: #fff;
+  box-shadow: var(--shadow-1);
+}
+.choose .trip-sum--compact .trip-sum__body { display: grid; gap: 12px; }
+
+.choose .trip-sum__headrow { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.choose .trip-sum__routebox { display: grid; gap: 4px; min-width: 0; }
+
+.choose .trip-sum.trip-sum--compact .route-title { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0; color: var(--ink); font-size: 1.15rem; font-weight: 700; letter-spacing: -0.01em; line-height: 1.3; }
+.choose .trip-sum.trip-sum--compact .route-title .icon { flex: none; box-sizing: content-box; width: 13px; height: 13px; padding: 5px; border-radius: 50%; background: var(--brand); color: #fff; }
+
+.choose .trip-sum__via { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--muted); font-size: .84rem; font-weight: 500; }
+.choose .trip-sum__via svg { flex: none; color: var(--brand); }
+
+.choose .trip-sum.trip-sum--compact .trip-sum__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; padding: 0; color: var(--text); font-size: .84rem; font-weight: 500; }
+.choose .trip-sum--compact .trip-sum__meta > span + span::before { content: none; display: none; }
+
+.choose .ts-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: var(--r-sm); background: var(--paper); box-shadow: 0 0 0 1px var(--line) inset; color: var(--text); font-size: .83rem; font-weight: 500; line-height: 1.35; }
+.choose .ts-chip svg { flex: none; color: var(--brand); }
+.choose .trip-sum.trip-sum--compact .trip-sum__when { color: var(--ink); font-weight: 600; }
+.choose .ts-chip--type { background: var(--ink); box-shadow: none; color: #fff; font-size: .76rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+
+.choose .trip-sum__edit { flex: none; min-height: 36px; margin: 0; padding: 0 14px; border: 0; border-radius: var(--r-ctl, 4px); background: var(--sunken); color: var(--ink); font-size: .84rem; font-weight: 600; box-shadow: none; transition: background-color var(--dur, 200ms), color var(--dur, 200ms); }
+.choose .trip-sum__edit:hover { background: var(--brand-tint); color: var(--brand-ink); }
+.choose .trip-sum__edit:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+@media (min-width: 1000px) {
+  .choose .trip-sum.trip-sum--compact { padding: 20px 24px 18px; }
+  .choose .trip-sum--compact .trip-sum__body { gap: 14px; }
+  .choose .trip-sum.trip-sum--compact .route-title { font-size: 1.4rem; }
+  .choose .ts-chip { font-size: .9rem; padding: 6px 13px; }
+  .choose .trip-sum__edit { min-height: 40px; padding: 0 18px; font-size: .9rem; }
+}
+@media (prefers-reduced-motion: reduce) { .choose .trip-sum__edit { transition: none; } }
+
+/* Hill station notice: a slim card straight under the trip summary. */
+.choose .hillnote { display: flex; align-items: center; gap: 12px; margin: -6px 0 18px; padding: 12px 16px 12px 12px; border: 1px solid var(--amber-line); border-left: 3px solid var(--amber); border-radius: var(--r-lg); background: var(--amber-soft); }
+.choose .hillnote__icon { flex: none; display: grid; place-items: center; width: 38px; height: 38px; border-radius: var(--r-md); background: #fff; color: var(--amber); box-shadow: 0 0 0 1px var(--amber-line) inset; }
+.choose .hillnote__text { display: grid; gap: 2px; min-width: 0; color: var(--ink-3); font-size: .86rem; line-height: 1.45; }
+.choose .hillnote__text strong { color: var(--ink); font-size: .95rem; font-weight: 700; }

@@ -45,8 +45,6 @@ const pretty = (m: number) => `${((Math.floor(m / 60) + 11) % 12) + 1}:${String(
 const num = (v: string): number | null => (v.trim() === "" ? null : Number(v));
 const toDraft = (t?: Partial<TimeBasedClassRates>): Draft => Object.fromEntries(FIELDS.map((f) => [f, t?.[f] !== undefined ? String(t[f]) : ""])) as Draft;
 
-/** The values worked out in "Customer UX v8" for the Sedan; partner payouts are suggested at the same share as the Sedan's Round Trip rate. */
-const UX_V7_SEDAN = { fiveFare: 2080, fiveKm: 100, eightFare: 2780, eightKm: 150, morningFare: 4500, morningKm: 250 };
 
 export default function TimeBasedRoundTripCard({ vehicles }: { vehicles?: VehicleCol[] } = {}) {
   const { tariff } = useTariff();
@@ -169,37 +167,6 @@ export default function TimeBasedRoundTripCard({ vehicles }: { vehicles?: Vehicl
   const removeSlab = (key: string) => {
     setSlabs((s) => s.filter((x) => x.key !== key));
     setExtra((x) => Object.fromEntries(Object.entries(x).map(([c, m]) => [c, Object.fromEntries(Object.entries(m ?? {}).filter(([k]) => k !== key))])) as typeof x);
-  };
-
-  // One click for a demo: the Sedan exactly as in the guide; every other vehicle scaled by how its own Full-Day Return (km per day × rate + allowance)
-  // compares with the Sedan's, rounded to ₹10, with the guide's included km (Morning Return uses the vehicle's own daily km). Partner payouts keep
-  // each vehicle's partner/customer rate share. These are DEMO amounts — replace them with the real ones before going live.
-  const fillAllDemo = () => {
-    const full = (c: TariffClass) => { const r = tariff?.roundTrip?.classes?.[c]; return r?.customerRate !== undefined && r.minKmPerDay !== undefined ? r.customerRate * r.minKmPerDay + (r.customerBata ?? 0) : null; };
-    const sedanFull = full("sedan") ?? 4000;
-    const to10 = (n: number) => String(Math.round(n / 10) * 10);
-    const next: Partial<Record<TariffClass, Draft>> = {};
-    for (const c of cards.filter(hasBase)) {
-      const rt = tariff?.roundTrip?.classes?.[c];
-      const f = full(c);
-      const k = c === "sedan" || f === null ? 1 : f / sedanFull;
-      const share = rt?.customerRate && rt.partnerRate ? rt.partnerRate / rt.customerRate : 0.9;
-      const morningKm = c === "sedan" ? UX_V7_SEDAN.morningKm : Math.max(UX_V7_SEDAN.morningKm, rt?.minKmPerDay ?? 0);
-      const fare = (base: number) => (c === "sedan" ? String(base) : to10(base * k));
-      const pay = (base: number) => to10((c === "sedan" ? base : base * k) * share);
-      next[c] = {
-        fiveFare: fare(UX_V7_SEDAN.fiveFare), fiveKm: String(UX_V7_SEDAN.fiveKm), fivePartner: pay(UX_V7_SEDAN.fiveFare),
-        eightFare: fare(UX_V7_SEDAN.eightFare), eightKm: String(UX_V7_SEDAN.eightKm), eightPartner: pay(UX_V7_SEDAN.eightFare),
-        morningFare: fare(UX_V7_SEDAN.morningFare), morningKm: String(morningKm), morningPartner: pay(UX_V7_SEDAN.morningFare),
-      };
-    }
-    setRows((r) => ({ ...r, ...next }));
-    // The guide's shared settings (11:45 PM / 9:00 AM cutoffs, 3 PM / 10 PM / 1 AM boundaries, 5 h / 8 h, 100 / 150 km), and the switch on.
-    setTimes({ cutoff: clock(DEFAULTS.cutoffMinutes), morning: clock(DEFAULTS.morningCutoffMinutes), eight: clock(DEFAULTS.nextDayEightFromMinutes), five: clock(DEFAULTS.nextDayFiveFromMinutes), late: clock(DEFAULTS.lateNightEndMinutes) });
-    setLimits({ km: String(DEFAULTS.shortKmLimit), fiveKm: String(DEFAULTS.fiveKmLimit), five: String(DEFAULTS.fiveHours), eight: String(DEFAULTS.eightHours) });
-    const sedan = tariff?.roundTrip?.classes?.sedan;
-    const check = sedan && full("sedan") !== 4000 ? ` Note: the Sedan Full-Day Return in the rate card above is ${inr(full("sedan"))}, not the guide's ₹4,000 (250 km × ₹14 + ₹500 allowance) — change the rate card if that is not intended.` : "";
-    setMessage({ ok: true, text: `Filled ${cards.length} vehicle${cards.length === 1 ? "" : "s"}: the Sedan exactly as in Customer UX v8, the others as DEMO amounts scaled from their Round Trip rate card, and they are live once saved. Review, add a reason and press Save.${check}` });
   };
 
   const save = async () => {
@@ -338,7 +305,6 @@ export default function TimeBasedRoundTripCard({ vehicles }: { vehicles?: Vehicl
   return (
     <SettingCard title="Time-based round trip"
       description="Customers choose days, not a return time. Package fares include driver allowance. Full-Day Return comes from the Round Trip rates above."
-      aside={<div className="flex flex-wrap items-center gap-2">{canEdit && cards.length > 0 ? <Button size="sm" variant="secondary" onClick={fillAllDemo}>Fill demo values</Button> : null}</div>}
       footer={<SaveBar reason={reason} onReason={setReason} onSave={save} busy={busy} disabled={!changed || !!settingsError || !!anyClassError || !canEdit} message={message} note="Morning Return is optional: fill all three boxes or none." />}>
       <fieldset disabled={!canEdit || busy} className="min-w-0">
         <CardBody>

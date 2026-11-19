@@ -3,8 +3,9 @@
 // vehicle, so picking a vehicle or a package only changes the choice; the fare in force always comes from the server's answer.
 import type { RideCategory } from '@core/types';
 import type { ServerCategoryQuote, ServerTimePackage } from '@core/services/quoteService';
-import { formatDate, formatINR, formatTime } from '@core/utils/format';
+import { formatINR } from '@core/utils/format';
 import { Icon } from '@/components/Icon';
+import './roundVehicle.css';
 import { categoryName, categoryPhoto } from '@/lib/categories';
 import { FuelPick, type FuelChoice } from '@/components/CabParts';
 import { packageClock, packageDay, packageRuleText } from '@core/utils/timePackages';
@@ -40,15 +41,19 @@ export function RoundVehiclePackage(p: Props) {
   const { selected, packages } = p;
   const entry = selected ? p.entries.get(selected.id) : undefined;
   const standard = packages.find((x) => x.id === 'same:full') ?? packages.find((x) => x.id === 'next');
-  const badge = (x: ServerTimePackage) => {
+  /** The small tag floating on a package card. The first card always carries one; the others only when they say something (a saving, the standard, an early return). */
+  const badge = (x: ServerTimePackage, first: boolean): { text: string; tone: 'save' | 'std' | 'early' | 'rec' } | null => {
     const save = standard && standard !== x ? standard.fare.total - x.fare.total : 0;
-    if (save > 0) return `${formatINR(save)} less than ${standard!.label}`;
-    return x.kind === 'morning' ? 'Early-return option' : x.id === standard?.id ? 'Standard package' : 'Recommended package';
+    if (save > 0) return { text: `${formatINR(save)} less than ${standard!.label}`, tone: 'save' };
+    if (x.kind === 'morning') return { text: 'Early-return option', tone: 'early' };
+    if (x.id === standard?.id) return { text: 'Standard package', tone: 'std' };
+    return first ? { text: 'Recommended package', tone: 'rec' } : null;
   };
-  const detail = (x: ServerTimePackage) => {
+  /** What the package includes, as short chips: distance, time allowed, driver bata. */
+  const chips = (x: ServerTimePackage): string[] => {
     const split = x.dayKm && x.dayKm.length > 1 ? ` (First day: ${x.dayKm[0]} km + ${x.dayKm.length === 2 ? 'Next day' : 'Each next day'}: ${x.dayKm[1]} km)` : '';
     const when = x.kind === 'morning' ? 'Overnight' : x.hours ? `Up to ${x.hours} hours` : x.kind === 'next_day' ? `${x.days} calendar days${split}` : 'Full day';
-    return `${x.includedKm} km included · ${when}`;
+    return [`${x.includedKm} km included`, when, `Driver bata${x.days > 1 ? ` for ${x.days === 2 ? 'both' : 'all'} days` : ''} included`];
   };
   const endText = (x: ServerTimePackage) => {
     const end = new Date(x.endAt);
@@ -57,8 +62,9 @@ export function RoundVehiclePackage(p: Props) {
   };
   const upgradeNote = (x: ServerTimePackage) =>
     x.upgrade ? (
-      <span className="pkg__note">
-        Still running after {packageClock(new Date(x.morningCutoffAt ?? x.endAt))}? It upgrades to {x.upgrade.label} (+{formatINR(x.upgrade.increase)}, {x.upgrade.includedKm} km included).
+      <span className="rvp__note">
+        <Icon name="info" size={14} />
+        <span>Still running after {packageClock(new Date(x.morningCutoffAt ?? x.endAt))}? It upgrades to {x.upgrade.label} (+{formatINR(x.upgrade.increase)}, {x.upgrade.includedKm} km included).</span>
       </span>
     ) : null;
   const photo = selected ? categoryPhoto(selected) : '';
@@ -92,9 +98,17 @@ export function RoundVehiclePackage(p: Props) {
       </div>
 
       {selected ? (
-        <p className="rvp__caption" aria-live="polite">
-          <Icon name="car" size={15} /> <strong>{vehicleTabLabel(selected.name)}</strong> <span>{categoryName(selected)} · {selected.seats} seats · AC</span>
-        </p>
+        <div className="rvp__vehicle" aria-live="polite">
+          <div className="rvp__vtext">
+            <span className="rvp__vclass">{vehicleTabLabel(selected.name)}</span>
+            <strong>{categoryName(selected)}</strong>
+            <span className="rvp__vmeta">
+              <span><Icon name="user" size={14} /> {selected.seats} seats</span>
+              <span><Icon name="snowflake" size={14} /> AC</span>
+            </span>
+          </div>
+          {photo ? <img src={photo} alt="" decoding="async" /> : null}
+        </div>
       ) : null}
 
       {p.autoDays && packages[0] ? (
@@ -116,70 +130,64 @@ export function RoundVehiclePackage(p: Props) {
         <div className="rvp__list" role="radiogroup" aria-label="Round-trip packages">
           {packages.map((x, i) => {
             const on = x.id === p.selectedPackage?.id;
-            return i === 0 ? (
-              <button key={x.id} type="button" role="radio" aria-checked={on} className={`rvp__hero ${on ? 'is-on' : ''}`} onClick={() => p.onPickPackage(x.id)}>
-                <span className="rvp__top">
-                  <span className="rvp__badge">{badge(x)}</span>
+            const tag = badge(x, i === 0);
+            return (
+              <button key={x.id} type="button" role="radio" aria-checked={on} className={`rvp__pkg ${on ? 'is-on' : ''} ${tag ? 'has-tag' : ''}`} onClick={() => p.onPickPackage(x.id)}>
+                {tag ? <span className={`rvp__badge rvp__badge--${tag.tone}`}>{tag.text}</span> : null}
+                <span className="rvp__head">
                   <span className="rvp__tick" aria-hidden="true">{on ? <Icon name="check" size={13} /> : null}</span>
+                  <strong className="rvp__name">{x.label}</strong>
+                  <b className="rvp__price">{formatINR(x.fare.total)}</b>
                 </span>
-                <span className="rvp__main">
-                  <span className="rvp__text">
-                    <strong>{x.label}</strong>
-                    <span>{detail(x)}</span>
-                    <span>Driver bata{x.days > 1 ? ` for ${x.days === 2 ? 'both' : 'all'} days` : ''} included</span>
-                  </span>
-                  <span className="rvp__right">
-                    <b>{formatINR(x.fare.total)}</b>
-                    <img src={photo} alt="" loading="lazy" decoding="async" />
-                  </span>
+                <span className="rvp__chips">
+                  {chips(x).map((c) => <span key={c} className="rvp__chip">{c}</span>)}
                 </span>
-                <span className="rvp__foot"><b>{endText(x)}</b> · Extra {formatINR(x.extraKmRate)}/km</span>
+                <span className="rvp__foot">
+                  <span className="rvp__return"><Icon name="clock" size={14} /> <b>{endText(x)}</b></span>
+                  <span className="rvp__extra">Extra {formatINR(x.extraKmRate)}/km</span>
+                </span>
                 {on ? upgradeNote(x) : null}
-              </button>
-            ) : (
-              <button key={x.id} type="button" role="radio" aria-checked={on} className={`rvp__compact ${on ? 'is-on' : ''}`} onClick={() => p.onPickPackage(x.id)}>
-                <span className="rvp__text">
-                  <strong>{x.label}</strong>
-                  <span>{detail(x)}</span>
-                  <span><b>{endText(x)}</b> · Driver bata included · Extra {formatINR(x.extraKmRate)}/km</span>
-                  {on ? upgradeNote(x) : null}
-                </span>
-                <span className="rvp__right">
-                  <b>{formatINR(x.fare.total)}</b>
-                  <span className="rvp__tick" aria-hidden="true">{on ? <Icon name="check" size={13} /> : null}</span>
-                </span>
               </button>
             );
           })}
         </div>
       ) : fare && selected ? (
-        <div className="rvp__hero is-on" role="status">
-          <span className="rvp__main">
-            <span className="rvp__text">
-              <strong>Round Trip{entry?.days ? ` · ${entry.days} ${entry.days === 1 ? 'day' : 'days'}` : ''}</strong>
-              <span>{entry?.includedKm ? `${entry.includedKm} km included` : 'Fare confirmed by quote'}</span>
-              <span>Driver bata included{entry?.extraKmRate ? ` · Extra ${formatINR(entry.extraKmRate)}/km` : ''}</span>
-            </span>
-            <span className="rvp__right">
-              <b>{formatINR(fare.total)}</b>
-              <img src={photo} alt="" loading="lazy" decoding="async" />
-            </span>
+        <div className="rvp__pkg rvp__pkg--static is-on" role="status">
+          <span className="rvp__head">
+            <strong className="rvp__name">Round Trip{entry?.days ? ` · ${entry.days} ${entry.days === 1 ? 'day' : 'days'}` : ''}</strong>
+            <b className="rvp__price">{formatINR(fare.total)}</b>
           </span>
+          <span className="rvp__chips">
+            <span className="rvp__chip">{entry?.includedKm ? `${entry.includedKm} km included` : 'Fare confirmed by quote'}</span>
+            <span className="rvp__chip">Driver bata included</span>
+          </span>
+          {entry?.extraKmRate ? <span className="rvp__foot"><span className="rvp__extra">Extra {formatINR(entry.extraKmRate)}/km</span></span> : null}
         </div>
       ) : null}
 
-      {packages.length ? <p className="rvp__rule"><Icon name="clock" size={15} /> <span>{packageRuleText(packages, packageClock)}</span></p> : null}
+      {packages.length ? (
+        <div className="rvp__rule">
+          <span className="rvp__ruleicon" aria-hidden="true"><Icon name="clock" size={16} /></span>
+          <div className="rvp__ruletext">
+            <strong>How your package works</strong>
+            {packageRuleText(packages, packageClock).split(/(?<=\.)\s+/).filter(Boolean).map((line) => <span key={line}>{line}</span>)}
+          </div>
+        </div>
+      ) : null}
 
       {selected && p.hasCng ? <FuelPick name={`fuel-${selected.id}`} value={p.fuel} onChange={(f) => p.onFuel(selected, f)} /> : null}
 
-      <p className="pkgs__fine">
-        Toll, parking &amp; state permit tax extra. Your package is the minimum charge; a longer or farther trip moves to the next package.{' '}
+      <div className="pkgs__fine">
+        <ul>
+          <li><Icon name="info" size={14} /> <span>Toll, parking &amp; state permit tax extra.</span></li>
+          <li><Icon name="info" size={14} /> <span>Your package is the minimum charge; a longer or farther trip moves to the next package.</span></li>
+        </ul>
         {selected ? (
-          <button type="button" className="cab__breakup-btn" onClick={() => p.onFareDetails(selected)}>
-            <Icon name="info" size={12} /> Fare details &amp; exclusions
+          <button type="button" className="rvp__details" onClick={() => p.onFareDetails(selected)}>
+            Fare details &amp; exclusions <Icon name="arrow-right" size={14} />
           </button>
         ) : null}
-      </p>
+      </div>
     </section>
   );
 }

@@ -1382,53 +1382,7 @@
 .pkg__price b { font-size: 1.05rem; }
 .pkg__price s { color: #8a93a3; font-size: .78rem; }
 .pkg__price small { color: var(--muted, #5b6472); font-size: .72rem; }
-.pkgs__fine { margin: 12px 0 0; color: var(--muted, #5b6472); font-size: .78rem; }
 @media (max-width: 520px) { .pkgs { padding: 12px; } .pkgs__list { grid-template-columns: 1fr; } }
 @media (prefers-color-scheme: dark) { .pkgs__auto { background: #3a2a0a; color: #ffd78a; } .pkg__note { color: #ffd78a !important; } }
 
-/* ── Round trip: "Choose vehicle & package" (vehicle tabs + hero / compact packages) ───────────────── */
-.rvp { display: grid; gap: 12px; margin: 0 0 18px; }
-.rvp__title { margin: 0; font-size: 1.15rem; font-weight: 700; }
-/* One horizontal row of vehicles (Customer UX 9.0): it scrolls sideways on a narrow screen instead of wrapping. */
-.rvp__tabs { display: flex; gap: 8px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; padding-bottom: 4px; scrollbar-width: none; -ms-overflow-style: none; }
-.rvp__tabs::-webkit-scrollbar { display: none; width: 0; height: 0; }
-.rvp__tabs > .rvp__tab { flex: 1 0 84px; scroll-snap-align: start; }
-.rvp__tab { display: grid; justify-items: center; gap: 4px; padding: 8px 6px; cursor: pointer; border: 1.5px solid var(--line, #e3e6ec); border-radius: 10px; background: var(--surface, #fff); color: inherit; font: inherit; font-weight: 600; font-size: .88rem; }
-.rvp__tab img { width: 72px; height: 42px; object-fit: contain; }
-.rvp__tab:hover:not(:disabled) { border-color: #c8102e; }
-.rvp__tab:focus-visible { outline: 2px solid #c8102e; outline-offset: 2px; }
-.rvp__tab.is-on { border-color: #c8102e; background: rgba(200, 16, 46, .05); color: #c8102e; box-shadow: 0 0 0 1px #c8102e inset; }
-.rvp__tab:disabled { opacity: .45; cursor: not-allowed; }
-.rvp__tab-skel { height: 70px; border-radius: 10px; }
-.rvp__caption { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; font-size: .88rem; }
-.rvp__caption span { color: var(--muted, #5b6472); }
-.rvp__na { margin: 0; color: #c8102e; font-size: .85rem; }
-.rvp__list { display: grid; gap: 10px; }
-.rvp__hero, .rvp__compact { display: grid; gap: 8px; width: 100%; padding: 14px; text-align: left; cursor: pointer; border: 1.5px solid var(--line, #e3e6ec); border-radius: 14px; background: var(--surface, #fff); color: inherit; font: inherit; }
-.rvp__compact { grid-template-columns: 1fr auto; align-items: start; padding: 12px 14px; border-radius: 12px; }
-.rvp__hero:hover, .rvp__compact:hover { border-color: #c8102e; }
-.rvp__hero:focus-visible, .rvp__compact:focus-visible { outline: 2px solid #c8102e; outline-offset: 2px; }
-.rvp__hero.is-on, .rvp__compact.is-on { border-color: #c8102e; background: rgba(200, 16, 46, .05); box-shadow: 0 0 0 1px #c8102e inset; }
-.rvp__top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.rvp__badge { padding: 3px 9px; border-radius: 6px; background: #e8f8ee; color: #11773a; font-size: .76rem; font-weight: 700; }
-.rvp__tick { display: inline-grid; place-items: center; width: 20px; height: 20px; border: 1.5px solid #9aa3b2; border-radius: 50%; }
-.is-on .rvp__tick { border-color: #c8102e; background: #c8102e; color: #fff; }
-.rvp__main { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.rvp__text { display: grid; gap: 2px; min-width: 0; }
-.rvp__text strong { font-size: 1.05rem; }
-.rvp__text span { color: var(--muted, #5b6472); font-size: .8rem; line-height: 1.4; }
-.rvp__right { display: grid; justify-items: end; gap: 4px; white-space: nowrap; }
-.rvp__right b { font-size: 1.3rem; }
-.rvp__compact .rvp__right b { font-size: 1.05rem; }
-.rvp__right img { width: 110px; height: 60px; object-fit: contain; }
-.rvp__foot { color: var(--muted, #5b6472); font-size: .8rem; }
-@media (max-width: 420px) { .rvp__right img { width: 84px; height: 46px; } }
-
-/* The one-line package rule under the round-trip packages (Customer UX 9.0). */
-.rvp__rule { display: flex; align-items: flex-start; gap: 8px; margin: 12px 0 0; padding: 10px 12px; border: 1px solid var(--line, #e3e7ee); border-radius: 10px; background: var(--surface, #fff); color: var(--muted, #5b6472); font-size: .8125rem; line-height: 1.45; }
-.rvp__rule svg { flex: none; margin-top: 2px; color: var(--brand-ink, var(--brand, #c8181f)); }
-
-.rvp__tab small { color: var(--muted, #5b6472); font-size: .7rem; font-weight: 700; white-space: nowrap; }
-.rvp__tab.is-on small { color: inherit; }
-.rvp__wait { display: grid; gap: 10px; }
-.rvp__skel { display: block; height: 92px; border-radius: 12px; }
+/* Round-trip "Choose vehicle & package" styles live in pages/book/roundVehicle.css. */

@@ -70,14 +70,24 @@ export async function callBackend<Req, Res>(name: string, data: Req, timeoutMs =
       signal: controller.signal,
     });
   let response: Response;
+  let stage = 'sign-in token';
   try {
-    response = await send(await user.getIdToken());
+    const token = await user.getIdToken();
+    stage = 'request';
+    response = await send(token);
     // A stale token is refreshed once and the call is retried; nothing else is retried.
     if (response.status === 401) {
       console.info(LOG, '↻', name, 'token rejected, refreshing and retrying once');
-      response = await send(await user.getIdToken(true));
+      stage = 'sign-in token';
+      const fresh = await user.getIdToken(true);
+      stage = 'request';
+      response = await send(fresh);
     }
   } catch (err) {
+    if (stage === 'sign-in token' && (err as { name?: string }).name !== 'AbortError') {
+      console.error(LOG, '✗', name, 'could not get a sign-in token', String((err as Error)?.message ?? err));
+      throw new BackendError('unauthenticated', 'Your sign-in could not be refreshed (Google sign-in service unreachable or session expired). Check your connection, or sign out and sign in again.');
+    }
     // A browser "Failed to fetch" here usually means the request never got a reply: wrong API URL, server down, or CORS blocked.
     console.error(LOG, '✗', name, 'no response after', took(), { page: ownAddress, api: API_URL, error: String((err as Error)?.message ?? err), likelyCause: 'The API did not accept this page address (CORS) or is unreachable. Run nesamApiCheck() in this console.' });
     if ((err as { name?: string }).name === 'AbortError') throw new BackendError('deadline-exceeded', 'The server took too long to respond.');

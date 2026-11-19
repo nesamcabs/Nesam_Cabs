@@ -37,7 +37,6 @@ export default function Header({ title, onNavigate, onOpen, onCreateBooking, onO
   const { rows } = useBookingAlerts(canOps);
   const { unread } = useNotifications();
   const displayName = userName || userEmail?.split("@")[0] || "Admin";
-  const roleLabel = (userRole || "Administrator").toUpperCase();
   const alertCount = (canOps ? rows.length : 0) + unread;
 
   useEffect(() => {

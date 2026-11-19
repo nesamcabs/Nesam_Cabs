@@ -308,10 +308,6 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
     }
   };
 
-  const err = (k: keyof CustomerForm) => errors[k] ? <span role="alert" className="text-[11px] font-semibold text-bad">{errors[k]}</span> : null;
-  const breakupCard = chosen && q && (
-    <FareBreakupCard vehicle={chosen.category.name} lines={breakupLines(q)} total={q.quote.total} gstRate={q.quote.gstRate ?? 0} gstAmount={q.quote.gst} extraKm={estimateFacts.extraKmRateOf(q)} payout={canSeePayout ? estimateFacts.partnerPayoutOf(q) : null} priceEntered={gstEntryOf(q)} />
-  );
   const errorLine = error && <div className="ds-error" role="alert" style={{ marginBottom: 14 }}><Icon name="circle-alert" />{error}</div>;
   const wizard = (on: 1 | 2 | 3) => (
     <div className="ds-wizard-steps" aria-label="Booking steps">

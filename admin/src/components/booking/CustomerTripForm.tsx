@@ -9,7 +9,7 @@ import "../../styles/customerFormAdmin.css";
 import { Icon, type IconName } from "../ui";
 import { addDaysISO, isoDateIST, ROUND_TRIP_MAX_DAYS } from "../../utils/time";
 import {
-  PlaceField, TRIP_OPTION, isTripTypeAlias, TRIP_SERVICES, airportSide, tripOptionKey, tripTypeForService, withPickup, withTripType,
+  PlaceField, TRIP_OPTION, isTripTypeAlias, TRIP_SERVICES, tripServiceOffered, airportSide, tripOptionKey, tripTypeForService, withPickup, withTripType,
   type QuickData, type QuickTrip,
 } from "./QuickFare";
 
@@ -129,7 +129,7 @@ export default function CustomerTripForm({ trip, set, data, top, action, error, 
   // One button per trip type. A configured service that is only another name for one of them (One Way Taxi, Outstation Round Trip,
   // Multicity Tour, Airport Taxi, a second Pickup & Drop ...) is not listed again; a genuinely different service still is.
   const options = [
-    ...TRIP_SERVICES.filter((x) => !allowedTripTypes || allowedTripTypes.includes(x.tripType)).map((x) => ({ value: `${TRIP_OPTION}${x.key}`, label: x.label, icon: iconFor(x.tripType, x.multicity, x.local) })),
+    ...TRIP_SERVICES.filter((x) => (!allowedTripTypes || allowedTripTypes.includes(x.tripType)) && tripServiceOffered(x.key, data, trip.serviceId ? undefined : tripOptionKey(trip))).map((x) => ({ value: `${TRIP_OPTION}${x.key}`, label: x.label, icon: iconFor(x.tripType, x.multicity, x.local) })),
     ...data.services.filter((s) => (!allowedTripTypes || allowedTripTypes.includes(tripTypeForService(s))) && (!isTripTypeAlias(s.name) || s.id === trip.serviceId)).map((s) => ({ value: s.id, label: s.name, icon: "car" as IconName })),
   ];
   const current = trip.serviceId || `${TRIP_OPTION}${tripOptionKey(trip)}`;

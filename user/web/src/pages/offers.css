@@ -1,0 +1,15 @@
+/* Offers page: one coupon card per live promo code. Every colour, radius and shadow comes from the site's tokens, so each brand keeps its own look. */
+.offer-grid { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); }
+.offer { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 22px 20px 20px; overflow: hidden; border: 1px solid var(--line); border-radius: var(--r-card, var(--r-md)); background: var(--surface, #fff); box-shadow: var(--shadow-1); transition: box-shadow var(--dur, 200ms), border-color var(--dur, 200ms); }
+.offer::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 4px; background: var(--brand-gradient, var(--brand)); }
+.offer:hover { border-color: var(--line-strong); box-shadow: var(--shadow-2); }
+.offer__top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.offer__value { color: var(--brand); font-size: 1.75rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; }
+.offer__top .badge { flex: none; }
+.offer__desc { margin: 0; color: var(--ink); font-size: .98rem; font-weight: 700; line-height: 1.35; }
+.offer__terms { margin: 0; color: var(--muted); font-size: .82rem; line-height: 1.5; }
+.offer__code { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: auto; padding: 8px 8px 8px 14px; border: 1.5px dashed var(--brand-line, var(--line-strong)); border-radius: var(--r-sm, 6px); background: var(--brand-soft, var(--paper)); }
+.offer__code code { min-width: 0; overflow: hidden; color: var(--ink); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .98rem; font-weight: 800; letter-spacing: .08em; text-overflow: ellipsis; white-space: nowrap; }
+.offer .btn--block, .offer > .btn { margin-top: 2px; }
+@media (max-width: 520px) { .offer-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (prefers-reduced-motion: reduce) { .offer { transition: none; } }

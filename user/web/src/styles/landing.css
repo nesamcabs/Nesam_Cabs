@@ -318,3 +318,18 @@
     width: 100%;
   }
 }
+
+/* Route fare chart on a phone: each vehicle becomes a card (name + fare on top, details as label / value rows, a full-width Book button). */
+@media (max-width: 720px) {
+  .lp-table-wrap { overflow: visible; border: 0; background: transparent; box-shadow: none; }
+  .lp-table, .lp-table tbody { display: block; width: 100%; min-width: 0; }
+  .lp-table thead { display: none; }
+  .lp-table tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; margin: 0 0 12px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--r-card, var(--r-md)); background: var(--surface, #fff); box-shadow: var(--shadow-1); }
+  .lp-table td { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-width: 0; padding: 0; border: 0; font-size: .88rem; text-align: right; }
+  .lp-table td[data-label]::before { content: attr(data-label); color: var(--muted); font-size: .8rem; font-weight: 500; text-align: left; }
+  .lp-table td.lp-table__cat { grid-column: 1; grid-row: 1; justify-content: flex-start; font-size: 1.05rem; text-align: left; }
+  .lp-table td.lp-table__fare { grid-column: 2; grid-row: 1; font-size: 1.15rem; }
+  .lp-table td:not(.lp-table__cat):not(.lp-table__fare):not(.lp-table__end) { grid-column: 1 / -1; padding-top: 6px; border-top: 1px dashed var(--line); }
+  .lp-table td.lp-table__end { grid-column: 1 / -1; display: block; padding-top: 6px; }
+  .lp-table td.lp-table__end .btn { width: 100%; min-height: 44px; }
+}

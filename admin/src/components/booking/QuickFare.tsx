@@ -1,5 +1,5 @@
 import DateTime12Input from "../DateTime12Input";
-import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import type { MasterLocation, TravelService, VehicleCategory } from "../../types";
 import { subscribeLocations, subscribeServices, subscribeVehicleCategories } from "../../services/adminFirestoreService";
 import {
@@ -107,7 +107,7 @@ export function useQuickData() {
   const pickups = useMemo(() => bookableLocations(locations, "pickup"), [locations]);
   const drops = useMemo(() => bookableLocations(locations, "drop"), [locations]);
   const cats = useMemo(() => bookableCategories(categories).sort((a, b) => (a.displayOrder ?? 99) - (b.displayOrder ?? 99)), [categories]);
-  return { services: activeServices, pickups, drops, categories: cats, business: business.filter((b) => b.status === "Active") };
+  return { services: activeServices, allServices: services, pickups, drops, categories: cats, business: business.filter((b) => b.status === "Active") };
 }
 export type QuickData = ReturnType<typeof useQuickData>;
 
@@ -123,6 +123,14 @@ export const TRIP_SERVICES: { key: string; tripType: QuickTrip["tripType"]; labe
   { key: "Pickup & Drop", tripType: "One Way", label: "Pickup & Drop", local: true },
   { key: "Airport Taxi", tripType: "Airport Taxi", label: "Airport Transfer" },
 ];
+/** The service record (Services page) behind each built-in trip type. */
+const SERVICE_RECORD_TYPE: Record<string, string> = { "One Way": "One Way Taxi", "Round Trip": "Outstation Cab", Multicity: "Multicity", "Local Rental": "Local Rental", "Pickup & Drop": "Local Pickup & Drop", "Airport Taxi": "Airport Taxi" };
+/** A built-in trip type is offered unless its service is switched off for the office on the Services page (no record yet = on). */
+export const tripServiceOffered = (key: string, data: Pick<QuickData, "allServices">, current?: string): boolean => {
+  if (key === current) return true;
+  const rec = data.allServices.find((s) => s.serviceType === SERVICE_RECORD_TYPE[key]);
+  return !rec || (rec.status === "Active" && rec.adminBookingEnabled !== false);
+};
 export const TRIP_OPTION = "trip:";
 const TYPE_ICON: Record<string, IconName> = { "One Way": "arrow-right", "Round Trip": "arrow-left-right", Multicity: "route", "Local Rental": "clock", "Pickup & Drop": "map-pin", "Airport Taxi": "plane" };
 /** A configured service's name reduced to the trip type it only renames ("Outstation Round Trip" -> roundtrip). */
@@ -457,14 +465,12 @@ export function PlaceField({ label, placeholder, text, value, saved, near, airpo
 export function TripFields({ trip, set, data, compact, idPrefix, action, allowedTripTypes }: { trip: QuickTrip; set: (p: Partial<QuickTrip>) => void; data: QuickData; compact?: boolean; idPrefix: string; action?: ReactNode; allowedTripTypes?: QuickTrip["tripType"][] }) {
   const [pin, setPin] = useState<"pickup" | "drop" | null>(null);
   const today = isoDateIST(new Date());
-  const tomorrow = isoDateIST(new Date(Date.now() + 86400000));
-  const service = data.services.find((s) => s.id === trip.serviceId);
   const rental = trip.tripType === "Local Rental";
   const airportAt = trip.tripType === "Airport Taxi" ? airportSide(trip) : null;
   const pickPoint = (side: "pickup" | "drop", p: PickedPoint | null, text: string) => set(side === "pickup" ? withPickup(trip, p, text) : { drop: p, dropText: text });
   // One pill per trip type. A configured service that is only another name for one of them (One Way Taxi, Outstation Round Trip,
   // Multicity Tour, a second Pickup & Drop ...) is not listed again; only genuinely different services go under "More services".
-  const types = TRIP_SERVICES.filter((x) => !allowedTripTypes || allowedTripTypes.includes(x.tripType));
+  const types = TRIP_SERVICES.filter((x) => (!allowedTripTypes || allowedTripTypes.includes(x.tripType)) && tripServiceOffered(x.key, data, tripOptionKey(trip)));
   const others = data.services.filter((s) => (!allowedTripTypes || allowedTripTypes.includes(tripTypeForService(s))) && (!isTripTypeAlias(s.name) || s.id === trip.serviceId));
   const pickType = (x: (typeof TRIP_SERVICES)[number]) => set({ serviceId: "", multicity: !!x.multicity, local: !!x.local, ...withTripType(trip, x.tripType) });
   const pickOther = (id: string) => {
@@ -599,31 +605,6 @@ export function TripFields({ trip, set, data, compact, idPrefix, action, allowed
         </Modal>
       )}
     </>
-  );
-}
-
-/** Extras & terms the office records for the trip (hill, carrier, waiting). */
-export function ExtrasFields({ trip, set }: { trip: QuickTrip; set: (p: Partial<QuickTrip>) => void }) {
-  const toggles: { key: "hill" | "carrier" | "pets"; label: string; on: boolean }[] = [
-    { key: "hill", label: "Hill travel", on: trip.hill },
-    { key: "carrier", label: "Roof carrier", on: trip.carrier },
-    { key: "pets", label: "Travelling with pets", on: trip.pets === true },
-  ];
-  return (
-    <div className="qf-extras">
-      {toggles.map((x) => (
-        <label key={x.key} className="qf-toggle" data-on={x.on ? "true" : undefined}>
-          <input type="checkbox" checked={x.on} onChange={(e) => set({ [x.key]: e.target.checked } as Partial<QuickTrip>)} />
-          <Icon name="check" size={13} />
-          <span>{x.label}</span>
-        </label>
-      ))}
-      <label className="qf-wait">
-        <span>Expected waiting</span>
-        <input className="ds-input" type="number" min={0} step={15} value={trip.waitingMin} onChange={(e) => set({ waitingMin: e.target.value })} />
-        <em>min</em>
-      </label>
-    </div>
   );
 }
 

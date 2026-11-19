@@ -9,6 +9,7 @@ import { useSeo } from '@/lib/seo';
 import { OFFERS_SEO } from '@/seo/pages';
 import { useBooking } from '@/state/Booking';
 import { useNavigate } from 'react-router-dom';
+import './offers.css';
 
 export function OffersPage() {
   useSeo(OFFERS_SEO);

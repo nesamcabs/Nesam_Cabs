@@ -110,7 +110,7 @@ export function RouteLandingPage() {
               Transparent Fare Chart: {route.origin} to {route.destination}
             </h2>
             <p className="sec-head__text">
-              Fares calculated based on official owner-approved Tariff v2 rates. Applicable GST and driver allowance are included upfront; your booking shows the exact GST. Tolls at actuals.
+              Fares are worked out from our current published rates. Applicable GST and driver allowance are included upfront; your booking shows the exact GST. Tolls at actuals.
             </p>
           </header>
 
@@ -131,10 +131,10 @@ export function RouteLandingPage() {
                 {route.estimates.map((est) => (
                   <tr key={est.category}>
                     <td className="lp-table__cat">{est.category}</td>
-                    <td>{est.model}</td>
-                    <td>{est.seats}</td>
-                    <td>₹{est.perKm} / KM</td>
-                    <td>₹{est.driverBata}</td>
+                    <td data-label="Popular models">{est.model}</td>
+                    <td data-label="Seating">{est.seats}</td>
+                    <td data-label="Rate / KM">₹{est.perKm} / KM</td>
+                    <td data-label="Driver allowance">₹{est.driverBata}</td>
                     <td className="lp-table__fare">{formatINR(est.estimatedOneWay)}</td>
                     <td className="lp-table__end">
                       <button type="button" className="btn btn--sm btn--primary" onClick={() => handleBookNow('One Way')}>
