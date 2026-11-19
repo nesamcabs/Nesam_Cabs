@@ -1,7 +1,7 @@
 // Choose your cab — step 2 of 3, in the customer reference layout. Fares are the booking
 // server's quotes (the only amount that can be booked); the local calculation is a labelled
 // estimate while they load.
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAvoid } from '../components/KeyboardAvoid';
@@ -61,6 +61,19 @@ export function ChooseRideScreen() {
     if (!categoryId && categories.length > 0) update({ categoryId: categories[0]!.id });
   }, [categoryId, categories, update]);
 
+  // A cab type the office turned off for this location is not shown at all: no card, no tab.
+  const hiddenIds = useMemo(
+    () => new Set(serverQuote.status === 'ready' && serverQuote.data ? serverQuote.data.quotes.filter((x) => !x.ok && /is not offered for this location/i.test(x.error ?? '')).map((x) => x.categoryId) : []),
+    [serverQuote],
+  );
+  const offered = useMemo(() => categories.filter((c) => !hiddenIds.has(c.id)), [categories, hiddenIds]);
+  // If the chosen cab type is now hidden, move to the first one still offered.
+  useEffect(() => {
+    if (!categoryId || !hiddenIds.has(categoryId)) return;
+    const next = offered[0];
+    if (next) update({ categoryId: next.id, fuelType: '' });
+  }, [categoryId, hiddenIds, offered, update]);
+
   const goHome = () => navigation.navigate('Tabs', { screen: 'Book' });
 
   if (!pickup || !drop) {
@@ -87,7 +100,7 @@ export function ChooseRideScreen() {
     for (const c of categories) if (hasEstimate(c)) quotes.set(c.id, calculateFare({ category: c, route, tripType, pickupTime, adjustment }));
   }
 
-  const selected: RideCategory | null = categories.find((c) => c.id === categoryId) ?? categories[0] ?? null;
+  const selected: RideCategory | null = offered.find((c) => c.id === categoryId) ?? offered[0] ?? null;
   const selectedQuote = selected ? quotes.get(selected.id) ?? null : null;
   const outstation = route ? isOutstation(route.distanceKm) : true;
   const tooFar = route ? route.distanceKm > 1500 : false;
@@ -193,7 +206,7 @@ export function ChooseRideScreen() {
 
         {roundPick ? (
           <RoundVehiclePackage
-            categories={categories}
+            categories={offered}
             selected={selected}
             entryOf={entryOf}
             quotes={quotes}
@@ -211,7 +224,7 @@ export function ChooseRideScreen() {
 
         {/* Cab cards */}
         {roundPick ? null : <Content style={{ gap: 12 }}>
-          {categories.map((c) => {
+          {offered.map((c) => {
             const on = selected?.id === c.id;
             const quote = quotes.get(c.id);
             const entry = entryOf(c.id);

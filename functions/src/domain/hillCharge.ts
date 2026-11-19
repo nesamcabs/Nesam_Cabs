@@ -10,7 +10,7 @@ import type { FareBreakdown } from './types';
 
 /** What was billed for one booking's hill stations (customer-visible). `amount` is before GST. */
 export interface HillChargeSnapshot {
-  slab: 'oneWay' | 'roundTrip';
+  slab: 'oneWay' | 'roundTrip' | 'multicity';
   stations: { id: string; name: string; tamil: string }[];
   units: number;
   amount: number;
@@ -47,8 +47,8 @@ export function withHillChargeFare(source: FareBreakdown, charge?: HillChargeSna
 /** The line detail the customer reads: where the hill charge comes from. */
 export function hillLineDetail(c: Pick<HillChargeSnapshot, 'slab' | 'stations' | 'units'>): string {
   const where = hillNames(c.stations);
-  const slab = c.slab === 'roundTrip' ? 'Round-trip' : 'One-way';
-  return `${where ? `${where} · ` : ''}${slab} hill slab${c.units > 1 ? ` × ${c.units}` : ''}`;
+  const slab = c.slab === 'roundTrip' ? 'Round-trip' : c.slab === 'multicity' ? 'Multicity' : 'One-way';
+  return `${where ? `${where} · ` : ''}${slab} hill ${c.slab === 'multicity' ? 'charge' : 'slab'}${c.units > 1 ? ` × ${c.units}` : ''}`;
 }
 
 /**

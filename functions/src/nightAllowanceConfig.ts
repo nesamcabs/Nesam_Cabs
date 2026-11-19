@@ -38,7 +38,18 @@ export const saveNightAllowance = onCall(async (request) => {
       sentClasses[k] = Math.round(v * 100) / 100;
     }
   }
-  if (enabled && !(amount > 0) && !Object.values(sentClasses ?? {}).some((v) => v > 0)) throw new HttpsError('invalid-argument', 'Enter an amount above zero, or switch the night allowance off.');
+  // What the partner gets for a night pickup, per vehicle class: same checks, same "left out keeps what it had" rule.
+  let sentPartner: Record<string, number> | null = null;
+  if (input.partnerClasses !== undefined && input.partnerClasses !== null) {
+    if (typeof input.partnerClasses !== 'object' || Array.isArray(input.partnerClasses)) throw new HttpsError('invalid-argument', 'Send what the partner gets for each vehicle.');
+    sentPartner = {};
+    for (const [k, v] of Object.entries(input.partnerClasses as Record<string, unknown>)) {
+      if (!(TARIFF_CLASSES as readonly string[]).includes(k)) throw new HttpsError('invalid-argument', 'Choose a supported vehicle category.');
+      if (typeof v !== 'number' || !Number.isFinite(v) || v < 0 || v > MAX_RUPEES) throw new HttpsError('invalid-argument', `Enter what the partner gets for each vehicle from 0 to ${MAX_RUPEES.toLocaleString('en-IN')} rupees.`);
+      sentPartner[k] = Math.round(v * 100) / 100;
+    }
+  }
+  if (enabled && !(amount > 0) && !Object.values(sentClasses ?? {}).some((v) => v > 0) && !Object.values(sentPartner ?? {}).some((v) => v > 0)) throw new HttpsError('invalid-argument', 'Enter an amount above zero, or switch the night allowance off.');
 
   const ref = db.doc(NIGHT_ALLOWANCE_DOC);
   return db.runTransaction(async (tx) => {
@@ -49,7 +60,8 @@ export const saveNightAllowance = onCall(async (request) => {
     }
     const version = before.version + 1;
     const classes = { ...(before.classes ?? {}), ...(sentClasses ?? {}) };
-    const next = { enabled, amount: Math.round(amount * 100) / 100, ...(Object.keys(classes).length ? { classes } : {}), version };
+    const partnerClasses = { ...(before.partnerClasses ?? {}), ...(sentPartner ?? {}) };
+    const next = { enabled, amount: Math.round(amount * 100) / 100, ...(Object.keys(classes).length ? { classes } : {}), ...(Object.keys(partnerClasses).length ? { partnerClasses } : {}), version };
     tx.set(ref, { ...next, updatedBy: actor.uid, updatedByName: actor.name, updatedAt: FieldValue.serverTimestamp() });
     auditInTx(tx, {
       action: 'night_allowance_saved', entity: 'night_allowance', entityId: 'global', performedBy: actor.uid, performedByName: actor.name,

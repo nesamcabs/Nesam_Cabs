@@ -21,14 +21,14 @@ export function ratesAfterPrepaidAddOns(snapshot: ExtraChargesSnapshot, carrierP
 }
 
 /** Selected per-trip charges are billed once and snapshotted, independently of later price edits. */
-export function withBookingAddOns(result: PriceResult, selection: unknown, rates?: FareExtras, commonPetCharge = 0): PriceResult {
+export function withBookingAddOns(result: PriceResult, selection: unknown, rates?: Pick<FareExtras, 'carrierCharge'>, petRate = 0, partnerPetRate = 0): PriceResult {
   const selected = bookingAddOnsOf(selection);
   if (!selected.roofCarrier && !selected.pets) return result;
   const included = result.fare.gstDetails?.mode === 'included';
   const taxRate = result.fare.gstRate;
   const net = (v: number) => included ? round(v / (1 + taxRate)) : v;
   const carrier = selected.roofCarrier ? rate(rates?.carrierCharge) : 0;
-  const pets = selected.pets ? rate(commonPetCharge) : 0;
+  const pets = selected.pets ? rate(petRate) : 0;
   const charges: BookingAddOnCharges = { ...selected, carrierCharge: net(carrier), petCharge: net(pets) };
   if (included) charges.grossAmount = round(carrier + pets);
   const fare = withBookedAddOnFare(result.fare, charges);
@@ -47,7 +47,12 @@ export function withBookingAddOns(result: PriceResult, selection: unknown, rates
   ];
   lines.splice(insert < 0 ? lines.length : insert, 0, ...billed);
   const extras = lines.filter(l => l.treatment === 'extra');
-  return { ...result, fare, pricing: { ...result.pricing, bookingAddOns: charges }, breakup: { ...result.breakup, lines,
+  // The partner's pet travel payout goes into the (private) partner block, like the hill payout.
+  const petPartnerPaise = selected.pets ? Math.round(rate(partnerPetRate) * 100) : 0;
+  const partner = result.pricing.partner && petPartnerPaise > 0
+    ? { ...result.pricing.partner, basePaise: result.pricing.partner.basePaise + petPartnerPaise, petPaise: petPartnerPaise }
+    : result.pricing.partner;
+  return { ...result, fare, pricing: { ...result.pricing, bookingAddOns: charges, partner }, breakup: { ...result.breakup, lines,
     packageTotal: total, knownExtras: round(extras.reduce((sum, l) => sum + (l.amount ?? 0), 0)), hasActualsExtras: extras.some(l => l.amount === null),
   } };
 }

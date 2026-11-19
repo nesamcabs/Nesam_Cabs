@@ -22,6 +22,7 @@ import { loadPrivatePricing, withPrivatePricing } from './pricingPrivate';
 import { sendCustomerMessage } from './customerComms';
 import { approved, inIndia, requirePermission, text, requireAction } from './shared';
 import { rentalUsageOf } from './domain/localShift';
+import { pickupWaitFields } from './domain/pickupWaiting';
 import { refreshShiftSummary } from './localShifts';
 
 // Operational limits. All are staff-configurable in settings/operations; these defaults are the
@@ -172,6 +173,8 @@ export const advanceTrip = onCall({ timeoutSeconds: 60 }, async (request) => {
         ...base, status: 'Ongoing', tripStartedAt: stamp, startedAt: stamp, tripStartedLocation: geo,
         startOdometer: v.odometerReading ?? FieldValue.delete(),
         vehicleVerification: { status: 'Submitted', riskLevel: v.riskLevel ?? 'low', flagged: v.flagged === true, submittedAt: v.submittedAt ?? null },
+        // How long the driver waited at the pickup, measured here from the server's own clock (see domain/pickupWaiting.ts).
+        ...pickupWaitFields(b, Date.now(), stamp),
       };
       adminMsg = `Trip ${label} started by ${driver.name}.`;
     } else {

@@ -6,7 +6,8 @@ import { CLASS_LABEL, TARIFF_CLASSES, type TariffClass } from "../services/tarif
 import { useCan } from "./AccessContext";
 import { Notice, primaryBtn } from "./FormKit";
 
-interface Stored { enabled?: boolean; amount?: number; classes?: Partial<Record<TariffClass, number>>; version?: number; updatedByName?: string }
+interface Stored { enabled?: boolean; amount?: number; classes?: Partial<Record<TariffClass, number>>; partnerClasses?: Partial<Record<TariffClass, number>>; version?: number; updatedByName?: string }
+type Amounts = Partial<Record<TariffClass, string>>;
 
 const MAX_RUPEES = 100000;
 const inr = (n: number) => `₹${n.toLocaleString("en-IN")}`;
@@ -14,13 +15,14 @@ const inr = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 /**
  * Night allowance, set for each vehicle in Service & Fare Settings → Fares: a fixed amount added automatically to a booking whose pickup is
  * between 11:00 PM and 6:00 AM (India time), for every brand and service, shown to the customer as its own "Night allowance" line.
- * One switch turns it on or off; each vehicle has its own amount (0 = none for that vehicle).
+ * Each vehicle has what the customer pays (added to the total) and what the partner gets (added to the partner payout); 0 = none.
  */
 export default function NightAllowanceCard({ names = {} }: { names?: Partial<Record<TariffClass, string>> }) {
   const canEdit = useCan("pricing");
   const [stored, setStored] = useState<Stored | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
-  const [amounts, setAmounts] = useState<Partial<Record<TariffClass, string>>>({});
+  const [amounts, setAmounts] = useState<Amounts>({});
+  const [partner, setPartner] = useState<Amounts>({});
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
@@ -36,30 +38,37 @@ export default function NightAllowanceCard({ names = {} }: { names?: Partial<Rec
             // A night allowance an older save left switched off shows as zero (none).
             const v = d?.enabled === true ? d?.classes?.[c] ?? d?.amount : 0;
             return [c, v !== undefined && v !== null ? String(v) : ""];
-          })) as Partial<Record<TariffClass, string>>);
+          })) as Amounts);
+          setPartner(Object.fromEntries(TARIFF_CLASSES.map((c) => {
+            const v = d?.enabled === true ? d?.partnerClasses?.[c] : 0;
+            return [c, v !== undefined && v !== null ? String(v) : ""];
+          })) as Amounts);
         }
       }, setError),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
-  const num = (c: TariffClass) => (amounts[c] ?? "").trim() === "" ? 0 : Number(amounts[c]);
-  const bad = TARIFF_CLASSES.find((c) => !Number.isFinite(num(c)) || num(c) < 0 || num(c) > MAX_RUPEES);
-  const problem = bad ? `Enter ${CLASS_LABEL[bad]} as an amount from 0 to ${MAX_RUPEES.toLocaleString("en-IN")} rupees.`
+  const numOf = (src: Amounts, c: TariffClass) => ((src[c] ?? "").trim() === "" ? 0 : Number(src[c]));
+  const badOf = (src: Amounts) => TARIFF_CLASSES.find((c) => !Number.isFinite(numOf(src, c)) || numOf(src, c) < 0 || numOf(src, c) > MAX_RUPEES);
+  const badCustomer = badOf(amounts), badPartner = badOf(partner);
+  const problem = badCustomer ? `Enter what the customer pays for ${CLASS_LABEL[badCustomer]} as an amount from 0 to ${MAX_RUPEES.toLocaleString("en-IN")} rupees.`
+    : badPartner ? `Enter what the partner gets for ${CLASS_LABEL[badPartner]} as an amount from 0 to ${MAX_RUPEES.toLocaleString("en-IN")} rupees.`
     : null;
   // No on/off switch: it is on whenever a vehicle has an amount above zero.
-  const enabled = TARIFF_CLASSES.some((c) => num(c) > 0);
+  const enabled = TARIFF_CLASSES.some((c) => numOf(amounts, c) > 0 || numOf(partner, c) > 0);
 
   const save = async () => {
     if (problem || busy) return;
     setBusy(true);
     setMsg(null);
     try {
-      const classes = Object.fromEntries(TARIFF_CLASSES.map((c) => [c, num(c)])) as Record<string, number>;
+      const classes = Object.fromEntries(TARIFF_CLASSES.map((c) => [c, numOf(amounts, c)])) as Record<string, number>;
+      const partnerClasses = Object.fromEntries(TARIFF_CLASSES.map((c) => [c, numOf(partner, c)])) as Record<string, number>;
       // The common amount stays as the fallback for any vehicle class added later.
-      await saveNightAllowance({ enabled, amount: classes.sedan ?? 0, classes, expectedVersion: stored?.version ?? 0 });
+      await saveNightAllowance({ enabled, amount: classes.sedan ?? 0, classes, partnerClasses, expectedVersion: stored?.version ?? 0 });
       setDirty(false);
-      setMsg({ tone: "ok", text: "Saved. New quotes and bookings with a pickup between 11:00 PM and 6:00 AM include each vehicle's amount; existing bookings keep the fare they were booked at." });
+      setMsg({ tone: "ok", text: "Saved. New quotes and bookings with a pickup between 11:00 PM and 6:00 AM include each vehicle's amounts; existing bookings keep the fare they were booked at." });
     } catch (e) {
       setMsg({ tone: "error", text: e instanceof ActionError ? e.message : "The night allowance was not saved." });
     } finally {
@@ -67,26 +76,33 @@ export default function NightAllowanceCard({ names = {} }: { names?: Partial<Rec
     }
   };
 
-  return (
-    <section className="ds-panel ds-panel-pad" aria-label="Night allowance">
-      <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
-        <div style={{ flex: "1 1 260px", minWidth: 0 }}>
-          <h3 className="text-[15px] font-bold text-ink mb-1">Night allowance</h3>
-          <p className="text-[12px] text-muted">Added automatically to a booking whose pickup is between <strong className="text-ink">11:00 PM and 6:00 AM</strong> (India time), on every service and brand. Set the amount for each vehicle; 0 means none.</p>
-        </div>
-      </div>
-      {error && <Notice tone="error">{error}</Notice>}
-
-
+  const grid = (title: string, hint: string, src: Amounts, set: (fn: (a: Amounts) => Amounts) => void) => (
+    <div className="mt-3">
+      <h4 className="text-[11px] font-bold uppercase tracking-wide text-faint mb-1">{title} <span className="font-normal normal-case text-muted">· {hint}</span></h4>
       <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>
         {TARIFF_CLASSES.map((c) => (
           <label key={c} className="ds-field">
             <span>{names[c] ?? CLASS_LABEL[c]} (₹ / booking)</span>
             <input className="ds-input text-right" type="number" min={0} step="0.01" inputMode="decimal" placeholder="0" disabled={!canEdit || busy}
-              value={amounts[c] ?? ""} onChange={(e) => { setAmounts((a) => ({ ...a, [c]: e.target.value })); setDirty(true); setMsg(null); }} />
+              value={src[c] ?? ""} onChange={(e) => { set((a) => ({ ...a, [c]: e.target.value })); setDirty(true); setMsg(null); }} aria-label={`${title}: ${names[c] ?? CLASS_LABEL[c]}`} />
           </label>
         ))}
       </div>
+    </div>
+  );
+
+  return (
+    <section className="ds-panel ds-panel-pad" aria-label="Night allowance">
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
+        <div style={{ flex: "1 1 260px", minWidth: 0 }}>
+          <h3 className="text-[15px] font-bold text-ink mb-1">Night allowance</h3>
+          <p className="text-[12px] text-muted">Added automatically to a booking whose pickup is between <strong className="text-ink">11:00 PM and 6:00 AM</strong> (India time), on every service and brand. Set the amounts for each vehicle; 0 means none.</p>
+        </div>
+      </div>
+      {error && <Notice tone="error">{error}</Notice>}
+
+      {grid("Customer pays", "added to the customer's total", amounts, setAmounts)}
+      {grid("Partner gets", "added to the partner's payout", partner, setPartner)}
 
       {problem && dirty && <p className="ds-error mt-2" role="alert">{problem}</p>}
       {msg && <Notice tone={msg.tone === "ok" ? "ok" : "error"}>{msg.text}</Notice>}
@@ -94,7 +110,7 @@ export default function NightAllowanceCard({ names = {} }: { names?: Partial<Rec
         <span className="text-xs text-muted">{stored?.updatedByName ? `Last changed by ${stored.updatedByName} (version ${stored.version}).${stored?.amount ? ` Common amount ${inr(stored.amount)}.` : ""}` : ""}</span>
         {canEdit ? <button onClick={save} disabled={!dirty || !!problem || busy} className={`${primaryBtn} ml-auto`}>{busy ? "Saving…" : "Save night allowance"}</button> : <span className="text-sm text-muted ml-auto">Changing this needs pricing access.</span>}
       </div>
-      <p className="text-xs text-muted mt-2">It follows the booking’s GST setting like the roof carrier charge: with GST added on top, the amount you enter is before GST; with GST included, it is what the customer pays. The platform fee, if on, is worked out on the fare including the night allowance.</p>
+      <p className="text-xs text-muted mt-2">The customer amount follows the booking’s GST setting like the roof carrier charge: with GST added on top, the amount you enter is before GST; with GST included, it is what the customer pays. The partner amount is paid as entered. The platform fee, if on, is worked out on the fare including the night allowance.</p>
     </section>
   );
 }

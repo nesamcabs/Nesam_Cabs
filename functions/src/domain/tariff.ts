@@ -120,6 +120,9 @@ export interface BrandFareOverride {
   partnerWaitingPerHour?: number;
   partnerHillCharge?: number;
   partnerCarrierCharge?: number;
+  /** Pet travel per trip for this vehicle: what the customer pays, and what the partner gets. Absent = the common pet charge (customer) / nothing (partner). */
+  petCharge?: number;
+  partnerPetCharge?: number;
   freeWaitingMinutes?: number;
   waitingRoundingMinutes?: number;
   waitingRoundingScope?: 'per_stop' | 'combined';
@@ -409,7 +412,7 @@ function parseBrandOverrides(raw: unknown): TariffConfig['brandOverrides'] {
       for (const [cls, rates] of Object.entries(classes as Record<string, any>)) {
         if (!rates || typeof rates !== 'object') continue;
         const r: BrandFareOverride = {};
-        for (const key of ['partnerWaitingPerHour','partnerHillCharge','partnerCarrierCharge','freeWaitingMinutes','waitingRoundingMinutes'] as const) if (isNum(rates[key])) r[key] = rates[key];
+        for (const key of ['partnerWaitingPerHour','partnerHillCharge','partnerCarrierCharge','partnerPetCharge','freeWaitingMinutes','waitingRoundingMinutes'] as const) if (isNum(rates[key])) r[key] = rates[key];
         if (rates.waitingRoundingScope === 'per_stop' || rates.waitingRoundingScope === 'combined') r.waitingRoundingScope = rates.waitingRoundingScope;
         if (rates.taxTreatment === 'no_gst' || rates.taxTreatment === 'tariff_gst') r.taxTreatment = rates.taxTreatment;
         if (isNum(rates.customerRate)) r.customerRate = rates.customerRate;
@@ -425,6 +428,7 @@ function parseBrandOverrides(raw: unknown): TariffConfig['brandOverrides'] {
         if (isNum(rates.waitingPerHour)) r.waitingPerHour = rates.waitingPerHour;
         if (isNum(rates.hillCharge)) r.hillCharge = rates.hillCharge;
         if (isNum(rates.carrierCharge)) r.carrierCharge = rates.carrierCharge;
+        if (isNum(rates.petCharge)) r.petCharge = rates.petCharge;
         if (isNum(rates.minRentalHours)) r.minRentalHours = rates.minRentalHours;
         if (typeof rates.enabled === 'boolean') r.enabled = rates.enabled;
         const rentalRule = parseRentalPackageRule(rates.rentalPackageRule);
@@ -684,6 +688,9 @@ export interface PartnerNormalRate {
   basePaise: number;
   /** Hill station payout already inside basePaise (kept apart so the final fare does not add it twice). */
   hillPaise?: number;
+  /** Night allowance and pet travel payouts already inside basePaise (kept apart so a time-based final fare adds them back once). */
+  nightPaise?: number;
+  petPaise?: number;
 }
 
 export interface PricingSnapshot {
@@ -1490,7 +1497,8 @@ export function finalizeFare(i: FinalInput): FinalResult {
   const result = finalizeFareWithoutAddOns(i);
   // The hill charge booked with the trip stays as booked. The partner's hill payout is already inside every payout that starts from
   // the quoted base; a time-based package is paid from its own amounts, so it is added there.
-  const hillPartner = i.pricing.partner?.hillPaise ?? 0;
+  // The night allowance and pet travel payouts work the same way as the hill payout.
+  const hillPartner = (i.pricing.partner?.hillPaise ?? 0) + (i.pricing.partner?.nightPaise ?? 0) + (i.pricing.partner?.petPaise ?? 0);
   const partnerPaise = result.partnerPaise !== null && result.timeBased && hillPartner > 0 ? result.partnerPaise + hillPartner : result.partnerPaise;
   return { ...result, partnerPaise, fare: withPlatformFeeFare(withNightAllowanceFare(withHillChargeFare(withBookedAddOnFare(result.fare, i.pricing.bookingAddOns), i.pricing.hillStation), i.pricing.nightAllowance), i.pricing.platformFee) };
 }

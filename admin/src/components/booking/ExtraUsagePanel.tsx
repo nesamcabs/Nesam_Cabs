@@ -116,6 +116,11 @@ export default function ExtraUsagePanel({ booking }: { booking: Booking }) {
           <div><dt className="text-xs font-semibold text-muted uppercase">Approved by</dt><dd className="font-semibold text-ink">{approved.approvedByName ?? "—"}</dd></div>
         </dl>
       )}
+      {booking.pickupWait && (
+        <p className="text-[12px] text-muted">
+          Pickup wait measured automatically: the driver reached at {new Date(booking.pickupWait.reachedAtMs).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" })} and the trip started at {new Date(booking.pickupWait.startedAtMs).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" })}: {booking.pickupWait.minutes} min at the pickup. The free minutes, rounding and waiting rate are applied when finance approves.
+        </p>
+      )}
       {u?.status === "rejected" && u.reviewNote && <Notice tone="warn">Rejected: {u.reviewNote}</Notice>}
       {u?.status === "submitted" && u.submittedByName && <p className="text-xs text-muted">Recorded by {u.submittedByName}{u.submittedRole ? ` (${u.submittedRole})` : ""}.</p>}
 

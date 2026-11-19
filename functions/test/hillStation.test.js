@@ -223,3 +223,28 @@ test('hill station settings parse: malformed slabs, unknown classes and bad stat
   assert.equal(H.detectHillStations([{ role: 'drop', address: 'Somewhere 685999' }], c)[0].id, 'my-hill');
   assert.deepEqual(H.detectHillStations([{ role: 'drop', address: 'Topslip 642133' }], c), []);
 });
+
+test('a Multicity tour through a hill station is charged the hill rate set on the Multicity fare table, as its own line', () => {
+  const rates = { customerRate: 14, partnerRate: 12.6, customerBata: 500, partnerBata: 400, minKmPerDay: 250, hillCharge: 700, partnerHillCharge: 500 };
+  const cfgM = T.parseTariffConfig({ ...base, hillStation, brandOverrides: { common: { Multicity: { sedan: rates } } } });
+  const tour = (o = {}) => priceBooking({
+    category, route: { distanceKm: 420, durationMin: 600 }, tripType: 'Round Trip', multicity: true, pickup: theni, drop: o.drop ?? madurai, stops: o.stops ?? [ooty],
+    pickupAt: new Date(IST('2026-11-17T09:00:00')), tripEndAt: new Date(IST('2026-11-18T09:00:00')), tariff: o.tariff ?? cfgM, adjustment: null, customerChannel: true, tripDays: 2, brand: o.brand,
+  });
+  const plain = tour({ stops: [coimbatore] });
+  assert.equal(plain.hill, undefined, 'no hill station on the tour: no charge');
+  const hilly = tour();
+  assert.equal(hilly.hill.charged, true);
+  assert.deepEqual(hilly.hill.stations.map((s) => s.id), ['ooty']);
+  assert.equal(hilly.pricing.hillStation.slab, 'multicity');
+  assert.ok(hilly.breakup.lines.some((l) => l.key === 'hillStation' && l.label === 'Hill Station Allowance / Charge'));
+  // The charge is added on top of the same tour fare; with GST on top, 700 + 5% of it.
+  const added = Math.round((hilly.fare.total - plain.fare.total) * 100) / 100;
+  assert.ok(added >= 700 && added <= 700 * 1.18 + 0.01, `added ${added}`);
+  assert.ok(hilly.pricing.partner.basePaise - plain.pricing.partner.basePaise === 50000, 'the partner is paid the Multicity partner hill rate');
+  // A hill station that is switched off, or no Multicity hill amount for the vehicle: nothing is charged.
+  assert.equal(tour({ tariff: T.parseTariffConfig({ ...base, hillStation: { ...hillStation, enabled: false }, brandOverrides: { common: { Multicity: { sedan: rates } } } }) }).hill, undefined);
+  const noRate = tour({ tariff: T.parseTariffConfig({ ...base, hillStation, brandOverrides: { common: { Multicity: { sedan: { ...rates, hillCharge: undefined, partnerHillCharge: undefined } } } } }) });
+  assert.equal(noRate.hill.charged, false);
+  assert.equal(noRate.fare.total, plain.fare.total);
+});

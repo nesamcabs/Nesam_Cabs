@@ -6,6 +6,8 @@
  * Keys are GST state codes (the same codes the State picker uses). Zones are listed only where the
  * city corporation's official zones are known; any other area is added under Locations.
  */
+import { ZONES_BY_CITY, zonesOf } from "./placeZones";
+
 export const CITIES_BY_STATE: Record<string, string[]> = {
   // Tamil Nadu: every district headquarters, plus the towns riders book from most.
   "33": [
@@ -67,24 +69,7 @@ export const CITIES_BY_STATE: Record<string, string[]> = {
   "38": ["Leh", "Kargil", "Diskit"],
 };
 
-/** Official corporation zones, by city (lower-case key). */
-export const ZONES_BY_CITY: Record<string, string[]> = {
-  // Greater Chennai Corporation: 15 zones.
-  chennai: [
-    "Thiruvottiyur", "Manali", "Madhavaram", "Tondiarpet", "Royapuram", "Thiru Vi Ka Nagar", "Ambattur", "Anna Nagar", "Teynampet",
-    "Kodambakkam", "Valasaravakkam", "Alandur", "Adyar", "Perungudi", "Sholinganallur",
-  ],
-  // Coimbatore City Municipal Corporation: 5 zones.
-  coimbatore: ["Central", "East", "North", "South", "West"],
-  // Salem City Municipal Corporation: 4 zones.
-  salem: ["Ammapet", "Hasthampatti", "Kondalampatti", "Suramangalam"],
-  // Bruhat Bengaluru Mahanagara Palike: 8 zones.
-  bengaluru: ["Bommanahalli", "Dasarahalli", "East", "Mahadevapura", "Rajarajeshwari Nagar", "South", "West", "Yelahanka"],
-  // Greater Hyderabad Municipal Corporation: 6 zones.
-  hyderabad: ["Charminar", "Kukatpally", "Khairatabad", "LB Nagar", "Secunderabad", "Serilingampally"],
-};
-
-const norm = (v: string) => v.trim().toLocaleLowerCase();
+export { ZONES_BY_CITY };
 
 /** The built-in cities of one state (its GST code), or of every listed state when none is chosen. */
 export function directoryCities(stateCode: string): string[] {
@@ -93,5 +78,5 @@ export function directoryCities(stateCode: string): string[] {
 
 /** The built-in zones of one city (matched by name, ignoring case). */
 export function directoryZones(city: string): string[] {
-  return city ? ZONES_BY_CITY[norm(city)] ?? [] : [];
+  return city ? zonesOf(city) : [];
 }

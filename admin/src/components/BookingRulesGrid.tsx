@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { rankRules, saveRule, setRuleStatus, type RuleKind, type ServiceRule } from "../services/serviceRulesService";
 import { BRAND_LABELS, serviceLabel, type FareWorkspaceScope } from "../services/tariffService";
 import { Button } from "./ui";
+import { parentOf } from "../domain/placeZones";
 import { CardBody, Problems, RateTable, SaveBar, SettingCard, type RateColumn, type RateRow, type VehicleCol } from "./RateTable";
 
 // Booking rules on one page: one row per place, and across the top whether bookings are open and which cabs customers see.
@@ -19,7 +20,10 @@ const keyOf = (p: Place) => `${p.state}|${p.city}|${p.area}`;
 const norm = (s?: string) => (s ?? "").trim().toLowerCase();
 const samePlace = (r: ServiceRule, p: Place) => norm(r.scope.state) === norm(p.state) && norm(r.scope.city) === norm(p.city) && norm(r.scope.area) === norm(p.area);
 /** The rule's place is this place or a wider one (the state, the city, everywhere). */
-const covers = (r: ServiceRule, p: Place) => (!r.scope.state || norm(r.scope.state) === norm(p.state)) && (!r.scope.city || norm(r.scope.city) === norm(p.city)) && (!r.scope.area || norm(r.scope.area) === norm(p.area));
+const covers = (r: ServiceRule, p: Place) => (!r.scope.state || norm(r.scope.state) === norm(p.state))
+  // A district's rule also covers a town listed inside it that is shown as its own place (Krishnagiri → Hosur).
+  && (!r.scope.city || norm(r.scope.city) === norm(p.city) || (!r.scope.area && parentOf(p.city) === norm(r.scope.city)))
+  && (!r.scope.area || norm(r.scope.area) === norm(p.area));
 /** A standing rule the table can show and edit: on, no dates, for pickup or drop. */
 const standing = (r: ServiceRule) => r.status === "Enabled" && r.schedule.mode === "Always" && (r.scope.side ?? "Pickup or drop") === "Pickup or drop";
 const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.some((y) => norm(y) === norm(x)));
@@ -208,7 +212,7 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
   const areaChoices = pick.city ? areasOf(pick.state, pick.city) : [];
   const addPlace = () => {
     if (!pick.state && !pick.city) return;
-    const p = { ...pick, area: pick.city ? pick.area : "" };
+    const p = { ...pick, area: pick.city ? (areaChoices.find((a) => norm(a) === norm(pick.area)) ?? pick.area.trim()) : "" };
     setAdded((list) => list.some((x) => keyOf(x) === keyOf(p)) ? list : [...list, p]);
     setPick({ state: pick.state, city: "", area: "" });
   };
@@ -238,10 +242,11 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
                 </select>
               </label>
               <label className="fm-mini"><span>Area / zone</span>
-                <select className="ds-select" value={pick.area} disabled={!pick.city} onChange={(e) => setPick({ ...pick, area: e.target.value })}>
-                  <option value="">Whole city</option>
-                  {areaChoices.map((a) => <option key={a} value={a}>{a}</option>)}
-                </select>
+                {/* A list for every city, plus free typing for an area that is not listed yet. Empty = the whole city. */}
+                <input className="ds-select" list="rules-area-choices" value={pick.area} disabled={!pick.city} placeholder="Whole city (or pick / type an area)" autoComplete="off"
+                  title="Everything inside the city / district is switched together: choosing a city covers all its areas; choosing an area covers only that area."
+                  onChange={(e) => setPick({ ...pick, area: e.target.value })} />
+                <datalist id="rules-area-choices">{areaChoices.map((a) => <option key={a} value={a} />)}</datalist>
               </label>
               <Button icon="plus" onClick={addPlace} disabled={!pick.state}>Add place</Button>
             </div>

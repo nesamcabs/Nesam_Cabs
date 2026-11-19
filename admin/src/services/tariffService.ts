@@ -90,6 +90,9 @@ export interface BrandFareOverride {
   partnerWaitingPerHour?: number;
   partnerHillCharge?: number;
   partnerCarrierCharge?: number;
+  /** Pet travel per trip for this vehicle: what the customer pays, and what the partner gets. */
+  petCharge?: number;
+  partnerPetCharge?: number;
   freeWaitingMinutes?: number;
   waitingRoundingMinutes?: number;
   waitingRoundingScope?: 'per_stop' | 'combined';

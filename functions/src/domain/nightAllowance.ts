@@ -17,6 +17,8 @@ export interface NightAllowanceConfig {
   amount: number;
   /** Rupees per booking for one vehicle class (hatchback, sedan, suv, suv7, innova, crysta). 0 = no night allowance for that class. */
   classes?: Record<string, number>;
+  /** Rupees the partner gets for one vehicle class when a night allowance applies. Absent or 0 = the partner gets nothing extra. */
+  partnerClasses?: Record<string, number>;
   version: number;
 }
 
@@ -36,16 +38,24 @@ const rate = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >
 /** A per-class amount: zero is allowed (and means "none for this vehicle"). */
 const classRate = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= MAX_RUPEES ? round(v) : null);
 
-export function parseNightAllowance(d: Record<string, unknown> | undefined | null): NightAllowanceConfig {
-  const classes: Record<string, number> = {};
-  const raw = d?.classes;
+function classRates(raw: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
   if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
     for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
       const r = classRate(v);
-      if (r !== null) classes[k] = r;
+      if (r !== null) out[k] = r;
     }
   }
-  return { enabled: d?.enabled === true, amount: rate(d?.amount), ...(Object.keys(classes).length ? { classes } : {}), version: typeof d?.version === 'number' ? d.version : 0 };
+  return out;
+}
+
+export function parseNightAllowance(d: Record<string, unknown> | undefined | null): NightAllowanceConfig {
+  const classes = classRates(d?.classes);
+  const partnerClasses = classRates(d?.partnerClasses);
+  return {
+    enabled: d?.enabled === true, amount: rate(d?.amount), ...(Object.keys(classes).length ? { classes } : {}),
+    ...(Object.keys(partnerClasses).length ? { partnerClasses } : {}), version: typeof d?.version === 'number' ? d.version : 0,
+  };
 }
 
 /** The amount to charge a vehicle class: 0 when the setting is off or empty; the class's own amount when it has one, else the common amount. */
@@ -53,6 +63,12 @@ export function nightAllowanceFor(config: NightAllowanceConfig | null | undefine
   if (!config || !config.enabled) return 0;
   const own = vehicleClass ? config.classes?.[vehicleClass] : undefined;
   return own !== undefined ? rate(own) : rate(config.amount);
+}
+
+/** What the partner gets for a night pickup in one vehicle class: 0 when the setting is off or none is set for that class. */
+export function nightAllowancePartnerFor(config: NightAllowanceConfig | null | undefined, vehicleClass?: string | null): number {
+  if (!config || !config.enabled || !vehicleClass) return 0;
+  return rate(config.partnerClasses?.[vehicleClass]);
 }
 
 /** Hour of the day (0–23) in India. */
@@ -98,7 +114,13 @@ export function withNightAllowance(result: PriceResult, pickupAt: Date, config: 
   // The older category engine may already charge its own night charge: never charge twice.
   if ((result.fare.nightCharge ?? 0) > 0) return result;
   const configured = nightAllowanceFor(config, vehicleClass);
-  if (!configured) return result;
+  const partnerPaise = Math.round(nightAllowancePartnerFor(config, vehicleClass) * 100);
+  if (!configured && !partnerPaise) return result;
+  // The partner's night payout goes into the (private) partner block, like the hill payout, whatever the customer is charged.
+  const partner = result.pricing.partner && partnerPaise > 0
+    ? { ...result.pricing.partner, basePaise: result.pricing.partner.basePaise + partnerPaise, nightPaise: partnerPaise }
+    : result.pricing.partner;
+  if (!configured) return { ...result, pricing: { ...result.pricing, partner } };
   const included = result.fare.gstDetails?.mode === 'included';
   const amount = included ? round(configured / (1 + result.fare.gstRate)) : configured;
   const charge: NightAllowanceCharge = { amount, ...(included ? { grossAmount: configured } : {}), startHour: NIGHT_ALLOWANCE_START_HOUR, endHour: NIGHT_ALLOWANCE_END_HOUR };
@@ -118,7 +140,7 @@ export function withNightAllowance(result: PriceResult, pickupAt: Date, config: 
   return {
     ...result,
     fare,
-    pricing: { ...result.pricing, nightAllowance: charge },
+    pricing: { ...result.pricing, nightAllowance: charge, partner },
     breakup: {
       ...result.breakup,
       lines,

@@ -45,7 +45,7 @@ export default function DisplayMarkupCard({ scope }: { scope: FareWorkspaceScope
   };
 
   return (
-    <SettingCard title="Struck-out price"
+    <SettingCard title="Strike out price"
       description={<>Shown crossed out above the real fare in the customer apps. Display only: the fare, GST and partner pay do not change.{example ? <> Example: a ₹1,000 fare shows <s>₹{example.toLocaleString("en-IN")}</s>.</> : null}</>}
       footer={<SaveBar reason={reason} onReason={setReason} onSave={save} busy={busy} disabled={invalid || !changed || !canEdit} message={message} note={`Applies to ${where}.`} />}>
       <CardBody>

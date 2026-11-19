@@ -22,6 +22,7 @@ import { text } from './shared';
 import { runScheduledNotices } from './noticeCampaigns';
 import { reconcilePublicContent } from './publicContent';
 import { runLocalShiftSweep } from './localShifts';
+import { runTimePackageUpgrades } from './timePackageJobs';
 
 const STATE_DOC = 'system/reconcile_state';
 
@@ -218,6 +219,7 @@ export async function runPeriodicJobs(): Promise<Record<string, unknown>> {
   await step('scheduledNotices', () => runScheduledNotices());
   await step('publicContent', () => reconcilePublicContent());
   await step('localDuty', () => runLocalShiftSweep());
+  await step('timePackages', () => runTimePackageUpgrades());
   return report;
 }
 

@@ -1,5 +1,5 @@
 // Step 2 — choose your cab: every vehicle category priced with the server's authoritative fare.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { RideCategory } from '@core/types';
 import { SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY } from '@core/config/constants';
@@ -37,17 +37,26 @@ export function ChooseStep() {
   const sameAsPickup = !!pickup && !!drop && Math.abs(pickup.lat - drop.lat) < 0.0001 && Math.abs(pickup.lng - drop.lng) < 0.0001;
   const roundVia = tripType === 'Round Trip' ? [...draft.stops, ...(sameAsPickup || !drop ? [] : [drop])] : [];
 
+  // A cab type the office turned off for this location is left out completely: no card, no tab.
+  const visible = useMemo(() => categories.filter((c) => !q.hidden.has(c.id)), [categories, q.hidden]);
   const groups = useMemo(() => {
-    const present = new Set(categories.map(categoryGroup));
+    const present = new Set(visible.map(categoryGroup));
     return (['Sedan', 'SUV', 'Innova', 'Van & bus'] as CategoryGroup[]).filter((g) => present.has(g));
-  }, [categories]);
+  }, [visible]);
 
   const shown = useMemo(() => {
-    const list = categories.filter((c) => group === 'All' || categoryGroup(c) === group);
+    const list = visible.filter((c) => group === 'All' || categoryGroup(c) === group);
     if (sort === 'recommended') return list;
     const price = (c: RideCategory) => q.quotes.get(c.id)?.total ?? (sort === 'low' ? Infinity : -Infinity);
     return [...list].sort((a, b) => (sort === 'low' ? price(a) - price(b) : price(b) - price(a)));
-  }, [categories, group, sort, q.quotes]);
+  }, [visible, group, sort, q.quotes]);
+
+  // If the chosen cab type is one that is now hidden, move to the first one still offered.
+  useEffect(() => {
+    if (!categoryId || !q.hidden.has(categoryId)) return;
+    const next = visible.find((c) => !q.unavailable.has(c.id)) ?? visible[0];
+    if (next) update({ categoryId: next.id, fuelType: '' });
+  }, [categoryId, q.hidden, q.unavailable, visible, update]);
 
   if (!pickup || !drop) return null;
 
@@ -231,7 +240,7 @@ export function ChooseStep() {
 
             {roundPick ? (
               <RoundVehiclePackage
-                categories={categories}
+                categories={visible}
                 selected={selected}
                 entries={q.entries}
                 unavailable={q.unavailable}

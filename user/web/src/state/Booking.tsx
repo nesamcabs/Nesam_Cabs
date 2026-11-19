@@ -206,6 +206,8 @@ export interface BookingQuote {
   entries: Map<string, ServerCategoryQuote>;
   /** Why a category cannot be priced for this trip, by category id. */
   unavailable: Map<string, string>;
+  /** Cab types the office has turned off for this location: they are not shown at all. */
+  hidden: Set<string>;
   /** The journey distance and time the server priced (null until it answers). */
   trip: { distanceKm: number; durationMin: number } | null;
   /** Chargeable calendar days of a round trip. */
@@ -220,6 +222,9 @@ export interface BookingQuote {
   hillStations: HillStationInfo[];
   retryQuote: () => void;
 }
+
+/** The server's reason when the office has turned a cab type off for this location (Admin → Booking rules). */
+export const isTurnedOff = (reason?: string): boolean => /is not offered for this location/i.test(reason ?? '');
 
 /** Prices the draft the way the booking server will (same engine, adjustment and coupon rules). */
 export function useBookingQuote(): BookingQuote {
@@ -263,7 +268,8 @@ export function useBookingQuote(): BookingQuote {
     };
     const byId = new Map<string, ServerCategoryQuote>((server?.quotes ?? []).map((x) => [x.categoryId, withPackage(x)]));
     const unavailable = new Map<string, string>();
-    for (const x of server?.quotes ?? []) if (!x.ok) unavailable.set(x.categoryId, x.error ?? 'Not available for this trip.');
+    const hidden = new Set<string>();
+    for (const x of server?.quotes ?? []) if (!x.ok) { unavailable.set(x.categoryId, x.error ?? 'Not available for this trip.'); if (isTurnedOff(x.error)) hidden.add(x.categoryId); }
     const finalQuotes = new Map<string, FareBreakdown>();
     if (server) for (const x of byId.values()) if (x.ok && x.fare) finalQuotes.set(x.categoryId, x.fare);
     const chosen = category ? byId.get(category.id) : undefined;
@@ -289,7 +295,7 @@ export function useBookingQuote(): BookingQuote {
       quoteLoading: serverQuote.status === 'loading',
       quoteError: serverQuote.status === 'error' ? serverQuote.error : '',
       breakup: (cngChoice ? cngChoice.breakup : chosen?.breakup) ?? null,
-      entries: byId, unavailable, days, packages, selectedPackage, autoDays: source?.autoDays === true, customQuote, retryQuote: serverQuote.retry,
+      entries: byId, unavailable, hidden, days, packages, selectedPackage, autoDays: source?.autoDays === true, customQuote, retryQuote: serverQuote.retry,
       hillStations: server?.hillStations ?? [],
       trip: server?.trip ?? null,
     };

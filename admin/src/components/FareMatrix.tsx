@@ -29,7 +29,7 @@ type Need = "positive" | "any";
 interface Def { key: NumKey; label: string; unit: string; base: number | undefined; need?: Need }
 type Group = "customer" | "partner" | "extras";
 interface Row { group: Group; label: string; sub?: string; def: Def }
-export interface MatrixCard { cls: TariffClass; name: string; categoryId?: string; cng: boolean }
+export interface MatrixCard { cls: TariffClass; name: string; categoryId?: string; cng: boolean; /** The roof carrier charge the vehicle category already holds: shown as the shared value until one is typed here. */ carrier?: number }
 
 const GROUP_TITLE: Record<Group, string> = { customer: "Customer pays", partner: "Partner gets", extras: "Extra charges" };
 
@@ -80,7 +80,9 @@ function rowsOf(t: Tariff | null | undefined, scope: FareWorkspaceScope, card: M
       d("partnerRate", "Partner pay per extra km", "₹/km", undefined, "any"),
     ];
   }
-  partner = [...partner, d("partnerCarrierCharge", "Roof carrier charge", "₹/trip", oldExtras?.partner?.carrier)];
+  // Roof carrier and pet travel: what the customer pays (added to the total when the customer ticks it) and what the partner gets.
+  customer = [...customer, d("carrierCharge", "Roof carrier charge", "₹/trip", card.carrier), d("petCharge", "Pet travel charge", "₹/trip", t?.petCharge)];
+  partner = [...partner, d("partnerCarrierCharge", "Roof carrier charge", "₹/trip", oldExtras?.partner?.carrier), d("partnerPetCharge", "Pet travel charge", "₹/trip", undefined)];
 
   const rows: Row[] = [
     ...customer.map((def): Row => ({ group: "customer", label: def.label, sub: def.unit, def })),

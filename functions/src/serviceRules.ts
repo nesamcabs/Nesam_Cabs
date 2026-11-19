@@ -14,6 +14,7 @@ import { FareAdjustmentInput, serviceName } from './domain/pricing';
 import { GeoPlace, TripType } from './domain/types';
 import { requirePermission, text, requireAction } from './shared';
 import { parseFareScope } from './fareScope';
+import { childNames, isInside, parentOf } from './domain/placeZones';
 
 type Adjustment = { mode: 'Normal' | 'Increase' | 'Decrease'; percent: number };
 type Side = 'Pickup or drop' | 'Pickup only' | 'Drop only';
@@ -84,7 +85,12 @@ function placeMatches(rule: ServiceRule, p: GeoPlace): boolean {
   const hay = `${norm(p.name)} ${norm(x.address)} ${norm(x.city)} ${norm(x.area)} ${norm(x.state)}`;
   const { city, area, state } = rule.scope ?? {};
   if (norm(area) && !hay.includes(norm(area))) return false;
-  if (norm(city) && !hay.includes(norm(city))) return false;
+  if (norm(city)) {
+    // A city / district rule covers every area listed inside it (Erode covers Gobichettipalayam), and an area that is
+    // known to sit inside the rule's city needs no mention of the city in the address.
+    const inside = norm(area) ? isInside(city, area) : childNames(city).some((z) => hay.includes(z));
+    if (!hay.includes(norm(city)) && !inside) return false;
+  }
   const ruleState = stateText(state);
   if (ruleState) {
     const placeState = stateText(x.state);
@@ -123,7 +129,8 @@ export function ruleServiceText(pickup: GeoPlace, drop: GeoPlace, distanceKm: nu
 }
 
 /** Most specific location wins (area, city, state, everywhere), then a service-specific rule, then the higher priority. */
-const specificity = (r: ServiceRule) => (norm(r.scope?.area) ? 3 : norm(r.scope?.city) ? 2 : norm(r.scope?.state) ? 1 : 0);
+// A "city" that is really an area inside a district (Hosur inside Krishnagiri) ranks between the two, so its own rule beats the district's.
+const specificity = (r: ServiceRule) => (norm(r.scope?.area) ? 3 : norm(r.scope?.city) ? (parentOf(r.scope?.city) ? 2.5 : 2) : norm(r.scope?.state) ? 1 : 0);
 const serviceSpecific = (r: ServiceRule) => (norm(r.service) && norm(r.service) !== 'all' ? 1 : 0);
 /** A rule written for one fare service beats one written for every service, at the same place. */
 const fareServiceSpecific = (r: ServiceRule) => (r.fareService ? 1 : 0);

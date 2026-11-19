@@ -29,7 +29,7 @@ const num = (v: string): number | null => (v.trim() === "" ? null : Number(v));
 const text = (n: number | undefined) => (n === undefined ? "" : String(n));
 
 /** `service` is the Service chosen in "Applies to": One Way shows only the one-way slab, Round Trip only the round-trip slab (both are still saved together). */
-export default function HillStationCard({ vehicles, service }: { vehicles?: VehicleCol[]; service?: "One Way" | "Round Trip" } = {}) {
+function HillStationSlabs({ vehicles, service }: { vehicles?: VehicleCol[]; service?: "One Way" | "Round Trip" } = {}) {
   const { tariff } = useTariff();
   const pricingAccess = useCan("pricing");
   const settingsEdit = useCanDo("Settings", "edit");
@@ -135,4 +135,24 @@ export default function HillStationCard({ vehicles, service }: { vehicles?: Vehi
       <Problems items={problems} />
     </SettingCard>
   );
+}
+
+/** Multicity has no slab of its own: its hill amounts are the "Hill station" rows of the Multicity fare table above. This says how they are used. */
+function MulticityHillNote() {
+  const { tariff } = useTariff();
+  const on = tariff?.hillStation?.enabled === true;
+  return (
+    <SettingCard title="Hill station charge"
+      description="The amounts are the Hill station rows in the Multicity fare table above (customer pays and partner gets, per vehicle). They are added as their own fare line when a city on the tour (the pickup, a stop or the last drop) is in a hill station, found by the place's postal pincode.">
+      <p className={on ? "text-sm text-emerald-700" : "text-sm text-amber-700"}>
+        {on
+          ? "Hill stations are switched on, so a Multicity tour through a hill station is charged the amount set for each vehicle. A vehicle with no amount is not charged."
+          : "Hill stations are switched off, so no hill charge is added to any service. Turn them on under One Way or Round Trip → Hill station charge."}
+      </p>
+    </SettingCard>
+  );
+}
+
+export default function HillStationCard(props: { vehicles?: VehicleCol[]; service?: "One Way" | "Round Trip" | "Multicity" } = {}) {
+  return props.service === "Multicity" ? <MulticityHillNote /> : <HillStationSlabs vehicles={props.vehicles} service={props.service} />;
 }

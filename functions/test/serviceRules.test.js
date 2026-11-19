@@ -174,3 +174,21 @@ test('saving: packages are only for a Round Trip price change and must be real p
   assert.throws(() => parseRule({ ...base, packages: ['fast'] }, new Set()), /not a Round Trip package/);
   assert.throws(() => parseRule({ ...base, brand: 'nesam', fareService: '' }, new Set()), /exact service/);
 });
+
+test('a city / district rule covers every area inside it; an area rule covers only that area', () => {
+  const gobi = { id: 'g', name: 'Gobichettipalayam', address: 'Gobichettipalayam, Tamil Nadu 638452', state: 'Tamil Nadu', lat: 11.4, lng: 77.4 };
+  const bhavani = { id: 'b', name: 'Bhavani', address: 'Bhavani, Tamil Nadu', state: 'Tamil Nadu', lat: 11.4, lng: 77.6 };
+  const run = (rules, p) => evaluateRules(rules, p, p, at, 'Outstation One Way').availability;
+  const erode = rule({ scope: { state: '33', city: 'Erode', side: 'Pickup or drop' } });
+  assert.equal(run([erode], gobi), 'Paused');
+  assert.equal(run([erode], bhavani), 'Paused');
+  const onlyGobi = rule({ scope: { state: '33', city: 'Erode', area: 'Gobichettipalayam', side: 'Pickup or drop' } });
+  assert.equal(run([onlyGobi], gobi), 'Paused');
+  assert.equal(run([onlyGobi], bhavani), 'Available');
+  // A town's own rule beats its district's rule (Hosur is listed inside Krishnagiri).
+  const hosur = { id: 'h', name: 'Hosur', address: 'Hosur, Tamil Nadu', state: 'Tamil Nadu', lat: 12.7, lng: 77.8 };
+  const open = rule({ id: 'open', availability: 'Available', scope: { state: '33', city: 'Hosur', side: 'Pickup or drop' } });
+  const krishnagiri = rule({ id: 'k', scope: { state: '33', city: 'Krishnagiri', side: 'Pickup or drop' } });
+  assert.equal(run([krishnagiri], hosur), 'Paused');
+  assert.equal(run([krishnagiri, open], hosur), 'Available');
+});

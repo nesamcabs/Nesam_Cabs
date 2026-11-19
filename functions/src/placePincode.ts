@@ -55,7 +55,7 @@ export async function withPincode<T extends GeoPlace>(place: T): Promise<T> {
  * kind of trip, so a quote that cannot use a pincode never pays for a lookup. Places that already show a pincode cost nothing.
  */
 export async function withTripPincodes<T extends GeoPlace>(i: { hillEnabled: boolean; tripType: string; multicity?: boolean; pickup: T; drop: T; stops: T[] }): Promise<{ pickup: T; drop: T; stops: T[] }> {
-  const relevant = i.hillEnabled && !i.multicity && (i.tripType === 'One Way' || i.tripType === 'Round Trip');
+  const relevant = i.hillEnabled && (i.multicity === true || i.tripType === 'One Way' || i.tripType === 'Round Trip');
   if (!relevant) return { pickup: i.pickup, drop: i.drop, stops: i.stops };
   const [pickup, drop, ...stops] = await Promise.all([i.pickup, i.drop, ...i.stops].map((p) => withPincode(p)));
   return { pickup: pickup as T, drop: drop as T, stops: stops as T[] };

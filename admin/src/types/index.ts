@@ -28,6 +28,8 @@ export interface Booking {
     usage: { stops: { stopId: string; waitedMinutes: number }[] | null; hill: boolean | null; carrier: boolean | null };
     submittedByName?: string; submittedRole?: string; reviewedByName?: string;
   };
+  /** Measured by the server when the trip started: how long the driver waited at the pickup (from the driver's "Reached pickup" tap, or the booked time if they were early). */
+  pickupWait?: { minutes: number; reachedAtMs: number; scheduledAtMs: number | null; startedAtMs: number };
   tollsApproved?: boolean;
   fareVerified?: boolean;
   /** Locked quote snapshot (server-written): which tariff priced the booking and with what. */

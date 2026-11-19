@@ -28,7 +28,7 @@ import { adjustPartner, assertBookable, assertWithinLimits, availabilityFields, 
 import { loadCommissionPolicy } from './commission';
 import { createContactInTx, maskPhone } from './contacts';
 import { withTripPincodes } from './placePincode';
-import { loadFixedRoutes, loadTariffConfig, priceBooking, rentalHoursOf, sharedCityId, tariffClassOf, timePackageFields, tripDaysOf, zoneIdOf } from './quote';
+import { addOnRatesOf, loadFixedRoutes, loadTariffConfig, priceBooking, rentalHoursOf, sharedCityId, tariffClassOf, timePackageFields, tripDaysOf, zoneIdOf } from './quote';
 import { notifyInTx, pushAfterCommit, NotifyInput, inr } from './notify';
 import { nextBookingCode } from './bookingSequence';
 import { businessContract, availableBusinessCredit } from './domain/business';
@@ -314,7 +314,7 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
       const roundTrip = tripType === 'Round Trip';
       const roadKm = Math.round(route.distanceKm * (roundTrip ? 2 : 1) * 10) / 10;
       const roadMinutes = Math.round(route.durationMin * (roundTrip ? 2 : 1));
-      return { quote: calculated, addOnRates: { carrierCharge: category.fare.extras?.carrierCharge ?? 0, petCharge: tariff?.petCharge ?? 0 }, breakup, service, categoryName: category.name, commissionConfigured: true, adjustmentApplied: calculated.globalAdjustment, pricing: quotePricing, roadKm, roadMinutes, ...(couponCode ? { couponCode, couponDiscount } : {}) };
+      return { quote: calculated, addOnRates: (() => { const r = addOnRatesOf(priceInput); return { carrierCharge: r.carrier, petCharge: r.pet }; })(), breakup, service, categoryName: category.name, commissionConfigured: true, adjustmentApplied: calculated.globalAdjustment, pricing: quotePricing, roadKm, roadMinutes, ...(couponCode ? { couponCode, couponDiscount } : {}) };
     }
     if (!Number.isFinite(input.expectedFare) || input.expectedFare !== calculated.total) {
       throw new HttpsError('failed-precondition', `The calculated fare is ₹${calculated.total}. Review it and submit again.`, { fare: calculated });

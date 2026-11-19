@@ -19,7 +19,6 @@ import BookingRulesGrid, { specialRules } from "../components/BookingRulesGrid";
 import DateRules from "../components/DateRules";
 import PriceChangeRules from "../components/PriceChangeRules";
 import type { VehicleCol } from "../components/RateTable";
-import ExtraChargeRulesCard from "../components/ExtraChargeRulesCard";
 import { registerFareWorkspaceGuard } from "../services/fareWorkspaceGuard";
 import { BRANDS, BRAND_LABELS, BRAND_SUPPORTED_SERVICES, CLASS_LABEL, TARIFF_CLASSES, WORKSPACE_SERVICES, PICKUP_DROP, serviceLabel, tariffClassOfCategory, type FareWorkspaceScope, type TariffClass } from "../services/tariffService";
 import { GST_STATES } from "../domain/gstStates";
@@ -27,7 +26,6 @@ import { directoryCities, directoryZones } from "../domain/placeDirectory";
 import DisplayMarkupCard from "../components/DisplayMarkupCard";
 import TimeBasedRoundTripCard from "../components/TimeBasedRoundTripCard";
 import HillStationCard from "../components/HillStationCard";
-import CommonPetChargeCard from "../components/CommonPetChargeCard";
 import { refDateTime } from "../domain/officeStage";
 
 type Tab = "Brand & service fares" | "Booking availability" | "Cab types" | "Pricing rules" | "GST calculation" | "Platform fee";
@@ -300,17 +298,13 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
       {tab === "Brand & service fares" && !pickupDrop && <div className="space-y-4">
         {/* One table for every service: rates down the side, vehicles across the top (Hourly Rental: one row per package). */}
         <FareMatrix scope={fareScope} fuel={fuelApplies ? fareFuel : "petrol"}
-          vehicles={vehicles} cards={vehicleCards.map((card) => ({ cls: card.cls, name: card.name, categoryId: activeCats.length ? card.categoryId : undefined, cng: card.cng }))}
+          vehicles={vehicles} cards={vehicleCards.map((card) => ({ cls: card.cls, name: card.name, categoryId: activeCats.length ? card.categoryId : undefined, cng: card.cng, carrier: activeCats.find((c) => c.id === card.categoryId)?.fare?.carrierCharge }))}
           onDirtyChange={dirty => { workspaceDirty.current = dirty; }} onBusyChange={busy => { workspaceBusy.current = busy; }} />
         {/* Then the settings that sit on top of these rates, in the order a fare is built: packages, hill charge, how extras are billed, pet charge, display price. */}
         {fareScope.service === "Round Trip" ? <TimeBasedRoundTripCard vehicles={vehicles} /> : null}
-        {fareScope.service === "Round Trip" || fareScope.service === "One Way" ? <HillStationCard vehicles={vehicles} service={fareScope.service} /> : null}
-        {fareFuel !== "cng" || !fuelApplies ? <ExtraChargeRulesCard /> : null}
+        {fareScope.service === "Round Trip" || fareScope.service === "One Way" || fareScope.service === "Multicity" ? <HillStationCard vehicles={vehicles} service={fareScope.service} /> : null}
         <NightAllowanceCard />
-        <div className="fm-pair">
-          <CommonPetChargeCard />
-          <DisplayMarkupCard scope={fareScope} />
-        </div>
+        <DisplayMarkupCard scope={fareScope} />
       </div>}
       {tab === "Platform fee" && <PlatformFeeCard />}
       {tab === "GST calculation" && <div>
@@ -355,10 +349,10 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
         )
       )}
       </>}
-      {inlineKind && (
+      {sheet?.kind === "fixed" && <FixedRouteFares key={fareScope.brand + ":" + fareScope.service} scope={fareScope} onToast={show} />}
+      {sheet?.kind === "history" && (
         <InlineModals value={true}>
-      {sheet?.kind === "history" && <HistorySheet rules={rules.filter(inFareScope)} onClose={() => setSheet(null)} />}
-      {sheet?.kind === "fixed" && <FixedRouteFares scope={fareScope} onClose={() => setSheet(null)} onToast={show} />}
+          <HistorySheet rules={rules.filter(inFareScope)} onClose={() => setSheet(null)} />
         </InlineModals>
       )}
 

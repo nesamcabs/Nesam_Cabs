@@ -210,7 +210,7 @@ export function distinctHillStations(matches: readonly HillMatch[]): { id: strin
 
 /** What a booking is charged for its hill stations, as configured at quote time (rupees as entered). */
 export interface HillCharge {
-  slab: 'oneWay' | 'roundTrip';
+  slab: 'oneWay' | 'roundTrip' | 'multicity';
   /** The hill stations the trip is in (customer-visible). */
   stations: { id: string; name: string; tamil: string }[];
   /** How many times the slab is charged (1, or one per station with chargePer 'station'). */
@@ -232,6 +232,15 @@ export function hillChargeFor(cfg: HillStationConfig | null | undefined, cls: Ta
   const units = cfg.chargePer === 'station' ? stations.length : 1;
   const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
   return { slab: slabKey, stations, units, customerPerUnit: slab.customer, customerTotal: round2(slab.customer * units), partnerTotal: round2(slab.partner * units) };
+}
+
+/** The hill charge of a Multicity tour: the rupees the Multicity fare table sets for the vehicle, once per trip (or once per hill station visited). */
+export function hillChargeForRates(cfg: HillStationConfig | null | undefined, rates: { customer: number; partner: number } | null, matches: readonly HillMatch[], slab: HillCharge['slab']): HillCharge | null {
+  if (!cfg?.enabled || !rates || !(rates.customer > 0) || !matches.length) return null;
+  const stations = distinctHillStations(matches);
+  const units = cfg.chargePer === 'station' ? stations.length : 1;
+  const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+  return { slab, stations, units, customerPerUnit: rates.customer, customerTotal: round2(rates.customer * units), partnerTotal: round2(rates.partner * units) };
 }
 
 /** "Ooty", "Ooty and Coonoor", "Ooty, Coonoor and Kotagiri". */

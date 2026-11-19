@@ -552,11 +552,17 @@ function applyBrandOverride(
     delete override.carrierCharge;
   }
 
+  if (data.petCharge !== undefined && data.petCharge !== null) {
+    override.petCharge = amount(data.petCharge, 'Pet travel charge', false);
+  } else if (data.petCharge === null) {
+    delete override.petCharge;
+  }
+
   if (typeof data.enabled === 'boolean') {
     override.enabled = data.enabled;
   }
 
-  for (const key of ['partnerWaitingPerHour','partnerHillCharge','partnerCarrierCharge'] as const) {
+  for (const key of ['partnerWaitingPerHour','partnerHillCharge','partnerCarrierCharge','partnerPetCharge'] as const) {
     if (data[key] === null) delete override[key];
     else if (data[key] !== undefined) override[key] = amount(data[key], key, false);
   }
