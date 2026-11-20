@@ -11,6 +11,7 @@ import { scrollToBookingForm } from '@/lib/scrollToForm';
 import { parseService, serviceHref, serviceOfTrip, type ServiceId } from '@/lib/services';
 import { Avatar, Button, Dialog, PageLoader } from './ui';
 import { Icon } from './Icon';
+import { BrandIcon, navIconSrc, type BrandIconName } from './BrandIcon';
 import { RideBanner } from './RideBanner';
 import { RouteErrorBoundary } from '@/components/RouteErrorBoundary';
 import { SideDrawer } from './SideDrawer';
@@ -33,21 +34,16 @@ export function Brand({ compact = false, light = false }: { compact?: boolean; l
   );
 }
 
-const NAV = [
+const NAV: readonly { to: string; label: string; short: string; icon: string; art?: BrandIconName }[] = [
   { to: '/book', label: 'Book a ride', short: 'Book', icon: 'car' },
-  { to: '/trips', label: 'My trips', short: 'Trips', icon: 'trip-history' },
-  { to: '/notifications', label: 'Notifications', short: 'Alerts', icon: 'notifications' },
-] as const;
+  { to: '/trips', label: 'My trips', short: 'Trips', icon: 'trip-history', art: 'trips' },
+  { to: '/notifications', label: 'Notifications', short: 'Alerts', icon: 'notifications', art: 'bell' },
+];
 
-import pickupIcon from '@/assets/nav/pickup-drop.webp';
-import multicityIcon from '@/assets/nav/multicity.webp';
-import outstationIcon from '@/assets/nav/outstation.webp';
-import rentalIcon from '@/assets/nav/local-rentals.webp';
-import airportIcon from '@/assets/nav/airport-taxi.webp';
 
 /** Desktop header links. Account lives in the profile menu there. On phones the bottom bar holds the four
     services, and the header holds Notifications. Account and My trips are in the side menu. */
-const TOP_NAV = [NAV[0], NAV[1], { to: '/offers', label: 'Offers', short: 'Offers', icon: 'offers' }, NAV[2]] as const;
+const TOP_NAV: typeof NAV = [NAV[0]!, NAV[1]!, { to: '/offers', label: 'Offers', short: 'Offers', icon: 'offers', art: 'offers' }, NAV[2]!];
 
 /** Active booking flow pages where the phone bottom tab bar steps aside for the sticky FlowBar. */
 const FLOW = [/^\/book\/(ride|confirm|done\/[^/]+)$/, /^\/ride\//, /^\/local-taxi\/ride\//, /^\/trips\/[^/]+$/];
@@ -57,11 +53,11 @@ const IMMERSIVE = [/^\/ride\//, /^\/local-rentals(\/|$)/, /^\/trips\/[^/]+$/];
     My trips is in the header. The selected service rises in its brand color. */
 type BarId = 'pickup' | 'rental' | 'outstation' | 'multicity' | 'airport';
 const BAR: { id: BarId; label: string; full: string; to: string; image: string; size: number; wide?: boolean }[] = [
-  { id: 'pickup', label: 'Local', full: 'Local Pickup & Drop', to: '/local-rentals?mode=pickup', image: pickupIcon, size: 44, wide: true },
-  { id: 'rental', label: 'Rental', full: 'Hourly Rental', to: '/local-rentals?mode=hourly', image: rentalIcon, size: 44, wide: true },
-  { id: 'outstation', label: 'Outstation', full: 'Outstation', to: serviceHref('outstation'), image: outstationIcon, size: 46 },
-  { id: 'multicity', label: 'Multicity', full: 'Multicity', to: serviceHref('multicity'), image: multicityIcon, size: 44 },
-  { id: 'airport', label: 'Airport', full: 'Airport Taxi', to: serviceHref('airport'), image: airportIcon, size: 44 },
+  { id: 'pickup', label: 'Local', full: 'Local Pickup & Drop', to: '/local-rentals?mode=pickup', image: navIconSrc('local'), size: 44, wide: true },
+  { id: 'rental', label: 'Rental', full: 'Hourly Rental', to: '/local-rentals?mode=hourly', image: navIconSrc('rental'), size: 44, wide: true },
+  { id: 'outstation', label: 'Outstation', full: 'Outstation', to: serviceHref('outstation'), image: navIconSrc('outstation'), size: 46 },
+  { id: 'multicity', label: 'Multicity', full: 'Multicity', to: serviceHref('multicity'), image: navIconSrc('multicity'), size: 44 },
+  { id: 'airport', label: 'Airport', full: 'Airport Taxi', to: serviceHref('airport'), image: navIconSrc('airport'), size: 44 },
 ];
 
 function BottomNav() {
@@ -125,12 +121,7 @@ function SupportMenu({ onAsk }: { onAsk: () => void }) {
         title="Help"
         onClick={() => setOpen((o) => !o)}
       >
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
-          <path d="M4 14v-2a8 8 0 0 1 16 0v2" />
-          <rect x="3" y="13" width="4" height="6" rx="1.5" />
-          <rect x="17" y="13" width="4" height="6" rx="1.5" />
-          <path d="M19 19c0 1.6-1.6 2.5-4 2.5h-2" />
-        </svg>
+        <BrandIcon name="support" size={30} />
       </button>
       {open ? (
         <div className="support-menu__panel" role="menu">
@@ -156,7 +147,7 @@ function SupportMenu({ onAsk }: { onAsk: () => void }) {
           </button>
           <a role="menuitem" className="support-menu__item" href={`tel:${SUPPORT_PHONE}`} onClick={() => setOpen(false)}>
             <span className="support-menu__icon support-menu__icon--call" aria-hidden="true">
-              <Icon name="phone" size={18} />
+              <BrandIcon name="contact" size={24} />
             </span>
             <span className="support-menu__text">
               <strong>Call us</strong>
@@ -200,7 +191,7 @@ function ProfileMenu() {
         size="sm"
         onClick={() => openLoginModal({ title: 'Sign in to NESAM Cabs' })}
       >
-        <Icon name="profile" size={16} /> Sign in
+        <BrandIcon name="profile" size={20} /> Sign in
       </Button>
     );
   }
@@ -220,19 +211,19 @@ function ProfileMenu() {
             <span className="muted small">{formatPhone(profile.phone)}</span>
           </div>
           <Link role="menuitem" to="/account">
-            <Icon name="profile" /> Account
+            <BrandIcon name="profile" size={22} /> Account
           </Link>
           <Link role="menuitem" to="/account/places">
             <Icon name="saved-place" /> Saved places
           </Link>
           <Link role="menuitem" to="/account/payments">
-            <Icon name="wallet" /> Payments
+            <BrandIcon name="payments" size={22} /> Payments
           </Link>
           <Link role="menuitem" to="/legal">
-            <Icon name="document" /> Terms &amp; privacy
+            <BrandIcon name="terms" size={22} /> Terms &amp; privacy
           </Link>
           <button role="menuitem" type="button" onClick={() => setConfirm(true)}>
-            <Icon name="logout" /> Log out
+            <BrandIcon name="logout" size={22} /> Log out
           </button>
         </div>
       ) : null}
@@ -479,9 +470,7 @@ export function Shell() {
       <header className={`topbar ${live ? 'topbar--notice' : ''}`}>
         <div className="topbar__inner">
           <button type="button" className="menu-btn" aria-label="Open profile" aria-haspopup="dialog" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}>
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true" focusable="false">
-              <path d="M4 7h16M4 12h16M4 17h16" />
-            </svg>
+            <BrandIcon name="menu" size={28} />
           </button>
           <Brand />
           <nav className="topnav" aria-label="Main">
@@ -493,7 +482,7 @@ export function Shell() {
                 title={n.label}
                 className={({ isActive }) => `topnav__link ${isActive || (n.to === '/book' && location.pathname === '/') ? 'is-active' : ''}`}
               >
-                <Icon name={n.icon} size={19} />
+                {n.art ? <BrandIcon name={n.art} size={26} /> : <Icon name={n.icon} size={19} />}
                 <span className="lbl-long">{n.label}</span>
                 {n.to === '/notifications' && unreadCount > 0 ? (
                   <em className="count" aria-label={`${unreadCount} unread`}>
@@ -506,11 +495,11 @@ export function Shell() {
           <RideBanner />
           <div className="topbar__right">
             <Link to="/support" className="help-link" aria-label="Help and support" title="Help">
-              <Icon name="help" size={18} />
+              <BrandIcon name="support" size={26} />
               <span className="help-link__text">Help</span>
             </Link>
             <a className="help-link help-link--phone" href={`tel:${SUPPORT_PHONE}`} aria-label={`Call NESAM Cabs support ${SUPPORT_PHONE_DISPLAY}`} title={SUPPORT_PHONE_DISPLAY}>
-              <Icon name="phone" size={18} />
+              <BrandIcon name="contact" size={24} />
               <span className="num">{SUPPORT_PHONE_DISPLAY}</span>
             </a>
             <SupportMenu onAsk={() => setAiOpen(true)} />
@@ -524,7 +513,7 @@ export function Shell() {
               aria-label="My trips"
               title="My trips"
             >
-              <Icon name="trip-history" size={20} />
+              <BrandIcon name="trips" size={30} />
             </NavLink>
             {!profile ? (
               <Button
@@ -542,7 +531,7 @@ export function Shell() {
                   aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
                   title="Notifications"
                 >
-                  <Icon name="notifications" size={20} />
+                  <BrandIcon name="bell" size={28} />
                   {unreadCount > 0 ? <em className="count" aria-hidden="true">{unreadCount > 9 ? '9+' : unreadCount}</em> : null}
                 </NavLink>
               </>

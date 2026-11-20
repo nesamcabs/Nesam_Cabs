@@ -7,10 +7,16 @@ import { formatINR, formatPhone } from '@core/utils/format';
 import { describeError } from '@core/utils/retry';
 import { Avatar, Button, Dialog, EmptyState, Notice, PageHead } from '@/components/ui';
 import { Icon } from '@/components/Icon';
+import { BrandIcon, type BrandIconName } from '@/components/BrandIcon';
 import { EmergencyContactForm, PersonalDetailsForm } from '@/components/ProfileForms';
 import { PhotoError, uploadProfilePhoto } from '@/lib/avatarUpload';
 import { useSeo } from '@/lib/seo';
 import { useAuth } from '@/state/Auth';
+
+/** Rows that have their own artwork (public/icons/ui) show it in place of the line icon. */
+const ROW_ART: Record<string, BrandIconName> = {
+  emergency: 'emergency', 'trip-history': 'trips', receipt: 'payments', offers: 'offers', support: 'support', info: 'about', document: 'terms', phone: 'contact',
+};
 
 /** Each kind of row keeps its own icon colour, so a list reads at a glance. */
 const TONES: Record<string, string> = {
@@ -23,9 +29,15 @@ function Row({ icon, label, value, to, href, onPress, onNavigate, expanded }: { 
   const cls = `setting setting--${tone}`;
   const inner = (
     <>
-      <span className="setting__icon">
-        <Icon name={icon} size={20} />
-      </span>
+      {ROW_ART[icon] ? (
+        <span className="setting__icon setting__icon--art">
+          <BrandIcon name={ROW_ART[icon]!} size={34} />
+        </span>
+      ) : (
+        <span className="setting__icon">
+          <Icon name={icon} size={20} />
+        </span>
+      )}
       <span className="setting__label">{label}</span>
       {value ? <span className="setting__value truncate">{value}</span> : null}
       {to || href || onPress ? <Icon name="chevron-right" size={18} /> : null}
@@ -195,7 +207,7 @@ export function AccountPage({ variant = 'page', onClose }: { variant?: 'page' | 
             <section className="group" aria-label="Session">
               <div className="card card--list">
                 <button type="button" className="setting setting--action" onClick={() => setConfirm(true)}>
-                  <span className="setting__icon"><Icon name="logout" size={18} /></span>
+                  <span className="setting__icon setting__icon--art"><BrandIcon name="logout" size={34} /></span>
                   <span className="setting__label">Log out</span>
                 </button>
               </div>
