@@ -1,6 +1,6 @@
 // Saved addresses (Home / Work / favourites): add, edit label, use as pickup, delete.
 import React, { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAvoid } from '../components/KeyboardAvoid';
 import { useNavigation } from '@react-navigation/native';
@@ -10,7 +10,7 @@ import { Button, EmptyState, Notice, Segmented, TextButton, TextField } from '..
 import { ScrollView } from '../components/layout';
 import { AppHeader } from '../components/brand';
 import { Icon, type IconName } from '../components/Icon';
-import { PlaceSearchModal } from '../components/PlaceSearchModal';
+import { PlaceInput } from '../components/PlaceInput';
 import { deleteSavedPlace, savePlace } from '../services/userService';
 import { useDeviceLocation } from '../hooks/useDeviceLocation';
 import type { GeoPlace, LocationItem } from '../types';
@@ -27,7 +27,6 @@ export function SavedPlacesScreen() {
   const { update, setService } = useBookingDraft();
   const { position } = useDeviceLocation(false);
   const [adding, setAdding] = useState<LocationItem | 'new' | null>(null);
-  const [searchOpen, setSearchOpen] = useState(false);
   const [picked, setPicked] = useState<GeoPlace | null>(null);
   const [kind, setKind] = useState<SaveType>('home');
   const [label, setLabel] = useState('');
@@ -102,7 +101,6 @@ export function SavedPlacesScreen() {
 <KeyboardAvoid>
       <AppHeader title="Saved Addresses" onBack={() => navigation.goBack()} />
       <ScrollView footer kind="narrow" contentContainerStyle={styles.page} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        <PlaceSearchModal visible={searchOpen} title="Find an address" onClose={() => setSearchOpen(false)} onSelect={setPicked} near={position} />
         <Notice message={error} />
 
         {adding ? (
@@ -117,12 +115,7 @@ export function SavedPlacesScreen() {
               value={kind}
               onChange={setKind}
             />
-            <Pressable style={styles.pick} onPress={() => setSearchOpen(true)} accessibilityRole="button" accessibilityLabel="Search for the address">
-              <Icon name="search" size={18} color="#9A958C" />
-              <Text style={[styles.pickText, !picked && { color: '#9A958C' }]} numberOfLines={2}>
-                {picked ? `${picked.name} — ${picked.address}` : 'City, area or landmark'}
-              </Text>
-            </Pressable>
+            <PlaceInput label="Address" value={picked} onSelect={setPicked} near={position} />
             {kind === 'favorite' ? <TextField label="Label (optional)" value={label} onChangeText={(v) => setLabel(v.slice(0, 40))} placeholder="e.g. Hospital, College" /> : null}
             <View style={styles.row}>
               <Button title="Cancel" variant="secondary" onPress={reset} disabled={busy} style={{ flex: 1 }} />

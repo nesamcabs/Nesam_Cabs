@@ -7,7 +7,8 @@ import type { GeoPlace } from '@core/types';
 import { ActionError } from '@core/services/callables';
 import { Button, Dialog, Notice, PageHead, Spinner } from '@/components/ui';
 import { Icon } from '@/components/Icon';
-import { LocationPicker, type PickerConfig } from '@/components/LocationPicker';
+import type { PickerConfig } from '@/components/LocationPicker';
+import { PlaceField } from '@/components/PlaceField';
 import { useSeo } from '@/lib/seo';
 import { useDeviceLocation, useOnline } from '@/lib/hooks';
 import { reverseGeocode } from '@core/services/geoService';
@@ -57,7 +58,6 @@ export function LocalTaxiPage() {
     void reverseGeocode(position).then((p) => setPickup((now) => now ?? { ...p, type: 'current' }));
   }, [position, pickup]);
   const [drop, setDrop] = useState<GeoPlace | null>(PREVIEW ? PREVIEW_DROP : draft.drop);
-  const [picker, setPicker] = useState<'pickup' | 'drop' | null>(null);
   const [avail, setAvail] = useState<Serviceability | null>(null);
   const [checking, setChecking] = useState(false);
   const [quotes, setQuotes] = useState<QuoteResponse | null>(() => (PREVIEW ? previewQuotes() : null));
@@ -149,15 +149,8 @@ export function LocalTaxiPage() {
 
   const config = (f: 'pickup' | 'drop'): PickerConfig => ({
     title: f === 'pickup' ? 'Pickup location' : 'Drop location', allowCurrent: true, popular: [], popularLabel: 'Nearby', near: f === 'drop' ? pickup : null, pinMode: f,
-    subtitle: 'Search a place inside the Local Taxi area, or drop a pin on the map.',
+    placeholder: f === 'pickup' ? 'Choose pickup location' : 'Choose drop location',
   });
-  const picking = picker ? (
-    <LocationPicker
-      config={config(picker)} saved={[]} recent={[]} onClose={() => setPicker(null)}
-      onSelect={(place) => { if (picker === 'pickup') setPickup(place); else setDrop(place); setPicker(null); }}
-    />
-  ) : null;
-
   // ── Select a ride: full-screen map + bottom sheet ───────────────────────────────────────────────────────────────
   if (quotes) {
     const noneFree = quotes.quotes.every((q) => !q.available);
@@ -218,8 +211,7 @@ export function LocalTaxiPage() {
             {chosen.sampleFare ? <p className="lt-fine">Test fare: not an approved rate.</p> : null}
           </Dialog>
         ) : null}
-        {picking}
-      </div>
+        </div>
     );
   }
 
@@ -234,16 +226,14 @@ export function LocalTaxiPage() {
       <PageHead title="Local Taxi">Book a cab inside your city. See the fare first, pay your driver or online.</PageHead>
       <div className="page lt">
         <section className="lt-card" aria-label="Trip">
-          <button type="button" className="lt-place" onClick={() => setPicker('pickup')}>
+          <div className="lt-place lt-place--field" data-pf-anchor>
             <span className="lt-dot lt-dot--from" aria-hidden="true" />
-            <span><small>Pickup</small><strong>{pickup?.name ?? 'Choose pickup location'}</strong></span>
-            <Icon name="chevron-right" size={16} />
-          </button>
-          <button type="button" className="lt-place" onClick={() => setPicker('drop')}>
+            <label><small>Pickup</small><PlaceField inputId="lt-pickup" value={pickup} config={config('pickup')} saved={[]} recent={[]} onSelect={setPickup} /></label>
+          </div>
+          <div className="lt-place lt-place--field" data-pf-anchor>
             <span className="lt-dot lt-dot--to" aria-hidden="true" />
-            <span><small>Drop</small><strong>{drop?.name ?? 'Choose drop location'}</strong></span>
-            <Icon name="chevron-right" size={16} />
-          </button>
+            <label><small>Drop</small><PlaceField inputId="lt-drop" value={drop} config={config('drop')} saved={[]} recent={[]} onSelect={setDrop} /></label>
+          </div>
           {checking ? <p className="lt-note"><Spinner /> Checking service area…</p> : null}
           {avail?.available && p ? <p className="lt-note lt-note--ok"><Icon name="check" size={16} /> Local Taxi is available in {avail.zoneName}.</p> : null}
           {checkFailed ? <Notice tone="error" action={<Button size="sm" variant="secondary" onClick={() => setRecheck((n) => n + 1)}>Try again</Button>}>{avail?.message}</Notice> : null}
@@ -259,7 +249,6 @@ export function LocalTaxiPage() {
         </section>
         <ZoneMapView pickup={p} drop={d} label="Map of the Local Taxi service area with your pickup and drop" />
       </div>
-      {picking}
     </>
   );
 }

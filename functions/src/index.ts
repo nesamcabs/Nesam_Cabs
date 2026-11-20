@@ -45,7 +45,7 @@ export { requestVendorRegistration, issueVendorInvitation, revokeVendorInvitatio
 export { updateSettlement, onBookingSettlementChange } from './settlement';
 export { periodicJobs } from './jobs';
 export { getCustomerContact, updateBookingContact, migrateBookingContacts } from './contacts';
-export { onBookingRated } from './ratings';
+export { onBookingRated, rateDriver, reviewDriverRating } from './ratings';
 export { submitMulticityEnquiry, acceptEnquiryQuote, getCustomerEnquiries, priceMulticityEnquiry } from './enquiries';
 export { convertMulticityEnquiry } from './multicityConversion';
 export { submitSupportRequest, updateSupportRequest, requestAccountDeletion } from './support';
@@ -57,4 +57,5 @@ export { ltSetAvailability, ltUpdateLocation, ltRespondOffer, ltDriverAdvance } 
 export { ltCreatePaymentOrder, ltVerifyPayment } from './localTaxi/payFns';
 export { ltDispatchSweep } from './localTaxi/sweep';
 export { onVendorApplicationSubmitted } from './vendorOnboarding';
+export { getPaymentChoiceSettings, savePaymentChoiceSettings } from './paymentChoices';
 export { getPaymentOptions, getPaymentGatewayStatus, setOnlinePayments, refundGatewayPayment } from './paymentGateway';

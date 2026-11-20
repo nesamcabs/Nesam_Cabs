@@ -15,6 +15,8 @@ import { haversineMeters } from './geo';
 import { COL, Zone, activeZoneAt, actorName, cleanId, placeOf, requestId, resolveFare, str, zoneForTrip } from './model';
 import { advanceDispatch, assignRide, ltNotify, releaseDriverTx, rideEventTx, rideRef } from './dispatch';
 import { transitionProblem } from './states';
+import { alertLowRating, cleanOrThrow, localTaxiRatingWrites } from '../ratings';
+import { summaryText } from '../domain/ratingPolicy';
 
 export const FARE_POLICY = {
   estimate: 'This is an estimate based on the road route and expected travel time. The final fare is calculated from the actual trip.',
@@ -277,20 +279,27 @@ export const ltRateRide = onCall(async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.');
   const rideId = cleanId(request.data?.rideId, 'ride');
-  const stars = request.data?.rating;
-  if (!Number.isInteger(stars) || stars < 1 || stars > 5) throw new HttpsError('invalid-argument', 'Choose 1 to 5 stars.');
-  const comment = str(request.data?.comment, 400);
+  // 1–2 stars must say why (reason + feedback); the same rules as rating a booking trip. See ratings.ts.
+  const c = cleanOrThrow({ ...(request.data ?? {}), stars: request.data?.rating });
+  let alert: ReturnType<typeof localTaxiRatingWrites>['alert'] = null;
   await db.runTransaction(async (tx) => {
     const rs = await tx.get(rideRef(rideId));
     const ride = rs.data();
     if (!ride || ride.customerId !== uid) throw new HttpsError('not-found', 'This ride does not exist.');
     if (ride.status !== 'completed') throw new HttpsError('failed-precondition', 'You can rate a ride after it is completed.');
     if (ride.rating) throw new HttpsError('already-exists', 'You have already rated this ride.');
-    const ds = ride.driverId ? await tx.get(db.doc(`${COL.driverState}/${ride.driverId}`)) : null;
-    tx.update(rs.ref, { rating: { stars, comment, atMs: Date.now() }, updatedAt: FieldValue.serverTimestamp() });
-    if (ds?.exists) tx.update(ds.ref, { ratingSum: FieldValue.increment(stars), ratingCount: FieldValue.increment(1) });
-    rideEventTx(tx, rideId, { type: 'rated', actorId: uid, actorRole: 'customer', meta: { stars } });
+    const [ds, drv] = ride.driverId
+      ? await Promise.all([tx.get(db.doc(`${COL.driverState}/${ride.driverId}`)), tx.get(db.doc(`drivers/${ride.driverId}`))])
+      : [null, null];
+    tx.update(rs.ref, {
+      rating: { stars: c.stars, comment: summaryText(c), atMs: Date.now(), tags: c.tags, reason: c.reason, feedback: c.feedback, improvements: c.improvements },
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    if (ds?.exists) tx.update(ds.ref, { ratingSum: FieldValue.increment(c.stars), ratingCount: FieldValue.increment(1) });
+    alert = localTaxiRatingWrites(tx, { rideId, ride, driver: drv?.exists ? drv.data()! : null, driverRef: drv?.exists ? drv.ref : null, rating: c }).alert;
+    rideEventTx(tx, rideId, { type: 'rated', actorId: uid, actorRole: 'customer', meta: { stars: c.stars } });
   });
-  return { rated: true };
+  if (alert) await alertLowRating(alert);
+  return { rated: true, low: c.low };
 });
 

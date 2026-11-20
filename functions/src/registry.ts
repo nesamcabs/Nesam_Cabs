@@ -111,6 +111,8 @@ export const CALLABLES: Readonly<Record<string, CallableLike>> = Object.freeze({
   verifyDepositPayment: fns.verifyDepositPayment,
   // payment gateway (Razorpay) options, status, office switch and refunds
   getPaymentOptions: fns.getPaymentOptions,
+  getPaymentChoiceSettings: fns.getPaymentChoiceSettings,
+  savePaymentChoiceSettings: fns.savePaymentChoiceSettings,
   getPaymentGatewayStatus: fns.getPaymentGatewayStatus,
   setOnlinePayments: fns.setOnlinePayments,
   refundGatewayPayment: fns.refundGatewayPayment,
@@ -164,6 +166,7 @@ export const CALLABLES: Readonly<Record<string, CallableLike>> = Object.freeze({
   ltSaveZone: fns.ltSaveZone, ltSetZoneStatus: fns.ltSetZoneStatus, ltSaveFare: fns.ltSaveFare, ltActivateFare: fns.ltActivateFare, ltSimulateFare: fns.ltSimulateFare,
   ltSetDriverEligibility: fns.ltSetDriverEligibility, ltCheckServiceability: fns.ltCheckServiceability, ltGetQuotes: fns.ltGetQuotes, ltCreateRide: fns.ltCreateRide,
   ltCancellationQuote: fns.ltCancellationQuote, ltCancelRide: fns.ltCancelRide, ltAdminCancelRide: fns.ltAdminCancelRide, ltAssignRide: fns.ltAssignRide,
+  rateDriver: fns.rateDriver, reviewDriverRating: fns.reviewDriverRating,
   ltGetRide: fns.ltGetRide, ltRateRide: fns.ltRateRide, ltSetAvailability: fns.ltSetAvailability, ltUpdateLocation: fns.ltUpdateLocation, ltRespondOffer: fns.ltRespondOffer,
   ltDriverAdvance: fns.ltDriverAdvance, ltCreatePaymentOrder: fns.ltCreatePaymentOrder, ltVerifyPayment: fns.ltVerifyPayment,
 });

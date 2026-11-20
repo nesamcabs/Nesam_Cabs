@@ -49,6 +49,8 @@
 .lt-stars button { padding: 2px; border: 0; background: none; color: var(--line); cursor: pointer; }
 .lt-stars button.is-on { color: #f59e0b; }
 .lt-text { width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 6px; font: inherit; }
+.lt-ask { margin: 8px 0 0; font-weight: 700; font-size: 0.85rem; }
+.lt-reasons { display: flex; flex-wrap: wrap; gap: 8px; }
 .lt-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
 /* ── Select a ride: full-screen map with a bottom sheet ──────────────────────────────────────────────────────── */

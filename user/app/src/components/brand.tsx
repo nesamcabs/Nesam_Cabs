@@ -303,30 +303,18 @@ export function BrandHeader({ right, title }: { right?: React.ReactNode; title?:
 
 export type NavKey = HomeService | 'trips';
 
-/** The bottom bar: the website's four services (Outstation, Multicity, Local, Airport) and My trips (the profile lives in the side drawer). */
-const NAV_ITEMS: { key: NavKey; label: string; image?: ImageSourcePropType; icon?: IconName }[] = [
+/** The bottom bar, as on the website: Local Pickup & Drop · Hourly Rental · Outstation (the middle one) · Multicity · My trips.
+ *  Airport Taxi is not here: it is booked from the side drawer. The first two open the Local Rentals map in that mode. */
+const NAV_ITEMS: { key: NavKey; label: string; full?: string; mode?: RentalsMode; image?: ImageSourcePropType; icon?: IconName }[] = [
+  { key: 'rental', mode: 'pickup', label: 'Pickup & Drop', full: 'Local Pickup & Drop', image: NESAM.navPickup },
+  { key: 'rental', mode: 'hourly', label: 'Hourly Rental', image: NESAM.navLocal },
   { key: 'outstation', label: 'Outstation', image: NESAM.navOutstation },
   { key: 'multicity', label: 'Multicity', image: NESAM.navMulticity },
-  { key: 'rental', label: 'Local', image: NESAM.navLocal },
-  { key: 'airport', label: 'Airport', image: NESAM.navAirport },
   { key: 'trips', label: 'My trips', icon: 'route' },
 ];
 
 /** One bar item: the active one rises on a red disc, with a little pop. */
-function NavItem({ item, on, onPress, flat }: { item: (typeof NAV_ITEMS)[number]; on: boolean; onPress: () => void; flat?: boolean }) {
-  if (flat) {
-    // The two Local Rentals mode buttons beside "Local": a small tinted tile that fills red when it is the chosen mode.
-    return (
-      <PressableScale activeScale={0.92} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={item.label} onPress={onPress} containerStyle={styles.navCell} style={styles.navItem}>
-        <View style={[styles.navModeTile, on && styles.navModeTileOn]}>
-          <Icon name={item.icon ?? 'route'} size={21} color={on ? colors.white : colors.primary} strokeWidth={2} />
-        </View>
-        <Text style={[styles.navLabel, styles.navLabelMode, on && styles.navLabelOn]} numberOfLines={1} maxFontSizeMultiplier={1.05}>
-          {item.label}
-        </Text>
-      </PressableScale>
-    );
-  }
+function NavItem({ item, on, onPress }: { item: (typeof NAV_ITEMS)[number]; on: boolean; onPress: () => void }) {
   const [rise] = useState(() => new Animated.Value(on ? 1 : 0));
   useEffect(() => {
     Animated.spring(rise, { toValue: on ? 1 : 0, speed: 16, bounciness: 9, useNativeDriver: NATIVE_DRIVER }).start();
@@ -338,7 +326,7 @@ function NavItem({ item, on, onPress, flat }: { item: (typeof NAV_ITEMS)[number]
       activeScale={0.92}
       accessibilityRole="tab"
       accessibilityState={{ selected: on }}
-      accessibilityLabel={item.label}
+      accessibilityLabel={item.full ?? item.label}
       onPress={onPress}
       containerStyle={styles.navCell}
       style={styles.navItem}
@@ -353,22 +341,10 @@ function NavItem({ item, on, onPress, flat }: { item: (typeof NAV_ITEMS)[number]
           </View>
         )}
       </Animated.View>
-      <Text style={[styles.navLabel, on && styles.navLabelOn]} numberOfLines={1} maxFontSizeMultiplier={1.1}>
+      <Text style={[styles.navLabel, item.mode && styles.navLabelMode, on && styles.navLabelOn]} numberOfLines={1} maxFontSizeMultiplier={1.05}>
         {item.label}
       </Text>
     </PressableScale>
-  );
-}
-
-/** Pickup & Drop (left of Local) or Hourly Rental (right of it): switches the Local Rentals screen to that mode. */
-function ModeItem({ mode, current, onSelect }: { mode: RentalsMode; current: RentalsMode; onSelect: (mode: RentalsMode) => void }) {
-  return (
-    <NavItem
-      flat
-      item={{ key: 'rental', label: mode === 'pickup' ? 'Pickup & Drop' : 'Hourly Rental', icon: mode === 'pickup' ? 'route' : 'clock-3' }}
-      on={current === mode}
-      onPress={() => onSelect(mode)}
-    />
   );
 }
 
@@ -391,25 +367,24 @@ export function BottomNav({ active }: { active?: NavKey | null }) {
   return (
     <View style={[styles.dock, { paddingBottom: 16 + insets.bottom }]} pointerEvents="box-none">
       <View style={styles.nav} accessibilityRole="tablist" accessibilityLabel="Services and my trips">
-        {NAV_ITEMS.filter((item) => selected !== 'rental' || item.key === 'outstation' || item.key === 'rental' || item.key === 'trips').flatMap((item) => [
-          ...(selected === 'rental' && item.key === 'rental' ? [<ModeItem key="pickup" mode="pickup" current={rentalsMode} onSelect={(m) => navigation.navigate('Tabs', { screen: 'Rentals', params: { mode: m } })} />] : []),
+        {NAV_ITEMS.map((item) => (
           <NavItem
-            key={item.key}
+            key={item.mode ?? item.key}
             item={item}
-            on={selected === item.key}
+            on={item.mode ? selected === 'rental' && rentalsMode === item.mode : selected === item.key}
             onPress={() => {
               if (item.key === 'trips') {
                 // A guest sees the sign-in prompt in place of the trips page.
                 navigation.navigate('Tabs', { screen: 'Trips' });
                 return;
               }
-              setService(item.key);
-              // Local is a map flow of its own; every other service uses the booking form.
-              navigation.navigate('Tabs', { screen: item.key === 'rental' ? 'Rentals' : 'Book' });
+              setService(item.key as HomeService);
+              // Pickup & Drop and Hourly Rental open the Local Rentals map in their mode; every other service uses the booking form.
+              if (item.mode) navigation.navigate('Tabs', { screen: 'Rentals', params: { mode: item.mode } });
+              else navigation.navigate('Tabs', { screen: 'Book' });
             }}
-          />,
-          ...(selected === 'rental' && item.key === 'rental' ? [<ModeItem key="hourly" mode="hourly" current={rentalsMode} onSelect={(m) => navigation.navigate('Tabs', { screen: 'Rentals', params: { mode: m } })} />] : []),
-        ])}
+          />
+        ))}
       </View>
     </View>
   );
@@ -613,8 +588,6 @@ const styles = StyleSheet.create({
   navLabel: { fontFamily: fonts.bold, fontSize: 11, lineHeight: 20, color: '#101827' },
   navLabelOn: { color: colors.primary },
   navLabelMode: { fontSize: 9.5 },
-  navModeTile: { width: 40, height: 40, marginBottom: 8, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: colors.borderStrong },
-  navModeTileOn: { backgroundColor: colors.primary, borderColor: colors.primary },
   back: {
     width: 36,
     height: 36,

@@ -3,7 +3,7 @@
 // One Way / Round Trip tabs, route + schedule form, and popular routes from Chennai.
 // All click interactions have modern tactile micro-animations.
 // Website footers, marketing copy, and FAQs are cleanly omitted from the mobile application.
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, type ImageSourcePropType, Pressable, ScrollView as RNScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAvoid } from '../components/KeyboardAvoid';
@@ -12,14 +12,15 @@ import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { Notice } from '../components/ui';
 import { DESKTOP_NAV_MIN, DesktopTopBar, MenuButton, NotificationsAction, PressableScale, SupportMenuAction } from '../components/brand';
 import { SiteFooter } from '../components/SiteFooter';
-import { GoButton, LocationField, PillTabs, RouteRail, ScheduleCell } from '../components/BookForm';
+import { GoButton, PillTabs, RouteRail, ScheduleCell } from '../components/BookForm';
 import { Icon } from '../components/Icon';
 import { ServiceNote } from '../components/ServiceNote';
 import { serviceSlogan } from '../utils/serviceSlogan';
 import { isOvernightPickup } from '../utils/timePackages';
 import { useDockPad } from '../context/Dock';
 import { setResumeFares, useAuthGate } from '../context/AuthGate';
-import { PlaceSearchModal } from '../components/PlaceSearchModal';
+import { PlaceInput } from '../components/PlaceInput';
+import { FieldScrollContext } from '../components/fieldScroll';
 import { MulticityForm } from '../components/MulticityForm';
 import { TimePickerSheet } from '../components/TimePickerSheet';
 import { useCustomerData } from '../context/CustomerData';
@@ -50,7 +51,6 @@ const DESKTOP_SERVICES: { key: HomeService; label: string; image: ImageSourcePro
 ];
 
 type Field = 'pickup' | 'drop';
-type Picker = Field | { stop: number | 'new' };
 type TimeTarget = 'pickup' | null;
 
 const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -75,9 +75,9 @@ export function BookScreen() {
   const { draft, update, service, setService } = useBookingDraft();
   const { undismiss } = useRideFocus();
   const { pickup, drop, tripType, scheduledAt, tripEndAt, airportDirection } = draft;
-  const { position, error: locError, permission, locate } = useDeviceLocation(true);
+  const { position, error: locError, permission } = useDeviceLocation(true);
   const { online } = useNetworkStatus();
-  const [picker, setPicker] = useState<Picker | null>(null);
+  const [addingStop, setAddingStop] = useState(false);
   const [timeTarget, setTimeTarget] = useState<TimeTarget>(null);
   // A date picked before its time is kept here; once a time is chosen the draft's instant is the truth.
   // Like the website, the date starts on today.
@@ -92,6 +92,16 @@ export function BookScreen() {
   const [problem, setProblem] = useState('');
   const [fieldError, setFieldError] = useState<Partial<Record<'pickup' | 'drop' | 'date' | 'time' | 'return', string>>>({});
   const scroller = useRef<RNScrollView>(null);
+  // A place field that opens its suggestions scrolls itself to the top of the form so the list is visible.
+  const scrollToField = useCallback((node: View) => {
+    try {
+      const sv = scroller.current;
+      const inner = (sv as unknown as { getInnerViewRef?: () => unknown } | null)?.getInnerViewRef?.() ?? sv?.getInnerViewNode?.();
+      if (sv && inner) node.measureLayout(inner as never, (_x, y) => sv.scrollTo({ y: Math.max(0, y - 96), animated: true }), () => undefined);
+    } catch {
+      /* scrolling is a nicety only */
+    }
+  }, []);
 
   // Local Rentals has its own map flow (the Rentals tab); coming back to this form means a different service.
   useFocusEffect(
@@ -171,18 +181,6 @@ export function BookScreen() {
     }
     return out;
   }, [trips]);
-
-  const locateMe = async () => {
-    const p = await locate();
-    if (!p) return;
-    const place = await reverseGeocode(p);
-    if (mounted.current) {
-      pickupFromGps.current = true;
-      update({ pickup: { ...place, type: 'current' } });
-      clearErrors();
-      setPicker(null);
-    }
-  };
 
   const clearErrors = () => {
     setFieldError({});
@@ -288,7 +286,26 @@ export function BookScreen() {
   // The hero logo scales down on short phones so the whole form stays in one view.
   const logoW = desktop ? 300 : Math.min(304, Math.round(screenW * 0.78), Math.round((screenH - dockPad) * 0.4));
   const fieldLabel = (f: Field) => (airportField === f ? (f === 'drop' ? 'Drop airport' : 'Pickup airport') : f === 'pickup' ? 'Pickup location' : 'Drop location');
-  const pickerTitle = picker === null ? '' : typeof picker === 'object' ? (picker.stop === 'new' ? 'Add itinerary stop' : `Edit stop ${picker.stop + 1}`) : fieldLabel(picker);
+  // What each inline field suggests: an airport field lists airports, every other field lists the rider's places.
+  const fieldProps = (f: Field) => {
+    const airport = airportField === f;
+    return {
+      saved: airport ? [] : savedPlaces,
+      recent: airport ? recentPlaces.filter((p) => p.type === 'airport') : recentPlaces.filter((p) => p.type !== 'airport'),
+      suggestions: airport ? POPULAR_AIRPORTS : QUICK_CITIES,
+      suggestionsLabel: airport ? 'Airports' : 'Popular locations',
+      near: f === 'drop' ? (pickup ?? position) : position,
+      allowLocate: !airport,
+      placeholder: airport ? 'Search airport' : 'City, area or landmark',
+    };
+  };
+  const pickPlace = (f: Field, p: GeoPlace) => {
+    if (f === 'pickup') {
+      pickupFromGps.current = true;
+      update({ pickup: p });
+    } else update({ drop: p });
+    clearErrors();
+  };
 
   // ── Field rendering ─────────────────────────────────────────────────────────
 
@@ -298,29 +315,6 @@ export function BookScreen() {
       <View style={styles.heroWash} pointerEvents="none" />
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         <KeyboardAvoid>
-          <PlaceSearchModal
-            visible={picker !== null}
-            title={pickerTitle}
-            subtitle={picker === 'pickup' || picker === 'drop' ? (airportField === picker ? 'Choose an airport or search by name.' : undefined) : 'Add a stop on your route.'}
-            onClose={() => setPicker(null)}
-            onSelect={(p) => {
-              if (picker === 'pickup') {
-                pickupFromGps.current = true;
-                update({ pickup: p });
-              } else if (picker === 'drop') {
-                update({ drop: p });
-              } else if (picker && typeof picker === 'object') {
-                update((d) => ({ stops: picker.stop === 'new' ? [...d.stops, p] : d.stops.map((s, i) => (i === picker.stop ? p : s)) }));
-              }
-              clearErrors();
-            }}
-            savedPlaces={picker && airportField === picker ? [] : savedPlaces}
-            recentPlaces={picker && airportField === picker ? recentPlaces.filter((p) => p.type === 'airport') : recentPlaces.filter((p) => p.type !== 'airport')}
-            suggestions={picker && airportField === picker ? POPULAR_AIRPORTS : QUICK_CITIES}
-            suggestionsLabel={picker && airportField === picker ? 'Airports' : 'Popular locations'}
-            near={picker === 'drop' ? (pickup ?? position) : position}
-            onUseCurrentLocation={picker === 'pickup' && airportField !== 'pickup' ? () => void locateMe() : undefined}
-          />
           {timeTarget ? (
             <TimePickerSheet
               visible
@@ -339,6 +333,7 @@ export function BookScreen() {
           ) : null}
 
           {desktop ? <DesktopTopBar /> : null}
+          <FieldScrollContext.Provider value={scrollToField}>
           <RNScrollView
             ref={scroller}
             contentContainerStyle={[styles.page, desktop && styles.pageDesktop, { paddingBottom: 12 + dockPad }]}
@@ -449,18 +444,21 @@ export function BookScreen() {
               ) : (
                 <View style={styles.form}>
                   <RouteRail
-                    pickup={<LocationField label={fieldLabel('pickup')} value={pickup?.name} address={pickup?.address} error={fieldError.pickup} onPress={() => setPicker('pickup')} />}
-                    drop={<LocationField label={fieldLabel('drop')} value={drop?.name} address={drop?.address} error={fieldError.drop} onPress={() => setPicker('drop')} />}
+                    pickup={<PlaceInput label={fieldLabel('pickup')} value={pickup} error={fieldError.pickup} onSelect={(p) => pickPlace('pickup', p)} {...fieldProps('pickup')} />}
+                    drop={<PlaceInput label={fieldLabel('drop')} value={drop} error={fieldError.drop} onSelect={(p) => pickPlace('drop', p)} {...fieldProps('drop')} />}
                     middle={
                       isRound ? (
                         <View style={{ gap: 10 }}>
                           {draft.stops.map((stop, i) => (
                             <View key={`${stop.id}-${i}`} style={{ marginLeft: 9 }}>
-                              <LocationField
+                              <PlaceInput
                                 label={`Stop ${i + 1}`}
-                                value={stop.name}
-                                address={stop.address}
-                                onPress={() => setPicker({ stop: i })}
+                                value={stop}
+                                onSelect={(p) => update((d) => ({ stops: d.stops.map((x, n) => (n === i ? p : x)) }))}
+                                saved={savedPlaces}
+                                recent={recentPlaces.filter((p) => p.type !== 'airport')}
+                                suggestions={QUICK_CITIES}
+                                near={pickup ?? position}
                                 trailing={
                                   <Pressable accessibilityRole="button" accessibilityLabel={`Delete stop ${i + 1}`} hitSlop={10} onPress={() => update((d) => ({ stops: d.stops.filter((_, n) => n !== i) }))}>
                                     <Icon name="trash-2" size={17} color={colors.primary} strokeWidth={2} />
@@ -469,8 +467,31 @@ export function BookScreen() {
                               />
                             </View>
                           ))}
-                          {draft.stops.length < 8 ? (
-                            <PressableScale activeScale={0.96} onPress={() => setPicker({ stop: 'new' })} accessibilityRole="button" accessibilityLabel="Add stop" style={styles.addStop} containerStyle={{ alignSelf: 'center' }}>
+                          {addingStop ? (
+                            <View style={{ marginLeft: 9 }}>
+                              <PlaceInput
+                                label={`Stop ${draft.stops.length + 1}`}
+                                value={null}
+                                placeholder="Add an itinerary stop"
+                                onSelect={(p) => {
+                                  update((d) => ({ stops: [...d.stops, p] }));
+                                  setAddingStop(false);
+                                  clearErrors();
+                                }}
+                                saved={savedPlaces}
+                                recent={recentPlaces.filter((p) => p.type !== 'airport')}
+                                suggestions={QUICK_CITIES}
+                                near={pickup ?? position}
+                                trailing={
+                                  <Pressable accessibilityRole="button" accessibilityLabel="Cancel new stop" hitSlop={10} onPress={() => setAddingStop(false)}>
+                                    <Icon name="x" size={17} color={colors.primary} strokeWidth={2} />
+                                  </Pressable>
+                                }
+                              />
+                            </View>
+                          ) : null}
+                          {draft.stops.length < 8 && !addingStop ? (
+                            <PressableScale activeScale={0.96} onPress={() => setAddingStop(true)} accessibilityRole="button" accessibilityLabel="Add stop" style={styles.addStop} containerStyle={{ alignSelf: 'center' }}>
                               <Icon name="plus" size={16} color={colors.primary} strokeWidth={2.2} />
                               <Text style={styles.addStopText}>Add stop</Text>
                             </PressableScale>
@@ -539,6 +560,7 @@ export function BookScreen() {
             </View>
             {desktop ? <SiteFooter /> : null}
           </RNScrollView>
+          </FieldScrollContext.Provider>
         </KeyboardAvoid>
       </SafeAreaView>
     </View>

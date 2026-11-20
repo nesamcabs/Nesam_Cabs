@@ -28,7 +28,7 @@ export function bookingAmountDue(trip: TripRecord): number {
   return trip.paid ? Math.max(0, Math.round(trip.paid.balanceDue)) : Math.round((trip.fareBreakdown?.total ?? trip.fare) + trip.tollCharges + (trip.extraCharges ?? 0));
 }
 
-export function PayOnline({ trip, prefill, autoStart = false, onAutoStarted, onPaid }: { trip: TripRecord; prefill?: CheckoutLabels['prefill']; /** Open the payment straight away (the rider chose "Pay online now" when booking). */ autoStart?: boolean; onAutoStarted?: () => void; /** Called once the server has verified the payment as received. */ onPaid?: () => void }) {
+export function PayOnline({ trip, prefill, autoStart = false, advance = false, onAutoStarted, onPaid }: { trip: TripRecord; /** The first payment opened automatically is only the advance the rider chose ("Pay 25% now"). */ advance?: boolean; prefill?: CheckoutLabels['prefill']; /** Open the payment straight away (the rider chose "Pay online now" when booking). */ autoStart?: boolean; onAutoStarted?: () => void; /** Called once the server has verified the payment as received. */ onPaid?: () => void }) {
   const [online, setOnline] = useState(false);
   const [order, setOrder] = useState<GatewayOrder | null>(null);
   const [busy, setBusy] = useState(false);
@@ -51,12 +51,12 @@ export function PayOnline({ trip, prefill, autoStart = false, onAutoStarted, onP
     [trip.bookingId, prefill],
   );
 
-  const start = async () => {
+  const start = async (advanceOnly = false) => {
     if (busy) return;
     setBusy(true);
     setMsg(null);
     try {
-      setOrder(await createBookingPayment(trip.id));
+      setOrder(advanceOnly ? await createBookingPayment(trip.id, true) : await createBookingPayment(trip.id));
     } catch (e) {
       setMsg({ tone: 'error', text: paymentErrorText(e) });
     } finally {
@@ -102,7 +102,7 @@ export function PayOnline({ trip, prefill, autoStart = false, onAutoStarted, onP
     if (!autoStart || started.current || !online || due < 1 || blocked) return;
     started.current = true;
     onAutoStarted?.();
-    void start();
+    void start(advance);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoStart, online, due, blocked]);
 

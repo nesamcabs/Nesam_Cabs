@@ -68,7 +68,8 @@ const pairs = (o: string, d: string, both: boolean): string[] => (both ? [`${o}>
 const overlap = (a: { from: string; to: string }, b: { from: string; to: string }): boolean => (a.from || '0000-00-00') <= (b.to || '9999-12-31') && (b.from || '0000-00-00') <= (a.to || '9999-12-31');
 
 /**
- * Creates (no `ruleId`) or updates a fixed route fare, or — with `action: 'status'` — enables / disables one.
+ * Creates (no `ruleId`) or updates a fixed route fare, or — with `action: 'status'` — enables / disables one, or — with `action: 'delete'` —
+ * removes one for good (the audit trail keeps what it was; bookings already made keep the price they were quoted).
  * Editing and status changes need `expectedVersion` (the version the editor loaded); a newer record is refused
  * rather than overwritten. A record saved before this tool existed has version 0.
  */
@@ -80,11 +81,12 @@ export const saveFixedRouteFare = onCall(async (request) => {
   if (reason.length < 5) throw bad('Give a short reason for the change.');
   const ruleId = str(input.ruleId) || null;
   const statusOnly = input.action === 'status';
-  if (statusOnly && !ruleId) throw bad('Choose the fare to change.');
+  const deleting = input.action === 'delete';
+  if ((statusOnly || deleting) && !ruleId) throw bad('Choose the fare to change.');
   if (ruleId && (typeof input.expectedVersion !== 'number' || !Number.isInteger(input.expectedVersion) || input.expectedVersion < 0)) throw bad('Reload the fare before saving.');
   if (statusOnly && input.status !== 'Active' && input.status !== 'Inactive') throw bad('Choose whether the fare is enabled.');
-  if (!statusOnly && (!input.data || typeof input.data !== 'object' || Array.isArray(input.data))) throw bad('The fare is missing.');
-  const submitted = statusOnly ? null : valuesOf(input.data as Record<string, unknown>);
+  if (!statusOnly && !deleting && (!input.data || typeof input.data !== 'object' || Array.isArray(input.data))) throw bad('The fare is missing.');
+  const submitted = statusOnly || deleting ? null : valuesOf(input.data as Record<string, unknown>);
 
   return db.runTransaction(async (tx) => {
     const ref = ruleId ? db.doc(`fare_rules/${ruleId}`) : db.collection('fare_rules').doc();
@@ -95,6 +97,15 @@ export const saveFixedRouteFare = onCall(async (request) => {
     const version = typeof before?.version === 'number' ? before.version : 0;
     if (ruleId && input.expectedVersion !== version) throw new HttpsError('failed-precondition', 'This fare was changed by someone else. Reload it and review it before saving.');
 
+    if (deleting) {
+      tx.delete(ref);
+      auditInTx(tx, {
+        action: 'fixed_route_fare_deleted', entity: 'fixed_route_fare', entityId: ref.id, performedBy: actor.uid, performedByName: actor.name, role: 'admin',
+        previous: { version, status: before!.status ?? null, route: `${text(before!.originLocationName, 120)} → ${text(before!.destinationLocationName, 120)}`, category: text(before!.vehicleCategoryName, 120), customerFare: before!.baseFare ?? null, partnerPayout: before!.partnerPayout ?? null },
+        next: null, reason,
+      });
+      return { id: ref.id, version: version + 1, deleted: true };
+    }
     // Disabling needs nothing but the record. Everything else is checked in full.
     const v: Values | null = statusOnly ? (before ? storedValues(before) : null) : submitted;
     if (statusOnly && input.status === 'Inactive') {

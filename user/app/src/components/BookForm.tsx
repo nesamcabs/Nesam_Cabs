@@ -135,10 +135,10 @@ export function RouteRail({
           <DropPinIcon />
         </View>
       </View>
-      <View style={{ gap: 10 }}>
-        <View>{pickup}</View>
+      <View style={{ gap: 10, zIndex: 2 }}>
+        <View style={{ zIndex: 3 }}>{pickup}</View>
         {middle}
-        <View style={{ marginLeft: 18 }}>{drop}</View>
+        <View style={{ marginLeft: 18, zIndex: 2 }}>{drop}</View>
       </View>
       {onSwap ? (
         <PressableScale
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
   startDotHalo: { position: 'absolute', left: 10, top: 20, width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(34,168,90,0.3)', alignItems: 'center', justifyContent: 'center' },
   startDot: { width: 16, height: 16, borderRadius: 8, backgroundColor: '#22A85A' },
   dropPin: { position: 'absolute', left: 17, bottom: 18 },
-  swapWrap: { position: 'absolute', right: 24, top: '50%', marginTop: -20 },
+  swapWrap: { position: 'absolute', right: 24, top: '50%', marginTop: -20, zIndex: 1 },
   swap: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: '#F5B0B2', backgroundColor: '#FCE9E9', alignItems: 'center', justifyContent: 'center' },
   cell: {
     height: 62,

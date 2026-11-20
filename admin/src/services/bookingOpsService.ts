@@ -52,8 +52,8 @@ export interface FixedRouteFareData {
   status: "Active" | "Inactive"; priority: number; effectiveFrom: string; effectiveUntil: string;
 }
 /** Creates (no ruleId), edits (ruleId + the version the editor loaded) or enables / disables a fixed route fare. */
-export const saveFixedRouteFare = (i: { ruleId?: string; expectedVersion?: number; reason: string; action?: "status"; status?: "Active" | "Inactive"; data?: FixedRouteFareData }) =>
-  callFunction<typeof i, { id: string; version: number }>("saveFixedRouteFare", i);
+export const saveFixedRouteFare = (i: { ruleId?: string; expectedVersion?: number; reason: string; action?: "status" | "delete"; status?: "Active" | "Inactive"; data?: FixedRouteFareData }) =>
+  callFunction<typeof i, { id: string; version: number; deleted?: boolean }>("saveFixedRouteFare", i);
 
 /** Fulfilment route 2: reserve an approved booking to a Vendor, which then assigns its own driver and vehicle. */
 export const assignVendor = (i: { bookingId: string; vendorId: string; payout?: number; reason?: string }) =>
@@ -198,6 +198,11 @@ export interface GatewayStatus {
 export const getPaymentGatewayStatus = () => callFunction<Record<string, never>, GatewayStatus>("getPaymentGatewayStatus", {});
 /** The office's on/off switch for customer online payments (UPI, cards, net banking through Razorpay). */
 export const setOnlinePayments = (enabled: boolean) => callFunction<{ enabled: boolean }, { onlineEnabled: boolean }>("setOnlinePayments", { enabled });
+/** The customer payment choices (Service & Fare Settings › Payment options). */
+export type { PaymentChoices, OptionRule, PayOptionId } from "../domain/paymentChoices";
+export const getPaymentChoiceSettings = () => callFunction<Record<string, never>, import("../domain/paymentChoices").PaymentChoices & { updatedByName: string; updatedAt: string | null }>("getPaymentChoiceSettings", {});
+export const savePaymentChoiceSettings = (i: Omit<import("../domain/paymentChoices").PaymentChoices, "version"> & { expectedVersion?: number }) =>
+  callFunction<typeof i, { version: number }>("savePaymentChoiceSettings", i);
 /** Sends the booking's pending refund back to the customer's original online payment through Razorpay, then completes it. */
 export const refundGatewayPayment = (bookingId: string) =>
   callFunction<{ bookingId: string }, { refunded: boolean; amount: number; refunds: { id: string; status: string; amount: number }[] }>("refundGatewayPayment", { bookingId }, 90000);

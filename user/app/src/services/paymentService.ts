@@ -4,10 +4,48 @@
 // server created and hands the result back to be verified.
 import { ActionError, callFunction } from './callables';
 
+/** One thing the rider may choose at checkout. Decided by the office (Service & Fare Settings › Payment options), per pickup district and date. */
+export type PayChoiceId = 'later' | 'part' | 'full';
+export interface PayChoice {
+  id: PayChoiceId;
+  /** Share paid now: 0 for pay later, the office's part percentage, 100 for the full amount. */
+  percent: number;
+  recommended: boolean;
+}
+
 export interface PaymentOptions {
   /** Online payment can be offered: keys are configured and the office has it switched on. */
   online: boolean;
   methods: string[];
+  /** What to show at checkout, in order. Empty when the server is an older version (the app then falls back to pay later / pay online). */
+  choices?: PayChoice[];
+}
+
+/** The trip the choices are for: the pickup place (the office can limit an option to some districts) and the pickup time (dates). */
+export interface PaymentContext {
+  pickup?: { name?: string; address?: string; lat?: number; lng?: number } | null;
+  scheduledAt?: Date | null;
+}
+
+/** The amount paid now, in whole rupees, rounded up: 25% of ₹6,082 is ₹1,521. The server uses the same rule. */
+export function advanceOf(total: number, percent: number): number {
+  if (!(total > 0)) return 0;
+  return Math.min(Math.round(total), Math.max(1, Math.ceil((total * percent) / 100 - 1e-9)));
+}
+
+/** The choices to show. An older server (no list) gets the two it always had; the rider's own pick never survives a list that no longer has it. */
+export function checkoutChoices(o: PaymentOptions): PayChoice[] {
+  if (o.choices && o.choices.length) return o.choices;
+  return o.online
+    ? [{ id: 'later', percent: 0, recommended: false }, { id: 'full', percent: 100, recommended: false }]
+    : [{ id: 'later', percent: 0, recommended: false }];
+}
+
+/** The title, line under it and the amount paid now for one choice, as in the booking screens. */
+export function choiceText(c: PayChoice, total: number): { title: string; subtitle: string; amount: number; label: string } {
+  if (c.id === 'later') return { title: 'Book Now, Pay Later', subtitle: 'Pay your driver at the end of the trip', amount: 0, label: 'Pay Now' };
+  if (c.id === 'part') return { title: `Pay ${c.percent}% Now`, subtitle: `Pay the remaining ${100 - c.percent}% after your trip`, amount: advanceOf(total, c.percent), label: `Pay Now (${c.percent}%)` };
+  return { title: 'Pay 100% Now', subtitle: 'Complete your payment securely online', amount: advanceOf(total, 100), label: 'Total Payable' };
 }
 
 export interface GatewayOrder {
@@ -33,21 +71,30 @@ export interface VerifyResult {
   duplicate?: boolean;
 }
 
-let optionsCache: { at: number; value: PaymentOptions } | null = null;
+const optionsCache = new Map<string, { at: number; value: PaymentOptions }>();
+const contextKey = (c?: PaymentContext) => JSON.stringify([c?.pickup?.lat ?? null, c?.pickup?.lng ?? null, c?.pickup?.name ?? '', c?.scheduledAt?.toISOString().slice(0, 10) ?? '']);
 
-/** Whether "Pay online" may be shown. Cached for a minute; any failure reads as "not available" (cash / UPI still work). */
-export async function getPaymentOptions(force = false): Promise<PaymentOptions> {
-  if (!force && optionsCache && Date.now() - optionsCache.at < 60000) return optionsCache.value;
+/**
+ * What the rider may choose at checkout. Cached for a minute per pickup and day; any failure reads as "pay later only"
+ * (the booking itself never depends on this).
+ */
+export async function getPaymentOptions(ctx?: PaymentContext, force = false): Promise<PaymentOptions> {
+  const key = contextKey(ctx);
+  const hit = optionsCache.get(key);
+  if (!force && hit && Date.now() - hit.at < 60000) return hit.value;
   try {
-    const value = await callFunction<Record<string, never>, PaymentOptions>('getPaymentOptions', {});
-    optionsCache = { at: Date.now(), value };
+    const pickup = ctx?.pickup ? { name: ctx.pickup.name, address: ctx.pickup.address, lat: ctx.pickup.lat, lng: ctx.pickup.lng } : undefined;
+    const value = await callFunction<Record<string, unknown>, PaymentOptions>('getPaymentOptions', { ...(pickup ? { pickup } : {}), ...(ctx?.scheduledAt ? { scheduledAt: ctx.scheduledAt.toISOString() } : {}) });
+    optionsCache.set(key, { at: Date.now(), value });
     return value;
   } catch {
     return { online: false, methods: [] };
   }
 }
 
-export const createBookingPayment = (bookingId: string) => callFunction<{ bookingId: string }, GatewayOrder>('createRazorpayOrder', { bookingId });
+/** `advance: true` asks for the advance the rider chose at booking ("Pay 25% now"); without it the order is for the whole balance. */
+export const createBookingPayment = (bookingId: string, advance = false) =>
+  callFunction<{ bookingId: string; advance?: boolean }, GatewayOrder>('createRazorpayOrder', advance ? { bookingId, advance: true } : { bookingId });
 
 export const verifyBookingPayment = (bookingId: string, r: CheckoutSuccess) =>
   callFunction<Record<string, string>, VerifyResult>('verifyRazorpayPayment', {

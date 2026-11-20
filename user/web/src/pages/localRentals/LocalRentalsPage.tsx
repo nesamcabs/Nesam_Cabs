@@ -16,7 +16,8 @@ import { Icon } from '@/components/Icon';
 import { Dialog } from '@/components/ui';
 import { ServiceNote } from '@/components/ServiceNote';
 import { SCHEDULE_MIN_LEAD_MIN } from '@core/config/constants';
-import { LocationPicker } from '@/components/LocationPicker';
+import { PlaceField } from '@/components/PlaceField';
+import type { PickerConfig } from '@/components/LocationPicker';
 import { TimePicker, formatTime12 } from '@/components/TimePicker';
 import { useBooking } from '@/state/Booking';
 import { useAuth } from '@/state/Auth';
@@ -339,7 +340,6 @@ function LocalRentalsSheet() {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [stage, setStage] = useState<Stage>('plan');
   const [target, setTarget] = useState<Target | null>(null);
-  const [picker, setPicker] = useState<'pickup' | 'drop' | null>(null);
   const [hoursOpen, setHoursOpen] = useState(false);
   const [timeOpen, setTimeOpen] = useState(false);
   // The plan sheet can be pulled down to its button so the whole map shows.
@@ -386,10 +386,10 @@ function LocalRentalsSheet() {
   }, [stage, leave]);
   useEffect(() => {
     document.body.style.overflow = 'hidden';
-    const key = (e: KeyboardEvent) => { if (e.key === 'Escape' && !picker && !timeOpen && !hoursOpen) back(); };
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape' && !timeOpen && !hoursOpen && !document.querySelector('.pf-pop')) back(); };
     document.addEventListener('keydown', key);
     return () => { document.body.style.overflow = ''; document.removeEventListener('keydown', key); };
-  }, [back, picker, timeOpen, hoursOpen]);
+  }, [back, timeOpen, hoursOpen]);
 
   const farApart = mode === 'pickup' && !!pickup && !!drop && haversineKm(pickup, drop) > CITY_LIMIT_KM;
   // Switching the mode (from the bottom bar) starts again at the front sheet.
@@ -423,12 +423,11 @@ function LocalRentalsSheet() {
     setStage('when');
   };
 
-  const onPlacePicked = (p: GeoPlace) => {
+  const onPlacePicked = (field: 'pickup' | 'drop', p: GeoPlace) => {
     setError('');
     setApprox('');
-    if (picker === 'drop') setDrop(p);
+    if (field === 'drop') setDrop(p);
     else { pickupFromGps.current = true; setPickup(p); }
-    setPicker(null);
     flyTo(p, 16);
   };
   const useMyLocation = async () => {
@@ -517,15 +516,15 @@ function LocalRentalsSheet() {
 
   const style = { '--lr-sheet': `${sheetH}px` } as React.CSSProperties;
   const subline = (p: GeoPlace | null) => (p && p.address && p.address !== p.name ? p.address : '');
-  const pickerFor = picker ? (
-    <LocationPicker
-      config={{ title: picker === 'pickup' ? 'Pickup location' : 'Drop location', allowCurrent: true, popular: QUICK_CITIES, popularLabel: 'Popular locations', near: picker === 'drop' ? pickup : position ? { lat: position.lat, lng: position.lng } : null, pinMode: picker }}
-      saved={[]}
-      recent={[]}
-      onClose={() => setPicker(null)}
-      onSelect={onPlacePicked}
-    />
-  ) : null;
+  const placeConfig = (f: 'pickup' | 'drop'): PickerConfig => ({
+    title: f === 'pickup' ? 'Pickup location' : 'Drop location',
+    allowCurrent: true,
+    popular: QUICK_CITIES,
+    popularLabel: 'Popular locations',
+    near: f === 'drop' ? pickup : position ? { lat: position.lat, lng: position.lng } : null,
+    pinMode: f,
+    placeholder: f === 'pickup' ? (locating ? 'Finding your location…' : 'Pickup location') : 'Drop location',
+  });
   const scheduleFields = (
     <>
       <label className="lr-field lr-field--schedule">
@@ -594,17 +593,15 @@ function LocalRentalsSheet() {
 
             <div className="lr-places">
               <div className="lr-card">
-                <button type="button" className="lr-place" onClick={() => setPicker('pickup')} title={pickup ? [pickup.name, subline(pickup)].filter(Boolean).join(', ') : undefined} aria-label={`Pickup: ${pickup?.name ?? 'not chosen'}. Change`}>
+                <div className="lr-place lr-place--field" data-pf-anchor>
                   <span className="lr-dot lr-dot--from" aria-hidden="true" />
-                  <strong className={pickup ? '' : 'is-empty'}>{pickup ? pickup.name : locating ? 'Finding your location…' : 'Pickup'}</strong>
-                  <Icon name="chevron-right" size={16} className="lr-place__chev" />
-                </button>
+                  <PlaceField inputId="lr-pickup" inputClassName="lr-input" value={pickup} config={placeConfig('pickup')} saved={[]} recent={[]} onSelect={(p) => onPlacePicked('pickup', p)} ariaDescribedBy={undefined} />
+                </div>
                 {mode === 'pickup' ? (
-                  <button type="button" className="lr-place" onClick={() => setPicker('drop')} title={drop ? [drop.name, subline(drop)].filter(Boolean).join(', ') : undefined} aria-label={`Drop: ${drop?.name ?? 'not chosen'}. Change`}>
+                  <div className="lr-place lr-place--field" data-pf-anchor>
                     <span className="lr-dot lr-dot--to" aria-hidden="true" />
-                    <strong className={drop ? '' : 'is-empty'}>{drop ? drop.name : 'Drop'}</strong>
-                    <Icon name="chevron-right" size={16} className="lr-place__chev" />
-                  </button>
+                    <PlaceField inputId="lr-drop" inputClassName="lr-input" value={drop} config={placeConfig('drop')} saved={[]} recent={[]} onSelect={(p) => onPlacePicked('drop', p)} />
+                  </div>
                 ) : (
                   <button type="button" className="lr-place" onClick={() => setHoursOpen(true)} aria-haspopup="dialog" aria-label={`Rental duration: ${hoursText(hours)}. Change`}>
                     <Icon name="clock" size={14} className="lr-trip__icon" />
@@ -670,7 +667,6 @@ function LocalRentalsSheet() {
         )}
       </div>
 
-      {pickerFor}
       {hoursOpen ? (
         <Dialog title="Rental duration" onClose={() => setHoursOpen(false)} className="lr-hours-dialog">
           <p className="lr-hours-note">Choose from 1 to {RENTAL_PACKAGE_HOURS[RENTAL_PACKAGE_HOURS.length - 1]} hours, then continue to choose your cab.</p>

@@ -13,7 +13,8 @@ import { Button, Icon } from "./ui";
 import { CardBody, OnSwitch, Problems, RateTable, SaveBar, SettingCard, type RateColumn, type RateGroup } from "./RateTable";
 
 // Fixed route fares, on one page like Booking rules: add a route at the top (pick the two places, type the fare for each cab, Save),
-// and the saved routes in a table underneath (switch a fare on or off, or open it in the form to change it). Nothing opens a drawer.
+// and the saved routes in a table underneath: switch a fare on or off, change it in the form, copy it as the start of a new one, or delete it —
+// one at a time or many at once (tick the rows). Nothing opens a drawer.
 // Records are the saved FIXED_ROUTE fare rules; every change goes through the audited, versioned server function.
 
 const num = (s: string) => (s.trim() === "" ? NaN : Number(s));
@@ -132,6 +133,13 @@ export default function FixedRouteFares({ onToast, scope = { brand: "common", se
     setMessage(null);
     window.setTimeout(() => document.getElementById("route-add")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
   };
+  // Copy: the same values as the start of a NEW route fare (pick the places, adjust the fares, save). Pickup and drop come over swapped.
+  const startCopy = (r: FareRule) => {
+    startEdit(r);
+    setEditing(null);
+    setF((x) => ({ ...x, origin: r.destinationLocationId ?? "", dest: r.originLocationId ?? "" }));
+    setMessage({ ok: true, text: "Copied as a new route fare with pickup and drop swapped. Choose the places, check the fares and save." });
+  };
   const reset = () => { setEditing(null); setF(blank); setFares({}); setReason(""); setMessage(null); };
 
   const save = async () => {
@@ -170,13 +178,15 @@ export default function FixedRouteFares({ onToast, scope = { brand: "common", se
   // ── Saved route fares ─────────────────────────────────────────────────────────────────────────────────────────
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<"All" | "Active" | "Inactive">("All");
+  const [cab, setCab] = useState("");
   const shown = useMemo(() => {
     const t = q.trim().toLowerCase();
     return routes
       .filter((r) => status === "All" || r.status === status)
+      .filter((r) => !cab || r.vehicleCategoryId === cab)
       .filter((r) => !t || [place(r.originLocationId, r.originLocationName), place(r.destinationLocationId, r.destinationLocationName), categoryName(r), r.name].some((v) => (v || "").toLowerCase().includes(t)))
       .sort((a, b) => place(a.originLocationId, a.originLocationName).localeCompare(place(b.originLocationId, b.originLocationName)) || place(a.destinationLocationId, a.destinationLocationName).localeCompare(place(b.destinationLocationId, b.destinationLocationName)) || (a.priority ?? 99) - (b.priority ?? 99));
-  }, [routes, q, status, locations, categories]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [routes, q, status, cab, locations, categories]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [onOff, setOnOff] = useState<Record<string, boolean>>({});
   const [listReason, setListReason] = useState("");
@@ -203,6 +213,45 @@ export default function FixedRouteFares({ onToast, scope = { brand: "common", se
     } finally {
       setListBusy(false);
     }
+  };
+
+  // ── Many at once: tick rows, then turn them on, off or delete them ──────────────────────────────────────────────
+  const [picked, setPicked] = useState<Record<string, boolean>>({});
+  const pickable = shown.filter(owns);
+  const chosen = pickable.filter((r) => picked[r.id]);
+  const allPicked = pickable.length > 0 && chosen.length === pickable.length;
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkReason, setBulkReason] = useState("");
+  const [bulkMessage, setBulkMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const nameOf = (r: FareRule) => `${place(r.originLocationId, r.originLocationName)} → ${place(r.destinationLocationId, r.destinationLocationName)} · ${categoryName(r)}`;
+  const bulk = async (kind: "on" | "off" | "delete") => {
+    const rows = chosen;
+    if (!canEdit || bulkBusy || !rows.length) return;
+    if (bulkReason.trim().length < 5) return setBulkMessage({ ok: false, text: "Add a short reason (at least 5 characters)." });
+    if (kind === "delete" && !window.confirm(rows.length === 1
+      ? `Delete this route fare for good?\n\n${nameOf(rows[0])}\n\nBookings already made keep the price they were quoted. New quotes on this route go back to normal pricing.`
+      : `Delete ${rows.length} route fares for good? Bookings already made keep the price they were quoted. New quotes on these routes go back to normal pricing.`)) return;
+    setBulkBusy(true);
+    setBulkMessage(null);
+    let done = 0;
+    const left: Record<string, boolean> = {};
+    let failure = "";
+    for (const r of rows) {
+      try {
+        await saveFixedRouteFare({ action: kind === "delete" ? "delete" : "status", ruleId: r.id, expectedVersion: r.version ?? 0, ...(kind === "delete" ? {} : { status: kind === "on" ? "Active" : "Inactive" }), reason: bulkReason.trim() });
+        done++;
+      } catch (err) {
+        failure ||= `${nameOf(r)}: ${err instanceof Error ? err.message : "not saved."}`;
+        left[r.id] = true;
+      }
+    }
+    setBulkBusy(false);
+    setPicked(left);
+    if (kind === "delete" && editing && rows.some((r) => r.id === editing.id) && !left[editing.id]) reset();
+    const verb = kind === "delete" ? "deleted" : kind === "on" ? "turned on" : "turned off";
+    if (!failure) setBulkReason("");
+    setBulkMessage(failure ? { ok: false, text: `${done} of ${rows.length} ${verb}. ${failure}` } : null);
+    if (done) onToast(`${done} route fare${done === 1 ? "" : "s"} ${verb}.`);
   };
 
   const loading = rules === null && !error;
@@ -273,21 +322,38 @@ export default function FixedRouteFares({ onToast, scope = { brand: "common", se
               <Icon name="search" />
               <input type="search" className="ds-input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search route or cab" aria-label="Search route or cab" />
             </div>
+            <select className="ds-select" value={cab} onChange={(e) => setCab(e.target.value)} aria-label="Cab">
+              <option value="">All cabs</option>
+              {categories.filter((c) => routes.some((r) => r.vehicleCategoryId === c.id)).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
             <select className="ds-select" value={status} onChange={(e) => setStatus(e.target.value as typeof status)} aria-label="Status">
               <option value="All">All</option><option value="Active">On</option><option value="Inactive">Off</option>
             </select>
           </div>}
-        footer={canEdit && changed.length > 0
+        footer={canEdit && chosen.length > 0
+          ? (
+            <div className="px-4 py-3 border-t border-line flex flex-wrap items-center gap-2" role="region" aria-label="Selected route fares">
+              <strong className="text-[13px]">{chosen.length} selected</strong>
+              <input className="ds-input" style={{ width: 260 }} value={bulkReason} onChange={(e) => { setBulkMessage(null); setBulkReason(e.target.value); }} placeholder="Reason (at least 5 characters)" aria-label="Reason for the change" />
+              <Button size="sm" onClick={() => void bulk("on")} disabled={bulkBusy}>Turn on</Button>
+              <Button size="sm" onClick={() => void bulk("off")} disabled={bulkBusy}>Turn off</Button>
+              <Button size="sm" onClick={() => void bulk("delete")} disabled={bulkBusy}><span className="text-bad">Delete…</span></Button>
+              <button type="button" className="fm-linkbtn" onClick={() => { setPicked({}); setBulkMessage(null); }}>Clear selection</button>
+              {bulkBusy && <span className="text-[12px] text-muted">Working…</span>}
+              {bulkMessage && <span className={`text-[12px] font-semibold ${bulkMessage.ok ? "text-ok" : "text-bad"}`} role="alert">{bulkMessage.text}</span>}
+            </div>
+          )
+          : canEdit && changed.length > 0
           ? <SaveBar reason={listReason} onReason={setListReason} onSave={saveList} busy={listBusy} message={listMessage} note={`${changed.length} change${changed.length === 1 ? "" : "s"} not saved yet.`} />
           : null}>
         {error && <CardBody><p className="ds-error" role="alert">Saved route fares could not be loaded: {error}. Reload to try again.</p></CardBody>}
         {!error && (
           <CardBody>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[860px] text-[13px]">
+              <table className="w-full min-w-[940px] text-[13px]">
                 <thead>
                   <tr className="text-left text-[11px] font-bold uppercase text-muted">
-                    <th className="py-2 pr-3">Route</th><th className="pr-3">Cab</th><th className="pr-3 text-right">Customer fare</th><th className="pr-3 text-right">Partner payout</th><th className="pr-3">Tax / peak</th><th className="pr-3">On</th><th />
+                    <th className="py-2 pr-2 w-6">{canEdit && pickable.length > 0 ? <input type="checkbox" checked={allPicked} onChange={(e) => setPicked(e.target.checked ? Object.fromEntries(pickable.map((r) => [r.id, true])) : {})} aria-label="Select all shown route fares" /> : null}</th><th className="py-2 pr-3">Route</th><th className="pr-3">Cab</th><th className="pr-3 text-right">Customer fare</th><th className="pr-3 text-right">Partner payout</th><th className="pr-3">Tax / peak</th><th className="pr-3">On</th><th />
                   </tr>
                 </thead>
                 <tbody>
@@ -295,7 +361,8 @@ export default function FixedRouteFares({ onToast, scope = { brand: "common", se
                     const mine = owns(r);
                     const on = onOff[r.id] ?? r.status === "Active";
                     return (
-                      <tr key={r.id} className="border-t border-line">
+                      <tr key={r.id} className={`border-t border-line ${picked[r.id] ? "bg-blue-50/50" : ""}`}>
+                        <td className="py-2 pr-2">{mine && canEdit ? <input type="checkbox" checked={!!picked[r.id]} onChange={(e) => { setBulkMessage(null); setPicked((p) => ({ ...p, [r.id]: e.target.checked })); }} aria-label={`Select ${nameOf(r)}`} /> : null}</td>
                         <td className="py-2 pr-3">
                           <span className="font-semibold">{place(r.originLocationId, r.originLocationName)} → {place(r.destinationLocationId, r.destinationLocationName)}</span>
                           {!mine && <span className="ml-2 rounded-full border border-line px-1.5 text-[10px] font-bold text-muted">shared</span>}
@@ -314,12 +381,18 @@ export default function FixedRouteFares({ onToast, scope = { brand: "common", se
                             : <span>{on ? "On" : "Off"}</span>}
                           {r.status === "Active" && !complete(r) && <small className="block text-muted">Not used until completed in Change</small>}
                         </td>
-                        <td className="text-right">{mine && canEdit ? <button type="button" className="fm-linkbtn" onClick={() => startEdit(r)}>Change</button> : null}</td>
+                        <td className="text-right whitespace-nowrap">{mine && canEdit ? (
+                          <span className="inline-flex gap-3">
+                            <button type="button" className="fm-linkbtn" onClick={() => startEdit(r)}>Change</button>
+                            <button type="button" className="fm-linkbtn" onClick={() => startCopy(r)} title="Use this fare as the start of a new one">Copy</button>
+                            <button type="button" className="fm-linkbtn text-bad" onClick={() => { setBulkMessage(null); setPicked({ [r.id]: true }); window.setTimeout(() => document.querySelector<HTMLInputElement>("[aria-label='Reason for the change']")?.focus(), 0); }} title="Select this fare to delete it">Delete</button>
+                          </span>
+                        ) : null}</td>
                       </tr>
                     );
                   })}
-                  {loading ? <tr><td colSpan={7} className="py-4 text-center text-muted">Loading saved route fares…</td></tr>
-                    : !shown.length ? <tr><td colSpan={7} className="py-4 text-center text-muted">{routes.length ? "No route fares match. Change the search or the filter." : "No route fares yet. Add one above."}</td></tr> : null}
+                  {loading ? <tr><td colSpan={8} className="py-4 text-center text-muted">Loading saved route fares…</td></tr>
+                    : !shown.length ? <tr><td colSpan={8} className="py-4 text-center text-muted">{routes.length ? "No route fares match. Change the search or the filter." : "No route fares yet. Add one above."}</td></tr> : null}
                 </tbody>
               </table>
             </div>

@@ -34,6 +34,8 @@ import { notifyInTx, pushAfterCommit, NotifyInput, inr } from './notify';
 import { NO_BOOKABLE_CATEGORIES, approved, inIndia, requestIdOf as id, roundTripPricingRoute, routeThrough, text } from './shared';
 import { assertServiceSupported, resolveAndValidateBrand } from './brandContext';
 import { FAST, WARM } from './hotOptions';
+import { loadPaymentChoices } from './paymentChoices';
+import { PAY_OPTION_IDS, isChoiceOffered, planFor, type PayOptionId } from './domain/paymentChoices';
 
 function place(v: any): GeoPlace {
   if (!v || !inIndia(v.lat, v.lng)) throw new HttpsError('invalid-argument', 'Choose valid pickup and drop locations in India.');
@@ -47,6 +49,9 @@ export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (requ
   const input = request.data ?? {};
   const requestId = id(input.requestId);
   if (!['Cash', 'UPI'].includes(input.paymentMethod)) throw new HttpsError('failed-precondition', 'Choose cash or UPI. Wallet and card checkout are not enabled.');
+  // "Pay later", "Pay part now" or "Pay in full now" (Service & Fare Settings › Payment options). Older clients send only awaitPayment.
+  const payOption: PayOptionId | null = PAY_OPTION_IDS.includes(input.paymentOption) ? input.paymentOption : null;
+  if (input.paymentOption !== undefined && input.paymentOption !== null && !payOption) throw new HttpsError('invalid-argument', 'Choose a valid payment option.');
   const ref = db.doc(`bookings/${requestId}`);
   const existing = await ref.get();
   if (existing.exists) {
@@ -124,7 +129,7 @@ export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (requ
   const wantsCoupon = Boolean(normalizeCode(text(input.couponCode, 50)));
   const result = await db.runTransaction(async (tx) => {
     pushes.length = 0; // the callback can retry; only the committed attempt may push
-    const [previous, customer, categories, coupons, history, policy, adjustmentDoc, tariff, servicesSnap, platformFee, nightAllowance] = await Promise.all([
+    const [previous, customer, categories, coupons, history, policy, adjustmentDoc, tariff, servicesSnap, platformFee, nightAllowance, payChoices, payGateway] = await Promise.all([
       tx.get(ref), tx.get(db.doc(`customers/${uid}`)),
       tx.get(db.collection('vehicle_categories').where('status', '==', 'Active')),
       wantsCoupon ? tx.get(db.collection('coupons')) : Promise.resolve(null),
@@ -135,6 +140,8 @@ export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (requ
       tx.get(db.collection('services')),
       loadPlatformFee(tx),
       loadNightAllowance(tx),
+      payOption ? loadPaymentChoices(tx) : Promise.resolve(null),
+      payOption && payOption !== 'later' ? tx.get(db.doc('settings/payments')) : Promise.resolve(null),
     ]);
     if (!customer.exists || !approved(customer.data()!.status)) throw new HttpsError('permission-denied', 'Your account is not active.');
     if (previous.exists) {
@@ -215,6 +222,18 @@ export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (requ
     if (!Number.isFinite(input.expectedFare) || fare.total !== input.expectedFare) {
       throw new HttpsError('failed-precondition', `The current fare is ₹${fare.total}. Review the updated fare and book again.`, { fare, breakup, pricing: splitPricing(priced.pricing).pub });
     }
+    // The payment option is checked here again, with the office's current settings: a hidden option can never be booked.
+    let paymentPlan: ReturnType<typeof planFor> = null;
+    if (payOption && payChoices) {
+      const onlineOn = payOption === 'later' || payGateway?.data()?.onlineEnabled !== false;
+      if (!isChoiceOffered(payChoices, payOption, { now, pickupAt: when, pickup: { name: pickup.name, address: pickup.address, ...(pickup as { city?: string; area?: string; state?: string }) }, onlineOn })) {
+        throw new HttpsError('failed-precondition', 'That payment option is not available for this booking. Please choose another.', { reason: 'payment_option_unavailable' });
+      }
+      paymentPlan = planFor(payChoices, payOption, fare.total);
+    } else if (input.awaitPayment === true) {
+      paymentPlan = { option: 'full', percent: 100, advanceAmount: fare.total };
+    }
+    const awaitOnline = paymentPlan !== null;
     const c = customer.data()!;
     const phone = text(c.phone);
     // Optional extras from the customer's own booking form.
@@ -246,7 +265,9 @@ export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (requ
       termsAccepted: true, termsAcceptedAt: stamp,
       ...(priced.pricing.timeBased?.kind === 'morning' ? { morningCutoffAccepted: true, morningCutoffAcceptedAt: stamp } : {}),
       // The rider chose "Pay online now": the booking is confirmed to them only once the online payment is recorded.
-      ...(input.awaitPayment === true ? { awaitingOnlinePayment: true } : {}),
+      ...(awaitOnline ? { awaitingOnlinePayment: true } : {}),
+      ...(paymentPlan ? { paymentPlan } : {}),
+      ...(payOption ? { paymentOption: payOption } : {}),
       date, time, status: 'Pending', tripSubStatus: 'Not Started', source: bookingSource, bookingSource, brand: bookingSource, ...availabilityFields(rules), createdAt: stamp, updatedAt: stamp,
     });
     // Raw contact details live in booking_contacts (staff + the customer); partners get the masked number only.
@@ -283,7 +304,7 @@ export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (requ
       message: `Your booking ${bookingCode} for ${formatDateTime12(when)} (${pickup.name} → ${drop.name}) is confirmed. Fare ${inr(fare.total)}. We will share the driver details before pickup.`,
       bookingId: requestId, bookingCode, cta: { label: 'View trip', page: 'trips', bookingId: requestId }, push: true, sentBy: uid,
     };
-    if (input.awaitPayment !== true) pushes.push({ id: notifyInTx(tx, toCustomer), input: toCustomer });
+    if (!awaitOnline) pushes.push({ id: notifyInTx(tx, toCustomer), input: toCustomer });
     return { id: requestId, fare: fare.total, created: true as const };
   });
   // Both swallow their own failures (a booking is never failed by a notification), so they run side by side.

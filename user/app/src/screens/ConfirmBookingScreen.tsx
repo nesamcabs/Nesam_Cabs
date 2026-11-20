@@ -2,7 +2,8 @@
 // the booking server's fare, cash/UPI payment, WhatsApp contact validation, coupon checks,
 // the terms gate and duplicate-submit protection.
 import React, { useEffect, useRef, useState } from 'react';
-import { getPaymentOptions } from '../services/paymentService';
+import { advanceOf, checkoutChoices, getPaymentOptions, type PayChoice, type PayChoiceId } from '../services/paymentService';
+import { PaymentChoiceCards } from '../components/PaymentChoiceCards';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAvoid } from '../components/KeyboardAvoid';
@@ -51,14 +52,18 @@ export function ConfirmBookingScreen() {
   const { online } = useNetworkStatus();
 
   const [payment, setPayment] = useState<PaymentMethod>('Cash');
-  // Pay the driver later (default), or pay online now with Razorpay when the office has online payment on.
-  const [onlineOn, setOnlineOn] = useState(false);
-  const [payNow, setPayNow] = useState(false);
+  // Pay the driver later (default), pay a part now, or pay everything now with Razorpay. Which are offered is the office's call for this
+  // pickup district and date (admin → Service & Fare Settings → Payment options); the server checks the choice again when booking.
+  const [payChoices, setPayChoices] = useState<PayChoice[]>([{ id: 'later', percent: 0, recommended: false }]);
+  const [payPick, setPayPick] = useState<PayChoiceId>('later');
+  const payDay = scheduledAt ? scheduledAt.toISOString().slice(0, 10) : '';
   useEffect(() => {
     let alive = true;
-    void getPaymentOptions().then((o) => { if (alive) setOnlineOn(o.online); });
+    void getPaymentOptions({ pickup, scheduledAt }).then((o) => { if (alive) setPayChoices(checkoutChoices(o)); });
     return () => { alive = false; };
-  }, []);
+  }, [pickup?.lat, pickup?.lng, pickup?.name, payDay]); // eslint-disable-line react-hooks/exhaustive-deps
+  const payChoice = payChoices.find((c) => c.id === payPick) ?? payChoices.find((c) => c.id === 'later') ?? payChoices[0]!;
+  const payNow = payChoice.id !== 'later';
   const [promoInput, setPromoInput] = useState(promoCode);
   const [notes, setNotes] = useState('');
   const [someoneElse, setSomeoneElse] = useState(false);
@@ -218,12 +223,13 @@ export function ConfirmBookingScreen() {
         termsAccepted,
         ...(morning ? { morningCutoffAccepted: true } : {}),
         // Paying online now: the booking is confirmed to the rider only after the payment is complete.
-        awaitPayment: onlineOn && payNow,
+        awaitPayment: payNow,
+        paymentOption: payChoice.id,
       });
       reset();
       navigation.reset({
         index: 1,
-        routes: [{ name: 'Tabs' }, { name: 'ActiveRide', params: { bookingId: res.id, unconfirmed: res.unconfirmed, justBooked: !(onlineOn && payNow), payNow: onlineOn && payNow } }],
+        routes: [{ name: 'Tabs' }, { name: 'ActiveRide', params: { bookingId: res.id, unconfirmed: res.unconfirmed, justBooked: !payNow, payNow, payAdvance: payChoice.id === 'part' } }],
       });
     } catch (e) {
       const currentFare = (e as { details?: { fare?: FareBreakdown } }).details?.fare;
@@ -366,15 +372,7 @@ export function ConfirmBookingScreen() {
         </View>
 
         {/* Pay later or pay online now (Razorpay): shown only when the office has online payment on. */}
-        {onlineOn ? (
-          <>
-            <Text style={styles.heading}>Choose payment</Text>
-            <View accessibilityRole="radiogroup">
-              <RadioCard selected={!payNow} onPress={() => setPayNow(false)} title="Book now, pay later" subtitle="Pay your driver at the end of the trip" />
-              <RadioCard selected={payNow} onPress={() => setPayNow(true)} title="Pay online now" subtitle="UPI, cards, net banking, wallets · Secured by Razorpay" />
-            </View>
-          </>
-        ) : null}
+        <PaymentChoiceCards choices={payChoices} value={payChoice.id} onChange={setPayPick} total={quote.total} disabled={submitting} />
         {/* Payment: hidden while customer payment options are switched off (every booking is pay-later). */}
         {CUSTOMER_PAYMENTS_ENABLED ? (
           <>
@@ -410,7 +408,7 @@ export function ConfirmBookingScreen() {
 
         {submitError ? <Notice message={submitError} tone="error" style={{ marginTop: space.md }} /> : null}
         {blocker && termsAccepted ? <Notice message={blocker} tone="warning" style={{ marginTop: space.md }} /> : null}
-        <Button title="Book & Confirm" loading={submitting} disabled={!!blocker} onPress={() => void submit()} accessibilityLabel={`Book and confirm for ${formatINR(quote.total)}`} style={{ marginTop: space.lg }} />
+        <Button title={payNow ? `Pay ${formatINR(advanceOf(quote.total, payChoice.percent))} & Confirm` : 'Book & Confirm'} loading={submitting} disabled={!!blocker} onPress={() => void submit()} accessibilityLabel={payNow ? `Pay ${formatINR(advanceOf(quote.total, payChoice.percent))} now and confirm booking` : `Book and confirm for ${formatINR(quote.total)}`} style={{ marginTop: space.lg }} />
       </ScrollView>
 
       <View style={styles.bottom}>

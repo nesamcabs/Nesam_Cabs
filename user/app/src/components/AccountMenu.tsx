@@ -6,6 +6,7 @@ import { Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useCustomerData } from '../context/CustomerData';
 import { useAuthGate } from '../context/AuthGate';
+import { useBookingDraft } from '../context/BookingDraft';
 import { Button, Notice } from './ui';
 import { Icon, type IconName } from './Icon';
 import { EmergencyContactForm, PersonalDetailsForm } from './ProfileForms';
@@ -79,6 +80,7 @@ export function AccountMenu({ variant = 'page', onClose }: { variant?: 'page' | 
   const { isDesktop } = useResponsive();
   const { guest, requestSignIn } = useAuthGate();
   const { profile } = useCustomerData();
+  const { setService } = useBookingDraft();
   const inDrawer = variant === 'drawer';
   const [photoBusy, setPhotoBusy] = useState<number | null>(null);
   const [error, setError] = useState('');
@@ -95,6 +97,11 @@ export function AccountMenu({ variant = 'page', onClose }: { variant?: 'page' | 
   const open = (screen: 'Offers' | 'Support' | 'PaymentHistory' | 'Settings' | 'EditProfile' | 'SavedPlaces') => go(() => navigation.navigate(screen));
   const openLegal = go(() => navigation.navigate('LegalDocuments'));
   const openTrips = go(() => navigation.navigate('Tabs', { screen: 'Trips' }));
+  // Airport Taxi is not in the bottom bar: the drawer opens the booking form on it.
+  const openAirport = go(() => {
+    setService('airport');
+    navigation.navigate('Tabs', { screen: 'Book' });
+  });
 
   // ── Signed out ───────────────────────────────────────────────────────────────
   if (guest || !profile) {
@@ -116,6 +123,7 @@ export function AccountMenu({ variant = 'page', onClose }: { variant?: 'page' | 
           />
         </View>
         <Group>
+          {inDrawer ? <SettingRow icon="plane" tone="blue" label="Airport Taxi" onPress={openAirport} /> : null}
           <SettingRow icon="info" tone="gold" label="About NESAM Cabs" onPress={open('Settings')} />
           <SettingRow icon="file-text" tone="brand" label="Terms, privacy & customer policies" onPress={openLegal} />
         </Group>
@@ -213,6 +221,11 @@ export function AccountMenu({ variant = 'page', onClose }: { variant?: 'page' | 
 
   const groups = (
     <View style={styles.groups}>
+      {inDrawer ? (
+        <Group title="Services">
+          <SettingRow icon="plane" tone="blue" label="Airport Taxi" onPress={openAirport} />
+        </Group>
+      ) : null}
       <Group title="Account">
         <SettingRow
           icon="triangle-alert"

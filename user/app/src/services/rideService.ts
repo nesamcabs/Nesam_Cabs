@@ -1,4 +1,5 @@
 import { callBackend, settleBooking } from './backend';
+import { callFunction } from './callables';
 // Ride lifecycle for the customer: request → dispatch → live tracking →
 // completion, cancellation, rating and SOS.
 //
@@ -38,7 +39,6 @@ import { withTimeout, errorCode } from '../utils/retry';
 export const BOOKINGS = 'bookings';
 const SECRETS = 'booking_secrets';
 const MARKETPLACE = 'marketplace_trips';
-const REVIEWS = 'reviews';
 const SOS = 'sos_alerts';
 
 // ── Mapping ─────────────────────────────────────────────────────────────────
@@ -334,6 +334,8 @@ export interface RideRequestInput {
   morningCutoffAccepted?: boolean;
   /** The rider chose "Pay online now": the server confirms the booking to them only after the online payment is recorded. */
   awaitPayment?: boolean;
+  /** The payment choice made at checkout: pay later, a part now, or everything now. The server checks it is still offered and records it. */
+  paymentOption?: 'later' | 'part' | 'full';
   /** WhatsApp number for booking updates: same as the mobile number, or a country code and number. */
   whatsapp?: { sameAsMobile: boolean; countryCode?: string; number?: string };
   /** Optional email for the confirmation and receipt (the profile email is used when blank). */
@@ -362,7 +364,7 @@ export async function createRideRequest(input: RideRequestInput): Promise<RideRe
   const requestId = pendingBookingIds.get(key) ?? doc(collection(db, BOOKINGS)).id;
   pendingBookingIds.set(key, requestId);
   // An advance booking request: it waits for NESAM's review and is not offered to any partner until then.
-  await callBackend('createBooking', { requestId, pickup: input.pickup, drop: input.drop, stops: input.tripType === 'Round Trip' ? input.stops ?? [] : [], termsAccepted: input.termsAccepted === true, ...(input.morningCutoffAccepted === true ? { morningCutoffAccepted: true } : {}), ...(input.awaitPayment === true ? { awaitPayment: true } : {}),
+  await callBackend('createBooking', { requestId, pickup: input.pickup, drop: input.drop, stops: input.tripType === 'Round Trip' ? input.stops ?? [] : [], termsAccepted: input.termsAccepted === true, ...(input.morningCutoffAccepted === true ? { morningCutoffAccepted: true } : {}), ...(input.awaitPayment === true ? { awaitPayment: true } : {}), ...(input.paymentOption ? { paymentOption: input.paymentOption } : {}),
     categoryId: input.category.id, tripType: input.multicity && input.tripType === 'Round Trip' ? 'Multicity' : input.tripType, expectedFare: input.fare.total,
     addOns: input.addOns, paymentMethod: input.paymentMethod, couponCode: input.couponCode, notes: input.notes, fuelType: input.fuelType === 'cng' ? 'cng' : undefined,
     whatsapp: input.whatsapp, email: input.email || undefined,
@@ -461,35 +463,28 @@ export async function cancelRide(trip: TripRecord, reason: string): Promise<void
 
 // ── Rate ────────────────────────────────────────────────────────────────────
 
-export async function rateTrip(trip: TripRecord, profile: UserProfile, rating: number, comment: string): Promise<void> {
-  const stars = Math.round(rating);
+export interface TripRating {
+  stars: number;
+  /** Quick tags (any rating). */
+  tags?: string[];
+  /** Why, for a low rating (one of RATING_REASONS). */
+  reason?: string;
+  /** What went wrong, for a low rating. */
+  feedback?: string;
+  /** What should be improved (optional). */
+  improvements?: string;
+  /** A free comment on a good rating. */
+  comment?: string;
+}
+
+/**
+ * Rate the driver at the end of a trip. The server checks it (a 1–2 star rating must carry a reason and feedback),
+ * stores it against the driver's profile and opens a follow-up for the office when it is low.
+ */
+export async function rateTrip(trip: TripRecord, _profile: UserProfile, rating: TripRating): Promise<void> {
+  const stars = Math.round(rating.stars);
   if (stars < 1 || stars > 5) throw new Error('Choose between 1 and 5 stars.');
-  const text = comment.trim().slice(0, 500);
-  const batch = writeBatch(db);
-  batch.update(doc(db, BOOKINGS, trip.id), {
-    rating: stars,
-    reviewComment: text,
-    ratedAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
-  // Review doc id must equal the booking doc id (firestore.rules).
-  batch.set(doc(db, REVIEWS, trip.id), {
-    bookingId: trip.id,
-    bookingCode: trip.bookingId,
-    customerId: profile.uid,
-    customerName: profile.name,
-    customerPhone: profile.phone,
-    driverId: trip.driver?.id ?? '',
-    driverName: trip.driver?.name ?? '',
-    vehicleNumber: trip.driver?.vehicleNumber ?? '',
-    serviceName: trip.service,
-    overallRating: stars,
-    driverRating: stars,
-    reviewText: text,
-    status: 'Pending',
-    createdAt: serverTimestamp(),
-  });
-  await withTimeout(batch.commit(), 15000);
+  await callFunction<Record<string, unknown>, { rated: boolean }>('rateDriver', { ...rating, stars, bookingId: trip.id }, 30000);
 }
 
 // ── SOS ─────────────────────────────────────────────────────────────────────

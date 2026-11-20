@@ -13,7 +13,7 @@ import { Button, Notice, Segmented, Sheet } from '../components/ui';
 import { Icon } from '../components/Icon';
 import { ServiceNote } from '../components/ServiceNote';
 import { DESKTOP_NAV_MIN, DesktopTopBar, PressableScale } from '../components/brand';
-import { PlaceSearchModal } from '../components/PlaceSearchModal';
+import { PlaceInput } from '../components/PlaceInput';
 import { TimePickerSheet } from '../components/TimePickerSheet';
 import { PinMap, type PinMapPin, type PinMapTarget } from '../components/PinMap';
 import { MAPS_ENABLED } from '../components/RideMap';
@@ -71,7 +71,6 @@ export function LocalRentalsScreen() {
   // The bottom bar lights Pickup & Drop or Hourly Rental from this.
   useEffect(() => setRentalsMode(mode), [mode]);
   const [target, setTarget] = useState<PinMapTarget | null>(null);
-  const [picker, setPicker] = useState<'pickup' | 'drop' | null>(null);
   const [hoursOpen, setHoursOpen] = useState(false);
   const [timeOpen, setTimeOpen] = useState(false);
   const [error, setError] = useState('');
@@ -117,12 +116,12 @@ export function LocalRentalsScreen() {
   useFocusEffect(
     useCallback(() => {
       const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-        if (picker || timeOpen || hoursOpen) return false;
+        if (timeOpen || hoursOpen) return false;
         back();
         return true;
       });
       return () => sub.remove();
-    }, [back, picker, timeOpen, hoursOpen]),
+    }, [back, timeOpen, hoursOpen]),
   );
 
   const modeRef = useRef<Mode>(mode);
@@ -169,14 +168,13 @@ export function LocalRentalsScreen() {
     setStage('when');
   };
 
-  const onSearchPick = (p: GeoPlace) => {
+  const onSearchPick = (field: 'pickup' | 'drop', p: GeoPlace) => {
     setError('');
-    if (picker === 'drop') setDrop(p);
+    if (field === 'drop') setDrop(p);
     else {
       pickupFromGps.current = true;
       setPickup(p);
     }
-    setPicker(null);
     flyTo(p, 0.012);
   };
   const goToMyLocation = async () => {
@@ -249,7 +247,6 @@ export function LocalRentalsScreen() {
     return out;
   }, [mode, pickup, drop]);
 
-  const subline = (p: GeoPlace | null) => (p && p.address && p.address !== p.name ? p.address : '');
   const locationHint = locating ? 'Finding your current location…' : locError ? LOCATION_ERROR_TEXT[locError.kind] : '';
   const timeProblemOf = useCallback((at: Date) => scheduleProblem(at), []);
 
@@ -258,18 +255,6 @@ export function LocalRentalsScreen() {
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
       {winW >= DESKTOP_NAV_MIN ? <DesktopTopBar /> : null}
-      <PlaceSearchModal
-        visible={picker !== null}
-        title={picker === 'drop' ? 'Drop location' : 'Pickup location'}
-        subtitle={picker === 'drop' ? 'Search for a place inside the same city.' : 'Search a city, area or landmark.'}
-        onClose={() => setPicker(null)}
-        onSelect={onSearchPick}
-        savedPlaces={savedPlaces}
-        suggestions={QUICK_CITIES}
-        suggestionsLabel="Popular locations"
-        near={picker === 'drop' ? pickup : position}
-        onUseCurrentLocation={picker === 'pickup' ? () => { setPicker(null); void goToMyLocation(); } : undefined}
-      />
       {timeOpen ? (
         <TimePickerSheet
           visible
@@ -347,12 +332,28 @@ export function LocalRentalsScreen() {
           <ServiceNote kind={mode === 'hourly' ? 'rental' : 'local'} compact />
           {locationHint && !pickup ? <Text style={[styles.hint, !!locError && !locating && styles.hintWarn]}>{locationHint}</Text> : null}
           <View style={styles.cards}>
-            <View style={styles.card}>
-              <PlaceRow kind="from" label="Pickup location" value={pickup?.name ?? (locating ? 'Finding your location…' : 'Choose pickup location')} sub={subline(pickup)} empty={!pickup} onPress={() => setPicker('pickup')} />
-              {mode === 'pickup' ? (
-                <PlaceRow kind="to" label="Drop location" value={drop?.name ?? 'Choose drop location'} sub={subline(drop)} empty={!drop} onPress={() => setPicker('drop')} divider />
-              ) : null}
-            </View>
+            <PlaceInput
+              label="Pickup location"
+              value={pickup}
+              placeholder={locating ? 'Finding your location…' : 'Choose pickup location'}
+              onSelect={(p) => onSearchPick('pickup', p)}
+              leading={<View style={[styles.dot, styles.dotFrom]} />}
+              saved={savedPlaces}
+              suggestions={QUICK_CITIES}
+              near={position}
+            />
+            {mode === 'pickup' ? (
+              <PlaceInput
+                label="Drop location"
+                value={drop}
+                placeholder="Choose drop location"
+                onSelect={(p) => onSearchPick('drop', p)}
+                leading={<View style={[styles.dot, styles.dotTo]} />}
+                saved={savedPlaces}
+                suggestions={QUICK_CITIES}
+                near={pickup}
+              />
+            ) : null}
             {mode === 'hourly' ? (
               <View style={styles.card}>
                 <PlaceRow kind="none" label="Rental duration" value={hoursText(hours)} sub={`Choose from 1–${MAX_HOURS} hours`} chevron="down" onPress={() => setHoursOpen(true)} />

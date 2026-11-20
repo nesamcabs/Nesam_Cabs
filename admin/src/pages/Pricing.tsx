@@ -1,6 +1,7 @@
 import FareGstSettings from '../components/FareGstSettings';
 import FareAdjustmentCard from '../components/FareAdjustmentCard';
 import PlatformFeeCard from '../components/PlatformFeeCard';
+import PaymentOptionsCard from '../components/PaymentOptionsCard';
 import NightAllowanceCard from '../components/NightAllowanceCard';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { MasterLocation, TravelService, VehicleCategory } from "../types";
@@ -28,7 +29,7 @@ import TimeBasedRoundTripCard from "../components/TimeBasedRoundTripCard";
 import HillStationCard from "../components/HillStationCard";
 import { refDateTime } from "../domain/officeStage";
 
-type Tab = "Brand & service fares" | "Booking availability" | "Cab types" | "Pricing rules" | "GST calculation" | "Platform fee";
+type Tab = "Brand & service fares" | "Booking availability" | "Cab types" | "Pricing rules" | "GST calculation" | "Platform fee" | "Payment options";
 type Sel = { state: string; city: string; area: string };
 const locationKey = (value: string) => value.trim().toLocaleLowerCase();
 const stateKey = (value: string) => {
@@ -184,6 +185,7 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
     // Common to every brand and service: the Brand / Service choice is not used for these.
     { title: "All brands & services", items: [
       { key: "platformFee", label: "Platform fee", hint: "A common fee on bookings, by service", icon: "wallet", on: !inlineKind && tab === "Platform fee", go: () => changeTab("Platform fee") },
+      { key: "paymentOptions", label: "Payment options", hint: "Pay later, pay part now, pay in full: show, hide, dates and districts", icon: "indian-rupee", on: !inlineKind && tab === "Payment options", go: () => changeTab("Payment options") },
     ] },
     { title: "Vehicles", items: [
       { key: "categories", label: "Vehicle categories", hint: "Names, seats, photos and CNG", icon: "car", on: !inlineKind && tab === "Cab types" && cabSection === "Vehicle categories", go: () => { setCabSection("Vehicle categories"); changeTab("Cab types"); } },
@@ -217,7 +219,7 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
   });
 
   // The platform fee and the night allowance are common settings for every brand, so the brand / service picker is not shown for them.
-  const showScope = inlineKind !== "history" && !(tab === "Cab types" && cabSection === "Vehicle categories" && !inlineKind) && !(tab === "Platform fee" && !inlineKind);
+  const showScope = inlineKind !== "history" && !(tab === "Cab types" && cabSection === "Vehicle categories" && !inlineKind) && !((tab === "Platform fee" || tab === "Payment options") && !inlineKind);
   // Where a setting applies (brand, service, fuel, vehicle) is chosen in the side menu; the page itself only repeats the rule in one line.
   const scopeFields = showScope ? (
     <>
@@ -307,6 +309,7 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
         <DisplayMarkupCard scope={fareScope} />
       </div>}
       {tab === "Platform fee" && <PlatformFeeCard />}
+      {tab === "Payment options" && <PaymentOptionsCard />}
       {tab === "GST calculation" && <div>
         <FareGstSettings key={fareScope.brand + ":" + fareScope.service} scope={fareScope} onDirtyChange={value => { gstDirty.current = value; }} onBusyChange={value => { gstBusy.current = value; }} />
       </div>}

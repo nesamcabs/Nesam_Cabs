@@ -14,8 +14,10 @@ import { db } from './admin';
 import { audit } from './audit';
 import { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, configured } from './payments';
 import { txnsRef } from './bookingPayments';
-import { requireAction, requirePermission } from './shared';
+import { requireAction, requirePermission, text } from './shared';
 import { docId } from './marketplace';
+import { loadPaymentChoices } from './paymentChoices';
+import { resolveChoices, type PlaceLike } from './domain/paymentChoices';
 
 const RAZORPAY_WEBHOOK_SECRET = defineSecret('RAZORPAY_WEBHOOK_SECRET');
 const SETTINGS = 'settings/payments';
@@ -50,12 +52,27 @@ async function onlineEnabled(): Promise<boolean> {
   return s?.onlineEnabled !== false;
 }
 
-/** Whether "Pay online" may be offered: the keys are set and the office has not switched online payment off. */
+/**
+ * What this rider may choose at checkout. The rider's app sends the pickup place and the pickup time, so the office's district and
+ * date settings (Service & Fare Settings › Payment options) can be applied; older apps send nothing and get the all-districts answer.
+ * `online` keeps its old meaning for them: the keys are set, the office switch is on and some online option is offered.
+ */
 export const getPaymentOptions = onCall({ secrets: [RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET] }, async (request) => {
   if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'Sign in required.');
   const keys = configured(secretValue(RAZORPAY_KEY_ID, 'RAZORPAY_KEY_ID'), secretValue(RAZORPAY_KEY_SECRET, 'RAZORPAY_KEY_SECRET'));
-  const enabled = await onlineEnabled();
-  return { online: keys && enabled, provider: 'razorpay', methods: ['UPI', 'Card', 'Net banking', 'Wallet'] };
+  const [enabled, cfg] = await Promise.all([onlineEnabled(), loadPaymentChoices()]);
+  const d = (request.data ?? {}) as { pickup?: Record<string, unknown>; scheduledAt?: unknown };
+  const p = d.pickup && typeof d.pickup === 'object' ? d.pickup : null;
+  const pickup: PlaceLike | null = p ? { name: text(p.name, 120), address: text(p.address, 300), city: text(p.city, 80), area: text(p.area, 80), district: text(p.district, 80), state: text(p.state, 80) } : null;
+  const at = typeof d.scheduledAt === 'string' ? new Date(d.scheduledAt) : null;
+  const { choices, fallback } = resolveChoices(cfg, { now: new Date(), pickupAt: at && Number.isFinite(at.getTime()) ? at : null, pickup, onlineOn: keys && enabled });
+  return {
+    online: keys && enabled && choices.some((c) => c.id !== 'later'),
+    provider: 'razorpay',
+    methods: ['UPI', 'Card', 'Net banking', 'Wallet'],
+    choices,
+    fallback,
+  };
 });
 
 export const getPaymentGatewayStatus = onCall({ secrets: [RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, RAZORPAY_WEBHOOK_SECRET] }, async (request) => {

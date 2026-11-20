@@ -29,6 +29,7 @@ import './styles/calm.css';
 import './styles/account.css';
 import './styles/clean-pages.css';
 import './styles/bookform-oneline.css';
+import './styles/placefield.css';
 import { keepHomeBehindEveryScreen } from './lib/homeNav';
 import { installStaleVersionReload, installVersionCheck } from '@/components/RouteErrorBoundary';
 import { prefetchWhenIdle, registerDeviceCache } from '@/lib/deviceCache';

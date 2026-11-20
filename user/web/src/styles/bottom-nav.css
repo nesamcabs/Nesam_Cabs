@@ -69,12 +69,5 @@
   .tabbar__link.is-active .tabbar__img { animation: none; }
 }
 
-/* Local Rentals: Pickup & Drop and Hourly Rental sit either side of the Local button. */
-.tabbar__mode {
-  display: grid; place-items: center; width: 40px; height: 40px; border-radius: 13px;
-  background: var(--brand-soft, #f6f6f7); color: var(--brand-ink, var(--brand)); border: 1px solid var(--brand-line, #dcdfe4);
-  transition: background 200ms ease, color 200ms ease, transform 200ms ease;
-}
-.tabbar__link--mode.is-on .tabbar__mode { background: var(--brand-gradient, var(--brand)); color: #fff; border-color: transparent; box-shadow: 0 6px 14px -6px color-mix(in srgb, var(--brand) 70%, transparent); }
-.tabbar__link--mode.is-on { color: var(--brand); }
-.tabbar__link--mode .tabbar__label { font-size: 9.5px; letter-spacing: -0.1px; white-space: nowrap; }
+/* Pickup & Drop and Hourly Rental have the longer names: a hair smaller so the five tabs fit one line. */
+.tabbar__link--wide .tabbar__label { font-size: 9.5px; letter-spacing: -0.1px; white-space: nowrap; }

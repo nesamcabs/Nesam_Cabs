@@ -76,6 +76,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: "notifications", label: "Communication", icon: "megaphone" },
       { id: "reviews", label: "Reviews", icon: "star" },
+      { id: "driver-ratings", label: "Driver Ratings", icon: "user-round-check" },
       { id: "legal", label: "Terms & Privacy", icon: "file-text" },
       { id: "b2b", label: "B2B Integrations", icon: "globe" },
     ],

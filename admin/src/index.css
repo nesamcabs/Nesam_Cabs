@@ -1818,3 +1818,17 @@ html { scroll-padding-top: 150px; }
   .qf-seg { margin-left: 0; }
 }
 @media (prefers-reduced-motion: reduce) { .qf-type, .qf-toggle, .qf-type svg { transition: none; } }
+
+/* ── Driver ratings ── */
+.ds-stars { color: #f59e0b; letter-spacing: 1px; font-size: 14px; white-space: nowrap; }
+.ds-stars > span { color: #d6dbe3; }
+.ds-rating-num { font-size: 15px; font-weight: 700; color: var(--color-ink-2); }
+.ds-spread { display: grid; gap: 2px; min-width: 120px; }
+.ds-spread__row { display: grid; grid-template-columns: 10px 1fr 22px; align-items: center; gap: 6px; }
+.ds-spread__row small { margin: 0; font-size: 10px; color: var(--color-faint); }
+.ds-spread__row small:last-child { text-align: right; }
+.ds-spread__row > span { display: block; height: 5px; border-radius: 3px; background: #edf0f4; overflow: hidden; }
+.ds-spread__row > span > i { display: block; height: 100%; border-radius: 3px; background: #f59e0b; }
+.ds-spread__row[data-low='true'] > span > i { background: var(--color-bad); }
+.ds-reasons { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ds-reasons li { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; padding: 6px 10px; border-radius: 6px; background: var(--color-bad-bg); border: 1px solid var(--color-bad-line); }

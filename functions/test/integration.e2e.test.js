@@ -482,6 +482,101 @@ test('Q1. one rating per completed booking feeds the driver average once', async
   assert.equal(d.rating, 3);
 });
 
+test('Q2. rating the driver: a low rating needs a reason, the record and the driver profile follow, the office follows up', async () => {
+  const driver = 'drvRated';
+  await db.doc(`drivers/${driver}`).set({ status: 'Approved', name: 'Kumar', phone: '+919791234999', rating: 5, assignedVehicleNumber: 'TN09XY0001' });
+  const mk = async (over = {}) => {
+    const id = rid('rate');
+    await db.doc(`bookings/${id}`).set({ id, bookingId: `NT-${id.slice(-6)}`, customerId: U.cust, status: 'Completed', assignedDriverId: driver, assignedDriverName: 'Kumar', assignedVehicleNumber: 'TN09XY0001', service: 'One Way', fare: 1000, createdAt: TS.now(), ...over });
+    return id;
+  };
+
+  // Who and when
+  const good = await mk();
+  assert.equal((await call(U.cust2, 'rateDriver', { bookingId: good, stars: 5 })).ok, false, "not someone else's trip");
+  assert.equal((await call(U.cust, 'rateDriver', { bookingId: await mk({ status: 'Ongoing' }), stars: 5 })).ok, false, 'only after the trip is completed');
+  for (const stars of [0, 6, 4.5]) assert.equal((await call(U.cust, 'rateDriver', { bookingId: good, stars })).ok, false, `stars=${stars}`);
+
+  // A good rating
+  const r1 = await call(U.cust, 'rateDriver', { bookingId: good, stars: 5, tags: ['On time'], comment: 'Great ride' });
+  assert.equal(r1.ok, true, JSON.stringify(r1));
+  assert.equal(r1.data.low, false);
+  assert.equal((await call(U.cust, 'rateDriver', { bookingId: good, stars: 1, reason: 'Other', feedback: 'changed my mind' })).ok, false, 'a trip is rated once');
+  const rec1 = (await db.doc(`driverRatings/${good}`).get()).data();
+  assert.equal(rec1.stars, 5);
+  assert.equal(rec1.followUp, 'None');
+  assert.equal(rec1.driverId, driver);
+  assert.equal(rec1.customerName, 'Priya Raman');
+  assert.deepEqual(rec1.tags, ['On time']);
+  let d = (await db.doc(`drivers/${driver}`).get()).data();
+  assert.equal(d.ratingCount, 1);
+  assert.equal(d.rating, 5);
+  assert.equal(d.ratingBreakdown['5'], 1);
+  assert.equal(d.lowRatingCount ?? 0, 0);
+
+  // A low rating must say why and what happened
+  const bad = await mk();
+  const none = await call(U.cust, 'rateDriver', { bookingId: bad, stars: 1 });
+  assert.equal(none.ok, false);
+  assert.match(none.message, /reason/i);
+  assert.equal((await call(U.cust, 'rateDriver', { bookingId: bad, stars: 2, reason: 'Made-up reason', feedback: 'Rude and late' })).ok, false, 'the reason must be one of the listed ones');
+  const short = await call(U.cust, 'rateDriver', { bookingId: bad, stars: 1, reason: 'Rash or unsafe driving' });
+  assert.equal(short.ok, false);
+  assert.match(short.message, /what happened/i);
+  assert.equal((await db.doc(`driverRatings/${bad}`).get()).exists, false, 'nothing stored for a refused rating');
+  assert.equal((await db.doc(`bookings/${bad}`).get()).data().rating, undefined);
+
+  const r2 = await call(U.cust, 'rateDriver', { bookingId: bad, stars: 1, reason: 'Rash or unsafe driving', feedback: 'Overtook on a blind curve twice', improvements: 'Slow down on ghat roads' });
+  assert.equal(r2.ok, true, JSON.stringify(r2));
+  assert.equal(r2.data.low, true);
+  const rec2 = (await db.doc(`driverRatings/${bad}`).get()).data();
+  assert.equal(rec2.low, true);
+  assert.equal(rec2.reason, 'Rash or unsafe driving');
+  assert.equal(rec2.feedback, 'Overtook on a blind curve twice');
+  assert.equal(rec2.improvements, 'Slow down on ghat roads');
+  assert.equal(rec2.followUp, 'New');
+  d = (await db.doc(`drivers/${driver}`).get()).data();
+  assert.equal(d.ratingCount, 2);
+  assert.equal(d.rating, 3);
+  assert.equal(d.lowRatingCount, 1);
+  assert.equal(d.ratingBreakdown['1'], 1);
+  const moderation = (await db.doc(`reviews/${bad}`).get()).data();
+  assert.equal(moderation.status, 'Pending');
+  assert.equal(moderation.overallRating, 1);
+  assert.match((await db.doc(`bookings/${bad}`).get()).data().reviewComment, /Rash or unsafe driving/);
+
+  // The older direct write (an app not updated yet) is still counted once and recorded
+  const legacy = await mk();
+  await db.doc(`bookings/${legacy}`).update({ rating: 2, reviewComment: 'Late by an hour' });
+  const { syncRating } = require('../lib/ratings');
+  await syncRating(legacy);
+  const rec3 = (await db.doc(`driverRatings/${legacy}`).get()).data();
+  assert.equal(rec3.low, true);
+  assert.equal(rec3.feedback, 'Late by an hour');
+  assert.equal((await db.doc(`drivers/${driver}`).get()).data().ratingCount, 3);
+
+  // Who may read the records
+  assert.equal((await rest(U.cust, `driverRatings/${bad}`)).status, 403, 'a customer cannot read ratings');
+  assert.equal((await rest(driver, `driverRatings/${bad}`)).status, 403, 'a driver cannot read the customer feedback');
+  assert.equal((await rest(U.admin, `driverRatings/${bad}`)).status, 200);
+
+  // Office follow-up
+  assert.equal((await call(U.cust, 'reviewDriverRating', { ratingId: bad, followUp: 'In review' })).ok, false, 'customers cannot');
+  assert.equal((await call(U.admin, 'reviewDriverRating', { ratingId: bad, followUp: 'Resolved' })).ok, false, 'closing needs a note');
+  assert.equal((await call(U.admin, 'reviewDriverRating', { ratingId: bad, followUp: 'Nonsense', note: 'x' })).ok, false);
+  assert.equal((await call(U.admin, 'reviewDriverRating', { ratingId: good, followUp: 'In review', note: 'n/a' })).ok, false, 'a good rating needs no follow-up');
+  assert.equal((await call(U.admin, 'reviewDriverRating', { ratingId: bad, followUp: 'In review' })).ok, true);
+  assert.equal((await db.doc(`driverRatings/${bad}`).get()).data().followUp, 'In review');
+  const done = await call(U.admin, 'reviewDriverRating', { ratingId: bad, followUp: 'Resolved', note: 'Called the driver; written warning recorded.' });
+  assert.equal(done.ok, true, JSON.stringify(done));
+  const closed = (await db.doc(`driverRatings/${bad}`).get()).data();
+  assert.equal(closed.followUp, 'Resolved');
+  assert.equal(closed.adminNote, 'Called the driver; written warning recorded.');
+  assert.equal(closed.handledBy, U.admin);
+  const audits = await db.collection('audit_logs').where('action', '==', 'driver_rating_follow_up').where('entityId', '==', bad).get();
+  assert.equal(audits.size, 2, 'every follow-up change is audited');
+});
+
 test('A1. staff cannot record a manual Gateway receipt and the registry exposes every function the apps call', async () => {
   const { CALLABLES } = require('../lib/registry');
   for (const n of ['claimMarketplaceDuty', 'submitMarketplaceBid', 'withdrawMarketplaceBid', 'rejectMarketplaceBid', 'getCustomerContact', 'updateBookingContact',

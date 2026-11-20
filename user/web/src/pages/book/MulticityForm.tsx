@@ -18,7 +18,8 @@ import { reverseGeocode } from '@core/services/geoService';
 import { combineDateTime, defaultPickup, latestPickup, toDateInput } from '@/lib/schedule';
 import { Button } from '@/components/ui';
 import { Icon } from '@/components/Icon';
-import { LocationPicker, type PickerConfig } from '@/components/LocationPicker';
+import type { PickerConfig } from '@/components/LocationPicker';
+import { PlaceField } from '@/components/PlaceField';
 import { TimePicker, formatTime12 } from '@/components/TimePicker';
 import { QUICK_CITIES } from './content';
 
@@ -82,7 +83,7 @@ export function MulticityForm() {
       setState((s) => (s.pickup ? s : { ...s, pickup: { ...p, type: 'current' } }));
     });
   }, [position, state.pickup]);
-  const [pickerTarget, setPickerTarget] = useState<'pickup' | 'drop' | string | null>(null);
+  const [addingStop, setAddingStop] = useState(false);
   const [timeFor, setTimeFor] = useState<'pickup' | 'return' | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -123,7 +124,7 @@ export function MulticityForm() {
     setState((s) => ({ ...s, stops: s.stops.filter((st) => st.id !== id) }));
   };
 
-  const onPickPlace = (p: GeoPlace) => {
+  const onPickPlace = (pickerTarget: 'pickup' | 'drop' | string, p: GeoPlace) => {
     if (pickerTarget === 'pickup') {
       setState((s) => ({ ...s, pickup: p }));
       setErrors((e) => {
@@ -155,10 +156,10 @@ export function MulticityForm() {
         return next;
       });
     }
-    setPickerTarget(null);
+    setAddingStop(false);
   };
 
-  const pickerConfig: PickerConfig = useMemo(() => {
+  const configFor = (pickerTarget: 'pickup' | 'drop' | string): PickerConfig => {
     if (pickerTarget === 'pickup') {
       return {
         title: 'Choose Pickup Location',
@@ -171,7 +172,7 @@ export function MulticityForm() {
     if (pickerTarget === 'drop') {
       return {
         title: 'Choose Drop Location',
-        allowCurrent: false,
+        allowCurrent: true,
         popular: QUICK_CITIES,
         popularLabel: 'Popular Destinations',
         pinMode: 'drop',
@@ -181,12 +182,12 @@ export function MulticityForm() {
     const idx = found < 0 ? cities.length : found;
     return {
       title: `Choose City ${idx + 1}`,
-      allowCurrent: false,
+      allowCurrent: true,
       popular: QUICK_CITIES,
       popularLabel: 'Popular Cities',
       pinMode: 'drop',
     };
-  }, [pickerTarget, state.stops, cities.length]);
+  };
 
   const validate = (): boolean => {
     const err: Record<string, string> = {};
@@ -266,49 +267,29 @@ export function MulticityForm() {
       {/* ── Route & Stops Section ── */}
       <div className="bf-section" role="group" aria-label="Route and stops">
         {/* 1. Starting Pickup Point */}
-        <div className={`bf-field ${errors.pickup ? 'is-invalid' : ''}`}>
+        <div className={`bf-field ${errors.pickup ? 'is-invalid' : ''}`} data-pf-anchor>
           <span className="bf-pin" aria-hidden="true" />
           <div className="bf-field__main">
-            <span className="bf-label" id="mc-pickup-label">
+            <label className="bf-label" id="mc-pickup-label" htmlFor="mc-pickup-input">
               Pickup location
-            </span>
-            <button
-              id="mc-pickup-btn"
-              type="button"
-              className={`bf-trigger ${!state.pickup ? 'is-empty' : ''}`}
-              aria-labelledby="mc-pickup-label mc-pickup-val"
-              onClick={() => setPickerTarget('pickup')}
-            >
-              <span id="mc-pickup-val" className="bf-trigger__text">
-                {state.pickup?.name ?? ''}
-              </span>
-            </button>
+            </label>
+            <PlaceField inputId="mc-pickup-input" inputClassName="bf-trigger" value={state.pickup} config={configFor('pickup')} saved={savedPlaces} recent={recentPlaces} onSelect={(p) => onPickPlace('pickup', p)} invalid={!!errors.pickup} />
             {state.pickup?.address && state.pickup.address !== state.pickup.name ? (
               <small className="bf-addr">{state.pickup.address}</small>
             ) : null}
           </div>
-          <Icon name="chevron-right" size={16} className="bf-chev" />
         </div>
         {errors.pickup ? <p className="bf-error">{errors.pickup}</p> : null}
 
         {/* 2. Cities along the way: only the chosen ones show, then a plain "Add city" button */}
         {cities.map((stop, index) => (
-          <div key={stop.id} className="bf-field">
+          <div key={stop.id} className="bf-field" data-pf-anchor>
             <span className="bf-pin bf-pin--stop" aria-hidden="true" />
             <div className="bf-field__main">
-              <span className="bf-label" id={`mc-city-${index}-label`}>
+              <label className="bf-label" id={`mc-city-${index}-label`} htmlFor={`mc-city-${index}-input`}>
                 Stop {index + 1}
-              </span>
-              <button
-                type="button"
-                className="bf-trigger"
-                aria-labelledby={`mc-city-${index}-label mc-city-${index}-val`}
-                onClick={() => setPickerTarget(stop.id)}
-              >
-                <span id={`mc-city-${index}-val`} className="bf-trigger__text">
-                  {stop.place?.name ?? ''}
-                </span>
-              </button>
+              </label>
+              <PlaceField inputId={`mc-city-${index}-input`} inputClassName="bf-trigger" value={stop.place} config={configFor(stop.id)} saved={savedPlaces} recent={recentPlaces} onSelect={(p) => onPickPlace(stop.id, p)} />
               {stop.place?.address && stop.place.address !== stop.place.name ? <small className="bf-addr">{stop.place.address}</small> : null}
             </div>
             <button type="button" className="bf-stop-remove" aria-label={`Remove stop ${index + 1}`} onClick={() => removeStop(stop.id)}>
@@ -316,9 +297,23 @@ export function MulticityForm() {
             </button>
           </div>
         ))}
-        {cities.length < MAX_CITIES ? (
+        {addingStop ? (
+          <div className="bf-field" data-pf-anchor>
+            <span className="bf-pin bf-pin--stop" aria-hidden="true" />
+            <div className="bf-field__main">
+              <label className="bf-label" htmlFor="mc-city-new-input">
+                Stop {cities.length + 1}
+              </label>
+              <PlaceField inputId="mc-city-new-input" inputClassName="bf-trigger" value={null} config={{ ...configFor('new'), placeholder: 'Add a city or stop' }} saved={savedPlaces} recent={recentPlaces} onSelect={(p) => onPickPlace('new', p)} />
+            </div>
+            <button type="button" className="bf-stop-remove" aria-label="Cancel new stop" onClick={() => setAddingStop(false)}>
+              <Icon name="trash" size={16} />
+            </button>
+          </div>
+        ) : null}
+        {cities.length < MAX_CITIES && !addingStop ? (
           <div className="bf-route__tools">
-            <button type="button" className={`bf-round-stop-add ${errors.stops ? 'is-invalid' : ''}`} onClick={() => setPickerTarget('new')}>
+            <button type="button" className={`bf-round-stop-add ${errors.stops ? 'is-invalid' : ''}`} onClick={() => setAddingStop(true)}>
               <Icon name="plus" size={16} /> Add stop
             </button>
           </div>
@@ -326,28 +321,17 @@ export function MulticityForm() {
         {errors.stops ? <p className="bf-error">{errors.stops}</p> : null}
 
         {/* 3. Final Drop Point */}
-        <div className={`bf-field ${errors.drop ? 'is-invalid' : ''}`}>
+        <div className={`bf-field ${errors.drop ? 'is-invalid' : ''}`} data-pf-anchor>
           <span className="bf-pin bf-pin--drop" aria-hidden="true" />
           <div className="bf-field__main">
-            <span className="bf-label" id="mc-drop-label">
+            <label className="bf-label" id="mc-drop-label" htmlFor="mc-drop-input">
               Drop location
-            </span>
-            <button
-              id="mc-drop-btn"
-              type="button"
-              className={`bf-trigger ${!state.drop ? 'is-empty' : ''}`}
-              aria-labelledby="mc-drop-label mc-drop-val"
-              onClick={() => setPickerTarget('drop')}
-            >
-              <span id="mc-drop-val" className="bf-trigger__text">
-                {state.drop?.name ?? ''}
-              </span>
-            </button>
+            </label>
+            <PlaceField inputId="mc-drop-input" inputClassName="bf-trigger" value={state.drop} config={configFor('drop')} saved={savedPlaces} recent={recentPlaces} onSelect={(p) => onPickPlace('drop', p)} invalid={!!errors.drop} />
             {state.drop?.address && state.drop.address !== state.drop.name ? (
               <small className="bf-addr">{state.drop.address}</small>
             ) : null}
           </div>
-          <Icon name="chevron-right" size={16} className="bf-chev" />
         </div>
         {errors.drop ? <p className="bf-error">{errors.drop}</p> : null}
         {errors.itinerary ? <p className="bf-error">{errors.itinerary}</p> : null}
@@ -426,17 +410,6 @@ export function MulticityForm() {
           Let&apos;s Go !
         </Button>
       </div>
-
-      {/* ── Place Picker Modal ── */}
-      {pickerTarget ? (
-        <LocationPicker
-          config={pickerConfig}
-          saved={savedPlaces}
-          recent={recentPlaces}
-          onSelect={onPickPlace}
-          onClose={() => setPickerTarget(null)}
-        />
-      ) : null}
 
       {/* ── Time Picker Modal ── */}
       {timeFor ? (

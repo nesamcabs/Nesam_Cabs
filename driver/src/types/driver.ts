@@ -28,6 +28,9 @@ export interface DriverProfile {
   emergencyContact: string;
   /** null until customers have rated this driver. */
   rating: number | null;
+  /** How many customer ratings the average covers, and how many were 1-2 stars. */
+  ratingCount?: number;
+  lowRatingCount?: number;
   joiningDate: string;
   vendorId?: string;
   vendorName?: string;

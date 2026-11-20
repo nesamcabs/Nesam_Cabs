@@ -242,6 +242,10 @@ export interface Driver {
   totalTrips?: number;
   earnings?: string;
   rating?: number;
+  /** How many customer ratings the average covers, and how many were 1–2 stars (kept by the server). */
+  ratingCount?: number;
+  lowRatingCount?: number;
+  ratingBreakdown?: Record<string, number>;
   verified?: boolean;
   wallet?: string;
   penalties?: number;

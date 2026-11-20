@@ -6,6 +6,7 @@ import { Link, useParams } from 'react-router-dom';
 import { ActionError } from '@core/services/callables';
 import { Button, Dialog, EmptyState, Notice, PageHead, PageLoader } from '@/components/ui';
 import { Icon } from '@/components/Icon';
+import { RATING_REASONS, RATING_TAGS, emptyRatingForm, isLowRating, ratingPayload, ratingProblem, type RatingForm } from '@core/data/ratingPolicy';
 import { useSeo } from '@/lib/seo';
 import { useOnline } from '@/lib/hooks';
 import { ZoneMapView } from './ZoneMapView';
@@ -44,9 +45,12 @@ export function LocalTaxiRidePage() {
   const [cancelInfo, setCancelInfo] = useState<{ feePaise: number; message: string; canCancel: boolean } | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [paying, setPaying] = useState(false);
-  const [stars, setStars] = useState(0);
-  const [comment, setComment] = useState('');
+  const [ratingForm, setRatingForm] = useState<RatingForm>(emptyRatingForm);
+  const [ratingBusy, setRatingBusy] = useState(false);
   const [rated, setRated] = useState(false);
+  const stars = ratingForm.stars;
+  const lowRating = isLowRating(stars);
+  const ratingTodo = ratingProblem(ratingForm);
   const status = ride?.status ?? '';
   const statusRef = useRef(status);
   statusRef.current = status;
@@ -107,7 +111,9 @@ export function LocalTaxiRidePage() {
   };
 
   const submitRating = async () => {
-    try { await rateRide(id, stars, comment); setRated(true); } catch (e) { setError(errText(e)); }
+    if (ratingTodo) { setError(ratingTodo); return; }
+    setRatingBusy(true);
+    try { await rateRide(id, ratingPayload(ratingForm)); setRated(true); setError(''); } catch (e) { setError(errText(e)); } finally { setRatingBusy(false); }
   };
 
   if (ride === undefined) return <PageLoader label="Loading your ride…" />;
@@ -165,10 +171,26 @@ export function LocalTaxiRidePage() {
           <section className="lt-card" aria-label="Rate your driver">
             {ride.rating || rated ? <p className="lt-note lt-note--ok"><Icon name="check" size={16} /> Thanks for rating your ride.</p> : (
               <>
-                <h2 className="lt-h">Rate your ride</h2>
-                <div className="lt-stars" role="radiogroup" aria-label="Rating">{[1, 2, 3, 4, 5].map((n) => <button key={n} type="button" role="radio" aria-checked={stars === n} aria-label={`${n} star${n > 1 ? 's' : ''}`} className={n <= stars ? 'is-on' : ''} onClick={() => setStars(n)}><Icon name="star" size={28} /></button>)}</div>
-                <textarea className="lt-text" rows={2} maxLength={400} placeholder="Anything to add? (optional)" value={comment} onChange={(e) => setComment(e.target.value)} />
-                <Button size="lg" block disabled={!stars} onClick={() => void submitRating()}>Submit rating</Button>
+                <h2 className="lt-h">Rate your ride{ride.driverName ? ` with ${ride.driverName}` : ''}</h2>
+                <div className="lt-stars" role="radiogroup" aria-label="Rating">{[1, 2, 3, 4, 5].map((n) => <button key={n} type="button" role="radio" aria-checked={stars === n} aria-label={`${n} star${n > 1 ? 's' : ''}`} className={n <= stars ? 'is-on' : ''} onClick={() => setRatingForm({ ...emptyRatingForm(), stars: n })}><Icon name="star" size={28} /></button>)}</div>
+                {lowRating ? (
+                  <>
+                    <p className="lt-fine">We’re sorry your ride wasn’t good. Please tell us what went wrong so we can put it right.</p>
+                    <p className="lt-ask" id="lt-reason-label">What went wrong? *</p>
+                    <div className="lt-reasons" role="radiogroup" aria-labelledby="lt-reason-label">{RATING_REASONS.map((r) => <button key={r} type="button" role="radio" aria-checked={ratingForm.reason === r} aria-pressed={ratingForm.reason === r} className="chip" onClick={() => setRatingForm({ ...ratingForm, reason: r })}>{r}</button>)}</div>
+                    <label className="lt-ask" htmlFor="lt-feedback">Tell us what happened *</label>
+                    <textarea id="lt-feedback" className="lt-text" rows={3} maxLength={600} placeholder="What happened on this ride?" value={ratingForm.feedback} onChange={(e) => setRatingForm({ ...ratingForm, feedback: e.target.value })} />
+                    <label className="lt-ask" htmlFor="lt-improve">What should we improve? (optional)</label>
+                    <textarea id="lt-improve" className="lt-text" rows={2} maxLength={600} placeholder="How could the driver or NESAM do better?" value={ratingForm.improvements} onChange={(e) => setRatingForm({ ...ratingForm, improvements: e.target.value })} />
+                    {ratingTodo ? <p className="lt-fine" role="status">{ratingTodo}</p> : null}
+                  </>
+                ) : stars > 0 ? (
+                  <>
+                    <div className="lt-reasons">{(stars <= 3 ? RATING_TAGS.mid : RATING_TAGS.high).map((t) => <button key={t} type="button" className="chip" aria-pressed={ratingForm.tags.includes(t)} onClick={() => setRatingForm({ ...ratingForm, tags: ratingForm.tags.includes(t) ? ratingForm.tags.filter((x) => x !== t) : [...ratingForm.tags, t] })}>{t}</button>)}</div>
+                    <textarea className="lt-text" rows={2} maxLength={400} placeholder="Anything to add? (optional)" value={ratingForm.comment} onChange={(e) => setRatingForm({ ...ratingForm, comment: e.target.value })} />
+                  </>
+                ) : null}
+                <Button size="lg" block loading={ratingBusy} disabled={!stars || (lowRating && !!ratingTodo)} onClick={() => void submitRating()}>Submit rating</Button>
               </>
             )}
           </section>

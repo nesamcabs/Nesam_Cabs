@@ -27,6 +27,7 @@ import Pricing, { CATEGORIES_VIEW, type PricingView } from "./pages/Pricing";
 import Support from "./pages/Support";
 import Offers from "./pages/Offers";
 import Reviews from "./pages/Reviews";
+import DriverRatings from "./pages/DriverRatings";
 import Settings from "./pages/Settings";
 
 // Pages — New (Enterprise Multi-Vendor)
@@ -108,6 +109,7 @@ const pageMeta: Record<string, { title: string; breadcrumb: string[] }> = {
   b2b: { title: "Corporate & B2B Integrations", breadcrumb: ["Office", ""] },
   notifications: { title: "Notifications", breadcrumb: ["Office", "Communication"] },
   reviews: { title: "Reviews & Ratings", breadcrumb: ["Office", ""] },
+  "driver-ratings": { title: "Driver Ratings", breadcrumb: ["Office", ""] },
   staff: { title: "Staff & Roles", breadcrumb: ["Office", "Staff & Access"] },
   settings: { title: "Settings", breadcrumb: ["Office", ""] },
   security: { title: "Security & Audit", breadcrumb: ["Office", "Staff activity"] },
@@ -344,6 +346,8 @@ function AdminShell({ session }: { session: AdminSession }) {
         return <Offers />;
       case "reviews":
         return <Reviews />;
+      case "driver-ratings":
+        return <DriverRatings onOpenBooking={(id) => openTarget("booking-detail", id)} />;
       case "settings":
         return <Settings />;
       case "security":

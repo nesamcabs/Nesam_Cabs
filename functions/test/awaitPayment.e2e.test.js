@@ -76,3 +76,75 @@ test('a pay-later booking that is paid online later gets no second "Booking conf
   await recordGatewayReceipt({ bookingId: id, paymentId: `pay_${Date.now()}_b`, orderId: 'order_y', amountPaise: Math.round(fare * 100), method: 'card', source: 'checkout' });
   assert.equal((await confirmedNotices()).length, before);
 });
+
+// ── The three payment choices (Service & Fare Settings › Payment options) ──
+const choices = (over = {}) => {
+  const rule = () => ({ visible: true, schedule: { mode: 'Always', from: '', to: '' }, basis: 'booking', districts: { mode: 'All', list: [] } });
+  return { options: { later: rule(), part: rule(), full: rule(), ...over.options }, partPercent: over.partPercent ?? 25, recommended: 'part' };
+};
+const saveChoices = async (over) => {
+  const cur = await call(U.admin, 'getPaymentChoiceSettings', {});
+  assert.equal(cur.ok, true, JSON.stringify(cur));
+  const r = await call(U.admin, 'savePaymentChoiceSettings', { ...choices(over), expectedVersion: cur.data.version });
+  assert.equal(r.ok, true, JSON.stringify(r));
+};
+const bookRaw = async (over) => {
+  const base = { requestId: rid('pc'), pickup: theni, drop: madurai, stops: [], termsAccepted: true, categoryId: 'ap-sedan', tripType: 'One Way', expectedFare: 0, addOns: { roofCarrier: false, pets: false }, paymentMethod: 'Cash', couponCode: '', notes: '', whatsapp: { sameAsMobile: false, countryCode: '+91', number: '9876500099' }, scheduledAt: inHours(30), source: 'peopletaxi', bookingSource: 'peopletaxi', brand: 'peopletaxi', ...over };
+  let r = await call(U.cust, 'createBooking', JSON.parse(JSON.stringify(base)));
+  if (!r.ok && r.details?.fare?.total) r = await call(U.cust, 'createBooking', JSON.parse(JSON.stringify({ ...base, expectedFare: r.details.fare.total })));
+  return r;
+};
+
+test('"Pay 25% now" records the advance, rounded up, and waits for the payment', async () => {
+  await saveChoices({ partPercent: 25 });
+  const r = await bookRaw({ paymentOption: 'part' });
+  assert.equal(r.ok, true, JSON.stringify(r));
+  const b = (await db.doc(`bookings/${r.data.id}`).get()).data();
+  assert.equal(b.awaitingOnlinePayment, true);
+  assert.equal(b.paymentOption, 'part');
+  assert.deepEqual(b.paymentPlan, { option: 'part', percent: 25, advanceAmount: Math.ceil(b.fare * 0.25 - 1e-9) });
+});
+
+test('"Pay later" through the new field behaves like before: confirmed at once, no plan', async () => {
+  await saveChoices({});
+  const before = (await confirmedNotices()).length;
+  const r = await bookRaw({ paymentOption: 'later' });
+  assert.equal(r.ok, true, JSON.stringify(r));
+  const b = (await db.doc(`bookings/${r.data.id}`).get()).data();
+  assert.equal(b.awaitingOnlinePayment, undefined);
+  assert.equal(b.paymentPlan, undefined);
+  assert.equal((await confirmedNotices()).length, before + 1);
+});
+
+test('a hidden option cannot be booked by calling the server directly', async () => {
+  await saveChoices({ options: { part: { visible: false, schedule: { mode: 'Always', from: '', to: '' }, basis: 'booking', districts: { mode: 'All', list: [] } } } });
+  const r = await bookRaw({ paymentOption: 'part' });
+  assert.equal(r.ok, false);
+  assert.match(JSON.stringify(r), /not available/);
+  assert.equal((await bookRaw({ paymentOption: 'full' })).ok, true);
+});
+
+test('district limits use the pickup place: Only Madurai refuses a Theni pickup, and an Except Theni list does too', async () => {
+  const rule = (mode, list) => ({ visible: true, schedule: { mode: 'Always', from: '', to: '' }, basis: 'booking', districts: { mode, list } });
+  await saveChoices({ options: { full: rule('Only', ['Madurai']) } });
+  assert.equal((await bookRaw({ paymentOption: 'full' })).ok, false);
+  await saveChoices({ options: { full: rule('Only', ['Theni']) } });
+  assert.equal((await bookRaw({ paymentOption: 'full' })).ok, true);
+  await saveChoices({ options: { full: rule('Except', ['Theni']) } });
+  assert.equal((await bookRaw({ paymentOption: 'full' })).ok, false);
+});
+
+test('a date window that has not started yet hides the option', async () => {
+  const rule = { visible: true, schedule: { mode: 'Range', from: '2099-01-01', to: '' }, basis: 'booking', districts: { mode: 'All', list: [] } };
+  await saveChoices({ options: { part: rule } });
+  assert.equal((await bookRaw({ paymentOption: 'part' })).ok, false);
+});
+
+test('only staff with pricing access can read or change the options, and bad settings are refused', async () => {
+  assert.equal((await call(U.cust, 'getPaymentChoiceSettings', {})).ok, false);
+  assert.equal((await call(U.cust, 'savePaymentChoiceSettings', choices())).ok, false);
+  const none = { visible: false, schedule: { mode: 'Always', from: '', to: '' }, basis: 'booking', districts: { mode: 'All', list: [] } };
+  const r = await call(U.admin, 'savePaymentChoiceSettings', choices({ options: { later: none, part: none, full: none } }));
+  assert.equal(r.ok, false);
+  await saveChoices({});
+});

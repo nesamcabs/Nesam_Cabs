@@ -103,7 +103,7 @@ export function ProfileSectionScreen({ route }: Props) {
         <NxRow label="Registration" value={vehicle.vehicleNumber || '—'} />
         <NxRow label="Category" value={`${vehicle.vehicleType || '—'}${vehicle.capacity ? ` · ${vehicle.capacity} seats` : ''}${vehicle.fuelType ? ` · ${vehicle.fuelType}` : ''}`} />
         <NxRow label="Pickup zone" value={driver.city || '—'} />
-        <NxRow label="Rating" value={driver.rating != null ? `★ ${driver.rating.toFixed(1)}` : 'No ratings yet'} />
+        <NxRow label="Rating" value={driver.rating != null ? `★ ${driver.rating.toFixed(1)}${driver.ratingCount ? ` · ${driver.ratingCount} rating${driver.ratingCount === 1 ? '' : 's'}` : ''}` : 'No ratings yet'} />
         <NxRow label="Completed trips" value={String(completedTrips.length)} last={!driver.joiningDate} />
         {driver.joiningDate ? <NxRow label="Partner since" value={driver.joiningDate} last /> : null}
       </NxPanel>

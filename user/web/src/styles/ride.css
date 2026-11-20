@@ -757,6 +757,15 @@
   flex-wrap: wrap;
   gap: 8px;
 }
+.rating__lead {
+  margin: 0;
+  color: var(--ink);
+}
+.rating__q {
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin: 4px 0 -6px;
+}
 .rating--done {
   text-align: center;
 }

@@ -218,6 +218,8 @@ export function mapDriverDoc(uid: string, data: DocumentData): DriverAccount {
     emergencyContact: str(data.emergencyContact),
     // Only a rating backed by real customer reviews is shown.
     rating: typeof data.rating === 'number' && typeof data.ratingCount === 'number' && data.ratingCount > 0 ? data.rating : null,
+    ratingCount: typeof data.ratingCount === 'number' ? data.ratingCount : 0,
+    lowRatingCount: typeof data.lowRatingCount === 'number' ? data.lowRatingCount : 0,
     joiningDate: created ? created.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) : str(data.joiningDate) || 'New Partner',
     vendorId: data.vendorId || undefined,
     vendorName: data.vendorName || undefined,

@@ -15,10 +15,10 @@ import { useAuth } from '@/state/Auth';
 /** Each kind of row keeps its own icon colour, so a list reads at a glance. */
 const TONES: Record<string, string> = {
   'saved-place': 'brand', emergency: 'red', help: 'blue', receipt: 'green', offers: 'gold', 'trip-history': 'brand',
-  support: 'blue', phone: 'green', info: 'gold', document: 'brand',
+  support: 'blue', phone: 'green', info: 'gold', document: 'brand', jet: 'blue',
 };
 
-function Row({ icon, label, value, to, href, onPress, expanded }: { icon: string; label: string; value?: ReactNode; to?: string; href?: string; onPress?: () => void; expanded?: boolean }) {
+function Row({ icon, label, value, to, href, onPress, onNavigate, expanded }: { icon: string; label: string; value?: ReactNode; to?: string; href?: string; onPress?: () => void; onNavigate?: () => void; expanded?: boolean }) {
   const tone = TONES[icon] ?? 'brand';
   const cls = `setting setting--${tone}`;
   const inner = (
@@ -39,7 +39,7 @@ function Row({ icon, label, value, to, href, onPress, expanded }: { icon: string
     );
   if (to)
     return (
-      <Link className={cls} to={to}>
+      <Link className={cls} to={to} onClick={onNavigate}>
         {inner}
       </Link>
     );
@@ -90,6 +90,7 @@ export function AccountPage({ variant = 'page', onClose }: { variant?: 'page' | 
           </EmptyState>
         </div>
         <div className="card card--list" style={{ marginTop: 16 }}>
+          {inDrawer ? <Row icon="jet" label="Airport Taxi" to="/book?service=airport" onNavigate={onClose} /> : null}
           <Row icon="info" label="About NESAM Cabs" to="/about" />
           <Row icon="document" label="Terms, privacy & customer policies" to="/legal" />
         </div>
@@ -165,6 +166,15 @@ export function AccountPage({ variant = 'page', onClose }: { variant?: 'page' | 
           </aside>
 
           <div className="account__groups">
+            {/* Airport Taxi is not in the bottom bar: it is booked from here. */}
+            {inDrawer ? (
+              <section className="group" aria-labelledby="g-services">
+                <h2 id="g-services" className="group__title">Services</h2>
+                <div className="card card--list">
+                  <Row icon="jet" label="Airport Taxi" to="/book?service=airport" onNavigate={onClose} />
+                </div>
+              </section>
+            ) : null}
             <section className="group" aria-labelledby="g-account">
               <h2 id="g-account" className="group__title">Account</h2>
               <div className="card card--list">

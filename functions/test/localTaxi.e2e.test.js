@@ -219,7 +219,20 @@ test('cash and rating: the amount collected must match, once; the customer rates
   assert.equal((await db.doc(`lt_settlements/${id}`).get()).data().status, 'cash_collected');
   assert.equal((await call(C2, 'ltRateRide', { rideId: id, rating: 5 })).ok, false);
   assert.equal((await call(C1, 'ltRateRide', { rideId: id, rating: 9 })).ok, false);
-  assert.equal((await call(C1, 'ltRateRide', { rideId: id, rating: 5, comment: 'good' })).ok, true);
+  // A low rating must say why and what happened (same rule as a booking trip)
+  assert.equal((await call(C1, 'ltRateRide', { rideId: id, rating: 1 })).ok, false);
+  assert.equal((await call(C1, 'ltRateRide', { rideId: id, rating: 2, reason: 'Late pickup or late arrival' })).ok, false);
+  assert.equal((await ride(id)).rating, undefined, 'a refused rating stores nothing');
+  const rated = await call(C1, 'ltRateRide', { rideId: id, rating: 1, reason: 'Late pickup or late arrival', feedback: 'Driver came 25 minutes late', improvements: 'Share live ETA' });
+  assert.equal(rated.ok, true, JSON.stringify(rated));
+  assert.equal(rated.data.low, true);
+  const rec = (await db.doc(`driverRatings/lt_${id}`).get()).data();
+  assert.equal(rec.source, 'local_taxi');
+  assert.equal(rec.stars, 1);
+  assert.equal(rec.reason, 'Late pickup or late arrival');
+  assert.equal(rec.followUp, 'New');
+  assert.equal(rec.driverId, d);
+  assert.equal((await ride(id)).rating.stars, 1);
   assert.equal((await call(C1, 'ltRateRide', { rideId: id, rating: 4 })).ok, false); // once only
   assert.equal((await call(C1, 'ltCreatePaymentOrder', { rideId: id })).ok, false); // no provider keys / cash ride
 });

@@ -119,6 +119,22 @@ test('fixed-route editor save/edit/status reaches only the selected brand and di
   assert.notEqual(ok(await quote('nesam','One Way')).total,1785);
 });
 
+test('a fixed route fare can be deleted: it needs a reason and the current version, and quotes go back to normal',async()=>{
+  const data={brand:'nesam',fareService:'One Way',originLocationId:pickup.id,destinationLocationId:drop.id,vehicleCategoryId:'control-sedan',serviceId:'',customerFare:1500,partnerPayout:900,gstMode:'excluded',peakAdjustment:'exclude',reverseDirection:false,status:'Active',priority:1,effectiveFrom:'',effectiveUntil:'',name:'Synthetic fixed route to delete'};
+  const saved=ok(await call(A,'saveFixedRouteFare',{reason:'Synthetic fixed route save',data}));
+  assert.equal(ok(await quote('nesam','One Way')).total,1575);
+  assert.equal((await call(A,'saveFixedRouteFare',{action:'delete',ruleId:saved.id,expectedVersion:saved.version,reason:'x'})).ok,false,'a reason is required');
+  assert.equal((await call(A,'saveFixedRouteFare',{action:'delete',ruleId:saved.id,expectedVersion:saved.version+5,reason:'Stale delete attempt'})).ok,false,'a stale version is refused');
+  assert.equal((await db.doc(`fare_rules/${saved.id}`).get()).exists,true);
+  const gone=ok(await call(A,'saveFixedRouteFare',{action:'delete',ruleId:saved.id,expectedVersion:saved.version,reason:'Route fare withdrawn'}));
+  assert.equal(gone.deleted,true);
+  assert.equal((await db.doc(`fare_rules/${saved.id}`).get()).exists,false);
+  assert.notEqual(ok(await quote('nesam','One Way')).total,1575);
+  assert.equal((await call(A,'saveFixedRouteFare',{action:'delete',ruleId:saved.id,expectedVersion:saved.version,reason:'Delete it twice'})).ok,false,'already gone');
+  const audit=(await db.collection('audit_logs').where('entityId','==',saved.id).get()).docs.map(d=>d.data().action);
+  assert.ok(audit.includes('fixed_route_fare_deleted'),JSON.stringify(audit));
+});
+
 test('shared city fare editor and rental package controls reach saved calculation inputs',async()=>{
   const {priceBooking,loadTariffConfig}=require('../lib/quote');
   const {mapCategory}=require('../lib/domain/pricing');

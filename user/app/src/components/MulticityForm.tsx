@@ -7,14 +7,13 @@ import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { Notice } from './ui';
 import { Icon } from './Icon';
 import { PressableScale } from './brand';
-import { DropPinIcon, GoButton, LocationField, ScheduleCell } from './BookForm';
-import { PlaceSearchModal } from './PlaceSearchModal';
+import { DropPinIcon, GoButton, ScheduleCell } from './BookForm';
+import { PlaceInput } from './PlaceInput';
 import { TimePickerSheet } from './TimePickerSheet';
 import { useBookingDraft } from '../context/BookingDraft';
 import { useCustomerData } from '../context/CustomerData';
 import { useDeviceLocation } from '../hooks/useDeviceLocation';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
-import { reverseGeocode } from '../services/geoService';
 import { newId } from '../services/callables';
 import { SCHEDULE_MAX_DAYS } from '../config/constants';
 import { scheduleProblem } from '../utils/bookingRules';
@@ -42,7 +41,7 @@ export function MulticityForm() {
   const [drop, setDrop] = useState<GeoPlace | null>(null);
   const [stops, setStops] = useState<Stop[]>([]);
   const [when, setWhen] = useState<Date | null>(null);
-  const [target, setTarget] = useState<Target | null>(null);
+  const [addingStop, setAddingStop] = useState(false);
   const [timeOpen, setTimeOpen] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -69,7 +68,7 @@ export function MulticityForm() {
       return next;
     });
 
-  const onPick = (p: GeoPlace) => {
+  const onPick = (target: Target, p: GeoPlace) => {
     if (target === 'pickup') {
       setPickup(p);
       clear('pickup', 'itinerary');
@@ -78,21 +77,11 @@ export function MulticityForm() {
       clear('drop', 'itinerary');
     } else if (target === 'new') {
       setStops((s) => [...s, { id: newId('stop'), place: p }]);
+      setAddingStop(false);
       clear('stops', 'itinerary');
-    } else if (target) {
+    } else {
       setStops((s) => s.map((st) => (st.id === target ? { ...st, place: p } : st)));
       clear('stops', 'itinerary');
-    }
-    setTarget(null);
-  };
-
-  const fillCurrent = async () => {
-    setTarget(null);
-    if (!position) return;
-    const p = await reverseGeocode(position).catch(() => null);
-    if (p) {
-      setPickup({ ...p, type: 'current' });
-      clear('pickup', 'itinerary');
     }
   };
 
@@ -163,24 +152,11 @@ export function MulticityForm() {
     navigation.navigate('ChooseRide');
   };
 
-  const title = target === 'pickup' ? 'Pickup location' : target === 'drop' ? 'Drop location' : target === 'new' ? `Stop ${filled.length + 1}` : 'Change stop';
+  const common = { saved: savedPlaces, recent: recentPlaces, suggestions: QUICK_CITIES, suggestionsLabel: 'Popular cities', near: position };
   const day = when ? dayStart(when) : dayStart(new Date());
 
   return (
     <View>
-      <PlaceSearchModal
-        visible={target !== null}
-        title={title}
-        subtitle="Search a city, area or landmark."
-        onClose={() => setTarget(null)}
-        onSelect={onPick}
-        savedPlaces={savedPlaces}
-        recentPlaces={recentPlaces}
-        suggestions={QUICK_CITIES}
-        suggestionsLabel="Popular cities"
-        near={position}
-        onUseCurrentLocation={target === 'pickup' ? () => void fillCurrent() : undefined}
-      />
       {timeOpen ? (
         <TimePickerSheet
           visible
@@ -199,40 +175,54 @@ export function MulticityForm() {
 
       <View style={styles.box}>
         <View style={{ gap: 10 }}>
-          <LocationField
+          <PlaceInput
             label="Pickup location"
-            value={pickup?.name}
-            address={pickup?.address}
+            value={pickup}
             error={errors.pickup}
-            onPress={() => setTarget('pickup')}
+            onSelect={(p) => onPick('pickup', p)}
             leading={
               <View style={styles.startHalo}>
                 <View style={styles.startDot} />
               </View>
             }
+            {...common}
           />
           {filled.map((s, i) => (
-            <LocationField
+            <PlaceInput
               key={s.id}
               label={`Stop ${i + 1}`}
-              value={s.place?.name}
-              address={s.place?.address}
-              onPress={() => setTarget(s.id)}
+              value={s.place}
+              onSelect={(p) => onPick(s.id, p)}
               trailing={
                 <Pressable onPress={() => setStops((all) => all.filter((x) => x.id !== s.id))} accessibilityRole="button" accessibilityLabel={`Remove stop ${i + 1}`} hitSlop={10}>
                   <Icon name="trash-2" size={17} color={colors.primary} strokeWidth={2} />
                 </Pressable>
               }
+              {...common}
             />
           ))}
-          {filled.length < MAX_CITIES ? (
-            <PressableScale onPress={() => setTarget('new')} activeScale={0.96} accessibilityRole="button" accessibilityLabel="Add stop" style={[styles.addStop, !!errors.stops && styles.addStopError]} containerStyle={{ alignSelf: 'center' }}>
+          {addingStop ? (
+            <PlaceInput
+              label={`Stop ${filled.length + 1}`}
+              value={null}
+              placeholder="Add a city or stop"
+              onSelect={(p) => onPick('new', p)}
+              trailing={
+                <Pressable onPress={() => setAddingStop(false)} accessibilityRole="button" accessibilityLabel="Cancel new stop" hitSlop={10}>
+                  <Icon name="x" size={17} color={colors.primary} strokeWidth={2} />
+                </Pressable>
+              }
+              {...common}
+            />
+          ) : null}
+          {filled.length < MAX_CITIES && !addingStop ? (
+            <PressableScale onPress={() => setAddingStop(true)} activeScale={0.96} accessibilityRole="button" accessibilityLabel="Add stop" style={[styles.addStop, !!errors.stops && styles.addStopError]} containerStyle={{ alignSelf: 'center' }}>
               <Icon name="plus" size={16} color={colors.primary} strokeWidth={2.2} />
               <Text style={styles.addStopText}>Add stop</Text>
             </PressableScale>
           ) : null}
           {errors.stops ? <Text style={styles.error}>{errors.stops}</Text> : null}
-          <LocationField label="Drop location" value={drop?.name} address={drop?.address} error={errors.drop} onPress={() => setTarget('drop')} leading={<DropPinIcon />} />
+          <PlaceInput label="Drop location" value={drop} error={errors.drop} onSelect={(p) => onPick('drop', p)} leading={<DropPinIcon />} {...common} />
           {errors.itinerary ? <Text style={styles.error}>{errors.itinerary}</Text> : null}
         </View>
 

@@ -138,7 +138,15 @@ export const createRazorpayOrder = onCall({ secrets: [RAZORPAY_KEY_ID, RAZORPAY_
   if (['Cancelled', 'Rejected'].includes(b.status)) throw new HttpsError('failed-precondition', `A ${String(b.status).toLowerCase()} booking cannot be paid.`);
   const txns = await txnsRef(bookingId).get();
   const { summary } = derivedPaymentFields(b, txns.docs.map((d) => d.data()));
-  const amountPaise = paiseOf(summary.balanceDue);
+  let amountPaise = paiseOf(summary.balanceDue);
+  // "Pay part now": only the advance the customer chose at booking (never more than what is still owed). Without the flag it is the whole balance.
+  if ((request.data as { advance?: unknown } | undefined)?.advance === true) {
+    const plan = b.paymentPlan as { advanceAmount?: number } | undefined;
+    if (!plan || typeof plan.advanceAmount !== 'number' || plan.advanceAmount <= 0) throw new HttpsError('failed-precondition', 'This booking has no advance to pay.');
+    const advanceLeft = paiseOf(plan.advanceAmount) - paiseOf(summary.totalPaid);
+    if (advanceLeft < 100) throw new HttpsError('failed-precondition', 'The advance for this booking is already paid.');
+    amountPaise = Math.min(amountPaise, advanceLeft);
+  }
   if (amountPaise < 100) throw new HttpsError('failed-precondition', summary.status === 'Paid' ? 'This booking is already fully paid.' : 'There is no balance to pay online.');
   const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
   const order = await razorpay.orders.create({ amount: amountPaise, currency: 'INR', receipt: `${bookingId}`.slice(0, 40), notes: { bookingId, customerId: uid } });

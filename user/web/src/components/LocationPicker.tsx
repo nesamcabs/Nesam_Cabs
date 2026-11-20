@@ -247,7 +247,7 @@ export function LocationPicker({
   );
 }
 
-function PinDialog({ title, mode, onBack, onConfirm }: { title: string; mode: 'pickup' | 'drop'; onBack: () => void; onConfirm: (p: GeoPlace) => void }) {
+export function PinDialog({ title, mode, onBack, onConfirm }: { title: string; mode: 'pickup' | 'drop'; onBack: () => void; onConfirm: (p: GeoPlace) => void }) {
   // Starts on the rider's real location (asks once); the map's locate button finds it again after panning away.
   const { position, locate, locating, error: locError, permission } = useDeviceLocation(false, true);
   const [center, setCenter] = useState<LatLng | null>(null);

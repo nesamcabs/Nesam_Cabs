@@ -37,7 +37,9 @@ export const getQuotes = (pickup: Spot, drop: Spot) => callFunction<{ pickup: Sp
 export const createRide = (d: { requestId: string; quoteId: string; paymentMethod: 'cash' | 'online' }) => callFunction<typeof d, { rideId: string; status: string; duplicate: boolean }>('ltCreateRide', d);
 export const cancellationQuote = (rideId: string) => callFunction<{ rideId: string }, { canCancel: boolean; message: string; feePaise: number; graceSeconds: number }>('ltCancellationQuote', { rideId });
 export const cancelRide = (rideId: string, acceptFeePaise: number, reason: string) => callFunction('ltCancelRide', { rideId, acceptFeePaise, reason });
-export const rateRide = (rideId: string, rating: number, comment: string) => callFunction('ltRateRide', { rideId, rating, comment });
+export interface RideRating { stars: number; tags: string[]; reason: string; feedback: string; improvements: string; comment: string }
+/** A 1–2 star rating must carry a reason and feedback (the server checks it). */
+export const rateRide = (rideId: string, r: RideRating) => callFunction<Record<string, unknown>, { rated: boolean }>('ltRateRide', { rideId, rating: r.stars, ...r });
 export const getRide = (rideId: string) => callFunction<{ rideId: string }, { ride: RideView; otp: string | null; driverLocation: DriverLocation | null }>('ltGetRide', { rideId });
 export const createPaymentOrder = (rideId: string) => callFunction<{ rideId: string }, { orderId: string; amount: number; currency: string; keyId: string }>('ltCreatePaymentOrder', { rideId });
 export const verifyPayment = (d: { rideId: string; razorpayOrderId: string; razorpayPaymentId: string; razorpaySignature: string }) => callFunction<typeof d, { status: string }>('ltVerifyPayment', d);

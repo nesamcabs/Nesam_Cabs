@@ -11,7 +11,8 @@ import { scheduleProblem } from '@core/utils/bookingRules';
 import { haversineKm, isValidLatLng } from '@core/utils/geo';
 import { Button, Tabs } from '@/components/ui';
 import { Icon } from '@/components/Icon';
-import { LocationPicker, type PickerConfig } from '@/components/LocationPicker';
+import type { PickerConfig } from '@/components/LocationPicker';
+import { PlaceField } from '@/components/PlaceField';
 import { TimePicker, formatTime12 } from '@/components/TimePicker';
 import { useBooking } from '@/state/Booking';
 import { UNAVAILABLE_TEXT, useServiceAvailability, type ServiceKey } from '@/lib/serviceAvailability';
@@ -89,8 +90,7 @@ export function BookingForm({
   const currentKey = keyOf(service);
   const currentOff = currentKey ? avail.off(currentKey) : false;
 
-  const [picker, setPicker] = useState<'pickup' | 'drop' | null>(null);
-  const [stopPicker, setStopPicker] = useState<number | 'new' | null>(null);
+  const [addingStop, setAddingStop] = useState(false);
   const [timeFor, setTimeFor] = useState<'pickup' | null>(null);
   const [errors, setErrors] = useState<Errors>({});
   const [direction, setDirection] = useState<AirportDirection>(() => directionOf(pickup, drop));
@@ -272,39 +272,53 @@ export function BookingForm({
 
   const locationField = (f: 'pickup' | 'drop', label: string) => {
     const p = f === 'pickup' ? pickup : drop;
-    const airportSide = service === 'airport' && f === airportField;
     return (
-      <div className={`bf-field ${errors[f] ? 'is-invalid' : ''}`}>
+      <div className={`bf-field ${errors[f] ? 'is-invalid' : ''}`} data-pf-anchor>
         <span className={`bf-pin bf-pin--${f}`} aria-hidden="true" />
         <div className="bf-field__main">
-          <span className="bf-label" id={`bf-${f}-label`}>
+          <label className="bf-label" id={`bf-${f}-label`} htmlFor={`bf-${f}-input`}>
             {label}
-          </span>
-          <button
-            ref={(el) => {
+          </label>
+          <PlaceField
+            inputId={`bf-${f}-input`}
+            inputClassName="bf-trigger"
+            inputRef={(el) => {
               refs.current[f] = el;
             }}
-            type="button"
-            className={`bf-trigger ${p ? '' : 'is-empty'}`}
-            aria-labelledby={`bf-${f}-label bf-${f}-value`}
-            aria-describedby={errors[f] ? `bf-${f}-err` : undefined}
-            aria-invalid={!!errors[f] || undefined}
-            onClick={() => setPicker(f)}
-          >
-            <span id={`bf-${f}-value`} className="bf-trigger__text">
-              {p ? p.name : ''}
-            </span>
-          </button>
+            value={p}
+            config={pickerConfig(f)}
+            saved={savedPlaces}
+            recent={recent}
+            onSelect={(place) => setField(f, place)}
+            ariaDescribedBy={errors[f] ? `bf-${f}-err` : undefined}
+            invalid={!!errors[f]}
+          />
           {p && p.address !== p.name && p.id !== 'place-local-disposal' ? <small className="bf-addr">{p.address}</small> : null}
         </div>
-        <Icon name="chevron-right" size={16} className="bf-chev" />
       </div>
     );
   };
 
-  const stopField = (stop: GeoPlace, index: number) => (
-    <div className="bf-field bf-stop-field" key={`${stop.id}-${index}`}><div className="bf-field__main"><span className="bf-label" id={`bf-stop-${index}-label`}>Stop {index + 1}</span><button type="button" className="bf-trigger" aria-labelledby={`bf-stop-${index}-label bf-stop-${index}-value`} onClick={() => setStopPicker(index)}><span id={`bf-stop-${index}-value`} className="bf-trigger__text">{stop.name}</span></button></div><button type="button" className="bf-stop-remove" aria-label={`Delete stop ${index + 1}`} title={`Delete stop ${index + 1}`} onClick={() => update((d) => ({ stops: d.stops.filter((_, n) => n !== index) }))}><Icon name="trash" size={17} /></button></div>
-  );
+  const stopConfig = (title: string): PickerConfig => ({ title, allowCurrent: true, popular: QUICK_CITIES, popularLabel: 'Popular locations', near: pickup ?? position, pinMode: 'drop' });
+  const putStop = (index: number | 'new', place: GeoPlace) => {
+    update((d) => ({ stops: index === 'new' ? [...d.stops, place] : d.stops.map((stop, n) => (n === index ? place : stop)) }));
+    setErrors((e) => ({ ...e, stops: '', form: '' }));
+    setAddingStop(false);
+  };
+  const stopRow = (stop: GeoPlace | null, index: number | 'new') => {
+    const n = index === 'new' ? draft.stops.length + 1 : index + 1;
+    const id = `bf-stop-${index}`;
+    return (
+      <div className="bf-field bf-stop-field" key={index === 'new' ? 'new-stop' : `${stop?.id}-${index}`} data-pf-anchor>
+        <div className="bf-field__main">
+          <label className="bf-label" id={`${id}-label`} htmlFor={`${id}-input`}>Stop {n}</label>
+          <PlaceField inputId={`${id}-input`} inputClassName="bf-trigger" value={stop} config={{ ...stopConfig(`Stop ${n}`), placeholder: 'Add an itinerary stop' }} saved={savedPlaces} recent={recent} onSelect={(place) => putStop(index, place)} />
+        </div>
+        <button type="button" className="bf-stop-remove" aria-label={`Delete stop ${n}`} title={`Delete stop ${n}`} onClick={() => (index === 'new' ? setAddingStop(false) : update((d) => ({ stops: d.stops.filter((_, i) => i !== index) })))}><Icon name="trash" size={17} /></button>
+      </div>
+    );
+  };
+  const stopField = (stop: GeoPlace, index: number) => stopRow(stop, index);
 
   return (
     <section className="bf" id="book-console" aria-labelledby="bf-title">
@@ -411,9 +425,9 @@ export function BookingForm({
                 <SwapIcon size={22} />
               </button>
             ) : null}
-            {service === 'outstation' && outstationTrip === 'Round Trip' ? <>{draft.stops.map(stopField)}
+            {service === 'outstation' && outstationTrip === 'Round Trip' ? <>{draft.stops.map(stopField)}{addingStop ? stopRow(null, 'new') : null}
                 <div className="bf-route__tools">
-                  {draft.stops.length < 8 ? <button type="button" className="bf-round-stop-add" onClick={() => setStopPicker('new')}><Icon name="plus" size={16} /> Add stop</button> : null}
+                  {draft.stops.length < 8 && !addingStop ? <button type="button" className="bf-round-stop-add" onClick={() => setAddingStop(true)}><Icon name="plus" size={16} /> Add stop</button> : null}
                   <button
                     type="button"
                     className="bf-swap"
@@ -558,19 +572,6 @@ export function BookingForm({
         </form>
       )}
 
-      {picker ? (
-        <LocationPicker
-          config={pickerConfig(picker)}
-          saved={savedPlaces}
-          recent={recent}
-          onClose={() => setPicker(null)}
-          onSelect={(p) => {
-            setField(picker, p);
-            setPicker(null);
-          }}
-        />
-      ) : null}
-      {stopPicker !== null ? <LocationPicker config={{ title: stopPicker === 'new' ? 'Add itinerary stop' : `Edit stop ${stopPicker + 1}`, allowCurrent: true, popular: QUICK_CITIES, popularLabel: 'Popular locations', near: pickup ?? position, pinMode: 'drop' }} saved={savedPlaces} recent={recent} onClose={() => setStopPicker(null)} onSelect={(place) => { update((d) => ({ stops: stopPicker === 'new' ? [...d.stops, place] : d.stops.map((stop, index) => index === stopPicker ? place : stop) })); setErrors((e) => ({ ...e, stops: '', form: '' })); setStopPicker(null); }} /> : null}
       {timeFor ? (
         <TimePicker
           title="Pickup time"

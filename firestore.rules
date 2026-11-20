@@ -1134,6 +1134,14 @@ service cloud.firestore {
       allow update, delete: if can('engagement');
     }
 
+    // One record per rated trip (booking id, or lt_<rideId> for a Local Taxi ride): stars, tags, and for a low rating the
+    // customer's reason / feedback / suggested improvements plus the office's follow-up. Written only by the server
+    // (functions/src/ratings.ts); customers and drivers never read it because it carries the customer's contact details.
+    match /driverRatings/{ratingId} {
+      allow read: if can('engagement');
+      allow write: if false;
+    }
+
     match /invoices/{invoiceId} {
       allow read: if canReadFinance() || (isSignedIn() && resource.data.customerId == uid());
       allow write: if can('finance');

@@ -33,6 +33,13 @@ describe('payBookingOnline', () => {
     expect(openCheckout.mock.calls[0][1]).toMatchObject({ name: 'NESAM Cabs', description: 'Ride booking', color: '#1665e8' });
   });
 
+  it('"Pay 25% now" asks the server for the advance only; the plain call still asks for the whole balance', async () => {
+    verifyBookingPayment.mockResolvedValue({ verified: true, status: 'paid', balanceDue: 4561 });
+    const r = await payBookingOnline('bk1', 'x', undefined, undefined, true);
+    expect(createBookingPayment).toHaveBeenCalledWith('bk1', true);
+    expect(r.message).toBe('Payment received. Balance ₹4,561.');
+  });
+
   it('a part payment says what is still owed', async () => {
     verifyBookingPayment.mockResolvedValue({ verified: true, status: 'paid', balanceDue: 250 });
     expect((await payBookingOnline('bk1', 'x')).message).toBe('Payment received. Balance ₹250.');

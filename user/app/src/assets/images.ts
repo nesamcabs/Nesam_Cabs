@@ -17,6 +17,7 @@ export const NESAM = {
   navOutstation: require('../../assets/nav/outstation.webp') as ImageSourcePropType,
   navMulticity: require('../../assets/nav/multicity.webp') as ImageSourcePropType,
   navLocal: require('../../assets/nav/local-rentals.webp') as ImageSourcePropType,
+  navPickup: require('../../assets/nav/pickup-drop.webp') as ImageSourcePropType,
   navAirport: require('../../assets/nav/airport-taxi.webp') as ImageSourcePropType,
   navProfile: require('../../assets/nav/profile.webp') as ImageSourcePropType,
 } as const;

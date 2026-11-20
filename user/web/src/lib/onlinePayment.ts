@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react';
 import type { TripRecord } from '@core/types';
 import { formatINR } from '@core/utils/format';
-import { createBookingPayment, getPaymentOptions, paymentErrorText, verifyBookingPayment, type CheckoutLabels } from '@core/services/paymentService';
+import { checkoutChoices, createBookingPayment, getPaymentOptions, paymentErrorText, verifyBookingPayment, type CheckoutLabels, type PayChoice, type PaymentContext } from '@core/services/paymentService';
 import { brandColor, openCheckout } from './razorpayCheckout';
 
 const BRAND_NAME = 'NESAM Cabs';
@@ -24,6 +24,22 @@ export function useOnlinePaymentAvailable(signedIn: boolean): boolean {
   return on;
 }
 
+/**
+ * What the rider may choose at checkout for this trip (pay later, pay part now, pay in full now): the office's settings applied to the
+ * pickup district and date. Until the server answers — or if it cannot — only "pay later" is offered.
+ */
+export function usePaymentChoices(signedIn: boolean, ctx: PaymentContext): { choices: PayChoice[]; ready: boolean } {
+  const [state, setState] = useState<{ choices: PayChoice[]; ready: boolean }>({ choices: [{ id: 'later', percent: 0, recommended: false }], ready: false });
+  const day = ctx.scheduledAt?.toISOString().slice(0, 10) ?? '';
+  useEffect(() => {
+    if (!signedIn) { setState({ choices: [{ id: 'later', percent: 0, recommended: false }], ready: true }); return undefined; }
+    let alive = true;
+    void getPaymentOptions(ctx).then((o) => { if (alive) setState({ choices: checkoutChoices(o), ready: true }); });
+    return () => { alive = false; };
+  }, [signedIn, ctx.pickup?.lat, ctx.pickup?.lng, ctx.pickup?.name, day]); // eslint-disable-line react-hooks/exhaustive-deps
+  return state;
+}
+
 /** What is still owed: the server's balance once payments are recorded, else the full fare with tolls and approved extras. */
 export function bookingAmountDue(trip: Pick<TripRecord, 'paid' | 'fareBreakdown' | 'fare' | 'tollCharges' | 'extraCharges'>): number {
   return trip.paid ? Math.max(0, Math.round(trip.paid.balanceDue)) : Math.round((trip.fareBreakdown?.total ?? trip.fare) + (trip.tollCharges ?? 0) + (trip.extraCharges ?? 0));
@@ -34,10 +50,12 @@ export async function payBookingOnline(
   description: string,
   prefill?: CheckoutLabels['prefill'],
   onFailedAttempt?: (reason: string) => void,
+  /** Pay only the advance chosen at booking ("Pay 25% now") instead of the whole balance. */
+  advance = false,
 ): Promise<OnlinePaymentResult> {
   let checkout;
   try {
-    const order = await createBookingPayment(bookingId);
+    const order = advance ? await createBookingPayment(bookingId, true) : await createBookingPayment(bookingId);
     checkout = await openCheckout(order, { name: BRAND_NAME, description, color: brandColor(), prefill }, onFailedAttempt);
   } catch (e) {
     return { status: 'error', message: paymentErrorText(e) };
