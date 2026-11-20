@@ -17,6 +17,8 @@ export const ICONS: Record<string, string> = {
   map: '<polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" x2="9" y1="3" y2="18"/><line x1="15" x2="15" y1="6" y2="21"/>',
   'map-pin': '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
   pin: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+  // The standard "my location" glyph: a ring, a solid centre dot and four ticks.
+  'my-location': '<circle cx="12" cy="12" r="3.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="7.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
   crosshair: '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="7.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22"/>',
   navigation: '<polygon points="3 11 22 2 13 21 11 13 3 11"/>',
   'chevron-down': '<path d="m6 9 6 6 6-6"/>',

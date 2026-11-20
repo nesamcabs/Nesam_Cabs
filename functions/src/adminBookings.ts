@@ -39,6 +39,7 @@ import { canSeePayouts } from './staffReads';
 import { storePricingInTx } from './pricingPrivate';
 import { mailNewBooking } from './commerce';
 import { assertServiceSupported, resolveAndValidateBrand } from './brandContext';
+import { hillRatesConfigured } from './domain/scopedExtraCharges';
 
 const MAX_FARE = 1000000;
 
@@ -159,7 +160,7 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
   let pickup = pickupR.place, drop = dropR.place;
   let stops = rawStops.flatMap((s: unknown) => { const p = pinPlace(s, 'stop'); return p ? [p] : []; });
   // Hill stations are found by pincode: one in the address costs nothing; a bare pin is looked up (only for One Way / Round Trip with hill stations on).
-  const hillOn = tripType === 'One Way' || tripType === 'Round Trip' ? (await loadTariffConfig())?.hillStation?.enabled === true : false;
+  const hillOn = tripType === 'One Way' || tripType === 'Round Trip' ? hillRatesConfigured(await loadTariffConfig()) : false;
   ({ pickup, drop, stops } = await withTripPincodes({ hillEnabled: hillOn, tripType, pickup, drop, stops }));
   // A round trip with stops may end where it began (a closed circuit); otherwise pickup and drop must differ.
   if (!stops.length && distanceKm(pickup, drop) < 0.1) throw new HttpsError('invalid-argument', 'Pickup and drop must be different locations.');

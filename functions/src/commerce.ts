@@ -36,6 +36,7 @@ import { assertServiceSupported, resolveAndValidateBrand } from './brandContext'
 import { FAST, WARM } from './hotOptions';
 import { loadPaymentChoices } from './paymentChoices';
 import { PAY_OPTION_IDS, isChoiceOffered, planFor, type PayOptionId } from './domain/paymentChoices';
+import { hillRatesConfigured } from './domain/scopedExtraCharges';
 
 function place(v: any): GeoPlace {
   if (!v || !inIndia(v.lat, v.lng)) throw new HttpsError('invalid-argument', 'Choose valid pickup and drop locations in India.');
@@ -121,7 +122,7 @@ export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (requ
     if (tripEndAt && tripEndAt.getTime() < when.getTime()) throw new HttpsError('invalid-argument', 'The trip cannot end before it starts.');
   }
   // Hill stations are found by pincode: one written in the place's address costs nothing; a bare pin is looked up (only for One Way / Round Trip with hill stations on).
-  const hillEnabled = !multicity && (tripType === 'One Way' || tripType === 'Round Trip') ? (await loadTariffConfig())?.hillStation?.enabled === true : false;
+  const hillEnabled = !multicity && (tripType === 'One Way' || tripType === 'Round Trip') ? hillRatesConfigured(await loadTariffConfig()) : false;
   ({ pickup, drop, stops } = await withTripPincodes({ hillEnabled, tripType, multicity, pickup, drop, stops }));
   const pushes: { id: string; input: NotifyInput }[] = [];
   const serviceRules = await serviceRulesRead;

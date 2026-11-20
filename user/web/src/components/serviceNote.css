@@ -1,12 +1,13 @@
-/* The service note under the tabs, and its Details dialog. Kept very small: one slim line. */
-.svc-note { display: flex; align-items: center; gap: 7px; margin: 6px 0 8px; padding: 4px 6px 4px 9px; border: 1px solid var(--line, #e3e7ee); border-radius: 8px; background: var(--surface, #fff); }
-.svc-note__icon { flex: none; width: 14px; height: 14px; color: var(--brand-ink, var(--brand, #c8181f)); }
-.svc-note__text { flex: 1; min-width: 0; display: grid; gap: 0; }
-.svc-note__text strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink, #14171c); font-size: 0.72rem; font-weight: 800; line-height: 1.25; }
-.svc-note__text span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted, #5b6472); font-size: 0.64rem; line-height: 1.25; }
-.svc-note__more { flex: none; min-height: 22px; padding: 0 9px; border: 1px solid var(--brand-line, #dcdfe4); border-radius: 999px; background: transparent; color: var(--brand-ink, var(--brand, #c8181f)); font: inherit; font-size: 0.66rem; font-weight: 800; cursor: pointer; transition: background 140ms ease; }
-.svc-note__more:hover { background: var(--brand-soft, #f6f6f7); }
+/* The service note under the tabs, and its Details dialog: a neat card with a round icon, a title, a short line (wraps, never cut off) and a Details pill. */
+.svc-note { display: flex; align-items: center; gap: 10px; margin: 8px 0 10px; padding: 9px 10px 9px 11px; border: 1px solid var(--brand-line, var(--line, #e3e7ee)); border-radius: 14px; background: color-mix(in srgb, var(--brand, #c8181f) 4%, var(--surface, #fff)); }
+.svc-note__icon { flex: none; box-sizing: content-box; width: 16px; height: 16px; padding: 6px; border-radius: 50%; background: color-mix(in srgb, var(--brand, #c8181f) 12%, #fff); color: var(--brand-ink, var(--brand, #c8181f)); }
+.svc-note__text { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.svc-note__text strong { color: var(--ink, #14171c); font-size: 0.84rem; font-weight: 800; line-height: 1.25; overflow-wrap: anywhere; }
+.svc-note__text span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; color: var(--muted, #5b6472); font-size: 0.74rem; font-weight: 500; line-height: 1.35; }
+.svc-note__more { flex: none; align-self: center; min-height: 30px; padding: 0 13px; border: 1px solid var(--brand-line, #dcdfe4); border-radius: 999px; background: var(--surface, #fff); color: var(--brand-ink, var(--brand, #c8181f)); font: inherit; font-size: 0.74rem; font-weight: 800; cursor: pointer; transition: background 140ms ease, border-color 140ms ease; }
+.svc-note__more:hover { background: var(--brand-soft, #f6f6f7); border-color: var(--brand, #c8181f); }
 .svc-note__more:focus-visible { outline: 2px solid var(--brand, #c8181f); outline-offset: 2px; }
+@media (max-width: 359.98px) { .svc-note { gap: 8px; padding-inline: 8px; } .svc-note__icon { display: none; } }
 
 .svc-dialog { max-width: 440px; }
 .svc-dialog__intro { margin: 0 0 14px; color: var(--muted, #5b6472); font-size: 0.875rem; line-height: 1.5; }

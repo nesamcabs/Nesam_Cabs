@@ -201,9 +201,12 @@
   background: none;
 }
 
-/* Inside the booking forms: keep the field's own look, the locate button sits at its right edge. */
-.bf-field .pf { flex: 1; }
-.bf-field .pf__input { font-size: var(--fs-body); }
+/* Inside the booking forms: keep the field's own look. The locate and clear buttons are centred on the whole box (not on the input row under the label). */
+.bf-field .pf { flex: 1; position: static; }
+.bf-field .pf__input { font-size: var(--fs-body); padding-right: 46px; }
+.bf-field:has(.pf__btn--clear) .pf__input { padding-right: 88px; }
+.bf-field .pf__btn { position: absolute; top: 50%; right: 10px; width: 36px; height: 36px; transform: translateY(-50%); }
+.bf-field .pf__btn--clear { right: 52px; }
 .bf-field:has(.pf__input:placeholder-shown) .bf-label { color: var(--muted); }
 
 /* Local Taxi card rows */

@@ -130,22 +130,60 @@ export function useDeviceLocation(watch = true, autoLocate = false): DeviceLocat
 }
 
 /**
- * Keeps `--app-h` equal to the visible viewport height so fixed bars stay above
- * the on-screen keyboard (iOS Safari does not resize the layout viewport).
+ * Keeps `--app-h` equal to the visible viewport height, and tells the page when the on-screen keyboard is up
+ * (`<html data-keyboard="open">`) so the fixed bars can step aside instead of riding up above the keys and covering the field.
+ * While a field is focused on a phone it is also brought just under the header, which leaves the most room for the keyboard and
+ * the suggestions list, and keeps the field itself in view.
  */
 export function useVisualViewportHeight(): void {
   useEffect(() => {
     const vv = window.visualViewport;
     const root = document.documentElement;
+    // The tallest the visible area has been at this width: the keyboard is up when it is now clearly shorter than that.
+    let tallest = Math.max(window.innerHeight, vv?.height ?? 0);
+    let width = window.innerWidth;
+    const FIELD = 'input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]):not([type=range]):not([type=file]), textarea, select, [contenteditable="true"]';
+    const typing = () => !!document.activeElement?.matches?.(FIELD);
     const apply = () => {
-      root.style.setProperty('--app-h', `${Math.round(vv?.height ?? window.innerHeight)}px`);
+      const h = vv?.height ?? window.innerHeight;
+      root.style.setProperty('--app-h', `${Math.round(h)}px`);
+      if (window.innerWidth !== width) {
+        width = window.innerWidth; // rotated or resized: measure again
+        tallest = Math.max(window.innerHeight, h);
+      } else {
+        tallest = Math.max(tallest, window.innerHeight, h);
+      }
+      const open = typing() && tallest - h > 120;
+      if (open) root.dataset.keyboard = 'open';
+      else delete root.dataset.keyboard;
     };
+    let timer = 0;
+    const reveal = (el: Element) => {
+      window.clearTimeout(timer);
+      // Wait for the keyboard to finish opening, then bring the field into view.
+      timer = window.setTimeout(() => {
+        if (document.activeElement !== el || window.innerWidth >= 900) return;
+        const inPanel = !!el.closest('[role="dialog"], dialog, .dialog, .drawer__panel, .sheet');
+        el.scrollIntoView({ block: inPanel ? 'center' : 'start', inline: 'nearest', behavior: 'smooth' });
+      }, 320);
+    };
+    const onFocusIn = (e: FocusEvent) => {
+      apply();
+      if (e.target instanceof Element && e.target.matches(FIELD)) reveal(e.target);
+    };
+    const onFocusOut = () => window.setTimeout(apply, 150);
     apply();
     vv?.addEventListener('resize', apply);
     window.addEventListener('resize', apply);
+    document.addEventListener('focusin', onFocusIn);
+    document.addEventListener('focusout', onFocusOut);
     return () => {
+      window.clearTimeout(timer);
       vv?.removeEventListener('resize', apply);
       window.removeEventListener('resize', apply);
+      document.removeEventListener('focusin', onFocusIn);
+      document.removeEventListener('focusout', onFocusOut);
+      delete root.dataset.keyboard;
     };
   }, []);
 }

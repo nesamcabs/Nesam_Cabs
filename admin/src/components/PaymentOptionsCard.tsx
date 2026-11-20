@@ -3,7 +3,7 @@ import { getPaymentChoiceSettings, getPaymentGatewayStatus, savePaymentChoiceSet
 import { ActionError } from "../services/callables";
 import { CITIES_BY_STATE, directoryCities } from "../domain/placeDirectory";
 import {
-  MAX_DISTRICTS, MAX_PART_PERCENT, MIN_PART_PERCENT, PAY_OPTION_IDS, advanceAmount, defaultChoices, istDay, resolveChoices, optionStatus, validateChoices,
+  MAX_DISTRICTS, MAX_PART_PERCENT, MIN_PART_PERCENT, PAY_OPTION_IDS, advanceAmount, defaultChoices, validateChoices,
   type OptionRule, type PayOptionId, type PaymentChoices,
 } from "../domain/paymentChoices";
 import { useCan, useCanDo } from "./AccessContext";
@@ -13,7 +13,7 @@ import { Notice, inputCls, primaryBtn, secondaryBtn } from "./FormKit";
  * Service & Fare Settings › Payment options. The three choices a customer sees when booking — "Book now, pay later", "Pay part now"
  * (for example 25%) and "Pay 100% now" — and, for each one: a master show / hide switch, a date window, and the pickup districts it is
  * shown in. Customers get the evaluated list from the server; the booking server checks the same rules again, so a hidden option
- * cannot be booked. "Check a scenario" runs the very same rules in the browser.
+ * cannot be booked.
  */
 
 type Form = Omit<PaymentChoices, "version">;
@@ -23,10 +23,10 @@ const TN_DISTRICTS = CITIES_BY_STATE["33"].slice(0, 38);
 const ALL_PLACES = [...new Set(directoryCities(""))].sort((a, b) => a.localeCompare(b));
 const sameForm = (a: Form, b: Form) => JSON.stringify(a) === JSON.stringify(b);
 
-const COPY: Record<PayOptionId, { title: (pct: number) => string; sub: (pct: number) => string; amount: (pct: number) => string }> = {
-  later: { title: () => "Book now, pay later", sub: () => "Pay your driver at the end of the trip", amount: () => inr(0) },
-  part: { title: (p) => `Pay ${p}% now`, sub: (p) => `Pay the remaining ${100 - p}% after your trip`, amount: (p) => inr(advanceAmount(SAMPLE_TOTAL, p)) },
-  full: { title: () => "Pay 100% now", sub: () => "Complete your payment securely online", amount: () => inr(SAMPLE_TOTAL) },
+const COPY: Record<PayOptionId, { title: (pct: number) => string; sub: (pct: number) => string }> = {
+  later: { title: () => "Book now, pay later", sub: () => "Pay your driver at the end of the trip" },
+  part: { title: (p) => `Pay ${p}% now`, sub: (p) => `Pay the remaining ${100 - p}% after your trip` },
+  full: { title: () => "Pay 100% now", sub: () => "Complete your payment securely online" },
 };
 
 const datesText = (r: OptionRule) => {
@@ -134,13 +134,12 @@ function OptionEditor({ id, rule, percent, recommended, onChange, canEdit, probl
             <option value="Except">Hide in these districts</option>
           </select>
           {rule.districts.mode !== "All" && <DistrictPicker id={`${id}-d`} list={rule.districts.list} disabled={!canEdit} onChange={(list) => onChange({ districts: { ...rule.districts, list } })} />}
-          <p className="text-[11px] text-muted">Decided by the pickup place of the trip, including the towns inside a district (Erode covers Gobichettipalayam).</p>
         </fieldset>
       </div>
 
-      <p className={`text-[12px] rounded-lg px-3 py-2 border ${rule.visible ? "bg-green-50 border-green-200 text-green-900" : "bg-gray-100 border-gray-200 text-gray-700"}`}>
-        {rule.visible ? <>Customers see this option {datesText(rule)}, {placesText(rule)}.</> : "Customers never see this option."}
-      </p>
+      {/* Said only when it adds something: hidden, or limited by dates or districts. */}
+      {!rule.visible ? <p className="text-[12px] text-muted">Customers never see this option.</p>
+        : range || rule.districts.mode !== "All" ? <p className="text-[12px] rounded-lg px-3 py-2 border bg-green-50 border-green-200 text-green-900">Customers see this option {datesText(rule)}, {placesText(rule)}.</p> : null}
       {problem && <p className="text-[12px] font-semibold text-bad" role="alert">{problem}</p>}
     </section>
   );
@@ -191,14 +190,6 @@ export default function PaymentOptionsCard() {
     }
   };
 
-  // "Check a scenario": the same rules the server applies, for a pickup district and dates the office picks.
-  const today = istDay(new Date());
-  const [district, setDistrict] = useState("");
-  const [bookDay, setBookDay] = useState(today);
-  const [pickDay, setPickDay] = useState(today);
-  const at = (day: string) => new Date(`${day || today}T12:00:00+05:30`);
-  const test = resolveChoices({ ...form, version: 0 }, { now: at(bookDay), pickupAt: at(pickDay), pickup: district.trim() ? { name: district.trim(), address: district.trim() } : null, onlineOn: true });
-  const shownCount = PAY_OPTION_IDS.filter((id) => optionStatus({ ...form, version: 0 }, id, { now: at(bookDay), pickupAt: at(pickDay), pickup: district.trim() ? { name: district.trim(), address: district.trim() } : null, onlineOn: true }).available).length;
   const onlineBlocked = gateway && (!gateway.keyConfigured || !gateway.onlineEnabled);
 
   return (
@@ -207,7 +198,7 @@ export default function PaymentOptionsCard() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-base font-bold text-ink">Payment options</h2>
-            <p className="text-sm text-muted">The choices customers see when they book, on the website and in the app. Show or hide each one, run it between dates, and limit it to some pickup districts.</p>
+            <p className="text-sm text-muted">The choices customers see when they book, on all three websites (Nesam Cabs, People Taxi, One Way Car Rentals) and in the app. Show or hide each one, run it between dates, and limit it to some pickup districts. A district is decided by the trip's pickup place, so the towns inside it count too (Erode covers Gobichettipalayam).</p>
           </div>
           <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${saved ? "bg-green-50 text-green-800 border-green-300" : "bg-gray-100 text-gray-700 border-gray-300"}`}>
             {saved ? `${PAY_OPTION_IDS.filter((id) => form.options[id].visible).length} of 3 shown` : error ? "Not loaded" : "Loading…"}
@@ -240,36 +231,6 @@ export default function PaymentOptionsCard() {
       {PAY_OPTION_IDS.map((id) => (
         <OptionEditor key={id} id={id} rule={form.options[id]} percent={form.partPercent} recommended={form.recommended === id} canEdit={canEdit} onChange={(p) => setOption(id, p)} problem={optionProblem(id)} />
       ))}
-
-      <section className="bg-white rounded-2xl border border-line shadow-sm p-5 space-y-4" aria-label="Check a scenario">
-        <div>
-          <h3 className="text-[15px] font-bold text-ink">Check what a customer would see</h3>
-          <p className="text-[12px] text-muted">Uses the settings above, saved or not. Pick a pickup district and the dates.</p>
-        </div>
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="space-y-1 block"><span className="text-[12px] font-semibold text-body">Pickup district</span>
-            <input list="po-test-places" className={`${inputCls} w-52`} value={district} placeholder="Any (not checked)" onChange={(e) => setDistrict(e.target.value)} />
-            <datalist id="po-test-places">{ALL_PLACES.map((p) => <option key={p} value={p} />)}</datalist>
-          </label>
-          <label className="space-y-1 block"><span className="text-[12px] font-semibold text-body">Booking date</span><input type="date" className={`${inputCls} w-40`} value={bookDay} onChange={(e) => setBookDay(e.target.value)} /></label>
-          <label className="space-y-1 block"><span className="text-[12px] font-semibold text-body">Pickup date</span><input type="date" className={`${inputCls} w-40`} value={pickDay} onChange={(e) => setPickDay(e.target.value)} /></label>
-        </div>
-        <div className="max-w-[560px] rounded-2xl border border-line bg-slate-50 p-3 space-y-2" aria-label="Customer preview">
-          <p className="px-1 text-[13px] font-bold text-ink">Choose Payment Option <span className="font-normal text-muted">· trip total {inr(SAMPLE_TOTAL)}</span></p>
-          {test.choices.map((c, i) => (
-            <div key={c.id} className={`flex items-center gap-3 rounded-xl border bg-white px-3 py-2.5 ${i === 0 ? "border-blue-500 ring-1 ring-blue-200" : "border-line"}`}>
-              <span className={`h-4 w-4 rounded-full border-2 ${i === 0 ? "border-blue-600 bg-blue-600 shadow-[inset_0_0_0_3px_white]" : "border-gray-300"}`} aria-hidden="true" />
-              <span className="flex-1 min-w-0">
-                <strong className="text-[13px] text-ink">{COPY[c.id].title(form.partPercent)}</strong>
-                {c.recommended && <span className="ml-2 rounded-full bg-blue-600 px-1.5 py-0.5 text-[9px] font-bold text-white">★ Recommended</span>}
-                <small className="block text-[11px] text-muted">{COPY[c.id].sub(form.partPercent)}</small>
-              </span>
-              <strong className="text-[13px] text-ink">{COPY[c.id].amount(form.partPercent)}</strong>
-            </div>
-          ))}
-        </div>
-        {shownCount === 0 && <Notice tone="warn">Nothing is switched on for this district and date, so customers would only be offered “Book now, pay later”.</Notice>}
-      </section>
 
       <div className="sticky bottom-0 z-10 -mx-1 rounded-2xl border border-line bg-white/95 backdrop-blur p-3 shadow-sm flex flex-wrap items-center gap-3">
         {canEdit ? (

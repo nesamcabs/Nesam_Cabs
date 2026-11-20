@@ -1,0 +1,18 @@
+/* On-screen keyboard (phones and tablets): the bars docked to the bottom step aside while a field is being typed in, so they never ride
+   up above the keys and cover the field. A focused field is scrolled to just under the header (see useVisualViewportHeight). */
+@media (max-width: 899.98px) {
+  html[data-keyboard='open'] .tabbar,
+  html[data-keyboard='open'] .flow-bar {
+    display: none;
+  }
+  html[data-keyboard='open'] .shell--dock .main {
+    padding-bottom: 16px;
+  }
+  html[data-keyboard='open'] .toasts {
+    bottom: 16px;
+  }
+  input, textarea, select {
+    scroll-margin-top: calc(var(--nav-h, 72px) + 56px);
+    scroll-margin-bottom: 24px;
+  }
+}

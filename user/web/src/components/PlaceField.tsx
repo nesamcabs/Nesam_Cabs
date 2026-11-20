@@ -380,7 +380,7 @@ export function PlaceField({ value, config, saved, recent, onSelect, placeholder
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => void detectCurrent()}
         >
-          {busy || locating ? <Spinner /> : <Icon name="crosshair" size={18} />}
+          {busy || locating ? <Spinner /> : <Icon name="my-location" size={22} />}
         </button>
       ) : null}
       {popup}

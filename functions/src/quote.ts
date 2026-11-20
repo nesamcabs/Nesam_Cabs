@@ -1,7 +1,7 @@
 import { bookingAddOnsOf, withBookingAddOns, type BookingAddOns } from './domain/bookingAddOns';
 import { withNightAllowance, type NightAllowanceConfig } from './domain/nightAllowance';
 import { withHillCharge } from './domain/hillCharge';
-import { detectHillStations, distinctHillStations, hillChargeFor, hillChargeForRates, validPincode, type HillMatch } from './domain/hillStations';
+import { detectHillStations, distinctHillStations, hillChargeForRates, validPincode, type HillMatch } from './domain/hillStations';
 import { withTripPincodes } from './placePincode';
 import { loadNightAllowance } from './nightAllowanceConfig';
 import { withPlatformFee, type PlatformFeeConfig } from './domain/platformFee';
@@ -20,7 +20,7 @@ import { db } from './admin';
 import { auditInTx } from './audit';
 import { DutyClass, dutyClassOf } from './domain/eligibility';
 import { buildTariffFareBreakup, FareBreakup, withExtraChargeLines } from './domain/fareBreakup';
-import { scopedAddOnRates, scopedExtraChargesSnapshot, scopedHillRates } from './domain/scopedExtraCharges';
+import { hillRatesConfigured, scopedAddOnRates, scopedExtraChargesSnapshot, scopedHillRates } from './domain/scopedExtraCharges';
 import { AdminDiscountInput, CATEGORY_GST_RATE, FareAdjustmentInput, isOutstation, serviceName } from './domain/pricing';
 import {
   FixedRouteFare, completeAirportRates, defaultRentalHours, quoteAirport, PricingSnapshot, QuoteResult, TARIFF_CLASSES, TariffClass, TariffConfig, TariffError, cityDropFare, classRates, istDate, localFareIdFor, matchFixedRoute, paise,
@@ -277,13 +277,16 @@ export interface PriceInput {
   hillTrip?: boolean;
 }
 
-/** The hill stations a One Way / Round Trip's pickup, stops and drop are in (empty when the hill setting is off or it is another service). */
-export function hillStationsOfTrip(i: Pick<PriceInput, 'tariff' | 'tripType' | 'multicity' | 'pickup' | 'drop' | 'stops'>): HillMatch[] {
-  const cfg = i.tariff?.hillStation;
-  if (!cfg?.enabled || (!i.multicity && i.tripType !== 'One Way' && i.tripType !== 'Round Trip')) return [];
+/**
+ * The hill stations a One Way / Round Trip / Multicity pickup, stops and drop are in. Empty when it is another service, or when the fare
+ * table has no hill station charge for this vehicle on this brand and service (hill stations are always on: the amounts decide).
+ */
+export function hillStationsOfTrip(i: Pick<PriceInput, 'tariff' | 'brand' | 'category' | 'tripType' | 'multicity' | 'pickup' | 'drop' | 'stops'>): HillMatch[] {
+  if (!i.multicity && i.tripType !== 'One Way' && i.tripType !== 'Round Trip') return [];
+  if (!scopedHillRates(i.tariff, i.brand || 'nesam', i.multicity ? 'Multicity' : i.tripType, tariffClassOf(i.category), i.category.id)) return [];
   // Hill stations are found by pincode: the place's own, or the one written in its address (placePincode.ts fills a bare pin in).
   const at = (p: GeoPlace, role: 'pickup' | 'stop' | 'drop') => ({ role, name: p.name, address: p.address, pincode: p.pincode });
-  return detectHillStations([at(i.pickup, 'pickup'), ...(i.stops ?? []).map((p) => at(p, 'stop')), at(i.drop, 'drop')], cfg);
+  return detectHillStations([at(i.pickup, 'pickup'), ...(i.stops ?? []).map((p) => at(p, 'stop')), at(i.drop, 'drop')], i.tariff?.hillStation);
 }
 
 export interface PriceResult {
@@ -311,11 +314,11 @@ export function addOnRatesOf(i: Pick<PriceInput, 'tariff' | 'brand' | 'tripType'
 export function priceBooking(i: PriceInput): PriceResult {
   const matches = hillStationsOfTrip(i);
   const night = withNightAllowance(priceBookingWithoutAddOns(matches.length ? { ...i, hillTrip: true } : i), i.pickupAt, i.nightAllowance, tariffClassOf(i.category));
-  // Hill Station Allowance / Charge: its own line, from the vehicle class's One-Way or Round-Trip slab (see domain/hillStations.ts).
-  // A Multicity tour has no slab of its own: it is charged the hill rate set on the Multicity fare table for the vehicle.
+  // Hill Station Allowance / Charge: its own line, from the "Hill station" rows of the fare table for this brand, service and vehicle
+  // (see domain/hillStations.ts).
+  const slab = i.multicity ? 'multicity' : i.tripType === 'Round Trip' ? 'roundTrip' : 'oneWay';
   const charge = !matches.length ? null
-    : i.multicity ? hillChargeForRates(i.tariff?.hillStation, scopedHillRates(i.tariff, i.brand || 'nesam', 'Multicity', tariffClassOf(i.category), i.category.id), matches, 'multicity')
-    : i.tripType === 'One Way' || i.tripType === 'Round Trip' ? hillChargeFor(i.tariff?.hillStation, tariffClassOf(i.category), i.tripType, matches) : null;
+    : hillChargeForRates(i.tariff?.hillStation, scopedHillRates(i.tariff, i.brand || 'nesam', i.multicity ? 'Multicity' : i.tripType, tariffClassOf(i.category), i.category.id), matches, slab);
   const priced = withHillCharge(night, charge);
   const add = addOnRatesOf(i);
   const withAddOns = withBookingAddOns(priced, i.addOns, { carrierCharge: add.carrier }, add.pet, add.partnerPet);
@@ -701,7 +704,7 @@ export const quoteBooking = onCall({ timeoutSeconds: 60, cors: PUBLIC_CALLABLE_O
   const customerId = customer?.exists ? uid : null;
   const [categories, tariff, adjustmentDoc, couponsRead, historyRead, serviceRules, policy, servicesSnap, platformFee, nightAllowance] = await catalogue;
   // Hill stations are detected from each place's pincode; a pin with none in its address is looked up (only when hill stations are on).
-  ({ pickup, drop, stops } = await withTripPincodes({ hillEnabled: tariff?.hillStation?.enabled === true, tripType, multicity, pickup, drop, stops }));
+  ({ pickup, drop, stops } = await withTripPincodes({ hillEnabled: hillRatesConfigured(tariff), tripType, multicity, pickup, drop, stops }));
   // A coupon is only checked for an existing customer account.
   const coupons = customerId ? couponsRead : null;
   const history = customerId ? historyRead : null;

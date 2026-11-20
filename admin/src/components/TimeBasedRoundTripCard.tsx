@@ -12,7 +12,7 @@ import { CardBody, Problems, RateTable, SaveBar, SettingCard, vehicleColumns, ty
  *            from 3 PM: 5-Hour (until 6:45 PM) / 8-Hour (until 3:45 PM) while they fit, plus the overnight options;
  *   2 days → Next-Day Return (day-1 slab by ORIGINAL pickup time + one Full Day) or Morning Return (3 PM to 12:59 AM pickups, ≤ 250 km, back by 9 AM);
  *   3+     → day-1 slab + one Full Day per further day.
- * Hill stations never use the 5-Hour / 8-Hour packages (see the Hill station card).
+ * Hill stations never use the 5-Hour / 8-Hour packages (the Hill station rows of the fare table).
  * The Full-Day package is the category's own Round Trip day (daily minimum km × rate + allowance) set in the rate card above.
  * Driver allowance is included in every package here. Applies to every brand, like the Round Trip rate card it sits on.
  */

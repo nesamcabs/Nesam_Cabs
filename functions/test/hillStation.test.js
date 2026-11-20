@@ -14,10 +14,13 @@ const sedan = {
   customerRate: 14, customerBata: 500, partnerRate: 12.6, partnerBata: 400, minKmPerDay: 250,
   timeBased: { fiveFare: 2080, fiveKm: 100, fivePartner: 1870, eightFare: 2780, eightKm: 150, eightPartner: 2500, morningFare: 4500, morningKm: 250, morningPartner: 4050 },
 };
-const hillStation = { enabled: true, chargePer: 'trip', classes: { sedan: { oneWay: { customer: 500, partner: 400 }, roundTrip: { customer: 800, partner: 650 } } } };
-const base = { ...CONFIRMED_TARIFF_V2, version: 8, enabled: true, roundTrip: { maxDays: 30, timeBased: { enabled: true }, classes: { sedan } }, roundTripExtras: { sedan: { extraKmRate: 14, waitingPerHour: 150 } } };
+// Hill stations are always on. The charge is the "Hill station" rows of the fare table (brand overrides): no row, no charge.
+const hillStation = { chargePer: 'trip' };
+const hillRates = { 'One Way': { sedan: { hillCharge: 500, partnerHillCharge: 400 } }, 'Round Trip': { sedan: { hillCharge: 800, partnerHillCharge: 650 } } };
+const baseNoHill = { ...CONFIRMED_TARIFF_V2, version: 8, enabled: true, roundTrip: { maxDays: 30, timeBased: { enabled: true }, classes: { sedan } }, roundTripExtras: { sedan: { extraKmRate: 14, waitingPerHour: 150 } } };
+const base = { ...baseNoHill, brandOverrides: { common: hillRates } };
 const cfg = T.parseTariffConfig({ ...base, hillStation });
-const cfgNoHill = T.parseTariffConfig(base);
+const cfgNoHill = T.parseTariffConfig(baseNoHill);
 
 const category = mapCategory('sedan', { name: 'Sedan', status: 'Active', seatingCapacity: 4 });
 // A place as the map search gives it: the pincode is in the formatted address (Google writes "State 643001, India").
@@ -157,14 +160,15 @@ test('One Way: the hill charge uses the One-Way slab as a separate line (base + 
   assert.equal(withHill.pricing.partner.hillPaise, 40000);
 });
 
-test('a class with no slab, the switch off, or a non-hill trip is never charged; the package rules still apply while the switch is on', () => {
-  const off = T.parseTariffConfig({ ...base, hillStation: { ...hillStation, enabled: false } });
-  assert.equal(price({ tariff: off, pkg: 'same:full', km: 90, min: 120 }).pricing.hillStation, undefined);
-  assert.equal(price({ tariff: off, km: 40, min: 60 }).pricing.timeBased.packageId, 'same:five');
-  const noSlab = T.parseTariffConfig({ ...base, hillStation: { ...hillStation, classes: { suv: hillStation.classes.sedan } } });
-  const r = price({ tariff: noSlab, pkg: 'same:full', km: 90, min: 120 });
+test('a vehicle with no hill station row in the fare table, or a non-hill trip, is never charged', () => {
+  // No hill amount typed anywhere: nothing is charged and the 5-hour package is still offered.
+  assert.equal(price({ tariff: cfgNoHill, pkg: 'same:full', km: 90, min: 120 }).pricing.hillStation, undefined);
+  assert.equal(price({ tariff: cfgNoHill, km: 40, min: 60 }).pricing.timeBased.packageId, 'same:five');
+  // An amount for another vehicle only: this vehicle has none, so it is not charged either.
+  const otherVehicle = T.parseTariffConfig({ ...baseNoHill, brandOverrides: { common: { 'Round Trip': { suv: { hillCharge: 800, partnerHillCharge: 650 } } } } });
+  const r = price({ tariff: otherVehicle, pkg: 'same:full', km: 90, min: 120 });
   assert.equal(r.pricing.hillStation, undefined);
-  assert.equal(r.hill.charged, false);
+  assert.equal(r.hill, undefined);
   assert.equal(price({ drop: madurai, pkg: 'same:full', km: 90, min: 120 }).pricing.hillStation, undefined);
 });
 
@@ -243,9 +247,8 @@ test('a Multicity tour through a hill station is charged the hill rate set on th
   const added = Math.round((hilly.fare.total - plain.fare.total) * 100) / 100;
   assert.ok(added >= 700 && added <= 700 * 1.18 + 0.01, `added ${added}`);
   assert.ok(hilly.pricing.partner.basePaise - plain.pricing.partner.basePaise === 50000, 'the partner is paid the Multicity partner hill rate');
-  // A hill station that is switched off, or no Multicity hill amount for the vehicle: nothing is charged.
-  assert.equal(tour({ tariff: T.parseTariffConfig({ ...base, hillStation: { ...hillStation, enabled: false }, brandOverrides: { common: { Multicity: { sedan: rates } } } }) }).hill, undefined);
-  const noRate = tour({ tariff: T.parseTariffConfig({ ...base, hillStation, brandOverrides: { common: { Multicity: { sedan: { ...rates, hillCharge: undefined, partnerHillCharge: undefined } } } } }) });
-  assert.equal(noRate.hill.charged, false);
+  // No Multicity hill amount for the vehicle: nothing is charged.
+  const noRate = tour({ tariff: T.parseTariffConfig({ ...baseNoHill, hillStation, brandOverrides: { common: { Multicity: { sedan: { ...rates, hillCharge: undefined, partnerHillCharge: undefined } } } } }) });
+  assert.equal(noRate.hill, undefined);
   assert.equal(noRate.fare.total, plain.fare.total);
 });

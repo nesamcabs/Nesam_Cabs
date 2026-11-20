@@ -20,13 +20,13 @@ import BookingRulesGrid, { specialRules } from "../components/BookingRulesGrid";
 import DateRules from "../components/DateRules";
 import PriceChangeRules from "../components/PriceChangeRules";
 import type { VehicleCol } from "../components/RateTable";
+import { ALL_BRAND_KEYS, categoryOffersBrand, categoryStatusForBrand } from "../services/categoryService";
 import { registerFareWorkspaceGuard } from "../services/fareWorkspaceGuard";
 import { BRANDS, BRAND_LABELS, BRAND_SUPPORTED_SERVICES, CLASS_LABEL, TARIFF_CLASSES, WORKSPACE_SERVICES, PICKUP_DROP, serviceLabel, tariffClassOfCategory, type FareWorkspaceScope, type TariffClass } from "../services/tariffService";
 import { GST_STATES } from "../domain/gstStates";
 import { directoryCities, directoryZones } from "../domain/placeDirectory";
 import DisplayMarkupCard from "../components/DisplayMarkupCard";
 import TimeBasedRoundTripCard from "../components/TimeBasedRoundTripCard";
-import HillStationCard from "../components/HillStationCard";
 import { refDateTime } from "../domain/officeStage";
 
 type Tab = "Brand & service fares" | "Booking availability" | "Cab types" | "Pricing rules" | "GST calculation" | "Platform fee" | "Payment options";
@@ -196,7 +196,10 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
   ];
   // The Vehicle list shows the active vehicle categories. Each is priced as one rate class (Sedan, SUV 6+1, SUV 7+1, Innova,
   // Innova Crysta) worked out exactly as the server does; SUV 7+1 and Innova use the SUV 6+1 rates until given their own.
-  const activeCats = categories.filter((c) => c.status === "Active").sort((a, b) => (a.displayOrder || 99) - (b.displayOrder || 99));
+  // Categories are offered per brand ("Remove" on a brand's Vehicle categories only takes it off that brand), so a brand's fare table lists
+  // the categories that brand offers and has switched on; the common view lists those any brand offers.
+  const scopeBrands = fareScope.brand === "common" ? ALL_BRAND_KEYS : [fareScope.brand];
+  const activeCats = categories.filter((c) => c.status === "Active" && scopeBrands.some((b) => categoryOffersBrand(c, b) && categoryStatusForBrand(c, b) === "Active")).sort((a, b) => (a.displayOrder || 99) - (b.displayOrder || 99));
   const vehicleChoices: { key: string; label: string; cls: TariffClass; shared: boolean; cng: boolean }[] = activeCats.length
     ? activeCats.map((c) => ({ key: c.id, label: c.name, cls: tariffClassOfCategory(c), cng: c.cngEnabled === true, shared: activeCats.filter((o) => tariffClassOfCategory(o) === tariffClassOfCategory(c)).length > 1 }))
     : TARIFF_CLASSES.map((cls) => ({ key: cls, label: CLASS_LABEL[cls], cls, shared: false, cng: false }));
@@ -302,9 +305,8 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
         <FareMatrix scope={fareScope} fuel={fuelApplies ? fareFuel : "petrol"}
           vehicles={vehicles} cards={vehicleCards.map((card) => ({ cls: card.cls, name: card.name, categoryId: activeCats.length ? card.categoryId : undefined, cng: card.cng }))}
           onDirtyChange={dirty => { workspaceDirty.current = dirty; }} onBusyChange={busy => { workspaceBusy.current = busy; }} />
-        {/* Then the settings that sit on top of these rates, in the order a fare is built: packages, hill charge, how extras are billed, pet charge, display price. */}
+        {/* Then the settings that sit on top of these rates, in the order a fare is built: packages, how extras are billed, pet charge, display price. */}
         {fareScope.service === "Round Trip" ? <TimeBasedRoundTripCard vehicles={vehicles} /> : null}
-        {fareScope.service === "Round Trip" || fareScope.service === "One Way" || fareScope.service === "Multicity" ? <HillStationCard vehicles={vehicles} service={fareScope.service} /> : null}
         <NightAllowanceCard />
         <DisplayMarkupCard scope={fareScope} />
       </div>}

@@ -222,23 +222,11 @@ export interface HillCharge {
   partnerTotal: number;
 }
 
-/** The hill charge of a detected trip, or null when the setting is off, no hill station was found, or the class has no slab. */
-export function hillChargeFor(cfg: HillStationConfig | null | undefined, cls: TariffClass | null, tripType: 'One Way' | 'Round Trip', matches: readonly HillMatch[]): HillCharge | null {
-  if (!cfg?.enabled || !cls || !matches.length) return null;
-  const slabKey = tripType === 'Round Trip' ? 'roundTrip' : 'oneWay';
-  const slab = cfg.classes[cls]?.[slabKey];
-  if (!slab || !(slab.customer > 0)) return null;
-  const stations = distinctHillStations(matches);
-  const units = cfg.chargePer === 'station' ? stations.length : 1;
-  const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
-  return { slab: slabKey, stations, units, customerPerUnit: slab.customer, customerTotal: round2(slab.customer * units), partnerTotal: round2(slab.partner * units) };
-}
-
-/** The hill charge of a Multicity tour: the rupees the Multicity fare table sets for the vehicle, once per trip (or once per hill station visited). */
+/** The hill charge of a trip: the rupees the fare table sets for the vehicle, once per trip (or once per hill station visited). */
 export function hillChargeForRates(cfg: HillStationConfig | null | undefined, rates: { customer: number; partner: number } | null, matches: readonly HillMatch[], slab: HillCharge['slab']): HillCharge | null {
-  if (!cfg?.enabled || !rates || !(rates.customer > 0) || !matches.length) return null;
+  if (!rates || !(rates.customer > 0) || !matches.length) return null;
   const stations = distinctHillStations(matches);
-  const units = cfg.chargePer === 'station' ? stations.length : 1;
+  const units = cfg?.chargePer === 'station' ? stations.length : 1;
   const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
   return { slab, stations, units, customerPerUnit: rates.customer, customerTotal: round2(rates.customer * units), partnerTotal: round2(rates.partner * units) };
 }

@@ -6,6 +6,18 @@ import { extraChargesSnapshot } from './extraCharges';
  * The hill station charge a service sets on its own fare table (customer pays / partner gets, rupees per trip) for a vehicle class: the shared
  * and brand rows merged the same way as the other extras. Used by Multicity, which has no One-Way / Round-Trip slab of its own.
  */
+/** True when the admin has typed a hill station charge anywhere in the fare table (any brand, service or vehicle). Hill stations are always on: no amount, no hill handling. */
+export function hillRatesConfigured(tariff: TariffConfig | null | undefined): boolean {
+  const positive = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v > 0;
+  for (const services of Object.values(tariff?.brandOverrides ?? {})) {
+    for (const classes of Object.values(services ?? {})) {
+      for (const ov of Object.values(classes ?? {})) if (positive((ov as { hillCharge?: unknown })?.hillCharge)) return true;
+    }
+  }
+  for (const row of Object.values(tariff?.extraCharges?.categories ?? {})) if (positive(row?.customer?.hill)) return true;
+  return false;
+}
+
 export function scopedHillRates(tariff: TariffConfig | null, brand: string | undefined, service: string, klass: TariffClass | null, categoryId: string): { customer: number; partner: number } | null {
   const serviceKey = fareServiceKey(service);
   const shared = klass ? tariff?.brandOverrides?.common?.[serviceKey]?.[klass] : undefined;

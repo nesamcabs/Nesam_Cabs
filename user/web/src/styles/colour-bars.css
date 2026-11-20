@@ -1,0 +1,33 @@
+/* Bottom bars in the site's own colour: the Back / Home buttons match the coloured Continue button, and the service tab bar carries a soft
+   tint of the same colour (strong enough to read as coloured, light enough for the full-colour service pictures). */
+html .flow-bar .flow-bar__icon,
+html .flow-page--choose .flow-bar .flow-bar__icon {
+  border: 0;
+  background: var(--brand-gradient, var(--brand));
+  color: #fff;
+  box-shadow: 0 10px 20px -8px color-mix(in srgb, var(--brand) 70%, transparent), inset 0 1px 0 rgb(255 255 255 / 0.28);
+  transition: box-shadow var(--dur, 160ms), transform var(--dur, 160ms), filter var(--dur, 160ms);
+}
+html .flow-bar .flow-bar__icon:hover,
+html .flow-page--choose .flow-bar .flow-bar__icon:hover {
+  border: 0;
+  color: #fff;
+  filter: brightness(1.07);
+  box-shadow: 0 14px 24px -8px color-mix(in srgb, var(--brand) 78%, transparent), inset 0 1px 0 rgb(255 255 255 / 0.28);
+}
+html .flow-bar .flow-bar__icon:active,
+html .flow-page--choose .flow-bar .flow-bar__icon:active {
+  background: var(--brand-gradient, var(--brand));
+  filter: brightness(0.95);
+  transform: translateY(1px);
+}
+@media (max-width: 899.98px) {
+  html .tabbar {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--brand) 5%, #fff) 0%, color-mix(in srgb, var(--brand) 15%, #fff) 100%);
+    border-color: color-mix(in srgb, var(--brand) 24%, #fff);
+    box-shadow: 0 12px 28px -10px color-mix(in srgb, var(--brand) 55%, transparent), 0 2px 6px rgb(20 23 28 / 0.06);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html .flow-bar .flow-bar__icon { transition: none; }
+}
