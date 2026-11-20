@@ -27,10 +27,6 @@ export const overrideReachedPickup = (bookingId: string, reason: string) =>
 export const updateSettlement = (i: { bookingId: string; action: "processing" | "paid" | "failed" | "hold" | "release"; reference?: string; method?: "UPI" | "Bank Transfer"; reason?: string; holdOwner?: string; holdDeadline?: string }) =>
   callFunction<typeof i, { ok: boolean }>("updateSettlement", i);
 
-/** Saves the confirmed customer / partner tariff (business_config/tariff_v2). */
-export const saveTariffConfig = (i: { useConfirmedDefaults?: boolean; keepSavedRates?: boolean; enabled: boolean; reason: string; expectedVersion?: number; cityDrop?: { zones: { id: string; name: string; lat: number; lng: number; radiusKm: number }[] } }) =>
-  callFunction<typeof i, { version: number; enabled: boolean }>("saveTariffConfig", i);
-
 /** Saves one section of the tariff (base rates, a city's local fare, a rental minimum or a rental package) against the version the editor loaded. */
 export const saveTariffSection = (i: { section: "petCharge" | "baseRates" | "localPickupDrop" | "rentalMinimum" | "rentalPackage" | "extraCharges" | "brandOverride" | "fareGst" | "displayMarkup" | "roundTripTimeBased" | "hillStation"; expectedVersion: number; reason: string; class?: string; cityId?: string; hours?: number; minHours?: number; brand?: string; service?: string; clearOverride?: boolean; data?: unknown }) =>
   callFunction<typeof i & { latest: boolean }, { version: number; extraChargesVersion?: number }>("saveTariffSection", { ...i, latest: true });

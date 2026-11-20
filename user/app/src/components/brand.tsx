@@ -122,6 +122,12 @@ export function NotificationsAction({ active }: { active?: boolean }) {
   return <HeaderAction icon="bell" label="Notifications" active={active} badge={unreadCount} onPress={() => navigation.navigate('Tabs', { screen: 'Alerts' })} />;
 }
 
+/** My trips, in the header: a guest sees the sign-in prompt in place of the trips page. */
+export function TripsAction({ active }: { active?: boolean }) {
+  const navigation = useNavigation();
+  return <HeaderAction icon="route" label="My trips" active={active} onPress={() => navigation.navigate('Tabs', { screen: 'Trips' })} />;
+}
+
 /** The hamburger that opens the side menu (absent on the sign-in screens, which have no menu). */
 export function MenuButton({ glass }: { glass?: boolean }) {
   const drawer = useDrawer();
@@ -236,7 +242,7 @@ export function AppHeader({
   title?: string;
   subtitle?: string;
   onBack?: () => void;
-  active?: 'alerts' | 'support';
+  active?: 'alerts' | 'support' | 'trips';
   actions?: boolean;
   rightAction?: React.ReactNode;
 }) {
@@ -261,6 +267,7 @@ export function AppHeader({
               ) : actions ? (
                 <>
                   <SupportMenuAction active={active === 'support'} />
+                  <TripsAction active={active === 'trips'} />
                   <NotificationsAction active={active === 'alerts'} />
                 </>
               ) : null}
@@ -303,14 +310,14 @@ export function BrandHeader({ right, title }: { right?: React.ReactNode; title?:
 
 export type NavKey = HomeService | 'trips';
 
-/** The bottom bar, as on the website: Local Pickup & Drop · Hourly Rental · Outstation (the middle one) · Multicity · My trips.
- *  Airport Taxi is not here: it is booked from the side drawer. The first two open the Local Rentals map in that mode. */
+/** The bottom bar, as on the website: Local Pickup & Drop · Hourly Rental · Outstation (the middle one) · Multicity · Airport Taxi.
+ *  My trips is in the header. The first two open the Local Rentals map in that mode. */
 const NAV_ITEMS: { key: NavKey; label: string; full?: string; mode?: RentalsMode; image?: ImageSourcePropType; icon?: IconName }[] = [
   { key: 'rental', mode: 'pickup', label: 'Local', full: 'Local Pickup & Drop', image: NESAM.navPickup },
   { key: 'rental', mode: 'hourly', label: 'Rental', full: 'Hourly Rental', image: NESAM.navLocal },
   { key: 'outstation', label: 'Outstation', image: NESAM.navOutstation },
   { key: 'multicity', label: 'Multicity', image: NESAM.navMulticity },
-  { key: 'trips', label: 'My trips', icon: 'route' },
+  { key: 'airport', label: 'Airport', full: 'Airport Taxi', image: NESAM.navAirport },
 ];
 
 /** One bar item: the active one rises on a red disc, with a little pop. */
@@ -373,11 +380,6 @@ export function BottomNav({ active }: { active?: NavKey | null }) {
             item={item}
             on={item.mode ? selected === 'rental' && rentalsMode === item.mode : selected === item.key}
             onPress={() => {
-              if (item.key === 'trips') {
-                // A guest sees the sign-in prompt in place of the trips page.
-                navigation.navigate('Tabs', { screen: 'Trips' });
-                return;
-              }
               setService(item.key as HomeService);
               // Pickup & Drop and Hourly Rental open the Local Rentals map in their mode; every other service uses the booking form.
               if (item.mode) navigation.navigate('Tabs', { screen: 'Rentals', params: { mode: item.mode } });

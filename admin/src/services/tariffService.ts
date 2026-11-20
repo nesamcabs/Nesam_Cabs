@@ -130,7 +130,6 @@ export interface Tariff {
   petCharge?: number;
   fareGst?: Record<string, Record<string, FareGstPolicy>>;
   version?: number;
-  enabled?: boolean;
   gstRate?: number;
   oneWay?: { minKm?: number; classes?: Partial<Record<TariffClass, Partial<OneWayRates>>> };
   roundTrip?: { maxDays?: number; timeBased?: TimeBasedSettings; classes?: Partial<Record<TariffClass, Partial<RoundTripRates>>> };

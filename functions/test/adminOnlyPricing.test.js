@@ -48,10 +48,8 @@ test('an Airport trip with no complete Airport Taxi fares is priced by the admin
   assert.equal(q.pricing.model, 'one_way_standard');
 });
 
-test('with no tariff saved or switched on, a short trip is refused, never priced', () => {
-  for (const t of [null, tariff({ enabled: false })]) {
-    assert.throws(() => priceBooking(input({ tariff: t })), (e) => e.code === 'failed-precondition' && e.details?.code === 'rate-missing');
-  }
+test('with no tariff saved, a short trip is refused, never priced', () => {
+  assert.throws(() => priceBooking(input({ tariff: null })), (e) => e.code === 'failed-precondition' && e.details?.code === 'rate-missing');
 });
 
 test('a Local Rental with no admin package is refused', () => {

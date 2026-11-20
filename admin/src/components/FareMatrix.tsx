@@ -13,7 +13,7 @@ import {
   type Tariff,
   type TariffClass,
 } from "../services/tariffService";
-import { saveTariffConfig, saveTariffSection } from "../services/bookingOpsService";
+import { saveTariffSection } from "../services/bookingOpsService";
 import { ActionError } from "../services/callables";
 import { useCan, useCanDo } from "./AccessContext";
 import { Badge, Button, Icon } from "./ui";
@@ -258,7 +258,6 @@ export default function FareMatrix({ scope, cards, vehicles, fuel = "petrol", on
   const badNumber = (v: string) => v.trim() !== "" && !(Number.isFinite(Number(v)) && Number(v) >= 0);
   const invalid = cards.some((c) => NUM_KEYS.some((k) => badNumber(formFor(c.cls).v[k]))
     || (isRental && RENTAL_HOURS.some((h) => PKG_FIELDS.some(({ key }) => badNumber(formFor(c.cls).pkg[String(h)]?.[key] ?? "")))));
-  const engineOff = !!t && !t.enabled && (service === "One Way" || service === "Round Trip" || service === "Airport Taxi");
 
   // ── Save: one reason, one click; every changed vehicle is saved in turn ───────────────────────────────────────────
   const executeSave = async () => {
@@ -305,19 +304,6 @@ export default function FareMatrix({ scope, cards, vehicles, fuel = "petrol", on
     }
   };
 
-  const toggleEngine = async () => {
-    if (!canEdit || busy || isDirty || !t) return;
-    const why = window.prompt(`Reason for turning the pricing engine ${t.enabled ? "off" : "on"} (affects every brand):`);
-    if (!why) return;
-    if (why.trim().length < 5) return showToast("Enter a reason of at least five characters.", "error");
-    setBusy(true);
-    try {
-      await saveTariffConfig({ keepSavedRates: true, enabled: !t.enabled, reason: why.trim(), expectedVersion: t.version ?? 0 });
-      showToast(`Pricing engine turned ${t.enabled ? "off" : "on"}. Every saved rate was kept.`);
-    } catch (error) { showToast(error instanceof ActionError ? error.message : "The switch was not saved.", "error"); }
-    finally { setBusy(false); }
-  };
-
   const brandName = brand === "common" ? "All brands (shared)" : BRAND_LABELS[brand];
   const where = `${brandName} → ${serviceLabel(service)}${showCng ? " (CNG)" : ""}`;
 
@@ -345,12 +331,6 @@ export default function FareMatrix({ scope, cards, vehicles, fuel = "petrol", on
       <Toast toast={toast} />
       {loadError && <div className="ds-error" role="alert"><Icon name="circle-alert" /> Fares could not be loaded: {loadError}</div>}
 
-      {engineOff && (
-        <div className="ds-error flex flex-wrap items-center justify-between gap-2" role="status">
-          <span><Icon name="triangle-alert" /> The pricing engine is <strong>off</strong>. {serviceLabel(service)} trips priced from these rates are refused until it is switched on.</span>
-          {canEdit && brand === "common" ? <Button size="sm" variant="primary" disabled={busy || isDirty} onClick={toggleEngine}>Turn pricing engine on</Button> : <small>Turn it on under Brand → All brands (shared).</small>}
-        </div>
-      )}
 
       <SettingCard label={`Fares for ${where}`}
         title={<span className="flex flex-wrap items-center gap-2">{where}{isDirty ? <Badge tone="amber">Unsaved: {changed.map((c) => c.name).join(", ")}</Badge> : null}</span>}
@@ -410,9 +390,6 @@ export default function FareMatrix({ scope, cards, vehicles, fuel = "petrol", on
       </SettingCard>
 
 
-      {brand === "common" && t?.enabled && (service === "One Way" || service === "Round Trip" || service === "Airport Taxi") && canEdit && (
-        <p className="text-[12px] text-muted">Pricing engine is on. <button type="button" className="underline" disabled={busy || isDirty} onClick={toggleEngine}>Turn off</button></p>
-      )}
 
       {builderFor && builderCard && (
         <Modal title={`Fill packages · ${builderCard.name}`} onClose={() => setBuilderFor(null)} footer={<Button onClick={() => setBuilderFor(null)}>Close</Button>}>

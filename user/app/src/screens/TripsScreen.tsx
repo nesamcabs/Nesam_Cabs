@@ -52,7 +52,7 @@ export function TripsScreen() {
     <SafeAreaView style={styles.root} edges={['top']}>
 <KeyboardAvoid>
       <CancelRideSheet key={cancelTrip?.id ?? 'none'} trip={cancelTrip} onClose={() => setCancelTrip(null)} />
-      <AppHeader title="My Bookings" />
+      <AppHeader title="My Bookings" active="trips" />
       <FlatList
         footer
         data={shown}

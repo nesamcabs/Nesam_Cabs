@@ -664,7 +664,7 @@ export const saveTariffSection = onCall(async (request) => {
     if (!saveLatest && input.expectedVersion !== (before?.version ?? 0)) {
       throw new HttpsError('failed-precondition', 'The tariff was changed by someone else. Reload and review it before saving.');
     }
-    const base = before ?? parseTariffConfig({ enabled: false, version: 0 })!;
+    const base = before ?? parseTariffConfig({ version: 0 })!;
     let next: TariffConfig;
     let meta: Record<string, unknown>;
     if (section === 'petCharge') {
@@ -759,7 +759,7 @@ export const saveTariffSection = onCall(async (request) => {
       throw bad('Unknown tariff section.');
     }
     const version = (before?.version ?? 0) + 1;
-    tx.set(ref, { ...next, enabled: base.enabled, version, updatedBy: actor.uid, updatedByName: actor.name, updatedAt: FieldValue.serverTimestamp() });
+    tx.set(ref, { ...next, version, updatedBy: actor.uid, updatedByName: actor.name, updatedAt: FieldValue.serverTimestamp() });
     auditInTx(tx, {
       action: 'tariff_section_saved', entity: 'tariff', entityId: 'v2', performedBy: actor.uid, performedByName: actor.name, role: 'admin',
       previous: before ? { version: before.version } : null, next: { version }, meta, reason,

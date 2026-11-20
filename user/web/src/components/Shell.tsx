@@ -6,7 +6,7 @@ import { COPYRIGHT_HOLDER, SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY } from '@core/co
 import { useInbox } from '@/state/Inbox';
 import { useAuth } from '@/state/Auth';
 import { useBooking } from '@/state/Booking';
-import { useMinWidth, useOnline } from '@/lib/hooks';
+import { useOnline } from '@/lib/hooks';
 import { scrollToBookingForm } from '@/lib/scrollToForm';
 import { parseService, serviceHref, serviceOfTrip, type ServiceId } from '@/lib/services';
 import { Avatar, Button, Dialog, PageLoader } from './ui';
@@ -43,6 +43,7 @@ import pickupIcon from '@/assets/nav/pickup-drop.webp';
 import multicityIcon from '@/assets/nav/multicity.webp';
 import outstationIcon from '@/assets/nav/outstation.webp';
 import rentalIcon from '@/assets/nav/local-rentals.webp';
+import airportIcon from '@/assets/nav/airport-taxi.webp';
 
 /** Desktop header links. Account lives in the profile menu there. On phones the bottom bar holds the four
     services, and the header holds Notifications. Account and My trips are in the side menu. */
@@ -52,27 +53,26 @@ const TOP_NAV = [NAV[0], NAV[1], { to: '/offers', label: 'Offers', short: 'Offer
 const FLOW = [/^\/book\/(ride|confirm|done\/[^/]+)$/, /^\/ride\//, /^\/local-taxi\/ride\//, /^\/trips\/[^/]+$/];
 const IMMERSIVE = [/^\/ride\//, /^\/local-rentals(\/|$)/, /^\/trips\/[^/]+$/];
 
-/** Phone bottom bar, left to right: Local Pickup & Drop · Hourly Rental · Outstation (the middle one) · Multicity · My trips.
-    Airport Taxi lives in the side drawer. The selected service rises in its brand color. */
-type BarId = 'pickup' | 'rental' | 'outstation' | 'multicity';
+/** Phone bottom bar, left to right: Local Pickup & Drop · Hourly Rental · Outstation (the middle one) · Multicity · Airport Taxi.
+    My trips is in the header. The selected service rises in its brand color. */
+type BarId = 'pickup' | 'rental' | 'outstation' | 'multicity' | 'airport';
 const BAR: { id: BarId; label: string; full: string; to: string; image: string; size: number; wide?: boolean }[] = [
   { id: 'pickup', label: 'Local', full: 'Local Pickup & Drop', to: '/local-rentals?mode=pickup', image: pickupIcon, size: 44, wide: true },
   { id: 'rental', label: 'Rental', full: 'Hourly Rental', to: '/local-rentals?mode=hourly', image: rentalIcon, size: 44, wide: true },
   { id: 'outstation', label: 'Outstation', full: 'Outstation', to: serviceHref('outstation'), image: outstationIcon, size: 46 },
   { id: 'multicity', label: 'Multicity', full: 'Multicity', to: serviceHref('multicity'), image: multicityIcon, size: 44 },
+  { id: 'airport', label: 'Airport', full: 'Airport Taxi', to: serviceHref('airport'), image: airportIcon, size: 44 },
 ];
 
 function BottomNav() {
   const location = useLocation();
   const [params] = useSearchParams();
   const { draft } = useBooking();
-  const [profilePicked, setProfilePicked] = useState(false);
-  useEffect(() => setProfilePicked(false), [location.pathname, params.toString()]); // any navigation moves the selection
   const onHome = location.pathname === '/book' || location.pathname === '/';
   // Local Taxi has its own pages (/local-taxi…): it is the city Pickup & Drop, so that tab stays lit there.
   const onLocal = /^\/local-taxi(\/|$)/.test(location.pathname);
   const onRentals = /^\/local-rentals(\/|$)/.test(location.pathname);
-  const current: ServiceId | null = profilePicked ? null : onLocal ? 'pickup' : onRentals ? (params.get('mode') === 'hourly' ? 'rental' : 'pickup') : onHome ? (parseService(params.get('service')) ?? (location.pathname === '/' ? 'pickup' : serviceOfTrip(draft.tripType, draft.multicity))) : null;
+  const current: ServiceId | null = onLocal ? 'pickup' : onRentals ? (params.get('mode') === 'hourly' ? 'rental' : 'pickup') : onHome ? (parseService(params.get('service')) ?? (location.pathname === '/' ? 'pickup' : serviceOfTrip(draft.tripType, draft.multicity))) : null;
 
   return (
     <nav className="tabbar" aria-label="Services">
@@ -87,24 +87,7 @@ function BottomNav() {
           </Link>
         );
       })}
-      <TripsTab picked={profilePicked} onPick={() => setProfilePicked(true)} />
     </nav>
-  );
-}
-
-/** The fifth slot of the phone bottom bar: My trips (the profile lives in the side drawer, opened from the header). */
-function TripsTab({ picked, onPick }: { picked: boolean; onPick: () => void }) {
-  const location = useLocation();
-  const on = /^\/trips(\/|$)/.test(location.pathname);
-  return (
-    <Link to="/trips" onClick={onPick} className={`tabbar__link ${on || picked ? 'is-active' : ''}`} aria-current={on ? 'page' : undefined}>
-      <span className="tabbar__icon">
-        <span className="tabbar__trips" aria-hidden="true">
-          <Icon name="trip-history" size={24} />
-        </span>
-      </span>
-      <span className="tabbar__label">My trips</span>
-    </Link>
   );
 }
 
@@ -464,19 +447,7 @@ export function Shell() {
   const isImmersive = IMMERSIVE.some((re) => re.test(location.pathname));
   const isLocalPage = /^\/local-(rentals|taxi)\/?$/.test(location.pathname);
   const isLanding = location.pathname === '/' || location.pathname === '/book' || isLocalPage;
-  const [hasScrolled, setHasScrolled] = useState(false);
-  // Desktop always shows the header; only phones and tablets tuck it away until the page is scrolled.
-  const isDesktop = useMinWidth(900);
-  // A new notification brings the header into view (it shows in place of the header contents).
-  const headerHidden = isLanding && !hasScrolled && !isDesktop && !live;
-
-  useEffect(() => {
-    const updateHeader = () => setHasScrolled(window.scrollY > 48);
-    updateHeader();
-    window.addEventListener('scroll', updateHeader, { passive: true });
-    return () => window.removeEventListener('scroll', updateHeader);
-  }, [location.pathname]);
-
+  // The header is always on screen, on phones and tablets too (it takes its own space above the page).
 
   useEffect(() => {
     window.scrollTo({ top: 0 });
@@ -505,7 +476,7 @@ export function Shell() {
         </div>
       ) : null}
 
-      <header className={`topbar ${headerHidden ? 'topbar--hidden' : ''} ${live ? 'topbar--notice' : ''}`} inert={headerHidden} aria-hidden={headerHidden || undefined}>
+      <header className={`topbar ${live ? 'topbar--notice' : ''}`}>
         <div className="topbar__inner">
           <button type="button" className="menu-btn" aria-label="Open profile" aria-haspopup="dialog" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}>
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true" focusable="false">
@@ -547,6 +518,14 @@ export function Shell() {
           </div>
           <div className="topbar__mobile">
             <SupportMenu onAsk={() => setAiOpen(true)} />
+            <NavLink
+              to="/trips"
+              className={({ isActive }) => `icon-btn ${isActive ? 'is-active' : ''}`}
+              aria-label="My trips"
+              title="My trips"
+            >
+              <Icon name="trip-history" size={20} />
+            </NavLink>
             {!profile ? (
               <Button
                 variant="primary"

@@ -90,7 +90,6 @@ export function AccountPage({ variant = 'page', onClose }: { variant?: 'page' | 
           </EmptyState>
         </div>
         <div className="card card--list" style={{ marginTop: 16 }}>
-          {inDrawer ? <Row icon="jet" label="Airport Taxi" to="/book?service=airport" onNavigate={onClose} /> : null}
           <Row icon="info" label="About NESAM Cabs" to="/about" />
           <Row icon="document" label="Terms, privacy & customer policies" to="/legal" />
         </div>
@@ -166,15 +165,6 @@ export function AccountPage({ variant = 'page', onClose }: { variant?: 'page' | 
           </aside>
 
           <div className="account__groups">
-            {/* Airport Taxi is not in the bottom bar: it is booked from here. */}
-            {inDrawer ? (
-              <section className="group" aria-labelledby="g-services">
-                <h2 id="g-services" className="group__title">Services</h2>
-                <div className="card card--list">
-                  <Row icon="jet" label="Airport Taxi" to="/book?service=airport" onNavigate={onClose} />
-                </div>
-              </section>
-            ) : null}
             <section className="group" aria-labelledby="g-account">
               <h2 id="g-account" className="group__title">Account</h2>
               <div className="card card--list">

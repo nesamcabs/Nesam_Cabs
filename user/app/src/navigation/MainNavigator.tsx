@@ -38,13 +38,12 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
 
 
-// The website's floating bar (Pickup & Drop · Hourly Rental · Outstation · Multicity · My trips; Airport is in the side drawer) sits under every tab page. The
-// service tabs follow the service chosen on the booking form; My trips lights up on the trips page; the profile and
+// The website's floating bar (Pickup & Drop · Hourly Rental · Outstation · Multicity · Airport; My trips is in the header) sits under every tab page. The
+// service tabs follow the service chosen on the booking form; the profile and
 // Notifications belong to none of them (they open from the side menu and the header).
-function tabActive(name?: string): 'rental' | 'trips' | null | undefined {
+function tabActive(name?: string): 'rental' | null | undefined {
   if (name === 'Book') return undefined;
   if (name === 'Rentals') return 'rental';
-  if (name === 'Trips') return 'trips';
   return null;
 }
 

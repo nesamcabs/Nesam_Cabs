@@ -174,7 +174,6 @@ export interface TariffConfig {
   fareGst?: FareGstPolicies;
   /** Rupee amounts. Absent = not configured (never zero). */
   version: number;
-  enabled: boolean;
   gstRate: number;
   oneWay: { minKm: number; classes: Partial<Record<TariffClass, OneWayRates>> };
   roundTrip: {
@@ -593,7 +592,6 @@ export function parseTariffConfig(d: Record<string, any> | undefined | null): Ta
     : [];
   return {
     version: typeof d.version === 'number' ? d.version : 0,
-    enabled: d.enabled === true,
     ...(isNum(d.petCharge) && d.petCharge <= 100000 ? { petCharge: d.petCharge } : {}),
     gstRate: isNum(d.gstRate) && d.gstRate < 1 ? d.gstRate : 0.05,
     oneWay: { minKm: isNum(d.oneWay?.minKm) && d.oneWay.minKm > 0 ? d.oneWay.minKm : 130, classes: sanitizeCng(rateMap<OneWayRates>(d.oneWay?.classes, ['customerRate', 'customerBata', 'partnerRate', 'partnerBata'])) },

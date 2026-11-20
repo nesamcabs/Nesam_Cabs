@@ -17,6 +17,8 @@ interface HeaderProps {
   /** Opens a page or, with a booking id, that booking's details. */
   onOpen: (page: string, bookingId?: string) => void;
   onCreateBooking?: () => void;
+  /** Opens the Quick fare page. */
+  onQuickFare?: () => void;
   onOpenMenu: () => void;
   userName?: string | null;
   userEmail?: string | null;
@@ -28,7 +30,7 @@ interface HeaderProps {
 type Sheet = "alerts" | "privacy" | "search" | "profile" | "reminders" | "sounds" | null;
 
 /** Master Admin top bar: lock · sign out · privacy · search · new booking · alerts · account. */
-export default function Header({ title, onNavigate, onOpen, onCreateBooking, onOpenMenu, userName, userEmail, userRole, onSignOut, badges }: HeaderProps) {
+export default function Header({ title, onNavigate, onOpen, onCreateBooking, onQuickFare, onOpenMenu, userName, userEmail, userRole, onSignOut, badges }: HeaderProps) {
   const [sheet, setSheet] = useState<Sheet>(null);
   const [locked, setLocked] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -110,6 +112,11 @@ export default function Header({ title, onNavigate, onOpen, onCreateBooking, onO
         <Button variant="ghost" iconOnly icon="log-out" onClick={() => onSignOut?.()} aria-label="Sign out" title="Sign out" />
         <Button iconOnly icon="shield-check" onClick={() => setSheet("privacy")} aria-label="Privacy" title="Customer privacy & access" />
         <Button iconOnly icon="search" onClick={() => setSheet("search")} aria-label="Search records" title="Search records" />
+        {onQuickFare && (
+          <Button variant="primary" icon="calculator" onClick={onQuickFare} aria-label="Quick fare" title="Check a fare">
+            <span className="ds-btn-label">Quick fare</span>
+          </Button>
+        )}
         {onCreateBooking && (
           <Button variant="primary" icon="plus" onClick={onCreateBooking}>
             <span className="ds-btn-label">New booking</span>

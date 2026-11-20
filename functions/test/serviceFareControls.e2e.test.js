@@ -211,12 +211,7 @@ test('extra rates are frozen, per-stop usage is approved once, and partner extra
   assert.equal((await H.rest('control-customer','booking_pricing_private/'+id)).status,403);
 });
 
-test('shared engine toggle preserves saved scopes and category availability is global',async()=>{
-  const before=(await db.doc('business_config/tariff_v2').get()).data();
-  ok(await call(A,'saveTariffConfig',{keepSavedRates:true,enabled:false,expectedVersion:before.version,reason:'Synthetic engine switch off'}));
-  const disabled=(await db.doc('business_config/tariff_v2').get()).data();
-  assert.equal(disabled.enabled,false);assert.deepEqual(disabled.brandOverrides,before.brandOverrides);assert.deepEqual(disabled.fareGst,before.fareGst);
-  ok(await call(A,'saveTariffConfig',{keepSavedRates:true,enabled:true,expectedVersion:disabled.version,reason:'Restore synthetic engine switch'}));
+test('category availability is global',async()=>{
   await db.doc('vehicle_categories/control-sedan').update({status:'Inactive'});
   for(const brand of brands)assert.equal((await quote(brand,'One Way')).ok,false);
   await db.doc('vehicle_categories/control-sedan').update({status:'Active'});

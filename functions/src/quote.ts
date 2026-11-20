@@ -391,7 +391,7 @@ function priceBookingCore(i: PriceInput): PriceResult {
   const outstation = isOutstation(i.route.distanceKm);
   const service = serviceName(i.pickup, i.drop, i.route.distanceKm, i.tripType);
   const klass = tariffClassOf(i.category);
-  const cfg = effectiveTariff && effectiveTariff.enabled ? effectiveTariff : null;
+  const cfg = effectiveTariff;
   // Round Trip, One Way and Airport Taxi trips that no more specific admin fare priced above (an enabled fixed route, Local Pickup & Drop
   // city or zone fare, city-drop zone, or complete Airport Taxi fares) use the admin One Way / Round Trip rate card.
   const useTariff = !!cfg && !!klass && (i.tripType === 'Round Trip' || i.tripType === 'One Way' || i.tripType === 'Airport Taxi');
@@ -540,16 +540,14 @@ function priceBookingCore(i: PriceInput): PriceResult {
 // ── Admin: save the tariff configuration ────────────────────────────────────
 
 /**
- * Saves business_config/tariff_v2 from the admin panel. `enabled` switches the tariff on for NEW bookings
+ * Saves business_config/tariff_v2 (the whole rate card) from the admin panel. A change applies to NEW bookings
  * only — a confirmed booking keeps the pricing snapshot it was quoted with.
  */
 export const saveTariffConfig = onCall(async (request) => {
   const actor = await requirePermission(request.auth, 'pricing');
   requireAction(actor, 'Settings', 'edit');
   const input = request.data ?? {};
-  // `keepSavedRates` only flips the on/off switch: every saved rate, zone and local fare stays as it is.
-  const keepSaved = input.keepSavedRates === true;
-  const submitted = parseTariffConfig({ ...input, enabled: input.enabled === true, version: 0 });
+  const submitted = parseTariffConfig({ ...input, version: 0 });
   if (!submitted) throw new HttpsError('invalid-argument', 'The tariff configuration is invalid.');
   const reason = text(input.reason, 300);
   if (reason.length < 5) throw new HttpsError('invalid-argument', 'Give a short reason for the change.');
@@ -560,15 +558,9 @@ export const saveTariffConfig = onCall(async (request) => {
     if (typeof input.expectedVersion === 'number' && input.expectedVersion !== (before?.version ?? 0)) {
       throw new HttpsError('failed-precondition', 'The tariff was changed by someone else. Reload and review it before saving.');
     }
-    if (keepSaved && !before) throw new HttpsError('failed-precondition', 'No tariff is saved yet. Save base rates first.');
     // A full save replaces the one-way / round-trip / rental / city-drop rates only; the
     // outstation extras, airport fare, Local Pickup & Drop fares and rental packages keep their saved values.
-    const parsed: TariffConfig = keepSaved && before ? {
-      ...before,
-      enabled: input.enabled === true,
-      // City-drop zones may be replaced on their own; every rate stays as saved.
-      ...(Array.isArray(input.cityDrop?.zones) ? { cityDrop: { ...before.cityDrop, zones: submitted.cityDrop.zones } } : {}),
-    } : {
+    const parsed: TariffConfig = {
       ...submitted,
       ...(submitted.outstationExtras ?? before?.outstationExtras ? { outstationExtras: submitted.outstationExtras ?? before?.outstationExtras } : {}),
       ...(submitted.oneWayExtras ?? before?.oneWayExtras ? { oneWayExtras: submitted.oneWayExtras ?? before?.oneWayExtras } : {}),
@@ -584,13 +576,10 @@ export const saveTariffConfig = onCall(async (request) => {
       ...(before?.hillStation ? { hillStation: before.hillStation } : {}),
       ...(before?.displayMarkup ? { displayMarkup: before.displayMarkup } : {}),
     };
-    if (parsed.enabled && !Object.keys(parsed.oneWay.classes).length && !Object.keys(parsed.roundTrip.classes).length) {
-      throw new HttpsError('failed-precondition', 'Configure at least one one-way or round-trip rate card before enabling the tariff.');
-    }
     const version = (before?.version ?? 0) + 1;
     tx.set(ref, { ...parsed, version, updatedBy: actor.uid, updatedByName: actor.name, updatedAt: FieldValue.serverTimestamp() });
-    auditInTx(tx, { action: 'tariff_saved', entity: 'tariff', entityId: 'v2', performedBy: actor.uid, performedByName: actor.name, role: 'admin', previous: before ? { version: before.version, enabled: before.enabled } : null, next: { version, enabled: parsed.enabled }, reason });
-    return { version, enabled: parsed.enabled };
+    auditInTx(tx, { action: 'tariff_saved', entity: 'tariff', entityId: 'v2', performedBy: actor.uid, performedByName: actor.name, role: 'admin', previous: before ? { version: before.version } : null, next: { version }, reason });
+    return { version };
   });
 });
 
