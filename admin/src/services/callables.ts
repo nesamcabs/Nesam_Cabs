@@ -18,7 +18,8 @@ export function describeCallError(err: unknown): string {
   if (/^functions\/(invalid-argument|failed-precondition|permission-denied|not-found|unavailable|unauthenticated|already-exists|resource-exhausted)$/.test(code) && message) {
     return message;
   }
-  if (code === "functions/deadline-exceeded") return "The server took too long to respond. Please try again.";
+  // A timeout from our own client carries advice about writes that may have gone through: keep it.
+  if (code === "functions/deadline-exceeded") return (err as { details?: { reason?: string } }).details?.reason === "timeout" && message ? message : "The server took too long to respond. Please try again.";
   // The reference tells support (and the console) the real cause: "internal" = a server fault, "unknown" = no code at all.
   return `The server could not complete the request. Check your connection and try again. (Ref: ${code.replace("functions/", "") || "unknown"})`;
 }

@@ -1,7 +1,7 @@
 // Small, dependency-free helpers shared by the HTTP (Vercel) entry points.
 import type { IncomingMessage, ServerResponse } from 'http';
 import { timingSafeEqual } from 'crypto';
-import { PUBLIC_CALLABLE_ORIGINS, PUBLIC_ORIGIN_PATTERNS } from '../corsOrigins';
+import { APP_ORIGINS, PUBLIC_CALLABLE_ORIGINS, PUBLIC_ORIGIN_PATTERNS } from '../corsOrigins';
 
 /** The parts of Vercel's Node request helpers these handlers use. */
 export interface ApiRequest extends IncomingMessage {
@@ -48,11 +48,19 @@ function originAllowed(origin: string, list: string[]): boolean {
  * Requests authenticate with a Bearer token, never cookies, so CORS here is hygiene,
  * not the access control.
  */
-export function applyCors(req: IncomingMessage, res: ApiResponse): void {
+const refusedLogged = new Set<string>();
+/** Whether this origin may read the API's replies (without touching the response). */
+export function originIsAllowed(origin: string): boolean {
+  const fromEnv = (process.env.ALLOWED_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+  return !!origin && originAllowed(origin, [...PUBLIC_CALLABLE_ORIGINS, ...APP_ORIGINS, ...PUBLIC_ORIGIN_PATTERNS, ...fromEnv]);
+}
+
+/** Returns true when the request's origin was allowed (or there is none: a server or native app). */
+export function applyCors(req: IncomingMessage, res: ApiResponse): boolean {
   const origin = header(req, 'origin');
   // The public customer domains are always allowed, so a site added there never depends on the env var being updated.
   const fromEnv = (process.env.ALLOWED_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
-  const list = [...PUBLIC_CALLABLE_ORIGINS, ...PUBLIC_ORIGIN_PATTERNS, ...fromEnv];
+  const list = [...PUBLIC_CALLABLE_ORIGINS, ...APP_ORIGINS, ...PUBLIC_ORIGIN_PATTERNS, ...fromEnv];
   res.setHeader('Vary', 'Origin');
   if (origin && originAllowed(origin, list)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
@@ -62,7 +70,14 @@ export function applyCors(req: IncomingMessage, res: ApiResponse): void {
     res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Client-Request-Id, x-client-request-id');
     res.setHeader('Access-Control-Expose-Headers', 'X-Request-Id');
     res.setHeader('Access-Control-Max-Age', '600');
+    return true;
   }
+  // A browser page we do not know: say so in the logs (once per origin per instance) so a blocked site is found in minutes, not days.
+  if (origin && !refusedLogged.has(origin) && refusedLogged.size < 50) {
+    refusedLogged.add(origin);
+    console.warn('[cors] refused origin: add it to APP_ORIGINS (functions/src/corsOrigins.ts) or ALLOWED_ORIGINS if it is a NESAM site', { origin, method: req.method, url: req.url });
+  }
+  return !origin;
 }
 
 /** Security headers that make sense on a JSON API. */

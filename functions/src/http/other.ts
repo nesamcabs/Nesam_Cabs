@@ -7,10 +7,15 @@ import { db } from '../admin';
 import { runUnassignedAlerts, clearResolvedFlags } from '../scheduler';
 import { reconcileBacklog, runPeriodicJobs } from '../jobs';
 import { handleRazorpayEvent, razorpayWebhookValid } from '../payments';
-import { ApiRequest, ApiResponse, apiHeaders, cronAuthorized, header, safeEqual, sendError, sendJson } from './util';
+import { ApiRequest, ApiResponse, apiHeaders, applyCors, cronAuthorized, header, safeEqual, sendError, sendJson } from './util';
 
-export async function health(_req: ApiRequest, res: ApiResponse): Promise<void> {
+export async function health(req: ApiRequest, res: ApiResponse): Promise<void> {
   apiHeaders(res);
+  // Readable from the apps' own pages, and says whether THIS page's address is allowed to call the API (null: not a browser).
+  const origin = header(req, 'origin');
+  res.setHeader('Vary', 'Origin');
+  const corsAllowed = origin ? applyCors(req, res) : null;
+  if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
   // The Firebase project this API verifies sign-ins for (a public identifier): it must equal the project the apps sign in to.
   let projectId = '';
   try {
@@ -19,7 +24,11 @@ export async function health(_req: ApiRequest, res: ApiResponse): Promise<void> 
     /* not initialised */
   }
   const serviceAccount = Boolean((process.env.NESAM_SERVICE_ACCOUNT ?? process.env.FIREBASE_SERVICE_ACCOUNT ?? '').trim());
-  sendJson(res, 200, { ok: true, time: new Date().toISOString(), auth: { projectId, serviceAccount } });
+  sendJson(res, 200, {
+    ok: true, time: new Date().toISOString(), auth: { projectId, serviceAccount },
+    cors: { origin: origin || null, allowed: corsAllowed },
+    release: (process.env.VERCEL_GIT_COMMIT_SHA ?? '').slice(0, 7) || null,
+  });
 }
 
 async function readRawBody(req: ApiRequest, limit = 1_000_000): Promise<Buffer> {

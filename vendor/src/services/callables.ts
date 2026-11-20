@@ -35,7 +35,7 @@ export function classifyCallError(err: unknown): { message: string; diagnostic: 
     return { diagnostic: 'record-not-found', message };
   }
   if (/^functions\/(invalid-argument|failed-precondition|permission-denied|unavailable|unauthenticated|already-exists|resource-exhausted)$/.test(code) && message) return { diagnostic: code.replace('functions/', ''), message };
-  if (code === 'functions/deadline-exceeded') return { diagnostic: 'deadline-exceeded', message: 'The server took too long to respond. Please try again.' };
+  if (code === 'functions/deadline-exceeded') return { diagnostic: 'deadline-exceeded', message: (err as { details?: { reason?: string } }).details?.reason === 'timeout' && message ? message : 'The server took too long to respond. Please try again.' };
   return { diagnostic: code.replace('functions/', '') || 'unknown', message: 'The server could not complete the request. Check your connection and try again.' };
 }
 

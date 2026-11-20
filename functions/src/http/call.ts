@@ -100,7 +100,7 @@ export async function handler(req: ApiRequest, res: ApiResponse): Promise<void> 
       console.warn('[api] sign-in token rejected', { requestId, name, reason, code: (err as { code?: string })?.code, detail: String((err as Error)?.message ?? '').slice(0, 160) });
       return sendError(res, 401, 'unauthenticated', message, { reason });
     }
-    if (rateLimited(decoded.uid)) return sendError(res, 429, 'resource-exhausted', 'Too many requests. Please wait a moment.');
+    if (rateLimited(decoded.uid)) { res.setHeader('Retry-After', '5'); return sendError(res, 429, 'resource-exhausted', 'Too many requests. Please wait a moment.'); }
   } else if (!PUBLIC_CALLABLES.has(name)) {
     return sendError(res, 401, 'unauthenticated', 'Sign in required.');
   }

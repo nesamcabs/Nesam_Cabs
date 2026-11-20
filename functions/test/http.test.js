@@ -162,3 +162,62 @@ test('WhatsApp webhook: verify handshake and signature', async () => {
   assert.equal((await run(whatsappWebhook, { raw: payload, headers: { 'x-hub-signature-256': 'sha256=deadbeef' } })).status, 403);
   assert.equal((await run(whatsappWebhook, { raw: payload })).status, 403);
 });
+
+test('CORS: the Admin, Driver and Vendor apps are always allowed, whatever ALLOWED_ORIGINS says', async () => {
+  for (const origin of ['https://nesamtravelsadmin.vercel.app', 'https://nesamtravelsdriver.vercel.app', 'https://nesamtravelsvendor.vercel.app', 'https://nesamcabs.vercel.app']) {
+    const r = await run(call, { method: 'OPTIONS', headers: { origin, 'access-control-request-method': 'POST', 'access-control-request-headers': 'authorization,content-type' }, query: { name: 'saveTariffSection' } });
+    assert.equal(r.status, 204);
+    assert.equal(r.headers['access-control-allow-origin'], origin, `${origin} must be told it may read the reply`);
+    assert.equal(r.headers.vary, 'Origin');
+  }
+  // Lookalikes and other sites stay refused.
+  for (const origin of ['https://nesamtravelsadmin.vercel.app.evil.com', 'https://evil-nesamtravelsadmin.vercel.app', 'http://nesamtravelsadmin.vercel.app']) {
+    const r = await run(call, { method: 'OPTIONS', headers: { origin }, query: { name: 'saveTariffSection' } });
+    assert.equal(r.headers['access-control-allow-origin'], undefined, `${origin} must not be allowed`);
+  }
+});
+
+test('health says whether the calling page may use the API, so a blocked site is found at once', async () => {
+  const known = await run(health, { method: 'GET', headers: { origin: 'https://nesamtravelsadmin.vercel.app' } });
+  assert.equal(known.status, 200);
+  assert.deepEqual(json(known).cors, { origin: 'https://nesamtravelsadmin.vercel.app', allowed: true });
+  assert.equal(known.headers['access-control-allow-origin'], 'https://nesamtravelsadmin.vercel.app');
+  const stranger = await run(health, { method: 'GET', headers: { origin: 'https://stranger.example.net' } });
+  assert.deepEqual(json(stranger).cors, { origin: 'https://stranger.example.net', allowed: false });
+  assert.equal(stranger.headers['access-control-allow-origin'], undefined);
+  const native = await run(health, { method: 'GET' });
+  assert.deepEqual(json(native).cors, { origin: null, allowed: null }, 'no Origin header: a server or native app, CORS does not apply');
+});
+
+test('CORS: Vercel preview deployments of the staff apps are allowed; lookalikes are not', async () => {
+  const pre = { 'access-control-request-method': 'POST', 'access-control-request-headers': 'authorization,content-type' };
+  for (const origin of ['https://nesamtravelsadmin-abc123xyz-legendary-ones-projects.vercel.app', 'https://nesamtravelsdriver-git-main-legendary-ones-projects.vercel.app']) {
+    const r = await run(call, { method: 'OPTIONS', headers: { origin, ...pre }, query: { name: 'saveTariffSection' } });
+    assert.equal(r.headers['access-control-allow-origin'], origin);
+  }
+  for (const origin of ['https://nesamtravelsadmin-abc-other-team.vercel.app', 'https://nesamtravelsadmin-a.b-legendary-ones-projects.vercel.app', 'https://nesamtravelsadmin-abc-legendary-ones-projects.vercel.app.evil.com']) {
+    const r = await run(call, { method: 'OPTIONS', headers: { origin, ...pre }, query: { name: 'saveTariffSection' } });
+    assert.equal(r.headers['access-control-allow-origin'], undefined, `${origin} must be refused`);
+  }
+});
+
+test('a refused origin is written to the log once, so the cause of a blocked site is visible in Vercel', async () => {
+  const seen = [];
+  const warn = console.warn;
+  console.warn = (...a) => { seen.push(a.join(' ')); };
+  try {
+    for (let i = 0; i < 3; i++) await run(call, { method: 'OPTIONS', headers: { origin: 'https://logged-once.example.org' }, query: { name: 'x' } });
+  } finally {
+    console.warn = warn;
+  }
+  assert.equal(seen.filter((l) => l.includes('[cors] refused origin')).length, 1);
+});
+
+test('a rate-limited caller is told when to come back', async () => {
+  const { rateLimited } = require('../lib/http/util');
+  for (let i = 0; i < 241; i++) rateLimited('limit-test-uid');
+  const r = await run(call, { headers: { authorization: 'Bearer good:limit-test-uid', origin: 'https://customer.example.com' }, query: { name: 'getLegalStatus' }, body: { data: {} } });
+  assert.equal(r.status, 429);
+  assert.equal(r.headers['retry-after'], '5');
+  assert.equal(json(r).error.code, 'resource-exhausted');
+});

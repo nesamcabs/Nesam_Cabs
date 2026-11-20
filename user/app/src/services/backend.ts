@@ -10,6 +10,7 @@
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { app, auth } from '../config/firebase';
 import { currentIdToken } from './session';
+import { browserMemory, createApiClient, parseBases } from './apiClient';
 
 // The booking server. Builds always talk to it (the Firebase callables they fall back to are not deployed, so nothing that
 // needs the server would work), whether or not the build's environment variable was set; an explicit value still wins, and
@@ -28,19 +29,30 @@ const callableFunctions = () => (FN_PROXY && typeof window !== 'undefined' ? get
 /** True when server functions go through the HTTP API instead of Firebase callables. */
 export const usesHttpApi = API_URL.length > 0;
 
-class BackendError extends Error {
-  code: string;
-  details?: unknown;
-  constructor(code: string, message: string, details?: unknown) {
-    super(message);
-    this.code = `functions/${code}`;
-    this.details = details;
-  }
-}
+// Where this page runs: a browser (CORS applies, and its own address may forward /api) or a native app (neither).
+const pageOrigin = typeof window !== 'undefined' && window.location && /^https?:/.test(window.location.origin ?? '') ? window.location.origin : '';
+/**
+ * Addresses tried in order: the API, any extra addresses from EXPO_PUBLIC_API_FALLBACK_URLS, and in a browser this site's own
+ * /api forwarder (vercel.json), which is never a cross-site request and so never needs CORS.
+ */
+const BASES = [...new Set([API_URL, ...parseBases(process.env.EXPO_PUBLIC_API_FALLBACK_URLS), ...(pageOrigin ? [''] : [])])].filter((b, i) => i === 0 || b !== API_URL);
+
+const client = createApiClient({
+  bases: BASES,
+  pageOrigin,
+  // Signed out: sent without a token; the server only answers its public (read-only) functions.
+  getToken: async (force) => {
+    if (!force) return currentIdToken();
+    const user = auth.currentUser;
+    return user ? user.getIdToken(true) : '';
+  },
+  memory: pageOrigin ? browserMemory() : undefined,
+  log: (event, info) => console.warn('[NESAM API]', event, info),
+});
 
 export async function callBackend<Req, Res>(name: string, data: Req, timeoutMs = 60000): Promise<Res> {
-  const requestId = `${name}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   if (!usesHttpApi) {
+    const requestId = `${name}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     console.info('[NESAM API]', { requestId, name, transport: 'firebase-callable' });
     try {
       const result = (await httpsCallable<Req, Res>(callableFunctions(), name, { timeout: timeoutMs })(data)).data;
@@ -51,48 +63,7 @@ export async function callBackend<Req, Res>(name: string, data: Req, timeoutMs =
       throw error;
     }
   }
-
-  // Signed out: sent without a token; the server only answers its public (read-only) functions.
-  const token = await currentIdToken();
-  const user = token ? auth.currentUser : null;
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  let response: Response;
-  const endpoint = `${API_URL}/api/call/${encodeURIComponent(name)}`;
-  console.info('[NESAM API]', { requestId, name, transport: 'vercel-http', endpoint, signedIn: Boolean(user) });
-  try {
-    response = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Client-Request-Id': requestId, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: JSON.stringify({ data }),
-      signal: controller.signal,
-    });
-  } catch (err) {
-    console.error('[NESAM API network error]', { requestId, name, endpoint, error: (err as Error)?.message });
-    if (!diagnosedOnce && typeof window !== 'undefined') {
-      diagnosedOnce = true;
-      void diagnoseApi();
-    }
-    if ((err as { name?: string }).name === 'AbortError') throw new BackendError('deadline-exceeded', 'The server took too long to respond.');
-    throw new BackendError('unavailable', 'Could not reach the server. Check your connection and try again.');
-  } finally {
-    clearTimeout(timer);
-  }
-
-  let payload: { data?: Res; error?: { code?: string; message?: string; details?: unknown } } = {};
-  try {
-    payload = await response.json();
-  } catch {
-    /* non-JSON error page (gateway timeout etc.) */
-  }
-  if (!response.ok || payload.error) {
-    const code = payload.error?.code ?? (response.status === 401 ? 'unauthenticated' : response.status === 504 ? 'deadline-exceeded' : 'internal');
-    console.error('[NESAM API response error]', { requestId, name, endpoint, status: response.status, code, message: payload.error?.message });
-    throw new BackendError(code, payload.error?.message ?? 'The server could not complete the request.', payload.error?.details);
-  }
-  console.info('[NESAM API success]', { requestId, name, endpoint, status: response.status });
-  return payload.data as Res;
+  return client.call<Res>(name, data, timeoutMs);
 }
 
 /**
@@ -112,36 +83,13 @@ export function settlePayout(payoutRequestId: string): void {
 }
 
 /**
- * Connection check, printed in the browser console on load and runnable any time as `nesamApiCheck()`. It sends one harmless
- * request to the API and says plainly whether this page can reach it, which address it used, and what the likely cause is when
- * it cannot. Nothing is sent but an unknown function name; no data and no token.
+ * Connection check, runnable any time in the browser console as `nesamApiCheck()`: it tries every address this app can use and
+ * says which work, which are blocked or down, and what to do. Nothing is sent but an unknown function name; no data, no token.
  */
 export async function diagnoseApi(): Promise<Record<string, unknown>> {
-  const report: Record<string, unknown> = {
-    page: typeof window !== 'undefined' ? window.location.origin : '',
-    mode: usesHttpApi ? 'HTTP API' : 'Firebase callables (not deployed: saves and fares will fail)',
-    api: usesHttpApi ? API_URL : '(none)',
-  };
-  if (usesHttpApi) {
-    try {
-      const res = await fetch(`${API_URL}/api/call/__connection_check`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"data":{}}' });
-      report.reachable = true;
-      report.status = res.status;
-      report.verdict = res.status === 404 ? 'OK: the API answered (an unknown function is the expected reply).' : `The API answered with HTTP ${res.status}.`;
-    } catch (err) {
-      report.reachable = false;
-      report.error = String((err as Error)?.message ?? err);
-      report.verdict = 'BLOCKED: the browser got no reply. This page address is not allowed by the API (CORS) or the API is unreachable. Add this page address to ALLOWED_ORIGINS on the API project (Vercel) and redeploy it.';
-    }
-  } else {
-    report.verdict = 'Not using the HTTP API: set the API address (see the project settings) or remove the Firebase-callables switch.';
-  }
-  console.info('[NESAM API check]', report);
-  return report;
+  if (!usesHttpApi) return { verdict: 'Not using the HTTP API: set the API address (see the project settings) or remove the Firebase-callables switch.' };
+  return client.diagnose();
 }
 if (typeof window !== 'undefined') {
-  // Runnable by hand. It no longer runs on every page load: its deliberate "unknown function" request answers 404, which the
-  // browser prints as a red network error. It runs once, automatically, when a real call cannot reach the API.
   (window as unknown as { nesamApiCheck?: typeof diagnoseApi }).nesamApiCheck = diagnoseApi;
 }
-let diagnosedOnce = false;
