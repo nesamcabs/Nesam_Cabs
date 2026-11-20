@@ -306,8 +306,8 @@ export type NavKey = HomeService | 'trips';
 /** The bottom bar, as on the website: Local Pickup & Drop · Hourly Rental · Outstation (the middle one) · Multicity · My trips.
  *  Airport Taxi is not here: it is booked from the side drawer. The first two open the Local Rentals map in that mode. */
 const NAV_ITEMS: { key: NavKey; label: string; full?: string; mode?: RentalsMode; image?: ImageSourcePropType; icon?: IconName }[] = [
-  { key: 'rental', mode: 'pickup', label: 'Pickup & Drop', full: 'Local Pickup & Drop', image: NESAM.navPickup },
-  { key: 'rental', mode: 'hourly', label: 'Hourly Rental', image: NESAM.navLocal },
+  { key: 'rental', mode: 'pickup', label: 'Local', full: 'Local Pickup & Drop', image: NESAM.navPickup },
+  { key: 'rental', mode: 'hourly', label: 'Rental', full: 'Hourly Rental', image: NESAM.navLocal },
   { key: 'outstation', label: 'Outstation', image: NESAM.navOutstation },
   { key: 'multicity', label: 'Multicity', image: NESAM.navMulticity },
   { key: 'trips', label: 'My trips', icon: 'route' },

@@ -56,8 +56,8 @@ const IMMERSIVE = [/^\/ride\//, /^\/local-rentals(\/|$)/, /^\/trips\/[^/]+$/];
     Airport Taxi lives in the side drawer. The selected service rises in its brand color. */
 type BarId = 'pickup' | 'rental' | 'outstation' | 'multicity';
 const BAR: { id: BarId; label: string; full: string; to: string; image: string; size: number; wide?: boolean }[] = [
-  { id: 'pickup', label: 'Pickup & Drop', full: 'Local Pickup & Drop', to: '/local-rentals?mode=pickup', image: pickupIcon, size: 44, wide: true },
-  { id: 'rental', label: 'Hourly Rental', full: 'Hourly Rental', to: '/local-rentals?mode=hourly', image: rentalIcon, size: 44, wide: true },
+  { id: 'pickup', label: 'Local', full: 'Local Pickup & Drop', to: '/local-rentals?mode=pickup', image: pickupIcon, size: 44, wide: true },
+  { id: 'rental', label: 'Rental', full: 'Hourly Rental', to: '/local-rentals?mode=hourly', image: rentalIcon, size: 44, wide: true },
   { id: 'outstation', label: 'Outstation', full: 'Outstation', to: serviceHref('outstation'), image: outstationIcon, size: 46 },
   { id: 'multicity', label: 'Multicity', full: 'Multicity', to: serviceHref('multicity'), image: multicityIcon, size: 44 },
 ];
