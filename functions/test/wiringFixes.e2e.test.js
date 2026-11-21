@@ -82,11 +82,11 @@ test('approved public projection excludes contacts, notes and payouts; hiding/de
   }
   await db.doc('services/fix-service').delete();await syncPublicContent('services','fix-service');assert.equal((await db.doc('public_content/services_fix-service').get()).exists,false);
 });
-test('disabled delivery channels do not contact providers; cash switch is enforced',async()=>{
+test('disabled delivery channels do not contact providers; the retired cash switch no longer blocks pay-later',async()=>{
   await db.doc('settings/config').set({smsEnabled:false,emailEnabled:false,whatsappEnabled:false,pushEnabled:false,allowCod:false});
   for(const result of await Promise.all([sendSms('+919000000000',{text:'test'}),sendEmail('test@example.test',{subject:'test',text:'test'}),sendWhatsApp('+919000000000',{name:'test',bodyParams:[]})])) {
     assert.equal(result.ok,false);assert.equal(result.provider,'settings');assert.match(result.error,/disabled/);
   }
-  const cash=await call(admin,'createAdminBooking',request('',{paymentMethod:'Cash',expectedFare:1}));assert.equal(cash.ok,false);assert.match(cash.message,/Cash payments are disabled/);
+  const cash=await call(admin,'createAdminBooking',request('',{paymentMethod:'Cash',expectedFare:1}));assert.doesNotMatch(String(cash.message||''),/Cash payments are disabled/);
 });
 test.after(async()=>{if(oldConfig)await db.doc('settings/config').set(oldConfig);else await db.doc('settings/config').delete();if(routing)await new Promise(r=>routing.close(r));await db.terminate();});

@@ -274,22 +274,25 @@ service cloud.firestore {
 
     // ── Customers ───────────────────────────────────────────────────────────
     match /customers/{id} {
-      allow create: if (can('people') && canAct('Customers', 'create')) || (
-                       isOwner(id)
+      // A Staff ID never reads customer documents directly: they carry the raw mobile number and rules cannot hide one field.
+      // Staff IDs read the masked projection (getCustomerDirectory) and reveal one number at a time with a logged reason
+      // (revealCustomerNumber). The Master and role-based staff keep the direct read (as for booking_contacts).
+      // Staff create and edit through saveCustomerProfile, which enforces one customer per mobile number in a transaction.
+      allow create: if isOwner(id)
                        && request.resource.data.role == 'customer'
                        && request.resource.data.status == 'Approved'
-                       && request.resource.data.get('walletBalance', 0) == 0
-                     );
-      allow read: if isOwner(id) || isAdmin();
+                       && request.resource.data.get('walletBalance', 0) == 0;
+      allow read: if isOwner(id) || isSuperAdmin() || (isAdmin() && isLegacyStaff());
       // Customers edit their own contact details only — never status, role
       // or wallet balance.
-      allow update: if (can('people') && canAct('Customers', 'edit')) || (
-                       isOwner(id)
+      allow update: if isOwner(id)
                        && onlyChanges(['name', 'email', 'photoUrl', 'emergencyContact',
-                                       'language', 'notificationPrefs', 'updatedAt'])
-                     );
+                                       'language', 'notificationPrefs', 'updatedAt']);
       allow delete: if can('people') && (isSuperAdmin() || isLegacyStaff());
     }
+    // Reveal / export ledger and the one-customer-per-number index: server-written, read through callables only.
+    match /customer_number_views/{id} { allow read, write: if false; }
+    match /customer_phone_index/{id} { allow read, write: if false; }
 
     // ── Invites (admin/vendor pre-register a partner by phone) ──────────────
     // Doc id is the invitee's E.164 phone (e.g. +919876543210). On first

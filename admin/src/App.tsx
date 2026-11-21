@@ -62,7 +62,7 @@ import { endStaffSession, logActivity, startStaffSession } from "./services/staf
 import { NotificationProvider } from "./components/NotificationHost";
 import { Toast, useToast } from "./components/Feedback";
 import { canAccessPage, canExportFrom, landingPage, needsRedactedBookings } from "./config/permissions";
-import { setRedactedBookingReads } from "./services/adminFirestoreService";
+import { setRedactedBookingReads, setRedactedCustomerReads } from "./services/adminFirestoreService";
 import { setExportGuard } from "./utils/exportData";
 import { useNavBadges } from "./hooks/useNavBadges";
 import { NAV_GROUPS, groupOfPage } from "./components/shell/navConfig";
@@ -246,7 +246,17 @@ function AdminShell({ session }: { session: AdminSession }) {
           />
         );
       case "quick-fare":
-        return <QuickFare onNewBooking={canCreateBooking ? (d) => openNewBooking(d) : undefined} />;
+        return (
+          <QuickFare
+            onNewBooking={canCreateBooking ? (d) => openNewBooking(d) : undefined}
+            onNavigate={(page, tab) => navigate(page, tab)}
+            onSelectBooking={(id) => {
+              setActivePage("bookings");
+              setSelectedBookingId(id);
+            }}
+            onEnquirySaved={() => showToast("Enquiry saved. The fare and terms are retained.")}
+          />
+        );
       case "new-booking":
         return (
           <NewBooking
@@ -267,7 +277,12 @@ function AdminShell({ session }: { session: AdminSession }) {
 
       // People
       case "customers":
-        return <Customers onNavigate={navigate} />;
+        return (
+          <Customers
+            onNavigate={navigate}
+            onBookCustomer={canCreateBooking ? (c) => openNewBooking({ trip: emptyTrip(), categoryId: "", customer: { id: c.id, name: c.name, email: c.email, phoneMasked: c.phoneMasked, preferredCab: c.preferredCab, preferredDriver: c.preferredDriver } }) : undefined}
+          />
+        );
       case "business":
         return <BusinessAccounts onQuote={(businessId) => openNewBooking({ trip: { ...emptyTrip(), businessId }, categoryId: "" })} />;
       case "vendor-drivers":
@@ -378,7 +393,7 @@ function AdminShell({ session }: { session: AdminSession }) {
   return (
     <AccessProvider value={session.access}>
     <NotificationProvider onOpen={openTarget}>
-    <div className="ds-workspace" data-collapsed={collapsed}>
+    <div className="ds-workspace" data-collapsed={collapsed} data-route={currentPage}>
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[200] focus:bg-white focus:px-3 focus:py-2 focus:rounded-md focus:shadow-md">
         Skip to content
       </a>
@@ -509,9 +524,12 @@ export default function App() {
   // Set before any screen subscribes; the shell remounts (fresh listeners) when the right changes.
   const redacted = needsRedactedBookings(session.access);
   setRedactedBookingReads(redacted);
+  // A Staff ID reads the masked customer projection; the Master and role-based staff keep the direct read.
+  const maskedCustomers = session.access.kind === "staff";
+  setRedactedCustomerReads(maskedCustomers);
   return (
     <LegalGate>
-      <AdminShell key={redacted ? "redacted" : "full"} session={session} />
+      <AdminShell key={`${redacted ? "redacted" : "full"}-${maskedCustomers ? "masked" : "open"}`} session={session} />
     </LegalGate>
   );
 }

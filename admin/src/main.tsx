@@ -7,6 +7,11 @@ import '@fontsource/poppins/500.css'
 import '@fontsource/poppins/600.css'
 import '@fontsource/poppins/700.css'
 import '@fontsource/poppins/800.css'
+// Inter is used by the Customers Directory route only (styles/customersDirectory.css).
+import '@fontsource/inter/400.css'
+import '@fontsource/inter/500.css'
+import '@fontsource/inter/600.css'
+import '@fontsource/inter/700.css'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

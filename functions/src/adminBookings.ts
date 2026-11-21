@@ -32,7 +32,6 @@ import { addOnRatesOf, loadFixedRoutes, loadTariffConfig, priceBooking, rentalHo
 import { notifyInTx, pushAfterCommit, NotifyInput, inr } from './notify';
 import { nextBookingCode } from './bookingSequence';
 import { businessContract, availableBusinessCredit } from './domain/business';
-import { assertCashAllowed } from './channelPolicy';
 import { supportsTrip, serviceAllowsCategory, matchAuthoritativeService, ServiceMasterDoc } from './onlineCatalog';
 import { NO_BOOKABLE_CATEGORIES, approved, inIndia, requestIdOf, requirePermission, roundTripPricingRoute, routeFor, routeThrough, text, requireAction, requireStaffFlag } from './shared';
 import { canSeePayouts } from './staffReads';
@@ -103,32 +102,37 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
   // Quick fare: the office gives the estimate before collecting any customer details, so a
   // quote-only request needs no name, mobile or payment method. Nothing is written for a quote.
   const quoteOnly = input.quoteOnly === true;
-  if (input.tripType === 'Multicity' || input.serviceId === 'multicity') {
-    throw new HttpsError('failed-precondition', 'Multicity itineraries cannot be priced or converted using the standard pickup/drop booking flow.');
-  }
-  // Round trips may pass through stops, priced exactly as the customer sites price them (routeThrough + roundTripPricingRoute).
+  const multicity = input.tripType === 'Multicity' || input.multicity === true;
+  // Round trips and Multicity may pass through stops, priced exactly as the customer sites price them (routeThrough + roundTripPricingRoute).
   const rawStops = Array.isArray(input.stops) ? input.stops : [];
   if (rawStops.length > 8) throw new HttpsError('invalid-argument', 'Add no more than 8 intermediate stops.');
-  if (rawStops.length && input.tripType !== 'Round Trip') throw new HttpsError('invalid-argument', 'Intermediate stops are available for round trips only.');
+  if (rawStops.length && input.tripType !== 'Round Trip' && !multicity) throw new HttpsError('invalid-argument', 'Intermediate stops are available for round trips and multicity only.');
+  if (multicity && !rawStops.length) throw new HttpsError('invalid-argument', 'Add at least one via-stop city between your pickup and your final drop.');
   const enquiryCode = text(input.enquiryId, 40);
   if (enquiryCode) {
     if (!/^NSM-QT-\d{6}$/.test(enquiryCode)) throw new HttpsError('invalid-argument', 'Invalid enquiry reference.');
     const enquiry = (await db.doc(`enquiries/${enquiryCode}`).get()).data();
     if (!enquiry) throw new HttpsError('not-found', 'The enquiry no longer exists.');
     if (enquiry.serviceId === 'multicity' || enquiry.service === 'Multicity' || enquiry.tripType === 'Multicity' || enquiry.stops?.length) {
-      throw new HttpsError('failed-precondition', 'Keep this Multicity enquiry with the travel desk. Standard conversion would discard its itinerary and reviewed tour fare.');
+      if (!rawStops.length && !enquiry.stops?.length) {
+        throw new HttpsError('failed-precondition', 'Keep this Multicity enquiry with the travel desk. Standard conversion would discard its itinerary and reviewed tour fare.');
+      }
     }
   }
   const name = text(input.customerName, 80);
   if (!quoteOnly && name.length < 2) throw new HttpsError('invalid-argument', 'Enter the customer name.');
-  const phone = quoteOnly && !input.customerPhone ? '' : indianPhone(input.customerPhone);
+  // An existing customer chosen without a number (a Staff ID never holds one) is booked on the number saved with that customer.
+  let customerPhoneInput = input.customerPhone;
+  if (!quoteOnly && (!customerPhoneInput || customerPhoneInput.includes('*')) && typeof input.customerId === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(input.customerId)) {
+    customerPhoneInput = (await db.doc(`customers/${input.customerId}`).get()).data()?.phone;
+  }
+  const phone = quoteOnly && !customerPhoneInput ? '' : indianPhone(customerPhoneInput);
   const whatsapp = quoteOnly && !phone ? null : whatsappContact(input.customerWhatsapp, phone);
   const email = quoteOnly ? '' : optionalEmail(input.customerEmail);
   const paymentMethod = PAYMENT_METHODS.includes(input.paymentMethod) ? input.paymentMethod : null;
   if (!paymentMethod && !quoteOnly) throw new HttpsError('invalid-argument', `Choose how the customer will pay: ${PAYMENT_METHODS.join(', ')}.`);
-  if(!quoteOnly)await assertCashAllowed(paymentMethod);
   const tripType: TripType =
-    input.tripType === 'Round Trip'
+    input.tripType === 'Round Trip' || multicity
       ? 'Round Trip'
       : input.tripType === 'Local Rental'
       ? 'Local Rental'
@@ -150,10 +154,16 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
   let tripEndAt: Date | null = null;
   // The office may book a time-based round trip package (5/8-hour, Full-Day, Next-Day, Morning Return); its return time then follows the package.
   const timePackage = tripType === 'Round Trip' && typeof input.timePackage === 'string' && input.timePackage ? input.timePackage : undefined;
-  const tripDays = tripType === 'Round Trip' ? tripDaysOf(input.tripDays) : null;
-  if (tripType === 'Round Trip') {
+  const tripDays = (tripType === 'Round Trip' || multicity) ? tripDaysOf(input.tripDays) : null;
+  if (tripType === 'Round Trip' || multicity) {
     tripEndAt = parsePickupInstant(input.tripEndAt);
-    if (!tripEndAt && !timePackage) throw new HttpsError('invalid-argument', 'Choose the date and time the round trip ends.');
+    if (!tripEndAt && tripDays && tripDays > 0) {
+      const d = new Date(when);
+      d.setDate(d.getDate() + (tripDays - 1));
+      d.setHours(23, 59, 59, 999);
+      tripEndAt = d;
+    }
+    if (!tripEndAt && !timePackage && !multicity) throw new HttpsError('invalid-argument', 'Choose the date and time the round trip ends.');
     if (tripEndAt && tripEndAt.getTime() < when.getTime()) throw new HttpsError('invalid-argument', 'The trip cannot end before it starts.');
   }
   const [pickupR, dropR] = await Promise.all([resolvePlace(input, 'pickup'), resolvePlace(input, 'drop')]);
@@ -251,7 +261,7 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
 
     const rawChan = text(input.bookingSource || input.source || input.brand || input.channel || '');
     const bookingChannel = resolveAndValidateBrand({ brand: rawChan }, request, true);
-    assertServiceSupported(bookingChannel, tripType);
+    assertServiceSupported(bookingChannel, multicity ? 'Multicity' : tripType);
 
     const evalRules = (pkg?: string) => evaluateRules(serviceRules, pickup, drop, when, ruleServiceText(pickup, drop, route.distanceKm, tripType, service), bookingChannel, fareServiceKey(tripType), undefined, pkg);
 
@@ -265,7 +275,7 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
 
     const boardingState = await fareBoardingState(tariff, pickup);
     const recipientState = recipientGstState(business?.data() ?? customer?.data());
-    const priceInput = { addOns: bookingAddOnsOf(input.addOns ?? input.tripExtras), boardingState, recipientState, recipientAddressState: recipientAddressState(business?.data() ?? customer?.data()), category, route, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, adminDiscount: discountIn, localCityId, localZoneId, rentalHours, fixedRoutes, serviceId, businessContract:contract, brand: bookingChannel, platformFee, nightAllowance, tripDays, timePackage, stops };
+    const priceInput = { addOns: bookingAddOnsOf(input.addOns ?? input.tripExtras), boardingState, recipientState, recipientAddressState: recipientAddressState(business?.data() ?? customer?.data()), category, route, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, adminDiscount: discountIn, localCityId, localZoneId, rentalHours, fixedRoutes, serviceId, businessContract:contract, brand: bookingChannel, platformFee, nightAllowance, tripDays, timePackage, stops, multicity };
     // Coupon: the same server checks as customer checkout (validity, usage limits, minimum fare,
     // category / service, audience) against the fare before discount; then the booking is priced with it.
     let couponDiscount = 0;
@@ -312,7 +322,7 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
       const quotePricing = canSeePayouts(admin) ? priced.pricing : { ...priced.pricing, partner: null, ...(priced.pricing.extraCharges ? { extraCharges: { ...priced.pricing.extraCharges, partner: {} } } : {}) };
       // Road distance and time are the real journey (a round trip drives out and back). The quote's distanceKm is the billed KM,
       // which can be higher because of the daily minimum KM, so the office screen shows roadKm for the journey.
-      const roundTrip = tripType === 'Round Trip';
+      const roundTrip = tripType === 'Round Trip' || multicity;
       const roadKm = Math.round(route.distanceKm * (roundTrip ? 2 : 1) * 10) / 10;
       const roadMinutes = Math.round(route.durationMin * (roundTrip ? 2 : 1));
       return { quote: calculated, addOnRates: (() => { const r = addOnRatesOf(priceInput); return { carrierCharge: r.carrier, petCharge: r.pet }; })(), breakup, service, categoryName: category.name, commissionConfigured: true, adjustmentApplied: calculated.globalAdjustment, pricing: quotePricing, roadKm, roadMinutes, ...(couponCode ? { couponCode, couponDiscount } : {}) };
@@ -353,6 +363,7 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
       pickupType: pickup.type, pickupLocationId: pickupR.source === 'master' ? pickup.id : '', pickupSource: pickupR.source,
       drop: drop.name, dropAddress: drop.address, dropLat: drop.lat, dropLng: drop.lng, dropType: drop.type, dropLocationId: dropR.source === 'master' ? drop.id : '', dropSource: dropR.source,
       ...(stops.length ? { stops, itinerary } : {}),
+      ...(multicity ? { tourType: 'Multicity', service: 'Multicity', serviceId: 'multicity', itinerary } : {}),
       service, serviceId, tripType, vehicle: category.name, vehicleCategory: category.name, vehicleCategoryId: category.id,
       passengerSeatsRequired: category.seats, dutyClass: dutyClassOf({ dutyClass: category.dutyClass, name: category.name, seats: category.seats }) ?? '', tariffClass: tariffClassOf(category) ?? '',
       fare: fare.total, fareBreakdown: fare, fareBreakup: breakup, pricing: storedPricing, fareVerified: true, fareOverride, ...(commission ? { commission } : {}), distanceKm: fare.distanceKm, durationMin: fare.durationMin,
@@ -420,6 +431,10 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
  */
 function officeBookingExtras(input: any, admin: { uid: string; name: string }): Record<string, unknown> {
   const out: Record<string, unknown> = {};
+  const flight = text(input?.flightNumber, 100);
+  if (flight) out.flightNumber = flight;
+  const driverSlipNote = text(input?.driverSlipNote, 500);
+  if (driverSlipNote) out.driverSlipNote = driverSlipNote;
   const p = input?.passenger && typeof input.passenger === 'object' ? input.passenger : null;
   if (p && text(p.name, 80).length >= 2) {
     const phone = String(p.phone ?? '').replace(/\D/g, '').slice(-10);
@@ -435,8 +450,16 @@ function officeBookingExtras(input: any, admin: { uid: string; name: string }): 
   }
   const ex = input?.tripExtras && typeof input.tripExtras === 'object' ? input.tripExtras : null;
   if (ex) {
-    const waiting = Number(ex.waitingMinutes);
-    out.tripExtras = { hillTravel: ex.hillTravel === true, roofCarrier: ex.roofCarrier === true, pets: ex.pets === true, waitingMinutes: Number.isFinite(waiting) && waiting >= 0 && waiting <= 1440 ? Math.round(waiting) : 0 };
+    const waiting = Number(ex.waitingMinutes ?? (typeof ex.waitingHours === 'number' ? ex.waitingHours * 60 : 0));
+    out.tripExtras = {
+      hillTravel: ex.hillTravel === true,
+      roofCarrier: ex.roofCarrier === true,
+      pets: ex.pets === true,
+      waitingMinutes: Number.isFinite(waiting) && waiting >= 0 && waiting <= 2880 ? Math.round(waiting) : 0,
+      ...(Number.isFinite(Number(ex.waitingHours)) ? { waitingHours: Number(ex.waitingHours) } : {}),
+      ...(Number.isFinite(Number(ex.extraPickups)) ? { extraPickups: Number(ex.extraPickups) } : {}),
+      ...(Number.isFinite(Number(ex.extraDrops)) ? { extraDrops: Number(ex.extraDrops) } : {}),
+    };
   }
   const enquiry = text(input?.enquiryId, 40);
   if (enquiry && /^NSM-QT-\d{6}$/.test(enquiry)) out.enquiryId = enquiry;

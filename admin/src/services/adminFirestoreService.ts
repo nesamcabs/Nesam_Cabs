@@ -218,8 +218,38 @@ export const subscribeVehicleCategories = (cb: (data: VehicleCategory[]) => void
 export const subscribeVendors = (cb: (data: Vendor[]) => void, onError?: (message: string) => void) =>
   subscribeToCollection<Vendor>(COLLECTIONS.VENDORS, cb, onError);
 
-export const subscribeCustomers = (cb: (data: Customer[]) => void, onError?: (message: string) => void) =>
-  subscribeToCollection<Customer>(COLLECTIONS.CUSTOMERS, cb, onError);
+// A Staff ID may not read customer documents (they carry the raw mobile number): it receives the masked
+// projection from getCustomerDirectory instead — same shape, `phone` empty, `phoneMasked` set. Set by the shell.
+let redactedCustomers = false;
+export function setRedactedCustomerReads(on: boolean): void {
+  redactedCustomers = on;
+}
+export const subscribeCustomers = (cb: (data: Customer[]) => void, onError?: (message: string) => void) => {
+  if (!redactedCustomers) return subscribeToCollection<Customer>(COLLECTIONS.CUSTOMERS, cb, onError);
+  let stopped = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const tick = async () => {
+    try {
+      const r = await callBackend<Record<string, never>, { customers?: Customer[] }>("getCustomerDirectory", {});
+      if (!stopped) cb(r.customers ?? []);
+    } catch (err) {
+      if (!stopped && onError) onError(describeDataError(err));
+    } finally {
+      if (!stopped) timer = setTimeout(tick, POLL_MS);
+    }
+  };
+  void tick();
+  return () => { stopped = true; if (timer) clearTimeout(timer); };
+};
+
+/** Bookings for the Customers Directory: no contact numbers or email are joined in, and any a legacy document holds are dropped. */
+const CONTACT_KEYS = ["phone", "customerPhone", "customerEmail", "customerWhatsapp"] as const;
+export const subscribeBookingsWithoutContacts = (cb: (data: Booking[]) => void, onError?: (message: string) => void) =>
+  subscribeToCollection<Booking>(COLLECTIONS.BOOKINGS, (rows) => cb(rows.map((b) => {
+    const o = { ...b } as Record<string, unknown>;
+    for (const k of CONTACT_KEYS) delete o[k];
+    return o as unknown as Booking;
+  })), onError);
 
 export const subscribeMarketplace = (cb: (data: MarketplaceTrip[]) => void, onError?: (message: string) => void) =>
   subscribeToCollection<MarketplaceTrip>(COLLECTIONS.MARKETPLACE, cb, onError);

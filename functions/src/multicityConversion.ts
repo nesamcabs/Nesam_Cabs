@@ -11,7 +11,6 @@ import { createContactInTx, maskPhone } from './contacts';
 import { storePricingInTx } from './pricingPrivate';
 import { auditInTx } from './audit';
 import { summarizePayments } from './domain/bookingFlow';
-import { assertCashAllowed } from './channelPolicy';
 import { formatDate, formatTime12 } from './domain/time';
 import { dutyClassOf } from './domain/eligibility';
 import { assertBookable, assertWithinLimits, availabilityFields, evaluateRules, loadServiceRules } from './serviceRules';
@@ -32,7 +31,6 @@ export const convertMulticityEnquiry = onCall(async request => {
   if (name.length < 2 || input.customerAccepted !== true || reference.length < 5) throw new HttpsError('invalid-argument', 'Record the customer name and their agreement to this quote and booking terms, with a reference.');
   const paymentMethod = input.paymentMethod;
   if (paymentMethod !== 'Cash' && paymentMethod !== 'UPI') throw new HttpsError('invalid-argument', 'Choose Cash or UPI paid to the driver.');
-  await assertCashAllowed(paymentMethod);
   const rules = await loadServiceRules();
   const pushes: { id: string; input: NotifyInput }[] = [];
   const enquiryRef = db.doc(`enquiries/${enquiryId}`), bookingRef = db.doc(`bookings/multicity_${enquiryId}`);

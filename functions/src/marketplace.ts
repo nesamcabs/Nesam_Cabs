@@ -26,6 +26,7 @@ import { sendCustomerMessage } from './customerComms';
 import { AdminAccess } from './permissions';
 import { loadPrivatePricing, withPrivatePricing } from './pricingPrivate';
 import { approved, requirePermission, text, requireDuty, requireAction } from './shared';
+import { rankPendingBids } from './domain/offerSchedule';
 import { assignByFor } from './partnerOps';
 
 /** Names of the places a tour passes through between pickup and drop (booking.stops), at most ten. */
@@ -356,6 +357,11 @@ export const awardMarketplaceBid = onCall({ timeoutSeconds: 60 }, async (request
     if (!m.exists || !b.exists || !['Open', 'Bidding'].includes(m.data()!.status) || !unassigned(b.data()!)) throw new HttpsError('failed-precondition', 'This trip has already been assigned or withdrawn.');
     if (m.data()!.mode === 'accept_offer') throw new HttpsError('failed-precondition', 'This trip is posted for acceptance of the current offer, not for reviewed bids.');
     if (!winner.exists || winner.data()!.status !== 'Pending Review') throw new HttpsError('failed-precondition', 'This bid is no longer pending.');
+    // "Assign lowest bid": the chosen bid must still be the lowest one under review (ties: placed first, then lower id), so a lower bid that arrived meanwhile is never skipped.
+    if (request.data?.requireLowest === true) {
+      const ranked = rankPendingBids(bids.docs.map((x) => ({ id: x.id, status: x.data().status, amount: Number(x.data().vendorCounterRate), submittedAtMs: (x.data().submittedAt as Timestamp | undefined)?.toMillis?.() ?? 0 })));
+      if (!ranked.length || ranked[0].id !== bidId) throw new HttpsError('failed-precondition', 'A lower bid is now available. Review the list again before assigning.', { code: 'not-lowest' });
+    }
     const bid = winner.data()!;
     const bk = b.data()!;
     const payout = Number(bid.vendorCounterRate);

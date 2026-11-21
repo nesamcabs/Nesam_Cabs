@@ -80,6 +80,15 @@
   --size-sidebar-collapsed: 68px;
   --size-header: 72px;
 
+  /* Customers Directory reference palette (bg-crimson-50, text-crimson-800 …) */
+  --color-crimson-50: #fef2f2;
+  --color-crimson-100: #fee2e2;
+  --color-crimson-200: #fecaca;
+  --color-crimson-600: #dc2626;
+  --color-crimson-700: #b91c1c;
+  --color-crimson-800: #991b1b;
+  --color-crimson-900: #7f1d1d;
+
   /* Legacy names kept for existing markup */
   --color-nesam-red: #c1232c;
   --color-nesam-red-dark: #a91e27;
@@ -89,6 +98,37 @@
   --color-nesam-gray: #5b687a;
   --color-nesam-border: #e0e6ed;
   --color-nesam-bg: #f7f8fb;
+}
+
+/* Custom animations for New Booking */
+.swap-spin {
+  animation: spin180 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes spin180 {
+  0% { transform: translateY(-50%) rotate(0deg); }
+  100% { transform: translateY(-50%) rotate(180deg); }
+}
+
+.fade-slide-in {
+  animation: fadeSlideIn 0.22s ease-out forwards;
+}
+
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .swap-spin, .fade-slide-in {
+    animation: none !important;
+  }
 }
 
 /* ══ Base ════════════════════════════════════════════════════════════════════ */

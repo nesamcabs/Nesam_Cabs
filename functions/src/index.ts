@@ -4,7 +4,7 @@ import './region';
 // these functions (see firestore.rules).
 export { createBooking } from './commerce';
 export { onPublicReviewWritten,onPublicServiceWritten,onPublicPackageWritten,onPublicLocationWritten,refreshPublicContent } from './publicContent';
-export { createRazorpayOrder, verifyRazorpayPayment } from './payments';
+export { createRazorpayOrder, verifyRazorpayPayment, createBookingPaymentLink } from './payments';
 export { razorpayWebhook } from './paymentWebhook';
 export { reconcile } from './reconcile';
 export { recordExtraUsage, reviewExtraUsage } from './extraUsage';
@@ -17,7 +17,7 @@ export { saveNightAllowance } from './nightAllowanceConfig';
 export { saveServiceRule, setServiceRuleStatus } from './serviceRules';
 export { issuePenalty, transitionPenalty, acknowledgePenalty, disputePenalty } from './penalties';
 export { requestDutyCancellation, submitPartnerRequest, decidePartnerRequest, acknowledgeAssignment, setVehicleAvailability, createWalletRecharge, verifyWalletRecharge, getDuesSummary, createDuesPayment, verifyDuesPayment, setSecurityDeposit, requestDepositRefund, createDepositPayment, verifyDepositPayment } from './partnerOps';
-export { advanceTrip, verifyBoarding, overrideReachedPickup } from './trips';
+export { advanceTrip, verifyBoarding, overrideReachedPickup, officeCloseTrip } from './trips';
 export { saveTariffConfig, quoteBooking } from './quote';
 export { saveTariffSection } from './tariffSections';
 export { saveFixedRouteFare } from './fixedRoutes';
@@ -45,6 +45,7 @@ export { requestVendorRegistration, issueVendorInvitation, revokeVendorInvitatio
 export { updateSettlement, onBookingSettlementChange } from './settlement';
 export { periodicJobs } from './jobs';
 export { getCustomerContact, updateBookingContact, migrateBookingContacts } from './contacts';
+export { getCustomerDirectory, getCustomerSavedPlaces, findCustomerByMobile, revealCustomerNumber, revealEnquiryNumber, getCustomerNumberViews, exportCustomerNumbers, saveCustomerProfile } from './customerDirectory';
 export { onBookingRated, rateDriver, reviewDriverRating } from './ratings';
 export { submitMulticityEnquiry, acceptEnquiryQuote, getCustomerEnquiries, priceMulticityEnquiry } from './enquiries';
 export { convertMulticityEnquiry } from './multicityConversion';

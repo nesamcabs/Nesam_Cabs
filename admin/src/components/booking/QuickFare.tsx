@@ -67,12 +67,13 @@ export const tripPickupAt = (t: QuickTrip) => (t.date && t.time ? `${t.date}T${t
 // A Multicity quote has no return date: it is priced for the pickup day.
 export const tripEndAt = (t: QuickTrip) => (t.tripType !== "Round Trip" ? "" : t.multicity && t.date ? `${t.date}T23:59` : t.date && t.time ? `${addDaysISO(t.date, Math.max(1, t.days) - 1)}T${t.time}` : "");
 
-/** The chosen stops of a round trip (not a Multicity tour), in order. */
+/** The chosen stops of a round trip or Multicity tour, in order. */
 export const roundStopPoints = (t: QuickTrip): PickedPoint[] =>
-  t.tripType === "Round Trip" && !t.multicity ? (t.stops ?? []).flatMap((s) => (s.point ? [s.point] : [])) : [];
+  (t.tripType === "Round Trip" || t.tripType === "Multicity" || t.multicity) ? (t.stops ?? []).flatMap((s) => (s.point ? [s.point] : [])) : [];
 
 /** The booking-form view of a trip (customer fields left empty for a quote). */
 export function tripToForm(t: QuickTrip, categoryId: string, base: ManualBookingForm = emptyManualBooking()): ManualBookingForm {
+  const isMulti = t.tripType === "Multicity" || t.multicity === true;
   return {
     ...base,
     serviceId: t.serviceId,
@@ -82,7 +83,9 @@ export function tripToForm(t: QuickTrip, categoryId: string, base: ManualBooking
     categoryId,
     rentalHours: t.tripType === "Local Rental" ? (t.rentalHours ?? 1) : undefined,
     addOns: { roofCarrier: t.carrier, pets: t.pets === true },
-    tripType: t.tripType,
+    tripType: isMulti ? "Multicity" : t.tripType,
+    multicity: isMulti,
+    tripDays: t.days,
     pickupAt: tripPickupAt(t),
     tripEndAt: tripEndAt(t),
   };
@@ -107,7 +110,7 @@ export function useQuickData() {
   const pickups = useMemo(() => bookableLocations(locations, "pickup"), [locations]);
   const drops = useMemo(() => bookableLocations(locations, "drop"), [locations]);
   const cats = useMemo(() => bookableCategories(categories).sort((a, b) => (a.displayOrder ?? 99) - (b.displayOrder ?? 99)), [categories]);
-  return { services: activeServices, allServices: services, pickups, drops, categories: cats, business: business.filter((b) => b.status === "Active") };
+  return { services: activeServices, allServices: services, locations, pickups, drops, categories: cats, business: business.filter((b) => b.status === "Active") };
 }
 export type QuickData = ReturnType<typeof useQuickData>;
 
@@ -180,6 +183,7 @@ export function validateTrip(t: QuickTrip): string | null {
   if (t.tripType === "Local Rental" && (!Number.isInteger(t.rentalHours ?? 1) || (t.rentalHours ?? 1) < 1 || (t.rentalHours ?? 1) > 15)) return "Choose rental hours from 1 to 15.";
   if (t.tripType === "Round Trip" && !t.multicity && (!(t.days >= 1) || t.days > ROUND_TRIP_MAX_DAYS)) return `Choose 1 to ${ROUND_TRIP_MAX_DAYS} days.`;
   if (t.tripType === "Round Trip" && !t.multicity && (t.stops ?? []).some((s) => !s.point)) return "Choose each stop on the map, or remove it.";
+  if ((t.multicity || t.tripType === "Multicity") && (!t.stops?.length || t.stops.some((s) => !s.point))) return "Add at least one via-stop city for Multicity.";
   if (t.tripType === "Airport Taxi" && t[airportSide(t)]?.type !== "airport") return `Choose the airport as the ${airportSide(t)} for this transfer.`;
   return null;
 }

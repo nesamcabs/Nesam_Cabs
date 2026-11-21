@@ -56,18 +56,8 @@ export function FulfilmentBadge({ booking }: { booking: { status?: unknown; assi
   return <span className={`inline-flex px-2 py-0.5 rounded border text-xs font-semibold ${cls}`}>{FULFILMENT_LABEL[f]}</span>;
 }
 
-export type BookingSourceType = "nesam" | "onewaycarrentals" | "people_taxi";
-
-export function getBookingSource(b: { source?: string; bookingSource?: string; brand?: string; website?: string; notes?: string } | null | undefined): BookingSourceType {
-  if (!b) return "nesam";
-  const raw = `${b.bookingSource || ""} ${b.source || ""} ${b.brand || ""} ${b.website || ""}`.toLowerCase();
-  if (raw.includes("oneway") || raw.includes("one_way") || raw.includes("one-way")) return "onewaycarrentals";
-  if (raw.includes("people") || raw.includes("peopletaxi")) return "people_taxi";
-  const notes = (b.notes || "").toLowerCase();
-  if (notes.includes("onewaycarrental") || notes.includes("one way car rental")) return "onewaycarrentals";
-  if (notes.includes("people taxi") || notes.includes("peopletaxi")) return "people_taxi";
-  return "nesam";
-}
+export { getBookingSource, getBookingSourceDisplay, type BookingSourceType, type BookingSourceDisplay } from "../../domain/bookingSource";
+import { getBookingSource, getBookingSourceDisplay, type BookingSourceType, type BookingSourceDisplay } from "../../domain/bookingSource";
 
 export function bookingSourceRowCls(b: { source?: string; bookingSource?: string; brand?: string; website?: string; notes?: string } | null | undefined): string {
   const s = getBookingSource(b);
@@ -153,17 +143,6 @@ export function BookingSourceBadge({
   }
 
   return null;
-}
-
-/** Table cell for the Website / Source column: the real source badge, "Nesam" only when explicitly stored, otherwise "Unknown". */
-export type BookingSourceDisplay = BookingSourceType | "unknown";
-
-/** Source as shown in the table: "nesam" only when explicitly stored, otherwise "unknown". */
-export function getBookingSourceDisplay(b: { source?: string; bookingSource?: string; brand?: string; website?: string; notes?: string } | null | undefined): BookingSourceDisplay {
-  const s = getBookingSource(b);
-  if (s !== "nesam") return s;
-  const raw = `${b?.bookingSource || ""} ${b?.source || ""} ${b?.brand || ""} ${b?.website || ""}`.toLowerCase();
-  return raw.includes("nesam") ? "nesam" : "unknown";
 }
 
 /** Full-row tint + hover per source for the bookings table. Hover is set on the row, so it needs the `data-source` attribute (see index.css). */

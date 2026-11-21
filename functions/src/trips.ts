@@ -8,7 +8,7 @@ import { gstComponents } from './domain/gst';
 // trip's vehicle photo verification. Clients cannot write status or stage
 // fields directly (firestore.rules).
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { DocumentData, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { timingSafeEqual } from 'crypto';
 import { db } from './admin';
 import { auditInTx } from './audit';
@@ -83,6 +83,72 @@ function tollsOf(v: unknown): TollIn[] {
   if (out.reduce((s, t) => s + t.amount, 0) > MAX_TOLLS) throw new HttpsError('invalid-argument', `Toll charges cannot exceed ₹${MAX_TOLLS.toLocaleString('en-IN')}.`);
   return out;
 }
+
+/**
+ * The fields written when a trip ends: total kilometres, the server-derived final fare, tolls and the Completed status.
+ * Shared by the driver's Trip End (advanceTrip) and the office's audited close (officeCloseTrip), so both bill identically.
+ */
+export function buildTripEnd(b: DocumentData, privatePricing: DocumentData | null | undefined, input: Record<string, any>, stamp: unknown, geo: unknown): Record<string, unknown> {
+  // The driver's input at Trip End is the total trip kilometres. A closing odometer reading is
+  // optional and is used only to flag an unusual entry for review.
+  const end = input.endOdometer;
+  const start = typeof b.startOdometer === 'number' ? b.startOdometer : 0;
+  const hasEnd = Number.isFinite(end) && end > 0;
+  if (hasEnd && end < start) throw new HttpsError('invalid-argument', `The ending reading must be at least the starting reading (${start} km).`);
+  const totalKm = input.totalKm;
+  if (!hasEnd && !(typeof totalKm === 'number' && Number.isFinite(totalKm) && totalKm > 0)) {
+    throw new HttpsError('invalid-argument', 'Enter the total kilometres driven for the whole trip.', { code: 'total-km-required' });
+  }
+  const whole = withPrivatePricing(b, privatePricing ?? null);
+  const pricing = whole.pricing && typeof whole.pricing === 'object' && whole.pricing.schema === 2 ? (whole.pricing as PricingSnapshot) : null;
+  // The driver states the total kilometres; the server derives the fare. A rate or amount from the driver is ignored.
+  if (pricing && (typeof totalKm !== 'number' || !Number.isFinite(totalKm) || totalKm <= 0 || totalKm > MAX_TOTAL_KM)) {
+    throw new HttpsError('invalid-argument', 'Enter the total kilometres driven for the whole trip.', { code: 'total-km-required' });
+  }
+  const tolls = input.tolls != null ? tollsOf(input.tolls) : (Array.isArray(b.tolls) ? (b.tolls as TollIn[]) : []);
+  const driven = start > 0 && hasEnd ? end - start : null;
+  const discrepancy = typeof totalKm === 'number' && driven !== null && Math.abs(driven - totalKm) > Math.max(5, totalKm * 0.1);
+  let money: Record<string, unknown> = {};
+  if (pricing && typeof totalKm === 'number') {
+    const endMs = Date.now();
+    if (pricing.source === 'tariff_v2' || pricing.gstInclusiveBase) {
+      const f = finalizeFare({ pricing, totalKm, endMs, startMs: (b.tripStartedAt as Timestamp | undefined)?.toMillis?.() ?? null });
+      money = {
+        fare: f.fare.total, fareBreakdown: f.fare,
+        finalFare: { schema: 1, totalKm, quotedKm: pricing.quotedKm, includedKm: pricing.includedKm, extraKm: f.extraKm, days: f.days, extraDays: f.extraDays, quotedFare: b.fare, finalFare: f.fare.total, at: Timestamp.now(), ...(f.timeBased ? { timeBased: f.timeBased } : {}) },
+        // A time-based package that ran past its coverage is never charged silently: the office reviews the fare.
+        ...(f.timeBased?.coverageExceeded ? { fareReview: { required: true, reason: 'Trip ran past the booked package coverage', at: Timestamp.now() } } : {}),
+        ...(f.timeBased?.upgraded ? { 'timePackage.upgraded': true, 'timePackage.finalLabel': f.timeBased.label } : {}),
+        ...(b.payoutSource === 'tariff' && f.partnerPaise !== null
+          ? { [b.assignedVendorId ? 'vendorPayout' : 'driverPayout']: Math.round(f.partnerPaise) / 100 }
+          : {}),
+      };
+    } else {
+      const fb = b.fareBreakdown ?? {};
+      const f = finalizeLegacyFare({
+        total: Number(b.fare) || 0, taxable: Number(fb.taxableAmount) || 0, gstRate: typeof fb.gstRate === 'number' ? fb.gstRate : 0.05, discount: Number(fb.discount) || 0,
+        quotedKm: pricing.quotedKm, extraKmRate: pricing.extraKmRatePaise / 100, totalKm,
+      });
+      const record = { schema: 1, totalKm, quotedKm: pricing.quotedKm, includedKm: pricing.includedKm, extraKm: f.extraKm, days: 1, extraDays: 0, quotedFare: b.fare, at: Timestamp.now() };
+      if (f.extra > 0) {
+        const next = { ...fb, ...(pricing.gst ? { gstDetails: { ...pricing.gst, ...gstComponents(f.gst, pricing.gst.split) } } : {}), taxableAmount: f.taxable, gst: f.gst, total: f.total, subtotal: (Number(fb.subtotal) || 0) + f.extra, distanceFare: (Number(fb.distanceFare) || 0) + f.extra, distanceKm: f.distanceKm };
+        money = { fare: f.total, fareBreakdown: next, finalFare: { ...record, finalFare: f.total } };
+      } else {
+        money = { finalFare: { ...record, finalFare: b.fare } };
+      }
+    }
+  }
+  // An Hourly Rental keeps a record of the time it used against the package, measured from the server's own start stamp.
+  // Extra hours are billed by the office at actuals (the tariff never adds them automatically), so nothing is charged here.
+  const rentalUsage = rentalUsageOf(b, (b.tripStartedAt as Timestamp | undefined)?.toMillis?.() ?? null, Date.now());
+  return {
+    status: 'Completed', tripEndedAt: stamp, completedAt: stamp, tripEndedLocation: geo, ...(hasEnd ? { endOdometer: end } : {}),
+    ...(rentalUsage ? { rentalUsage } : {}),
+    ...(typeof totalKm === 'number' ? { totalKm, ...(discrepancy ? { distanceDiscrepancy: { odometerKm: driven, enteredKm: totalKm, flaggedAt: Timestamp.now() } } : {}) } : {}),
+    ...money, tolls, tollCharges: tolls.reduce((s, t) => s + t.amount, 0),
+  };
+}
+
 
 export const advanceTrip = onCall({ timeoutSeconds: 60 }, async (request) => {
   const input = request.data ?? {};
@@ -179,64 +245,7 @@ export const advanceTrip = onCall({ timeoutSeconds: 60 }, async (request) => {
       adminMsg = `Trip ${label} started by ${driver.name}.`;
     } else {
       if (b.status !== 'Ongoing') throw new HttpsError('failed-precondition', 'This trip is not in progress.');
-      // The driver's input at Trip End is the total trip kilometres. A closing odometer reading is
-      // optional and is used only to flag an unusual entry for review.
-      const end = input.endOdometer;
-      const start = typeof b.startOdometer === 'number' ? b.startOdometer : 0;
-      const hasEnd = Number.isFinite(end) && end > 0;
-      if (hasEnd && end < start) throw new HttpsError('invalid-argument', `The ending reading must be at least the starting reading (${start} km).`);
-      const totalKm = input.totalKm;
-      if (!hasEnd && !(typeof totalKm === 'number' && Number.isFinite(totalKm) && totalKm > 0)) {
-        throw new HttpsError('invalid-argument', 'Enter the total kilometres driven for the whole trip.', { code: 'total-km-required' });
-      }
-      const whole = withPrivatePricing(b, privatePricing);
-      const pricing = whole.pricing && typeof whole.pricing === 'object' && whole.pricing.schema === 2 ? (whole.pricing as PricingSnapshot) : null;
-      // The driver states the total kilometres; the server derives the fare. A rate or amount from the driver is ignored.
-      if (pricing && (typeof totalKm !== 'number' || !Number.isFinite(totalKm) || totalKm <= 0 || totalKm > MAX_TOTAL_KM)) {
-        throw new HttpsError('invalid-argument', 'Enter the total kilometres driven for the whole trip.', { code: 'total-km-required' });
-      }
-      const tolls = input.tolls != null ? tollsOf(input.tolls) : (Array.isArray(b.tolls) ? (b.tolls as TollIn[]) : []);
-      const driven = start > 0 && hasEnd ? end - start : null;
-      const discrepancy = typeof totalKm === 'number' && driven !== null && Math.abs(driven - totalKm) > Math.max(5, totalKm * 0.1);
-      let money: Record<string, unknown> = {};
-      if (pricing && typeof totalKm === 'number') {
-        const endMs = Date.now();
-        if (pricing.source === 'tariff_v2' || pricing.gstInclusiveBase) {
-          const f = finalizeFare({ pricing, totalKm, endMs, startMs: (b.tripStartedAt as Timestamp | undefined)?.toMillis?.() ?? null });
-          money = {
-            fare: f.fare.total, fareBreakdown: f.fare,
-            finalFare: { schema: 1, totalKm, quotedKm: pricing.quotedKm, includedKm: pricing.includedKm, extraKm: f.extraKm, days: f.days, extraDays: f.extraDays, quotedFare: b.fare, finalFare: f.fare.total, at: Timestamp.now(), ...(f.timeBased ? { timeBased: f.timeBased } : {}) },
-            // A time-based package that ran past its coverage is never charged silently: the office reviews the fare.
-            ...(f.timeBased?.coverageExceeded ? { fareReview: { required: true, reason: 'Trip ran past the booked package coverage', at: Timestamp.now() } } : {}),
-            ...(f.timeBased?.upgraded ? { 'timePackage.upgraded': true, 'timePackage.finalLabel': f.timeBased.label } : {}),
-            ...(b.payoutSource === 'tariff' && f.partnerPaise !== null
-              ? { [b.assignedVendorId ? 'vendorPayout' : 'driverPayout']: Math.round(f.partnerPaise) / 100 }
-              : {}),
-          };
-        } else {
-          const fb = b.fareBreakdown ?? {};
-          const f = finalizeLegacyFare({
-            total: Number(b.fare) || 0, taxable: Number(fb.taxableAmount) || 0, gstRate: typeof fb.gstRate === 'number' ? fb.gstRate : 0.05, discount: Number(fb.discount) || 0,
-            quotedKm: pricing.quotedKm, extraKmRate: pricing.extraKmRatePaise / 100, totalKm,
-          });
-          const record = { schema: 1, totalKm, quotedKm: pricing.quotedKm, includedKm: pricing.includedKm, extraKm: f.extraKm, days: 1, extraDays: 0, quotedFare: b.fare, at: Timestamp.now() };
-          if (f.extra > 0) {
-            const next = { ...fb, ...(pricing.gst ? { gstDetails: { ...pricing.gst, ...gstComponents(f.gst, pricing.gst.split) } } : {}), taxableAmount: f.taxable, gst: f.gst, total: f.total, subtotal: (Number(fb.subtotal) || 0) + f.extra, distanceFare: (Number(fb.distanceFare) || 0) + f.extra, distanceKm: f.distanceKm };
-            money = { fare: f.total, fareBreakdown: next, finalFare: { ...record, finalFare: f.total } };
-          } else {
-            money = { finalFare: { ...record, finalFare: b.fare } };
-          }
-        }
-      }
-      // An Hourly Rental keeps a record of the time it used against the package, measured from the server's own start stamp.
-      // Extra hours are billed by the office at actuals (the tariff never adds them automatically), so nothing is charged here.
-      const rentalUsage = rentalUsageOf(b, (b.tripStartedAt as Timestamp | undefined)?.toMillis?.() ?? null, Date.now());
-      update = {
-        ...base, status: 'Completed', tripEndedAt: stamp, completedAt: stamp, tripEndedLocation: geo, ...(hasEnd ? { endOdometer: end } : {}),
-        ...(rentalUsage ? { rentalUsage } : {}),
-        ...(typeof totalKm === 'number' ? { totalKm, ...(discrepancy ? { distanceDiscrepancy: { odometerKm: driven, enteredKm: totalKm, flaggedAt: Timestamp.now() } } : {}) } : {}),
-        ...money, tolls, tollCharges: tolls.reduce((s, t) => s + t.amount, 0),
-      };
+      update = { ...base, ...buildTripEnd(b, privatePricing, input, stamp, geo) };
       adminMsg = `Trip ${label} completed by ${driver.name}.`;
     }
     tx.update(ref, update);
@@ -367,4 +376,108 @@ export const overrideReachedPickup = onCall({ timeoutSeconds: 60 }, async (reque
     });
   });
   return { ok: true };
+});
+
+// ── Office close ────────────────────────────────────────────────────────────
+
+/** The extra charges the office can add when it closes a trip. They are recorded as named lines in the trip's toll / actuals list, so they are counted once. */
+const CLOSE_CHARGES = [['toll', 'Toll'], ['parking', 'Parking / entry'], ['permit', 'State permit / extra bata']] as const;
+
+const r2c = (n: number) => Math.round(n * 100) / 100;
+
+/** What the office sees for a closed (or about to be closed) trip. Read from the saved fields, never from client input. */
+export function closeSummaryOf(b: DocumentData, f: Record<string, unknown>) {
+  const ff = (f.finalFare ?? b.finalFare ?? null) as { totalKm?: number; quotedKm?: number; includedKm?: number; extraKm?: number; quotedFare?: unknown; finalFare?: number } | null;
+  const fb = (f.fareBreakdown ?? b.fareBreakdown ?? null) as { gst?: number; taxableAmount?: number } | null;
+  const fare = Number(f.fare ?? b.fare) || 0;
+  const tollCharges = Number(f.tollCharges ?? b.tollCharges) || 0;
+  const rate = typeof b.pricing?.extraKmRatePaise === 'number' ? b.pricing.extraKmRatePaise / 100 : null;
+  const extraKm = ff?.extraKm ?? 0;
+  return {
+    quotedFare: Number(ff?.quotedFare ?? b.fare) || 0,
+    fare, gst: fb && Number.isFinite(fb.gst) ? Number(fb.gst) : null, taxable: fb && Number.isFinite(fb.taxableAmount) ? Number(fb.taxableAmount) : null,
+    totalKm: ff?.totalKm ?? (typeof f.totalKm === 'number' ? f.totalKm : null), quotedKm: ff?.quotedKm ?? null, includedKm: ff?.includedKm ?? null,
+    extraKm, extraKmRate: rate, extraKmAmount: rate !== null ? r2c(extraKm * rate) : null,
+    tollCharges, tolls: ((f.tolls ?? b.tolls ?? []) as TollIn[]).map((t) => ({ name: t.name, amount: t.amount })),
+    amountDue: r2c(fare + tollCharges), fareReview: Boolean(f.fareReview ?? b.fareReview),
+  };
+}
+
+/**
+ * The office closes a trip that is on the road when the driver cannot (a phone that died, no signal). The same server rules as the
+ * driver's Trip End decide the fare from the total kilometres; the office adds only actual charges. Needs finance access, a written
+ * reason, and is idempotent: a retry with the same requestId changes and posts nothing. `dryRun` returns the figures without saving.
+ */
+export const officeCloseTrip = onCall({ timeoutSeconds: 60 }, async (request) => {
+  const admin = await requirePermission(request.auth, 'operations', 'finance');
+  requireAction(admin, 'Bookings', 'edit');
+  const bookingId = docId(request.data?.bookingId, 'booking');
+  const dryRun = request.data?.dryRun === true;
+  const reason = text(request.data?.reason, 300);
+  const requestId = text(request.data?.requestId, 100);
+  if (!dryRun && reason.length < 5) throw new HttpsError('invalid-argument', 'Give the reason the office is closing this trip (at least 5 characters). It is kept on the trip record.');
+  if (!dryRun && !/^[A-Za-z0-9_-]{8,100}$/.test(requestId)) throw new HttpsError('invalid-argument', 'A request id is required so a retry cannot close the trip twice.');
+  const totalKm = request.data?.totalKm;
+  if (typeof totalKm !== 'number' || !Number.isFinite(totalKm) || totalKm <= 0 || totalKm > MAX_TOTAL_KM) throw new HttpsError('invalid-argument', 'Enter the total kilometres driven for the whole trip.', { code: 'total-km-required' });
+  const charges = (request.data?.charges ?? {}) as Record<string, unknown>;
+  const lines: TollIn[] = [];
+  for (const [key, name] of CLOSE_CHARGES) {
+    const v = charges[key];
+    if (v == null || v === 0) continue;
+    if (typeof v !== 'number' || !Number.isFinite(v) || v < 0 || Math.abs(v * 100 - Math.round(v * 100)) > 1e-6) throw new HttpsError('invalid-argument', `Enter ${name.toLowerCase()} as an amount in rupees.`);
+    if (v > 0) lines.push({ id: `OFFICE-${key.toUpperCase()}`, name, amount: v, receiptPhotoUrl: '', uploadedAt: new Date().toISOString() });
+  }
+  const ref = db.doc(`bookings/${bookingId}`);
+  const pushes: { id: string; input: NotifyInput }[] = [];
+  const out = await db.runTransaction(async (tx) => {
+    pushes.length = 0;
+    const [snap, privatePricing] = await Promise.all([tx.get(ref), loadPrivatePricing(tx, bookingId)]);
+    if (!snap.exists) throw new HttpsError('not-found', 'This trip no longer exists.');
+    const b = snap.data()!;
+    if (b.status === 'Completed') {
+      if (!dryRun && b.officeCloseRequestId === requestId) return { duplicate: true, summary: closeSummaryOf(b, {}) };
+      throw new HttpsError('failed-precondition', 'This trip is already completed. Nothing was changed.', { code: 'already-completed' });
+    }
+    if (b.status !== 'Ongoing') throw new HttpsError('failed-precondition', 'Only a trip that is on the road can be closed here. Assigned trips start in the driver app.', { code: 'not-ongoing' });
+    const stamp = FieldValue.serverTimestamp();
+    const existing = Array.isArray(b.tolls) ? (b.tolls as TollIn[]) : [];
+    const fields = buildTripEnd(b, privatePricing, { totalKm, tolls: [...existing, ...lines] }, stamp, null);
+    const summary = closeSummaryOf(b, fields);
+    if (dryRun) return { duplicate: false, summary };
+    const label = text(b.bookingId) || bookingId;
+    tx.update(ref, {
+      ...fields, tripSubStatus: 'Trip Ended', tripStage: LEGACY_STAGE_FOR['Trip Ended'], lastTripRequestId: requestId, officeCloseRequestId: requestId,
+      closedByOffice: { by: admin.uid, byName: admin.name, reason, at: Timestamp.now() }, updatedAt: stamp,
+    });
+    tx.create(ref.collection('events').doc(), { type: 'trip_ended_by_office', actorId: admin.uid, actorRole: 'admin', reason, totalKm, at: stamp });
+    auditInTx(tx, {
+      action: 'trip_closed_by_office', entity: 'booking', entityId: bookingId, performedBy: admin.uid, performedByName: admin.name, role: 'admin', bookingId,
+      previous: { status: b.status, fare: b.fare }, next: { status: 'Completed', fare: fields.fare ?? b.fare, totalKm, tollCharges: fields.tollCharges }, reason,
+    });
+    const when = formatDateTime12(new Date());
+    if (b.assignedVendorId) {
+      const v: NotifyInput = {
+        recipientType: 'vendor', recipientId: String(b.assignedVendorId), category: 'trips', severity: 'success', sound: 'general',
+        title: 'Trip completed', message: `Trip ${label} was closed by the NESAM office. ${when}`, bookingId, bookingCode: label, cta: { label: 'Open booking', page: 'trips', bookingId }, push: true, sentBy: admin.uid,
+      };
+      pushes.push({ id: notifyInTx(tx, v), input: v });
+    }
+    if (b.customerId) {
+      const c: NotifyInput = {
+        recipientType: 'customer', brand: b.brand, recipientId: b.customerId, category: 'trips', severity: 'info', sound: 'general', push: true, sentBy: admin.uid,
+        title: 'Trip completed', message: `Thank you for travelling with NESAM (${label}).`, bookingId, bookingCode: label,
+      };
+      pushes.push({ id: notifyInTx(tx, c), input: c });
+    }
+    return { duplicate: false, summary };
+  });
+  if (dryRun) return { ok: true, dryRun: true, duplicate: false, summary: out.summary };
+  await pushAfterCommit(pushes);
+  const saved = await db.doc(`bookings/${bookingId}`).get();
+  if (!out.duplicate && saved.exists) {
+    await sendCustomerMessage(bookingId, saved.data()!, 'trip_completed').catch((err) => console.warn('trip completed message failed', err));
+    const shiftId = text(saved.data()!.localShiftId);
+    if (shiftId) await refreshShiftSummary(shiftId).catch((err) => console.warn('local duty summary failed', err));
+  }
+  return { ok: true, dryRun: false, duplicate: out.duplicate, summary: saved.exists ? closeSummaryOf(saved.data()!, {}) : out.summary };
 });

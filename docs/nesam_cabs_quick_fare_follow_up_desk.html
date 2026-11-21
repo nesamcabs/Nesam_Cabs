@@ -1,0 +1,2121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nesam Cabs — Quick Fare &amp; Follow-Up Desk</title>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Lucide Icons via CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+          },
+          colors: {
+            crimson: {
+              50: '#FEF2F2',
+              100: '#FEE2E2',
+              600: '#B91C1C',
+              700: '#991B1B',
+              800: '#7F1D1D',
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: #F8FAFC;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .fade-slide-in {
+      animation: fadeSlideIn 0.22s ease-out forwards;
+    }
+
+    @keyframes fadeSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-4px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .swap-spin {
+      animation: spin180 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    @keyframes spin180 {
+      0% { transform: translateY(-50%) rotate(0deg); }
+      100% { transform: translateY(-50%) rotate(180deg); }
+    }
+
+    input[type="date"]::-webkit-calendar-picker-indicator {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-[#F8FAFC] text-slate-900 selection:bg-crimson-100 selection:text-crimson-800">
+
+  <!-- Main Dashboard Container -->
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-7 space-y-5">
+
+    <!-- ========================================================= -->
+    <!-- TOP HEADER: TITLE + BRAND SOURCE + FOLLOW-UP ALERT PILL   -->
+    <!-- ========================================================= -->
+    <header class="flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-10 h-10 rounded-xl bg-crimson-50 border border-crimson-100 text-[#991B1B] flex items-center justify-center shrink-0">
+          <i data-lucide="calculator" class="w-5 h-5"></i>
+        </div>
+        <div class="min-w-0">
+          <h1 class="text-base sm:text-lg font-bold text-slate-900 leading-tight">Quick Fare &amp; Enquiry Desk</h1>
+          <p class="text-xs text-slate-500 truncate">Check instant rates for callers, set follow-up alerts, or confirm booking in 1 click</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2.5 flex-wrap">
+        <!-- Live Follow-Up Alert Counter Pill -->
+        <button
+          type="button"
+          id="alertBellBtn"
+          class="h-9 px-3 rounded-xl bg-amber-50 hover:bg-amber-100/80 border border-amber-200/90 text-amber-800 flex items-center gap-2 transition-all"
+        >
+          <span class="relative flex h-2.5 w-2.5">
+            <span id="alertPingDot" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-500 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-600"></span>
+          </span>
+          <i data-lucide="bell-ring" class="w-3.5 h-3.5 text-amber-700"></i>
+          <span id="alertCountText" class="text-xs font-semibold">1 Follow-up Due</span>
+        </button>
+
+        <!-- Sleek Brand Source Switcher -->
+        <div class="relative shrink-0" id="brandSwitcherWrapper">
+          <button
+            type="button"
+            id="brandSwitcherBtn"
+            aria-haspopup="listbox"
+            aria-expanded="false"
+            class="h-9 pl-2.5 pr-3 rounded-xl bg-white hover:bg-slate-50 border border-slate-200/90 flex items-center gap-2 transition-all shadow-xs focus:outline-none focus:ring-2 focus:ring-[#991B1B]/15"
+          >
+            <span id="brandActiveDot" class="w-2 h-2 rounded-full bg-[#991B1B] ring-2 ring-crimson-100 shrink-0"></span>
+            <span class="text-[11px] font-medium text-slate-400 hidden sm:inline">Source:</span>
+            <span id="brandActiveName" class="text-xs font-semibold text-slate-800">Nesam Cabs</span>
+            <i data-lucide="chevrons-up-down" class="w-3.5 h-3.5 text-slate-400 shrink-0"></i>
+          </button>
+
+          <div
+            id="brandSwitcherMenu"
+            role="listbox"
+            class="hidden absolute right-0 top-[calc(100%+6px)] z-40 w-52 bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 fade-slide-in"
+          >
+            <p class="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Booking Source</p>
+            <button type="button" data-brand-opt="Nesam Cabs" data-brand-dot="bg-[#991B1B] ring-crimson-100" class="brand-opt-btn w-full px-2.5 py-2 rounded-lg flex items-center justify-between gap-2 text-left bg-slate-100/90 text-slate-900">
+              <span class="flex items-center gap-2 min-w-0">
+                <span class="w-2 h-2 rounded-full bg-[#991B1B] ring-2 ring-crimson-100 shrink-0"></span>
+                <span class="text-xs font-semibold truncate">Nesam Cabs</span>
+              </span>
+              <i data-lucide="check" class="brand-check w-3.5 h-3.5 text-[#991B1B] shrink-0"></i>
+            </button>
+            <button type="button" data-brand-opt="One Way Car Rentals" data-brand-dot="bg-blue-600 ring-blue-100" class="brand-opt-btn w-full px-2.5 py-2 rounded-lg flex items-center justify-between gap-2 text-left text-slate-600 hover:bg-slate-50">
+              <span class="flex items-center gap-2 min-w-0">
+                <span class="w-2 h-2 rounded-full bg-blue-600 ring-2 ring-blue-100 shrink-0"></span>
+                <span class="text-xs font-medium truncate">One Way Car Rentals</span>
+              </span>
+              <i data-lucide="check" class="brand-check hidden w-3.5 h-3.5 text-blue-600 shrink-0"></i>
+            </button>
+            <button type="button" data-brand-opt="People Taxi" data-brand-dot="bg-emerald-600 ring-emerald-100" class="brand-opt-btn w-full px-2.5 py-2 rounded-lg flex items-center justify-between gap-2 text-left text-slate-600 hover:bg-slate-50">
+              <span class="flex items-center gap-2 min-w-0">
+                <span class="w-2 h-2 rounded-full bg-emerald-600 ring-2 ring-emerald-100 shrink-0"></span>
+                <span class="text-xs font-medium truncate">People Taxi</span>
+              </span>
+              <i data-lucide="check" class="brand-check hidden w-3.5 h-3.5 text-emerald-600 shrink-0"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ========================================================= -->
+    <!-- LIVE FOLLOW-UP ALERT BANNER (POPS UP WHEN DUE)            -->
+    <!-- ========================================================= -->
+    <section id="dueAlertBanner" class="hidden rounded-2xl bg-gradient-to-r from-amber-50 via-orange-50/70 to-amber-50 border border-amber-200/90 p-3.5 sm:px-5 shadow-xs fade-slide-in">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div class="flex items-start sm:items-center gap-3 min-w-0">
+          <div class="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+            <i data-lucide="bell-ring" class="w-4 h-4"></i>
+          </div>
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-600 text-white">Follow-up Alert</span>
+              <span id="bannerCallerInfo" class="text-xs sm:text-sm font-bold text-slate-900 truncate"></span>
+            </div>
+            <p id="bannerTripInfo" class="text-xs text-slate-600 mt-0.5 truncate"></p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0 flex-wrap">
+          <button
+            type="button"
+            id="bannerSnoozeBtn"
+            class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-colors"
+          >
+            Snooze +15m
+          </button>
+          <button
+            type="button"
+            id="bannerBookBtn"
+            class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-colors flex items-center gap-1.5"
+          >
+            <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>
+            <span>Fare OK • Book Now</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- MAIN 2-COLUMN WORKSPACE: QUICK FARE + LIVE VEHICLE FARES  -->
+    <!-- ========================================================= -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+
+      <!-- LEFT COLUMN (5/12): QUICK FARE CALCULATOR -->
+      <section class="lg:col-span-5 bg-white rounded-2xl border border-slate-200/90 shadow-sm flex flex-col">
+        <!-- Card Header -->
+        <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-2">
+          <div>
+            <h2 class="text-sm font-bold text-slate-900">Quick Fare Calculator</h2>
+            <p class="text-[11px] text-slate-500 mt-0.5">Nothing is saved until you click Follow-up or Book</p>
+          </div>
+          <button
+            type="button"
+            id="clearQuickFareBtn"
+            class="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors flex items-center gap-1"
+          >
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+            <span>Clear</span>
+          </button>
+        </div>
+
+        <!-- Calculator Form -->
+        <form id="quickFareForm" novalidate class="p-5 space-y-4 flex-1 flex flex-col">
+          <!-- Exact 6 Trip Type Tabs (One Way, Round Trip, Multicity, Airport, Rental, Local) -->
+          <div
+            role="tablist"
+            aria-label="Trip Type"
+            class="bg-[#F1F5F9] p-1 rounded-xl grid grid-cols-3 gap-1"
+          >
+            <button type="button" data-trip="One Way" role="tab" aria-selected="true" class="qf-trip-tab flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-semibold transition-all bg-white text-[#991B1B] shadow-sm">
+              <i data-lucide="arrow-right" class="w-3.5 h-3.5 shrink-0"></i>
+              <span>One Way</span>
+            </button>
+            <button type="button" data-trip="Round Trip" role="tab" aria-selected="false" class="qf-trip-tab flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-medium transition-all text-slate-600 hover:text-slate-900">
+              <i data-lucide="arrow-left-right" class="w-3.5 h-3.5 shrink-0"></i>
+              <span>Round Trip</span>
+            </button>
+            <button type="button" data-trip="Multicity" role="tab" aria-selected="false" class="qf-trip-tab flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-medium transition-all text-slate-600 hover:text-slate-900">
+              <i data-lucide="route" class="w-3.5 h-3.5 shrink-0"></i>
+              <span>Multicity</span>
+            </button>
+            <button type="button" data-trip="Airport" role="tab" aria-selected="false" class="qf-trip-tab flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-medium transition-all text-slate-600 hover:text-slate-900">
+              <i data-lucide="plane" class="w-3.5 h-3.5 shrink-0"></i>
+              <span>Airport</span>
+            </button>
+            <button type="button" data-trip="Rental" role="tab" aria-selected="false" class="qf-trip-tab flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-medium transition-all text-slate-600 hover:text-slate-900">
+              <i data-lucide="clock" class="w-3.5 h-3.5 shrink-0"></i>
+              <span>Rental</span>
+            </button>
+            <button type="button" data-trip="Local" role="tab" aria-selected="false" class="qf-trip-tab flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-medium transition-all text-slate-600 hover:text-slate-900">
+              <i data-lucide="map-pin" class="w-3.5 h-3.5 shrink-0"></i>
+              <span>Local</span>
+            </button>
+          </div>
+
+          <!-- Route Inputs with Visual Track & Swap -->
+          <div class="relative flex items-stretch gap-2.5">
+            <div class="w-4 flex flex-col items-center py-5 shrink-0 select-none" aria-hidden="true">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-4 ring-emerald-50 shrink-0"></span>
+              <div id="qfRouteLine" class="flex-1 w-0 border-l-2 border-dashed border-slate-300 my-1.5"></div>
+              <i id="qfDropPin" data-lucide="map-pin" class="w-3.5 h-3.5 text-[#991B1B] shrink-0 fill-crimson-50"></i>
+            </div>
+
+            <div class="flex-1 space-y-2.5 relative">
+              <!-- Pickup -->
+              <div class="h-[54px] px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white focus-within:border-[#991B1B] focus-within:ring-2 focus-within:ring-[#991B1B]/15 transition-all flex flex-col justify-center">
+                <label for="qfPickupInput" class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 leading-none mb-1">
+                  Pickup Location
+                </label>
+                <input
+                  type="text"
+                  id="qfPickupInput"
+                  placeholder="e.g., Coimbatore"
+                  class="w-full text-sm font-medium text-slate-800 placeholder:text-slate-400 placeholder:font-normal bg-transparent focus:outline-none pr-8"
+                />
+              </div>
+
+              <!-- Optional Stops (Round Trip & Multicity) -->
+              <div id="qfStopsContainer" class="hidden space-y-2 fade-slide-in">
+                <div class="flex items-center justify-between gap-2">
+                  <button type="button" id="qfAddStopBtn" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-[#991B1B] bg-crimson-50/70 border border-crimson-200/70 hover:bg-crimson-50">
+                    <i data-lucide="plus" class="w-3 h-3"></i>
+                    <span id="qfAddStopLabel">Add Stop</span>
+                  </button>
+                  <span id="qfLockBadge" class="hidden text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">Itinerary Lock</span>
+                </div>
+                <div id="qfStopsList" class="space-y-1.5"></div>
+              </div>
+
+              <!-- Swap Button -->
+              <button
+                type="button"
+                id="qfSwapBtn"
+                aria-label="Swap pickup and drop"
+                class="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white border border-slate-200 shadow-sm text-slate-500 hover:text-[#991B1B] hover:border-[#991B1B] flex items-center justify-center transition-colors"
+              >
+                <i data-lucide="arrow-up-down" class="w-3.5 h-3.5"></i>
+              </button>
+
+              <!-- Drop -->
+              <div id="qfDropWrapper" class="h-[54px] px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white focus-within:border-[#991B1B] focus-within:ring-2 focus-within:ring-[#991B1B]/15 transition-all flex flex-col justify-center">
+                <label for="qfDropInput" id="qfDropLabel" class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 leading-none mb-1">
+                  Drop Location
+                </label>
+                <input
+                  type="text"
+                  id="qfDropInput"
+                  placeholder="e.g., Madurai"
+                  class="w-full text-sm font-medium text-slate-800 placeholder:text-slate-400 placeholder:font-normal bg-transparent focus:outline-none pr-8"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Conditional: Rental Duration Card (Opens 1 to 15 Hours Modal) -->
+          <div id="qfRentalCardWrapper" class="hidden fade-slide-in">
+            <button
+              type="button"
+              id="qfOpenRentalModalBtn"
+              class="w-full px-3.5 py-3 rounded-xl border border-slate-200 bg-slate-50/50 hover:border-[#991B1B]/50 hover:bg-crimson-50/20 transition-all flex items-center justify-between gap-2 text-left"
+            >
+              <div class="flex items-center gap-2.5 min-w-0">
+                <div class="w-9 h-9 rounded-lg bg-crimson-50 text-[#991B1B] flex items-center justify-center shrink-0">
+                  <i data-lucide="clock" class="w-4 h-4"></i>
+                </div>
+                <div class="min-w-0">
+                  <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Rental Duration</p>
+                  <p id="qfRentalDisplay" class="text-xs sm:text-sm font-bold text-slate-900 truncate">4 hours • 40 km included</p>
+                </div>
+              </div>
+              <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-crimson-50 text-[#991B1B] border border-crimson-200/70 shrink-0">Change</span>
+            </button>
+          </div>
+
+          <!-- Date & Time Row (Clean 2-Column) -->
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <div class="flex items-center gap-1.5 mb-1">
+                <label for="qfDateNative" class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Pickup Date</label>
+                <span id="qfDayBadge" class="px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-amber-50 text-amber-700 border border-amber-200/70">Tomorrow</span>
+              </div>
+              <div class="relative h-11 px-3 rounded-xl border border-slate-200 bg-white focus-within:border-[#991B1B] flex items-center justify-between">
+                <span id="qfDateDisplay" class="text-xs sm:text-sm font-medium text-slate-800">22-11-2026</span>
+                <i data-lucide="calendar" class="w-4 h-4 text-slate-400 pointer-events-none"></i>
+                <input type="date" id="qfDateNative" value="2026-11-22" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+              </div>
+            </div>
+
+            <div>
+              <label for="qfTimeSelect" class="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Pickup Time</label>
+              <div class="relative h-11 rounded-xl border border-slate-200 bg-white focus-within:border-[#991B1B] flex items-center">
+                <select id="qfTimeSelect" class="w-full h-full pl-3 pr-8 text-xs sm:text-sm font-medium text-slate-800 bg-transparent appearance-none focus:outline-none cursor-pointer">
+                  <option value="6:00 AM">6:00 AM</option>
+                  <option value="7:00 AM">7:00 AM</option>
+                  <option value="8:00 AM" selected>8:00 AM</option>
+                  <option value="9:00 AM">9:00 AM</option>
+                  <option value="10:00 AM">10:00 AM</option>
+                  <option value="12:00 PM">12:00 PM</option>
+                  <option value="2:00 PM">2:00 PM</option>
+                  <option value="3:00 PM">3:00 PM</option>
+                  <option value="4:00 PM">4:00 PM</option>
+                  <option value="6:00 PM">6:00 PM</option>
+                  <option value="8:00 PM">8:00 PM</option>
+                  <option value="10:00 PM">10:00 PM</option>
+                </select>
+                <i data-lucide="clock" class="w-4 h-4 text-slate-400 absolute right-3 pointer-events-none"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- Conditional: Round Trip Days Stepper -->
+          <div id="qfDaysWrapper" class="hidden fade-slide-in">
+            <div class="px-3.5 py-2.5 rounded-xl border border-blue-200/80 bg-blue-50/20 flex items-center justify-between gap-3">
+              <div class="min-w-0">
+                <p class="text-xs font-bold text-slate-900">Days</p>
+                <p id="qfDaysSubtitle" class="text-[11px] text-slate-500 truncate">Same day</p>
+              </div>
+              <div class="flex items-center gap-1 p-1 rounded-xl border border-slate-200 bg-white shrink-0">
+                <button type="button" id="qfDaysMinus" disabled class="w-8 h-8 rounded-lg bg-blue-50 text-[#2563EB] hover:bg-blue-100 disabled:opacity-40 flex items-center justify-center">
+                  <i data-lucide="minus" class="w-3.5 h-3.5"></i>
+                </button>
+                <span id="qfDaysCount" class="min-w-[56px] text-center text-xs font-bold text-slate-900">1 day</span>
+                <button type="button" id="qfDaysPlus" class="w-8 h-8 rounded-lg bg-blue-50 text-[#2563EB] hover:bg-blue-100 disabled:opacity-40 flex items-center justify-center">
+                  <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Inline Validation -->
+          <div id="qfNotice" class="hidden px-3 py-2 rounded-xl text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-2"></div>
+
+          <!-- Primary CTA -->
+          <div class="pt-1 mt-auto">
+            <button
+              type="submit"
+              class="w-full bg-[#991B1B] hover:bg-[#7F1D1D] active:scale-[0.99] text-white font-semibold text-sm py-3 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2"
+            >
+              <i data-lucide="calculator" class="w-4 h-4"></i>
+              <span>Get Fare</span>
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- RIGHT COLUMN (7/12): FARES LIST + FOLLOW-UP & BOOK ACTIONS -->
+      <section class="lg:col-span-7 bg-white rounded-2xl border border-slate-200/90 shadow-sm flex flex-col">
+        <!-- Card Header -->
+        <div class="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
+              <i data-lucide="car" class="w-4 h-4"></i>
+            </div>
+            <div class="min-w-0">
+              <h2 class="text-sm font-bold text-slate-900">Vehicle Fares</h2>
+              <p id="faresSubtitle" class="text-[11px] text-slate-500 truncate">The fare for every vehicle appears here</p>
+            </div>
+          </div>
+
+          <!-- Quick Action Buttons (Visible once fares are calculated) -->
+          <div id="faresHeaderActions" class="hidden flex items-center gap-2">
+            <button
+              type="button"
+              id="copyAllFaresBtn"
+              class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors flex items-center gap-1.5"
+            >
+              <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+              <span id="copyAllFaresLabel">Copy All for WhatsApp</span>
+            </button>
+            <button
+              type="button"
+              id="openFollowUpTopBtn"
+              class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition-colors flex items-center gap-1.5"
+            >
+              <i data-lucide="bell-plus" class="w-3.5 h-3.5"></i>
+              <span>Save Follow-up</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Empty State -->
+        <div id="faresEmptyState" class="flex-1 p-8 sm:p-12 flex flex-col items-center justify-center text-center">
+          <div class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mb-3">
+            <i data-lucide="calculator" class="w-6 h-6"></i>
+          </div>
+          <p class="text-sm font-bold text-slate-800">No fare calculated yet</p>
+          <p class="text-xs text-slate-500 mt-1 max-w-xs">
+            Enter pickup, drop, and date on the left, then click <strong>Get Fare</strong> to view all 6 vehicle prices.
+          </p>
+          <!-- Quick Demo Fill Chip for Instant Testing -->
+          <button
+            type="button"
+            id="trySampleRouteBtn"
+            class="mt-4 px-3.5 py-2 rounded-xl text-xs font-semibold text-[#991B1B] bg-crimson-50 hover:bg-crimson-100/80 border border-crimson-200/70 transition-colors"
+          >
+            Try Sample: Coimbatore → Madurai
+          </button>
+        </div>
+
+        <!-- Populated Fares State -->
+        <div id="faresResultsState" class="hidden flex-1 flex flex-col">
+          <!-- Route & Slab Meta Bar -->
+          <div class="px-5 py-2.5 bg-slate-50/90 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div class="flex items-center gap-2 min-w-0">
+              <span id="resRoutePill" class="font-bold text-slate-800 truncate"></span>
+              <span id="resDistPill" class="text-[11px] font-medium text-slate-500 bg-white border border-slate-200 px-2 py-0.5 rounded-full shrink-0"></span>
+            </div>
+            <span id="resSlabPill" class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/70 shrink-0"></span>
+          </div>
+
+          <!-- 6 Vehicle Fare Rows -->
+          <div id="faresListContainer" class="divide-y divide-slate-100 flex-1 overflow-y-auto">
+            <!-- Populated dynamically -->
+          </div>
+
+          <!-- Footer Note -->
+          <div class="px-5 py-2.5 bg-slate-50/70 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
+            <span>Includes Driver Bata • Excludes Toll, Parking &amp; State Permit Tax (Actuals)</span>
+            <span class="font-medium text-slate-700">Click <strong>Book</strong> if customer says OK</span>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- BOTTOM SECTION: FOLLOW-UP QUEUE & ALERTS TRACKER          -->
+    <!-- ========================================================= -->
+    <section id="followUpQueueSection" class="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
+            <i data-lucide="clock-alert" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h2 class="text-sm font-bold text-slate-900">Follow-Up Queue &amp; Alerts</h2>
+            <p class="text-[11px] text-slate-500">Track callers who asked for a fare — call back when alert triggers &amp; convert to booking</p>
+          </div>
+        </div>
+
+        <!-- Filter Pills -->
+        <div class="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+          <button type="button" data-fu-filter="all" class="fu-filter-btn px-3 py-1 rounded-lg text-xs font-semibold bg-white text-slate-900 shadow-xs">All</button>
+          <button type="button" data-fu-filter="due" class="fu-filter-btn px-3 py-1 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900">Due Now</button>
+          <button type="button" data-fu-filter="upcoming" class="fu-filter-btn px-3 py-1 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900">Upcoming</button>
+          <button type="button" data-fu-filter="booked" class="fu-filter-btn px-3 py-1 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900">Booked</button>
+          <button type="button" data-fu-filter="lost" class="fu-filter-btn px-3 py-1 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900">Lost</button>
+        </div>
+      </div>
+
+      <!-- Queue Cards Container -->
+      <div id="followUpListContainer" class="divide-y divide-slate-100">
+        <!-- Populated dynamically -->
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- NUMBER REVEAL AUDIT LOG (MANDATORY REASON LEDGER)         -->
+    <!-- ========================================================= -->
+    <section class="bg-white rounded-2xl border border-amber-200/90 shadow-sm overflow-hidden">
+      <div class="px-5 py-3 bg-amber-50/60 border-b border-amber-200/70 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <i data-lucide="shield-alert" class="w-4 h-4 text-amber-700"></i>
+          <h2 class="text-xs font-bold text-amber-950">Caller Number View Log (Mandatory Reason Required)</h2>
+        </div>
+        <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-amber-100 text-amber-900">100% Audited</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="border-b border-slate-100 bg-slate-50/70 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              <th class="py-2 px-5">Staff Account</th>
+              <th class="py-2 px-4">Caller</th>
+              <th class="py-2 px-4">Mandatory Reason Given</th>
+              <th class="py-2 px-5 text-right">Time</th>
+            </tr>
+          </thead>
+          <tbody id="qfRevealAuditBody" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================================= -->
+  <!-- MODAL 1: SAVE FOLLOW-UP & SET ALERT                       -->
+  <!-- ========================================================= -->
+  <div id="followUpModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden fade-slide-in">
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
+            <i data-lucide="bell-plus" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-900">Save Follow-Up &amp; Set Alert</h3>
+            <p id="fuModalSummary" class="text-[11px] text-slate-500"></p>
+          </div>
+        </div>
+        <button type="button" id="closeFollowUpModalBtn" class="w-8 h-8 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form id="followUpForm" class="p-5 space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label for="fuMobileInput" class="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Caller Mobile *</label>
+            <div class="flex items-center h-10 bg-white border border-slate-200 rounded-xl overflow-hidden focus-within:border-[#991B1B]">
+              <span class="px-2.5 text-xs font-semibold text-slate-500 bg-slate-50 h-full flex items-center border-r border-slate-200">+91</span>
+              <input type="tel" id="fuMobileInput" maxlength="10" required placeholder="10-digit mobile" class="w-full h-full px-2.5 text-sm font-medium text-slate-800 focus:outline-none" />
+            </div>
+          </div>
+          <div>
+            <label for="fuNameInput" class="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Caller Name</label>
+            <input type="text" id="fuNameInput" placeholder="e.g., Ramesh" class="w-full h-10 px-3 text-sm font-medium text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]" />
+          </div>
+        </div>
+        <p id="fuCallerMatchBadge" class="hidden text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/70 px-3 py-1.5 rounded-lg"></p>
+
+        <!-- Extra: Scheduled Follow-Up Date & Time (e.g., When caller says "Will book tomorrow") -->
+        <div class="p-3 rounded-xl bg-slate-50/90 border border-slate-200/80 space-y-2">
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+              <i data-lucide="calendar-clock" class="w-3.5 h-3.5 text-amber-600"></i>
+              <span>Follow-Up Date &amp; Time</span>
+            </label>
+            <div class="flex items-center gap-1.5">
+              <button type="button" id="fuPresetTmrwMorBtn" class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-white text-slate-700 border border-slate-200 hover:border-amber-400 hover:text-amber-800 transition-colors">
+                Tomorrow 9 AM
+              </button>
+              <button type="button" id="fuPresetTmrwEveBtn" class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-white text-slate-700 border border-slate-200 hover:border-amber-400 hover:text-amber-800 transition-colors">
+                Tomorrow 5 PM
+              </button>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-2.5">
+            <div>
+              <label for="fuScheduleDateInput" class="block text-[10px] font-medium text-slate-500 mb-1">Follow-Up Date</label>
+              <input
+                type="date"
+                id="fuScheduleDateInput"
+                class="w-full h-9 px-2.5 text-xs font-semibold text-slate-800 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-[#991B1B]"
+              />
+            </div>
+            <div>
+              <label for="fuScheduleTimeInput" class="block text-[10px] font-medium text-slate-500 mb-1">Follow-Up Time</label>
+              <input
+                type="time"
+                id="fuScheduleTimeInput"
+                class="w-full h-9 px-2.5 text-xs font-semibold text-slate-800 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-[#991B1B]"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Reminder Time Chips -->
+        <div>
+          <label class="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Follow-Up Alert Time</label>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2" id="fuReminderChips">
+            <button type="button" data-mins="15" class="fu-chip py-2 px-2 rounded-xl text-xs font-semibold border border-[#991B1B] bg-crimson-50 text-[#991B1B]">In 15 min</button>
+            <button type="button" data-mins="30" class="fu-chip py-2 px-2 rounded-xl text-xs font-medium border border-slate-200 bg-white text-slate-700 hover:bg-slate-50">In 30 min</button>
+            <button type="button" data-mins="60" class="fu-chip py-2 px-2 rounded-xl text-xs font-medium border border-slate-200 bg-white text-slate-700 hover:bg-slate-50">In 1 hour</button>
+            <button type="button" data-mins="0" class="fu-chip py-2 px-2 rounded-xl text-xs font-medium border border-slate-200 bg-white text-slate-700 hover:bg-slate-50">Alert Now</button>
+          </div>
+        </div>
+
+        <div>
+          <label for="fuNoteInput" class="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Call Note</label>
+          <input type="text" id="fuNoteInput" placeholder="e.g., Asking family, will confirm by evening" class="w-full h-10 px-3 text-xs sm:text-sm text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]" />
+        </div>
+
+        <button type="submit" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold text-sm py-3 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2">
+          <i data-lucide="bell-ring" class="w-4 h-4"></i>
+          <span>Save Follow-Up &amp; Activate Alert</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODAL 2: FARE OK -> QUICK CONFIRM BOOKING (WITH RAZORPAY) -->
+  <!-- ========================================================= -->
+  <div id="confirmBookModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col fade-slide-in">
+      <!-- Header -->
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
+            <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-900">Confirm Booking (Fare Approved)</h3>
+            <p id="cbModalSub" class="text-[11px] text-slate-500"></p>
+          </div>
+        </div>
+        <button type="button" id="closeConfirmModalBtn" class="w-8 h-8 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Modal Form Body -->
+      <div id="cbFormView" class="p-5 space-y-4 overflow-y-auto">
+        <!-- Trip & Cab Summary Strip -->
+        <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <p id="cbRouteText" class="text-xs sm:text-sm font-bold text-slate-900 truncate"></p>
+            <p id="cbVehicleMeta" class="text-[11px] text-slate-500 mt-0.5"></p>
+          </div>
+          <div class="text-right shrink-0">
+            <p id="cbFareAmount" class="text-base font-bold text-[#991B1B]"></p>
+            <span class="text-[10px] font-medium text-slate-400">+ Toll/Permit</span>
+          </div>
+        </div>
+
+        <!-- Customer Details -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label for="cbMobileInput" class="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Customer Mobile *</label>
+            <div class="flex items-center h-10 bg-white border border-slate-200 rounded-xl overflow-hidden focus-within:border-[#991B1B]">
+              <span class="px-2.5 text-xs font-semibold text-slate-500 bg-slate-50 h-full flex items-center border-r border-slate-200">+91</span>
+              <input type="tel" id="cbMobileInput" maxlength="10" placeholder="10-digit mobile" class="w-full h-full px-2.5 text-sm font-medium text-slate-800 focus:outline-none" />
+            </div>
+          </div>
+          <div>
+            <label for="cbNameInput" class="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Customer Name *</label>
+            <input type="text" id="cbNameInput" placeholder="Enter customer name" class="w-full h-10 px-3 text-sm font-medium text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]" />
+          </div>
+        </div>
+        <p id="cbCallerMatchBadge" class="hidden text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/70 px-3 py-1.5 rounded-lg"></p>
+
+        <!-- Compact Payment Plan (Razorpay) -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Payment Mode</span>
+            <span class="text-[11px] font-semibold text-[#2563EB]">Powered by Razorpay</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2" id="cbPayPlanGroup">
+            <button type="button" data-cb-pay="later" class="cb-pay-btn p-2.5 rounded-xl border-2 border-[#2563EB] bg-blue-50/30 text-left">
+              <p class="text-xs font-bold text-slate-900">Pay Later</p>
+              <p class="text-[10px] text-slate-500 mt-0.5">₹0 Now</p>
+            </button>
+            <button type="button" data-cb-pay="partial" class="cb-pay-btn p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-left">
+              <p class="text-xs font-bold text-slate-900">25% Advance</p>
+              <p id="cbPartialText" class="text-[10px] text-[#2563EB] font-semibold mt-0.5">₹0 Link</p>
+            </button>
+            <button type="button" data-cb-pay="full" class="cb-pay-btn p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-left">
+              <p class="text-xs font-bold text-slate-900">100% Online</p>
+              <p id="cbFullText" class="text-[10px] text-[#2563EB] font-semibold mt-0.5">₹0 Link</p>
+            </button>
+          </div>
+        </div>
+
+        <div id="cbErrorMsg" class="hidden px-3 py-2 rounded-xl text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200"></div>
+
+        <button
+          type="button"
+          id="cbFinalConfirmBtn"
+          class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm py-3.5 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2"
+        >
+          <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+          <span id="cbFinalConfirmText">Confirm Booking Now</span>
+        </button>
+      </div>
+
+      <!-- Modal Success View -->
+      <div id="cbSuccessView" class="hidden p-6 text-center space-y-4">
+        <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center mx-auto">
+          <i data-lucide="check-circle-2" class="w-7 h-7"></i>
+        </div>
+        <div>
+          <span id="cbDoneId" class="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700"></span>
+          <h4 class="text-base font-bold text-slate-900 mt-2">Booking Confirmed!</h4>
+          <p id="cbDoneSummary" class="text-xs text-slate-500 mt-1"></p>
+        </div>
+        <div class="flex flex-col sm:flex-row gap-2.5 justify-center pt-1">
+          <button type="button" id="cbCopyWaBtn" class="px-4 py-2.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 flex items-center justify-center gap-1.5">
+            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+            <span id="cbCopyWaLabel">Copy WhatsApp Confirmation</span>
+          </button>
+          <button type="button" id="cbDoneCloseBtn" class="px-4 py-2.5 rounded-xl text-xs font-semibold bg-[#991B1B] text-white hover:bg-[#7F1D1D]">
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODAL 3: RENTAL DURATION (1 TO 15 HOURS)                  -->
+  <!-- ========================================================= -->
+  <div id="qfRentalModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden fade-slide-in">
+      <div class="pt-3 pb-1 flex justify-center">
+        <span class="w-11 h-1 rounded-full bg-slate-300/80"></span>
+      </div>
+      <div class="px-5 pt-2 pb-5">
+        <div class="flex items-center justify-between gap-3">
+          <h3 class="text-base font-bold text-slate-900">Rental duration</h3>
+          <button type="button" id="qfCloseRentalModalBtn" class="w-8 h-8 rounded-full text-slate-500 hover:bg-slate-100 flex items-center justify-center">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+        <p class="text-xs text-slate-500 mt-1">Choose from 1 to 15 hours to calculate instant rental fares.</p>
+        <div id="qfRentalGrid" class="grid grid-cols-3 gap-2.5 mt-4"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODAL 4: MANDATORY REASON TO VIEW CALLER NUMBER           -->
+  <!-- ========================================================= -->
+  <div id="qfReasonModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden fade-slide-in">
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-amber-50/60">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center">
+            <i data-lucide="eye" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-900">Mandatory Reason to View Number</h3>
+            <p id="qfRrSub" class="text-[11px] text-slate-600">Staff ID &amp; reason are permanently logged</p>
+          </div>
+        </div>
+        <button type="button" id="closeQfReasonModalBtn" class="w-8 h-8 rounded-full text-slate-400 hover:bg-slate-100 flex items-center justify-center">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      <form id="qfReasonForm" class="p-5 space-y-3.5 text-xs">
+        <div>
+          <label for="qfRrPreset" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Reason Category *</label>
+          <select id="qfRrPreset" required class="w-full h-9 px-2.5 font-semibold border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-[#991B1B]">
+            <option value="">-- Select valid reason --</option>
+            <option value="Scheduled follow-up callback">Scheduled follow-up callback</option>
+            <option value="WhatsApp fare quote confirmation">WhatsApp fare quote confirmation</option>
+            <option value="Pickup time / cab availability update">Pickup time / cab availability update</option>
+          </select>
+        </div>
+        <div>
+          <label for="qfRrDetail" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Detailed Note (Min 10 characters) *</label>
+          <input type="text" id="qfRrDetail" required placeholder="e.g., Calling back caller to confirm Madurai Sedan booking" class="w-full h-9 px-3 border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]" />
+        </div>
+        <button type="submit" class="w-full bg-[#991B1B] hover:bg-[#7F1D1D] text-white font-semibold py-2.5 rounded-xl">
+          Log Reason &amp; Reveal Number
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODAL 5: MARK FOLLOW-UP AS LOST (REASON TRACKER)          -->
+  <!-- ========================================================= -->
+  <div id="qfLostModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden fade-slide-in">
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div>
+          <h3 class="text-sm font-bold text-slate-900">Mark Enquiry as Lost</h3>
+          <p id="qfLostSub" class="text-[11px] text-slate-500">Select why caller did not book</p>
+        </div>
+        <button type="button" id="closeQfLostModalBtn" class="w-8 h-8 rounded-full text-slate-400 hover:bg-slate-100 flex items-center justify-center">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      <form id="qfLostForm" class="p-5 space-y-3 text-xs">
+        <div class="space-y-2">
+          <label class="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+            <input type="radio" name="lostReason" value="Rate too high / Budget issue" checked class="accent-[#991B1B]" />
+            <span class="font-medium text-slate-800">Rate too high / Budget issue</span>
+          </label>
+          <label class="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+            <input type="radio" name="lostReason" value="Booked another cab / Local taxi" class="accent-[#991B1B]" />
+            <span class="font-medium text-slate-800">Booked another cab / Local taxi</span>
+          </label>
+          <label class="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+            <input type="radio" name="lostReason" value="Trip cancelled / Postponed" class="accent-[#991B1B]" />
+            <span class="font-medium text-slate-800">Trip cancelled / Postponed</span>
+          </label>
+          <label class="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
+            <input type="radio" name="lostReason" value="No response after 2 calls" class="accent-[#991B1B]" />
+            <span class="font-medium text-slate-800">No response after 2 calls</span>
+          </label>
+        </div>
+        <button type="submit" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-2.5 rounded-xl">
+          Save Lost Reason
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Floating Toast Notification -->
+  <div id="toastBox" class="hidden fixed bottom-5 right-5 z-50 max-w-sm bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl text-xs font-medium flex items-center gap-2.5 fade-slide-in">
+    <i data-lucide="bell-ring" class="w-4 h-4 text-amber-400 shrink-0"></i>
+    <span id="toastText"></span>
+  </div>
+
+  <script>
+    (function () {
+      lucide.createIcons();
+
+      // Exact 6 Fleet Vehicles & Nesam Cabs Tariff Parameters
+      const vehicles = [
+        { id: 'hatchback', name: 'Wagon R Or Similar', category: 'HATCHBACK', seats: '4 Seats', bags: '2 Bags', oneWayRate: 14, roundRate: 13, base30: 550, bata: 500, rental1Hr: 320, rentalPerHr: 230 },
+        { id: 'sedan', name: 'Dzire / Etios Or Similar', category: 'SEDAN', seats: '4 Seats', bags: '2 Bags', oneWayRate: 15, roundRate: 14, base30: 600, bata: 500, rental1Hr: 350, rentalPerHr: 260 },
+        { id: 'suv', name: 'Ertiga Or Similar', category: 'SUV', seats: '6 Seats', bags: '4 Bags', oneWayRate: 19, roundRate: 18, base30: 750, bata: 500, rental1Hr: 450, rentalPerHr: 330 },
+        { id: 'muv', name: 'Kia Carens Or Similar', category: 'MUV', seats: '7 Seats', bags: '4 Bags', oneWayRate: 20, roundRate: 19, base30: 800, bata: 500, rental1Hr: 480, rentalPerHr: 350 },
+        { id: 'innova', name: 'Innova', category: 'INNOVA', seats: '7 Seats', bags: '4 Bags', oneWayRate: 21, roundRate: 20, base30: 850, bata: 600, rental1Hr: 520, rentalPerHr: 380 },
+        { id: 'crysta', name: 'Innova Crysta', category: 'CRYSTA', seats: '7 Seats', bags: '4 Bags', oneWayRate: 24, roundRate: 23, base30: 950, bata: 600, rental1Hr: 600, rentalPerHr: 430 },
+      ];
+
+      // Tamil Nadu City Coords for Silent Auto-KM Calculation
+      const tnCities = {
+        chennai: [13.0827, 80.2707],
+        madurai: [9.9252, 78.1198],
+        trichy: [10.7905, 78.7047],
+        coimbatore: [11.0168, 76.9558],
+        tiruppur: [11.1085, 77.3411],
+        salem: [11.6643, 78.1460],
+        tiruvannamalai: [12.2253, 79.0747],
+        pondicherry: [11.9416, 79.8083],
+        kodaikanal: [10.2381, 77.4892],
+        theni: [10.0104, 77.4768],
+        vellore: [12.9165, 79.1325],
+        bengaluru: [12.9716, 77.5946],
+        bangalore: [12.9716, 77.5946],
+        dindigul: [10.3624, 77.9695],
+        tirunelveli: [8.7139, 77.7567],
+        kanyakumari: [8.0883, 77.5385],
+        rameswaram: [9.2876, 79.3129],
+        thanjavur: [10.7870, 79.1378],
+        erode: [11.3410, 77.7172],
+        karur: [10.9601, 78.0766],
+        ooty: [11.4102, 76.6950],
+        pollachi: [10.6581, 77.0087],
+        airport: [12.9941, 80.1709],
+      };
+
+      const state = {
+        brand: 'Nesam Cabs',
+        tripType: 'One Way',
+        roundTripDays: 1,
+        rentalHours: 4,
+        viaStops: [],
+        autoKm: 215,
+        autoMinutes: 270,
+        calculated: false,
+        fuFilter: 'all',
+        fuReminderMins: 15,
+        activeFollowUpVehicleId: 'sedan',
+        confirmPayload: null, // Holds route, vehicle, fare, optional followUpId
+        cbPayPlan: 'later',
+        revealedFuIds: new Set(),
+        pendingRevealFuId: null,
+        pendingLostFuId: null,
+      };
+
+      // Existing Caller Directory for Instant Auto-Lookup
+      const callerDirectory = [
+        { phone: '9842144510', name: 'Arun Prakash', trips: 5, prefCab: 'Sedan' },
+        { phone: '9894011223', name: 'Divya Menon', trips: 3, prefCab: 'SUV' },
+        { phone: '6379056759', name: 'Mithravarun', trips: 1, prefCab: 'Sedan' },
+        { phone: '9842277890', name: 'Sri Tex Exports', trips: 19, prefCab: 'Innova Crysta' },
+      ];
+
+      const qfRevealLogs = [
+        {
+          staff: 'Karthik Raja (@booking.karthik)',
+          caller: 'Arun Prakash (FU-101)',
+          reason: 'Scheduled follow-up callback — Confirming Coimbatore → Madurai Sedan quote',
+          time: '12:30 PM',
+        },
+      ];
+
+      // Demo Follow-Up Queue (Includes 1 Due Now item so admin sees live Follow-Up Alert)
+      const followUps = [
+        {
+          id: 'FU-101',
+          name: 'Arun Prakash',
+          phone: '9842144510',
+          brand: 'Nesam Cabs',
+          tripType: 'One Way',
+          route: 'Coimbatore → Madurai',
+          pickup: 'Coimbatore',
+          drop: 'Madurai',
+          date: '22-11-2026',
+          time: '8:00 AM',
+          vehicleId: 'sedan',
+          vehicleName: 'Dzire / Etios Or Similar',
+          fare: 3725,
+          note: 'Checking with wife, asked to call back in 10 mins',
+          status: 'due', // 'due' | 'upcoming' | 'booked'
+          dueLabel: 'Due Now',
+          dueTimestamp: Date.now() - 60000,
+        },
+        {
+          id: 'FU-102',
+          name: 'Divya Menon',
+          phone: '9894011223',
+          brand: 'Nesam Cabs',
+          tripType: 'Round Trip',
+          route: 'Coimbatore ⇄ Ooty',
+          pickup: 'Coimbatore',
+          drop: 'Ooty',
+          date: '23-11-2026',
+          time: '7:00 AM',
+          vehicleId: 'suv',
+          vehicleName: 'Ertiga Or Similar',
+          fare: 5000,
+          note: 'Comparing Innova vs Ertiga rate',
+          status: 'upcoming',
+          dueLabel: 'In 25 mins',
+          dueTimestamp: Date.now() + 25 * 60000,
+        },
+      ];
+
+      // DOM Elements
+      const brandSwitcherWrapper = document.getElementById('brandSwitcherWrapper');
+      const brandSwitcherBtn = document.getElementById('brandSwitcherBtn');
+      const brandSwitcherMenu = document.getElementById('brandSwitcherMenu');
+      const brandActiveDot = document.getElementById('brandActiveDot');
+      const brandActiveName = document.getElementById('brandActiveName');
+      const brandOptBtns = document.querySelectorAll('.brand-opt-btn');
+
+      const alertBellBtn = document.getElementById('alertBellBtn');
+      const alertPingDot = document.getElementById('alertPingDot');
+      const alertCountText = document.getElementById('alertCountText');
+      const dueAlertBanner = document.getElementById('dueAlertBanner');
+      const bannerCallerInfo = document.getElementById('bannerCallerInfo');
+      const bannerTripInfo = document.getElementById('bannerTripInfo');
+      const bannerSnoozeBtn = document.getElementById('bannerSnoozeBtn');
+      const bannerBookBtn = document.getElementById('bannerBookBtn');
+
+      const quickFareForm = document.getElementById('quickFareForm');
+      const qfTripTabs = document.querySelectorAll('.qf-trip-tab');
+      const qfPickupInput = document.getElementById('qfPickupInput');
+      const qfDropInput = document.getElementById('qfDropInput');
+      const qfDropWrapper = document.getElementById('qfDropWrapper');
+      const qfDropLabel = document.getElementById('qfDropLabel');
+      const qfRouteLine = document.getElementById('qfRouteLine');
+      const qfDropPin = document.getElementById('qfDropPin');
+      const qfSwapBtn = document.getElementById('qfSwapBtn');
+      const qfStopsContainer = document.getElementById('qfStopsContainer');
+      const qfStopsList = document.getElementById('qfStopsList');
+      const qfAddStopBtn = document.getElementById('qfAddStopBtn');
+      const qfAddStopLabel = document.getElementById('qfAddStopLabel');
+      const qfLockBadge = document.getElementById('qfLockBadge');
+
+      const qfRentalCardWrapper = document.getElementById('qfRentalCardWrapper');
+      const qfOpenRentalModalBtn = document.getElementById('qfOpenRentalModalBtn');
+      const qfRentalDisplay = document.getElementById('qfRentalDisplay');
+      const qfRentalModal = document.getElementById('qfRentalModal');
+      const qfCloseRentalModalBtn = document.getElementById('qfCloseRentalModalBtn');
+      const qfRentalGrid = document.getElementById('qfRentalGrid');
+
+      const qfDateNative = document.getElementById('qfDateNative');
+      const qfDateDisplay = document.getElementById('qfDateDisplay');
+      const qfDayBadge = document.getElementById('qfDayBadge');
+      const qfTimeSelect = document.getElementById('qfTimeSelect');
+
+      const qfDaysWrapper = document.getElementById('qfDaysWrapper');
+      const qfDaysMinus = document.getElementById('qfDaysMinus');
+      const qfDaysPlus = document.getElementById('qfDaysPlus');
+      const qfDaysCount = document.getElementById('qfDaysCount');
+      const qfDaysSubtitle = document.getElementById('qfDaysSubtitle');
+
+      const qfNotice = document.getElementById('qfNotice');
+      const clearQuickFareBtn = document.getElementById('clearQuickFareBtn');
+      const trySampleRouteBtn = document.getElementById('trySampleRouteBtn');
+
+      const faresEmptyState = document.getElementById('faresEmptyState');
+      const faresResultsState = document.getElementById('faresResultsState');
+      const faresHeaderActions = document.getElementById('faresHeaderActions');
+      const faresSubtitle = document.getElementById('faresSubtitle');
+      const faresListContainer = document.getElementById('faresListContainer');
+      const copyAllFaresBtn = document.getElementById('copyAllFaresBtn');
+      const copyAllFaresLabel = document.getElementById('copyAllFaresLabel');
+      const openFollowUpTopBtn = document.getElementById('openFollowUpTopBtn');
+
+      const followUpListContainer = document.getElementById('followUpListContainer');
+      const followUpModal = document.getElementById('followUpModal');
+      const closeFollowUpModalBtn = document.getElementById('closeFollowUpModalBtn');
+      const followUpForm = document.getElementById('followUpForm');
+      const fuMobileInput = document.getElementById('fuMobileInput');
+      const fuNameInput = document.getElementById('fuNameInput');
+      const fuScheduleDateInput = document.getElementById('fuScheduleDateInput');
+      const fuScheduleTimeInput = document.getElementById('fuScheduleTimeInput');
+      const fuPresetTmrwMorBtn = document.getElementById('fuPresetTmrwMorBtn');
+      const fuPresetTmrwEveBtn = document.getElementById('fuPresetTmrwEveBtn');
+      const fuNoteInput = document.getElementById('fuNoteInput');
+
+      const confirmBookModal = document.getElementById('confirmBookModal');
+      const closeConfirmModalBtn = document.getElementById('closeConfirmModalBtn');
+      const cbFormView = document.getElementById('cbFormView');
+      const cbSuccessView = document.getElementById('cbSuccessView');
+      const cbMobileInput = document.getElementById('cbMobileInput');
+      const cbNameInput = document.getElementById('cbNameInput');
+      const cbErrorMsg = document.getElementById('cbErrorMsg');
+      const cbFinalConfirmBtn = document.getElementById('cbFinalConfirmBtn');
+      const cbFinalConfirmText = document.getElementById('cbFinalConfirmText');
+      const cbCopyWaBtn = document.getElementById('cbCopyWaBtn');
+      const cbCopyWaLabel = document.getElementById('cbCopyWaLabel');
+      const cbDoneCloseBtn = document.getElementById('cbDoneCloseBtn');
+
+      const toastBox = document.getElementById('toastBox');
+      const toastText = document.getElementById('toastText');
+
+      // Helpers
+      function formatINR(num) {
+        return '₹' + Number(num).toLocaleString('en-IN');
+      }
+
+      function maskLast5(phone) {
+        if (!phone || phone.length < 10) return phone;
+        return `+91 ${phone.slice(0, 5)} •••••`;
+      }
+
+      function playAlertBeep() {
+        try {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (!AudioCtx) return;
+          const ctx = new AudioCtx();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(880, ctx.currentTime);
+          gain.gain.setValueAtTime(0.08, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.35);
+        } catch (e) {
+          // Ignore audio block if browser requires user interaction first
+        }
+      }
+
+      function bindCallerLookup(mobileInp, nameInp, badgeEl) {
+        mobileInp.addEventListener('input', (e) => {
+          const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+          e.target.value = digits;
+          const match = callerDirectory.find((c) => c.phone === digits);
+          if (match) {
+            nameInp.value = match.name;
+            badgeEl.textContent = `Existing Caller: ${match.name} • ${match.trips} completed trip${match.trips === 1 ? '' : 's'} (Pref: ${match.prefCab})`;
+            badgeEl.classList.remove('hidden');
+          } else {
+            badgeEl.classList.add('hidden');
+          }
+        });
+      }
+
+      bindCallerLookup(fuMobileInput, fuNameInput, document.getElementById('fuCallerMatchBadge'));
+      bindCallerLookup(cbMobileInput, cbNameInput, document.getElementById('cbCallerMatchBadge'));
+
+      function showToast(msg) {
+        toastText.textContent = msg;
+        toastBox.classList.remove('hidden');
+        lucide.createIcons();
+        clearTimeout(window.__toastTimer);
+        window.__toastTimer = setTimeout(() => {
+          toastBox.classList.add('hidden');
+        }, 3500);
+      }
+
+      function copyTextSafe(text, onSuccess) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+          document.execCommand('copy');
+          if (onSuccess) onSuccess();
+        } catch (err) {
+          // ignore
+        }
+        document.body.removeChild(ta);
+      }
+
+      // ---------------------------------------------------------
+      // 1. BRAND SOURCE SWITCHER
+      // ---------------------------------------------------------
+      function setBrandSource(brandName) {
+        state.brand = brandName;
+        brandActiveName.textContent = brandName;
+        brandOptBtns.forEach((btn) => {
+          const isSelected = btn.dataset.brandOpt === brandName;
+          const checkIcon = btn.querySelector('.brand-check');
+          const labelSpan = btn.querySelector('span > span:last-child');
+          if (isSelected) {
+            brandActiveDot.className = `w-2 h-2 rounded-full ring-2 shrink-0 ${btn.dataset.brandDot}`;
+            btn.className = 'brand-opt-btn w-full px-2.5 py-2 rounded-lg flex items-center justify-between gap-2 text-left bg-slate-100/90 text-slate-900';
+            if (labelSpan) labelSpan.className = 'text-xs font-semibold truncate';
+            if (checkIcon) checkIcon.classList.remove('hidden');
+          } else {
+            btn.className = 'brand-opt-btn w-full px-2.5 py-2 rounded-lg flex items-center justify-between gap-2 text-left text-slate-600 hover:bg-slate-50';
+            if (labelSpan) labelSpan.className = 'text-xs font-medium truncate';
+            if (checkIcon) checkIcon.classList.add('hidden');
+          }
+        });
+      }
+
+      brandSwitcherBtn.addEventListener('click', () => {
+        brandSwitcherMenu.classList.toggle('hidden');
+      });
+      brandOptBtns.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          setBrandSource(btn.dataset.brandOpt);
+          brandSwitcherMenu.classList.add('hidden');
+        });
+      });
+      document.addEventListener('click', (e) => {
+        if (!brandSwitcherWrapper.contains(e.target)) {
+          brandSwitcherMenu.classList.add('hidden');
+        }
+      });
+
+      // ---------------------------------------------------------
+      // 2. TRIP TABS, STOPS, DAYS STEPPER & RENTAL MODAL
+      // ---------------------------------------------------------
+      function renderViaStops() {
+        qfStopsList.innerHTML = '';
+        state.viaStops.forEach((val, idx) => {
+          const row = document.createElement('div');
+          row.className = 'flex items-center gap-1.5';
+          row.innerHTML = `
+            <input type="text" data-idx="${idx}" value="${val}" placeholder="Enter stop city..." class="qf-stop-inp flex-1 h-9 px-3 text-xs font-medium text-slate-800 bg-slate-50 border border-dashed border-slate-300 rounded-lg focus:bg-white focus:border-[#991B1B] focus:outline-none" />
+            <button type="button" data-del="${idx}" class="w-8 h-8 rounded-lg border border-slate-200 text-slate-400 hover:text-[#991B1B] flex items-center justify-center">
+              <i data-lucide="x" class="w-3.5 h-3.5"></i>
+            </button>
+          `;
+          qfStopsList.appendChild(row);
+        });
+        qfStopsList.querySelectorAll('.qf-stop-inp').forEach((inp) => {
+          inp.addEventListener('input', (e) => {
+            state.viaStops[parseInt(e.target.dataset.idx, 10)] = e.target.value;
+            if (state.calculated) calculateAndRenderFares();
+          });
+        });
+        qfStopsList.querySelectorAll('[data-del]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            state.viaStops.splice(parseInt(btn.dataset.del, 10), 1);
+            renderViaStops();
+            if (state.calculated) calculateAndRenderFares();
+          });
+        });
+        lucide.createIcons();
+      }
+
+      qfAddStopBtn.addEventListener('click', () => {
+        if (state.viaStops.length < 4) {
+          state.viaStops.push('');
+          renderViaStops();
+        }
+      });
+
+      function updateTripTypeUI() {
+        const t = state.tripType;
+        const isRound = t === 'Round Trip';
+        const isMulti = t === 'Multicity';
+        const isRental = t === 'Rental';
+
+        qfDaysWrapper.classList.toggle('hidden', !isRound);
+        qfRentalCardWrapper.classList.toggle('hidden', !isRental);
+        qfDropWrapper.classList.toggle('hidden', isRental);
+        qfRouteLine.classList.toggle('hidden', isRental);
+        qfDropPin.classList.toggle('hidden', isRental);
+        qfSwapBtn.classList.toggle('hidden', isRental || ((isRound || isMulti) && state.viaStops.length > 0));
+
+        const showStops = isRound || isMulti;
+        qfStopsContainer.classList.toggle('hidden', !showStops);
+        qfAddStopLabel.textContent = isRound ? 'Add Itinerary Stop' : 'Add Via-Stop';
+        qfLockBadge.classList.toggle('hidden', !isRound);
+        if (isMulti && state.viaStops.length === 0) state.viaStops = [''];
+        if (showStops) renderViaStops();
+
+        qfDropLabel.textContent = isMulti ? 'Final Drop Location' : 'Drop Location';
+        if (state.calculated) calculateAndRenderFares();
+      }
+
+      qfTripTabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+          state.tripType = tab.dataset.trip;
+          qfTripTabs.forEach((t) => {
+            const active = t === tab;
+            t.setAttribute('aria-selected', String(active));
+            t.className = active
+              ? 'qf-trip-tab flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-semibold transition-all bg-white text-[#991B1B] shadow-sm'
+              : 'qf-trip-tab flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-medium transition-all text-slate-600 hover:text-slate-900';
+          });
+          updateTripTypeUI();
+        });
+      });
+
+      qfSwapBtn.addEventListener('click', () => {
+        const tmp = qfPickupInput.value;
+        qfPickupInput.value = qfDropInput.value;
+        qfDropInput.value = tmp;
+        qfSwapBtn.classList.remove('swap-spin');
+        void qfSwapBtn.offsetWidth;
+        qfSwapBtn.classList.add('swap-spin');
+        if (state.calculated) calculateAndRenderFares();
+      });
+
+      // Days Stepper
+      function updateDaysUI() {
+        const d = state.roundTripDays;
+        qfDaysCount.textContent = `${d} ${d === 1 ? 'day' : 'days'}`;
+        qfDaysMinus.disabled = d <= 1;
+        qfDaysPlus.disabled = d >= 15;
+        qfDaysSubtitle.textContent = d === 1 ? 'Same day' : d === 2 ? 'Returns tomorrow • 11:45 PM' : `${d}-day round trip • 11:45 PM`;
+        if (state.calculated) calculateAndRenderFares();
+      }
+      qfDaysMinus.addEventListener('click', () => { if (state.roundTripDays > 1) { state.roundTripDays--; updateDaysUI(); } });
+      qfDaysPlus.addEventListener('click', () => { if (state.roundTripDays < 15) { state.roundTripDays++; updateDaysUI(); } });
+
+      // Rental Duration 1 to 15 Hours Modal
+      function renderRentalGrid() {
+        qfRentalGrid.innerHTML = '';
+        for (let h = 1; h <= 15; h++) {
+          const active = h === state.rentalHours;
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = active
+            ? 'py-2.5 px-2 rounded-xl text-xs font-bold border border-[#B91C1C] bg-[#FEF2F2] text-[#991B1B]'
+            : 'py-2.5 px-2 rounded-xl text-xs font-semibold border border-slate-200 bg-white text-slate-800 hover:bg-slate-50';
+          btn.textContent = `${h} ${h === 1 ? 'hour' : 'hours'}`;
+          btn.addEventListener('click', () => {
+            state.rentalHours = h;
+            qfRentalDisplay.textContent = `${h} ${h === 1 ? 'hour' : 'hours'} • ${h * 10} km included`;
+            qfRentalModal.classList.add('hidden');
+            if (state.calculated) calculateAndRenderFares();
+          });
+          qfRentalGrid.appendChild(btn);
+        }
+      }
+      qfOpenRentalModalBtn.addEventListener('click', () => { renderRentalGrid(); qfRentalModal.classList.remove('hidden'); });
+      qfCloseRentalModalBtn.addEventListener('click', () => qfRentalModal.classList.add('hidden'));
+      qfRentalModal.addEventListener('click', (e) => { if (e.target === qfRentalModal) qfRentalModal.classList.add('hidden'); });
+
+      // Date Formatting
+      qfDateNative.addEventListener('change', () => {
+        const val = qfDateNative.value;
+        if (!val) return;
+        const [y, m, d] = val.split('-');
+        qfDateDisplay.textContent = `${d}-${m}-${y}`;
+        if (val === '2026-11-21') {
+          qfDayBadge.textContent = 'Today';
+          qfDayBadge.className = 'px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/70';
+        } else if (val === '2026-11-22') {
+          qfDayBadge.textContent = 'Tomorrow';
+          qfDayBadge.className = 'px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-amber-50 text-amber-700 border border-amber-200/70';
+        } else {
+          qfDayBadge.classList.add('hidden');
+        }
+        if (state.calculated) calculateAndRenderFares();
+      });
+      qfTimeSelect.addEventListener('change', () => { if (state.calculated) calculateAndRenderFares(); });
+
+      // ---------------------------------------------------------
+      // 3. SILENT KM CALCULATION & NESAM CABS TARIFF ENGINE
+      // ---------------------------------------------------------
+      function lookupCoord(text) {
+        if (!text) return null;
+        const lower = text.toLowerCase().trim();
+        for (const k of Object.keys(tnCities)) {
+          if (lower.includes(k)) return tnCities[k];
+        }
+        return null;
+      }
+
+      function roadKm(c1, c2) {
+        const toRad = (deg) => (deg * Math.PI) / 180;
+        const R = 6371;
+        const dLat = toRad(c2[0] - c1[0]);
+        const dLon = toRad(c2[1] - c1[1]);
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(c1[0])) * Math.cos(toRad(c2[0])) * Math.sin(dLon / 2) ** 2;
+        return Math.max(15, Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 1.22));
+      }
+
+      function computeSilentDistance() {
+        if (state.tripType === 'Rental') {
+          state.autoKm = state.rentalHours * 10;
+          state.autoMinutes = state.rentalHours * 60;
+          return;
+        }
+        const p = qfPickupInput.value.trim();
+        const d = qfDropInput.value.trim();
+        const pts = [p];
+        if (state.tripType === 'Round Trip' || state.tripType === 'Multicity') {
+          state.viaStops.forEach((s) => { if (s.trim()) pts.push(s.trim()); });
+        }
+        pts.push(d);
+        if (state.tripType === 'Round Trip') pts.push(p);
+
+        let total = 0;
+        for (let i = 0; i < pts.length - 1; i++) {
+          const c1 = lookupCoord(pts[i]);
+          const c2 = lookupCoord(pts[i + 1]);
+          if (c1 && c2) total += roadKm(c1, c2);
+          else total += 75 + ((pts[i].length * 19 + pts[i + 1].length * 23) % 130);
+        }
+        state.autoKm = Math.max(20, total);
+        state.autoMinutes = Math.round((state.autoKm / 48) * 60);
+      }
+
+      function parseHours(timeStr) {
+        const [hm, mer] = timeStr.split(' ');
+        let [h, m] = hm.split(':').map(Number);
+        if (mer === 'PM' && h !== 12) h += 12;
+        if (mer === 'AM' && h === 12) h = 0;
+        return h + m / 60;
+      }
+
+      function computeVehicleFare(v) {
+        const km = state.autoKm;
+        if (state.tripType === 'One Way' || state.tripType === 'Multicity') {
+          const billKm = Math.max(130, km);
+          return {
+            slab: `${state.tripType} • ${billKm} km (Min 130 km)`,
+            total: billKm * v.oneWayRate + v.bata,
+            rateNote: `₹${v.oneWayRate}/km + ₹${v.bata} Bata`,
+          };
+        }
+        if (state.tripType === 'Round Trip') {
+          const days = state.roundTripDays;
+          const pHrs = parseHours(qfTimeSelect.value);
+          const estHrs = state.autoMinutes / 60;
+          if (days === 2 && pHrs >= 15) {
+            const extra = Math.max(0, km - 400);
+            return {
+              slab: 'Slab D • 3 PM+ Overnight (400 km)',
+              total: v.base30 + 120 * v.roundRate + 250 * v.roundRate + extra * v.roundRate + v.bata * 2,
+              rateNote: `400 km incl. + 2-Day Bata`,
+            };
+          }
+          if (days >= 2) {
+            const billKm = Math.max(days * 250, km);
+            return {
+              slab: `${days}-Day Round Trip (${days * 250} km min)`,
+              total: billKm * v.roundRate + days * v.bata,
+              rateNote: `₹${v.roundRate}/km + ${days}d Bata`,
+            };
+          }
+          if (km > 150) {
+            const billKm = Math.max(250, km);
+            return {
+              slab: 'Slab C • 1-Day (250 km / 11:45 PM)',
+              total: billKm * v.roundRate + v.bata,
+              rateNote: `₹${v.roundRate}/km + ₹${v.bata} Bata`,
+            };
+          }
+          if (estHrs > 5) {
+            return {
+              slab: 'Slab B • 8-Hr / 150 km Slab',
+              total: v.base30 + 120 * v.roundRate + v.bata,
+              rateNote: `150 km incl. + ₹${v.bata} Bata`,
+            };
+          }
+          const billKm = Math.max(100, km);
+          return {
+            slab: `Slab A • Mini Round Trip (${billKm} km)`,
+            total: v.base30 + (billKm - 30) * v.roundRate + v.bata,
+            rateNote: `Base 30 km + ₹${v.roundRate}/km`,
+          };
+        }
+        if (state.tripType === 'Rental') {
+          const h = state.rentalHours;
+          return {
+            slab: `Rental • ${h} ${h === 1 ? 'Hr' : 'Hrs'} / ${h * 10} km`,
+            total: v.rental1Hr + (h - 1) * v.rentalPerHr,
+            rateNote: `Includes ${h * 10} km`,
+          };
+        }
+        const baseFlat = state.tripType === 'Airport' ? v.base30 + 600 : v.base30 + 350;
+        const extra = Math.max(0, km - 30);
+        return {
+          slab: `${state.tripType} • Standard Rate`,
+          total: baseFlat + extra * v.oneWayRate,
+          rateNote: `30 km base + ₹${v.oneWayRate}/km`,
+        };
+      }
+
+      function getCurrentRouteStr() {
+        const p = qfPickupInput.value.trim();
+        const d = qfDropInput.value.trim();
+        if (state.tripType === 'Rental') return `Local Rental • ${p}`;
+        const stops = state.viaStops.map((s) => s.trim()).filter(Boolean);
+        if (state.tripType === 'Round Trip') {
+          return stops.length ? `${p} → ${stops.join(' → ')} → ${d} → ${p}` : `${p} ⇄ ${d}`;
+        }
+        return stops.length ? `${p} → ${stops.join(' → ')} → ${d}` : `${p} → ${d}`;
+      }
+
+      function formatDuration(mins) {
+        const h = Math.floor(mins / 60);
+        const m = mins % 60;
+        return h === 0 ? `${m}m` : m === 0 ? `${h}h` : `${h}h ${m}m`;
+      }
+
+      function calculateAndRenderFares() {
+        computeSilentDistance();
+        state.calculated = true;
+
+        faresEmptyState.classList.add('hidden');
+        faresResultsState.classList.remove('hidden');
+        faresHeaderActions.classList.remove('hidden');
+
+        const routeStr = getCurrentRouteStr();
+        const sampleSedan = computeVehicleFare(vehicles[1]);
+
+        faresSubtitle.textContent = `${qfDateDisplay.textContent} • ${qfTimeSelect.value}`;
+        document.getElementById('resRoutePill').textContent = routeStr;
+        document.getElementById('resDistPill').textContent = state.tripType === 'Rental'
+          ? `${state.rentalHours}h / ${state.rentalHours * 10} km`
+          : `Est. ${state.autoKm} km • ~${formatDuration(state.autoMinutes)}`;
+        document.getElementById('resSlabPill').textContent = sampleSedan.slab;
+
+        faresListContainer.innerHTML = '';
+        vehicles.forEach((v) => {
+          const calc = computeVehicleFare(v);
+          const row = document.createElement('div');
+          row.className = 'px-5 py-3.5 hover:bg-slate-50/80 transition-colors flex flex-wrap sm:flex-nowrap items-center justify-between gap-3';
+          row.innerHTML = `
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-sm font-bold text-slate-900">${v.name}</span>
+                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">${v.category}</span>
+              </div>
+              <p class="text-[11px] text-slate-500 mt-0.5">${v.seats} • ${v.bags} • ${calc.rateNote}</p>
+            </div>
+
+            <div class="flex items-center gap-2.5 shrink-0">
+              <div class="text-right mr-1">
+                <p class="text-base font-bold text-slate-900">${formatINR(calc.total)}</p>
+              </div>
+              <button
+                type="button"
+                data-fu-veh="${v.id}"
+                title="Save follow-up for this cab"
+                class="h-8 px-2.5 rounded-lg text-[11px] font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 transition-colors flex items-center gap-1"
+              >
+                <i data-lucide="bell-plus" class="w-3.5 h-3.5"></i>
+                <span class="hidden sm:inline">Follow-up</span>
+              </button>
+              <button
+                type="button"
+                data-book-veh="${v.id}"
+                class="h-8 px-3 rounded-lg text-[11px] font-semibold text-white bg-emerald-600 hover:bg-emerald-700 shadow-xs transition-colors flex items-center gap-1"
+              >
+                <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                <span>Book</span>
+              </button>
+            </div>
+          `;
+          faresListContainer.appendChild(row);
+        });
+
+        // Wire Row Actions
+        faresListContainer.querySelectorAll('[data-fu-veh]').forEach((btn) => {
+          btn.addEventListener('click', () => openFollowUpModal(btn.dataset.fuVeh));
+        });
+        faresListContainer.querySelectorAll('[data-book-veh]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const v = vehicles.find((x) => x.id === btn.dataset.bookVeh) || vehicles[1];
+            const calc = computeVehicleFare(v);
+            openConfirmModal({
+              route: getCurrentRouteStr(),
+              tripType: state.tripType,
+              date: qfDateDisplay.textContent,
+              time: qfTimeSelect.value,
+              vehicle: v,
+              fare: calc.total,
+              slab: calc.slab,
+              customerPhone: '',
+              customerName: '',
+              followUpId: null,
+            });
+          });
+        });
+
+        lucide.createIcons();
+      }
+
+      quickFareForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        qfNotice.classList.add('hidden');
+        const p = qfPickupInput.value.trim();
+        const d = qfDropInput.value.trim();
+        if (!p) {
+          qfNotice.textContent = 'Please enter a pickup location.';
+          qfNotice.classList.remove('hidden');
+          qfPickupInput.focus();
+          return;
+        }
+        if (state.tripType !== 'Rental' && !d) {
+          qfNotice.textContent = 'Please enter a drop location.';
+          qfNotice.classList.remove('hidden');
+          qfDropInput.focus();
+          return;
+        }
+        calculateAndRenderFares();
+      });
+
+      trySampleRouteBtn.addEventListener('click', () => {
+        qfPickupInput.value = 'Coimbatore';
+        qfDropInput.value = 'Madurai';
+        calculateAndRenderFares();
+      });
+
+      clearQuickFareBtn.addEventListener('click', () => {
+        qfPickupInput.value = '';
+        qfDropInput.value = '';
+        state.viaStops = [];
+        state.calculated = false;
+        qfNotice.classList.add('hidden');
+        faresEmptyState.classList.remove('hidden');
+        faresResultsState.classList.add('hidden');
+        faresHeaderActions.classList.add('hidden');
+        faresSubtitle.textContent = 'The fare for every vehicle appears here';
+        renderViaStops();
+      });
+
+      // Copy All 6 Fares for WhatsApp
+      copyAllFaresBtn.addEventListener('click', () => {
+        const lines = vehicles.map((v) => {
+          const c = computeVehicleFare(v);
+          return `• ${v.name} (${v.seats}): ${formatINR(c.total)}`;
+        });
+        const msg = `*${state.brand} — Fare Estimate*\nRoute: ${getCurrentRouteStr()}\nDate: ${qfDateDisplay.textContent} at ${qfTimeSelect.value}\n\n${lines.join('\n')}\n\n_(Includes Driver Bata. Toll, Parking & Permit extra as actuals)_\nReply to confirm your cab!`;
+        copyTextSafe(msg, () => {
+          copyAllFaresLabel.textContent = 'Copied for WhatsApp!';
+          setTimeout(() => { copyAllFaresLabel.textContent = 'Copy All for WhatsApp'; }, 2000);
+        });
+      });
+
+      // ---------------------------------------------------------
+      // 4. FOLLOW-UP MODAL, QUEUE & LIVE ALERT ENGINE
+      // ---------------------------------------------------------
+      function toIsoDate(dateObj) {
+        const yyyy = dateObj.getFullYear();
+        const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const dd = String(dateObj.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+      }
+
+      function toHhMm(dateObj) {
+        const hh = String(dateObj.getHours()).padStart(2, '0');
+        const min = String(dateObj.getMinutes()).padStart(2, '0');
+        return `${hh}:${min}`;
+      }
+
+      function syncScheduleInputsFromMins(mins) {
+        const target = new Date(Date.now() + mins * 60000);
+        fuScheduleDateInput.value = toIsoDate(target);
+        fuScheduleTimeInput.value = toHhMm(target);
+      }
+
+      function formatScheduledDisplay(isoDate, hhMm) {
+        if (!isoDate) return '';
+        const [y, m, d] = isoDate.split('-');
+        const dateFormatted = `${d}-${m}-${y}`;
+        if (!hhMm) return dateFormatted;
+        const [hStr, minStr] = hhMm.split(':');
+        let hNum = parseInt(hStr, 10);
+        const mer = hNum >= 12 ? 'PM' : 'AM';
+        if (hNum === 0) hNum = 12;
+        else if (hNum > 12) hNum -= 12;
+        return `${dateFormatted} • ${hNum}:${minStr} ${mer}`;
+      }
+
+      function openFollowUpModal(vehicleId = 'sedan') {
+        state.activeFollowUpVehicleId = vehicleId;
+        state.fuReminderMins = 15;
+        const v = vehicles.find((x) => x.id === vehicleId) || vehicles[1];
+        const calc = computeVehicleFare(v);
+        document.getElementById('fuModalSummary').textContent = `${getCurrentRouteStr()} • ${v.category} (${formatINR(calc.total)})`;
+        fuMobileInput.value = '';
+        fuNameInput.value = '';
+        fuNoteInput.value = '';
+        document.getElementById('fuCallerMatchBadge').classList.add('hidden');
+
+        document.querySelectorAll('.fu-chip').forEach((c) => {
+          const active = parseInt(c.dataset.mins, 10) === 15;
+          c.className = active
+            ? 'fu-chip py-2 px-2 rounded-xl text-xs font-semibold border border-[#991B1B] bg-crimson-50 text-[#991B1B]'
+            : 'fu-chip py-2 px-2 rounded-xl text-xs font-medium border border-slate-200 bg-white text-slate-700 hover:bg-slate-50';
+        });
+
+        syncScheduleInputsFromMins(15);
+        followUpModal.classList.remove('hidden');
+        fuMobileInput.focus();
+        lucide.createIcons();
+      }
+
+      openFollowUpTopBtn.addEventListener('click', () => openFollowUpModal('sedan'));
+      closeFollowUpModalBtn.addEventListener('click', () => followUpModal.classList.add('hidden'));
+
+      document.querySelectorAll('.fu-chip').forEach((chip) => {
+        chip.addEventListener('click', () => {
+          state.fuReminderMins = parseInt(chip.dataset.mins, 10);
+          syncScheduleInputsFromMins(state.fuReminderMins);
+          document.querySelectorAll('.fu-chip').forEach((c) => {
+            const active = c === chip;
+            c.className = active
+              ? 'fu-chip py-2 px-2 rounded-xl text-xs font-semibold border border-[#991B1B] bg-crimson-50 text-[#991B1B]'
+              : 'fu-chip py-2 px-2 rounded-xl text-xs font-medium border border-slate-200 bg-white text-slate-700 hover:bg-slate-50';
+          });
+        });
+      });
+
+      function setTomorrowPreset(hour24, labelText) {
+        const tmrw = new Date();
+        tmrw.setDate(tmrw.getDate() + 1);
+        fuScheduleDateInput.value = toIsoDate(tmrw);
+        fuScheduleTimeInput.value = `${String(hour24).padStart(2, '0')}:00`;
+        if (!fuNoteInput.value.trim()) {
+          fuNoteInput.value = `Customer said will book ${labelText}`;
+        }
+        document.querySelectorAll('.fu-chip').forEach((c) => {
+          c.className = 'fu-chip py-2 px-2 rounded-xl text-xs font-medium border border-slate-200 bg-white text-slate-700 hover:bg-slate-50';
+        });
+      }
+
+      fuPresetTmrwMorBtn.addEventListener('click', () => setTomorrowPreset(9, 'tomorrow morning'));
+      fuPresetTmrwEveBtn.addEventListener('click', () => setTomorrowPreset(17, 'tomorrow evening'));
+
+      followUpForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const phone = fuMobileInput.value.replace(/\D/g, '').slice(0, 10);
+        if (phone.length < 10) {
+          showToast('Please enter a valid 10-digit mobile number.');
+          return;
+        }
+        const v = vehicles.find((x) => x.id === state.activeFollowUpVehicleId) || vehicles[1];
+        const calc = computeVehicleFare(v);
+
+        const schedDate = fuScheduleDateInput.value;
+        const schedTime = fuScheduleTimeInput.value || '09:00';
+        let targetTs = Date.now() + state.fuReminderMins * 60000;
+
+        if (schedDate) {
+          const parsed = new Date(`${schedDate}T${schedTime}:00`);
+          if (!Number.isNaN(parsed.getTime())) {
+            targetTs = parsed.getTime();
+          }
+        }
+
+        const isImmediate = targetTs <= Date.now() + 5000;
+        const formattedSched = formatScheduledDisplay(schedDate, schedTime);
+
+        followUps.unshift({
+          id: 'FU-' + Math.floor(200 + Math.random() * 799),
+          name: fuNameInput.value.trim() || 'Enquiry Caller',
+          phone,
+          brand: state.brand,
+          tripType: state.tripType,
+          route: getCurrentRouteStr(),
+          pickup: qfPickupInput.value.trim(),
+          drop: qfDropInput.value.trim(),
+          date: qfDateDisplay.textContent,
+          time: qfTimeSelect.value,
+          followUpDateTime: formattedSched,
+          vehicleId: v.id,
+          vehicleName: v.name,
+          fare: calc.total,
+          note: fuNoteInput.value.trim() || 'Asked for fare quote',
+          status: isImmediate ? 'due' : 'upcoming',
+          dueLabel: isImmediate ? 'Due Now' : formattedSched,
+          dueTimestamp: targetTs,
+        });
+
+        followUpModal.classList.add('hidden');
+        renderFollowUps();
+        showToast(
+          isImmediate
+            ? 'Follow-up Alert triggered immediately!'
+            : `Follow-up scheduled for ${formattedSched}`
+        );
+      });
+
+      function updateDueAlertsUI() {
+        const dueItems = followUps.filter((f) => f.status === 'due');
+        const count = dueItems.length;
+
+        if (count > 0) {
+          alertBellBtn.className = 'h-9 px-3 rounded-xl bg-amber-50 hover:bg-amber-100/80 border border-amber-200/90 text-amber-800 flex items-center gap-2 transition-all';
+          alertPingDot.classList.remove('hidden');
+          alertCountText.textContent = `${count} Follow-up${count > 1 ? 's' : ''} Due`;
+
+          const top = dueItems[0];
+          const topPhoneStr = state.revealedFuIds.has(top.id) ? `+91 ${top.phone}` : maskLast5(top.phone);
+          bannerCallerInfo.textContent = `${top.name} (${topPhoneStr})`;
+          bannerTripInfo.textContent = `${top.route} • ${top.vehicleName} (${formatINR(top.fare)}) — "${top.note}"`;
+          dueAlertBanner.classList.remove('hidden');
+          bannerSnoozeBtn.dataset.fuId = top.id;
+          bannerBookBtn.dataset.fuId = top.id;
+        } else {
+          alertBellBtn.className = 'h-9 px-3 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 flex items-center gap-2 transition-all';
+          alertPingDot.classList.add('hidden');
+          alertCountText.textContent = 'No Due Alerts';
+          dueAlertBanner.classList.add('hidden');
+        }
+      }
+
+      alertBellBtn.addEventListener('click', () => {
+        document.getElementById('followUpQueueSection').scrollIntoView({ behavior: 'smooth' });
+      });
+
+      bannerSnoozeBtn.addEventListener('click', () => {
+        const item = followUps.find((f) => f.id === bannerSnoozeBtn.dataset.fuId);
+        if (item) {
+          item.status = 'upcoming';
+          item.dueLabel = 'Snoozed +15m';
+          item.dueTimestamp = Date.now() + 15 * 60000;
+          renderFollowUps();
+          showToast(`Alert snoozed for 15 mins (${item.name})`);
+        }
+      });
+
+      bannerBookBtn.addEventListener('click', () => {
+        const item = followUps.find((f) => f.id === bannerBookBtn.dataset.fuId);
+        if (item) openConfirmFromFollowUp(item);
+      });
+
+      function openConfirmFromFollowUp(item) {
+        const v = vehicles.find((x) => x.id === item.vehicleId) || vehicles[1];
+        openConfirmModal({
+          route: item.route,
+          tripType: item.tripType,
+          date: item.date,
+          time: item.time,
+          vehicle: v,
+          fare: item.fare,
+          slab: item.tripType,
+          customerPhone: item.phone,
+          customerName: item.name,
+          followUpId: item.id,
+        });
+      }
+
+      function renderFollowUps() {
+        updateDueAlertsUI();
+        const filtered = state.fuFilter === 'all'
+          ? followUps
+          : followUps.filter((f) => f.status === state.fuFilter);
+
+        followUpListContainer.innerHTML = '';
+        if (filtered.length === 0) {
+          followUpListContainer.innerHTML = `
+            <div class="p-8 text-center text-xs text-slate-400">
+              No follow-ups in this filter.
+            </div>
+          `;
+          return;
+        }
+
+        filtered.forEach((item) => {
+          const isRev = state.revealedFuIds.has(item.id);
+          const displayPhone = isRev ? `+91 ${item.phone}` : maskLast5(item.phone);
+          const badge = item.status === 'due'
+            ? '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-700 border border-red-200"><span class="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></span>Due Now</span>'
+            : item.status === 'booked'
+              ? '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Booked ✓</span>'
+              : item.status === 'lost'
+                ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700">Lost • ${item.lostReason || 'Closed'}</span>`
+                : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200"><i data-lucide="calendar-clock" class="w-3 h-3"></i>${item.followUpDateTime || item.dueLabel}</span>`;
+
+          const row = document.createElement('div');
+          row.className = 'px-5 py-3.5 hover:bg-slate-50/70 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-3';
+          row.innerHTML = `
+            <div class="min-w-0 space-y-1">
+              <div class="flex flex-wrap items-center gap-2">
+                ${badge}
+                <span class="text-sm font-bold text-slate-900">${item.name}</span>
+                <span class="text-xs font-semibold ${isRev ? 'text-emerald-700' : 'text-slate-600'}">${displayPhone}</span>
+                ${!isRev ? `
+                  <button type="button" data-fu-reveal="${item.id}" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80">
+                    <i data-lucide="eye" class="w-3 h-3"></i>
+                    <span>View #</span>
+                  </button>
+                ` : ''}
+                <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">${item.brand}</span>
+              </div>
+              <p class="text-xs text-slate-700 font-medium">
+                ${item.route} • <span class="text-slate-500">${item.date}, ${item.time}</span> • <strong class="text-[#991B1B]">${item.vehicleName} (${formatINR(item.fare)})</strong>
+              </p>
+              <p class="text-[11px] text-slate-500 italic">"${item.note}"</p>
+            </div>
+
+            <div class="flex items-center gap-2 shrink-0 flex-wrap">
+              ${item.status === 'due' || item.status === 'upcoming' ? `
+                <button type="button" data-fu-lost="${item.id}" class="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-red-700 bg-red-50 hover:bg-red-100">
+                  Lost
+                </button>
+                <button type="button" data-fu-snooze="${item.id}" class="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50">
+                  Snooze +15m
+                </button>
+                <button type="button" data-fu-book="${item.id}" class="px-3 py-1.5 rounded-lg text-[11px] font-semibold text-white bg-emerald-600 hover:bg-emerald-700 shadow-xs flex items-center gap-1">
+                  <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>
+                  <span>Fare OK • Book</span>
+                </button>
+              ` : item.status === 'booked' ? `
+                <span class="text-xs font-semibold text-emerald-700">Converted to Booking</span>
+              ` : `
+                <span class="text-xs font-medium text-slate-400">Closed (${item.lostReason || 'Lost'})</span>
+              `}
+            </div>
+          `;
+          followUpListContainer.appendChild(row);
+        });
+
+        followUpListContainer.querySelectorAll('[data-fu-reveal]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const item = followUps.find((f) => f.id === btn.dataset.fuReveal);
+            if (!item) return;
+            state.pendingRevealFuId = item.id;
+            document.getElementById('qfRrSub').textContent = `${item.name} (${item.id}) • Reason logged to Master Admin`;
+            document.getElementById('qfRrPreset').value = '';
+            document.getElementById('qfRrDetail').value = '';
+            document.getElementById('qfReasonModal').classList.remove('hidden');
+          });
+        });
+
+        followUpListContainer.querySelectorAll('[data-fu-lost]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const item = followUps.find((f) => f.id === btn.dataset.fuLost);
+            if (!item) return;
+            state.pendingLostFuId = item.id;
+            document.getElementById('qfLostSub').textContent = `${item.name} • ${item.route}`;
+            document.getElementById('qfLostModal').classList.remove('hidden');
+          });
+        });
+
+        followUpListContainer.querySelectorAll('[data-fu-book]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const item = followUps.find((f) => f.id === btn.dataset.fuBook);
+            if (item) openConfirmFromFollowUp(item);
+          });
+        });
+
+        followUpListContainer.querySelectorAll('[data-fu-snooze]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const item = followUps.find((f) => f.id === btn.dataset.fuSnooze);
+            if (item) {
+              item.status = 'upcoming';
+              item.dueLabel = 'Snoozed +15m';
+              item.dueTimestamp = Date.now() + 15 * 60000;
+              renderFollowUps();
+              showToast(`Follow-up snoozed +15m for ${item.name}`);
+            }
+          });
+        });
+
+        lucide.createIcons();
+      }
+
+      function renderQfRevealLogs() {
+        const body = document.getElementById('qfRevealAuditBody');
+        body.innerHTML = qfRevealLogs.map((r) => `
+          <tr>
+            <td class="py-2 px-5 font-semibold text-slate-900">${r.staff}</td>
+            <td class="py-2 px-4 font-medium text-[#991B1B]">${r.caller}</td>
+            <td class="py-2 px-4 text-slate-700">${r.reason}</td>
+            <td class="py-2 px-5 text-right text-[11px] font-semibold text-slate-500">${r.time}</td>
+          </tr>
+        `).join('');
+      }
+
+      document.getElementById('closeQfReasonModalBtn').addEventListener('click', () => {
+        document.getElementById('qfReasonModal').classList.add('hidden');
+      });
+
+      document.getElementById('qfReasonForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const preset = document.getElementById('qfRrPreset').value.trim();
+        const detail = document.getElementById('qfRrDetail').value.trim();
+        if (!preset || detail.length < 10) {
+          showToast('Please select a reason and enter at least 10 characters.');
+          return;
+        }
+        const item = followUps.find((f) => f.id === state.pendingRevealFuId);
+        if (!item) return;
+        state.revealedFuIds.add(item.id);
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        qfRevealLogs.unshift({
+          staff: 'Karthik Raja (@booking.karthik)',
+          caller: `${item.name} (${item.id})`,
+          reason: `${preset} — ${detail}`,
+          time: timeStr,
+        });
+        document.getElementById('qfReasonModal').classList.add('hidden');
+        renderFollowUps();
+        renderQfRevealLogs();
+        showToast(`Caller number revealed & logged (${item.name})`);
+      });
+
+      document.getElementById('closeQfLostModalBtn').addEventListener('click', () => {
+        document.getElementById('qfLostModal').classList.add('hidden');
+      });
+
+      document.getElementById('qfLostForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const item = followUps.find((f) => f.id === state.pendingLostFuId);
+        if (!item) return;
+        const chosen = document.querySelector('input[name="lostReason"]:checked');
+        item.status = 'lost';
+        item.lostReason = chosen ? chosen.value : 'Not interested';
+        document.getElementById('qfLostModal').classList.add('hidden');
+        renderFollowUps();
+        showToast(`Marked ${item.name} as Lost (${item.lostReason})`);
+      });
+
+      document.querySelectorAll('.fu-filter-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.fuFilter = btn.dataset.fuFilter;
+          document.querySelectorAll('.fu-filter-btn').forEach((b) => {
+            const active = b === btn;
+            b.className = active
+              ? 'fu-filter-btn px-3 py-1 rounded-lg text-xs font-semibold bg-white text-slate-900 shadow-xs'
+              : 'fu-filter-btn px-3 py-1 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900';
+          });
+          renderFollowUps();
+        });
+      });
+
+      // ---------------------------------------------------------
+      // 5. FARE OK -> QUICK CONFIRM BOOKING MODAL
+      // ---------------------------------------------------------
+      function updateCbPayUI() {
+        const fare = state.confirmPayload ? state.confirmPayload.fare : 0;
+        const partial = Math.round(fare * 0.25);
+        document.getElementById('cbPartialText').textContent = `${formatINR(partial)} Link`;
+        document.getElementById('cbFullText').textContent = `${formatINR(fare)} Link`;
+
+        document.querySelectorAll('.cb-pay-btn').forEach((btn) => {
+          const active = btn.dataset.cbPay === state.cbPayPlan;
+          btn.className = active
+            ? 'cb-pay-btn p-2.5 rounded-xl border-2 border-[#2563EB] bg-blue-50/30 text-left'
+            : 'cb-pay-btn p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-left';
+        });
+
+        if (state.cbPayPlan === 'later') {
+          cbFinalConfirmBtn.className = 'w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm py-3.5 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2';
+          cbFinalConfirmText.textContent = 'Confirm Booking (Pay Later)';
+        } else {
+          const amt = state.cbPayPlan === 'partial' ? partial : fare;
+          cbFinalConfirmBtn.className = 'w-full bg-[#2563EB] hover:bg-blue-700 text-white font-semibold text-sm py-3.5 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2';
+          cbFinalConfirmText.textContent = `Confirm & Send Razorpay Link (${formatINR(amt)})`;
+        }
+      }
+
+      function openConfirmModal(payload) {
+        state.confirmPayload = payload;
+        state.cbPayPlan = 'later';
+        cbFormView.classList.remove('hidden');
+        cbSuccessView.classList.add('hidden');
+        cbErrorMsg.classList.add('hidden');
+
+        document.getElementById('cbModalSub').textContent = `${state.brand} • ${payload.date} at ${payload.time}`;
+        document.getElementById('cbRouteText').textContent = payload.route;
+        document.getElementById('cbVehicleMeta').textContent = `${payload.vehicle.name} (${payload.vehicle.category})`;
+        document.getElementById('cbFareAmount').textContent = formatINR(payload.fare);
+
+        cbMobileInput.value = payload.customerPhone || '';
+        cbNameInput.value = payload.customerName || '';
+        document.getElementById('cbCallerMatchBadge').classList.add('hidden');
+
+        updateCbPayUI();
+        confirmBookModal.classList.remove('hidden');
+        lucide.createIcons();
+      }
+
+      document.querySelectorAll('.cb-pay-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.cbPayPlan = btn.dataset.cbPay;
+          updateCbPayUI();
+        });
+      });
+
+      closeConfirmModalBtn.addEventListener('click', () => confirmBookModal.classList.add('hidden'));
+      cbDoneCloseBtn.addEventListener('click', () => confirmBookModal.classList.add('hidden'));
+
+      cbFinalConfirmBtn.addEventListener('click', () => {
+        const phone = cbMobileInput.value.replace(/\D/g, '').slice(0, 10);
+        const name = cbNameInput.value.trim();
+        if (phone.length < 10) {
+          cbErrorMsg.textContent = 'Please enter a valid 10-digit customer mobile number.';
+          cbErrorMsg.classList.remove('hidden');
+          return;
+        }
+        if (!name) {
+          cbErrorMsg.textContent = 'Please enter the customer name.';
+          cbErrorMsg.classList.remove('hidden');
+          return;
+        }
+
+        const p = state.confirmPayload;
+        const rand = Math.floor(1000 + Math.random() * 9000);
+        const bookingId = `#NSM-2611-${rand}`;
+        p.bookingId = bookingId;
+        p.customerPhone = phone;
+        p.customerName = name;
+
+        // If converted from Follow-Up Queue, mark it Booked!
+        if (p.followUpId) {
+          const fu = followUps.find((x) => x.id === p.followUpId);
+          if (fu) {
+            fu.status = 'booked';
+            fu.dueLabel = 'Booked';
+          }
+          renderFollowUps();
+        }
+
+        document.getElementById('cbDoneId').textContent = bookingId;
+        const payText = state.cbPayPlan === 'later'
+          ? 'Pay Later to Driver'
+          : `Razorpay Link (${formatINR(state.cbPayPlan === 'partial' ? Math.round(p.fare * 0.25) : p.fare)}) sent to +91 ${phone}`;
+        document.getElementById('cbDoneSummary').textContent = `${name} • ${p.route} • ${p.vehicle.name} (${formatINR(p.fare)}) — ${payText}`;
+
+        cbFormView.classList.add('hidden');
+        cbSuccessView.classList.remove('hidden');
+        lucide.createIcons();
+      });
+
+      cbCopyWaBtn.addEventListener('click', () => {
+        const p = state.confirmPayload;
+        if (!p) return;
+        const msg = `*${state.brand} — Booking Confirmed*\nBooking ID: ${p.bookingId}\nCustomer: ${p.customerName} (+91 ${p.customerPhone})\nRoute: ${p.route}\nPickup: ${p.date} at ${p.time}\nCab: ${p.vehicle.name}\nFare: ${formatINR(p.fare)} (+ Toll/Parking/Permit actuals)\nThank you!`;
+        copyTextSafe(msg, () => {
+          cbCopyWaLabel.textContent = 'Copied!';
+          setTimeout(() => { cbCopyWaLabel.textContent = 'Copy WhatsApp Confirmation'; }, 2000);
+        });
+      });
+
+      // Background Alert Checker (checks every 15s if any upcoming follow-up hit its due time)
+      setInterval(() => {
+        let changed = false;
+        const now = Date.now();
+        followUps.forEach((f) => {
+          if (f.status === 'upcoming' && f.dueTimestamp <= now) {
+            f.status = 'due';
+            f.dueLabel = 'Due Now';
+            changed = true;
+            playAlertBeep();
+            showToast(`Follow-up Alert: Call ${f.name} (${maskLast5(f.phone)}) for ${f.route}`);
+          }
+        });
+        if (changed) renderFollowUps();
+      }, 15000);
+
+      // Initial render
+      updateTripTypeUI();
+      renderFollowUps();
+      renderQfRevealLogs();
+    })();
+  </script>
+</body>
+</html>

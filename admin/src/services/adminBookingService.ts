@@ -30,17 +30,18 @@ export interface ManualBookingForm {
   serviceId: string;
   pickup: PickedPoint | null;
   drop: PickedPoint | null;
-  /** Round trips: intermediate stops, in order. */
+  /** Round trips and Multicity: intermediate stops, in order. */
   stops?: PickedPoint[];
   /** Door number / landmark added to the pickup address. */
   pickupAddress: string;
   dropAddress: string;
   categoryId: string;
-  tripType: "One Way" | "Round Trip" | "Local Rental" | "Airport Taxi";
+  tripType: "One Way" | "Round Trip" | "Local Rental" | "Airport Taxi" | "Multicity" | "Local";
   /** Required: NESAM takes advance bookings only. A local "YYYY-MM-DDTHH:mm" value. */
   pickupAt: string;
-  /** Round trips: when the trip ends. Billing counts Indian calendar dates from pickup to here. */
+  /** Round trips / Multicity: when the trip ends. Billing counts Indian calendar dates from pickup to here. */
   tripEndAt: string;
+  tripDays?: number;
   paymentMethod: string;
   advanceEnabled: boolean;
   advanceAmount: string;
@@ -56,6 +57,13 @@ export interface ManualBookingForm {
   overrideFare: string;
   overrideReason: string;
   channel: "nesam" | "onewaycarrentals" | "people_taxi";
+  multicity?: boolean;
+  flightNumber?: string;
+  driverSlipNote?: string;
+  waitingHours?: number;
+  extraPickups?: number;
+  extraDrops?: number;
+  airportDirection?: "to_airport" | "from_airport";
 }
 export type ManualBookingField = keyof ManualBookingForm;
 
@@ -76,6 +84,7 @@ export const emptyManualBooking = (): ManualBookingForm => ({
   tripType: "One Way",
   pickupAt: "",
   tripEndAt: "",
+  tripDays: 1,
   paymentMethod: "Cash",
   advanceEnabled: false,
   advanceAmount: "",
@@ -89,6 +98,13 @@ export const emptyManualBooking = (): ManualBookingForm => ({
   overrideFare: "",
   overrideReason: "",
   channel: "nesam",
+  multicity: false,
+  flightNumber: "",
+  driverSlipNote: "",
+  waitingHours: 0,
+  extraPickups: 0,
+  extraDrops: 0,
+  airportDirection: "to_airport",
 });
 
 export const PAYMENT_METHODS = ["Cash", "UPI", "Bank Transfer"] as const;
@@ -136,12 +152,17 @@ export function whatsappError(f: Pick<ManualBookingForm, "whatsappSame" | "whats
 const round5 = (n: number) => n.toFixed(5);
 
 /** Everything that decides the price. A quote is valid only while these are unchanged. */
-export const quoteKey = (f: ManualBookingForm) =>
-  JSON.stringify([
+export const quoteKey = (f: ManualBookingForm) => {
+  const isMulticity = f.tripType === "Multicity" || f.multicity === true;
+  return JSON.stringify([
     f.serviceId, f.pickup && [round5(f.pickup.lat), round5(f.pickup.lng)], f.drop && [round5(f.drop.lat), round5(f.drop.lng)],
-    f.categoryId, f.tripType, f.pickupAt, f.tripType === "Round Trip" ? f.tripEndAt : "", f.discountType, f.discountType === "none" ? "" : f.discountValue.trim(),
-    (f.couponCode ?? "").trim(), f.channel || "nesam",
+    (f.stops ?? []).map((s) => [round5(s.lat), round5(s.lng)]),
+    f.categoryId, isMulticity ? "Multicity" : f.tripType, f.pickupAt,
+    (f.tripType === "Round Trip" || isMulticity) ? (f.tripEndAt || f.tripDays) : "",
+    f.rentalHours, f.discountType, f.discountType === "none" ? "" : f.discountValue.trim(),
+    (f.couponCode ?? "").trim(), f.channel || "nesam", f.addOns, f.waitingHours, f.extraPickups, f.extraDrops,
   ]);
+};
 
 /** The discount as a number, or an error message. null value = no discount. */
 export function discountOf(f: Pick<ManualBookingForm, "discountType" | "discountValue">): { value: { type: "percentage" | "fixed"; value: number } | null; error: string | null } {
@@ -156,7 +177,16 @@ export function discountOf(f: Pick<ManualBookingForm, "discountType" | "discount
 
 /** Is there enough to ask the server for a price? */
 export function readyToQuote(f: ManualBookingForm): boolean {
-  return !!(f.pickup?.confirmed && f.drop?.confirmed && f.categoryId && !discountOf(f).error && !pickupTimeError(f.pickupAt) && (f.tripType !== "Round Trip" || !!f.tripEndAt));
+  const isRental = f.tripType === "Local Rental";
+  const isMulticity = f.tripType === "Multicity" || f.multicity === true;
+  if (!f.pickup?.confirmed) return false;
+  if (!isRental && !f.drop?.confirmed) return false;
+  if (isMulticity && (!f.stops || f.stops.length === 0 || !f.stops.every((s) => s.confirmed))) return false;
+  if (!f.categoryId) return false;
+  if (discountOf(f).error) return false;
+  if (pickupTimeError(f.pickupAt)) return false;
+  if ((f.tripType === "Round Trip" || isMulticity) && !f.tripEndAt && !f.tripDays) return false;
+  return true;
 }
 
 /** Mirrors the server's default window (settings/operations can change it; the server is authoritative). */
@@ -174,22 +204,31 @@ export function pickupTimeError(pickupAt: string, now = Date.now()): string | nu
 export function validateManualBooking(f: ManualBookingForm, now = Date.now()): Partial<Record<ManualBookingField, string>> {
   const e: Partial<Record<ManualBookingField, string>> = {};
   if (f.customerName.trim().length < 2) e.customerName = "Enter the customer name.";
-  if (!normalizePhone(f.customerPhone)) e.customerPhone = "Enter a valid 10-digit Indian mobile number.";
+  if (!normalizePhone(f.customerPhone) && !(f.customerId && f.customerPhone.includes("*"))) {
+    e.customerPhone = "Enter a valid 10-digit Indian mobile number.";
+  }
   const wa = whatsappError(f);
   if (wa) e.whatsappNumber = wa;
   const em = emailError(f.email);
   if (em) e.email = em;
+  const isRental = f.tripType === "Local Rental";
+  const isMulticity = f.tripType === "Multicity" || f.multicity === true;
   if (!f.pickup) e.pickup = "Choose the pickup point on the map.";
   else if (!f.pickup.confirmed) e.pickup = "Confirm the pickup location (press “Confirm location”).";
-  if (!f.drop) e.drop = "Choose the drop point on the map.";
-  else if (!f.drop.confirmed) e.drop = "Confirm the drop location (press “Confirm location”).";
-  else if (f.pickup && Math.abs(f.pickup.lat - f.drop.lat) < 0.0009 && Math.abs(f.pickup.lng - f.drop.lng) < 0.0009) e.drop = "Pickup and drop must be different places.";
+  if (!isRental) {
+    if (!f.drop) e.drop = "Choose the drop point on the map.";
+    else if (!f.drop.confirmed) e.drop = "Confirm the drop location (press “Confirm location”).";
+    else if (f.pickup && Math.abs(f.pickup.lat - f.drop.lat) < 0.0009 && Math.abs(f.pickup.lng - f.drop.lng) < 0.0009) e.drop = "Pickup and drop must be different places.";
+  }
+  if (isMulticity && (!f.stops || f.stops.length === 0)) {
+    e.stops = "Add at least one via-stop city for Multicity.";
+  }
   if (!f.categoryId) e.categoryId = "Choose a vehicle category.";
   const t = pickupTimeError(f.pickupAt, now);
   if (t) e.pickupAt = t;
   if (f.tripType === "Round Trip") {
-    if (!f.tripEndAt) e.tripEndAt = "Choose when the round trip ends. It decides the chargeable days.";
-    else if (f.pickupAt && new Date(f.tripEndAt).getTime() < new Date(f.pickupAt).getTime()) e.tripEndAt = "The trip cannot end before it starts.";
+    if (!f.tripEndAt && !f.tripDays) e.tripEndAt = "Choose when the round trip ends. It decides the chargeable days.";
+    else if (f.tripEndAt && f.pickupAt && new Date(f.tripEndAt).getTime() < new Date(f.pickupAt).getTime()) e.tripEndAt = "The trip cannot end before it starts.";
   }
   const d = discountOf(f);
   if (d.error) e.discountValue = d.error;
@@ -215,36 +254,54 @@ export function validateOverride(f: ManualBookingForm, calculatedTotal: number |
 
 const pointPayload = (p: PickedPoint) => ({ lat: p.lat, lng: p.lng, address: p.address.trim(), name: p.name, type: p.type });
 
-const bookingRequest = (f: ManualBookingForm, requestId: string) => ({
-  requestId,
-  customerId: f.customerId,
-  customerName: f.customerName.trim(),
-  customerPhone: normalizePhone(f.customerPhone),
-  customerWhatsapp: f.whatsappSame ? { sameAsMobile: true } : { sameAsMobile: false, countryCode: f.whatsappCountryCode.trim(), number: f.whatsappNumber.replace(/[\s()-]/g, "") },
-  customerEmail: f.email.trim(),
-  serviceId: f.serviceId,
-  pickupPoint: f.pickup ? pointPayload(f.pickup) : null,
-  dropPoint: f.drop ? pointPayload(f.drop) : null,
-  stops: f.tripType === "Round Trip" ? (f.stops ?? []).map(pointPayload) : [],
-  pickupAddress: f.pickupAddress.trim(),
-  dropAddress: f.dropAddress.trim(),
-  categoryId: f.categoryId,
-  addOns: f.addOns,
-  tripType: f.tripType,
-  rentalHours: f.tripType === "Local Rental" ? (f.rentalHours ?? 1) : undefined,
-  scheduledAt: f.pickupAt && Number.isFinite(new Date(f.pickupAt).getTime()) ? new Date(f.pickupAt).toISOString() : null,
-  tripEndAt: f.tripType === "Round Trip" && f.tripEndAt && Number.isFinite(new Date(f.tripEndAt).getTime()) ? new Date(f.tripEndAt).toISOString() : null,
-  paymentMethod: f.paymentMethod,
-  bookingSource: f.channel || "nesam",
-  source: f.channel && f.channel !== "nesam" ? f.channel : "admin",
-  brand: f.channel || "nesam",
-  notes: f.notes.trim(),
-  discount: (() => {
-    const d = discountOf(f).value;
-    return d ? { ...d, reason: f.discountReason.trim() } : null;
-  })(),
-  couponCode: (f.couponCode ?? "").trim(),
-});
+const bookingRequest = (f: ManualBookingForm, requestId: string) => {
+  const isMulticity = f.tripType === "Multicity" || f.multicity === true;
+  const rawPhone = f.customerPhone ? normalizePhone(f.customerPhone) : "";
+  const phone = rawPhone || (f.customerPhone.includes("*") ? f.customerPhone : "");
+  return {
+    requestId,
+    customerId: f.customerId,
+    customerName: f.customerName.trim(),
+    customerPhone: phone,
+    customerWhatsapp: f.whatsappSame ? { sameAsMobile: true } : { sameAsMobile: false, countryCode: f.whatsappCountryCode.trim(), number: f.whatsappNumber.replace(/[\s()-]/g, "") },
+    customerEmail: f.email.trim(),
+    serviceId: f.serviceId,
+    pickupPoint: f.pickup ? pointPayload(f.pickup) : null,
+    dropPoint: f.drop ? pointPayload(f.drop) : null,
+    stops: (f.tripType === "Round Trip" || isMulticity) ? (f.stops ?? []).map(pointPayload) : [],
+    pickupAddress: f.pickupAddress.trim(),
+    dropAddress: f.dropAddress.trim(),
+    categoryId: f.categoryId,
+    addOns: f.addOns,
+    tripType: isMulticity ? "Multicity" : f.tripType === "Local" ? "One Way" : f.tripType,
+    multicity: isMulticity,
+    rentalHours: f.tripType === "Local Rental" ? (f.rentalHours ?? 1) : undefined,
+    tripDays: f.tripDays,
+    scheduledAt: f.pickupAt && Number.isFinite(new Date(f.pickupAt).getTime()) ? new Date(f.pickupAt).toISOString() : null,
+    tripEndAt: (f.tripType === "Round Trip" || isMulticity) && f.tripEndAt && Number.isFinite(new Date(f.tripEndAt).getTime()) ? new Date(f.tripEndAt).toISOString() : null,
+    paymentMethod: f.paymentMethod,
+    bookingSource: f.channel || "nesam",
+    source: f.channel && f.channel !== "nesam" ? f.channel : "admin",
+    brand: f.channel || "nesam",
+    notes: f.notes.trim(),
+    flightNumber: f.flightNumber?.trim() || undefined,
+    driverSlipNote: f.driverSlipNote?.trim() || undefined,
+    tripExtras: {
+      hillTravel: false,
+      roofCarrier: f.addOns?.roofCarrier === true,
+      pets: f.addOns?.pets === true,
+      waitingHours: f.waitingHours ?? 0,
+      extraPickups: f.extraPickups ?? 0,
+      extraDrops: f.extraDrops ?? 0,
+      waitingMinutes: (f.waitingHours ?? 0) * 60,
+    },
+    discount: (() => {
+      const d = discountOf(f).value;
+      return d ? { ...d, reason: f.discountReason.trim() } : null;
+    })(),
+    couponCode: (f.couponCode ?? "").trim(),
+  };
+};
 
 export interface FareQuote {
   addOnRates?: { carrierCharge: number; petCharge: number };
@@ -286,9 +343,11 @@ export interface OfficeBookingExtras {
   enquirySource?: "Phone" | "WhatsApp" | "Office" | "App";
   businessAccountId?: string;
   businessBilledTo?: "Company pays" | "Passenger pays";
-  tripExtras?: { hillTravel: boolean; roofCarrier: boolean; pets?: boolean; waitingMinutes: number };
+  tripExtras?: { hillTravel: boolean; roofCarrier: boolean; pets?: boolean; waitingMinutes: number; waitingHours?: number; extraPickups?: number; extraDrops?: number };
   enquiryId?: string;
   termsAccepted?: boolean;
+  flightNumber?: string;
+  driverSlipNote?: string;
 }
 
 export function createAdminBooking(f: ManualBookingForm, requestId: string, expectedFare: number, extras: OfficeBookingExtras = {}): Promise<CreatedAdminBooking> {

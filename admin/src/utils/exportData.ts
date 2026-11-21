@@ -19,8 +19,15 @@ function download(name: string, blob: Blob) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function csv(headers: string[], rows: Cell[][]): string {
-  return [headers, ...rows].map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")).join("\r\n");
+/** Text a spreadsheet would run as a formula (= + - @ or a leading tab / CR) is saved as plain text with a leading apostrophe. Numbers are untouched. */
+export const safeCsvText = (v: Cell): string => {
+  if (typeof v === "number") return Number.isFinite(v) ? String(v) : "";
+  const s = String(v ?? "");
+  return /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+};
+
+export function csv(headers: string[], rows: Cell[][]): string {
+  return [headers, ...rows].map((r) => r.map((v) => `"${safeCsvText(v).replace(/"/g, '""')}"`).join(",")).join("\r\n");
 }
 
 // ── Minimal zip (store method) ────────────────────────────────────────────

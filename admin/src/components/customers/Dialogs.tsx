@@ -1,0 +1,321 @@
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import type { Booking, Customer } from "../../types";
+import Icon from "../ui/Icon";
+import { ActionError } from "../../services/callables";
+import { recordPayment, type PaymentMethodName } from "../../services/bookingOpsService";
+import { findCustomersByMobile, NOTE_MIN, REVEAL_CATEGORIES, saveCustomerProfile, type CustomerInput } from "../../services/customerDirectoryService";
+import { inr, isActiveStatus, isBlockedStatus, joinCompanyGstin, splitCompanyGstin } from "../../domain/customerDirectory";
+import { paymentOf } from "../../domain/bookingFlow";
+import { phoneKey } from "../../services/customerStats";
+import { CloseButton, Layer, useTitleId } from "./Layer";
+import { BTN_PRIMARY, FIELD, FIELD_LABEL } from "./Parts";
+import { customerCodeOf } from "./CustomerTable";
+
+const msg = (e: unknown, fallback: string) => (e instanceof ActionError || e instanceof Error ? e.message : fallback);
+
+// ── 1. Mandatory reason to view a number ─────────────────────────────────────────
+
+export function RevealDialog({ customer, actor, onClose, onReveal }: {
+  customer: Customer; actor: string; onClose: () => void;
+  /** Resolves when the server has logged the view and returned the number; rejects (number stays masked) otherwise. */
+  onReveal: (category: string, note: string) => Promise<void>;
+}) {
+  const titleId = useTitleId();
+  const [category, setCategory] = useState("");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const trimmed = note.trim();
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!category) return setError("Select a reason category.");
+    if (trimmed.length < NOTE_MIN) return setError(`Enter a note of at least ${NOTE_MIN} characters (${trimmed.length} so far).`);
+    setBusy(true);
+    setError(null);
+    try {
+      await onReveal(category, trimmed);
+    } catch (err) {
+      setError(msg(err, "The number could not be revealed. It stays masked."));
+      setBusy(false);
+    }
+  };
+  return (
+    <Layer kind="dialog" title="Mandatory reason required" labelledBy={titleId} onClose={onClose} busy={busy}>
+      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3 bg-amber-50/60 rounded-t-[16px]">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center shrink-0"><Icon name="eye" size={16} /></div>
+          <div className="min-w-0">
+            <h3 id={titleId} className="text-sm leading-5 font-bold text-slate-900">Mandatory Reason Required</h3>
+            <p className="text-[11px] leading-4 text-slate-600 break-words">{customer.name} ({customerCodeOf(customer)}) • Logging under {actor}</p>
+          </div>
+        </div>
+        <CloseButton onClick={onClose} disabled={busy} />
+      </div>
+      <form onSubmit={submit} className="p-5 space-y-3.5 text-xs" noValidate>
+        {error && <div role="alert" className="px-3 py-2 rounded-[12px] bg-red-50 border border-red-200 text-red-700 font-medium">{error}</div>}
+        <div>
+          <label htmlFor="cd-rr-cat" className={FIELD_LABEL}>Reason Category *</label>
+          <select id="cd-rr-cat" data-autofocus required value={category} onChange={(e) => setCategory(e.target.value)} className={`${FIELD} font-semibold px-2.5`}>
+            <option value="">-- Select valid reason --</option>
+            {REVEAL_CATEGORIES.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="cd-rr-note" className={FIELD_LABEL}>Detailed Note (Min {NOTE_MIN} characters) *</label>
+          <input id="cd-rr-note" required maxLength={200} value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g., Caller asked for Madurai round-trip quote confirmation" className={FIELD} aria-describedby="cd-rr-count" />
+          <p id="cd-rr-count" className="mt-1 text-[11px] text-slate-400">{trimmed.length}/{NOTE_MIN} characters minimum</p>
+        </div>
+        <button type="submit" disabled={busy} className={`w-full py-2.5 rounded-[12px] shadow-xs ${BTN_PRIMARY}`}>{busy ? "Logging…" : "Log Reason & Reveal Number"}</button>
+      </form>
+    </Layer>
+  );
+}
+
+// ── 2. Add / edit customer ───────────────────────────────────────────────────────
+
+export const LEAD_SOURCES = ["Google Search", "WhatsApp Direct", "Repeat / Referral", "Justdial", "Airport Walk-in"] as const;
+/** Reference cab choices, then the vehicle categories the office has set up. */
+export const REFERENCE_CABS = ["Any Cab", "Hatchback", "Sedan", "SUV (Ertiga)", "Innova", "Innova Crysta"] as const;
+export const cabChoices = (categories: string[], current?: string) =>
+  [...new Set([...REFERENCE_CABS, ...categories.filter(Boolean), ...(current ? [current] : [])])];
+
+type Group = "New" | "VIP" | "Corporate";
+
+export function CustomerFormDialog({ customer, all, cabs, onClose, onSaved }: {
+  customer: Customer | null; all: Customer[]; cabs: string[]; onClose: () => void; onSaved: (text: string) => void;
+}) {
+  const titleId = useTitleId();
+  const editing = !!customer;
+  const [f, setF] = useState(() => ({
+    name: customer?.name ?? "",
+    phone: "",
+    email: customer?.email && customer.email !== "N/A" ? customer.email : "",
+    city: customer?.city ?? "",
+    gender: customer?.gender ?? "",
+    notes: customer?.notes ?? "",
+    group: "New" as Group,
+    vip: customer?.isVip === true,
+    corporate: customer?.isCorporate === true,
+    lead: customer ? customer.leadSource ?? "" : (LEAD_SOURCES[0] as string),
+    cab: customer?.preferredCab ?? (editing ? "" : "Any Cab"),
+    driver: customer?.preferredDriver ?? "",
+    companyGstin: joinCompanyGstin(customer?.company, customer?.gstin),
+    status: customer && isBlockedStatus(customer.status) ? "Blocked" : "Active",
+  }));
+  const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((x) => ({ ...x, [k]: v }));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [dupIds, setDupIds] = useState<string[]>([]);
+  const key = phoneKey(f.phone);
+
+  // Duplicate check as the number is typed: the server answers with ids only; the save re-checks inside a transaction.
+  useEffect(() => {
+    if (editing || key.length !== 10) { setDupIds([]); return; }
+    let live = true;
+    const t = window.setTimeout(() => { findCustomersByMobile(key).then((r) => live && setDupIds(r.ids)).catch(() => live && setDupIds([])); }, 250);
+    return () => { live = false; window.clearTimeout(t); };
+  }, [key, editing]);
+  const dup = dupIds.length ? all.find((c) => dupIds.includes(c.id)) : undefined;
+
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    if (f.name.trim().length < 2) return setError("Enter the customer name.");
+    if (!editing && !/^[6-9]\d{9}$/.test(key)) return setError("Enter a valid 10-digit Indian mobile number.");
+    if (f.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) return setError("Enter a valid email address.");
+    if (dupIds.length) return setError(`A customer with this mobile already exists${dup ? ` (${dup.name})` : ""}.`);
+    const parsed = splitCompanyGstin(f.companyGstin);
+    if (/^[0-9A-Z]{15}$/i.test(f.companyGstin.trim()) && !parsed.gstin) return setError("Enter a valid 15-character GSTIN.");
+    const common: CustomerInput = { name: f.name.trim(), city: f.city.trim(), preferredCab: f.cab === "Any Cab" ? "" : f.cab };
+    // On an edit, company / GSTIN are sent only when the field was changed, so an untouched value is never re-parsed or overwritten.
+    const cgChanged = f.companyGstin.trim() !== joinCompanyGstin(customer?.company, customer?.gstin);
+    const input: CustomerInput = editing
+      ? {
+        ...common, customerId: customer!.id, email: f.email.trim(), gender: f.gender, notes: f.notes.trim(), preferredDriver: f.driver.trim(),
+        isVip: f.vip, isCorporate: f.corporate,
+        ...(cgChanged ? { company: parsed.company, gstin: parsed.gstin } : {}),
+        ...(f.lead !== (customer!.leadSource ?? "") ? { leadSource: f.lead } : {}),
+        ...(f.status !== (isBlockedStatus(customer!.status) ? "Blocked" : "Active") ? { status: f.status as "Active" | "Blocked" } : {}),
+      }
+      : { ...common, phone: f.phone, leadSource: f.lead, isVip: f.group === "VIP", isCorporate: f.group === "Corporate", company: parsed.company, gstin: parsed.gstin };
+    setBusy(true);
+    setError(null);
+    try {
+      await saveCustomerProfile(input);
+      onSaved(editing ? `Saved ${f.name.trim()}.` : `Customer ${f.name.trim()} added!`);
+    } catch (err) {
+      setError(msg(err, "The customer was not saved. Check your connection and permissions, then try again."));
+      setBusy(false);
+    }
+  };
+
+  const historicalLead = editing && f.lead && !(LEAD_SOURCES as readonly string[]).includes(f.lead);
+  const cabList = cabChoices(cabs, f.cab);
+  return (
+    <Layer kind="dialog" title={editing ? "Edit customer" : "Add new customer"} labelledBy={titleId} onClose={onClose} busy={busy}>
+      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h3 id={titleId} className="text-sm leading-5 font-bold text-slate-900">{editing ? "Edit Customer" : "Add New Customer"}</h3>
+          <p className="text-[11px] leading-4 text-slate-500">{editing ? `${customerCodeOf(customer!)} · the mobile number cannot be changed here` : "Duplicate mobile numbers are automatically prevented"}</p>
+        </div>
+        <CloseButton onClick={onClose} disabled={busy} />
+      </div>
+      <form onSubmit={save} className="p-5 space-y-3.5 text-xs" noValidate>
+        {error && <div role="alert" className="px-3 py-2 rounded-[12px] bg-red-50 border border-red-200 text-red-700 font-medium">{error}</div>}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2 sm:col-span-1">
+            <label htmlFor="cd-f-name" className={FIELD_LABEL}>Full Name *</label>
+            <input id="cd-f-name" data-autofocus maxLength={80} value={f.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g., Ramesh Kumar" className={FIELD} />
+          </div>
+          <div className="col-span-2 sm:col-span-1">
+            <label htmlFor="cd-f-phone" className={FIELD_LABEL}>Mobile Number {editing ? "" : "*"}</label>
+            {editing
+              ? <input id="cd-f-phone" disabled value={customer!.phoneMasked || "No number on file"} className={FIELD} />
+              : <input id="cd-f-phone" type="tel" inputMode="tel" autoComplete="off" maxLength={20} value={f.phone} onChange={(e) => set("phone", e.target.value)} placeholder="10-digit mobile" className={FIELD} aria-describedby="cd-f-dup" />}
+            <p id="cd-f-dup" role="status" className="text-[11px] mt-1 text-red-700 min-h-0">{dup ? `Already registered · ${dup.name} (${customerCodeOf(dup)})` : dupIds.length ? "Already registered to another customer" : ""}</p>
+          </div>
+        </div>
+        {editing ? (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2 sm:col-span-1"><label htmlFor="cd-f-email" className={FIELD_LABEL}>Email · optional</label><input id="cd-f-email" type="email" value={f.email} onChange={(e) => set("email", e.target.value)} className={FIELD} /></div>
+            <div className="col-span-2 sm:col-span-1"><label htmlFor="cd-f-gender" className={FIELD_LABEL}>Gender · optional</label>
+              <select id="cd-f-gender" value={f.gender} onChange={(e) => set("gender", e.target.value)} className={`${FIELD} px-2.5`}><option value="">Not specified</option><option>Male</option><option>Female</option><option>Other</option></select></div>
+            <div className="col-span-2 sm:col-span-1"><label htmlFor="cd-f-status" className={FIELD_LABEL}>Status</label>
+              <select id="cd-f-status" value={f.status} onChange={(e) => set("status", e.target.value)} className={`${FIELD} px-2.5`}><option>Active</option><option>Blocked</option></select>
+              {customer && !isActiveStatus(customer.status) && !isBlockedStatus(customer.status) && <p className="text-[11px] text-slate-500 mt-1">Current status “{customer.status}” is kept unless you change it.</p>}</div>
+            <fieldset className="col-span-2 sm:col-span-1"><legend className={FIELD_LABEL}>Designations</legend>
+              <label className="flex items-center gap-2 h-9"><input type="checkbox" checked={f.vip} onChange={(e) => set("vip", e.target.checked)} />VIP</label>
+            </fieldset>
+            <label className="col-span-2 flex items-center gap-2"><input type="checkbox" checked={f.corporate} onChange={(e) => set("corporate", e.target.checked)} />Corporate account (GST)</label>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2 sm:col-span-1"><label htmlFor="cd-f-group" className={FIELD_LABEL}>Customer Group</label>
+              <select id="cd-f-group" value={f.group} onChange={(e) => set("group", e.target.value as Group)} className={`${FIELD} px-2.5`}><option value="New">New</option><option value="VIP">Regular / VIP</option><option value="Corporate">Corporate (GST)</option></select></div>
+            <div className="col-span-2 sm:col-span-1"><label htmlFor="cd-f-lead" className={FIELD_LABEL}>Lead Source</label>
+              <select id="cd-f-lead" value={f.lead} onChange={(e) => set("lead", e.target.value)} className={`${FIELD} px-2.5`}>{LEAD_SOURCES.map((l) => <option key={l}>{l}</option>)}</select></div>
+          </div>
+        )}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2 sm:col-span-1"><label htmlFor="cd-f-city" className={FIELD_LABEL}>Primary City</label><input id="cd-f-city" maxLength={60} value={f.city} onChange={(e) => set("city", e.target.value)} className={FIELD} /></div>
+          <div className="col-span-2 sm:col-span-1"><label htmlFor="cd-f-cab" className={FIELD_LABEL}>Preferred Cab</label>
+            <select id="cd-f-cab" value={f.cab} onChange={(e) => set("cab", e.target.value)} className={`${FIELD} px-2.5`}>{editing && <option value="">Not set</option>}{cabList.map((c) => <option key={c}>{c}</option>)}</select></div>
+        </div>
+        {editing && (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2 sm:col-span-1"><label htmlFor="cd-f-lead2" className={FIELD_LABEL}>Lead Source</label>
+              <select id="cd-f-lead2" value={f.lead} onChange={(e) => set("lead", e.target.value)} className={`${FIELD} px-2.5`}><option value="">Not recorded</option>{historicalLead && <option>{f.lead}</option>}{LEAD_SOURCES.map((l) => <option key={l}>{l}</option>)}</select></div>
+            <div className="col-span-2 sm:col-span-1"><label htmlFor="cd-f-driver" className={FIELD_LABEL}>Preferred Driver</label><input id="cd-f-driver" maxLength={60} value={f.driver} onChange={(e) => set("driver", e.target.value)} placeholder="e.g., Murugan S" className={FIELD} /></div>
+          </div>
+        )}
+        <div>
+          <label htmlFor="cd-f-gst" className={FIELD_LABEL}>Company / GSTIN (Optional)</label>
+          <input id="cd-f-gst" maxLength={140} value={f.companyGstin} onChange={(e) => set("companyGstin", e.target.value)} placeholder="e.g., 33AABCN1234F1Z5 • Sri Tex Exports" className={FIELD} />
+        </div>
+        {editing && <div><label htmlFor="cd-f-notes" className={FIELD_LABEL}>Admin note</label><input id="cd-f-notes" maxLength={300} value={f.notes} onChange={(e) => set("notes", e.target.value)} className={FIELD} /></div>}
+        <button type="submit" disabled={busy} className={`w-full py-2.5 rounded-[12px] ${BTN_PRIMARY}`}>{busy ? "Saving…" : editing ? "Save changes" : "Save Customer Profile"}</button>
+      </form>
+    </Layer>
+  );
+}
+
+// ── 3. Mark paid: settles through the existing recordPayment flow ──────────────
+
+type ItemState = { state: "idle" | "busy" | "done" | "failed"; error?: string };
+
+export function MarkPaidDialog({ customer, items, onClose, onChanged }: {
+  customer: Customer; items: Booking[]; onClose: () => void; onChanged: (text: string) => void;
+}) {
+  const titleId = useTitleId();
+  // The list is frozen when the dialog opens so rows stay put while the live bookings refresh underneath.
+  const [list] = useState(() => items.map((b) => ({ b, due: paymentOf(b).balanceDue })));
+  const [picked, setPicked] = useState<Set<string>>(() => new Set(list.map((x) => x.b.id)));
+  const [method, setMethod] = useState<PaymentMethodName>("Cash");
+  const [reference, setReference] = useState("");
+  const [notes, setNotes] = useState("");
+  const [state, setState] = useState<Record<string, ItemState>>({});
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // One idempotency key per booking for the life of this dialog: a retry or a second click can never record twice.
+  const ids = useRef(new Map<string, string>());
+  const keyFor = (id: string) => { if (!ids.current.has(id)) ids.current.set(id, `pay_${crypto.randomUUID().replace(/-/g, "")}`); return ids.current.get(id)!; };
+
+  const todo = list.filter((x) => picked.has(x.b.id) && state[x.b.id]?.state !== "done");
+  const total = todo.reduce((n, x) => n + x.due, 0);
+  const doneTotal = list.filter((x) => state[x.b.id]?.state === "done").reduce((n, x) => n + x.due, 0);
+
+  const run = async () => {
+    if (busy || !todo.length) return;
+    if (method !== "Cash" && reference.trim().length < 4) return setError(`Enter the ${method === "UPI" ? "UPI transaction" : "transfer"} reference.`);
+    setBusy(true);
+    setError(null);
+    let ok = 0, failed = 0;
+    for (const { b, due } of todo) {
+      setState((s) => ({ ...s, [b.id]: { state: "busy" } }));
+      try {
+        await recordPayment({ bookingId: b.id, amount: due, method, collectorType: "admin", reference: reference.trim(), notes: notes.trim() || `Settled from customer directory`, requestId: keyFor(b.id) });
+        ok++;
+        setState((s) => ({ ...s, [b.id]: { state: "done" } }));
+      } catch (e) {
+        failed++;
+        setState((s) => ({ ...s, [b.id]: { state: "failed", error: msg(e, "Not recorded.") } }));
+      }
+    }
+    setBusy(false);
+    if (ok) onChanged(failed ? `${ok} recorded, ${failed} not recorded — retry the rest.` : `${inr(todo.reduce((n, x) => n + x.due, 0))} recorded for ${customer.name}.`);
+    if (failed) setError(`${failed} booking${failed === 1 ? "" : "s"} could not be recorded. Nothing was recorded twice; retry when ready.`);
+  };
+
+  const allDone = list.length > 0 && list.every((x) => state[x.b.id]?.state === "done");
+  return (
+    <Layer kind="dialog" title="Mark paid" labelledBy={titleId} onClose={onClose} busy={busy}>
+      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h3 id={titleId} className="text-sm leading-5 font-bold text-slate-900">Record settlement</h3>
+          <p className="text-[11px] leading-4 text-slate-500 break-words">{customer.name} ({customerCodeOf(customer)}) · recorded through Accounts, one receipt per booking</p>
+        </div>
+        <CloseButton onClick={onClose} disabled={busy} />
+      </div>
+      <div className="p-5 space-y-3.5 text-xs">
+        {error && <div role="alert" className="px-3 py-2 rounded-[12px] bg-red-50 border border-red-200 text-red-700 font-medium">{error}</div>}
+        {list.length === 0 ? <p className="text-slate-500">No outstanding balance on completed trips.</p> : (
+          <ul className="border border-slate-200 rounded-[12px] divide-y divide-slate-100 overflow-hidden">
+            {list.map(({ b, due }) => {
+              const st = state[b.id];
+              return (
+                <li key={b.id} className="p-3 flex items-start gap-2.5">
+                  <input type="checkbox" aria-label={`Include ${b.bookingId || b.id}`} className="mt-0.5" checked={picked.has(b.id) || st?.state === "done"} disabled={busy || st?.state === "done"}
+                    onChange={(e) => setPicked((p) => { const n = new Set(p); if (e.target.checked) n.add(b.id); else n.delete(b.id); return n; })} />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-slate-900 break-words">{b.bookingId || b.id} · {b.pickup} → {b.drop}</p>
+                    <p className="text-[11px] text-slate-500">Balance due {inr(due)}</p>
+                    {st?.state === "failed" && <p className="text-[11px] text-red-700 mt-0.5">{st.error}</p>}
+                  </div>
+                  <span className={`text-[11px] font-bold shrink-0 ${st?.state === "done" ? "text-emerald-700" : st?.state === "failed" ? "text-red-700" : "text-slate-400"}`}>
+                    {st?.state === "done" ? "Recorded" : st?.state === "busy" ? "Recording…" : st?.state === "failed" ? "Failed" : ""}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        {!allDone && list.length > 0 && (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2 sm:col-span-1"><label htmlFor="cd-mp-method" className={FIELD_LABEL}>Payment method</label>
+                <select id="cd-mp-method" value={method} disabled={busy} onChange={(e) => setMethod(e.target.value as PaymentMethodName)} className={`${FIELD} px-2.5`}><option>Cash</option><option>UPI</option><option>Bank Transfer</option></select></div>
+              {method !== "Cash" && <div className="col-span-2 sm:col-span-1"><label htmlFor="cd-mp-ref" className={FIELD_LABEL}>{method === "UPI" ? "UPI transaction ID" : "Transfer reference"}</label><input id="cd-mp-ref" maxLength={120} value={reference} disabled={busy} onChange={(e) => setReference(e.target.value)} className={FIELD} /></div>}
+            </div>
+            <div><label htmlFor="cd-mp-notes" className={FIELD_LABEL}>Notes</label><input id="cd-mp-notes" maxLength={300} value={notes} disabled={busy} onChange={(e) => setNotes(e.target.value)} className={FIELD} /></div>
+            <p className="text-[11px] text-slate-500">Each payment is its own permanent record. A mistake is voided with a reason from the booking, not edited.</p>
+          </>
+        )}
+        {doneTotal > 0 && <p role="status" className="text-emerald-700 font-semibold">{inr(doneTotal)} recorded so far.</p>}
+        {allDone
+          ? <button type="button" onClick={onClose} className={`w-full py-2.5 rounded-[12px] ${BTN_PRIMARY}`}>Done</button>
+          : <button type="button" onClick={() => void run()} disabled={busy || !todo.length} className={`w-full py-2.5 rounded-[12px] ${BTN_PRIMARY}`}>
+            {busy ? "Recording…" : Object.values(state).some((s) => s.state === "failed") ? `Retry ${todo.length} booking${todo.length === 1 ? "" : "s"} · ${inr(total)}` : `Confirm and record ${inr(total)} (${todo.length} booking${todo.length === 1 ? "" : "s"})`}
+          </button>}
+      </div>
+    </Layer>
+  );
+}

@@ -193,26 +193,7 @@ export default function Settings() {
                 />
               </div>
             ))}
-            <div>
-              <label className="text-[11px] font-semibold text-faint uppercase tracking-wide block mb-1.5">
-                Allow Cash on Delivery
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <div className="relative">
-                  <input
-                    type="checkbox"
-                    checked={!!formData.allowCod}
-                    onChange={(e) =>
-                      setFormData({ ...formData, allowCod: e.target.checked })
-                    }
-                    className="sr-only peer"
-                  />
-                  <div className="w-10 h-5 bg-line rounded-full peer peer-checked:bg-brand transition-colors" />
-                  <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-5" />
-                </div>
-                <span className="text-[13px] text-body">Enabled</span>
-              </label>
-            </div>
+            <p className="ds-note">Pay later, pay part now and pay in full now are controlled from Service &amp; Fare Settings › Payment options.</p>
           </div>
         )}
 

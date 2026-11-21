@@ -21,6 +21,7 @@ import { releaseBlocker, releaseConfigOf } from './release';
 import { notify, notifyInTx, pushAfterCommit, NotifyInput, inr } from './notify';
 import { approved, text } from './shared';
 import { assertPenaltiesAcknowledged, assignByFor } from './partnerOps';
+import { scheduledOffer } from './domain/offerSchedule';
 
 export const POSTING_MODES = ['accept_offer', 'bid_review'] as const;
 export type PostingMode = (typeof POSTING_MODES)[number];
@@ -250,13 +251,19 @@ export async function runOfferEscalation(now = Date.now()): Promise<{ checked: n
       let current = Math.round(money(m.offeredPayout) * 100);
       let step = st.step || 0;
       let moved = 0;
-      while (current < st.ceilingPaise && published + (step + 1) * st.intervalMinutes * 60000 <= now) {
-        const due = published + (step + 1) * st.intervalMinutes * 60000;
-        if (cutoff && due > cutoff) break;
-        current = nextOfferPaise(current, st.stepPercent, st.ceilingPaise);
-        step++;
-        moved++;
-        if (step > 200) break;
+      // Steps due by now, counted from the publication time (never from the last run), within the cut-off.
+      let dueSteps = step;
+      while (published + (dueSteps + 1) * st.intervalMinutes * 60000 <= now && dueSteps < 200) {
+        if (cutoff && published + (dueSteps + 1) * st.intervalMinutes * 60000 > cutoff) break;
+        dueSteps++;
+      }
+      if (dueSteps > step && current < st.ceilingPaise) {
+        // min(ceiling, round(start × (1 + step%)^steps)): the same rule the dashboard previews; a retried run finds nothing due.
+        const start = money(m.startOffer) > 0 ? money(m.startOffer) : money(m.offeredPayout);
+        const target = Math.round(scheduledOffer(start, st.stepPercent, st.ceilingPaise / 100, dueSteps) * 100);
+        moved = dueSteps - step;
+        step = dueSteps;
+        current = Math.max(current, Math.min(st.ceilingPaise, target));
       }
       if (moved) tx.update(d.ref, { offeredPayout: current / 100, 'escalation.step': step, escalatedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
       return { moved, current, ceiling: st.ceilingPaise, bookingId: m.bookingId ?? d.id };

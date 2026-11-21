@@ -1,244 +1,390 @@
-import { useMemo, useState, type FormEvent } from "react";
-import type { Booking, Customer } from "../types";
-import { addFirestoreDocument, updateFirestoreDocument, COLLECTIONS } from "../services/adminFirestoreService";
-import { buildCustomerStats, EMPTY_STATS, type CustomerStats } from "../services/customerStats";
-import { useBookings, useCustomers } from "../hooks/useOfficeData";
-import { ErrorBanner, Modal, Toast, useToast } from "../components/Feedback";
-import { Badge, Button, DataTable, EmptyState, Icon, PageHeader, Tabs, TableSkeleton, toneForStatus } from "../components/ui";
-import { ExportDialog, Initials, SimplePager, useSelection, type ExportSpec } from "../components/ui/RecordKit";
-import MenuButton from "../components/ui/MenuButton";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Customer, MasterCoupon } from "../types";
+import "../styles/customersDirectory.css";
+import Icon from "../components/ui/Icon";
+import { ExportDialog, type ExportSpec } from "../components/ui/RecordKit";
+import { useAccess, useCan, useCanDo } from "../components/AccessContext";
+import { CdToast } from "../components/customers/Layer";
+import { AuditLedger, BTN_PRIMARY, CARD, KpiCards } from "../components/customers/Parts";
+import { CustomerTable, customerCodeOf, emailOf } from "../components/customers/CustomerTable";
+import { CustomerDrawer } from "../components/customers/Drawer";
+import { CustomerFormDialog, MarkPaidDialog, RevealDialog } from "../components/customers/Dialogs";
+import { useBookingsWithoutContacts } from "../hooks/useOfficeData";
+import { useCustomerDirectory } from "../hooks/useCustomerDirectory";
+import { subscribeCoupons, subscribeVehicleCategories } from "../services/adminFirestoreService";
+import { auth } from "../services/firebase";
+import { buildCustomerLedger, EMPTY_STATS } from "../services/customerStats";
+import {
+  copyText, exportCustomerNumbers, findCustomersByMobile, revealCustomerNumber, saveCustomerProfile,
+} from "../services/customerDirectoryService";
+import {
+  BRANDS, brandLabel, checkOfferCoupon, computeKpis, countSegments, customersCsv, digitsOf, filterRows, groupOf, inr, isBlockedStatus,
+  loyaltyMessage, offerFor, reminderMessage, segmentName, SEGMENTS, statementText, statusLabel, STATUS_ACTIVE, STATUS_BLOCKED, type Row, type Segment,
+} from "../domain/customerDirectory";
 import { paymentOf } from "../domain/bookingFlow";
-import { refDateTime, rupee } from "../domain/officeStage";
-import { bookingPickupDate } from "../utils/time";
+import { refDateTime } from "../domain/officeStage";
 
-/** Last 10 digits of an Indian mobile ("+91 98765 43210" → "9876543210"). */
+export { customerCodeOf, emailOf };
+/** Earlier name of customerCodeOf, still imported by Communication › Messages. */
+export const customerCode = customerCodeOf;
+/** Kept for importers of the old page. */
 export function getCanonicalPhoneDigits(input: string): string {
-  if (!input) return "";
-  const digits = input.replace(/\D/g, "");
+  const digits = (input || "").replace(/\D/g, "");
   return digits.length >= 10 ? digits.slice(-10) : digits;
 }
-
-/** "+91 98765 43210" */
 export function formatIndianPhone(input: string): string {
   const d = getCanonicalPhoneDigits(input);
   return d.length === 10 ? `+91 ${d.slice(0, 5)} ${d.slice(5)}` : input.trim();
 }
 
-const CUSTOMER_ACTIVE = "Active";
-const CUSTOMER_BLOCKED = "Blocked";
-const isActive = (s: string) => !s || /^active$/i.test(s);
-/** Older records stored N/A as the email when none was given. */
-const emailOf = (c: Customer) => (c.email && c.email !== "N/A" ? c.email : "");
-export const customerCode = (c: { id: string; customerCode?: string }) => c.customerCode || `NSM-CU-${c.id.slice(0, 6).toUpperCase()}`;
-
-type Group = "New" | "Returning" | "Regular";
-const groupOf = (s: CustomerStats): Group => (s.completed >= 3 ? "Regular" : s.completed >= 1 ? "Returning" : "New");
-const GROUP_TONE: Record<Group, "green" | "amber" | "blue"> = { New: "green", Returning: "amber", Regular: "blue" };
 const PAGE = 10;
 
-export default function Customers({ onNavigate }: { onNavigate?: (page: string, tab?: string) => void }) {
-  const customers = useCustomers();
-  const bookingsQ = useBookings();
-  const all = customers.rows ?? [];
-  const bookings = bookingsQ.rows ?? [];
+export interface BookCustomerDraft { id: string; name: string; email: string; phoneMasked: string; preferredCab: string; preferredDriver: string }
+
+export default function Customers({ onNavigate, onBookCustomer }: {
+  onNavigate?: (page: string, tab?: string) => void;
+  /** Opens the real new-booking flow with this customer selected (absent when the signed-in user cannot create bookings). */
+  onBookCustomer?: (c: BookCustomerDraft) => void;
+}) {
+  const access = useAccess();
+  const canSettle = useCan("finance") && useCanDo("Accounts", "create");
+  const uid = auth.currentUser?.uid ?? "";
+  const email = auth.currentUser?.email ?? "";
+  // Everything tied to who is signed in and what they may do: a change throws away reveals, selections and open dialogs.
+  const scope = useMemo(() => `${uid}|${JSON.stringify([access.permissions, access.matrix, access.duty, access.accessVersion ?? 0])}`, [uid, access]);
+
+  const dir = useCustomerDirectory(scope);
+  const bookingsQ = useBookingsWithoutContacts();
+  const viewer = dir.viewer;
+  const [preview, setPreview] = useState<"master" | "staff">("master");
+  const staffPreview = !!viewer?.isSuper && preview === "staff";
+  const canExport = !!viewer?.canExport && !staffPreview;
+  const canReveal = !!viewer?.canReveal;
+  const canEdit = !!viewer?.canEdit;
+  const canCreate = !!viewer?.canCreate;
+
+  const customers = dir.customers;
+  const bookings = bookingsQ.rows;
+  const ledger = useMemo(() => buildCustomerLedger(customers ?? [], bookings ?? []), [customers, bookings]);
+  const rows: Row[] = useMemo(() => (customers ?? []).map((c) => ({ c, s: ledger.stats.get(c.id) ?? EMPTY_STATS })), [customers, ledger]);
+  const rowOf = useCallback((id: string) => rows.find((r) => r.c.id === id), [rows]);
+
+  const [coupons, setCoupons] = useState<MasterCoupon[] | null>(null);
+  const [categories, setCategories] = useState<string[]>([]);
+  useEffect(() => {
+    const a = subscribeCoupons(setCoupons, () => setCoupons(null));
+    const b = subscribeVehicleCategories((v) => setCategories(v.map((x) => x.name)));
+    return () => { a(); b(); };
+  }, []);
+
+  // ── filters ──
   const [q, setQ] = useState("");
-  const [group, setGroup] = useState<"All" | Group>("All");
+  const [segment, setSegment] = useState<Segment>("All");
+  const [brand, setBrand] = useState("all");
   const [page, setPage] = useState(1);
-  const [exporting, setExporting] = useState(false);
-  const [viewing, setViewing] = useState<Customer | null>(null);
-  const [editing, setEditing] = useState<Customer | "new" | null>(null);
-  const sel = useSelection();
-  const { toast, show } = useToast(6000);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [lookedUp, setLookedUp] = useState<ReadonlySet<string>>(new Set());
+  const [failed, setFailed] = useState<{ id: string; name: string; reason: string }[]>([]);
+  const [busyBulk, setBusyBulk] = useState(false);
 
-  const stats = useMemo(() => buildCustomerStats(all, bookings), [all, bookings]);
-  const statsOf = (c: Customer) => stats.get(c.id) ?? EMPTY_STATS;
-  const lastCompleted = useMemo(() => {
-    const m = new Map<string, Date>();
-    for (const b of bookings) {
-      if (b.status !== "Completed") continue;
-      const owner = b.customerId || all.find((c) => getCanonicalPhoneDigits(c.phone) === getCanonicalPhoneDigits(b.phone || ""))?.id;
-      const p = bookingPickupDate(b);
-      if (owner && p && (!m.get(owner) || p > m.get(owner)!)) m.set(owner, p);
-    }
-    return m;
-  }, [bookings, all]);
+  useEffect(() => {
+    let d = digitsOf(q);
+    if (d.length === 12 && d.startsWith("91")) d = d.slice(2);
+    if (d.length !== 10) { setLookedUp(new Set()); return; }
+    let live = true;
+    const t = window.setTimeout(() => { findCustomersByMobile(d).then((r) => live && setLookedUp(new Set(r.ids))).catch(() => live && setLookedUp(new Set())); }, 250);
+    return () => { live = false; window.clearTimeout(t); };
+  }, [q]);
 
-  const filtered = useMemo(() => {
-    const term = q.trim().toLowerCase();
-    const d = getCanonicalPhoneDigits(term);
-    return all
-      .filter((c) => group === "All" || groupOf(statsOf(c)) === group)
-      .filter((c) => !term || [c.name, emailOf(c), c.id, customerCode(c)].some((v) => (v || "").toLowerCase().includes(term)) || (d.length >= 4 && getCanonicalPhoneDigits(c.phone).includes(d)))
-      .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-  }, [all, q, group, stats]); // eslint-disable-line react-hooks/exhaustive-deps
-
+  const counts = useMemo(() => countSegments(rows), [rows]);
+  const kpis = useMemo(() => computeKpis(rows), [rows]);
+  const extraBrands = useMemo(() => [...new Set(rows.flatMap((r) => r.c.brands ?? []))].filter((b) => !BRANDS.some((x) => x.id === b)), [rows]);
+  const filtered = useMemo(() => filterRows(rows, { q, segment, brand, lookedUp }), [rows, q, segment, brand, lookedUp]);
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE));
   const cur = Math.min(page, pages);
   const shown = filtered.slice((cur - 1) * PAGE, cur * PAGE);
-  const filtersOn = q !== "" || group !== "All";
+  const filtersOn = q.trim() !== "" || segment !== "All" || brand !== "all";
+  const pageAllSelected = shown.length > 0 && shown.every((r) => selected.has(r.c.id));
 
-  const spec: ExportSpec<Customer> = {
+  // ── toast ──
+  const [toast, setToast] = useState<{ message: string; tone: "success" | "error" } | null>(null);
+  const toastTimer = useRef<number | undefined>(undefined);
+  const say = useCallback((message: string, tone: "success" | "error" = "success") => {
+    window.clearTimeout(toastTimer.current);
+    setToast({ message, tone });
+    toastTimer.current = window.setTimeout(() => setToast(null), 5000);
+  }, []);
+  useEffect(() => () => window.clearTimeout(toastTimer.current), []);
+
+  // ── number reveal (one state for the row and the drawer) ──
+  const [revealed, setRevealed] = useState<Record<string, string>>({});
+  const timers = useRef(new Map<string, number>());
+  const clearReveals = useCallback(() => {
+    timers.current.forEach((t) => window.clearTimeout(t));
+    timers.current.clear();
+    setRevealed({});
+  }, []);
+  useEffect(() => { clearReveals(); setSelected(new Set()); setFailed([]); setRevealFor(null); setEditing(null); setViewingId(null); setPaying(null); setExporting(false); }, [scope, clearReveals]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (preview === "staff") clearReveals(); }, [preview, clearReveals]);
+  useEffect(() => () => timers.current.forEach((t) => window.clearTimeout(t)), []);
+
+  const [revealFor, setRevealFor] = useState<Customer | null>(null);
+  const [viewingId, setViewingId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Customer | "new" | null>(null);
+  const [paying, setPaying] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+
+  const actor = access.isSuper && !staffPreview ? `Master Admin (${email})` : `${viewer?.name || "Staff"} (${access.staffCode ? `@${access.staffCode}` : email})`;
+
+  const doReveal = async (category: string, note: string) => {
+    const target = revealFor!;
+    const r = await revealCustomerNumber(target.id, category, note);
+    setRevealed((m) => ({ ...m, [target.id]: r.phone }));
+    window.clearTimeout(timers.current.get(target.id));
+    timers.current.set(target.id, window.setTimeout(() => { setRevealed((m) => { const n = { ...m }; delete n[target.id]; return n; }); timers.current.delete(target.id); }, r.revealSeconds * 1000));
+    setRevealFor(null);
+    say(`Number revealed & logged under ${actor}. It is hidden again after ${r.revealSeconds} seconds.`);
+    void dir.refresh("views");
+  };
+
+  // ── actions ──
+  /** "Copied" is reported only after the browser accepted the text; the message is never described as sent. */
+  const copy = async (text: string, ok: string) => { const done = await copyText(text); say(done ? ok : "Could not copy to the clipboard. Allow clipboard access and try again.", done ? "success" : "error"); };
+
+  const remind = (r: Row) => copy(reminderMessage(r.c.name || "Customer", r.s.outstanding), `WhatsApp payment reminder copied for ${r.c.name} (${inr(r.s.outstanding)}). It has not been sent.`);
+  const copyStatement = (r: Row) => copy(statementText(r, customerCodeOf(r.c)), "Customer trip statement copied!");
+  const sendCoupon = (r: Row) => { const o = offerFor(r); return copy(loyaltyMessage(r.c.name || "Customer", o), `Copied ${o.code} (${inr(o.amount)} OFF) WhatsApp message for ${r.c.name}. It has not been sent.`); };
+  const statement = (r: Row) => onNavigate?.("accounts", `Statements:customer:${r.c.id}`);
+  const book = (r: Row) => {
+    if (!onBookCustomer) return;
+    setViewingId(null);
+    onBookCustomer({ id: r.c.id, name: r.c.name, email: emailOf(r.c), phoneMasked: r.c.phoneMasked ?? "", preferredCab: r.c.preferredCab ?? "", preferredDriver: r.c.preferredDriver ?? "" });
+  };
+  const toggleBlock = async (r: Row) => {
+    const next = isBlockedStatus(r.c.status) ? STATUS_ACTIVE : STATUS_BLOCKED;
+    try {
+      await saveCustomerProfile({ customerId: r.c.id, status: next });
+      say(`${r.c.name} is now ${next.toLowerCase()}.`);
+      void dir.refresh();
+    } catch (e) { say((e as Error).message || `Could not change ${r.c.name}'s status.`, "error"); }
+  };
+  const savePrefs = async (r: Row, p: { preferredCab: string; preferredDriver: string; notes: string }) => {
+    try {
+      await saveCustomerProfile({ customerId: r.c.id, ...p });
+      say(`Saved preferences & note for ${r.c.name}`);
+      await dir.refresh();
+    } catch (e) { say((e as Error).message || "The preferences were not saved.", "error"); throw e; }
+  };
+
+  const toggleOne = (id: string) => setSelected((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const togglePage = (on: boolean) => setSelected((s) => { const n = new Set(s); shown.forEach((r) => (on ? n.add(r.c.id) : n.delete(r.c.id))); return n; });
+  const clearFilters = () => { setQ(""); setSegment("All"); setBrand("all"); setPage(1); setSelected(new Set()); setFailed([]); };
+
+  // Mark as VIP: only the designation changes, so GST details and corporate membership are untouched. Failures stay selected for a retry.
+  const markVip = async () => {
+    if (busyBulk) return;
+    setBusyBulk(true);
+    const ids = [...selected];
+    const bad: typeof failed = [];
+    let ok = 0;
+    for (const id of ids) {
+      const r = rowOf(id);
+      try { await saveCustomerProfile({ customerId: id, isVip: true }); ok++; setSelected((s) => { const n = new Set(s); n.delete(id); return n; }); }
+      catch (e) { bad.push({ id, name: r?.c.name ?? id, reason: (e as Error).message }); }
+    }
+    setFailed(bad);
+    setBusyBulk(false);
+    if (ok) void dir.refresh();
+    say(bad.length ? `${ok} marked VIP; ${bad.length} failed and stay selected for a retry.` : "Selected customers upgraded to VIP!", bad.length ? "error" : "success");
+  };
+
+  // Export Selected CSV: the server authorises (Master only) before the masked CSV is copied.
+  const exportSelected = async () => {
+    const list = rows.filter((r) => selected.has(r.c.id));
+    if (!list.length || busyBulk) return;
+    setBusyBulk(true);
+    try {
+      await exportCustomerNumbers(list.map((r) => r.c.id), false);
+      const text = customersCsv(list, (c) => c.phoneMasked ?? "", customerCodeOf);
+      const ok = await copyText(text);
+      say(ok ? `Master Admin Export: ${list.length} customer record${list.length === 1 ? "" : "s"} copied as CSV (numbers masked)!` : "Could not copy to the clipboard. Use Export Data to download the file.", ok ? "success" : "error");
+    } catch (e) { say((e as Error).message || "The export was not authorised.", "error"); }
+    finally { setBusyBulk(false); }
+  };
+
+  // ── Export Data (the existing dialog: all / filtered / selected, Excel / CSV / print) ──
+  const numbers = useRef<Record<string, string>>({});
+  const [withNumbers, setWithNumbers] = useState(false);
+  const [exportReason, setExportReason] = useState("");
+  const mobileOf = (c: Customer) => numbers.current[c.id] ?? c.phoneMasked ?? "";
+  const spec: ExportSpec<Row> = {
     scope: "Customers",
     headers: ["Customer ID", "Name", "Mobile", "Email", "City", "Customer group", "Completed trips", "Last trip", "Status"],
-    row: (c) => [customerCode(c), c.name, c.phone, emailOf(c), c.city ?? "", groupOf(statsOf(c)), statsOf(c).completed, refDateTime(lastCompleted.get(c.id) ?? null), isActive(c.status) ? "Active" : c.status],
+    row: ({ c, s }) => [customerCodeOf(c), c.name, mobileOf(c), emailOf(c), c.city ?? "", groupOf(s.completed), s.completed, refDateTime(s.lastCompletedAt), statusLabel(c.status)],
+  };
+  const authorizeExport = async (list: Row[]): Promise<string | null> => {
+    numbers.current = {};
+    if (withNumbers && exportReason.trim().length < 10) return "Enter a reason of at least 10 characters to export full numbers.";
+    try {
+      const r = await exportCustomerNumbers(list.map((x) => x.c.id), withNumbers, exportReason.trim());
+      numbers.current = r.numbers;
+      return null;
+    } catch (e) { return (e as Error).message || "The export was not authorised."; }
   };
 
-  const toggleBlock = async (c: Customer) => {
-    const next = isActive(c.status) ? CUSTOMER_BLOCKED : CUSTOMER_ACTIVE;
-    const ok = await updateFirestoreDocument(COLLECTIONS.CUSTOMERS, c.id, { status: next });
-    show(ok ? `${c.name} is now ${next.toLowerCase()}.` : `Could not change ${c.name}'s status.`, ok ? "success" : "error");
-  };
+  const viewing = viewingId ? rowOf(viewingId) : undefined;
+  useEffect(() => { if (viewingId && customers && !rowOf(viewingId)) setViewingId(null); }, [customers, viewingId, rowOf]);
+  const payRow = paying ? rowOf(paying) : undefined;
+
+  const loading = customers === null && !dir.error;
+  const bigError = dir.error && customers === null;
 
   return (
-    <div className="ds-page-body">
-      <Toast toast={toast} />
-      {customers.error && <ErrorBanner message={customers.error} />}
-      <PageHeader
-        title="Customers"
-        actions={<><Button icon="download" onClick={() => setExporting(true)}>Export data</Button><Button variant="primary" icon="user-plus" onClick={() => setEditing("new")}>Add customer</Button></>}
-      />
-      <div className="ds-filterbar" role="search">
-        <div className="ds-search" style={{ flex: "1 1 340px" }}>
-          <Icon name="search" />
-          <input type="search" className="ds-input" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder="Name, ID, mobile or DL number" aria-label="Search customers" />
+    <div className="cd-root space-y-6">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-lg sm:text-xl leading-7 font-bold text-slate-900">Customers Directory</h1>
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] leading-4 font-semibold bg-crimson-50 text-crimson-800 border border-crimson-200/70">CRM &amp; Privacy Guard</span>
+          </div>
+          <p className="text-xs leading-4 text-slate-500 mt-1">Manage individual, VIP, and corporate accounts • Number reveals require a logged reason • Export restricted to Master Admin.</p>
         </div>
-        <label className="ds-field"><span>Customer group</span>
-          <select className="ds-select" value={group} onChange={(e) => { setGroup(e.target.value as typeof group); setPage(1); }}>{["All", "New", "Returning", "Regular"].map((g) => <option key={g}>{g}</option>)}</select>
-        </label>
-      </div>
-      <div className="ds-toolbar-count">
-        <strong>{filtered.length} records · {sel.ids.size} selected</strong>
-        <Button variant="ghost" size="sm" icon="rotate-ccw" disabled={!filtersOn && !sel.ids.size} onClick={() => { setQ(""); setGroup("All"); sel.clear(); }}>Clear filters</Button>
-      </div>
-      {customers.rows === null ? <div className="ds-panel"><TableSkeleton rows={5} cols={5} /></div> : filtered.length === 0 ? <div className="ds-panel"><EmptyState /></div> : (
-        <DataTable label="Customers" minWidth={980} fixed compact hasActions>
-          <colgroup><col style={{ width: 44 }} /><col style={{ width: 260 }} /><col style={{ width: 200 }} /><col style={{ width: 200 }} /><col style={{ width: 110 }} /><col style={{ width: 200 }} /></colgroup>
-          <thead><tr>
-            <th className="ds-check-cell"><input type="checkbox" aria-label="Select visible records" checked={shown.length > 0 && shown.every((c) => sel.has(c.id))} onChange={(e) => sel.setAll(shown.map((c) => c.id), e.target.checked)} /></th>
-            <th>NAME / ID</th><th>CONTACT</th><th>BOOKING HISTORY</th><th>STATUS</th><th className="ds-actions">ACTIONS</th>
-          </tr></thead>
-          <tbody>
-            {shown.map((c) => {
-              const s = statsOf(c);
-              const g = groupOf(s);
-              return (
-                <tr key={c.id}>
-                  <td className="ds-check-cell"><input type="checkbox" aria-label={`Select ${c.name}`} checked={sel.has(c.id)} onChange={() => sel.toggle(c.id)} /></td>
-                  <td><div className="ds-person ds-person-split"><div><strong>{c.name}</strong><small>{customerCode(c)}</small></div><Badge tone={GROUP_TONE[g]}>{g}</Badge></div></td>
-                  <td><strong>{c.phone}</strong><small>{emailOf(c) || "Email not supplied"}</small></td>
-                  <td><strong>{s.completed} completed trips</strong><small>{lastCompleted.get(c.id) ? refDateTime(lastCompleted.get(c.id)!) : "No completed trips"}</small></td>
-                  <td><Badge tone={toneForStatus(isActive(c.status) ? "Active" : c.status)}>{isActive(c.status) ? "Active" : c.status}</Badge></td>
-                  <td className="ds-actions"><div>
-                    <Button size="sm" onClick={() => setViewing(c)}>View</Button>
-                    <Button size="sm" variant="ghost" onClick={() => onNavigate?.("accounts", `Statements:customer:${c.id}`)}>Statement</Button>
-                    <MenuButton iconOnly label={`More actions for ${c.name}`} items={[
-                      { label: "Edit customer", icon: "pencil", onSelect: () => setEditing(c) },
-                      { label: isActive(c.status) ? "Block customer" : "Unblock customer", icon: isActive(c.status) ? "ban" : "circle-check", danger: isActive(c.status), onSelect: () => toggleBlock(c) },
-                    ]} />
-                  </div></td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </DataTable>
-      )}
-      {filtered.length > 0 && <SimplePager page={cur} pages={pages} from={(cur - 1) * PAGE + 1} to={Math.min(cur * PAGE, filtered.length)} total={filtered.length} onPage={setPage} />}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {viewer?.isSuper ? (
+            <div role="group" aria-label="Preview as" className="inline-flex items-center p-1 rounded-[12px] bg-white border border-slate-200 shadow-xs text-[11px] leading-4">
+              <button type="button" aria-pressed={preview === "master"} onClick={() => setPreview("master")} className={`px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-all ${preview === "master" ? "font-bold bg-crimson-800 text-white" : "font-medium text-slate-600 hover:text-slate-900"}`}><Icon name="shield-check" size={12} /><span>Master Admin</span></button>
+              <button type="button" aria-pressed={preview === "staff"} onClick={() => setPreview("staff")} title="Preview only: hides what a Staff ID cannot do. Your own permissions still apply." className={`px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-all ${preview === "staff" ? "font-bold bg-crimson-800 text-white" : "font-medium text-slate-600 hover:text-slate-900"}`}><Icon name="user" size={12} /><span>Staff View preview</span></button>
+            </div>
+          ) : (
+            <span className="inline-flex items-center gap-1 px-2.5 py-2 rounded-[12px] bg-white border border-slate-200 text-[11px] leading-4 font-semibold text-slate-700 shadow-xs"><Icon name="user" size={12} />{access.roleName || "Staff"}{access.staffCode ? ` (@${access.staffCode})` : ""}</span>
+          )}
+          {canExport && <button type="button" onClick={() => { setWithNumbers(false); setExportReason(""); setExporting(true); }} className="h-10 px-3.5 rounded-[12px] bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"><Icon name="download" size={14} className="text-slate-500" /><span>Export Data</span></button>}
+          {canCreate && <button type="button" onClick={() => setEditing("new")} className={`h-10 px-4 rounded-[12px] text-xs flex items-center gap-2 shadow-sm active:scale-[0.99] transition-all ${BTN_PRIMARY}`}><Icon name="user-plus" size={16} /><span>+ Add Customer</span></button>}
+        </div>
+      </header>
+      {staffPreview && <p role="status" className="text-[11px] leading-4 px-3 py-2 rounded-[12px] bg-amber-50 border border-amber-200 text-amber-900">Staff View preview: this only hides Master-only controls on screen. The server still applies your own Master permissions.</p>}
+      {dir.error && customers !== null && <p role="alert" className="text-xs px-3 py-2 rounded-[12px] bg-red-50 border border-red-200 text-red-700">The list could not be refreshed ({dir.error}). Showing the last loaded data. <button type="button" className="font-semibold underline" onClick={() => void dir.refresh()}>Retry</button></p>}
+      {dir.truncated && <p role="status" className="text-[11px] px-3 py-2 rounded-[12px] bg-slate-100 text-slate-600">Booking history covers the most recent 1,000 bookings for customers matched by mobile number.</p>}
 
-      {exporting && <ExportDialog spec={spec} all={all} filtered={filtered} selected={all.filter((c) => sel.has(c.id))} filters={{ q, group }} onClose={() => setExporting(false)} />}
+      <KpiCards k={kpis} views={dir.views} viewsError={dir.viewsError} loading={customers === null} />
+
+      <section className={`${CARD} overflow-hidden`} aria-label="Customers">
+        <div className="p-4 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div role="group" aria-label="Segment" className="flex items-center gap-1.5 flex-wrap">
+            {SEGMENTS.map((t) => (
+              <button key={t.id} type="button" aria-pressed={segment === t.id} onClick={() => { setSegment(t.id); setPage(1); }}
+                className={`px-3 py-1.5 rounded-[12px] text-xs leading-4 ${segment === t.id ? "font-bold bg-slate-900 text-white" : "font-medium bg-slate-100 text-slate-600 hover:bg-slate-200/70"}`}>{t.label} ({counts[t.id]})</button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            <div className="relative w-full sm:w-72">
+              <Icon name="search" size={14} className="text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input type="search" aria-label="Search customers" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder="Search name, ID (NSM-CU), mobile or city..."
+                className="w-full h-9 pl-8 pr-3 text-xs font-medium bg-slate-50 border border-slate-200 rounded-[12px] focus:bg-white focus:border-crimson-800 focus:outline-none" />
+            </div>
+            <select aria-label="Brand" value={brand} onChange={(e) => { setBrand(e.target.value); setPage(1); }} className="h-9 px-3 rounded-[12px] border border-slate-200 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:border-crimson-800">
+              <option value="all">All Brands</option>
+              {BRANDS.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
+              {extraBrands.map((b) => <option key={b} value={b}>{brandLabel(b)}</option>)}
+            </select>
+            {filtersOn && <button type="button" onClick={clearFilters} className="h-9 px-3 rounded-[12px] text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200/80">Clear</button>}
+          </div>
+        </div>
+
+        {selected.size > 0 && (
+          <div className="px-5 py-2.5 bg-crimson-50/70 border-b border-crimson-100 flex flex-wrap items-center justify-between gap-2 text-xs" role="region" aria-label="Bulk actions">
+            <span className="font-bold text-crimson-800" aria-live="polite">{selected.size} customer{selected.size > 1 ? "s" : ""} selected</span>
+            <div className="flex items-center gap-2 flex-wrap">
+              {pageAllSelected && filtered.length > shown.length && filtered.some((r) => !selected.has(r.c.id)) && (
+                <button type="button" onClick={() => setSelected(new Set(filtered.map((r) => r.c.id)))} className="px-2.5 py-1 rounded-lg font-semibold text-crimson-800 hover:underline">Select all {filtered.length} filtered customers</button>
+              )}
+              <button type="button" onClick={() => { setSelected(new Set()); setFailed([]); }} className="px-2.5 py-1 rounded-lg font-semibold text-slate-600 hover:bg-white">Clear selection</button>
+              {canEdit && <button type="button" onClick={() => void markVip()} disabled={busyBulk} className="px-2.5 py-1 rounded-lg font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-60">{busyBulk ? "Working…" : "Mark as VIP"}</button>}
+              {canExport && <button type="button" onClick={() => void exportSelected()} disabled={busyBulk} className="px-2.5 py-1 rounded-lg font-semibold bg-crimson-800 text-white hover:bg-crimson-900 disabled:opacity-60">Export Selected CSV</button>}
+            </div>
+            {failed.length > 0 && (
+              <ul className="basis-full text-[11px] text-red-700 list-disc pl-4" role="alert">
+                {failed.map((f) => <li key={f.id}>{f.name}: {f.reason}</li>)}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {bigError ? (
+          <div className="py-10 px-5 text-center text-xs" role="alert">
+            <p className="text-red-700 font-medium">The customer list could not be loaded.</p>
+            <p className="text-slate-500 mt-1">{dir.error}</p>
+            <button type="button" onClick={() => void dir.refresh()} className="mt-3 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200/80 font-semibold text-slate-700">Retry</button>
+          </div>
+        ) : loading ? (
+          <div className="p-5 space-y-3" role="status" aria-label="Loading customers">{[0, 1, 2, 3, 4].map((i) => <div key={i} className="h-10 rounded-lg bg-slate-100 animate-pulse" />)}</div>
+        ) : filtered.length === 0 ? (
+          <p className="py-10 text-center text-xs text-slate-400" role="status">{rows.length === 0 ? "No customers yet." : "No customers match the current filter."}</p>
+        ) : (
+          <CustomerTable rows={shown} selected={selected} onToggle={toggleOne} onTogglePage={togglePage} a={{
+            canReveal, canBook: !!onBookCustomer, canEdit,
+            revealed: (id) => revealed[id],
+            onReveal: (r) => setRevealFor(r.c), onView: (r) => setViewingId(r.c.id), onBook: book, onRemind: remind, onStatement: statement, onEdit: (r) => setEditing(r.c), onToggleBlock: toggleBlock,
+          }} />
+        )}
+
+        <div className="px-5 py-3 bg-slate-50/50 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-[11px] leading-4 text-slate-500">
+          <span aria-live="polite">Showing {filtered.length ? `${(cur - 1) * PAGE + 1}–${Math.min(cur * PAGE, filtered.length)}` : "0"} of {filtered.length} customer{filtered.length === 1 ? "" : "s"}{filtered.length !== rows.length ? ` (${rows.length} in total)` : ""}</span>
+          <div className="flex items-center gap-2">
+            <button type="button" disabled={cur <= 1} onClick={() => setPage(cur - 1)} className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">Previous</button>
+            <strong className="font-semibold text-slate-600">{cur} / {pages}</strong>
+            <button type="button" disabled={cur >= pages} onClick={() => setPage(cur + 1)} className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">Next</button>
+          </div>
+          <span className="font-medium text-slate-400">All customer number reveals are audited in Master Admin Logs</span>
+        </div>
+      </section>
+
+      <AuditLedger views={dir.views} error={dir.viewsError} onRetry={() => void dir.refresh("views")} />
+
       {viewing && (
-        <CustomerProfile
-          c={all.find((x) => x.id === viewing.id) ?? viewing}
-          stats={statsOf(viewing)}
-          last={lastCompleted.get(viewing.id) ?? null}
-          bookings={bookings}
-          onClose={() => setViewing(null)}
-          onEdit={() => { setEditing(viewing); setViewing(null); }}
-          onStatement={() => onNavigate?.("accounts", `Statements:customer:${viewing.id}`)}
-          onToggle={() => toggleBlock(viewing)}
+        <CustomerDrawer
+          row={viewing}
+          owned={ledger.owned.get(viewing.c.id) ?? []}
+          phone={revealed[viewing.c.id]}
+          cabs={categories}
+          offer={checkOfferCoupon(coupons, offerFor(viewing))}
+          canReveal={canReveal} canBook={!!onBookCustomer} canEdit={canEdit} canSettle={canSettle}
+          onClose={() => setViewingId(null)}
+          onReveal={() => setRevealFor(viewing.c)}
+          onBook={() => book(viewing)}
+          onStatement={() => { setViewingId(null); statement(viewing); }}
+          onCopyStatement={() => void copyStatement(viewing)}
+          onToggleBlock={() => void toggleBlock(viewing)}
+          onEdit={() => setEditing(viewing.c)}
+          onRemind={() => void remind(viewing)}
+          onMarkPaid={() => setPaying(viewing.c.id)}
+          onCoupon={() => void sendCoupon(viewing)}
+          onOffers={() => { setViewingId(null); onNavigate?.("offers"); }}
+          onSavePrefs={(p) => savePrefs(viewing, p)}
         />
       )}
-      {editing && <CustomerForm c={editing === "new" ? null : editing} all={all} onClose={() => setEditing(null)} onSaved={(t) => { setEditing(null); show(t); }} />}
-    </div>
-  );
-}
-
-function CustomerProfile({ c, stats, last, bookings, onClose, onEdit, onStatement, onToggle }: {
-  c: Customer; stats: CustomerStats; last: Date | null; bookings: Booking[]; onClose: () => void; onEdit: () => void; onStatement: () => void; onToggle: () => void;
-}) {
-  const [tab, setTab] = useState<"Overview" | "Bookings" | "Payments">("Overview");
-  const g = groupOf(stats);
-  const mine = bookings.filter((b) => b.customerId === c.id || (!b.customerId && getCanonicalPhoneDigits(b.phone || "") === getCanonicalPhoneDigits(c.phone)))
-    .sort((a, z) => (bookingPickupDate(z)?.getTime() ?? 0) - (bookingPickupDate(a)?.getTime() ?? 0));
-  return (
-    <Modal title="Customer profile" onClose={onClose} size="lg">
-      <div className="ds-profile-head">
-        <Initials name={c.name || "?"} />
-        <div><strong>{c.name}</strong><small>{customerCode(c)}</small></div>
-        <Badge tone={GROUP_TONE[g]}>{g}</Badge>
-      </div>
-      <Tabs label="Customer profile" value={tab} onChange={setTab} tabs={(["Overview", "Bookings", "Payments"] as const).map((t) => ({ id: t, label: t }))} />
-      {tab === "Overview" && (
-        <>
-          <dl className="ds-facts" data-cols={2}>
-            {([
-              ["Customer ID", customerCode(c)], ["Name", c.name], ["Registered mobile", c.phone], ["WhatsApp", c.phone],
-              ["Email", emailOf(c) || "Not supplied"], ["Customer group", g], ["Completed trips", String(stats.completed)], ["Last trip", last ? refDateTime(last) : "Not yet"],
-              ["City", c.city || "—"], ["Status", isActive(c.status) ? "Active" : c.status], ["Total bookings", String(stats.total)], ["Paid · outstanding", `${rupee(stats.paid)} · ${rupee(stats.outstanding)}`],
-            ] as const).map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}
-          </dl>
-          <div className="flex flex-wrap gap-2 mt-5">
-            <Button icon="pencil" onClick={onEdit}>Edit customer</Button>
-            <Button icon="file-text" onClick={onStatement}>View account statement</Button>
-            <Button variant="ghost" icon={isActive(c.status) ? "ban" : "circle-check"} onClick={onToggle}>{isActive(c.status) ? "Block customer" : "Unblock customer"}</Button>
-          </div>
-        </>
+      {revealFor && <RevealDialog customer={revealFor} actor={actor} onClose={() => setRevealFor(null)} onReveal={doReveal} />}
+      {editing && <CustomerFormDialog customer={editing === "new" ? null : editing} all={customers ?? []} cabs={categories} onClose={() => setEditing(null)} onSaved={(t) => { setEditing(null); say(t); void dir.refresh(); }} />}
+      {payRow && (
+        <MarkPaidDialog customer={payRow.c} items={(ledger.owned.get(payRow.c.id) ?? []).filter((b) => b.status === "Completed" && paymentOf(b).balanceDue > 0.004)}
+          onClose={() => setPaying(null)} onChanged={(t) => say(t)} />
       )}
-      {tab === "Bookings" && (mine.length === 0 ? <EmptyState title="No bookings yet" /> : (
-        <ul className="ds-activity">{mine.map((b) => (
-          <li key={b.id}><strong>{b.bookingId || b.id} · {b.pickup} → {b.drop}</strong><span>{b.status} · {b.vehicleCategory || b.vehicle}</span><small>{refDateTime(bookingPickupDate(b))}</small></li>
-        ))}</ul>
-      ))}
-      {tab === "Payments" && (mine.length === 0 ? <EmptyState title="No payments recorded" /> : (
-        <ul className="ds-activity">{mine.map((b) => {
-          const p = paymentOf(b);
-          return <li key={b.id}><strong>{b.bookingId || b.id} · {rupee(p.amountDue)}</strong><span>{p.status} · paid {rupee(p.totalPaid)} · balance {rupee(p.balanceDue)}</span><small>{refDateTime(bookingPickupDate(b))}</small></li>;
-        })}</ul>
-      ))}
-    </Modal>
-  );
-}
-
-function CustomerForm({ c, all, onClose, onSaved }: { c: Customer | null; all: Customer[]; onClose: () => void; onSaved: (t: string) => void }) {
-  const [f, setF] = useState({ name: c?.name ?? "", phone: c?.phone ?? "", email: c ? emailOf(c) : "", city: c?.city ?? "", gender: c?.gender ?? "", notes: c?.notes ?? "", status: c && !isActive(c.status) ? CUSTOMER_BLOCKED : CUSTOMER_ACTIVE });
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const dup = !c ? all.find((x) => getCanonicalPhoneDigits(x.phone) === getCanonicalPhoneDigits(f.phone) && getCanonicalPhoneDigits(f.phone).length === 10) : undefined;
-  const save = async (e: FormEvent) => {
-    e.preventDefault();
-    if (f.name.trim().length < 2) return setError("Enter the customer name.");
-    if (!c && !/^[6-9]\d{9}$/.test(getCanonicalPhoneDigits(f.phone))) return setError("Enter a valid 10-digit Indian mobile number.");
-    if (f.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) return setError("Enter a valid email address.");
-    if (dup) return setError(`A customer with this mobile already exists (${dup.name}).`);
-    setBusy(true);
-    const ok = c
-      ? await updateFirestoreDocument(COLLECTIONS.CUSTOMERS, c.id, { name: f.name.trim(), email: f.email.trim(), city: f.city.trim(), status: f.status })
-      : await addFirestoreDocument(COLLECTIONS.CUSTOMERS, { name: f.name.trim(), phone: formatIndianPhone(f.phone), email: f.email.trim(), status: f.status, role: "customer", source: "admin", gender: f.gender, city: f.city.trim(), notes: f.notes.trim() });
-    setBusy(false);
-    if (ok) onSaved(c ? "Customer profile updated." : `Customer ${f.name.trim()} added.`);
-    else setError("The customer was not saved. Check your connection and permissions, then try again.");
-  };
-  return (
-    <Modal title={c ? "Edit customer" : "Add customer"} onClose={onClose} busy={busy} footer={<Button variant="primary" type="submit" form="customer-form" loading={busy}>{c ? "Save changes" : "Save customer"}</Button>}>
-      <form id="customer-form" onSubmit={save} className="ds-form-grid" noValidate>
-        {error && <div className="ds-error" role="alert" data-span="2">{error}</div>}
-        <label className="ds-field" data-span="2"><span>Full name</span><input className="ds-input" maxLength={80} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></label>
-        <label className="ds-field"><span>Mobile</span><input className="ds-input" inputMode="tel" disabled={!!c} value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} />{dup && <span className="text-[11px] text-bad">Already registered · {dup.name}</span>}</label>
-        <label className="ds-field"><span>Email · optional</span><input className="ds-input" type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></label>
-        <label className="ds-field"><span>City</span><input className="ds-input" value={f.city} onChange={(e) => setF({ ...f, city: e.target.value })} /></label>
-        <label className="ds-field"><span>Status</span><select className="ds-select" value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })}><option>{CUSTOMER_ACTIVE}</option><option>{CUSTOMER_BLOCKED}</option></select></label>
-        {!c && <label className="ds-field"><span>Gender · optional</span><select className="ds-select" value={f.gender} onChange={(e) => setF({ ...f, gender: e.target.value })}><option value="">Not specified</option><option>Male</option><option>Female</option><option>Other</option></select></label>}
-        {!c && <label className="ds-field" data-span="2"><span>Notes</span><input className="ds-input" maxLength={300} value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></label>}
-      </form>
-    </Modal>
+      {exporting && (
+        <ExportDialog
+          spec={spec} all={rows} filtered={filtered} selected={rows.filter((r) => selected.has(r.c.id))}
+          filters={{ q, segment, brand }} onClose={() => { numbers.current = {}; setExporting(false); }}
+          prepare={authorizeExport}
+          copy={async (list) => ({ text: customersCsv(list, mobileOf, customerCodeOf) })}
+          options={
+            <fieldset className="grid gap-2 border border-slate-200 rounded-[12px] p-3">
+              <legend className="px-1 text-[11px] font-semibold text-slate-600">Mobile numbers</legend>
+              <label className="flex items-start gap-2 text-[12px]"><input type="checkbox" className="mt-0.5" checked={withNumbers} onChange={(e) => setWithNumbers(e.target.checked)} /><span>Include full mobile numbers — a separate privileged export, logged with your reason. Off: numbers stay masked.</span></label>
+              {withNumbers && <input aria-label="Reason for exporting full numbers" maxLength={200} value={exportReason} onChange={(e) => setExportReason(e.target.value)} placeholder="Reason (min 10 characters)" className="ds-input" />}
+            </fieldset>
+          }
+        />
+      )}
+      {toast && <CdToast message={toast.message} tone={toast.tone} />}
+    </div>
   );
 }

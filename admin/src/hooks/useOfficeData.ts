@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Booking, Customer, Driver, MarketplaceTrip, Vehicle, Vendor } from "../types";
 import {
-  subscribeBookings, subscribeCustomers, subscribeDrivers, subscribeMarketplace, subscribeVehicles, subscribeVendors,
+  subscribeBookings, subscribeBookingsWithoutContacts, subscribeCustomers, subscribeDrivers, subscribeMarketplace, subscribeVehicles, subscribeVendors,
 } from "../services/adminFirestoreService";
 
 type Unsub = () => void;
@@ -56,7 +56,9 @@ function useShared<T>(key: string, subscribe: Subscribe<T>, enabled = true): { r
 }
 
 export const useBookings = (enabled = true) => useShared<Booking>("bookings", subscribeBookings, enabled);
-export const useMarketplace = (enabled = true) => useShared<MarketplaceTrip>("marketplace", subscribeMarketplace, enabled);
+/** Bookings without any customer contact details (the Customers Directory never needs them). */
+export const useBookingsWithoutContacts = (enabled = true) => useShared<Booking>("bookings-no-contacts", subscribeBookingsWithoutContacts, enabled);
+export const useMarketplace =(enabled = true) => useShared<MarketplaceTrip>("marketplace", subscribeMarketplace, enabled);
 export const useDrivers = (enabled = true) => useShared<Driver>("drivers", subscribeDrivers, enabled);
 export const useVendors = (enabled = true) => useShared<Vendor>("vendors", subscribeVendors, enabled);
 export const useVehicles = (enabled = true) => useShared<Vehicle>("vehicles", subscribeVehicles, enabled);

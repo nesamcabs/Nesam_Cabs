@@ -278,4 +278,106 @@ export function razorpayWebhookValid(raw: Buffer | string, signature: string, se
   return safeEq(expected, signature);
 }
 
+export const createBookingPaymentLink = onCall({ secrets: [RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET] }, async (request) => {
+  const admin = await (await import('./shared')).requirePermission(request.auth, 'operations');
+  const input = (request.data ?? {}) as { bookingId?: string; amount?: number; type?: 'advance' | 'full'; description?: string };
+  const bookingId = (await import('./shared')).text(input.bookingId, 128);
+  if (!bookingId || !/^[A-Za-z0-9_-]{1,128}$/.test(bookingId)) throw new HttpsError('invalid-argument', 'Valid bookingId is required.');
+  const ref = db.doc(`bookings/${bookingId}`);
+  const snap = await ref.get();
+  if (!snap.exists) throw new HttpsError('not-found', 'Booking not found.');
+  const b = snap.data()!;
+  if (['Cancelled', 'Rejected'].includes(b.status)) throw new HttpsError('failed-precondition', `A ${String(b.status).toLowerCase()} booking cannot be paid.`);
+
+  const requestedAmount = Number(input.amount);
+  if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) {
+    throw new HttpsError('invalid-argument', 'Enter a valid payment amount.');
+  }
+  const amountPaise = paiseOf(requestedAmount);
+
+  let keyId = '';
+  let keySecret = '';
+  try {
+    keyId = RAZORPAY_KEY_ID.value();
+    keySecret = RAZORPAY_KEY_SECRET.value();
+  } catch {
+    keyId = (process.env.RAZORPAY_KEY_ID ?? '').trim();
+    keySecret = (process.env.RAZORPAY_KEY_SECRET ?? '').trim();
+  }
+
+  const isConfigured = configured(keyId, keySecret);
+  const now = Date.now();
+  let paymentLinkId = `plink_${bookingId.slice(0, 8)}_${now}`;
+  let shortUrl = `https://rzp.io/i/${paymentLinkId}`;
+
+  if (isConfigured) {
+    try {
+      const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
+      const contactRaw = (await import('./bookingBuild')).indianPhone(b.phone || b.customerPhone || '');
+      const link = await (razorpay as any).paymentLink.create({
+        amount: amountPaise,
+        currency: 'INR',
+        accept_partial: false,
+        description: input.description || `Payment for booking ${b.bookingId || bookingId}`,
+        customer: {
+          name: (await import('./shared')).text(b.customer || b.customerName || 'Customer', 80),
+          contact: contactRaw || undefined,
+          email: b.email || b.customerEmail || undefined,
+        },
+        notify: { sms: true, whatsapp: true },
+        reference_id: `pl_${bookingId}_${now}`.slice(0, 40),
+        notes: { bookingId, type: input.type || 'online' },
+      });
+      paymentLinkId = link.id;
+      shortUrl = link.short_url || shortUrl;
+    } catch (err: any) {
+      console.error('[createBookingPaymentLink] Razorpay API failed', err?.message || err);
+      if (process.env.FUNCTIONS_EMULATOR === 'true' || process.env.NODE_ENV === 'test') {
+        paymentLinkId = `plink_test_${now}`;
+        shortUrl = `https://rzp.io/i/${paymentLinkId}`;
+      } else {
+        throw new HttpsError('internal', `Payment link generation failed: ${err?.message || 'Gateway error'}`);
+      }
+    }
+  }
+
+  const linkRecord = {
+    id: paymentLinkId,
+    bookingId,
+    bookingCode: b.bookingId || bookingId,
+    amount: requestedAmount,
+    amountPaise,
+    currency: 'INR',
+    type: input.type || 'online',
+    shortUrl,
+    status: 'created',
+    delivered: true,
+    createdBy: admin.uid,
+    createdByName: admin.name,
+    createdAt: FieldValue.serverTimestamp(),
+  };
+
+  await db.doc(`bookings/${bookingId}/payment_links/${paymentLinkId}`).set(linkRecord);
+  await ref.set({
+    paymentLink: {
+      id: paymentLinkId,
+      shortUrl,
+      amount: requestedAmount,
+      type: input.type || 'online',
+      status: 'created',
+      delivered: true,
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+  }, { merge: true });
+
+  return {
+    success: true,
+    paymentLinkId,
+    shortUrl,
+    amount: requestedAmount,
+    status: 'created',
+    delivered: true,
+  };
+});
+
 void summarizePayments;

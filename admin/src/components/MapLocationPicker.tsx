@@ -24,7 +24,7 @@ const loadGoogleMaps = () => {
 export interface PickedPoint extends LatLng {
   name: string;
   address: string;
-  type: "airport" | "other";
+  type: "airport" | "other" | "city";
   confirmed: boolean;
   /** Id of the chosen search suggestion, when the point came from one. */
   placeId?: string;

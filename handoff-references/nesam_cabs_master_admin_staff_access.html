@@ -1,0 +1,2323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NESAM CABS — Master Admin • Staff &amp; Access</title>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Lucide Icons via CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+          },
+          colors: {
+            crimson: {
+              50: '#FEF2F2',
+              100: '#FEE2E2',
+              200: '#FECACA',
+              600: '#DC2626',
+              700: '#B91C1C',
+              800: '#991B1B',
+              900: '#7F1D1D',
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: #F8FAFC;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .drawer-slide-in {
+      animation: drawerSlide 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes drawerSlide {
+      from { transform: translateX(100%); opacity: 0.6; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    .fade-in {
+      animation: fadeIn 0.2s ease-out forwards;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #CBD5E1;
+      border-radius: 999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94A3B8;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col lg:flex-row">
+
+  <!-- ========================================================= -->
+  <!-- LEFT SIDEBAR: MASTER ADMIN NAVIGATION                     -->
+  <!-- ========================================================= -->
+  <aside class="w-full lg:w-64 bg-white border-b lg:border-b-0 lg:border-r border-slate-200/90 flex flex-col shrink-0">
+    <!-- Brand Header -->
+    <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-[#991B1B] text-white flex items-center justify-center font-bold text-sm shadow-xs">
+          NC
+        </div>
+        <div>
+          <p class="text-xs font-bold tracking-wide text-slate-900">NESAM CABS</p>
+          <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-[#991B1B] bg-crimson-50 px-1.5 py-0.5 rounded">
+            <i data-lucide="shield-check" class="w-2.5 h-2.5"></i>
+            Master Admin
+          </span>
+        </div>
+      </div>
+      <span class="lg:hidden text-[11px] font-medium text-slate-400">admin@gmail.com</span>
+    </div>
+
+    <!-- Navigation Links -->
+    <nav class="hidden lg:block flex-1 px-3 py-4 space-y-5 overflow-y-auto text-xs">
+      <div>
+        <p class="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Core Operations</p>
+        <div class="space-y-0.5">
+          <a href="#bookings" onclick="return false;" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-600 hover:bg-slate-50 font-medium">
+            <i data-lucide="layout-dashboard" class="w-4 h-4 text-slate-400"></i>
+            <span>Dashboard</span>
+          </a>
+          <a href="#bookings" onclick="return false;" class="flex items-center justify-between px-3 py-2 rounded-xl text-slate-600 hover:bg-slate-50 font-medium">
+            <span class="flex items-center gap-2.5">
+              <i data-lucide="calendar-check" class="w-4 h-4 text-slate-400"></i>
+              <span>Bookings &amp; Dispatch</span>
+            </span>
+            <span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-crimson-50 text-[#991B1B]">14</span>
+          </a>
+          <a href="#customers" onclick="return false;" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-600 hover:bg-slate-50 font-medium">
+            <i data-lucide="users" class="w-4 h-4 text-slate-400"></i>
+            <span>Customers</span>
+          </a>
+        </div>
+      </div>
+
+      <div>
+        <p class="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Fleet &amp; Partners</p>
+        <div class="space-y-0.5">
+          <a href="#drivers" onclick="return false;" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-600 hover:bg-slate-50 font-medium">
+            <i data-lucide="car" class="w-4 h-4 text-slate-400"></i>
+            <span>Driver Partners</span>
+          </a>
+          <a href="#vendors" onclick="return false;" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-600 hover:bg-slate-50 font-medium">
+            <i data-lucide="building-2" class="w-4 h-4 text-slate-400"></i>
+            <span>Vendors &amp; Vehicles</span>
+          </a>
+        </div>
+      </div>
+
+      <div>
+        <p class="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Finance &amp; Billing</p>
+        <div class="space-y-0.5">
+          <a href="#accounts" onclick="return false;" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-600 hover:bg-slate-50 font-medium">
+            <i data-lucide="indian-rupee" class="w-4 h-4 text-slate-400"></i>
+            <span>Accounts &amp; Settlements</span>
+          </a>
+          <a href="#gst" onclick="return false;" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-600 hover:bg-slate-50 font-medium">
+            <i data-lucide="file-spreadsheet" class="w-4 h-4 text-slate-400"></i>
+            <span>Invoices &amp; GST</span>
+          </a>
+        </div>
+      </div>
+
+      <div>
+        <p class="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">System &amp; Security</p>
+        <div class="space-y-0.5">
+          <div class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-crimson-50 text-[#991B1B] font-bold">
+            <span class="flex items-center gap-2.5">
+              <i data-lucide="user-cog" class="w-4 h-4 text-[#991B1B]"></i>
+              <span>Staff &amp; Access</span>
+            </span>
+            <span class="w-1.5 h-1.5 rounded-full bg-[#991B1B]"></span>
+          </div>
+          <a href="#settings" onclick="return false;" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-600 hover:bg-slate-50 font-medium">
+            <i data-lucide="settings" class="w-4 h-4 text-slate-400"></i>
+            <span>Master Settings</span>
+          </a>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Bottom Signed-In Footer -->
+    <div class="hidden lg:flex px-4 py-3.5 border-t border-slate-100 items-center justify-between text-[11px] text-slate-500">
+      <div class="flex items-center gap-2 min-w-0">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+        <span class="truncate font-medium">admin@gmail.com</span>
+      </div>
+      <span class="text-[10px] font-bold uppercase text-slate-400">Owner</span>
+    </div>
+  </aside>
+
+  <!-- ========================================================= -->
+  <!-- MAIN CONTENT WORKSPACE                                    -->
+  <!-- ========================================================= -->
+  <main class="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full space-y-6">
+
+    <!-- Top Header -->
+    <header class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <h1 class="text-lg sm:text-xl font-bold text-slate-900">Staff &amp; Access Control</h1>
+          <span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-crimson-50 text-[#991B1B] border border-crimson-200/70">
+            Role-Based Security
+          </span>
+        </div>
+        <p class="text-xs text-slate-500 mt-1">
+          Create individual Staff IDs, manage 7+ Nesam Cabs roles, track Login/Logout working hours, and audit live staff actions.
+        </p>
+      </div>
+
+      <div class="flex items-center gap-2.5 flex-wrap">
+        <button
+          type="button"
+          id="openManageRolesBtn"
+          class="h-10 px-3.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+        >
+          <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5 text-slate-500"></i>
+          <span>Manage Roles (<span id="totalRolesBadge">7</span>)</span>
+        </button>
+
+        <button
+          type="button"
+          id="openCustomRoleBtn"
+          class="h-10 px-3.5 rounded-xl bg-amber-50 hover:bg-amber-100/80 border border-amber-200 text-amber-900 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+        >
+          <i data-lucide="plus-circle" class="w-3.5 h-3.5 text-amber-700"></i>
+          <span>+ Add Extra Role</span>
+        </button>
+
+        <button
+          type="button"
+          id="openCreateStaffBtn"
+          class="h-10 px-4 rounded-xl bg-[#991B1B] hover:bg-[#7F1D1D] active:scale-[0.99] text-white text-xs font-semibold flex items-center gap-2 shadow-sm transition-all"
+        >
+          <i data-lucide="user-plus" class="w-4 h-4"></i>
+          <span>+ Create Staff ID</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- 4 KPI Summary Cards -->
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div class="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Total Staff IDs</span>
+          <span class="w-7 h-7 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
+            <i data-lucide="users" class="w-3.5 h-3.5"></i>
+          </span>
+        </div>
+        <p id="kpiTotalStaff" class="text-2xl font-bold text-slate-900 mt-2">4</p>
+        <p class="text-[11px] text-slate-500 mt-0.5">Across Coimbatore, Madurai &amp; Chennai</p>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">On-Duty / Logged In</span>
+          <span class="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <i data-lucide="log-in" class="w-3.5 h-3.5"></i>
+          </span>
+        </div>
+        <p id="kpiOnDutyStaff" class="text-2xl font-bold text-emerald-600 mt-2">3</p>
+        <p class="text-[11px] text-slate-500 mt-0.5">Live active shift sessions</p>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Privacy Protected</span>
+          <span class="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+            <i data-lucide="eye-off" class="w-3.5 h-3.5"></i>
+          </span>
+        </div>
+        <p id="kpiMaskedCount" class="text-2xl font-bold text-slate-900 mt-2">3</p>
+        <p class="text-[11px] text-slate-500 mt-0.5">Customer numbers masked (`98421 •••10`)</p>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Configured Roles</span>
+          <span class="w-7 h-7 rounded-lg bg-crimson-50 text-[#991B1B] flex items-center justify-center">
+            <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+          </span>
+        </div>
+        <p id="kpiRolesCount" class="text-2xl font-bold text-[#991B1B] mt-2">7</p>
+        <p class="text-[11px] text-slate-500 mt-0.5">7 core roles + custom role builder</p>
+      </div>
+    </section>
+
+    <!-- Main Workspace Tabs (Matching Video Tabs + Attendance & Activity) -->
+    <section class="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+      <div class="px-5 pt-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 bg-slate-50/50">
+        <div class="flex items-center gap-1 sm:gap-2 overflow-x-auto" role="tablist">
+          <button type="button" data-main-tab="directory" class="main-view-tab px-3.5 py-2.5 text-xs font-bold text-[#991B1B] border-b-2 border-[#991B1B] whitespace-nowrap flex items-center gap-1.5">
+            <i data-lucide="users" class="w-3.5 h-3.5"></i>
+            <span>Staff IDs (<span id="tabStaffCount">4</span>)</span>
+          </button>
+          <button type="button" data-main-tab="attendance" class="main-view-tab px-3.5 py-2.5 text-xs font-medium text-slate-600 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap flex items-center gap-1.5">
+            <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+            <span>Login, Logout &amp; Working Hours</span>
+          </button>
+          <button type="button" data-main-tab="activity" class="main-view-tab px-3.5 py-2.5 text-xs font-medium text-slate-600 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap flex items-center gap-1.5">
+            <i data-lucide="activity" class="w-3.5 h-3.5"></i>
+            <span>Staff Activity &amp; Number Reveal Log</span>
+          </button>
+          <button type="button" data-main-tab="admins" class="main-view-tab px-3.5 py-2.5 text-xs font-medium text-slate-600 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap flex items-center gap-1.5">
+            <i data-lucide="shield" class="w-3.5 h-3.5"></i>
+            <span>All Admin Accounts (1)</span>
+          </button>
+        </div>
+
+        <label class="inline-flex items-center gap-2 text-[11px] font-medium text-slate-500 pb-2 cursor-pointer select-none">
+          <input type="checkbox" id="toggleEmptyPreview" class="rounded border-slate-300 text-[#991B1B] focus:ring-[#991B1B]" />
+          <span>Preview Empty State</span>
+        </label>
+      </div>
+
+      <!-- ======================================================= -->
+      <!-- TAB 1: STAFF DIRECTORY                                  -->
+      <!-- ======================================================= -->
+      <div id="viewDirectory">
+        <!-- Filter & Search Bar -->
+        <div class="p-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div id="roleFilterGroup" class="flex items-center gap-1.5 flex-wrap"></div>
+
+          <div class="relative w-full md:w-64 shrink-0">
+            <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+            <input
+              type="text"
+              id="staffSearchInput"
+              placeholder="Search name, @id, mobile..."
+              class="w-full h-9 pl-8 pr-3 text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-[#991B1B] focus:outline-none"
+            />
+          </div>
+        </div>
+
+        <!-- Upgraded Empty State -->
+        <div id="staffEmptyState" class="hidden p-10 text-center space-y-3">
+          <div class="w-12 h-12 rounded-2xl bg-crimson-50 text-[#991B1B] border border-crimson-100 flex items-center justify-center mx-auto">
+            <i data-lucide="user-plus" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-900">No Staff IDs yet</h3>
+            <p class="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+              Create individual staff logins for Booking, Dispatch, Night Shift, Fleet, or Accounts. Every staff member gets a custom login ID and privacy-controlled permissions.
+            </p>
+          </div>
+          <div class="flex flex-wrap items-center justify-center gap-2 pt-1">
+            <button type="button" data-quick-preset="booking_exec" class="quick-empty-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-crimson-50 text-[#991B1B] border border-crimson-200 hover:bg-crimson-100">
+              + Add Booking Executive
+            </button>
+            <button type="button" data-quick-preset="dispatch_ctrl" class="quick-empty-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100">
+              + Add Dispatch Controller
+            </button>
+            <button type="button" data-quick-preset="night_desk" class="quick-empty-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100">
+              + Add Night Shift Staff
+            </button>
+          </div>
+        </div>
+
+        <!-- Staff Table -->
+        <div id="staffTableWrapper" class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b border-slate-100 bg-slate-50/70 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                <th class="py-3 px-5">Staff &amp; Login ID</th>
+                <th class="py-3 px-4">Role &amp; Hub</th>
+                <th class="py-3 px-4">Permissions &amp; Privacy</th>
+                <th class="py-3 px-4">Shift &amp; Status</th>
+                <th class="py-3 px-5 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="staffTableBody" class="divide-y divide-slate-100 text-xs"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ======================================================= -->
+      <!-- TAB 2: LOGIN, LOGOUT & WORKING HOURS TRACKER            -->
+      <!-- ======================================================= -->
+      <div id="viewAttendance" class="hidden">
+        <div class="p-4 border-b border-slate-100 bg-slate-50/60 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 class="text-xs font-bold text-slate-900">Today's Shift Attendance &amp; Working Hours (21 Nov 2026)</h3>
+            <p class="text-[11px] text-slate-500">Live check-in/check-out timestamps and automatic working hours calculation</p>
+          </div>
+          <button
+            type="button"
+            id="exportAttendanceBtn"
+            class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center gap-1.5"
+          >
+            <i data-lucide="download" class="w-3.5 h-3.5 text-slate-500"></i>
+            <span>Copy Shift Sheet</span>
+          </button>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b border-slate-100 bg-slate-50/70 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                <th class="py-3 px-5">Staff Member</th>
+                <th class="py-3 px-4">Assigned Shift</th>
+                <th class="py-3 px-4">First Login</th>
+                <th class="py-3 px-4">Last Logout</th>
+                <th class="py-3 px-4">Total Working Hours</th>
+                <th class="py-3 px-4">Session Status</th>
+                <th class="py-3 px-5 text-right">Shift Punch Tester</th>
+              </tr>
+            </thead>
+            <tbody id="attendanceTableBody" class="divide-y divide-slate-100 text-xs"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ======================================================= -->
+      <!-- TAB 3: STAFF ACTIVITY & AUDIT LOG                       -->
+      <!-- ======================================================= -->
+      <div id="viewActivity" class="hidden p-5 space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 class="text-sm font-bold text-slate-900">Live Staff Activity &amp; Customer Number Reveal Log</h3>
+            <p class="text-xs text-slate-500">Every customer mobile reveal requires a valid reason and logs Staff ID, Booking ID, Reason &amp; Time</p>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <button type="button" id="openTestUnmaskBtn" class="h-9 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 text-xs font-semibold flex items-center gap-1.5">
+              <i data-lucide="eye" class="w-3.5 h-3.5 text-amber-700"></i>
+              <span>Test Staff Unmask Flow</span>
+            </button>
+            <select id="activityStaffFilter" class="h-9 px-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 focus:outline-none">
+              <option value="all">All Staff Members</option>
+            </select>
+            <button type="button" id="exportAuditBtn" class="h-9 px-3 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 flex items-center gap-1.5">
+              <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+              <span>Copy Audit Report</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Dedicated Customer Number Reveal Audit Box -->
+        <div class="rounded-2xl border border-amber-200/90 bg-amber-50/40 overflow-hidden">
+          <div class="px-4 py-3 border-b border-amber-200/70 flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <i data-lucide="shield-alert" class="w-4 h-4 text-amber-700"></i>
+              <span class="text-xs font-bold text-amber-950">Who Viewed Customer Numbers? (Mandatory Reason Log)</span>
+            </div>
+            <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-amber-100 text-amber-900">Zero Unlogged Views</span>
+          </div>
+          <div class="overflow-x-auto bg-white">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="border-b border-slate-100 bg-slate-50/70 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  <th class="py-2.5 px-4">Staff Member</th>
+                  <th class="py-2.5 px-4">Booking ID</th>
+                  <th class="py-2.5 px-4">Customer Number</th>
+                  <th class="py-2.5 px-4">Mandatory Reason Given</th>
+                  <th class="py-2.5 px-4 text-right">Time &amp; IP</th>
+                </tr>
+              </thead>
+              <tbody id="numberRevealTableBody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Per-Staff Pulse Cards -->
+        <div id="staffPulseGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
+
+        <!-- Audit Timeline -->
+        <div id="activityTimelineList" class="border border-slate-200/90 rounded-2xl divide-y divide-slate-100 overflow-hidden"></div>
+      </div>
+
+      <!-- ======================================================= -->
+      <!-- TAB 4: ALL ADMIN ACCOUNTS (FROM VIDEO)                  -->
+      <!-- ======================================================= -->
+      <div id="viewAdmins" class="hidden p-5">
+        <div class="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-[#991B1B] text-white font-bold text-sm flex items-center justify-center">
+              MA
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <p class="text-sm font-bold text-slate-900">NESAM CABS — Master Admin</p>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-crimson-50 text-[#991B1B] border border-crimson-200">Owner • Full Access</span>
+              </div>
+              <p class="text-xs text-slate-500 mt-0.5">admin@gmail.com • Cannot be suspended or restricted by staff accounts</p>
+            </div>
+          </div>
+          <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            Active Master Session
+          </span>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================================= -->
+  <!-- SLIDE-OVER DRAWER: 3-STEP CREATE / EDIT STAFF ID          -->
+  <!-- ========================================================= -->
+  <div id="staffDrawerOverlay" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex justify-end">
+    <div class="w-full max-w-2xl bg-white h-full shadow-2xl flex flex-col drawer-slide-in">
+      <!-- Drawer Header -->
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-crimson-50 text-[#991B1B] flex items-center justify-center">
+            <i data-lucide="user-plus" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h2 id="drawerTitle" class="text-sm font-bold text-slate-900">Create Staff Login ID</h2>
+            <p class="text-[11px] text-slate-500">Type staff name to auto-generate Login ID &amp; matching password</p>
+          </div>
+        </div>
+        <button type="button" id="closeDrawerBtn" class="w-8 h-8 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- 3-Step Navigation Bar -->
+      <div class="px-5 py-2.5 bg-slate-50 border-b border-slate-200/80 grid grid-cols-3 gap-2 shrink-0">
+        <button type="button" data-step-tab="1" class="drawer-step-btn py-2 px-2.5 rounded-xl text-xs font-bold bg-white text-[#991B1B] shadow-xs border border-slate-200/80 flex items-center justify-center gap-1.5">
+          <span class="w-4 h-4 rounded-full bg-[#991B1B] text-white text-[10px] flex items-center justify-center">1</span>
+          <span>Profile &amp; Role</span>
+        </button>
+        <button type="button" data-step-tab="2" class="drawer-step-btn py-2 px-2.5 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5">
+          <span class="w-4 h-4 rounded-full bg-slate-200 text-slate-700 text-[10px] flex items-center justify-center">2</span>
+          <span>Modules (17)</span>
+        </button>
+        <button type="button" data-step-tab="3" class="drawer-step-btn py-2 px-2.5 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5">
+          <span class="w-4 h-4 rounded-full bg-slate-200 text-slate-700 text-[10px] flex items-center justify-center">3</span>
+          <span>Duty &amp; Privacy</span>
+        </button>
+      </div>
+
+      <!-- Drawer Scrollable Body -->
+      <div class="flex-1 overflow-y-auto p-5 space-y-5">
+
+        <!-- STEP 1: PROFILE, NAME-BASED CREDENTIALS & ROLE PRESETS -->
+        <div id="drawerStep1" class="space-y-4 fade-in">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div>
+              <label for="stFullName" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Full Name *</label>
+              <input
+                type="text"
+                id="stFullName"
+                placeholder="e.g., Ramesh Kumar"
+                class="w-full h-10 px-3 text-sm font-medium text-slate-900 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B] focus:ring-2 focus:ring-[#991B1B]/10"
+              />
+            </div>
+
+            <div>
+              <label for="stMobile" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Mobile Number *</label>
+              <div class="flex items-center h-10 bg-white border border-slate-200 rounded-xl overflow-hidden focus-within:border-[#991B1B]">
+                <span class="px-2.5 text-xs font-semibold text-slate-500 bg-slate-50 h-full flex items-center border-r border-slate-200">+91</span>
+                <input type="tel" id="stMobile" maxlength="10" placeholder="10-digit mobile" class="w-full h-full px-2.5 text-sm font-medium text-slate-900 focus:outline-none" />
+              </div>
+            </div>
+
+            <div>
+              <label for="stEmail" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Email ID (Optional)</label>
+              <input type="email" id="stEmail" placeholder="staff@nesamtravels.com" class="w-full h-10 px-3 text-xs sm:text-sm font-medium text-slate-900 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]" />
+            </div>
+
+            <div>
+              <label for="stHub" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Branch / Hub</label>
+              <select id="stHub" class="w-full h-10 px-3 text-xs sm:text-sm font-medium text-slate-900 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]">
+                <option value="Coimbatore HQ">Coimbatore HQ</option>
+                <option value="Madurai Hub">Madurai Hub</option>
+                <option value="Chennai Airport Desk">Chennai Airport Desk</option>
+                <option value="Trichy Hub">Trichy Hub</option>
+                <option value="Salem Hub">Salem Hub</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Working Shift Selector -->
+          <div>
+            <label for="stShift" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Assigned Working Shift</label>
+            <select id="stShift" class="w-full h-10 px-3 text-xs sm:text-sm font-medium text-slate-900 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]">
+              <option value="06:00 AM – 02:00 PM">Morning Shift (06:00 AM – 02:00 PM)</option>
+              <option value="09:00 AM – 06:00 PM" selected>General Day Shift (09:00 AM – 06:00 PM)</option>
+              <option value="02:00 PM – 10:00 PM">Evening Shift (02:00 PM – 10:00 PM)</option>
+              <option value="10:00 PM – 06:00 AM">Night Shift / After-Hours (10:00 PM – 06:00 AM)</option>
+            </select>
+          </div>
+
+          <!-- Auto-Generated Credentials Card (Updates Live from Name) -->
+          <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-3">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[11px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5 text-[#991B1B]"></i>
+                <span>Login ID &amp; Password (Auto-Generated from Name)</span>
+              </span>
+              <button type="button" id="copyDraftCredsBtn" class="text-[11px] font-semibold text-[#991B1B] hover:underline flex items-center gap-1">
+                <i data-lucide="copy" class="w-3 h-3"></i>
+                <span id="copyDraftCredsLabel">Copy Credentials</span>
+              </button>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label for="stUsername" class="block text-[10px] font-semibold text-slate-500 mb-1">Username / Login ID *</label>
+                <div class="flex items-center h-10 bg-white border border-slate-200 rounded-xl overflow-hidden focus-within:border-[#991B1B]">
+                  <span class="px-2.5 text-xs font-bold text-slate-400 bg-slate-50 h-full flex items-center border-r border-slate-200">@</span>
+                  <input type="text" id="stUsername" value="booking.staff" class="w-full h-full px-2.5 text-xs sm:text-sm font-semibold text-slate-900 focus:outline-none" />
+                </div>
+              </div>
+
+              <div>
+                <label for="stPassword" class="block text-[10px] font-semibold text-slate-500 mb-1">Password *</label>
+                <div class="flex items-center h-10 bg-white border border-slate-200 rounded-xl overflow-hidden focus-within:border-[#991B1B]">
+                  <input type="text" id="stPassword" value="Nsm@4821" class="w-full h-full px-3 text-xs sm:text-sm font-semibold text-slate-900 focus:outline-none" />
+                  <button type="button" id="togglePassVisBtn" title="Toggle visibility" class="px-2 text-slate-400 hover:text-slate-700">
+                    <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+                  </button>
+                  <button type="button" id="autoGenPassBtn" class="px-2.5 h-full text-[11px] font-bold text-[#991B1B] bg-crimson-50 hover:bg-crimson-100 border-l border-slate-200">
+                    Auto
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Role Presets Selection -->
+          <div class="space-y-2.5">
+            <div class="flex items-center justify-between">
+              <label class="text-[11px] font-bold uppercase tracking-wider text-slate-600">Select Nesam Cabs Role Preset</label>
+              <button type="button" id="drawerAddExtraRoleBtn" class="text-[11px] font-semibold text-[#991B1B] hover:underline flex items-center gap-1">
+                <i data-lucide="plus" class="w-3 h-3"></i>
+                <span>Add Extra Role</span>
+              </button>
+            </div>
+            <div id="presetCardsGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5"></div>
+          </div>
+        </div>
+
+        <!-- STEP 2: GROUPED WORKSPACE MODULES (17 MODULES) -->
+        <div id="drawerStep2" class="hidden space-y-4 fade-in">
+          <div class="flex items-center justify-between gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200/80">
+            <p class="text-xs text-slate-600">
+              Preset auto-fills module access below. Customize any module as needed.
+            </p>
+            <label class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 shrink-0 cursor-pointer">
+              <input type="checkbox" id="filterEnabledModulesChk" class="rounded border-slate-300 text-[#991B1B]" />
+              <span>Enabled Only</span>
+            </label>
+          </div>
+          <div id="moduleGroupsContainer" class="space-y-3"></div>
+        </div>
+
+        <!-- STEP 3: DUTY PERMISSIONS, ACCOUNT CONTROLS & PRIVACY -->
+        <div id="drawerStep3" class="hidden space-y-4 fade-in">
+          <!-- Duty Permissions (From Video) -->
+          <div class="p-4 rounded-2xl border border-slate-200 bg-white space-y-2.5">
+            <h4 class="text-xs font-bold text-slate-900">Duty Permissions</h4>
+            <p class="text-[11px] text-slate-500">Each duty action requires Bookings view &amp; edit access.</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-xs">
+              <label class="flex items-center gap-2 p-2 rounded-xl border border-slate-200/80 hover:bg-slate-50 cursor-pointer">
+                <input type="checkbox" id="ctrlApproveBooking" class="rounded border-slate-300 text-[#991B1B]" />
+                <span class="font-medium text-slate-800">Approve booking</span>
+              </label>
+              <label class="flex items-center gap-2 p-2 rounded-xl border border-slate-200/80 hover:bg-slate-50 cursor-pointer">
+                <input type="checkbox" id="ctrlPublishDuty" class="rounded border-slate-300 text-[#991B1B]" />
+                <span class="font-medium text-slate-800">Publish duty</span>
+              </label>
+              <label class="flex items-center gap-2 p-2 rounded-xl border border-slate-200/80 hover:bg-slate-50 cursor-pointer">
+                <input type="checkbox" id="ctrlChangePayout" class="rounded border-slate-300 text-[#991B1B]" />
+                <span class="font-medium text-slate-800">Change payout / bidding</span>
+              </label>
+              <label class="flex items-center gap-2 p-2 rounded-xl border border-slate-200/80 hover:bg-slate-50 cursor-pointer">
+                <input type="checkbox" id="ctrlAssignBehalf" class="rounded border-slate-300 text-[#991B1B]" />
+                <span class="font-medium text-slate-800">Assign on behalf</span>
+              </label>
+              <label class="flex items-center gap-2 p-2 rounded-xl border border-slate-200/80 hover:bg-slate-50 cursor-pointer">
+                <input type="checkbox" id="ctrlRemoveAlloc" class="rounded border-slate-300 text-[#991B1B]" />
+                <span class="font-medium text-slate-800">Remove allocation</span>
+              </label>
+              <label class="flex items-center gap-2 p-2 rounded-xl border border-slate-200/80 hover:bg-slate-50 cursor-pointer">
+                <input type="checkbox" id="ctrlDriverSwap" class="rounded border-slate-300 text-[#991B1B]" />
+                <span class="font-medium text-slate-800">Driver &amp; Vehicle Swap</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Customer Privacy & Sensitive Data -->
+          <div class="p-4 rounded-2xl border border-amber-200/90 bg-amber-50/40 space-y-3">
+            <div class="flex items-center justify-between">
+              <h4 class="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                <i data-lucide="shield-alert" class="w-4 h-4 text-amber-700"></i>
+                <span>Customer Privacy &amp; Sensitive Data</span>
+              </h4>
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900">Audit Logged</span>
+            </div>
+
+            <div class="space-y-2 text-xs">
+              <label class="flex items-center justify-between p-2.5 rounded-xl bg-white border border-amber-200/70 cursor-pointer">
+                <div>
+                  <p class="font-bold text-slate-900">Mask Customer Mobile Numbers</p>
+                  <p class="text-[11px] text-slate-500">Shows 98421 •••10 instead of full 10-digit number</p>
+                </div>
+                <input type="checkbox" id="ctrlMaskCustomer" checked class="w-4 h-4 rounded border-slate-300 text-[#991B1B]" />
+              </label>
+
+              <label class="flex items-center justify-between p-2.5 rounded-xl bg-white border border-slate-200 cursor-pointer">
+                <div>
+                  <p class="font-semibold text-slate-800">Require Mandatory Reason to View Number</p>
+                  <p class="text-[11px] text-slate-500">Staff cannot view number without entering valid reason (logged with Staff ID)</p>
+                </div>
+                <input type="checkbox" id="ctrlTempReveal" checked disabled class="w-4 h-4 rounded border-slate-300 text-[#991B1B] opacity-75" />
+              </label>
+
+              <div class="flex items-center justify-between p-2.5 rounded-xl bg-red-50/60 border border-red-200/80">
+                <div>
+                  <p class="font-bold text-red-900 flex items-center gap-1.5">
+                    <i data-lucide="lock" class="w-3.5 h-3.5 text-red-700"></i>
+                    <span>Customer &amp; Driver Data Export</span>
+                  </p>
+                  <p class="text-[11px] text-red-700/90">Permanently disabled for all Staff IDs — Master Admin Only</p>
+                </div>
+                <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase bg-red-100 text-red-800 border border-red-200 shrink-0">
+                  Master Only
+                </span>
+              </div>
+              <input type="checkbox" id="ctrlBlockExport" checked class="hidden" />
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <div>
+                <label for="ctrlSettlementLimit" class="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">Settlement Approval Limit (₹)</label>
+                <input type="number" id="ctrlSettlementLimit" value="0" min="0" class="w-full h-9 px-3 text-xs font-bold bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]" />
+              </div>
+              <div class="flex flex-col justify-center gap-1.5 text-xs pt-2">
+                <label class="inline-flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" id="ctrlVendorMargin" class="rounded border-slate-300 text-[#991B1B]" />
+                  <span class="font-medium text-slate-700">View Vendor Margin</span>
+                </label>
+                <label class="inline-flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" id="ctrlBankDetails" class="rounded border-slate-300 text-[#991B1B]" />
+                  <span class="font-medium text-slate-700">View Bank Settlement Details</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Account Controls Matrix (From Video) -->
+          <div class="p-4 rounded-2xl border border-slate-200 bg-white space-y-2.5">
+            <h4 class="text-xs font-bold text-slate-900">Account Controls (Driver / Vendor / Vehicle)</h4>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="border-b border-slate-100 text-[10px] font-bold uppercase text-slate-400">
+                    <th class="py-2">Account Type</th>
+                    <th class="py-2 text-center">Suspend</th>
+                    <th class="py-2 text-center">Reactivate</th>
+                    <th class="py-2 text-center">Inactive</th>
+                    <th class="py-2 text-center">Dispute</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                  <tr>
+                    <td class="py-2 font-medium text-slate-800">Driver Partners</td>
+                    <td class="py-2 text-center"><input type="checkbox" id="acDriverSuspend" class="rounded border-slate-300 text-[#991B1B]" /></td>
+                    <td class="py-2 text-center"><input type="checkbox" id="acDriverReactivate" class="rounded border-slate-300 text-[#991B1B]" /></td>
+                    <td class="py-2 text-center"><input type="checkbox" id="acDriverInactive" class="rounded border-slate-300 text-[#991B1B]" /></td>
+                    <td class="py-2 text-center"><input type="checkbox" id="acDriverDispute" class="rounded border-slate-300 text-[#991B1B]" /></td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 font-medium text-slate-800">Vendors &amp; Vehicles</td>
+                    <td class="py-2 text-center"><input type="checkbox" id="acVendorSuspend" class="rounded border-slate-300 text-[#991B1B]" /></td>
+                    <td class="py-2 text-center"><input type="checkbox" id="acVendorReactivate" class="rounded border-slate-300 text-[#991B1B]" /></td>
+                    <td class="py-2 text-center"><input type="checkbox" id="acVendorInactive" class="rounded border-slate-300 text-[#991B1B]" /></td>
+                    <td class="py-2 text-center"><input type="checkbox" id="acVendorDispute" class="rounded border-slate-300 text-[#991B1B]" /></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Admin Note -->
+          <div>
+            <label for="stAdminNote" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Admin Note (Optional)</label>
+            <input type="text" id="stAdminNote" placeholder="e.g., Handles Coimbatore morning enquiries & WhatsApp quotes" class="w-full h-10 px-3 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]" />
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Sticky Drawer Footer with Live Summary Pill -->
+      <div class="px-5 py-3.5 border-t border-slate-200 bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+        <div id="liveSummaryPill" class="text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-xl truncate">
+          Preset: Booking Executive • 5 Modules • Masked
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0 justify-end">
+          <button type="button" id="drawerBackBtn" class="hidden px-3.5 py-2 rounded-xl text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-100">
+            Back
+          </button>
+          <button type="button" id="drawerNextBtn" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-900 text-white hover:bg-slate-800">
+            Next Step →
+          </button>
+          <button type="button" id="drawerSaveBtn" class="px-4 py-2 rounded-xl text-xs font-semibold bg-[#991B1B] hover:bg-[#7F1D1D] text-white shadow-xs flex items-center gap-1.5">
+            <i data-lucide="check" class="w-3.5 h-3.5"></i>
+            <span id="drawerSaveBtnLabel">Create Staff Login</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODAL 1: ADD EXTRA / CUSTOM ROLE BUILDER                  -->
+  <!-- ========================================================= -->
+  <div id="customRoleModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden fade-in">
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div>
+          <h3 class="text-sm font-bold text-slate-900">Create Extra / Custom Role</h3>
+          <p class="text-[11px] text-slate-500">Add a custom Nesam Cabs staff role with tailored permissions</p>
+        </div>
+        <button type="button" id="closeCustomRoleBtn" class="w-8 h-8 rounded-full text-slate-400 hover:bg-slate-100 flex items-center justify-center">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      <form id="customRoleForm" class="p-5 space-y-3.5 text-xs">
+        <div>
+          <label for="crRoleName" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Role Name *</label>
+          <input type="text" id="crRoleName" required placeholder="e.g., Coimbatore Airport Desk" class="w-full h-9 px-3 border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="crLoginPrefix" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Login ID Prefix *</label>
+            <input type="text" id="crLoginPrefix" required placeholder="e.g., airport" class="w-full h-9 px-3 border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]" />
+          </div>
+          <div>
+            <label for="crBaseTemplate" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Copy Access From</label>
+            <select id="crBaseTemplate" class="w-full h-9 px-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-[#991B1B]">
+              <option value="booking_exec">Booking Executive</option>
+              <option value="dispatch_ctrl">Dispatch Controller</option>
+              <option value="night_desk">Night Shift Desk</option>
+              <option value="fleet_officer">Fleet Officer</option>
+              <option value="accounts_gst">Accounts &amp; GST</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label for="crDescription" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Role Responsibilities</label>
+          <input type="text" id="crDescription" placeholder="e.g., Handles airport pickup & drop coordination" class="w-full h-9 px-3 border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]" />
+        </div>
+        <button type="submit" class="w-full bg-[#991B1B] hover:bg-[#7F1D1D] text-white font-semibold py-2.5 rounded-xl">
+          Save &amp; Add Role
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODAL 2: MANAGE ROLES                                     -->
+  <!-- ========================================================= -->
+  <div id="manageRolesModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden fade-in">
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div>
+          <h3 class="text-sm font-bold text-slate-900">Manage Nesam Cabs Roles</h3>
+          <p class="text-[11px] text-slate-500">7 core roles + custom roles created by Master Admin</p>
+        </div>
+        <button type="button" id="closeManageRolesBtn" class="w-8 h-8 rounded-full text-slate-400 hover:bg-slate-100 flex items-center justify-center">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      <div id="manageRolesList" class="p-5 max-h-[65vh] overflow-y-auto divide-y divide-slate-100"></div>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODAL 3: WHATSAPP CREDENTIALS SHARE CARD                  -->
+  <!-- ========================================================= -->
+  <div id="credsShareModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 text-center space-y-4 fade-in">
+      <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center mx-auto">
+        <i data-lucide="check-circle-2" class="w-7 h-7"></i>
+      </div>
+      <div>
+        <h3 class="text-base font-bold text-slate-900">Staff Login ID Created!</h3>
+        <p id="shareSubText" class="text-xs text-slate-500 mt-1"></p>
+      </div>
+      <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 text-left space-y-1.5 text-xs">
+        <p class="flex justify-between"><span class="text-slate-500">Portal:</span> <span class="font-semibold text-slate-800">admin.nesamcabs.com</span></p>
+        <p class="flex justify-between"><span class="text-slate-500">Login ID:</span> <span id="shareUserText" class="font-bold text-[#991B1B]"></span></p>
+        <p class="flex justify-between"><span class="text-slate-500">Password:</span> <span id="sharePassText" class="font-bold text-slate-900"></span></p>
+        <p class="flex justify-between"><span class="text-slate-500">Shift:</span> <span id="shareShiftText" class="font-semibold text-slate-700"></span></p>
+      </div>
+      <div class="flex flex-col sm:flex-row gap-2.5 justify-center">
+        <button type="button" id="copyWhatsAppCredsBtn" class="px-4 py-2.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-1.5">
+          <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+          <span id="copyWhatsAppCredsLabel">Copy for WhatsApp</span>
+        </button>
+        <button type="button" id="closeShareModalBtn" class="px-4 py-2.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800">
+          Done
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODAL 4: MANDATORY REASON TO VIEW CUSTOMER NUMBER         -->
+  <!-- ========================================================= -->
+  <div id="unmaskReasonModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden fade-in">
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-amber-50/60">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center">
+            <i data-lucide="eye" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-900">Customer Number Reveal Request</h3>
+            <p class="text-[11px] text-slate-600">Reason is mandatory &amp; recorded in Master Admin Audit Log</p>
+          </div>
+        </div>
+        <button type="button" id="closeUnmaskModalBtn" class="w-8 h-8 rounded-full text-slate-400 hover:bg-slate-100 flex items-center justify-center">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form id="unmaskReasonForm" class="p-5 space-y-3.5 text-xs">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="umStaffSelect" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Staff Account *</label>
+            <select id="umStaffSelect" class="w-full h-9 px-2.5 font-semibold border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-[#991B1B]"></select>
+          </div>
+          <div>
+            <label for="umBookingId" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Booking ID *</label>
+            <input type="text" id="umBookingId" value="#NSM-2611-8425" required class="w-full h-9 px-2.5 font-bold border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]" />
+          </div>
+        </div>
+
+        <div>
+          <label for="umReasonPreset" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Select Reason Category *</label>
+          <select id="umReasonPreset" required class="w-full h-9 px-2.5 font-semibold border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-[#991B1B]">
+            <option value="">-- Choose valid reason --</option>
+            <option value="Pickup address landmark clarification">Pickup address landmark clarification</option>
+            <option value="Driver unable to reach customer on masked bridge">Driver unable to reach customer on masked bridge</option>
+            <option value="Trip reschedule / cancellation confirmation">Trip reschedule / cancellation confirmation</option>
+            <option value="Razorpay advance payment verification">Razorpay advance payment verification</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="umReasonDetail" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Detailed Note (Min 10 characters) *</label>
+          <input type="text" id="umReasonDetail" required placeholder="e.g., Customer pickup near Gandhipuram bus stand needs exact gate" class="w-full h-9 px-3 border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]" />
+        </div>
+
+        <div id="umRevealedBox" class="hidden p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-center justify-between">
+          <div>
+            <p class="text-[10px] font-bold uppercase text-emerald-700">Temporary Reveal Active (Logged)</p>
+            <p class="text-sm font-bold mt-0.5">+91 98421 77630</p>
+          </div>
+          <span class="text-[10px] font-semibold bg-white px-2 py-1 rounded border border-emerald-200">Auto-masks in 5m</span>
+        </div>
+
+        <button type="submit" class="w-full bg-[#991B1B] hover:bg-[#7F1D1D] text-white font-semibold py-2.5 rounded-xl shadow-xs">
+          Submit Reason &amp; Reveal Number
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Floating Toast Banner -->
+  <div id="toastBanner" class="hidden fixed bottom-5 right-5 z-50 max-w-sm bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl text-xs font-medium flex items-center gap-2.5 fade-in">
+    <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400 shrink-0"></i>
+    <span id="toastBannerText"></span>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      function refreshIcons() {
+        try {
+          if (window.lucide && typeof window.lucide.createIcons === 'function') {
+            window.lucide.createIcons();
+          }
+        } catch (err) {
+          // Ignore icon rendering issues if CDN is slow
+        }
+      }
+
+      refreshIcons();
+
+      // ---------------------------------------------------------
+      // 1. ALL 7 ESSENTIAL NESAM CABS ROLES + CUSTOM ROLES
+      // ---------------------------------------------------------
+      const rolePresets = {
+        booking_exec: {
+          id: 'booking_exec',
+          name: 'Booking & Enquiry Executive',
+          shortName: 'Booking Staff',
+          prefix: 'booking',
+          badgeClass: 'bg-crimson-50 text-[#991B1B] border-crimson-200',
+          desc: 'Instant fare quotes, caller follow-ups & booking creation',
+          isBuiltIn: true,
+          maskCustomer: true,
+          blockExport: true,
+          modules: { dashboard: 'view', bookings: 'full', customers: 'edit', communication: 'full', support: 'view' },
+        },
+        dispatch_ctrl: {
+          id: 'dispatch_ctrl',
+          name: 'Dispatch & Trip Controller',
+          shortName: 'Dispatch',
+          prefix: 'dispatch',
+          badgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
+          desc: 'Live cab allocation, driver/vehicle swaps & airport tracking',
+          isBuiltIn: true,
+          maskCustomer: false,
+          blockExport: true,
+          modules: { dashboard: 'view', bookings: 'full', partners: 'view', drivers: 'edit', vehicles: 'edit', communication: 'full' },
+        },
+        night_desk: {
+          id: 'night_desk',
+          name: 'Night Shift / After-Hours Desk',
+          shortName: 'Night Shift',
+          prefix: 'night',
+          badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+          desc: 'Combined night booking, urgent cab swap & emergency support',
+          isBuiltIn: true,
+          maskCustomer: true,
+          blockExport: true,
+          modules: { dashboard: 'view', bookings: 'full', customers: 'view', drivers: 'view', vehicles: 'view', support: 'full' },
+        },
+        fleet_officer: {
+          id: 'fleet_officer',
+          name: 'Fleet & Driver Onboarding Officer',
+          shortName: 'Fleet KYC',
+          prefix: 'fleet',
+          badgeClass: 'bg-amber-50 text-amber-800 border-amber-200',
+          desc: 'Driver KYC, RC/FC/Permit verification & vehicle onboarding',
+          isBuiltIn: true,
+          maskCustomer: true,
+          blockExport: true,
+          modules: { dashboard: 'view', partners: 'full', drivers: 'full', vehicles: 'full', penalties: 'edit' },
+        },
+        vendor_coord: {
+          id: 'vendor_coord',
+          name: 'Vendor & B2B Partner Coordinator',
+          shortName: 'Vendor Desk',
+          prefix: 'vendor',
+          badgeClass: 'bg-purple-50 text-purple-700 border-purple-200',
+          desc: 'Attached vendor fleet trips & corporate/B2B bookings',
+          isBuiltIn: true,
+          maskCustomer: true,
+          blockExport: true,
+          modules: { dashboard: 'view', bookings: 'edit', partners: 'full', vendors: 'full', vendor_drivers: 'full', vehicles: 'edit' },
+        },
+        accounts_gst: {
+          id: 'accounts_gst',
+          name: 'Accounts, GST & Payout Officer',
+          shortName: 'Accounts & GST',
+          prefix: 'accounts',
+          badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+          desc: 'Invoices, GST reports, Razorpay verification & driver payouts',
+          isBuiltIn: true,
+          maskCustomer: true,
+          blockExport: true,
+          modules: { dashboard: 'view', bookings: 'view', accounts: 'full', invoices: 'full', reports_gst: 'full', bank_accounts: 'view', penalties: 'full' },
+        },
+        support_desk: {
+          id: 'support_desk',
+          name: 'Customer Support & Escalation Desk',
+          shortName: 'Support Desk',
+          prefix: 'support',
+          badgeClass: 'bg-teal-50 text-teal-700 border-teal-200',
+          desc: 'Trip complaints, refund tickets & promo coupon compensation',
+          isBuiltIn: true,
+          maskCustomer: true,
+          blockExport: true,
+          modules: { dashboard: 'view', bookings: 'view', customers: 'view', communication: 'full', support: 'full' },
+        },
+      };
+
+      const moduleGroups = [
+        {
+          title: 'Core Operations',
+          items: [
+            { id: 'dashboard', label: 'Dashboard' },
+            { id: 'bookings', label: 'Bookings' },
+            { id: 'customers', label: 'Customers' },
+            { id: 'communication', label: 'Communication (WhatsApp / SMS)' },
+            { id: 'support', label: 'Support & Tickets' },
+          ],
+        },
+        {
+          title: 'Fleet & Partners',
+          items: [
+            { id: 'partners', label: 'Partners & Fleet' },
+            { id: 'drivers', label: 'Driver Partners' },
+            { id: 'vendors', label: 'Vendors' },
+            { id: 'vendor_drivers', label: 'Vendor Drivers' },
+            { id: 'vehicles', label: 'Vehicles' },
+          ],
+        },
+        {
+          title: 'Finance & Billing',
+          items: [
+            { id: 'accounts', label: 'Accounts & Settlements' },
+            { id: 'invoices', label: 'Invoices' },
+            { id: 'reports_gst', label: 'Reports & GST' },
+            { id: 'bank_accounts', label: 'Business Bank Accounts' },
+            { id: 'penalties', label: 'Penalties' },
+          ],
+        },
+        {
+          title: 'System & Security',
+          items: [
+            { id: 'settings', label: 'Settings' },
+            { id: 'staff_access', label: 'Staff & Access (Master Only)', locked: true },
+          ],
+        },
+      ];
+
+      // Initial Staff List with Login, Logout & Working Hours
+      const staffList = [
+        {
+          id: 'STF-01',
+          name: 'Karthik Raja',
+          username: 'booking.karthik',
+          password: 'Karthik@4192',
+          mobile: '9842144510',
+          email: 'karthik@nesamtravels.com',
+          hub: 'Coimbatore HQ',
+          shift: '09:00 AM – 06:00 PM',
+          roleId: 'booking_exec',
+          status: 'Active',
+          maskCustomer: true,
+          blockExport: true,
+          modules: { ...rolePresets.booking_exec.modules },
+          attendance: {
+            loggedIn: true,
+            firstLogin: '08:54 AM',
+            lastLogout: '—',
+            workedMins: 46, // live from 8:54 AM to 9:40 AM
+          },
+        },
+        {
+          id: 'STF-02',
+          name: 'Priya Dharshini',
+          username: 'dispatch.priya',
+          password: 'Priya@7820',
+          mobile: '9894011223',
+          email: 'priya@nesamtravels.com',
+          hub: 'Coimbatore HQ',
+          shift: '06:00 AM – 02:00 PM',
+          roleId: 'dispatch_ctrl',
+          status: 'Active',
+          maskCustomer: false,
+          blockExport: true,
+          modules: { ...rolePresets.dispatch_ctrl.modules },
+          attendance: {
+            loggedIn: true,
+            firstLogin: '05:58 AM',
+            lastLogout: '—',
+            workedMins: 222, // 3h 42m
+          },
+        },
+        {
+          id: 'STF-03',
+          name: 'Suresh Babu',
+          username: 'accounts.suresh',
+          password: 'Suresh@5531',
+          mobile: '9789022334',
+          email: 'accounts@nesamtravels.com',
+          hub: 'Madurai Hub',
+          shift: '09:00 AM – 06:00 PM',
+          roleId: 'accounts_gst',
+          status: 'Active',
+          maskCustomer: true,
+          blockExport: false,
+          modules: { ...rolePresets.accounts_gst.modules },
+          attendance: {
+            loggedIn: true,
+            firstLogin: '09:05 AM',
+            lastLogout: '—',
+            workedMins: 35,
+          },
+        },
+        {
+          id: 'STF-04',
+          name: 'Vigneshwaran M',
+          username: 'night.vignesh',
+          password: 'Vignesh@9014',
+          mobile: '9443299881',
+          email: '',
+          hub: 'Chennai Airport Desk',
+          shift: '10:00 PM – 06:00 AM',
+          roleId: 'night_desk',
+          status: 'Active',
+          maskCustomer: true,
+          blockExport: true,
+          modules: { ...rolePresets.night_desk.modules },
+          attendance: {
+            loggedIn: false,
+            firstLogin: '09:56 PM (Yesterday)',
+            lastLogout: '06:04 AM',
+            workedMins: 488, // 8h 08m completed
+          },
+        },
+      ];
+
+      // Live Activity & Audit Logs
+      const activityLogs = [
+        { id: 'ACT-1', staffId: 'STF-01', staffName: 'Karthik Raja', username: 'booking.karthik', action: 'Created Booking #NSM-2611-8412 (Coimbatore → Madurai • Sedan)', type: 'booking', time: '09:28 AM', ip: '103.48.196.12' },
+        { id: 'ACT-2', staffId: 'STF-02', staffName: 'Priya Dharshini', username: 'dispatch.priya', action: 'Allocated Driver TN-38-BQ-4512 to Airport Trip #NSM-2611-8409', type: 'dispatch', time: '09:14 AM', ip: '103.48.196.12' },
+        { id: 'ACT-3', staffId: 'STF-01', staffName: 'Karthik Raja', username: 'booking.karthik', action: 'Viewed Customer Number for #NSM-2611-8412 • Reason: Pickup address landmark clarification', type: 'privacy', time: '09:11 AM', ip: '103.48.196.12' },
+        { id: 'ACT-4', staffId: 'STF-03', staffName: 'Suresh Babu', username: 'accounts.suresh', action: 'Verified Razorpay advance settlement ₹1,250 for Madurai Hub', type: 'finance', time: '09:07 AM', ip: '49.204.112.88' },
+        { id: 'ACT-5', staffId: 'STF-04', staffName: 'Vigneshwaran M', username: 'night.vignesh', action: 'Shift Logged Out • Total Working Hours: 8h 08m', type: 'session', time: '06:04 AM', ip: '117.214.82.19' },
+      ];
+
+      // Dedicated Customer Number Reveal Logs (Who viewed + Mandatory Reason)
+      const numberRevealLogs = [
+        {
+          id: 'REV-1',
+          staffId: 'STF-01',
+          staffName: 'Karthik Raja',
+          username: 'booking.karthik',
+          bookingId: '#NSM-2611-8412',
+          customerMasked: '+91 98421 •••10',
+          reason: 'Pickup address landmark clarification — Customer waiting near Hopes College signal',
+          time: '09:11 AM',
+          ip: '103.48.196.12',
+        },
+        {
+          id: 'REV-2',
+          staffId: 'STF-02',
+          staffName: 'Priya Dharshini',
+          username: 'dispatch.priya',
+          bookingId: '#NSM-2611-8409',
+          customerMasked: '+91 94431 •••88',
+          reason: 'Driver unable to reach customer on masked bridge — Airport arrival gate confirmation',
+          time: '08:42 AM',
+          ip: '103.48.196.12',
+        },
+      ];
+
+      const uiState = {
+        mainTab: 'directory',
+        roleFilter: 'all',
+        searchQuery: '',
+        previewEmpty: false,
+        editingStaffId: null,
+        activeStep: 1,
+        selectedPreset: 'booking_exec',
+        draftModules: { ...rolePresets.booking_exec.modules },
+        draftPassDigits: String(Math.floor(1000 + Math.random() * 8999)),
+        passwordManuallyEdited: false,
+        showEnabledOnly: false,
+        lastCreatedStaff: null,
+      };
+
+      // Cache DOM elements
+      const els = {
+        kpiTotalStaff: document.getElementById('kpiTotalStaff'),
+        kpiOnDutyStaff: document.getElementById('kpiOnDutyStaff'),
+        kpiMaskedCount: document.getElementById('kpiMaskedCount'),
+        kpiRolesCount: document.getElementById('kpiRolesCount'),
+        totalRolesBadge: document.getElementById('totalRolesBadge'),
+        tabStaffCount: document.getElementById('tabStaffCount'),
+        toggleEmptyPreview: document.getElementById('toggleEmptyPreview'),
+
+        viewDirectory: document.getElementById('viewDirectory'),
+        viewAttendance: document.getElementById('viewAttendance'),
+        viewActivity: document.getElementById('viewActivity'),
+        viewAdmins: document.getElementById('viewAdmins'),
+
+        roleFilterGroup: document.getElementById('roleFilterGroup'),
+        staffSearchInput: document.getElementById('staffSearchInput'),
+        staffEmptyState: document.getElementById('staffEmptyState'),
+        staffTableWrapper: document.getElementById('staffTableWrapper'),
+        staffTableBody: document.getElementById('staffTableBody'),
+
+        attendanceTableBody: document.getElementById('attendanceTableBody'),
+        exportAttendanceBtn: document.getElementById('exportAttendanceBtn'),
+
+        activityStaffFilter: document.getElementById('activityStaffFilter'),
+        numberRevealTableBody: document.getElementById('numberRevealTableBody'),
+        openTestUnmaskBtn: document.getElementById('openTestUnmaskBtn'),
+        staffPulseGrid: document.getElementById('staffPulseGrid'),
+        activityTimelineList: document.getElementById('activityTimelineList'),
+        exportAuditBtn: document.getElementById('exportAuditBtn'),
+
+        openCreateStaffBtn: document.getElementById('openCreateStaffBtn'),
+        staffDrawerOverlay: document.getElementById('staffDrawerOverlay'),
+        closeDrawerBtn: document.getElementById('closeDrawerBtn'),
+        drawerTitle: document.getElementById('drawerTitle'),
+        drawerStep1: document.getElementById('drawerStep1'),
+        drawerStep2: document.getElementById('drawerStep2'),
+        drawerStep3: document.getElementById('drawerStep3'),
+        drawerBackBtn: document.getElementById('drawerBackBtn'),
+        drawerNextBtn: document.getElementById('drawerNextBtn'),
+        drawerSaveBtn: document.getElementById('drawerSaveBtn'),
+        drawerSaveBtnLabel: document.getElementById('drawerSaveBtnLabel'),
+        liveSummaryPill: document.getElementById('liveSummaryPill'),
+
+        stFullName: document.getElementById('stFullName'),
+        stMobile: document.getElementById('stMobile'),
+        stEmail: document.getElementById('stEmail'),
+        stHub: document.getElementById('stHub'),
+        stShift: document.getElementById('stShift'),
+        stUsername: document.getElementById('stUsername'),
+        stPassword: document.getElementById('stPassword'),
+        autoGenPassBtn: document.getElementById('autoGenPassBtn'),
+        togglePassVisBtn: document.getElementById('togglePassVisBtn'),
+        copyDraftCredsBtn: document.getElementById('copyDraftCredsBtn'),
+        copyDraftCredsLabel: document.getElementById('copyDraftCredsLabel'),
+        presetCardsGrid: document.getElementById('presetCardsGrid'),
+        drawerAddExtraRoleBtn: document.getElementById('drawerAddExtraRoleBtn'),
+
+        filterEnabledModulesChk: document.getElementById('filterEnabledModulesChk'),
+        moduleGroupsContainer: document.getElementById('moduleGroupsContainer'),
+
+        ctrlMaskCustomer: document.getElementById('ctrlMaskCustomer'),
+        ctrlTempReveal: document.getElementById('ctrlTempReveal'),
+        ctrlBlockExport: document.getElementById('ctrlBlockExport'),
+        ctrlSettlementLimit: document.getElementById('ctrlSettlementLimit'),
+        stAdminNote: document.getElementById('stAdminNote'),
+
+        openCustomRoleBtn: document.getElementById('openCustomRoleBtn'),
+        customRoleModal: document.getElementById('customRoleModal'),
+        closeCustomRoleBtn: document.getElementById('closeCustomRoleBtn'),
+        customRoleForm: document.getElementById('customRoleForm'),
+        crRoleName: document.getElementById('crRoleName'),
+        crLoginPrefix: document.getElementById('crLoginPrefix'),
+        crBaseTemplate: document.getElementById('crBaseTemplate'),
+        crDescription: document.getElementById('crDescription'),
+
+        openManageRolesBtn: document.getElementById('openManageRolesBtn'),
+        manageRolesModal: document.getElementById('manageRolesModal'),
+        closeManageRolesBtn: document.getElementById('closeManageRolesBtn'),
+        manageRolesList: document.getElementById('manageRolesList'),
+
+        credsShareModal: document.getElementById('credsShareModal'),
+        copyWhatsAppCredsBtn: document.getElementById('copyWhatsAppCredsBtn'),
+        copyWhatsAppCredsLabel: document.getElementById('copyWhatsAppCredsLabel'),
+        closeShareModalBtn: document.getElementById('closeShareModalBtn'),
+
+        unmaskReasonModal: document.getElementById('unmaskReasonModal'),
+        closeUnmaskModalBtn: document.getElementById('closeUnmaskModalBtn'),
+        unmaskReasonForm: document.getElementById('unmaskReasonForm'),
+        umStaffSelect: document.getElementById('umStaffSelect'),
+        umBookingId: document.getElementById('umBookingId'),
+        umReasonPreset: document.getElementById('umReasonPreset'),
+        umReasonDetail: document.getElementById('umReasonDetail'),
+        umRevealedBox: document.getElementById('umRevealedBox'),
+
+        toastBanner: document.getElementById('toastBanner'),
+        toastBannerText: document.getElementById('toastBannerText'),
+      };
+
+      // ---------------------------------------------------------
+      // HELPER FUNCTIONS
+      // ---------------------------------------------------------
+      function showToast(msg) {
+        els.toastBannerText.textContent = msg;
+        els.toastBanner.classList.remove('hidden');
+        refreshIcons();
+        clearTimeout(window.__staffToastTimer);
+        window.__staffToastTimer = setTimeout(() => {
+          els.toastBanner.classList.add('hidden');
+        }, 3200);
+      }
+
+      function copyTextSafe(text, onDone) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+          document.execCommand('copy');
+          if (onDone) onDone();
+        } catch (err) {
+          // ignore
+        }
+        document.body.removeChild(ta);
+      }
+
+      function getRoleMeta(roleId) {
+        return rolePresets[roleId] || rolePresets.booking_exec;
+      }
+
+      function getInitials(name) {
+        const parts = (name || 'ST').trim().split(/\s+/);
+        return ((parts[0]?.[0] || '') + (parts[1]?.[0] || parts[0]?.[1] || '')).toUpperCase();
+      }
+
+      // Auto-Generate Login ID & Password directly from Staff Name
+      function generateNameBasedCredentials(fullName, presetId) {
+        const role = getRoleMeta(presetId);
+        const cleanFirst = (fullName || '')
+          .trim()
+          .toLowerCase()
+          .split(/\s+/)[0]
+          ?.replace(/[^a-z0-9]/g, '') || '';
+
+        const userSlug = cleanFirst || 'staff';
+        const username = `${role.prefix}.${userSlug}`;
+
+        const capName = cleanFirst
+          ? cleanFirst.charAt(0).toUpperCase() + cleanFirst.slice(1, 7)
+          : 'Nsm';
+        const suffixDigits = uiState.draftPassDigits || String(Math.floor(1000 + Math.random() * 8999));
+        uiState.draftPassDigits = suffixDigits;
+        const password = `${capName}@${suffixDigits}`;
+
+        return { username, password };
+      }
+
+      function countEnabledModules(modMap) {
+        return Object.values(modMap || {}).filter((lvl) => lvl && lvl !== 'off').length;
+      }
+
+      function formatWorkedHours(mins) {
+        const h = Math.floor(mins / 60);
+        const m = mins % 60;
+        return `${h}h ${String(m).padStart(2, '0')}m`;
+      }
+
+      function getCurrentClockTime() {
+        const now = new Date();
+        let h = now.getHours();
+        const m = String(now.getMinutes()).padStart(2, '0');
+        const mer = h >= 12 ? 'PM' : 'AM';
+        h = h % 12 || 12;
+        return `${String(h).padStart(2, '0')}:${m} ${mer}`;
+      }
+
+      function updateKPIs() {
+        const total = staffList.length;
+        const onDuty = staffList.filter((s) => s.attendance.loggedIn && s.status === 'Active').length;
+        const masked = staffList.filter((s) => s.maskCustomer).length;
+        const rolesCount = Object.keys(rolePresets).length;
+
+        els.kpiTotalStaff.textContent = total;
+        els.kpiOnDutyStaff.textContent = onDuty;
+        els.kpiMaskedCount.textContent = masked;
+        els.kpiRolesCount.textContent = rolesCount;
+        els.totalRolesBadge.textContent = rolesCount;
+        els.tabStaffCount.textContent = total;
+      }
+
+      // ---------------------------------------------------------
+      // 2. MAIN VIEW TABS SWITCHER
+      // ---------------------------------------------------------
+      function switchMainViewTab(tabName) {
+        uiState.mainTab = tabName;
+        document.querySelectorAll('.main-view-tab').forEach((btn) => {
+          const active = btn.dataset.mainTab === tabName;
+          btn.className = active
+            ? 'main-view-tab px-3.5 py-2.5 text-xs font-bold text-[#991B1B] border-b-2 border-[#991B1B] whitespace-nowrap flex items-center gap-1.5'
+            : 'main-view-tab px-3.5 py-2.5 text-xs font-medium text-slate-600 hover:text-slate-900 border-b-2 border-transparent whitespace-nowrap flex items-center gap-1.5';
+        });
+
+        els.viewDirectory.classList.toggle('hidden', tabName !== 'directory');
+        els.viewAttendance.classList.toggle('hidden', tabName !== 'attendance');
+        els.viewActivity.classList.toggle('hidden', tabName !== 'activity');
+        els.viewAdmins.classList.toggle('hidden', tabName !== 'admins');
+
+        if (tabName === 'attendance') renderAttendanceTable();
+        if (tabName === 'activity') renderActivityView();
+      }
+
+      document.querySelectorAll('.main-view-tab').forEach((btn) => {
+        btn.addEventListener('click', () => switchMainViewTab(btn.dataset.mainTab));
+      });
+
+      // ---------------------------------------------------------
+      // 3. RENDER STAFF DIRECTORY & ROLE FILTERS
+      // ---------------------------------------------------------
+      function renderRoleFilters() {
+        const rolesArr = Object.values(rolePresets);
+        els.roleFilterGroup.innerHTML = '';
+
+        const allBtn = document.createElement('button');
+        allBtn.type = 'button';
+        allBtn.className = uiState.roleFilter === 'all'
+          ? 'px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-white'
+          : 'px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200/70';
+        allBtn.textContent = `All (${staffList.length})`;
+        allBtn.addEventListener('click', () => {
+          uiState.roleFilter = 'all';
+          renderStaffDirectory();
+        });
+        els.roleFilterGroup.appendChild(allBtn);
+
+        rolesArr.forEach((role) => {
+          const count = staffList.filter((s) => s.roleId === role.id).length;
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = uiState.roleFilter === role.id
+            ? 'px-3 py-1.5 rounded-xl text-xs font-bold bg-[#991B1B] text-white'
+            : 'px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200/70';
+          btn.textContent = `${role.shortName} (${count})`;
+          btn.addEventListener('click', () => {
+            uiState.roleFilter = role.id;
+            renderStaffDirectory();
+          });
+          els.roleFilterGroup.appendChild(btn);
+        });
+      }
+
+      function renderStaffDirectory() {
+        updateKPIs();
+        renderRoleFilters();
+
+        if (uiState.previewEmpty || staffList.length === 0) {
+          els.staffEmptyState.classList.remove('hidden');
+          els.staffTableWrapper.classList.add('hidden');
+          refreshIcons();
+          return;
+        }
+
+        els.staffEmptyState.classList.add('hidden');
+        els.staffTableWrapper.classList.remove('hidden');
+
+        const q = uiState.searchQuery.toLowerCase().trim();
+        const filtered = staffList.filter((s) => {
+          const matchesRole = uiState.roleFilter === 'all' || s.roleId === uiState.roleFilter;
+          const matchesQuery = !q ||
+            s.name.toLowerCase().includes(q) ||
+            s.username.toLowerCase().includes(q) ||
+            s.mobile.includes(q) ||
+            s.hub.toLowerCase().includes(q);
+          return matchesRole && matchesQuery;
+        });
+
+        els.staffTableBody.innerHTML = '';
+        if (filtered.length === 0) {
+          els.staffTableBody.innerHTML = `
+            <tr>
+              <td colspan="5" class="py-8 text-center text-xs text-slate-400">No matching staff found.</td>
+            </tr>
+          `;
+          return;
+        }
+
+        filtered.forEach((s) => {
+          const role = getRoleMeta(s.roleId);
+          const enabledCount = countEnabledModules(s.modules);
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-slate-50/80 transition-colors';
+          tr.innerHTML = `
+            <td class="py-3.5 px-5">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center shrink-0">
+                  ${getInitials(s.name)}
+                </div>
+                <div class="min-w-0">
+                  <p class="font-bold text-slate-900 truncate">${s.name}</p>
+                  <div class="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5">
+                    <span class="font-semibold text-[#991B1B]">@${s.username}</span>
+                    <span>•</span>
+                    <span>+91 ${s.mobile}</span>
+                  </div>
+                </div>
+              </div>
+            </td>
+
+            <td class="py-3.5 px-4">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${role.badgeClass}">
+                ${role.shortName}
+              </span>
+              <p class="text-[11px] text-slate-500 mt-1">${s.hub}</p>
+            </td>
+
+            <td class="py-3.5 px-4">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-700">
+                  ${enabledCount} Modules
+                </span>
+                ${s.maskCustomer
+                  ? '<span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200/80">Masked + Reason Req.</span>'
+                  : '<span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200/80">Reason-Logged View</span>'}
+                <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-red-50 text-red-700 border border-red-200/70">Export Locked</span>
+              </div>
+            </td>
+
+            <td class="py-3.5 px-4">
+              <div class="flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full ${s.status === 'Active' ? (s.attendance.loggedIn ? 'bg-emerald-500' : 'bg-slate-400') : 'bg-red-500'}"></span>
+                <span class="font-semibold ${s.status === 'Active' ? 'text-slate-800' : 'text-red-700'}">
+                  ${s.status === 'Active' ? (s.attendance.loggedIn ? 'On Duty' : 'Off Shift') : 'Suspended'}
+                </span>
+              </div>
+              <p class="text-[10px] text-slate-400 mt-0.5">${s.shift}</p>
+            </td>
+
+            <td class="py-3.5 px-5 text-right">
+              <div class="inline-flex items-center gap-1.5">
+                <button type="button" data-copy-id="${s.id}" title="Copy Login ID & Password" class="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-100 hover:bg-slate-200/80 text-slate-700">
+                  Copy ID
+                </button>
+                <button type="button" data-edit-id="${s.id}" class="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-white border border-slate-200 hover:bg-slate-50 text-slate-800">
+                  Edit
+                </button>
+                <button type="button" data-toggle-id="${s.id}" class="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold ${s.status === 'Active' ? 'text-red-700 bg-red-50 hover:bg-red-100' : 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100'}">
+                  ${s.status === 'Active' ? 'Suspend' : 'Activate'}
+                </button>
+              </div>
+            </td>
+          `;
+          els.staffTableBody.appendChild(tr);
+        });
+
+        // Wire Row Actions
+        els.staffTableBody.querySelectorAll('[data-copy-id]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const st = staffList.find((x) => x.id === btn.dataset.copyId);
+            if (!st) return;
+            const text = `NESAM CABS Staff Login\nName: ${st.name}\nLogin ID: ${st.username}\nPassword: ${st.password}\nShift: ${st.shift}`;
+            copyTextSafe(text, () => showToast(`Copied login credentials for ${st.name}`));
+          });
+        });
+
+        els.staffTableBody.querySelectorAll('[data-edit-id]').forEach((btn) => {
+          btn.addEventListener('click', () => openDrawerForEdit(btn.dataset.editId));
+        });
+
+        els.staffTableBody.querySelectorAll('[data-toggle-id]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const st = staffList.find((x) => x.id === btn.dataset.toggleId);
+            if (!st) return;
+            st.status = st.status === 'Active' ? 'Suspended' : 'Active';
+            if (st.status === 'Suspended') st.attendance.loggedIn = false;
+            activityLogs.unshift({
+              id: 'ACT-' + Date.now(),
+              staffId: st.id,
+              staffName: 'Master Admin',
+              username: 'admin@gmail.com',
+              action: `${st.status === 'Active' ? 'Activated' : 'Suspended'} staff account ${st.name} (@${st.username})`,
+              type: 'privacy',
+              time: getCurrentClockTime(),
+              ip: '103.48.196.1',
+            });
+            renderStaffDirectory();
+            showToast(`${st.name} is now ${st.status}`);
+          });
+        });
+
+        refreshIcons();
+      }
+
+      els.staffSearchInput.addEventListener('input', (e) => {
+        uiState.searchQuery = e.target.value;
+        renderStaffDirectory();
+      });
+
+      els.toggleEmptyPreview.addEventListener('change', (e) => {
+        uiState.previewEmpty = e.target.checked;
+        renderStaffDirectory();
+      });
+
+      document.querySelectorAll('.quick-empty-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          els.toggleEmptyPreview.checked = false;
+          uiState.previewEmpty = false;
+          renderStaffDirectory();
+          openDrawerForCreate(btn.dataset.quickPreset);
+        });
+      });
+
+      // ---------------------------------------------------------
+      // 4. LOGIN, LOGOUT & WORKING HOURS ATTENDANCE TABLE
+      // ---------------------------------------------------------
+      function renderAttendanceTable() {
+        els.attendanceTableBody.innerHTML = '';
+        staffList.forEach((s) => {
+          const role = getRoleMeta(s.roleId);
+          const att = s.attendance;
+          const workedStr = formatWorkedHours(att.workedMins);
+          const isFullShift = att.workedMins >= 480;
+
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-slate-50/70';
+          tr.innerHTML = `
+            <td class="py-3.5 px-5">
+              <p class="font-bold text-slate-900">${s.name}</p>
+              <p class="text-[11px] text-slate-500">@${s.username} • ${role.shortName}</p>
+            </td>
+            <td class="py-3.5 px-4 text-slate-700 font-medium">${s.shift}</td>
+            <td class="py-3.5 px-4 font-semibold text-slate-800">${att.firstLogin}</td>
+            <td class="py-3.5 px-4 font-semibold text-slate-600">${att.lastLogout}</td>
+            <td class="py-3.5 px-4">
+              <span class="font-bold text-slate-900">${workedStr}</span>
+              ${isFullShift ? '<span class="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700">8h+ Full Shift</span>' : ''}
+            </td>
+            <td class="py-3.5 px-4">
+              ${att.loggedIn
+                ? '<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>Logged In</span>'
+                : '<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600">Logged Out</span>'}
+            </td>
+            <td class="py-3.5 px-5 text-right">
+              <button
+                type="button"
+                data-punch-id="${s.id}"
+                class="px-3 py-1.5 rounded-lg text-[11px] font-semibold ${att.loggedIn ? 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100' : 'bg-emerald-600 text-white hover:bg-emerald-700'}"
+              >
+                ${att.loggedIn ? 'Simulate Logout' : 'Simulate Login'}
+              </button>
+            </td>
+          `;
+          els.attendanceTableBody.appendChild(tr);
+        });
+
+        els.attendanceTableBody.querySelectorAll('[data-punch-id]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const st = staffList.find((x) => x.id === btn.dataset.punchId);
+            if (!st) return;
+            const nowStr = getCurrentClockTime();
+            if (st.attendance.loggedIn) {
+              st.attendance.loggedIn = false;
+              st.attendance.lastLogout = nowStr;
+              st.attendance.workedMins += 30;
+              activityLogs.unshift({
+                id: 'ACT-' + Date.now(),
+                staffId: st.id,
+                staffName: st.name,
+                username: st.username,
+                action: `Logged Out at ${nowStr} • Total Working Hours: ${formatWorkedHours(st.attendance.workedMins)}`,
+                type: 'session',
+                time: nowStr,
+                ip: '103.48.196.12',
+              });
+              showToast(`${st.name} logged out at ${nowStr}`);
+            } else {
+              st.attendance.loggedIn = true;
+              if (st.attendance.firstLogin === '—') st.attendance.firstLogin = nowStr;
+              st.attendance.lastLogout = '—';
+              activityLogs.unshift({
+                id: 'ACT-' + Date.now(),
+                staffId: st.id,
+                staffName: st.name,
+                username: st.username,
+                action: `Logged In for shift (${st.shift}) at ${nowStr}`,
+                type: 'session',
+                time: nowStr,
+                ip: '103.48.196.12',
+              });
+              showToast(`${st.name} logged in at ${nowStr}`);
+            }
+            updateKPIs();
+            renderAttendanceTable();
+          });
+        });
+      }
+
+      els.exportAttendanceBtn.addEventListener('click', () => {
+        const lines = staffList.map((s) => `${s.name} (@${s.username}) | Shift: ${s.shift} | In: ${s.attendance.firstLogin} | Out: ${s.attendance.lastLogout} | Worked: ${formatWorkedHours(s.attendance.workedMins)}`);
+        copyTextSafe(`NESAM CABS — Staff Working Hours Report\n\n${lines.join('\n')}`, () => {
+          showToast('Shift attendance & working hours copied!');
+        });
+      });
+
+      // ---------------------------------------------------------
+      // 5. STAFF ACTIVITY & AUDIT LOG VIEW
+      // ---------------------------------------------------------
+      function renderActivityView() {
+        const currentFilter = els.activityStaffFilter.value;
+        els.activityStaffFilter.innerHTML = '<option value="all">All Staff Members</option>';
+        staffList.forEach((s) => {
+          const opt = document.createElement('option');
+          opt.value = s.id;
+          opt.textContent = `${s.name} (@${s.username})`;
+          if (s.id === currentFilter) opt.selected = true;
+          els.activityStaffFilter.appendChild(opt);
+        });
+
+        // Pulse Cards
+        els.staffPulseGrid.innerHTML = '';
+        staffList.forEach((s) => {
+          const count = activityLogs.filter((a) => a.staffId === s.id).length;
+          const card = document.createElement('button');
+          card.type = 'button';
+          card.className = `p-3.5 rounded-2xl border text-left transition-all ${currentFilter === s.id ? 'border-[#991B1B] bg-crimson-50/40' : 'border-slate-200 bg-white hover:bg-slate-50'}`;
+          card.innerHTML = `
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-900">${s.name}</span>
+              <span class="w-2 h-2 rounded-full ${s.attendance.loggedIn ? 'bg-emerald-500' : 'bg-slate-300'}"></span>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-0.5">@${s.username}</p>
+            <div class="flex items-center justify-between mt-2.5 pt-2 border-t border-slate-100 text-[11px]">
+              <span class="font-semibold text-slate-700">${count} Actions</span>
+              <span class="text-slate-500">${formatWorkedHours(s.attendance.workedMins)}</span>
+            </div>
+          `;
+          card.addEventListener('click', () => {
+            els.activityStaffFilter.value = currentFilter === s.id ? 'all' : s.id;
+            renderActivityView();
+          });
+          els.staffPulseGrid.appendChild(card);
+        });
+
+        // Timeline Rows
+        const selectedId = els.activityStaffFilter.value;
+        const reveals = selectedId === 'all' ? numberRevealLogs : numberRevealLogs.filter((r) => r.staffId === selectedId);
+        els.numberRevealTableBody.innerHTML = '';
+        if (reveals.length === 0) {
+          els.numberRevealTableBody.innerHTML = '<tr><td colspan="5" class="py-4 px-4 text-center text-slate-400">No customer numbers revealed by this staff member.</td></tr>';
+        } else {
+          reveals.forEach((r) => {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-amber-50/30';
+            tr.innerHTML = `
+              <td class="py-2.5 px-4">
+                <p class="font-bold text-slate-900">${r.staffName}</p>
+                <p class="text-[10px] text-slate-500">@${r.username}</p>
+              </td>
+              <td class="py-2.5 px-4 font-bold text-[#991B1B]">${r.bookingId}</td>
+              <td class="py-2.5 px-4 font-semibold text-slate-800">${r.customerMasked}</td>
+              <td class="py-2.5 px-4 text-slate-700 font-medium">${r.reason}</td>
+              <td class="py-2.5 px-4 text-right text-[11px] text-slate-500">
+                <p class="font-semibold text-slate-700">${r.time}</p>
+                <p class="text-[10px]">${r.ip}</p>
+              </td>
+            `;
+            els.numberRevealTableBody.appendChild(tr);
+          });
+        }
+
+        const logs = selectedId === 'all' ? activityLogs : activityLogs.filter((l) => l.staffId === selectedId);
+        els.activityTimelineList.innerHTML = '';
+        logs.forEach((log) => {
+          const isPrivacy = log.type === 'privacy';
+          const row = document.createElement('div');
+          row.className = 'p-3.5 bg-white hover:bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs';
+          row.innerHTML = `
+            <div class="flex items-start gap-2.5 min-w-0">
+              <span class="mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase ${isPrivacy ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-600'}">
+                ${log.type}
+              </span>
+              <div class="min-w-0">
+                <p class="font-semibold text-slate-900">${log.action}</p>
+                <p class="text-[11px] text-slate-500 mt-0.5">By <strong>${log.staffName}</strong> (@${log.username}) • IP: ${log.ip}</p>
+              </div>
+            </div>
+            <span class="text-[11px] font-semibold text-slate-400 shrink-0">${log.time}</span>
+          `;
+          els.activityTimelineList.appendChild(row);
+        });
+      }
+
+      els.activityStaffFilter.addEventListener('change', renderActivityView);
+      els.exportAuditBtn.addEventListener('click', () => {
+        const lines = activityLogs.map((l) => `[${l.time}] ${l.staffName} (@${l.username}): ${l.action}`);
+        copyTextSafe(`NESAM CABS — Staff Audit Log\n\n${lines.join('\n')}`, () => {
+          showToast('Audit log copied to clipboard!');
+        });
+      });
+
+      // Mandatory Reason Customer Number Reveal Flow
+      els.openTestUnmaskBtn.addEventListener('click', () => {
+        els.umStaffSelect.innerHTML = '';
+        staffList.forEach((s) => {
+          const opt = document.createElement('option');
+          opt.value = s.id;
+          opt.textContent = `${s.name} (@${s.username})`;
+          els.umStaffSelect.appendChild(opt);
+        });
+        els.umReasonPreset.value = '';
+        els.umReasonDetail.value = '';
+        els.umRevealedBox.classList.add('hidden');
+        els.unmaskReasonModal.classList.remove('hidden');
+      });
+
+      els.closeUnmaskModalBtn.addEventListener('click', () => els.unmaskReasonModal.classList.add('hidden'));
+
+      els.unmaskReasonForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const preset = els.umReasonPreset.value.trim();
+        const detail = els.umReasonDetail.value.trim();
+        if (!preset || detail.length < 10) {
+          showToast('Please select a reason category and enter at least 10 characters.');
+          return;
+        }
+        const st = staffList.find((x) => x.id === els.umStaffSelect.value) || staffList[0];
+        const bId = els.umBookingId.value.trim() || '#NSM-2611-8425';
+        const fullReason = `${preset} — ${detail}`;
+        const nowStr = getCurrentClockTime();
+
+        numberRevealLogs.unshift({
+          id: 'REV-' + Date.now(),
+          staffId: st.id,
+          staffName: st.name,
+          username: st.username,
+          bookingId: bId,
+          customerMasked: '+91 98421 •••30',
+          reason: fullReason,
+          time: nowStr,
+          ip: '103.48.196.12',
+        });
+
+        activityLogs.unshift({
+          id: 'ACT-' + Date.now(),
+          staffId: st.id,
+          staffName: st.name,
+          username: st.username,
+          action: `Revealed customer number for ${bId} • Reason: ${fullReason}`,
+          type: 'privacy',
+          time: nowStr,
+          ip: '103.48.196.12',
+        });
+
+        els.umRevealedBox.classList.remove('hidden');
+        renderActivityView();
+        showToast(`Logged: ${st.name} viewed number for ${bId}`);
+      });
+
+      // ---------------------------------------------------------
+      // 6. DRAWER: 3 STEPS, NAME-BASED AUTO CREDENTIALS & MODULES
+      // ---------------------------------------------------------
+      function setDrawerStep(stepNum) {
+        uiState.activeStep = stepNum;
+        els.drawerStep1.classList.toggle('hidden', stepNum !== 1);
+        els.drawerStep2.classList.toggle('hidden', stepNum !== 2);
+        els.drawerStep3.classList.toggle('hidden', stepNum !== 3);
+
+        document.querySelectorAll('.drawer-step-btn').forEach((btn) => {
+          const s = parseInt(btn.dataset.stepTab, 10);
+          const active = s === stepNum;
+          btn.className = active
+            ? 'drawer-step-btn py-2 px-2.5 rounded-xl text-xs font-bold bg-white text-[#991B1B] shadow-xs border border-slate-200/80 flex items-center justify-center gap-1.5'
+            : 'drawer-step-btn py-2 px-2.5 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5';
+        });
+
+        els.drawerBackBtn.classList.toggle('hidden', stepNum === 1);
+        els.drawerNextBtn.classList.toggle('hidden', stepNum === 3);
+      }
+
+      document.querySelectorAll('.drawer-step-btn').forEach((btn) => {
+        btn.addEventListener('click', () => setDrawerStep(parseInt(btn.dataset.stepTab, 10)));
+      });
+      els.drawerBackBtn.addEventListener('click', () => {
+        if (uiState.activeStep > 1) setDrawerStep(uiState.activeStep - 1);
+      });
+      els.drawerNextBtn.addEventListener('click', () => {
+        if (uiState.activeStep < 3) setDrawerStep(uiState.activeStep + 1);
+      });
+
+      function updateLiveSummaryPill() {
+        const role = getRoleMeta(uiState.selectedPreset);
+        const modCount = countEnabledModules(uiState.draftModules);
+        const maskText = els.ctrlMaskCustomer.checked ? 'Masked' : 'Unmasked';
+        els.liveSummaryPill.textContent = `Preset: ${role.shortName} • ${modCount} Modules • ${maskText}`;
+      }
+
+      function renderPresetCardsGrid() {
+        els.presetCardsGrid.innerHTML = '';
+        Object.values(rolePresets).forEach((role) => {
+          const isSelected = uiState.selectedPreset === role.id;
+          const card = document.createElement('button');
+          card.type = 'button';
+          card.className = isSelected
+            ? 'p-3 rounded-2xl border-2 border-[#991B1B] bg-crimson-50/40 text-left transition-all'
+            : 'p-3 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-left transition-all';
+          card.innerHTML = `
+            <div class="flex items-center justify-between gap-2">
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border ${role.badgeClass}">${role.shortName}</span>
+              ${isSelected ? '<i data-lucide="check-circle-2" class="w-4 h-4 text-[#991B1B]"></i>' : ''}
+            </div>
+            <p class="text-xs font-bold text-slate-900 mt-1.5">${role.name}</p>
+            <p class="text-[11px] text-slate-500 mt-0.5 line-clamp-1">${role.desc}</p>
+          `;
+          card.addEventListener('click', () => applyPresetToDraft(role.id));
+          els.presetCardsGrid.appendChild(card);
+        });
+        refreshIcons();
+      }
+
+      function renderModuleGroups() {
+        els.moduleGroupsContainer.innerHTML = '';
+        const levels = ['off', 'view', 'edit', 'full'];
+
+        moduleGroups.forEach((group) => {
+          const visibleItems = group.items.filter((item) => {
+            if (!uiState.showEnabledOnly) return true;
+            const lvl = uiState.draftModules[item.id] || 'off';
+            return lvl !== 'off';
+          });
+          if (visibleItems.length === 0) return;
+
+          const card = document.createElement('div');
+          card.className = 'rounded-2xl border border-slate-200 overflow-hidden bg-white';
+          card.innerHTML = `
+            <div class="px-4 py-2.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-800">${group.title}</span>
+              <span class="text-[10px] font-semibold text-slate-400">${visibleItems.length} modules</span>
+            </div>
+            <div class="divide-y divide-slate-100">
+              ${visibleItems.map((item) => {
+                const curLvl = item.locked ? 'off' : (uiState.draftModules[item.id] || 'off');
+                return `
+                  <div class="px-4 py-2.5 flex items-center justify-between gap-2 text-xs">
+                    <span class="font-medium ${item.locked ? 'text-slate-400' : 'text-slate-800'}">${item.label}</span>
+                    ${item.locked
+                      ? '<span class="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-bold text-slate-400">Master Only</span>'
+                      : `<div class="inline-flex rounded-lg bg-slate-100 p-0.5">
+                          ${levels.map((lvl) => `
+                            <button
+                              type="button"
+                              data-mod-id="${item.id}"
+                              data-mod-lvl="${lvl}"
+                              class="px-2 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${curLvl === lvl ? 'bg-white text-[#991B1B] shadow-xs' : 'text-slate-500 hover:text-slate-800'}"
+                            >${lvl}</button>
+                          `).join('')}
+                        </div>`}
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          `;
+          els.moduleGroupsContainer.appendChild(card);
+        });
+
+        els.moduleGroupsContainer.querySelectorAll('[data-mod-id]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            uiState.draftModules[btn.dataset.modId] = btn.dataset.modLvl;
+            renderModuleGroups();
+            updateLiveSummaryPill();
+          });
+        });
+      }
+
+      els.filterEnabledModulesChk.addEventListener('change', (e) => {
+        uiState.showEnabledOnly = e.target.checked;
+        renderModuleGroups();
+      });
+
+      function applyPresetToDraft(presetId) {
+        const role = getRoleMeta(presetId);
+        uiState.selectedPreset = role.id;
+        uiState.draftModules = { ...role.modules };
+        els.ctrlMaskCustomer.checked = Boolean(role.maskCustomer);
+        els.ctrlBlockExport.checked = true; // Strictly locked to Master Admin only
+
+        // Update Login ID & Password live based on Staff Name + Selected Role
+        if (!uiState.editingStaffId) {
+          const creds = generateNameBasedCredentials(els.stFullName.value, role.id);
+          els.stUsername.value = creds.username;
+          if (!uiState.passwordManuallyEdited) {
+            els.stPassword.value = creds.password;
+          }
+        }
+
+        renderPresetCardsGrid();
+        renderModuleGroups();
+        updateLiveSummaryPill();
+      }
+
+      // Live Name Input -> Auto-generates Username & Password
+      els.stFullName.addEventListener('input', () => {
+        if (uiState.editingStaffId) return;
+        const creds = generateNameBasedCredentials(els.stFullName.value, uiState.selectedPreset);
+        els.stUsername.value = creds.username;
+        if (!uiState.passwordManuallyEdited) {
+          els.stPassword.value = creds.password;
+        }
+      });
+
+      els.stPassword.addEventListener('input', () => {
+        uiState.passwordManuallyEdited = true;
+      });
+
+      els.autoGenPassBtn.addEventListener('click', () => {
+        uiState.passwordManuallyEdited = false;
+        uiState.draftPassDigits = String(Math.floor(1000 + Math.random() * 8999));
+        const creds = generateNameBasedCredentials(els.stFullName.value, uiState.selectedPreset);
+        els.stPassword.value = creds.password;
+      });
+
+      els.togglePassVisBtn.addEventListener('click', () => {
+        els.stPassword.type = els.stPassword.type === 'password' ? 'text' : 'password';
+      });
+
+      els.copyDraftCredsBtn.addEventListener('click', () => {
+        const text = `NESAM CABS Login\nName: ${els.stFullName.value || 'Staff'}\nUsername: ${els.stUsername.value}\nPassword: ${els.stPassword.value}`;
+        copyTextSafe(text, () => {
+          els.copyDraftCredsLabel.textContent = 'Copied!';
+          setTimeout(() => { els.copyDraftCredsLabel.textContent = 'Copy Credentials'; }, 1800);
+        });
+      });
+
+      els.ctrlMaskCustomer.addEventListener('change', updateLiveSummaryPill);
+
+      function openDrawerForCreate(presetId = 'booking_exec') {
+        uiState.editingStaffId = null;
+        uiState.passwordManuallyEdited = false;
+        uiState.draftPassDigits = String(Math.floor(1000 + Math.random() * 8999));
+        els.drawerTitle.textContent = 'Create Staff Login ID';
+        els.drawerSaveBtnLabel.textContent = 'Create Staff Login';
+
+        els.stFullName.value = '';
+        els.stMobile.value = '';
+        els.stEmail.value = '';
+        els.stHub.value = 'Coimbatore HQ';
+        els.stShift.value = '09:00 AM – 06:00 PM';
+        els.stAdminNote.value = '';
+
+        applyPresetToDraft(presetId);
+        setDrawerStep(1);
+        els.staffDrawerOverlay.classList.remove('hidden');
+        els.stFullName.focus();
+        refreshIcons();
+      }
+
+      function openDrawerForEdit(staffId) {
+        const st = staffList.find((x) => x.id === staffId);
+        if (!st) return;
+        uiState.editingStaffId = st.id;
+        uiState.passwordManuallyEdited = true;
+        els.drawerTitle.textContent = `Edit Staff • ${st.name}`;
+        els.drawerSaveBtnLabel.textContent = 'Save Changes';
+
+        els.stFullName.value = st.name;
+        els.stMobile.value = st.mobile;
+        els.stEmail.value = st.email || '';
+        els.stHub.value = st.hub;
+        els.stShift.value = st.shift;
+        els.stUsername.value = st.username;
+        els.stPassword.value = st.password;
+
+        uiState.selectedPreset = st.roleId;
+        uiState.draftModules = { ...st.modules };
+        els.ctrlMaskCustomer.checked = Boolean(st.maskCustomer);
+        els.ctrlBlockExport.checked = true; // Strictly locked to Master Admin only
+
+        renderPresetCardsGrid();
+        renderModuleGroups();
+        updateLiveSummaryPill();
+        setDrawerStep(1);
+        els.staffDrawerOverlay.classList.remove('hidden');
+        refreshIcons();
+      }
+
+      els.openCreateStaffBtn.addEventListener('click', () => openDrawerForCreate('booking_exec'));
+      els.closeDrawerBtn.addEventListener('click', () => els.staffDrawerOverlay.classList.add('hidden'));
+
+      els.drawerSaveBtn.addEventListener('click', () => {
+        const name = els.stFullName.value.trim();
+        const mobile = els.stMobile.value.replace(/\D/g, '').slice(0, 10);
+        const username = els.stUsername.value.trim().replace(/^@+/, '');
+        const password = els.stPassword.value.trim();
+
+        if (!name) {
+          setDrawerStep(1);
+          els.stFullName.focus();
+          showToast('Please enter staff full name.');
+          return;
+        }
+        if (mobile.length < 10) {
+          setDrawerStep(1);
+          els.stMobile.focus();
+          showToast('Please enter a valid 10-digit mobile number.');
+          return;
+        }
+        if (!username || password.length < 6) {
+          setDrawerStep(1);
+          showToast('Username and 6+ character password are required.');
+          return;
+        }
+
+        if (uiState.editingStaffId) {
+          const st = staffList.find((x) => x.id === uiState.editingStaffId);
+          if (st) {
+            st.name = name;
+            st.mobile = mobile;
+            st.email = els.stEmail.value.trim();
+            st.hub = els.stHub.value;
+            st.shift = els.stShift.value;
+            st.username = username;
+            st.password = password;
+            st.roleId = uiState.selectedPreset;
+            st.modules = { ...uiState.draftModules };
+            st.maskCustomer = els.ctrlMaskCustomer.checked;
+            st.blockExport = true;
+          }
+          els.staffDrawerOverlay.classList.add('hidden');
+          renderStaffDirectory();
+          showToast(`Updated permissions & profile for ${name}`);
+        } else {
+          const newStaff = {
+            id: 'STF-' + Math.floor(10 + Math.random() * 89),
+            name,
+            username,
+            password,
+            mobile,
+            email: els.stEmail.value.trim(),
+            hub: els.stHub.value,
+            shift: els.stShift.value,
+            roleId: uiState.selectedPreset,
+            status: 'Active',
+            maskCustomer: els.ctrlMaskCustomer.checked,
+            blockExport: true,
+            modules: { ...uiState.draftModules },
+            attendance: {
+              loggedIn: false,
+              firstLogin: '—',
+              lastLogout: '—',
+              workedMins: 0,
+            },
+          };
+          staffList.unshift(newStaff);
+          uiState.lastCreatedStaff = newStaff;
+          activityLogs.unshift({
+            id: 'ACT-' + Date.now(),
+            staffId: newStaff.id,
+            staffName: 'Master Admin',
+            username: 'admin@gmail.com',
+            action: `Created Staff ID @${newStaff.username} (${getRoleMeta(newStaff.roleId).shortName})`,
+            type: 'session',
+            time: getCurrentClockTime(),
+            ip: '103.48.196.1',
+          });
+
+          els.staffDrawerOverlay.classList.add('hidden');
+          renderStaffDirectory();
+
+          // Open WhatsApp Credentials Share Modal
+          document.getElementById('shareSubText').textContent = `${newStaff.name} • ${getRoleMeta(newStaff.roleId).name}`;
+          document.getElementById('shareUserText').textContent = newStaff.username;
+          document.getElementById('sharePassText').textContent = newStaff.password;
+          document.getElementById('shareShiftText').textContent = newStaff.shift;
+          els.credsShareModal.classList.remove('hidden');
+          refreshIcons();
+        }
+      });
+
+      els.copyWhatsAppCredsBtn.addEventListener('click', () => {
+        const st = uiState.lastCreatedStaff;
+        if (!st) return;
+        const msg = `*NESAM CABS — Staff Portal Login*\nHello ${st.name},\n\nPortal: https://admin.nesamcabs.com\nLogin ID: *${st.username}*\nPassword: *${st.password}*\nRole: ${getRoleMeta(st.roleId).name}\nShift: ${st.shift}\n\nPlease do not share your password with anyone.`;
+        copyTextSafe(msg, () => {
+          els.copyWhatsAppCredsLabel.textContent = 'Copied for WhatsApp!';
+          setTimeout(() => { els.copyWhatsAppCredsLabel.textContent = 'Copy for WhatsApp'; }, 2000);
+        });
+      });
+
+      els.closeShareModalBtn.addEventListener('click', () => els.credsShareModal.classList.add('hidden'));
+
+      // ---------------------------------------------------------
+      // 7. EXTRA / CUSTOM ROLE BUILDER & MANAGE ROLES
+      // ---------------------------------------------------------
+      function openCustomRoleBuilder() {
+        els.crRoleName.value = '';
+        els.crLoginPrefix.value = '';
+        els.crDescription.value = '';
+        els.customRoleModal.classList.remove('hidden');
+        els.crRoleName.focus();
+      }
+
+      els.openCustomRoleBtn.addEventListener('click', openCustomRoleBuilder);
+      els.drawerAddExtraRoleBtn.addEventListener('click', openCustomRoleBuilder);
+      els.closeCustomRoleBtn.addEventListener('click', () => els.customRoleModal.classList.add('hidden'));
+
+      els.crRoleName.addEventListener('input', () => {
+        const slug = els.crRoleName.value.trim().toLowerCase().split(/\s+/)[0]?.replace(/[^a-z0-9]/g, '') || '';
+        els.crLoginPrefix.value = slug;
+      });
+
+      els.customRoleForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const roleName = els.crRoleName.value.trim();
+        const prefix = els.crLoginPrefix.value.trim().toLowerCase().replace(/[^a-z0-9]/g, '') || 'custom';
+        const baseTemplate = rolePresets[els.crBaseTemplate.value] || rolePresets.booking_exec;
+        if (!roleName) return;
+
+        const newId = 'custom_' + prefix + '_' + Math.floor(10 + Math.random() * 89);
+        rolePresets[newId] = {
+          id: newId,
+          name: roleName,
+          shortName: roleName.length > 16 ? roleName.slice(0, 15) + '…' : roleName,
+          prefix,
+          badgeClass: 'bg-rose-50 text-rose-800 border-rose-200',
+          desc: els.crDescription.value.trim() || `Custom role based on ${baseTemplate.shortName}`,
+          isBuiltIn: false,
+          maskCustomer: baseTemplate.maskCustomer,
+          blockExport: baseTemplate.blockExport,
+          modules: { ...baseTemplate.modules },
+        };
+
+        els.customRoleModal.classList.add('hidden');
+        renderStaffDirectory();
+        if (!els.staffDrawerOverlay.classList.contains('hidden')) {
+          applyPresetToDraft(newId);
+        }
+        showToast(`New role "${roleName}" added!`);
+      });
+
+      els.openManageRolesBtn.addEventListener('click', () => {
+        els.manageRolesList.innerHTML = '';
+        Object.values(rolePresets).forEach((role) => {
+          const item = document.createElement('div');
+          item.className = 'py-2.5 flex items-center justify-between gap-3';
+          item.innerHTML = `
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border ${role.badgeClass}">${role.shortName}</span>
+                <span class="text-xs font-bold text-slate-900">${role.name}</span>
+              </div>
+              <p class="text-[11px] text-slate-500 mt-0.5">${role.desc} • Prefix: <strong>@${role.prefix}.*</strong></p>
+            </div>
+            ${role.isBuiltIn
+              ? '<span class="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">Core Role</span>'
+              : `<button type="button" data-del-role="${role.id}" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-red-700 bg-red-50 hover:bg-red-100">Delete</button>`}
+          `;
+          els.manageRolesList.appendChild(item);
+        });
+
+        els.manageRolesList.querySelectorAll('[data-del-role]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            delete rolePresets[btn.dataset.delRole];
+            els.manageRolesModal.classList.add('hidden');
+            renderStaffDirectory();
+            showToast('Custom role removed.');
+          });
+        });
+
+        els.manageRolesModal.classList.remove('hidden');
+        refreshIcons();
+      });
+      els.closeManageRolesBtn.addEventListener('click', () => els.manageRolesModal.classList.add('hidden'));
+
+      // Initial Boot
+      renderStaffDirectory();
+    });
+  </script>
+</body>
+</html>

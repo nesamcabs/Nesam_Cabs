@@ -375,13 +375,33 @@ export interface Vendor {
 export interface Customer {
   id: string;
   name: string;
+  /** Raw mobile. Empty in the masked projection a Staff ID receives (see phoneMasked). */
   phone: string;
+  /** "+91 98765 •••••" — present on rows from getCustomerDirectory. */
+  phoneMasked?: string;
+  /** False when the customer record has no usable mobile number (projection only). */
+  hasPhone?: boolean;
   email: string;
   status: string;
   city?: string;
   gender?: string;
+  /** Internal admin note. */
   notes?: string;
   source?: string;
+  customerCode?: string;
+  leadSource?: string;
+  /** Explicit designations, separate from the groups derived from completed trips. */
+  isVip?: boolean;
+  isCorporate?: boolean;
+  company?: string;
+  gstin?: string;
+  preferredCab?: string;
+  preferredDriver?: string;
+  tripsCompleted?: number;
+  /** Brands of the customer's bookings (from the server projection). */
+  brands?: string[];
+  /** Unlinked bookings the server attributed to this customer by an unambiguous mobile number. */
+  linkedBookingIds?: string[];
   createdAt?: any;
 }
 

@@ -70,6 +70,8 @@ export interface Enquiry {
   due?: Timestamp | null;
   handoverNote?: string;
   convertedBookingId?: string;
+  lostReason?: string;
+  followUpDateTime?: string;
   quoteRevision?: string;
   history?: { status: string; note?: string; byName?: string; at?: Timestamp }[];
   createdAt?: Timestamp;
@@ -145,6 +147,47 @@ export async function markEnquiryConverted(id: string, bookingId: string) {
   const who = me();
   await updateDoc(doc(db, COL, id), { status: "Converted", convertedBookingId: bookingId, history: arrayUnion({ status: "Converted", note: bookingId, byName: who.name, at: Timestamp.now() }) });
 }
+
+export async function snoozeEnquiry(id: string, minutes = 15): Promise<Date> {
+  const who = me();
+  const newDue = new Date(Date.now() + minutes * 60000);
+  await updateDoc(doc(db, COL, id), {
+    followUpAt: Timestamp.fromDate(newDue),
+    history: arrayUnion({ status: "Call back", note: `Snoozed +${minutes}m`, byName: who.name, at: Timestamp.now() }),
+  });
+  return newDue;
+}
+
+export async function markEnquiryLost(id: string, reason: string): Promise<{ converted: boolean; bookingId?: string }> {
+  const who = me();
+  const ref = doc(db, COL, id);
+  return runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) throw new Error("Enquiry not found.");
+    const row = snap.data() as Enquiry;
+    if (row.status === "Converted" || row.convertedBookingId) {
+      return { converted: true, bookingId: row.convertedBookingId };
+    }
+    tx.update(ref, {
+      status: "Closed",
+      lostReason: reason,
+      history: arrayUnion({ status: "Closed", note: `Lost: ${reason}`, byName: who.name, at: Timestamp.now() }),
+    });
+    return { converted: false };
+  });
+}
+
+export const revealEnquiryNumber = (enquiryId: string, category: string, note: string) =>
+  callFunction<{ enquiryId: string; category: string; note: string; platform: string }, { phone: string; logId: string; revealSeconds: number }>(
+    "revealEnquiryNumber",
+    { enquiryId, category, note, platform: "admin" }
+  );
+
+export const createBookingPaymentLink = (bookingId: string, amount: number, type: "advance" | "full" = "advance") =>
+  callFunction<{ bookingId: string; amount: number; type: "advance" | "full" }, { success: boolean; paymentLinkId: string; shortUrl: string; amount: number; status: string; delivered: boolean }>(
+    "createBookingPaymentLink",
+    { bookingId, amount, type }
+  );
 
 export const currentStaff = me;
 

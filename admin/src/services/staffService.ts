@@ -75,6 +75,10 @@ export interface StaffProfile {
 
 export interface StaffSessionRecord {
   id: string;
+  uid?: string;
+  name?: string;
+  email?: string;
+  staffCode?: string;
   device: string;
   browser: string;
   status: string;
@@ -82,6 +86,18 @@ export interface StaffSessionRecord {
   lastActiveAt: Date | null;
   endedAt: Date | null;
   endedByName: string;
+}
+
+export interface ContactAccessLogRecord {
+  id: string;
+  bookingId: string;
+  actorId: string;
+  actorName?: string;
+  role: string;
+  action: "reveal" | "denied";
+  reason: string;
+  platform?: string;
+  at: Date | null;
 }
 
 export interface StaffActivityRecord {
@@ -397,6 +413,59 @@ export function subscribeStaffAudit(uid: string, cb: (rows: AuditEntry[]) => voi
             details: (d.data().details as Record<string, unknown>) || {},
           }))
           .sort((a, b) => (b.at?.getTime() ?? 0) - (a.at?.getTime() ?? 0)),
+      ),
+    (err) => onError(describeDataError(err)),
+  );
+}
+
+/** All recent staff sessions across all staff members (newest first). */
+export function subscribeAllStaffSessions(cb: (rows: StaffSessionRecord[]) => void, onError: OnError) {
+  return onSnapshot(
+    query(collection(db, "staff_sessions"), limit(200)),
+    (snap) =>
+      cb(
+        snap.docs
+          .map((d) => ({
+            id: d.id,
+            uid: str(d.data().uid),
+            name: str(d.data().name),
+            email: str(d.data().email),
+            staffCode: str(d.data().staffCode),
+            device: str(d.data().device),
+            browser: str(d.data().browser),
+            status: str(d.data().status),
+            startedAt: toDate(d.data().startedAt),
+            lastActiveAt: toDate(d.data().lastActiveAt),
+            endedAt: toDate(d.data().endedAt),
+            endedByName: str(d.data().endedByName),
+          }))
+          .sort((a, b) => (b.startedAt?.getTime() ?? 0) - (a.startedAt?.getTime() ?? 0))
+          .slice(0, 100),
+      ),
+    (err) => onError(describeDataError(err)),
+  );
+}
+
+/** Customer contact access / unmask logs (newest first). */
+export function subscribeContactAccessLogs(cb: (rows: ContactAccessLogRecord[]) => void, onError: OnError) {
+  return onSnapshot(
+    query(collection(db, "contact_access_logs"), limit(100)),
+    (snap) =>
+      cb(
+        snap.docs
+          .map((d) => ({
+            id: d.id,
+            bookingId: str(d.data().bookingId),
+            actorId: str(d.data().actorId),
+            actorName: str(d.data().actorName),
+            role: str(d.data().role),
+            action: (d.data().action === "denied" ? "denied" : "reveal") as "reveal" | "denied",
+            reason: str(d.data().reason),
+            platform: str(d.data().platform),
+            at: toDate(d.data().at),
+          }))
+          .sort((a, b) => (b.at?.getTime() ?? 0) - (a.at?.getTime() ?? 0))
+          .slice(0, 100),
       ),
     (err) => onError(describeDataError(err)),
   );

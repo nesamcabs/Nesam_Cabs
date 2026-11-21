@@ -1,0 +1,2215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NESAM CABS — Master Admin Command Center</title>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Lucide Icons via CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+          },
+          colors: {
+            crimson: {
+              50: '#FEF2F2',
+              100: '#FEE2E2',
+              200: '#FECACA',
+              600: '#DC2626',
+              700: '#B91C1C',
+              800: '#991B1B',
+              900: '#7F1D1D',
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: #F8FAFC;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .fade-in {
+      animation: fadeIn 0.2s ease-out forwards;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .drawer-slide {
+      animation: drawerSlide 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes drawerSlide {
+      from { transform: translateX(100%); }
+      to { transform: translateX(0); }
+    }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 999px; }
+  </style>
+</head>
+<body class="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col">
+
+  <!-- ========================================================= -->
+  <!-- TOP STICKY COMMAND BAR (SINGLE-ROW CLEAN SAAS HEADER)     -->
+  <!-- ========================================================= -->
+  <header class="sticky top-0 z-30 bg-white/95 backdrop-blur-xs border-b border-slate-200/90 px-4 sm:px-6 h-14 flex items-center">
+    <div class="max-w-7xl w-full mx-auto flex items-center justify-between gap-3">
+      <!-- Left: Brand Identity + Compact Navigation Pills -->
+      <div class="flex items-center gap-4 min-w-0">
+        <div class="flex items-center gap-2.5 shrink-0">
+          <div class="w-8 h-8 rounded-lg bg-[#991B1B] text-white font-extrabold text-xs flex items-center justify-center shadow-2xs">
+            NC
+          </div>
+          <div class="leading-none">
+            <p class="text-xs font-extrabold tracking-wide text-slate-900">NESAM CABS</p>
+            <span class="text-[10px] font-medium text-slate-400">Admin Desk</span>
+          </div>
+        </div>
+
+        <div class="h-5 w-px bg-slate-200 hidden sm:block shrink-0"></div>
+
+        <nav class="flex items-center gap-1 bg-slate-100/90 p-1 rounded-xl shrink-0" aria-label="Dashboard Views">
+          <button type="button" data-view="command" class="nav-pill px-3 py-1 rounded-lg text-xs font-bold bg-white text-[#991B1B] shadow-2xs transition-all">
+            Command Desk
+          </button>
+          <button type="button" data-view="bookings" class="nav-pill px-3 py-1 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 transition-all flex items-center gap-1.5">
+            <span>All Trips</span>
+            <span id="navTotalBadge" class="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-white text-[#991B1B] border border-slate-200/80">6</span>
+          </button>
+          <button type="button" data-view="analytics" class="nav-pill px-3 py-1 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 transition-all">
+            Revenue &amp; GST
+          </button>
+        </nav>
+      </div>
+
+      <!-- Right: Streamlined Search, Source Filter, Alerts & Primary Actions -->
+      <div class="flex items-center gap-2 shrink-0">
+        <div class="relative hidden xl:block w-48">
+          <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2"></i>
+          <input
+            type="text"
+            id="globalSearchInput"
+            placeholder="Search ID, route..."
+            class="w-full h-8 pl-8 pr-2.5 text-xs font-medium bg-slate-50 border border-slate-200/90 rounded-lg focus:bg-white focus:border-[#991B1B] focus:outline-none transition-colors"
+          />
+        </div>
+
+        <!-- Subtle Light Brand Source Selector -->
+        <div class="relative hidden md:block">
+          <select
+            id="brandSourceFilter"
+            aria-label="Filter by Booking Source"
+            class="h-8 pl-2.5 pr-7 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200/90 text-slate-700 text-xs font-semibold appearance-none cursor-pointer focus:outline-none focus:border-[#991B1B] transition-colors"
+          >
+            <option value="ALL">All Sources (3)</option>
+            <option value="Nesam Cabs">Nesam Cabs</option>
+            <option value="PeopleTaxi.in">PeopleTaxi.in</option>
+            <option value="One Way Car Rentals">One Way Car Rentals</option>
+          </select>
+          <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+        </div>
+
+        <!-- Compact Icon + Counter Cluster -->
+        <div class="flex items-center gap-1 bg-slate-50 border border-slate-200/90 p-0.5 rounded-lg">
+          <button type="button" id="openSoundBtn" title="Notification Sound Settings" class="h-7 w-7 rounded-md hover:bg-white text-slate-600 flex items-center justify-center transition-colors">
+            <i data-lucide="volume-2" class="w-3.5 h-3.5"></i>
+          </button>
+          <button type="button" id="openRemindersBtn" class="h-7 px-2 rounded-md bg-crimson-50 hover:bg-crimson-100 text-[#991B1B] text-[11px] font-bold flex items-center gap-1 transition-colors">
+            <i data-lucide="bell-ring" class="w-3 h-3"></i>
+            <span id="alertCounterLabel">3 Alerts</span>
+          </button>
+        </div>
+
+        <button type="button" id="openQuickFareBtn" class="h-8 px-2.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200/90 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors">
+          <i data-lucide="calculator" class="w-3.5 h-3.5 text-slate-500"></i>
+          <span class="hidden sm:inline">Quick Fare</span>
+        </button>
+
+        <button type="button" id="openNewBookingBtn" class="h-8 px-3 rounded-lg bg-[#991B1B] hover:bg-[#7F1D1D] text-white text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors">
+          <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+          <span>New Booking</span>
+        </button>
+
+        <!-- Utility Dropdown -->
+        <div class="relative" id="utilityMenuWrapper">
+          <button type="button" id="utilityMenuBtn" class="h-8 w-8 rounded-lg bg-white hover:bg-slate-50 border border-slate-200/90 text-slate-500 flex items-center justify-center transition-colors" aria-label="Workspace options">
+            <i data-lucide="more-vertical" class="w-3.5 h-3.5"></i>
+          </button>
+          <div id="utilityDropdown" class="hidden absolute right-0 top-[calc(100%+6px)] z-40 w-52 bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 text-xs fade-in">
+            <button type="button" id="toggleDemoModeBtn" class="w-full px-3 py-2 rounded-lg text-left hover:bg-slate-50 flex items-center justify-between font-medium text-slate-700">
+              <span>Live Sample Trips</span>
+              <span id="demoModeStatus" class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700">ON</span>
+            </button>
+            <button type="button" id="lockWorkspaceBtn" class="w-full px-3 py-2 rounded-lg text-left hover:bg-slate-50 flex items-center gap-2 font-medium text-slate-700">
+              <i data-lucide="lock" class="w-3.5 h-3.5 text-slate-400"></i>
+              <span>Lock Workspace</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ========================================================= -->
+  <!-- MAIN WORKSPACE CONTAINER                                  -->
+  <!-- ========================================================= -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-5 space-y-5">
+
+    <!-- ========================================================= -->
+    <!-- VIEW 1: COMMAND DESK                                      -->
+    <!-- ========================================================= -->
+    <div id="viewCommand" class="space-y-5 fade-in">
+
+      <!-- Unified 5-Stage Dispatch Pipeline -->
+      <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <button type="button" data-stage="new" class="pipeline-card p-3.5 rounded-2xl bg-white border border-slate-200/90 hover:border-amber-300 text-left shadow-2xs transition-all">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-amber-700">1. New Bookings</span>
+            <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+          </div>
+          <p id="countStageNew" class="text-2xl font-extrabold text-slate-900 mt-1.5">2</p>
+          <p class="text-[11px] text-slate-500 mt-0.5">Awaiting office review</p>
+        </button>
+
+        <button type="button" data-stage="publish" class="pipeline-card p-3.5 rounded-2xl bg-white border border-slate-200/90 hover:border-blue-300 text-left shadow-2xs transition-all">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-blue-700">2. To Publish</span>
+            <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+          </div>
+          <p id="countStagePublish" class="text-2xl font-extrabold text-slate-900 mt-1.5">1</p>
+          <p class="text-[11px] text-slate-500 mt-0.5">Ready for partner pool</p>
+        </button>
+
+        <button type="button" data-stage="published" class="pipeline-card p-3.5 rounded-2xl bg-white border border-indigo-200/90 hover:border-indigo-300 text-left shadow-2xs transition-all">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-indigo-700">3. Published</span>
+            <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
+          </div>
+          <p id="countStagePublished" class="text-2xl font-extrabold text-slate-900 mt-1.5">1</p>
+          <p class="text-[11px] text-slate-500 mt-0.5">Open vendor bidding</p>
+        </button>
+
+        <button type="button" data-stage="assign" class="pipeline-card p-3.5 rounded-2xl bg-white border border-crimson-200 hover:border-[#991B1B] text-left shadow-2xs transition-all">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-[#991B1B]">4. Assign Pending</span>
+            <span class="w-2 h-2 rounded-full bg-[#991B1B] animate-pulse"></span>
+          </div>
+          <p id="countStageAssign" class="text-2xl font-extrabold text-[#991B1B] mt-1.5">1</p>
+          <p class="text-[11px] text-slate-500 mt-0.5">Needs driver &amp; cab</p>
+        </button>
+
+        <button type="button" data-stage="ontrip" class="pipeline-card p-3.5 rounded-2xl bg-white border border-slate-200/90 hover:border-emerald-300 text-left shadow-2xs transition-all col-span-2 sm:col-span-1">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-700">5. On Trip</span>
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          </div>
+          <p id="countStageOntrip" class="text-2xl font-extrabold text-emerald-700 mt-1.5">1</p>
+          <p class="text-[11px] text-slate-500 mt-0.5">Active duties on road</p>
+        </button>
+      </section>
+
+      <!-- Action-First 2-Column Workbench -->
+      <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <!-- Left: New Bookings Queue -->
+        <div class="bg-white rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col">
+          <div class="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+              <h2 class="text-xs font-bold uppercase tracking-wider text-slate-800">New Bookings (Review &amp; Approve)</h2>
+            </div>
+            <button type="button" data-stage-jump="new" class="text-[11px] font-semibold text-[#991B1B] hover:underline">View All</button>
+          </div>
+          <div id="newBookingsQueueList" class="p-4 space-y-2.5 flex-1"></div>
+        </div>
+
+        <!-- Right: Assignment Priority Queue -->
+        <div class="bg-white rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col">
+          <div class="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-[#991B1B] animate-pulse"></span>
+              <h2 class="text-xs font-bold uppercase tracking-wider text-slate-800">Assignment Priority (Own Cab / Vendor)</h2>
+            </div>
+            <button type="button" id="priorityRemindersBtn" class="text-[11px] font-semibold text-[#991B1B] hover:underline">Open Queue</button>
+          </div>
+          <div id="assignmentPriorityList" class="p-4 space-y-2.5 flex-1"></div>
+        </div>
+      </section>
+
+      <!-- Quick Operational Strip -->
+      <section class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-white border border-slate-200/90 text-xs">
+        <div class="flex items-center gap-2 flex-wrap">
+          <button type="button" data-stage-jump="publish" class="px-3 py-1.5 rounded-xl bg-blue-50 text-blue-800 font-semibold border border-blue-200/80 hover:bg-blue-100 flex items-center gap-1.5">
+            <span>To Publish</span>
+            <span id="pillPublishCount" class="px-1.5 py-0.2 rounded-full bg-blue-600 text-white text-[10px]">1</span>
+          </button>
+          <span class="text-slate-300">|</span>
+          <span id="brandSplitSummaryStrip" class="text-slate-600 font-medium">Sources: <strong class="text-[#991B1B]">Nesam Cabs (3)</strong> • <strong class="text-emerald-700">PeopleTaxi.in (2)</strong> • <strong class="text-blue-700">One Way Car Rentals (1)</strong></span>
+        </div>
+        <button type="button" data-view-jump="analytics" class="text-xs font-bold text-[#991B1B] hover:underline flex items-center gap-1">
+          <span>GST &amp; Revenue Report</span>
+          <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+        </button>
+      </section>
+
+      <!-- Latest Revenue Overview & Brand Source Performance (Live Synced) -->
+      <section class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs flex flex-col justify-between space-y-3">
+          <!-- Stock-Market Style Header & Live Growth Pill -->
+          <div class="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <h3 class="text-sm font-bold text-slate-900">Latest Revenue Overview</h3>
+                <span id="cmdRevDeltaBadge" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  ▲ +18.4%
+                </span>
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  Live
+                </span>
+              </div>
+              <div class="flex items-baseline gap-2.5 mt-1">
+                <p id="cmdRevBigAmount" class="text-xl font-extrabold tracking-tight text-slate-900">₹30,020</p>
+                <p id="cmdRevTotalLabel" class="text-[11px] font-medium text-slate-500">Active Queue: ₹30,020</p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl shrink-0">
+              <button type="button" data-cmd-period="Today" class="cmd-period-btn px-2.5 py-1 rounded-lg text-xs font-bold bg-[#991B1B] text-white shadow-xs">Today</button>
+              <button type="button" data-cmd-period="Week" class="cmd-period-btn px-2.5 py-1 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900">Week</button>
+              <button type="button" data-cmd-period="Month" class="cmd-period-btn px-2.5 py-1 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900">Month</button>
+            </div>
+          </div>
+
+          <!-- Interactive Stock-Market SVG Area & Trend Chart -->
+          <div id="cmdRevenueBarChart" class="relative w-full h-36 select-none"></div>
+
+          <!-- Service-Wise Market Ticker Strip (Like NSE/BSE Stock Tickers) -->
+          <div id="cmdMarketTickerStrip" class="grid grid-cols-2 sm:grid-cols-5 gap-1.5 pt-1 border-t border-slate-100"></div>
+        </div>
+
+        <div class="lg:col-span-5 bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs flex flex-col justify-between space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-bold text-slate-900">Revenue by Booking Source</h3>
+              <p class="text-[11px] text-slate-500">Nesam Cabs vs PeopleTaxi.in vs One Way Car Rentals</p>
+            </div>
+            <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-600">3 Channels</span>
+          </div>
+          <div id="cmdBrandRevenueBars" class="space-y-3"></div>
+        </div>
+      </section>
+
+      <!-- Side-by-Side Today & Tomorrow Schedule -->
+      <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+          <div class="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-800">Today's Trips</h3>
+            <span id="todayTripsMeta" class="text-[11px] font-medium text-slate-500">Saturday, 21 Nov • 4 trips</span>
+          </div>
+          <div id="todayScheduleList" class="divide-y divide-slate-100"></div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+          <div class="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-800">Tomorrow's Trips</h3>
+            <span id="tomorrowTripsMeta" class="text-[11px] font-medium text-slate-500">Sunday, 22 Nov • 2 trips</span>
+          </div>
+          <div id="tomorrowScheduleList" class="divide-y divide-slate-100"></div>
+        </div>
+      </section>
+
+      <!-- Recent Bookings Table with Duty Slip & Close Trip Actions -->
+      <section class="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h3 class="text-sm font-bold text-slate-900">Active &amp; Recent Bookings</h3>
+            <p class="text-[11px] text-slate-500">Shows exact booking source (Nesam Cabs / PeopleTaxi.in / One Way Car Rentals), driver/vendor &amp; fare</p>
+          </div>
+          <button type="button" data-view-jump="bookings" class="text-xs font-bold text-[#991B1B] hover:underline">Full Explorer →</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="border-b border-slate-100 bg-slate-50/70 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                <th class="py-3 px-5">Booking ID &amp; Source</th>
+                <th class="py-3 px-4">Customer</th>
+                <th class="py-3 px-4">Service</th>
+                <th class="py-3 px-4">Route</th>
+                <th class="py-3 px-4">Pickup</th>
+                <th class="py-3 px-4">Driver / Vendor</th>
+                <th class="py-3 px-4">Fare</th>
+                <th class="py-3 px-4">Status</th>
+                <th class="py-3 px-5 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="recentBookingsBody" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- VIEW 2: ALL TRIPS EXPLORER                                -->
+    <!-- ========================================================= -->
+    <div id="viewBookings" class="hidden space-y-4 fade-in">
+      <div class="bg-white rounded-2xl border border-slate-200/90 p-4 space-y-3 shadow-2xs">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div id="allTripsStatusTabs" class="flex items-center gap-1.5 flex-wrap"></div>
+          <span id="matchingRecordsCount" class="text-xs font-semibold text-slate-500">0 matching records</span>
+        </div>
+
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-slate-100">
+          <div id="allTripsTypePills" class="flex items-center gap-1.5 flex-wrap"></div>
+          <div class="flex items-center gap-2">
+            <input type="text" id="tripsSearchInput" placeholder="Filter by ID, city, customer..." class="h-9 px-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-[#991B1B] focus:outline-none" />
+            <button type="button" id="clearTripsFilterBtn" class="h-9 px-3 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700">Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-x-auto">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="border-b border-slate-100 bg-slate-50/70 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              <th class="py-3 px-5">Booking ID &amp; Source</th>
+              <th class="py-3 px-4">Customer</th>
+              <th class="py-3 px-4">Service</th>
+              <th class="py-3 px-4">Route</th>
+              <th class="py-3 px-4">Pickup</th>
+              <th class="py-3 px-4">Driver / Vendor</th>
+              <th class="py-3 px-4">Fare</th>
+              <th class="py-3 px-4">Status</th>
+              <th class="py-3 px-5 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody id="allTripsTableBody" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- VIEW 3: REVENUE & GST ANALYTICS                           -->
+    <!-- ========================================================= -->
+    <div id="viewAnalytics" class="hidden space-y-5 fade-in">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs">
+          <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Bookings</p>
+          <p id="bizTotalBookings" class="text-2xl font-extrabold text-slate-900 mt-1">6</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs">
+          <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Active On-Road Trips</p>
+          <p id="bizActiveTrips" class="text-2xl font-extrabold text-emerald-700 mt-1">1</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs">
+          <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Pipeline Gross Value</p>
+          <p id="bizTotalRevenue" class="text-2xl font-extrabold text-[#991B1B] mt-1">₹29,970</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 class="text-sm font-bold text-slate-900">Revenue Overview</h3>
+              <p id="revPeriodTotal" class="text-xs font-semibold text-emerald-700">Total: ₹1,84,200</p>
+            </div>
+            <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+              <button type="button" data-period="Today" class="rev-period-btn px-2.5 py-1 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900">Today</button>
+              <button type="button" data-period="Week" class="rev-period-btn px-2.5 py-1 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900">Week</button>
+              <button type="button" data-period="Month" class="rev-period-btn px-2.5 py-1 rounded-lg text-xs font-bold bg-[#991B1B] text-white shadow-xs">Month</button>
+              <button type="button" data-period="Year" class="rev-period-btn px-2.5 py-1 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900">Year</button>
+            </div>
+          </div>
+          <div id="revenueBarChart" class="flex items-end justify-between gap-3 pt-4 h-40"></div>
+        </div>
+
+        <div class="lg:col-span-5 bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-4">
+          <h3 class="text-sm font-bold text-slate-900">Booking Types Split</h3>
+          <div id="bookingTypesList" class="space-y-3"></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ========================================================= -->
+  <!-- SLIDE-OVER DRAWER: BOOKING ALERTS & ASSIGNMENT            -->
+  <!-- ========================================================= -->
+  <div id="remindersDrawer" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex justify-end">
+    <div class="w-full max-w-md bg-white h-full shadow-2xl flex flex-col drawer-slide">
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div>
+          <h3 class="text-sm font-bold text-slate-900">Booking Alerts &amp; Assignment</h3>
+          <p class="text-[11px] text-slate-500">Immediate attention duties waiting for driver or vendor</p>
+        </div>
+        <button type="button" id="closeRemindersBtn" class="w-8 h-8 rounded-full text-slate-400 hover:bg-slate-100 flex items-center justify-center">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      <div id="remindersDrawerList" class="p-5 space-y-3 overflow-y-auto flex-1"></div>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- SLIDE-OVER DRAWER: NOTIFICATION SOUND SETTINGS            -->
+  <!-- ========================================================= -->
+  <div id="soundDrawer" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex justify-end">
+    <div class="w-full max-w-md bg-white h-full shadow-2xl flex flex-col drawer-slide">
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div>
+          <h3 class="text-sm font-bold text-slate-900">Dispatch Sound Alerts</h3>
+          <p class="text-[11px] text-slate-500">Test built-in tones or upload your own MP3/WAV alert</p>
+        </div>
+        <button type="button" id="closeSoundBtn" class="w-8 h-8 rounded-full text-slate-400 hover:bg-slate-100 flex items-center justify-center">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-4 overflow-y-auto flex-1 text-xs">
+        <div class="p-3.5 rounded-2xl border border-slate-200 flex items-center justify-between">
+          <div>
+            <p class="font-bold text-slate-900">New Booking Chime</p>
+            <p class="text-[11px] text-slate-500">Plays once when a new manual/online booking arrives</p>
+          </div>
+          <button type="button" data-test-tone="new" class="test-tone-btn px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 font-semibold text-slate-800">
+            Test Sound
+          </button>
+        </div>
+
+        <div class="p-3.5 rounded-2xl border border-crimson-200 bg-crimson-50/30 flex items-center justify-between">
+          <div>
+            <p class="font-bold text-[#991B1B]">Urgent Unassigned Alert</p>
+            <p class="text-[11px] text-slate-600">High-priority alert if pickup is within 2 hours</p>
+          </div>
+          <button type="button" data-test-tone="urgent" class="test-tone-btn px-3 py-1.5 rounded-xl bg-[#991B1B] text-white font-semibold hover:bg-[#7F1D1D]">
+            Test Urgent
+          </button>
+        </div>
+
+        <!-- Custom External Audio Upload -->
+        <div class="p-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 space-y-2.5">
+          <p class="font-bold text-slate-900">Upload Custom Alert Audio (MP3 / WAV, max 2 MB)</p>
+          <input type="file" id="customAudioUploadInput" accept="audio/*" class="block w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-crimson-50 file:text-[#991B1B] hover:file:bg-crimson-100" />
+          <div id="uploadedAudioCard" class="hidden p-2.5 rounded-xl bg-white border border-slate-200 flex items-center justify-between gap-2">
+            <span id="uploadedAudioName" class="font-semibold text-slate-800 truncate"></span>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <button type="button" id="playUploadedAudioBtn" class="px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-semibold text-[11px]">Play</button>
+              <button type="button" id="removeUploadedAudioBtn" class="px-2 py-1 rounded-lg bg-red-50 text-red-700 font-semibold text-[11px]">Remove</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-4 border-t border-slate-100">
+        <button type="button" id="saveSoundBtn" class="w-full bg-[#991B1B] hover:bg-[#7F1D1D] text-white font-semibold py-2.5 rounded-xl text-xs">
+          Save Sound Settings
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODAL: QUICK ASSIGN DRIVER & CAB + DIRECT VENDOR OPTION   -->
+  <!-- ========================================================= -->
+  <div id="assignModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden fade-in">
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div>
+          <h3 class="text-sm font-bold text-slate-900">Assign Driver &amp; Cab / Direct Vendor</h3>
+          <p id="assignModalSub" class="text-[11px] text-slate-500"></p>
+        </div>
+        <button type="button" id="closeAssignModalBtn" class="w-8 h-8 rounded-full text-slate-400 hover:bg-slate-100 flex items-center justify-center">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form id="assignForm" class="p-5 space-y-4 text-xs">
+        <!-- 2-Mode Toggle: Own Fleet vs Direct Vendor -->
+        <div class="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-slate-100 border border-slate-200/80">
+          <button
+            type="button"
+            data-assign-mode="own"
+            class="assign-mode-tab py-2 px-3 rounded-lg text-xs font-bold bg-white text-[#991B1B] shadow-xs flex items-center justify-center gap-1.5 transition-all"
+          >
+            <i data-lucide="car" class="w-3.5 h-3.5"></i>
+            <span>Own Fleet</span>
+          </button>
+          <button
+            type="button"
+            data-assign-mode="vendor"
+            class="assign-mode-tab py-2 px-3 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5 transition-all"
+          >
+            <i data-lucide="building-2" class="w-3.5 h-3.5"></i>
+            <span>Direct Vendor</span>
+          </button>
+        </div>
+
+        <!-- MODE 1: OWN FLEET (SEPARATE DRIVER + SEPARATE CAB) -->
+        <div id="ownFleetFields" class="space-y-3.5">
+          <div>
+            <label for="assignDriverSelect" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-1.5">
+              <i data-lucide="user-check" class="w-3.5 h-3.5 text-[#991B1B]"></i>
+              <span>1. Select Available Driver *</span>
+            </label>
+            <select id="assignDriverSelect" class="w-full h-10 px-3 font-semibold border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-[#991B1B]">
+              <option value="Murugan S (+91 98421 11223)">Murugan S • +91 98421 11223 (Badge Verified • Free)</option>
+              <option value="Senthil K (+91 94430 55667)">Senthil K • +91 94430 55667 (Hill Driver • Free)</option>
+              <option value="Rajesh P (+91 98940 77889)">Rajesh P • +91 98940 77889 (Outstation • Free)</option>
+              <option value="Karthikeyan V (+91 97890 33445)">Karthikeyan V • +91 97890 33445 (Airport Desk • Free)</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="assignCabSelect" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-1.5">
+              <i data-lucide="car" class="w-3.5 h-3.5 text-emerald-700"></i>
+              <span>2. Select Available Cab / Vehicle *</span>
+            </label>
+            <select id="assignCabSelect" class="w-full h-10 px-3 font-semibold border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-[#991B1B]">
+              <option value="TN-38-BQ-4512 (Dzire Sedan)">TN-38-BQ-4512 • Dzire Sedan (White • AC)</option>
+              <option value="TN-38-CR-8890 (Innova Crysta)">TN-38-CR-8890 • Innova Crysta (7 Seater • AC)</option>
+              <option value="TN-58-AB-1920 (Ertiga SUV)">TN-58-AB-1920 • Ertiga SUV (6 Seater • AC)</option>
+              <option value="TN-37-DX-6041 (Innova)">TN-37-DX-6041 • Toyota Innova (7 Seater • AC)</option>
+              <option value="TN-59-CK-2219 (Wagon R)">TN-59-CK-2219 • Wagon R Hatchback (4 Seater • AC)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- MODE 2: DIRECT VENDOR ASSIGNMENT + PAYOUT SPLIT -->
+        <div id="vendorAssignFields" class="hidden space-y-3">
+          <div>
+            <label for="assignVendorSelect" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-1.5">
+              <i data-lucide="building-2" class="w-3.5 h-3.5 text-purple-700"></i>
+              <span>1. Select Registered Vendor / Partner *</span>
+            </label>
+            <select id="assignVendorSelect" class="w-full h-10 px-3 font-semibold border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-[#991B1B]">
+              <option value="Sri Murugan Travels (Coimbatore)">Sri Murugan Travels • Coimbatore (+91 98422 88110)</option>
+              <option value="Meenakshi Cabs Partner (Madurai)">Meenakshi Cabs Partner • Madurai (+91 94431 77220)</option>
+              <option value="Chennai Airport Fleet Hub">Chennai Airport Fleet Hub • Chennai (+91 98409 66330)</option>
+              <option value="Kovai Outstation Associates">Kovai Outstation Associates • Tiruppur (+91 97891 55440)</option>
+            </select>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div>
+              <label for="vendorDriverInput" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">2. Vendor Driver &amp; Mobile</label>
+              <input
+                type="text"
+                id="vendorDriverInput"
+                placeholder="e.g., Kumar (98421 55012)"
+                class="w-full h-9 px-3 font-semibold border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]"
+              />
+            </div>
+            <div>
+              <label for="vendorCabInput" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">3. Vendor Cab No.</label>
+              <input
+                type="text"
+                id="vendorCabInput"
+                placeholder="e.g., TN-58-BX-9012"
+                class="w-full h-9 px-3 font-semibold uppercase border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]"
+              />
+            </div>
+          </div>
+
+          <!-- Vendor Payout vs Nesam Commission Split -->
+          <div class="p-3 rounded-xl bg-purple-50/60 border border-purple-200/90 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-purple-900">Vendor Payout &amp; Margin Split</span>
+              <span id="vendorCustFarePill" class="text-[11px] font-bold text-slate-700">Customer Fare: ₹0</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2.5 items-center">
+              <div>
+                <label for="vendorPayoutInput" class="block text-[10px] font-semibold text-slate-600 mb-1">Vendor Net Payout (₹) *</label>
+                <input
+                  type="number"
+                  id="vendorPayoutInput"
+                  min="0"
+                  class="w-full h-9 px-3 font-bold bg-white border border-purple-200 rounded-lg focus:outline-none focus:border-purple-700"
+                />
+              </div>
+              <div class="p-2 rounded-lg bg-white border border-purple-200/80 text-right">
+                <p class="text-[10px] font-semibold text-slate-500">Nesam Margin</p>
+                <p id="vendorMarginText" class="text-sm font-extrabold text-emerald-700">₹0</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-2">
+          <button type="submit" id="confirmAllocBtn" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl">
+            Confirm Allocation
+          </button>
+          <button type="button" id="assignAndCopySlipBtn" class="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-1.5">
+            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+            <span id="assignSlipBtnLabel">Assign &amp; Copy Duty Slip</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODAL: TRIP CLOSING & EXTRA KM / TOLL / BATA CALCULATOR   -->
+  <!-- ========================================================= -->
+  <div id="closeTripModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden fade-in">
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-emerald-50/50">
+        <div>
+          <h3 class="text-sm font-bold text-slate-900">Complete &amp; Settle Trip</h3>
+          <p id="closeTripModalSub" class="text-[11px] text-slate-600"></p>
+        </div>
+        <button type="button" id="closeTripModalXBtn" class="w-8 h-8 rounded-full text-slate-400 hover:bg-slate-100 flex items-center justify-center">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form id="closeTripForm" class="p-5 space-y-3.5 text-xs">
+        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+          <span class="text-slate-600 font-medium">Base Quoted Fare</span>
+          <span id="ctBaseFareText" class="text-sm font-bold text-slate-900">₹0</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="ctExtraKmInput" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Extra KM (× ₹15/km)</label>
+            <input type="number" id="ctExtraKmInput" min="0" value="0" class="w-full h-9 px-3 font-semibold border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]" />
+          </div>
+          <div>
+            <label for="ctTollInput" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Toll Charges (₹)</label>
+            <input type="number" id="ctTollInput" min="0" value="0" class="w-full h-9 px-3 font-semibold border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]" />
+          </div>
+          <div>
+            <label for="ctParkingInput" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Parking / Entry (₹)</label>
+            <input type="number" id="ctParkingInput" min="0" value="0" class="w-full h-9 px-3 font-semibold border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]" />
+          </div>
+          <div>
+            <label for="ctPermitInput" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">State Permit / Extra Bata (₹)</label>
+            <input type="number" id="ctPermitInput" min="0" value="0" class="w-full h-9 px-3 font-semibold border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]" />
+          </div>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-crimson-50/70 border border-crimson-200 flex items-center justify-between">
+          <div>
+            <p class="text-[10px] font-bold uppercase text-[#991B1B]">Final Customer Total</p>
+            <p class="text-[11px] text-slate-600">Includes Base + Extra KM + Actuals</p>
+          </div>
+          <span id="ctFinalTotalText" class="text-lg font-extrabold text-[#991B1B]">₹0</span>
+        </div>
+
+        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl shadow-xs">
+          Mark Trip Completed &amp; Copy Final Bill
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODAL: PRE-APPROVAL FIXED FARE vs +5%/HR AUTO-BIDDING     -->
+  <!-- ========================================================= -->
+  <div id="approveDutyModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden fade-in max-h-[92vh] flex flex-col">
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-amber-50/60 shrink-0">
+        <div>
+          <h3 class="text-sm font-bold text-slate-900">Approve Duty — Fixed Fare or Auto-Bidding</h3>
+          <p id="approveModalSub" class="text-[11px] text-slate-600"></p>
+        </div>
+        <button type="button" id="closeApproveModalBtn" class="w-8 h-8 rounded-full text-slate-400 hover:bg-slate-100 flex items-center justify-center">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form id="approveDutyForm" class="p-5 space-y-4 text-xs overflow-y-auto">
+        <!-- Customer Fare Reference Bar -->
+        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+          <div>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Customer Booked Fare</span>
+            <p id="appRouteSummary" class="font-bold text-slate-800 mt-0.5"></p>
+          </div>
+          <span id="appCustFareText" class="text-base font-extrabold text-[#991B1B]">₹0</span>
+        </div>
+
+        <!-- 2-Mode Selector: Fixed Fare vs Auto-Bidding (+5% / hr) -->
+        <div class="grid grid-cols-2 gap-2 p-1 rounded-xl bg-slate-100 border border-slate-200/80">
+          <button
+            type="button"
+            data-app-mode="fixed"
+            class="app-mode-tab py-2 px-3 rounded-lg text-xs font-bold bg-white text-[#991B1B] shadow-xs flex items-center justify-center gap-1.5 transition-all"
+          >
+            <i data-lucide="lock" class="w-3.5 h-3.5"></i>
+            <span>Fixed Fare Publish</span>
+          </button>
+          <button
+            type="button"
+            data-app-mode="bidding"
+            class="app-mode-tab py-2 px-3 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5 transition-all"
+          >
+            <i data-lucide="trending-up" class="w-3.5 h-3.5"></i>
+            <span>Bidding (+5% / 1 Hr)</span>
+          </button>
+        </div>
+
+        <!-- OPTION A: FIXED FARE PUBLISH -->
+        <div id="appFixedSection" class="space-y-3">
+          <div class="grid grid-cols-2 gap-3 items-end">
+            <div>
+              <label for="appFixedPayoutInput" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Partner Fixed Payout (₹) *</label>
+              <input
+                type="number"
+                id="appFixedPayoutInput"
+                min="0"
+                class="w-full h-10 px-3 font-bold bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]"
+              />
+            </div>
+            <div class="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-right">
+              <p class="text-[10px] font-bold uppercase text-emerald-800">Nesam Fixed Margin</p>
+              <p id="appFixedMarginText" class="text-sm font-extrabold text-emerald-700">₹0</p>
+            </div>
+          </div>
+          <p class="text-[11px] text-slate-500">Publishes at this exact fixed rate to the partner &amp; driver pool without hourly price changes.</p>
+        </div>
+
+        <!-- OPTION B: AUTO-BIDDING (+5% EVERY 1 HOUR + LOWEST BID ASSIGN) -->
+        <div id="appBiddingSection" class="hidden space-y-3">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label for="appBidStartInput" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Starting Bid Price (₹) *</label>
+              <input
+                type="number"
+                id="appBidStartInput"
+                min="0"
+                class="w-full h-10 px-3 font-bold bg-white border border-indigo-200 rounded-xl focus:outline-none focus:border-indigo-600"
+              />
+            </div>
+            <div>
+              <label for="appBidEndInput" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Max Ending Price Cap (₹) *</label>
+              <input
+                type="number"
+                id="appBidEndInput"
+                min="0"
+                class="w-full h-10 px-3 font-bold bg-white border border-indigo-200 rounded-xl focus:outline-none focus:border-indigo-600"
+              />
+            </div>
+          </div>
+
+          <!-- Auto-Escalation & Lowest Bid Rule Banner -->
+          <div class="p-3 rounded-xl bg-indigo-50/70 border border-indigo-200/90 space-y-2">
+            <div class="flex items-center justify-between flex-wrap gap-1">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-900 flex items-center gap-1">
+                <i data-lucide="clock" class="w-3.5 h-3.5 text-indigo-600"></i>
+                <span>Auto +5% Every 1 Hour • Lowest Bid Auto-Assign</span>
+              </span>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white text-indigo-800 border border-indigo-200">Cap Protected</span>
+            </div>
+
+            <!-- Live Hourly +5% Escalation Schedule Preview -->
+            <div id="appBidSchedulePreview" class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 pt-1"></div>
+          </div>
+        </div>
+
+        <button type="submit" id="appConfirmPublishBtn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl shadow-xs flex items-center justify-center gap-1.5">
+          <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+          <span id="appConfirmPublishText">Approve &amp; Publish Fixed Duty</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODAL: LOWEST BID REVIEW & AUTO-ASSIGNMENT                -->
+  <!-- ========================================================= -->
+  <div id="biddingBidsModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden fade-in">
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-indigo-50/60">
+        <div>
+          <h3 class="text-sm font-bold text-slate-900">Live Partner Bids (Lowest Bid Auto-Assign)</h3>
+          <p id="bidsModalSub" class="text-[11px] text-slate-600"></p>
+        </div>
+        <button type="button" id="closeBidsModalBtn" class="w-8 h-8 rounded-full text-slate-400 hover:bg-slate-100 flex items-center justify-center">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-3.5 text-xs">
+        <div id="bidsRuleSummary" class="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between"></div>
+
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Received Quotes (Sorted Lowest First)</span>
+            <button type="button" id="simulateHourTickBtn" class="text-[11px] font-bold text-indigo-700 hover:underline flex items-center gap-1">
+              <i data-lucide="fast-forward" class="w-3 h-3"></i>
+              <span>Simulate +1 Hr (+5%)</span>
+            </button>
+          </div>
+          <div id="bidsListContainer" class="space-y-2"></div>
+        </div>
+
+        <button type="button" id="assignLowestBidBtn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl shadow-xs flex items-center justify-center gap-1.5">
+          <i data-lucide="award" class="w-4 h-4"></i>
+          <span id="assignLowestBidBtnText">Assign Lowest Bid Now</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="dashToast" class="hidden fixed bottom-5 right-5 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl text-xs font-semibold flex items-center gap-2 fade-in">
+    <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
+    <span id="dashToastText"></span>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      function refreshIcons() {
+        try {
+          if (window.lucide && typeof window.lucide.createIcons === 'function') {
+            window.lucide.createIcons();
+          }
+        } catch (err) {
+          // ignore
+        }
+      }
+      refreshIcons();
+
+      // ---------------------------------------------------------
+      // SAMPLE LIVE TRIPS DATA (WITH BOOKING SOURCE BRAND)
+      // ---------------------------------------------------------
+      let sampleTrips = [
+        { id: '#NSM-2611-8421', source: 'Nesam Cabs', customer: 'Karthik Rajendran', phone: '9842144510', service: 'One Way', route: 'Coimbatore → Madurai', date: '21-11-2026', time: '02:30 PM', day: 'today', cab: 'Innova Crysta', driver: 'Unassigned', fare: 5660, payment: '25% Paid', stage: 'new' },
+        { id: '#PTX-2611-8422', source: 'PeopleTaxi.in', customer: 'Priya Sundar', phone: '9894011223', service: 'Airport', route: 'Chennai Airport → Vellore', date: '21-11-2026', time: '04:15 PM', day: 'today', cab: 'Dzire Sedan', driver: 'Unassigned', fare: 2890, payment: 'Pay Later', stage: 'new' },
+        { id: '#OWC-2611-8419', source: 'One Way Car Rentals', customer: 'Senthil Kumar', phone: '9443077889', service: 'Round Trip', route: 'Coimbatore ⇄ Ooty (2 Days)', date: '21-11-2026', time: '05:00 PM', day: 'today', cab: 'Ertiga SUV', driver: 'Needs Driver', fare: 9200, payment: '100% Paid', stage: 'assign' },
+        { id: '#NSM-2611-8415', source: 'Nesam Cabs', customer: 'Arun Prakash', phone: '9842199001', service: 'One Way', route: 'Madurai → Trichy', date: '21-11-2026', time: '11:30 AM', day: 'today', cab: 'Dzire Sedan', driver: 'Murugan S (TN-38-BQ-4512)', fare: 2650, payment: 'Pay Later', stage: 'ontrip' },
+        { id: '#PTX-2611-8425', source: 'PeopleTaxi.in', customer: 'Meenakshi Travels', phone: '9842277890', service: 'Multicity', route: 'Chennai → Tiruvannamalai → Trichy', date: '22-11-2026', time: '06:00 AM', day: 'tomorrow', cab: 'Innova', driver: 'Partner Duty (Fixed ₹6,550)', fare: 7450, payment: '25% Paid', stage: 'publish', dispatchType: 'fixed', fixedPayout: 6550 },
+        {
+          id: '#NSM-2611-8426',
+          source: 'Nesam Cabs',
+          customer: 'Divya Menon',
+          phone: '9789011224',
+          service: 'Hourly Rental',
+          route: 'Coimbatore Local (8 Hrs / 80 km)',
+          date: '22-11-2026',
+          time: '09:00 AM',
+          day: 'tomorrow',
+          cab: 'Dzire Sedan',
+          driver: 'Bidding (₹1,750 → ₹2,050)',
+          fare: 2170,
+          payment: 'Pay Later',
+          stage: 'published',
+          dispatchType: 'bidding',
+          bidStart: 1750,
+          bidEnd: 2050,
+          bidCurrent: 1750,
+          bidHoursElapsed: 0,
+          bids: [
+            { vendor: 'Sri Murugan Travels', driver: 'Kumar (98421 55012)', cabNo: 'TN-38-BQ-4512', amount: 1720 },
+            { vendor: 'Kovai Outstation Associates', driver: 'Selvam (94431 22019)', cabNo: 'TN-37-DX-1190', amount: 1750 },
+            { vendor: 'RS Cabs Coimbatore', driver: 'Mani (98940 88210)', cabNo: 'TN-38-AB-7741', amount: 1840 },
+          ],
+        },
+      ];
+
+      const revenueDatasets = {
+        Today: {
+          total: '₹30,020',
+          delta: '+18.4%',
+          isUp: true,
+          points: [
+            { label: '08 AM', val: 3200, tag: 'Morning Airport' },
+            { label: '10 AM', val: 5850, tag: 'Coimbatore → Madurai' },
+            { label: '12 PM', val: 4900, tag: 'Local & Rental' },
+            { label: '02 PM', val: 7600, tag: 'Outstation Peak' },
+            { label: '04 PM', val: 6450, tag: 'Round Trip Ooty' },
+            { label: '06 PM', val: 9200, tag: 'Evening Surge' },
+          ],
+          tickers: [
+            { sym: 'ONEWAY', val: '₹8,310', chg: '+14.2%', up: true },
+            { sym: 'ROUND', val: '₹9,200', chg: '+22.5%', up: true },
+            { sym: 'MULTI', val: '₹7,450', chg: '+9.8%', up: true },
+            { sym: 'AIRPORT', val: '₹2,890', chg: '-3.1%', up: false },
+            { sym: 'RENTAL', val: '₹2,170', chg: '+6.4%', up: true },
+          ],
+        },
+        Week: {
+          total: '₹1,42,800',
+          delta: '+12.6%',
+          isUp: true,
+          points: [
+            { label: 'Mon', val: 18500, tag: 'Monday' },
+            { label: 'Tue', val: 21200, tag: 'Tuesday' },
+            { label: 'Wed', val: 19900, tag: 'Wednesday' },
+            { label: 'Thu', val: 26400, tag: 'Thursday' },
+            { label: 'Fri', val: 29800, tag: 'Friday Peak' },
+            { label: 'Sat', val: 27000, tag: 'Saturday' },
+          ],
+          tickers: [
+            { sym: 'ONEWAY', val: '₹64.2K', chg: '+15.0%', up: true },
+            { sym: 'ROUND', val: '₹41.8K', chg: '+11.2%', up: true },
+            { sym: 'MULTI', val: '₹18.4K', chg: '+8.4%', up: true },
+            { sym: 'AIRPORT', val: '₹11.2K', chg: '+4.1%', up: true },
+            { sym: 'RENTAL', val: '₹7.2K', chg: '-1.8%', up: false },
+          ],
+        },
+        Month: {
+          total: '₹4,86,500',
+          delta: '+24.8%',
+          isUp: true,
+          points: [
+            { label: 'Wk 1', val: 98400, tag: 'Week 1' },
+            { label: 'Wk 2', val: 112600, tag: 'Week 2' },
+            { label: 'Wk 3', val: 108900, tag: 'Week 3' },
+            { label: 'Wk 4', val: 134200, tag: 'Week 4' },
+            { label: 'Bonus', val: 148500, tag: 'Festival Surge' },
+            { label: 'Current', val: 162400, tag: 'MTD Run-rate' },
+          ],
+          tickers: [
+            { sym: 'ONEWAY', val: '₹2.28L', chg: '+26.1%', up: true },
+            { sym: 'ROUND', val: '₹1.42L', chg: '+19.4%', up: true },
+            { sym: 'MULTI', val: '₹54.1K', chg: '+14.0%', up: true },
+            { sym: 'AIRPORT', val: '₹38.3K', chg: '+11.7%', up: true },
+            { sym: 'RENTAL', val: '₹23.7K', chg: '+5.2%', up: true },
+          ],
+        },
+        Year: { total: '₹54,20,000', bars: [{ label: 'Q1', val: 1180000, pct: 70 }, { label: 'Q2', val: 1290000, pct: 78 }, { label: 'Q3', val: 1380000, pct: 84 }, { label: 'Q4', val: 1570000, pct: 96 }] },
+      };
+
+      const state = {
+        activeView: 'command',
+        brandFilter: 'ALL', // 'ALL' | 'Nesam Cabs' | 'PeopleTaxi.in' | 'One Way Car Rentals'
+        demoDataOn: true,
+        revPeriod: 'Month',
+        cmdRevPeriod: 'Today',
+        tripsStageFilter: 'all',
+        tripsTypeFilter: 'All Trips',
+        tripsSearch: '',
+        assigningBookingId: null,
+        assignMode: 'own',
+        approvingBookingId: null,
+        approveMode: 'fixed',
+        biddingBookingId: null,
+        closingBookingId: null,
+        customAudioUrl: null,
+        customAudioName: '',
+      };
+
+      function getTrips() {
+        if (!state.demoDataOn) return [];
+        if (state.brandFilter === 'ALL') return sampleTrips;
+        return sampleTrips.filter((t) => t.source === state.brandFilter);
+      }
+
+      function getSourceBadge(sourceName) {
+        if (sourceName === 'PeopleTaxi.in') {
+          return '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80"><span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>PeopleTaxi.in</span>';
+        }
+        if (sourceName === 'One Way Car Rentals') {
+          return '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200/80"><span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>One Way Car Rentals</span>';
+        }
+        return '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-crimson-50 text-[#991B1B] border border-crimson-200/80"><span class="w-1.5 h-1.5 rounded-full bg-[#991B1B]"></span>Nesam Cabs</span>';
+      }
+
+      function formatINR(num) {
+        return '₹' + Number(num).toLocaleString('en-IN');
+      }
+
+      function copyTextSafe(text, onDone) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+          document.execCommand('copy');
+          if (onDone) onDone();
+        } catch (err) {
+          // ignore
+        }
+        document.body.removeChild(ta);
+      }
+
+      function showToast(msg) {
+        const toastEl = document.getElementById('dashToast');
+        const textEl = document.getElementById('dashToastText');
+        if (!toastEl || !textEl) return;
+        textEl.textContent = msg;
+        toastEl.classList.remove('hidden');
+        refreshIcons();
+        clearTimeout(window.__dashToastTimer);
+        window.__dashToastTimer = setTimeout(() => {
+          toastEl.classList.add('hidden');
+        }, 3200);
+      }
+
+      function playDispatchTone(toneType = 'new') {
+        try {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (!AudioCtx) return;
+          const ctx = new AudioCtx();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(toneType === 'urgent' ? 880 : 660, ctx.currentTime);
+          gain.gain.setValueAtTime(0.15, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.36);
+        } catch (err) {
+          // ignore audio block
+        }
+      }
+
+      function buildDriverDutySlip(t) {
+        const brandHeader = (t.source || 'NESAM CABS').toUpperCase();
+        if (t.assignedVendor) {
+          return `*${brandHeader} — VENDOR DUTY SLIP*\nBooking ID: *${t.id}*\nSource Brand: ${t.source || 'Nesam Cabs'}\nVendor Partner: *${t.assignedVendor}*\nService: ${t.service}\nPickup Date & Time: *${t.date} at ${t.time}*\nRoute: *${t.route}*\nCustomer: ${t.customer} (+91 ${t.phone})\nVendor Driver: *${t.assignedDriver || 'To be updated by Vendor'}*\nCab No: *${t.assignedCab || t.cab}*\nCustomer Collect: *${formatINR(t.fare)}* (${t.payment})\nVendor Agreed Rate: *${formatINR(t.vendorPayout || 0)}*\n_(Collect Toll, Parking & Permit actuals with receipt)_`;
+        }
+        return `*${brandHeader} — DRIVER DUTY SLIP*\nBooking ID: *${t.id}*\nSource Brand: ${t.source || 'Nesam Cabs'}\nService: ${t.service}\nPickup Date & Time: *${t.date} at ${t.time}*\nRoute: *${t.route}*\nCustomer: ${t.customer} (+91 ${t.phone})\nDriver: *${t.driver}*\nCab / Vehicle: *${t.assignedCab || t.cab}*\nTotal Fare: *${formatINR(t.fare)}* (${t.payment})\n_(Collect Toll, Parking & Permit actuals with receipt)_\nSafe Drive!`;
+      }
+      // Assign Driver / Direct Vendor Modal + 1-Click WhatsApp Duty Slip Copy
+      const assignModal = document.getElementById('assignModal');
+      const ownFleetFields = document.getElementById('ownFleetFields');
+      const vendorAssignFields = document.getElementById('vendorAssignFields');
+      const vendorPayoutInput = document.getElementById('vendorPayoutInput');
+
+      function updateVendorMarginPreview() {
+        const trip = sampleTrips.find((t) => t.id === state.assigningBookingId);
+        if (!trip) return;
+        const payout = Math.max(0, parseInt(vendorPayoutInput.value, 10) || 0);
+        const margin = trip.fare - payout;
+        const marginEl = document.getElementById('vendorMarginText');
+        marginEl.textContent = formatINR(margin);
+        marginEl.className = margin >= 0
+          ? 'text-sm font-extrabold text-emerald-700'
+          : 'text-sm font-extrabold text-red-600';
+      }
+
+      function setAssignMode(mode) {
+        state.assignMode = mode;
+        const isVendor = mode === 'vendor';
+        ownFleetFields.classList.toggle('hidden', isVendor);
+        vendorAssignFields.classList.toggle('hidden', !isVendor);
+
+        document.querySelectorAll('.assign-mode-tab').forEach((tab) => {
+          const active = tab.dataset.assignMode === mode;
+          tab.className = active
+            ? 'assign-mode-tab py-2 px-3 rounded-lg text-xs font-bold bg-white text-[#991B1B] shadow-xs flex items-center justify-center gap-1.5 transition-all'
+            : 'assign-mode-tab py-2 px-3 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5 transition-all';
+        });
+
+        document.getElementById('confirmAllocBtn').textContent = isVendor
+          ? 'Assign to Vendor'
+          : 'Confirm Allocation';
+        document.getElementById('assignSlipBtnLabel').textContent = isVendor
+          ? 'Assign & Copy Vendor Slip'
+          : 'Assign & Copy Duty Slip';
+      }
+
+      document.querySelectorAll('.assign-mode-tab').forEach((tab) => {
+        tab.addEventListener('click', () => setAssignMode(tab.dataset.assignMode));
+      });
+
+      vendorPayoutInput.addEventListener('input', updateVendorMarginPreview);
+
+      function openAssignModal(bookingId) {
+        const trip = sampleTrips.find((t) => t.id === bookingId);
+        if (!trip) return;
+        state.assigningBookingId = bookingId;
+        document.getElementById('assignModalSub').textContent = `${trip.id} • ${trip.route} (Requested: ${trip.cab})`;
+
+        // Auto-match requested cab category in the Own Cab dropdown if available
+        const cabSelect = document.getElementById('assignCabSelect');
+        const reqLower = (trip.cab || '').toLowerCase();
+        for (let i = 0; i < cabSelect.options.length; i++) {
+          if (cabSelect.options[i].value.toLowerCase().includes(reqLower.split(' ')[0])) {
+            cabSelect.selectedIndex = i;
+            break;
+          }
+        }
+
+        // Pre-fill Vendor Payout (approx 88% of fare, leaving ~12% margin)
+        document.getElementById('vendorCustFarePill').textContent = `Customer Fare: ${formatINR(trip.fare)}`;
+        vendorPayoutInput.value = Math.round((trip.fare * 0.88) / 10) * 10;
+        document.getElementById('vendorDriverInput').value = '';
+        document.getElementById('vendorCabInput').value = '';
+        updateVendorMarginPreview();
+
+        setAssignMode(trip.assignedVendor ? 'vendor' : 'own');
+        assignModal.classList.remove('hidden');
+        refreshIcons();
+      }
+      document.getElementById('closeAssignModalBtn').addEventListener('click', () => assignModal.classList.add('hidden'));
+
+      function commitDriverAssignment(copySlipAfter = false) {
+        const trip = sampleTrips.find((t) => t.id === state.assigningBookingId);
+        if (!trip) return;
+
+        if (state.assignMode === 'vendor') {
+          const selectedVendor = document.getElementById('assignVendorSelect').value;
+          const vDriver = document.getElementById('vendorDriverInput').value.trim() || 'Vendor Driver';
+          const vCab = document.getElementById('vendorCabInput').value.trim().toUpperCase() || trip.cab;
+          const vPayout = Math.max(0, parseInt(vendorPayoutInput.value, 10) || 0);
+
+          trip.assignedVendor = selectedVendor;
+          trip.assignedDriver = vDriver;
+          trip.assignedCab = vCab;
+          trip.vendorPayout = vPayout;
+          trip.driver = `[Vendor] ${selectedVendor.split(' (')[0]} • ${vCab}`;
+          trip.stage = 'ontrip';
+        } else {
+          const selectedDriver = document.getElementById('assignDriverSelect').value;
+          const selectedCab = document.getElementById('assignCabSelect').value;
+          trip.assignedVendor = null;
+          trip.vendorPayout = null;
+          trip.assignedDriver = selectedDriver;
+          trip.assignedCab = selectedCab;
+          trip.driver = `${selectedDriver} • ${selectedCab}`;
+          trip.stage = 'ontrip';
+        }
+
+        assignModal.classList.add('hidden');
+        renderCommandDesk();
+        if (state.activeView === 'bookings') renderAllTripsExplorer();
+
+        if (copySlipAfter) {
+          copyTextSafe(buildDriverDutySlip(trip), () => {
+            showToast(
+              state.assignMode === 'vendor'
+                ? `Vendor assigned & WhatsApp Vendor Slip copied for ${trip.id}!`
+                : `Driver & Cab assigned + WhatsApp Duty Slip copied for ${trip.id}!`
+            );
+          });
+        } else {
+          showToast(
+            state.assignMode === 'vendor'
+              ? `Duty assigned directly to Vendor for ${trip.id}`
+              : `Driver & Cab allocated to ${trip.id}`
+          );
+        }
+      }
+
+      // ---------------------------------------------------------
+      // VIEW SWITCHING
+      // ---------------------------------------------------------
+      function switchView(viewName) {
+        state.activeView = viewName;
+        document.querySelectorAll('.nav-pill').forEach((btn) => {
+          const active = btn.dataset.view === viewName;
+          btn.className = active
+            ? 'nav-pill px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-[#991B1B] shadow-xs transition-all'
+            : 'nav-pill px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900 transition-all flex items-center gap-1.5';
+        });
+
+        document.getElementById('viewCommand').classList.toggle('hidden', viewName !== 'command');
+        document.getElementById('viewBookings').classList.toggle('hidden', viewName !== 'bookings');
+        document.getElementById('viewAnalytics').classList.toggle('hidden', viewName !== 'analytics');
+
+        if (viewName === 'bookings') renderAllTripsExplorer();
+      }
+
+      document.querySelectorAll('.nav-pill').forEach((btn) => {
+        btn.addEventListener('click', () => switchView(btn.dataset.view));
+      });
+      document.querySelectorAll('[data-view-jump]').forEach((btn) => {
+        btn.addEventListener('click', () => switchView(btn.dataset.viewJump));
+      });
+
+      // ---------------------------------------------------------
+      // RENDER COMMAND DESK
+      // ---------------------------------------------------------
+      function renderCommandDesk() {
+        const trips = getTrips();
+        const counts = {
+          new: trips.filter((t) => t.stage === 'new').length,
+          publish: trips.filter((t) => t.stage === 'publish').length,
+          published: trips.filter((t) => t.stage === 'published').length,
+          assign: trips.filter((t) => t.stage === 'assign').length,
+          ontrip: trips.filter((t) => t.stage === 'ontrip').length,
+        };
+
+        document.getElementById('countStageNew').textContent = counts.new;
+        document.getElementById('countStagePublish').textContent = counts.publish;
+        document.getElementById('countStagePublished').textContent = counts.published;
+        document.getElementById('countStageAssign').textContent = counts.assign;
+        document.getElementById('countStageOntrip').textContent = counts.ontrip;
+        document.getElementById('pillPublishCount').textContent = counts.publish;
+        document.getElementById('navTotalBadge').textContent = trips.length;
+
+        const urgentTotal = counts.new + counts.assign;
+        document.getElementById('alertCounterLabel').textContent = `${urgentTotal} Alert${urgentTotal === 1 ? '' : 's'}`;
+
+        // Update Brand Source Count Strip
+        const allBase = state.demoDataOn ? sampleTrips : [];
+        const nsmCnt = allBase.filter((t) => t.source === 'Nesam Cabs').length;
+        const ptxCnt = allBase.filter((t) => t.source === 'PeopleTaxi.in').length;
+        const owcCnt = allBase.filter((t) => t.source === 'One Way Car Rentals').length;
+        document.getElementById('brandSplitSummaryStrip').innerHTML = `Sources: <strong class="text-[#991B1B]">Nesam Cabs (${nsmCnt})</strong> • <strong class="text-emerald-700">PeopleTaxi.in (${ptxCnt})</strong> • <strong class="text-blue-700">One Way Car Rentals (${owcCnt})</strong>`;
+
+        // 1. New Bookings Queue
+        const newList = document.getElementById('newBookingsQueueList');
+        const newTrips = trips.filter((t) => t.stage === 'new');
+        if (newTrips.length === 0) {
+          newList.innerHTML = `
+            <div class="h-full min-h-[140px] flex flex-col items-center justify-center text-center p-4 text-slate-400">
+              <i data-lucide="inbox" class="w-7 h-7 mb-1.5 text-slate-300"></i>
+              <p class="text-xs font-bold text-slate-700">No new bookings</p>
+              <p class="text-[11px] mt-0.5">New bookings appear here for office review.</p>
+            </div>
+          `;
+        } else {
+          newList.innerHTML = newTrips.map((t) => `
+            <div class="p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div class="min-w-0">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="text-[11px] font-bold text-[#991B1B]">${t.id}</span>
+                  ${getSourceBadge(t.source)}
+                  <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">${t.service}</span>
+                </div>
+                <p class="text-xs font-bold text-slate-900 mt-1 truncate">${t.route}</p>
+                <p class="text-[11px] text-slate-500">${t.customer} • ${t.date} (${t.time}) • ${t.cab} (${formatINR(t.fare)})</p>
+              </div>
+              <button type="button" data-approve-id="${t.id}" class="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white shrink-0">
+                Approve Duty
+              </button>
+            </div>
+          `).join('');
+        }
+
+        // 2. Assignment Priority Queue
+        const assignList = document.getElementById('assignmentPriorityList');
+        const assignTrips = trips.filter((t) => t.stage === 'assign');
+        if (assignTrips.length === 0) {
+          assignList.innerHTML = `
+            <div class="h-full min-h-[140px] flex flex-col items-center justify-center text-center p-4 text-slate-400">
+              <i data-lucide="user-check" class="w-7 h-7 mb-1.5 text-slate-300"></i>
+              <p class="text-xs font-bold text-slate-700">No assignment pending</p>
+              <p class="text-[11px] mt-0.5">Accepted duties waiting for a driver and cab appear here.</p>
+            </div>
+          `;
+        } else {
+          assignList.innerHTML = assignTrips.map((t) => `
+            <div class="p-3 rounded-xl border border-crimson-200 bg-crimson-50/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div class="min-w-0">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="text-[11px] font-bold text-[#991B1B]">${t.id}</span>
+                  ${getSourceBadge(t.source)}
+                  <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-crimson-100 text-[#991B1B]">Needs Cab/Driver</span>
+                </div>
+                <p class="text-xs font-bold text-slate-900 mt-1 truncate">${t.route}</p>
+                <p class="text-[11px] text-slate-600">${t.date} at ${t.time} • ${t.cab} (${formatINR(t.fare)})</p>
+              </div>
+              <button type="button" data-open-assign="${t.id}" class="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-[#991B1B] hover:bg-[#7F1D1D] text-white shrink-0">
+                Assign Cab
+              </button>
+            </div>
+          `).join('');
+        }
+
+        // 3. Today & Tomorrow Schedule Lists
+        const todayTrips = trips.filter((t) => t.day === 'today');
+        const tomorrowTrips = trips.filter((t) => t.day === 'tomorrow');
+        document.getElementById('todayTripsMeta').textContent = `Saturday, 21 Nov • ${todayTrips.length} trips`;
+        document.getElementById('tomorrowTripsMeta').textContent = `Sunday, 22 Nov • ${tomorrowTrips.length} trips`;
+
+        renderScheduleRows('todayScheduleList', todayTrips);
+        renderScheduleRows('tomorrowScheduleList', tomorrowTrips);
+
+        // 4. Business Metrics & Latest Revenue Overview Widget
+        const revSum = trips.reduce((acc, t) => acc + t.fare, 0);
+        document.getElementById('bizTotalBookings').textContent = trips.length;
+        document.getElementById('bizActiveTrips').textContent = counts.ontrip;
+        document.getElementById('bizTotalRevenue').textContent = formatINR(revSum);
+        renderCommandRevenueOverview(revSum);
+
+        // 5. Recent Bookings Table
+        const recentBody = document.getElementById('recentBookingsBody');
+        if (trips.length === 0) {
+          recentBody.innerHTML = '<tr><td colspan="9" class="py-8 text-center text-xs text-slate-400">No bookings recorded for this filter.</td></tr>';
+        } else {
+          recentBody.innerHTML = trips.map((t) => `
+            <tr class="hover:bg-slate-50/80">
+              <td class="py-3 px-5">
+                <p class="font-bold text-[#991B1B]">${t.id}</p>
+                <div class="mt-1">${getSourceBadge(t.source)}</div>
+              </td>
+              <td class="py-3 px-4">
+                <p class="font-semibold text-slate-900">${t.customer}</p>
+                <p class="text-[10px] text-slate-400">+91 ${t.phone}</p>
+              </td>
+              <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-bold text-slate-700">${t.service}</span></td>
+              <td class="py-3 px-4 font-medium text-slate-800">${t.route}</td>
+              <td class="py-3 px-4 text-slate-600">${t.date} • ${t.time}</td>
+              <td class="py-3 px-4 text-slate-700 font-medium">${t.driver}</td>
+              <td class="py-3 px-4 font-bold text-slate-900">${formatINR(t.fare)}</td>
+              <td class="py-3 px-4">${getStageBadge(t.stage)}</td>
+              <td class="py-3 px-5 text-right">
+                <div class="inline-flex items-center gap-1.5">
+                  ${t.stage === 'ontrip' ? `
+                    <button type="button" data-copy-slip="${t.id}" class="px-2 py-1 rounded-lg text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700">Duty Slip</button>
+                    <button type="button" data-close-trip="${t.id}" class="px-2 py-1 rounded-lg text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100">Close Trip</button>
+                  ` : `
+                    <button type="button" data-open-assign="${t.id}" class="text-[11px] font-bold text-[#991B1B] hover:underline">Manage</button>
+                  `}
+                </div>
+              </td>
+            </tr>
+          `).join('');
+        }
+
+        // Bind Queue Buttons
+        document.querySelectorAll('[data-approve-id]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            openApproveDutyModal(btn.dataset.approveId);
+          });
+        });
+
+        document.querySelectorAll('[data-open-assign]').forEach((btn) => {
+          btn.addEventListener('click', () => openAssignModal(btn.dataset.openAssign));
+        });
+
+        document.querySelectorAll('[data-copy-slip]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const tr = sampleTrips.find((x) => x.id === btn.dataset.copySlip);
+            if (tr) {
+              copyTextSafe(buildDriverDutySlip(tr), () => showToast(`WhatsApp Duty Slip copied for ${tr.id}`));
+            }
+          });
+        });
+
+        document.querySelectorAll('[data-close-trip]').forEach((btn) => {
+          btn.addEventListener('click', () => openCloseTripModal(btn.dataset.closeTrip));
+        });
+
+        refreshIcons();
+      }
+
+      function renderScheduleRows(containerId, list) {
+        const el = document.getElementById(containerId);
+        if (list.length === 0) {
+          el.innerHTML = '<div class="p-8 text-center text-xs text-slate-400">No trips scheduled.</div>';
+          return;
+        }
+        el.innerHTML = list.map((t) => `
+          <div class="px-5 py-3 flex items-center justify-between gap-3 text-xs hover:bg-slate-50/70">
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <p class="font-bold text-slate-900 truncate">${t.time} — ${t.route}</p>
+                ${getSourceBadge(t.source)}
+              </div>
+              <p class="text-[11px] text-slate-500 mt-0.5">${t.customer} • ${t.cab} • <span class="text-slate-700 font-medium">${t.driver}</span></p>
+            </div>
+            ${getStageBadge(t.stage)}
+          </div>
+        `).join('');
+      }
+
+      function renderCommandRevenueOverview(filteredRevSum) {
+        const activePeriod = state.cmdRevPeriod || 'Today';
+        const ds = revenueDatasets[activePeriod] || revenueDatasets.Today;
+
+        const bigAmtEl = document.getElementById('cmdRevBigAmount');
+        const labelEl = document.getElementById('cmdRevTotalLabel');
+        const deltaEl = document.getElementById('cmdRevDeltaBadge');
+
+        if (bigAmtEl) {
+          bigAmtEl.textContent = activePeriod === 'Today' ? formatINR(filteredRevSum) : ds.total;
+        }
+        if (labelEl) {
+          labelEl.textContent = `Active Queue: ${formatINR(filteredRevSum)} • ${activePeriod} Benchmark: ${ds.total}`;
+        }
+        if (deltaEl) {
+          deltaEl.textContent = `${ds.isUp ? '▲' : '▼'} ${ds.delta}`;
+          deltaEl.className = ds.isUp
+            ? 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200'
+            : 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-red-50 text-red-700 border border-red-200';
+        }
+
+        // Build Stock-Market Style SVG Area + Trend Line Chart
+        const cmdChart = document.getElementById('cmdRevenueBarChart');
+        if (cmdChart && ds.points) {
+          const pts = ds.points;
+          const W = 540;
+          const H = 132;
+          const padLeft = 18;
+          const padRight = 18;
+          const padTop = 22;
+          const padBottom = 24;
+          const plotW = W - padLeft - padRight;
+          const plotH = H - padTop - padBottom;
+
+          const vals = pts.map((p) => p.val);
+          const minV = Math.min(...vals) * 0.82;
+          const maxV = Math.max(...vals) * 1.08;
+          const span = Math.max(1, maxV - minV);
+
+          const coords = pts.map((p, idx) => {
+            const x = padLeft + (idx / Math.max(1, pts.length - 1)) * plotW;
+            const y = padTop + plotH - ((p.val - minV) / span) * plotH;
+            return { ...p, x: Number(x.toFixed(1)), y: Number(y.toFixed(1)) };
+          });
+
+          const linePath = coords.map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x} ${c.y}`).join(' ');
+          const first = coords[0];
+          const last = coords[coords.length - 1];
+          const areaPath = `${linePath} L ${last.x} ${padTop + plotH} L ${first.x} ${padTop + plotH} Z`;
+
+          // Horizontal dashed market grid lines
+          const gridYs = [padTop, padTop + plotH * 0.5, padTop + plotH];
+          const gridLines = gridYs
+            .map((gy) => `<line x1="${padLeft}" y1="${gy}" x2="${W - padRight}" y2="${gy}" stroke="#E2E8F0" stroke-width="1" stroke-dasharray="3 3" />`)
+            .join('');
+
+          const xLabels = coords
+            .map((c) => `<text x="${c.x}" y="${H - 5}" text-anchor="middle" fill="#64748B" font-size="10" font-weight="600">${c.label}</text>`)
+            .join('');
+
+          const dotsSvg = coords
+            .map((c, i) => {
+              const isLast = i === coords.length - 1;
+              return `
+                <g class="mkt-pt cursor-pointer" data-idx="${i}">
+                  <line class="mkt-guide hidden" x1="${c.x}" y1="${padTop}" x2="${c.x}" y2="${padTop + plotH}" stroke="#059669" stroke-width="1" stroke-dasharray="2 2" />
+                  <circle cx="${c.x}" cy="${c.y}" r="${isLast ? 4.5 : 3.5}" fill="${isLast ? '#059669' : '#FFFFFF'}" stroke="#059669" stroke-width="2.2" />
+                  <circle cx="${c.x}" cy="${c.y}" r="14" fill="transparent" />
+                </g>
+              `;
+            })
+            .join('');
+
+          cmdChart.innerHTML = `
+            <div id="mktHoverTooltip" class="hidden pointer-events-none absolute top-0 left-2 z-10 px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-bold shadow-md flex items-center gap-1.5"></div>
+            <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="w-full h-full overflow-visible">
+              <defs>
+                <linearGradient id="nesamStockGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#10B981" stop-opacity="0.28" />
+                  <stop offset="100%" stop-color="#10B981" stop-opacity="0.01" />
+                </linearGradient>
+              </defs>
+              ${gridLines}
+              <path d="${areaPath}" fill="url(#nesamStockGrad)" />
+              <path d="${linePath}" fill="none" stroke="#059669" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+              ${xLabels}
+              ${dotsSvg}
+            </svg>
+          `;
+
+          const tooltipEl = document.getElementById('mktHoverTooltip');
+          cmdChart.querySelectorAll('.mkt-pt').forEach((g) => {
+            g.addEventListener('mouseenter', () => {
+              const idx = parseInt(g.dataset.idx, 10);
+              const item = coords[idx];
+              const guide = g.querySelector('.mkt-guide');
+              if (guide) guide.classList.remove('hidden');
+              if (tooltipEl && item) {
+                tooltipEl.innerHTML = `<span class="text-emerald-400">●</span> <span>${item.tag} (${item.label}):</span> <span class="text-white">${formatINR(item.val)}</span>`;
+                tooltipEl.classList.remove('hidden');
+              }
+            });
+            g.addEventListener('mouseleave', () => {
+              const guide = g.querySelector('.mkt-guide');
+              if (guide) guide.classList.add('hidden');
+              if (tooltipEl) tooltipEl.classList.add('hidden');
+            });
+          });
+        }
+
+        // Render Service-Wise Market Ticker Strip
+        const tickerStrip = document.getElementById('cmdMarketTickerStrip');
+        if (tickerStrip && ds.tickers) {
+          tickerStrip.innerHTML = ds.tickers.map((tk) => `
+            <div class="px-2 py-1.5 rounded-xl bg-slate-50/90 border border-slate-200/70 flex flex-col justify-between">
+              <div class="flex items-center justify-between gap-1">
+                <span class="text-[9px] font-extrabold tracking-wider text-slate-500">${tk.sym}</span>
+                <span class="text-[9px] font-extrabold ${tk.up ? 'text-emerald-600' : 'text-red-600'}">${tk.up ? '▲' : '▼'} ${tk.chg}</span>
+              </div>
+              <p class="text-xs font-extrabold text-slate-900 mt-0.5">${tk.val}</p>
+            </div>
+          `).join('');
+        }
+
+        // Per-Brand Source Revenue Breakdown (Nesam Cabs, PeopleTaxi.in, One Way Car Rentals)
+        const allTrips = state.demoDataOn ? sampleTrips : [];
+        const grandTotal = allTrips.reduce((s, t) => s + t.fare, 0) || 1;
+        const brands = [
+          { name: 'Nesam Cabs', dot: 'bg-[#991B1B]', bar: 'bg-[#991B1B]', text: 'text-[#991B1B]' },
+          { name: 'PeopleTaxi.in', dot: 'bg-emerald-600', bar: 'bg-emerald-600', text: 'text-emerald-700' },
+          { name: 'One Way Car Rentals', dot: 'bg-blue-600', bar: 'bg-blue-600', text: 'text-blue-700' },
+        ];
+
+        const brandContainer = document.getElementById('cmdBrandRevenueBars');
+        if (brandContainer) {
+          brandContainer.innerHTML = brands.map((b) => {
+            const bTrips = allTrips.filter((t) => t.source === b.name);
+            const bRev = bTrips.reduce((s, t) => s + t.fare, 0);
+            const pct = allTrips.length ? Math.round((bRev / grandTotal) * 100) : 0;
+            return `
+              <div class="space-y-1">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="font-bold text-slate-800 flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full ${b.dot}"></span>
+                    <span>${b.name}</span>
+                    <span class="text-[10px] font-medium text-slate-400">(${bTrips.length} trips)</span>
+                  </span>
+                  <span class="font-extrabold ${b.text}">${formatINR(bRev)} <span class="text-[10px] font-semibold text-slate-400">(${pct}%)</span></span>
+                </div>
+                <div class="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                  <div class="h-full ${b.bar} rounded-full transition-all duration-300" style="width: ${pct}%"></div>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+      }
+
+      document.querySelectorAll('.cmd-period-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.cmdRevPeriod = btn.dataset.cmdPeriod;
+          document.querySelectorAll('.cmd-period-btn').forEach((b) => {
+            const active = b === btn;
+            b.className = active
+              ? 'cmd-period-btn px-2.5 py-1 rounded-lg text-xs font-bold bg-[#991B1B] text-white shadow-xs'
+              : 'cmd-period-btn px-2.5 py-1 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900';
+          });
+          const revSum = getTrips().reduce((acc, t) => acc + t.fare, 0);
+          renderCommandRevenueOverview(revSum);
+        });
+      });
+
+      document.getElementById('brandSourceFilter').addEventListener('change', (e) => {
+        state.brandFilter = e.target.value;
+        renderCommandDesk();
+        if (state.activeView === 'bookings') renderAllTripsExplorer();
+        showToast(state.brandFilter === 'ALL' ? 'Showing all 3 booking sources' : `Filtered by ${state.brandFilter}`);
+      });
+
+      function getStageBadge(stage) {
+        const map = {
+          new: '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">New</span>',
+          publish: '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">To Publish</span>',
+          published: '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">Published</span>',
+          assign: '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-crimson-50 text-[#991B1B] border border-crimson-200">Assign Pending</span>',
+          ontrip: '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">On Trip</span>',
+          completed: '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">Completed ✓</span>',
+        };
+        return map[stage] || map.new;
+      }
+
+      // ---------------------------------------------------------
+      // REVENUE CHART & BOOKING TYPES
+      // ---------------------------------------------------------
+      function renderRevenueChart() {
+        const data = revenueDatasets[state.revPeriod] || revenueDatasets.Month;
+        document.getElementById('revPeriodTotal').textContent = `Total: ${data.total}`;
+        const chartEl = document.getElementById('revenueBarChart');
+        chartEl.innerHTML = data.bars.map((b) => `
+          <div class="flex-1 flex flex-col items-center gap-1.5 group">
+            <span class="text-[10px] font-bold text-slate-600 opacity-80 group-hover:opacity-100">${formatINR(b.val)}</span>
+            <div class="w-full max-w-[44px] bg-slate-100 rounded-t-xl h-28 flex items-end overflow-hidden">
+              <div class="w-full bg-[#991B1B] group-hover:bg-[#7F1D1D] rounded-t-xl transition-all duration-300" style="height: ${b.pct}%"></div>
+            </div>
+            <span class="text-[11px] font-semibold text-slate-600">${b.label}</span>
+          </div>
+        `).join('');
+
+        const types = [
+          { name: 'One Way', pct: 48, color: 'bg-[#991B1B]' },
+          { name: 'Round Trip', pct: 28, color: 'bg-blue-600' },
+          { name: 'Airport Taxi', pct: 15, color: 'bg-emerald-600' },
+          { name: 'Hourly Rental', pct: 9, color: 'bg-amber-500' },
+        ];
+        document.getElementById('bookingTypesList').innerHTML = types.map((tp) => `
+          <div class="space-y-1">
+            <div class="flex justify-between text-xs font-semibold">
+              <span class="text-slate-700">${tp.name}</span>
+              <span class="text-slate-900">${tp.pct}%</span>
+            </div>
+            <div class="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+              <div class="h-full ${tp.color} rounded-full" style="width: ${tp.pct}%"></div>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      document.querySelectorAll('.rev-period-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.revPeriod = btn.dataset.period;
+          document.querySelectorAll('.rev-period-btn').forEach((b) => {
+            const active = b === btn;
+            b.className = active
+              ? 'rev-period-btn px-2.5 py-1 rounded-lg text-xs font-bold bg-[#991B1B] text-white shadow-xs'
+              : 'rev-period-btn px-2.5 py-1 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900';
+          });
+          renderRevenueChart();
+        });
+      });
+
+      // ---------------------------------------------------------
+      // ALL TRIPS EXPLORER (VIEW 2)
+      // ---------------------------------------------------------
+      function renderAllTripsExplorer() {
+        const trips = getTrips();
+        const stages = [
+          { id: 'all', label: 'All Trips' },
+          { id: 'new', label: 'New bookings' },
+          { id: 'publish', label: 'To publish' },
+          { id: 'published', label: 'Published' },
+          { id: 'assign', label: 'Assign pending' },
+          { id: 'ontrip', label: 'Ongoing' },
+        ];
+
+        const statusTabsEl = document.getElementById('allTripsStatusTabs');
+        statusTabsEl.innerHTML = stages.map((st) => {
+          const cnt = st.id === 'all' ? trips.length : trips.filter((t) => t.stage === st.id).length;
+          const active = state.tripsStageFilter === st.id;
+          return `
+            <button type="button" data-st-filter="${st.id}" class="px-3 py-1.5 rounded-xl text-xs font-semibold ${active ? 'bg-[#991B1B] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'}">
+              ${st.label} (${cnt})
+            </button>
+          `;
+        }).join('');
+
+        statusTabsEl.querySelectorAll('[data-st-filter]').forEach((b) => {
+          b.addEventListener('click', () => {
+            state.tripsStageFilter = b.dataset.stFilter;
+            renderAllTripsExplorer();
+          });
+        });
+
+        const tripTypes = ['All Trips', 'One Way', 'Round Trip', 'Hourly Rental', 'Multicity', 'Airport'];
+        const typePillsEl = document.getElementById('allTripsTypePills');
+        typePillsEl.innerHTML = tripTypes.map((tp) => {
+          const active = state.tripsTypeFilter === tp;
+          return `
+            <button type="button" data-tp-filter="${tp}" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold ${active ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'}">
+              ${tp}
+            </button>
+          `;
+        }).join('');
+
+        typePillsEl.querySelectorAll('[data-tp-filter]').forEach((b) => {
+          b.addEventListener('click', () => {
+            state.tripsTypeFilter = b.dataset.tpFilter;
+            renderAllTripsExplorer();
+          });
+        });
+
+        const q = state.tripsSearch.toLowerCase().trim();
+        const filtered = trips.filter((t) => {
+          const mStage = state.tripsStageFilter === 'all' || t.stage === state.tripsStageFilter;
+          const mType = state.tripsTypeFilter === 'All Trips' || t.service === state.tripsTypeFilter;
+          const mQuery = !q || t.id.toLowerCase().includes(q) || t.route.toLowerCase().includes(q) || t.customer.toLowerCase().includes(q) || t.phone.includes(q);
+          return mStage && mType && mQuery;
+        });
+
+        document.getElementById('matchingRecordsCount').textContent = `${filtered.length} matching records`;
+        const tbody = document.getElementById('allTripsTableBody');
+        if (filtered.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="9" class="py-10 text-center text-xs text-slate-400">No matching records. Try another filter.</td></tr>';
+        } else {
+          tbody.innerHTML = filtered.map((t) => `
+            <tr class="hover:bg-slate-50/80">
+              <td class="py-3 px-5">
+                <p class="font-bold text-[#991B1B]">${t.id}</p>
+                <div class="mt-1">${getSourceBadge(t.source)}</div>
+              </td>
+              <td class="py-3 px-4 font-semibold text-slate-900">${t.customer}<br><span class="text-[10px] font-normal text-slate-400">+91 ${t.phone}</span></td>
+              <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-bold text-slate-700">${t.service}</span></td>
+              <td class="py-3 px-4 font-medium text-slate-800">${t.route}</td>
+              <td class="py-3 px-4 text-slate-600">${t.date} • ${t.time}</td>
+              <td class="py-3 px-4 text-slate-700">${t.driver}</td>
+              <td class="py-3 px-4 font-bold text-slate-900">${formatINR(t.fare)}</td>
+              <td class="py-3 px-4">${getStageBadge(t.stage)}</td>
+              <td class="py-3 px-5 text-right">
+                <div class="inline-flex items-center gap-1.5">
+                  ${t.stage === 'new' ? `
+                    <button type="button" data-approve-id="${t.id}" class="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white">Approve / Bid</button>
+                  ` : t.stage === 'published' && t.dispatchType === 'bidding' ? `
+                    <button type="button" data-open-bids="${t.id}" class="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white">Lowest Bid (${(t.bids || []).length})</button>
+                  ` : t.stage === 'ontrip' ? `
+                    <button type="button" data-copy-slip="${t.id}" class="px-2 py-1 rounded-lg text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700">Duty Slip</button>
+                    <button type="button" data-close-trip="${t.id}" class="px-2 py-1 rounded-lg text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100">Close Trip</button>
+                  ` : `
+                    <button type="button" data-open-assign="${t.id}" class="text-[11px] font-bold text-[#991B1B] hover:underline">Manage</button>
+                  `}
+                </div>
+              </td>
+            </tr>
+          `).join('');
+        }
+
+        // Bind Queue Buttons
+        document.querySelectorAll('[data-approve-id]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            openApproveDutyModal(btn.dataset.approveId);
+          });
+        });
+
+        document.querySelectorAll('[data-open-bids]').forEach((btn) => {
+          btn.addEventListener('click', () => openBiddingBidsModal(btn.dataset.openBids));
+        });
+
+        document.querySelectorAll('[data-open-assign]').forEach((btn) => {
+          btn.addEventListener('click', () => openAssignModal(btn.dataset.openAssign));
+        });
+      }
+
+      document.getElementById('tripsSearchInput').addEventListener('input', (e) => {
+        state.tripsSearch = e.target.value;
+        renderAllTripsExplorer();
+      });
+
+      document.getElementById('clearTripsFilterBtn').addEventListener('click', () => {
+        state.tripsStageFilter = 'all';
+        state.tripsTypeFilter = 'All Trips';
+        state.tripsSearch = '';
+        document.getElementById('tripsSearchInput').value = '';
+        renderAllTripsExplorer();
+      });
+
+      // Pipeline Card Jump
+      document.querySelectorAll('.pipeline-card, [data-stage-jump]').forEach((card) => {
+        card.addEventListener('click', () => {
+          state.tripsStageFilter = card.dataset.stage || card.dataset.stageJump || 'all';
+          switchView('bookings');
+        });
+      });
+
+      // ---------------------------------------------------------
+      // PRE-APPROVAL FIXED FARE vs +5%/HR AUTO-BIDDING MODAL
+      // ---------------------------------------------------------
+      const approveDutyModal = document.getElementById('approveDutyModal');
+      const appFixedSection = document.getElementById('appFixedSection');
+      const appBiddingSection = document.getElementById('appBiddingSection');
+      const appFixedPayoutInput = document.getElementById('appFixedPayoutInput');
+      const appBidStartInput = document.getElementById('appBidStartInput');
+      const appBidEndInput = document.getElementById('appBidEndInput');
+
+      function computeEscalatedBid(startPrice, endPrice, hoursElapsed) {
+        const raw = Math.round(startPrice * Math.pow(1.05, hoursElapsed));
+        return Math.min(endPrice, raw);
+      }
+
+      function refreshApprovalPreviews() {
+        const trip = sampleTrips.find((t) => t.id === state.approvingBookingId);
+        if (!trip) return;
+
+        // Fixed Margin Preview
+        const fixedPay = Math.max(0, parseInt(appFixedPayoutInput.value, 10) || 0);
+        const fixedMargin = trip.fare - fixedPay;
+        const fixedMarginEl = document.getElementById('appFixedMarginText');
+        fixedMarginEl.textContent = formatINR(fixedMargin);
+        fixedMarginEl.className = fixedMargin >= 0
+          ? 'text-sm font-extrabold text-emerald-700'
+          : 'text-sm font-extrabold text-red-600';
+
+        // Hourly +5% Bidding Preview (0h, +1h, +2h, +3h capped at Ending Price)
+        const startBid = Math.max(0, parseInt(appBidStartInput.value, 10) || 0);
+        const endBid = Math.max(startBid, parseInt(appBidEndInput.value, 10) || startBid);
+        const scheduleEl = document.getElementById('appBidSchedulePreview');
+
+        const slots = [0, 1, 2, 3].map((hr) => {
+          const val = computeEscalatedBid(startBid, endBid, hr);
+          const capped = val >= endBid && hr > 0;
+          const margin = trip.fare - val;
+          return `
+            <div class="p-2 rounded-lg bg-white border ${capped ? 'border-amber-300' : 'border-indigo-200/80'} text-center">
+              <p class="text-[10px] font-bold text-slate-500">${hr === 0 ? 'Start (0h)' : `+${hr} Hr (+5%)`}</p>
+              <p class="text-xs font-extrabold text-indigo-900 mt-0.5">${formatINR(val)}</p>
+              <p class="text-[9px] font-semibold ${margin >= 0 ? 'text-emerald-700' : 'text-red-600'}">Margin: ${formatINR(margin)}</p>
+            </div>
+          `;
+        });
+        scheduleEl.innerHTML = slots.join('');
+      }
+
+      function setApproveMode(mode) {
+        state.approveMode = mode;
+        const isBid = mode === 'bidding';
+        appFixedSection.classList.toggle('hidden', isBid);
+        appBiddingSection.classList.toggle('hidden', !isBid);
+
+        document.querySelectorAll('.app-mode-tab').forEach((tab) => {
+          const active = tab.dataset.appMode === mode;
+          tab.className = active
+            ? 'app-mode-tab py-2 px-3 rounded-lg text-xs font-bold bg-white text-[#991B1B] shadow-xs flex items-center justify-center gap-1.5 transition-all'
+            : 'app-mode-tab py-2 px-3 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5 transition-all';
+        });
+
+        document.getElementById('appConfirmPublishText').textContent = isBid
+          ? 'Approve & Start Auto-Bidding (+5%/hr)'
+          : 'Approve & Publish Fixed Duty';
+        refreshApprovalPreviews();
+      }
+
+      document.querySelectorAll('.app-mode-tab').forEach((tab) => {
+        tab.addEventListener('click', () => setApproveMode(tab.dataset.appMode));
+      });
+
+      [appFixedPayoutInput, appBidStartInput, appBidEndInput].forEach((inp) => {
+        inp.addEventListener('input', refreshApprovalPreviews);
+      });
+
+      function openApproveDutyModal(bookingId) {
+        const trip = sampleTrips.find((t) => t.id === bookingId);
+        if (!trip) return;
+        state.approvingBookingId = bookingId;
+
+        document.getElementById('approveModalSub').textContent = `${trip.id} • ${trip.source} • ${trip.cab}`;
+        document.getElementById('appRouteSummary').textContent = `${trip.route} (${trip.date} • ${trip.time})`;
+        document.getElementById('appCustFareText').textContent = formatINR(trip.fare);
+
+        // Smart default calculations from fixed customer fare
+        const defaultFixed = Math.round((trip.fare * 0.87) / 10) * 10;
+        const defaultBidStart = Math.round((trip.fare * 0.80) / 10) * 10;
+        const defaultBidEnd = Math.round((trip.fare * 0.92) / 10) * 10;
+
+        appFixedPayoutInput.value = defaultFixed;
+        appBidStartInput.value = defaultBidStart;
+        appBidEndInput.value = defaultBidEnd;
+
+        setApproveMode('fixed');
+        approveDutyModal.classList.remove('hidden');
+        refreshIcons();
+      }
+
+      document.getElementById('closeApproveModalBtn').addEventListener('click', () => approveDutyModal.classList.add('hidden'));
+
+      document.getElementById('approveDutyForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const trip = sampleTrips.find((t) => t.id === state.approvingBookingId);
+        if (!trip) return;
+
+        if (state.approveMode === 'bidding') {
+          const startBid = Math.max(0, parseInt(appBidStartInput.value, 10) || 0);
+          const endBid = Math.max(startBid, parseInt(appBidEndInput.value, 10) || startBid);
+          trip.dispatchType = 'bidding';
+          trip.bidStart = startBid;
+          trip.bidEnd = endBid;
+          trip.bidCurrent = startBid;
+          trip.bidHoursElapsed = 0;
+          trip.stage = 'published';
+          trip.driver = `Bidding (${formatINR(startBid)} → ${formatINR(endBid)})`;
+
+          // Seed realistic partner bids so lowest-bid assignment can be tested right away
+          const lowOffer = Math.max(500, startBid - 50);
+          trip.bids = [
+            { vendor: 'Sri Murugan Travels', driver: 'Kumar (98421 55012)', cabNo: 'TN-38-BQ-4512', amount: lowOffer },
+            { vendor: 'Meenakshi Cabs Partner', driver: 'Prakash (94431 77220)', cabNo: 'TN-58-AB-1920', amount: startBid },
+            { vendor: 'Kovai Outstation Associates', driver: 'Selvam (97891 55440)', cabNo: 'TN-37-DX-6041', amount: Math.min(endBid, Math.round(startBid * 1.05)) },
+          ];
+
+          approveDutyModal.classList.add('hidden');
+          renderCommandDesk();
+          if (state.activeView === 'bookings') renderAllTripsExplorer();
+          showToast(`${trip.id} published to Auto-Bidding (${formatINR(startBid)} → ${formatINR(endBid)}, +5%/hr)`);
+        } else {
+          const fixedPay = Math.max(0, parseInt(appFixedPayoutInput.value, 10) || 0);
+          trip.dispatchType = 'fixed';
+          trip.fixedPayout = fixedPay;
+          trip.stage = 'assign';
+          trip.driver = `Fixed Rate (${formatINR(fixedPay)}) • Needs Cab`;
+
+          approveDutyModal.classList.add('hidden');
+          renderCommandDesk();
+          if (state.activeView === 'bookings') renderAllTripsExplorer();
+          showToast(`${trip.id} approved at Fixed Partner Rate ${formatINR(fixedPay)}`);
+        }
+      });
+
+      // ---------------------------------------------------------
+      // LOWEST BID AUTO-ASSIGNMENT & +5%/HR ESCALATION MODAL
+      // ---------------------------------------------------------
+      const biddingBidsModal = document.getElementById('biddingBidsModal');
+
+      function openBiddingBidsModal(bookingId) {
+        const trip = sampleTrips.find((t) => t.id === bookingId);
+        if (!trip) return;
+        state.biddingBookingId = bookingId;
+
+        document.getElementById('bidsModalSub').textContent = `${trip.id} • ${trip.route} (${trip.cab})`;
+        document.getElementById('bidsRuleSummary').innerHTML = `
+          <div>
+            <p class="text-[10px] font-bold uppercase text-slate-400">Range &amp; Current Slab (${trip.bidHoursElapsed || 0}h elapsed)</p>
+            <p class="font-bold text-slate-900 mt-0.5">Start: ${formatINR(trip.bidStart)} • Current (+5%/hr): <span class="text-indigo-700">${formatINR(trip.bidCurrent)}</span> • Cap: ${formatINR(trip.bidEnd)}</p>
+          </div>
+          <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Cust: ${formatINR(trip.fare)}</span>
+        `;
+
+        // Sort bids ascending so lowest bid is always first
+        const sortedBids = [...(trip.bids || [])].sort((a, b) => a.amount - b.amount);
+        const listEl = document.getElementById('bidsListContainer');
+
+        if (sortedBids.length === 0) {
+          listEl.innerHTML = '<div class="p-4 text-center text-slate-400 border border-dashed border-slate-200 rounded-xl">Waiting for partner bids...</div>';
+        } else {
+          listEl.innerHTML = sortedBids.map((b, idx) => {
+            const isLowest = idx === 0;
+            const margin = trip.fare - b.amount;
+            return `
+              <div class="p-3 rounded-xl border ${isLowest ? 'border-emerald-400 bg-emerald-50/50' : 'border-slate-200 bg-white'} flex items-center justify-between gap-2">
+                <div class="min-w-0">
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <span class="font-bold text-slate-900">${b.vendor}</span>
+                    ${isLowest ? '<span class="px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-emerald-600 text-white">Lowest Bid • Auto-Selected</span>' : ''}
+                  </div>
+                  <p class="text-[11px] text-slate-500 mt-0.5">${b.driver} • ${b.cabNo}</p>
+                </div>
+                <div class="text-right shrink-0">
+                  <p class="text-sm font-extrabold ${isLowest ? 'text-emerald-700' : 'text-slate-800'}">${formatINR(b.amount)}</p>
+                  <p class="text-[10px] font-semibold text-slate-500">Margin: ${formatINR(margin)}</p>
+                </div>
+              </div>
+            `;
+          }).join('');
+
+          const lowest = sortedBids[0];
+          document.getElementById('assignLowestBidBtnText').textContent = `Assign Lowest Bid (${lowest.vendor} • ${formatINR(lowest.amount)})`;
+        }
+
+        biddingBidsModal.classList.remove('hidden');
+        refreshIcons();
+      }
+
+      document.getElementById('closeBidsModalBtn').addEventListener('click', () => biddingBidsModal.classList.add('hidden'));
+
+      document.getElementById('simulateHourTickBtn').addEventListener('click', () => {
+        const trip = sampleTrips.find((t) => t.id === state.biddingBookingId);
+        if (!trip) return;
+        trip.bidHoursElapsed = (trip.bidHoursElapsed || 0) + 1;
+        const nextVal = computeEscalatedBid(trip.bidStart, trip.bidEnd, trip.bidHoursElapsed);
+        trip.bidCurrent = nextVal;
+        trip.driver = `Bidding (${formatINR(nextVal)} / Cap ${formatINR(trip.bidEnd)})`;
+        renderCommandDesk();
+        openBiddingBidsModal(trip.id);
+        showToast(nextVal >= trip.bidEnd
+          ? `Reached Max Ending Cap ${formatINR(trip.bidEnd)}!`
+          : `+1 Hour elapsed: Bid rate increased +5% to ${formatINR(nextVal)}`);
+      });
+
+      document.getElementById('assignLowestBidBtn').addEventListener('click', () => {
+        const trip = sampleTrips.find((t) => t.id === state.biddingBookingId);
+        if (!trip || !trip.bids || trip.bids.length === 0) return;
+        const lowest = [...trip.bids].sort((a, b) => a.amount - b.amount)[0];
+
+        trip.assignedVendor = lowest.vendor;
+        trip.assignedDriver = lowest.driver;
+        trip.assignedCab = lowest.cabNo;
+        trip.vendorPayout = lowest.amount;
+        trip.driver = `[Lowest Bid] ${lowest.vendor} • ${lowest.cabNo} (${formatINR(lowest.amount)})`;
+        trip.stage = 'ontrip';
+
+        biddingBidsModal.classList.add('hidden');
+        renderCommandDesk();
+        if (state.activeView === 'bookings') renderAllTripsExplorer();
+
+        copyTextSafe(buildDriverDutySlip(trip), () => {
+          showToast(`Lowest Bid (${lowest.vendor} • ${formatINR(lowest.amount)}) assigned & Vendor Slip copied!`);
+        });
+      });
+
+      // ---------------------------------------------------------
+      // DRAWERS & MODALS
+      // ---------------------------------------------------------
+      const remindersDrawer = document.getElementById('remindersDrawer');
+      function openReminders() {
+        const trips = getTrips().filter((t) => t.stage === 'new' || t.stage === 'assign');
+        const listEl = document.getElementById('remindersDrawerList');
+        if (trips.length === 0) {
+          listEl.innerHTML = '<div class="py-12 text-center text-xs text-slate-400">No booking needs assignment right now.</div>';
+        } else {
+          listEl.innerHTML = trips.map((t) => `
+            <div class="p-3.5 rounded-2xl border border-slate-200 bg-slate-50/70 space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-[#991B1B]">${t.id}</span>
+                ${getStageBadge(t.stage)}
+              </div>
+              <p class="text-xs font-bold text-slate-900">${t.route}</p>
+              <p class="text-[11px] text-slate-500">${t.customer} • ${t.date} at ${t.time}</p>
+              <button type="button" data-rem-assign="${t.id}" class="w-full py-2 rounded-xl bg-[#991B1B] text-white text-xs font-semibold hover:bg-[#7F1D1D]">
+                Assign Driver Now
+              </button>
+            </div>
+          `).join('');
+          listEl.querySelectorAll('[data-rem-assign]').forEach((b) => {
+            b.addEventListener('click', () => {
+              remindersDrawer.classList.add('hidden');
+              openAssignModal(b.dataset.remAssign);
+            });
+          });
+        }
+        remindersDrawer.classList.remove('hidden');
+      }
+
+      document.getElementById('openRemindersBtn').addEventListener('click', openReminders);
+      document.getElementById('priorityRemindersBtn').addEventListener('click', openReminders);
+      document.getElementById('closeRemindersBtn').addEventListener('click', () => remindersDrawer.classList.add('hidden'));
+
+      const soundDrawer = document.getElementById('soundDrawer');
+      document.getElementById('openSoundBtn').addEventListener('click', () => soundDrawer.classList.remove('hidden'));
+      document.getElementById('closeSoundBtn').addEventListener('click', () => soundDrawer.classList.add('hidden'));
+      document.getElementById('saveSoundBtn').addEventListener('click', () => {
+        soundDrawer.classList.add('hidden');
+        showToast('Notification sound preferences saved');
+      });
+
+      document.querySelectorAll('.test-tone-btn').forEach((btn) => {
+        btn.addEventListener('click', () => playDispatchTone(btn.dataset.testTone));
+      });
+
+      // Custom External Audio File Upload
+      const customAudioUploadInput = document.getElementById('customAudioUploadInput');
+      const uploadedAudioCard = document.getElementById('uploadedAudioCard');
+      const uploadedAudioName = document.getElementById('uploadedAudioName');
+
+      customAudioUploadInput.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        if (file.size > 2 * 1024 * 1024) {
+          showToast('Please select an audio file under 2 MB');
+          return;
+        }
+        if (state.customAudioUrl) URL.revokeObjectURL(state.customAudioUrl);
+        state.customAudioUrl = URL.createObjectURL(file);
+        state.customAudioName = file.name;
+        uploadedAudioName.textContent = file.name;
+        uploadedAudioCard.classList.remove('hidden');
+        refreshIcons();
+        showToast(`Uploaded "${file.name}" for dispatch alerts`);
+      });
+
+      document.getElementById('playUploadedAudioBtn').addEventListener('click', () => {
+        if (state.customAudioUrl) {
+          const audio = new Audio(state.customAudioUrl);
+          audio.play();
+          showToast(`Playing ${state.customAudioName}...`);
+        }
+      });
+
+      document.getElementById('removeUploadedAudioBtn').addEventListener('click', () => {
+        if (state.customAudioUrl) URL.revokeObjectURL(state.customAudioUrl);
+        state.customAudioUrl = null;
+        state.customAudioName = '';
+        customAudioUploadInput.value = '';
+        uploadedAudioCard.classList.add('hidden');
+        showToast('Custom audio removed (reverted to default bell)');
+      });
+
+      document.getElementById('assignForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        commitDriverAssignment(false);
+      });
+
+      document.getElementById('assignAndCopySlipBtn').addEventListener('click', () => {
+        commitDriverAssignment(true);
+      });
+
+      // Trip Closing & Extra KM / Toll / Parking Calculator
+      const closeTripModal = document.getElementById('closeTripModal');
+      function updateCloseTripTotal() {
+        const trip = sampleTrips.find((t) => t.id === state.closingBookingId);
+        if (!trip) return 0;
+        const extraKm = Math.max(0, parseInt(document.getElementById('ctExtraKmInput').value, 10) || 0);
+        const toll = Math.max(0, parseInt(document.getElementById('ctTollInput').value, 10) || 0);
+        const parking = Math.max(0, parseInt(document.getElementById('ctParkingInput').value, 10) || 0);
+        const permit = Math.max(0, parseInt(document.getElementById('ctPermitInput').value, 10) || 0);
+        const finalTotal = trip.fare + extraKm * 15 + toll + parking + permit;
+        document.getElementById('ctFinalTotalText').textContent = formatINR(finalTotal);
+        return finalTotal;
+      }
+
+      function openCloseTripModal(bookingId) {
+        const trip = sampleTrips.find((t) => t.id === bookingId);
+        if (!trip) return;
+        state.closingBookingId = bookingId;
+        document.getElementById('closeTripModalSub').textContent = `${trip.id} • ${trip.route}`;
+        document.getElementById('ctBaseFareText').textContent = formatINR(trip.fare);
+        document.getElementById('ctExtraKmInput').value = 0;
+        document.getElementById('ctTollInput').value = 0;
+        document.getElementById('ctParkingInput').value = 0;
+        document.getElementById('ctPermitInput').value = 0;
+        updateCloseTripTotal();
+        closeTripModal.classList.remove('hidden');
+      }
+
+      ['ctExtraKmInput', 'ctTollInput', 'ctParkingInput', 'ctPermitInput'].forEach((id) => {
+        document.getElementById(id).addEventListener('input', updateCloseTripTotal);
+      });
+
+      document.getElementById('closeTripModalXBtn').addEventListener('click', () => closeTripModal.classList.add('hidden'));
+
+      document.getElementById('closeTripForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const trip = sampleTrips.find((t) => t.id === state.closingBookingId);
+        if (!trip) return;
+        const finalAmt = updateCloseTripTotal();
+        trip.fare = finalAmt;
+        trip.stage = 'completed';
+        closeTripModal.classList.add('hidden');
+        renderCommandDesk();
+        if (state.activeView === 'bookings') renderAllTripsExplorer();
+
+        const billText = `*NESAM CABS — Final Trip Bill*\nBooking ID: ${trip.id}\nCustomer: ${trip.customer}\nRoute: ${trip.route}\nDriver: ${trip.driver}\nFinal Amount (incl. Toll/Actuals): *${formatINR(finalAmt)}*\nThank you for travelling with Nesam Cabs!`;
+        copyTextSafe(billText, () => showToast(`Trip ${trip.id} completed & Final Bill copied!`));
+      });
+
+      // Utility Dropdown & Top Shortcuts
+      const utilityMenuWrapper = document.getElementById('utilityMenuWrapper');
+      const utilityDropdown = document.getElementById('utilityDropdown');
+      document.getElementById('utilityMenuBtn').addEventListener('click', () => utilityDropdown.classList.toggle('hidden'));
+      document.addEventListener('click', (e) => {
+        if (!utilityMenuWrapper.contains(e.target)) utilityDropdown.classList.add('hidden');
+      });
+
+      document.getElementById('toggleDemoModeBtn').addEventListener('click', () => {
+        state.demoDataOn = !state.demoDataOn;
+        document.getElementById('demoModeStatus').textContent = state.demoDataOn ? 'ON' : 'OFF';
+        renderCommandDesk();
+        if (state.activeView === 'bookings') renderAllTripsExplorer();
+        showToast(state.demoDataOn ? 'Showing live sample trips' : 'Showing empty zero-state');
+      });
+
+      document.getElementById('lockWorkspaceBtn').addEventListener('click', () => {
+        utilityDropdown.classList.add('hidden');
+        showToast('Workspace locked for security');
+      });
+
+      document.getElementById('openQuickFareBtn').addEventListener('click', () => showToast('Opening Quick Fare & Enquiry Calculator...'));
+      document.getElementById('openNewBookingBtn').addEventListener('click', () => showToast('Opening New Manual Booking Form...'));
+
+      document.getElementById('globalSearchInput').addEventListener('input', (e) => {
+        state.tripsSearch = e.target.value;
+        if (e.target.value.trim().length > 0 && state.activeView !== 'bookings') {
+          switchView('bookings');
+          document.getElementById('tripsSearchInput').value = e.target.value;
+        }
+        renderAllTripsExplorer();
+      });
+
+      // Initial Boot
+      renderCommandDesk();
+      renderRevenueChart();
+    });
+  </script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   AreaChart,
   Area,
@@ -12,9 +12,8 @@ import {
   PieChart,
   Pie,
   Cell,
-  Legend,
 } from "recharts";
-import { Booking, Driver, Vehicle, Customer, PenaltyRecord } from "../types";
+import type { Booking, Driver, Vehicle, Customer, PenaltyRecord, MarketplaceTrip } from "../types";
 import { StatusBadge, PaymentBadge, BookingSourceBadge, bookingSourceRowCls } from "../components/booking/BookingBadges";
 import OperationsSection from "../components/dashboard/OperationsSection";
 import OfficeDashboard from "../components/dashboard/OfficeDashboard";
@@ -31,14 +30,49 @@ import {
   subscribeVehicles,
   subscribeCustomers,
   subscribePenalties,
+  subscribeMarketplace,
 } from "../services/adminFirestoreService";
+import { approveBooking } from "../services/bookingOpsService";
 import {
+  formatINR,
   parseAmount,
   bookingDate,
   isPaid,
-  formatINR,
+  bookingTaxable,
 } from "../utils/analytics";
 import { formatDateTime12, formatShortDateTime12, formatHourLabel } from "../utils/time";
+import {
+  buildRows,
+  stageCounts,
+  sourceCounts,
+  deskStageOf,
+  inScope,
+  filterRows,
+  scheduleSplit,
+  periodWindow,
+  revenueSummary,
+  changeOf,
+  changeLabel,
+  pipelineValue,
+  assigneeOf,
+  buildDutySlip,
+  serviceKeyOf,
+  SERVICE_PILLS,
+  SERVICE_KEYS,
+  SERVICE_NAME,
+  SOURCE_NAME,
+  SOURCE_ORDER,
+  type SourceScope,
+  type DeskStage,
+  type TripRow,
+  type Period,
+  type StageFilter,
+  type ServicePill,
+  type TripFilters,
+  NO_TRIP_FILTERS,
+} from "../domain/commandDesk";
+import { getBookingSourceDisplay } from "../domain/bookingSource";
+import { fareOf, rupee } from "../domain/officeStage";
 
 const categoryColors: Record<string, string> = {
   "Airport Taxi": "#c1232c",
@@ -56,9 +90,9 @@ interface DashboardProps {
 }
 
 /**
- * One dashboard for every admin. The Master account keeps the full overview. Staff get sections
- * composed from their effective access; the full business overview needs every area it reads
- * (bookings, people, fleet and finance), the booking / dispatch board needs bookings.
+ * One dashboard for every admin. The Master account keeps the full overview and command center.
+ * Staff get sections composed from their effective access; the full business overview needs every
+ * area it reads (bookings, people, fleet and finance), the booking / dispatch board needs bookings.
  */
 export default function Dashboard(props: DashboardProps) {
   const access = useAccess();
@@ -73,635 +107,1113 @@ export default function Dashboard(props: DashboardProps) {
   return <StaffDashboard access={access} badges={props.badges} onNavigate={props.onNavigate} onNewBooking={props.onNewBooking} workspace={workspace} />;
 }
 
+type DashboardView = "command" | "trips" | "analytics" | "dispatch";
+
 function MasterDashboard({
   onNavigate,
   onSelectBooking,
   onNewBooking,
 }: DashboardProps) {
+  const [activeView, setActiveView] = useState<DashboardView>("command");
+  const [sourceScope, setSourceScope] = useState<SourceScope>("ALL");
+  const [cmdPeriod, setCmdPeriod] = useState<Period>("Today");
+  const [analyticsPeriod, setAnalyticsPeriod] = useState<Period>("Month");
+  const [filters, setFilters] = useState<TripFilters>(NO_TRIP_FILTERS);
+  const [globalSearch, setGlobalSearch] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
-  const [livePenalties, setLivePenalties] = useState<PenaltyRecord[]>([]);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+
   const now = useNow(30000);
   const ops = useOperationsSettings();
-  const { toast } = useToast(9000);
-  const [revenueTab, setRevenueTab] = useState("month");
+  const { toast, show: showToast } = useToast(9000);
+
   const [liveBookings, setLiveBookings] = useState<Booking[]>([]);
   const [liveDrivers, setLiveDrivers] = useState<Driver[]>([]);
   const [liveVehicles, setLiveVehicles] = useState<Vehicle[]>([]);
   const [liveCustomers, setLiveCustomers] = useState<Customer[]>([]);
+  const [livePenalties, setLivePenalties] = useState<PenaltyRecord[]>([]);
+  const [liveMarketplace, setLiveMarketplace] = useState<MarketplaceTrip[]>([]);
 
   useEffect(() => {
     setLoadError(null);
     setLoaded(false);
-    const unsub1 = subscribeBookings((d) => { setLiveBookings(d); setLoaded(true); }, setLoadError);
-    const unsub2 = subscribeDrivers(setLiveDrivers, setLoadError);
-    const unsub3 = subscribeVehicles(setLiveVehicles, setLoadError);
-    const unsub4 = subscribeCustomers(setLiveCustomers, setLoadError);
-    const unsub5 = subscribePenalties(setLivePenalties, setLoadError);
-    return () => {
-      unsub1();
-      unsub2();
-      unsub3();
-      unsub4();
-      unsub5();
-    };
+    const u1 = subscribeBookings((d) => { setLiveBookings(d); setLoaded(true); }, setLoadError);
+    const u2 = subscribeDrivers(setLiveDrivers, setLoadError);
+    const u3 = subscribeVehicles(setLiveVehicles, setLoadError);
+    const u4 = subscribeCustomers(setLiveCustomers, setLoadError);
+    const u5 = subscribePenalties(setLivePenalties, setLoadError);
+    const u6 = subscribeMarketplace(setLiveMarketplace, () => {});
+    return () => { u1(); u2(); u3(); u4(); u5(); u6(); };
   }, [retryKey]);
 
-  const activeTripsCount = liveBookings.filter(
-    (b) =>
-      b.status === "Ongoing" ||
-      b.status === "In Progress" ||
-      b.status === "Assigned",
-  ).length;
+  // Index marketplace trips by bookingId
+  const marketById = useMemo(() => {
+    const m = new Map<string, MarketplaceTrip>();
+    for (const t of liveMarketplace) if (t.bookingId) m.set(t.bookingId, t);
+    return m;
+  }, [liveMarketplace]);
 
-  // Revenue chart — computed live from bookings for the selected window.
-  const revenueData = useMemo(() => {
-    const now = new Date();
-    const buckets: { label: string; start: Date; end: Date }[] = [];
-    if (revenueTab === "year") {
-      for (let i = 11; i >= 0; i--) {
-        const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
-        buckets.push({
-          label: start.toLocaleString("en-US", { month: "short" }),
-          start,
-          end,
-        });
-      }
-    } else if (revenueTab === "week") {
-      for (let i = 6; i >= 0; i--) {
-        const start = new Date(
-          now.getFullYear(),
-          now.getMonth(),
-          now.getDate() - i,
-        );
-        const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1);
-        buckets.push({
-          label: start.toLocaleString("en-US", { weekday: "short" }),
-          start,
-          end,
-        });
-      }
-    } else if (revenueTab === "today") {
-      for (let h = 0; h < 24; h += 3) {
-        const start = new Date(
-          now.getFullYear(),
-          now.getMonth(),
-          now.getDate(),
-          h,
-        );
-        const end = new Date(
-          now.getFullYear(),
-          now.getMonth(),
-          now.getDate(),
-          h + 3,
-        );
-        buckets.push({ label: formatHourLabel(h), start, end });
-      }
-    } else {
-      // month — last 30 days
-      for (let i = 29; i >= 0; i--) {
-        const start = new Date(
-          now.getFullYear(),
-          now.getMonth(),
-          now.getDate() - i,
-        );
-        const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1);
-        buckets.push({
-          label: `${start.getDate()}/${start.getMonth() + 1}`,
-          start,
-          end,
-        });
-      }
+  // Pure domain calculations from commandDesk
+  const allRows = useMemo(() => buildRows(liveBookings, marketById), [liveBookings, marketById]);
+  const scopedRows = useMemo(() => allRows.filter((r) => inScope(r.b, sourceScope)), [allRows, sourceScope]);
+  const scopedBookings = useMemo(() => liveBookings.filter((b) => inScope(b, sourceScope)), [liveBookings, sourceScope]);
+  const stageC = useMemo(() => stageCounts(scopedRows), [scopedRows]);
+  const srcC = useMemo(() => sourceCounts(liveBookings), [liveBookings]);
+
+  // Pipeline Gross Value
+  const pipelineGross = useMemo(() => pipelineValue(scopedRows), [scopedRows]);
+
+  // Schedules (Today & Tomorrow)
+  const { today: todayTrips, tomorrow: tomorrowTrips } = useMemo(() => scheduleSplit(scopedRows, now), [scopedRows, now]);
+
+  // Command Desk Revenue Window & Summary
+  const cmdWin = useMemo(() => periodWindow(cmdPeriod, now), [cmdPeriod, now]);
+  const cmdSummary = useMemo(() => revenueSummary(scopedBookings, cmdWin.start, cmdWin.end, cmdWin.buckets), [scopedBookings, cmdWin]);
+  const cmdPrevSummary = useMemo(() => revenueSummary(scopedBookings, cmdWin.prevStart, cmdWin.prevEnd), [scopedBookings, cmdWin]);
+  const cmdChange = useMemo(() => changeOf(cmdSummary.booked, cmdPrevSummary.booked), [cmdSummary.booked, cmdPrevSummary.booked]);
+
+  // Analytics Revenue Window & Summary
+  const anWin = useMemo(() => periodWindow(analyticsPeriod, now), [analyticsPeriod, now]);
+  const anSummary = useMemo(() => revenueSummary(scopedBookings, anWin.start, anWin.end, anWin.buckets), [scopedBookings, anWin]);
+
+  // All Trips Explorer Rows
+  const effectiveFilters = useMemo<TripFilters>(() => {
+    return {
+      stage: filters.stage,
+      service: filters.service,
+      search: globalSearch.trim() || filters.search,
+    };
+  }, [filters, globalSearch]);
+  const tripsFiltered = useMemo(() => filterRows(allRows, sourceScope, effectiveFilters), [allRows, sourceScope, effectiveFilters]);
+
+  // Actions
+  const handleApproveDuty = useCallback(async (bookingId: string) => {
+    if (approvingId) return;
+    setApprovingId(bookingId);
+    try {
+      await approveBooking(bookingId);
+      showToast(`Duty ${bookingId} approved successfully!`);
+    } catch (err: any) {
+      showToast(err.message || `Failed to approve ${bookingId}`, "error");
+    } finally {
+      setApprovingId(null);
     }
-    return buckets.map((bk) => {
-      const inRange = liveBookings.filter((b) => {
-        const d = bookingDate(b);
-        return d !== null && d >= bk.start && d < bk.end;
-      });
-      const total = inRange.reduce((s, b) => s + parseAmount(b.fare), 0);
-      const tour = inRange
-        .filter((b) =>
-          (b.service || b.serviceType || "").toLowerCase().includes("tour"),
-        )
-        .reduce((s, b) => s + parseAmount(b.fare), 0);
-      return { month: bk.label, total, booking: total - tour, tour };
-    });
-  }, [liveBookings, revenueTab]);
+  }, [approvingId, showToast]);
 
-  const hasRevenue = revenueData.some((d) => d.total > 0);
-
-  const totalRevenue = useMemo(
-    () =>
-      liveBookings.filter(isPaid).reduce((s, b) => s + parseAmount(b.fare), 0),
-    [liveBookings],
-  );
-
-  const monthRevenue = useMemo(() => {
-    const n = new Date();
-    return liveBookings
-      .filter((b) => {
-        const d = bookingDate(b);
-        return (
-          d !== null &&
-          d.getMonth() === n.getMonth() &&
-          d.getFullYear() === n.getFullYear() &&
-          isPaid(b)
-        );
-      })
-      .reduce((s, b) => s + parseAmount(b.fare), 0);
-  }, [liveBookings]);
-  const availableVehiclesCount = liveVehicles.filter(
-    (v) => v.status === "Available" || v.status === "Active",
-  ).length;
-  const availableDriversCount = liveDrivers.filter(
-    (d) => d.status === "Online" || d.status === "Available",
-  ).length;
-
-  const kpiCards = [
-    {
-      title: "Total Bookings",
-      value: liveBookings.length.toLocaleString(),
-      sub: `Live synced from Firestore`,
-      icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2",
-    },
-    {
-      title: "Active Trips",
-      value: activeTripsCount.toString(),
-      sub: `${liveDrivers.length} registered drivers`,
-      live: true,
-      icon: "M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z",
-    },
-    {
-      title: "Total Customers",
-      value: liveCustomers.length.toLocaleString(),
-      sub: `Registered users`,
-      icon: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z",
-    },
-    {
-      title: "Total Revenue",
-      value: formatINR(totalRevenue),
-      sub: `This month: ${formatINR(monthRevenue)}`,
-      icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
-      accent: true,
-    },
-    {
-      title: "Available Vehicles",
-      value: availableVehiclesCount.toString(),
-      sub: `${liveVehicles.length} registered vehicles`,
-      icon: "M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4",
-    },
-    {
-      title: "Available Drivers",
-      value: availableDriversCount.toString(),
-      sub: `${liveDrivers.length} total registered`,
-      icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z",
-    },
-  ];
-
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-white border border-line rounded-xl p-3 shadow-xl text-[12px]">
-          <div className="font-semibold text-ink mb-2">{label}</div>
-          {payload.map((p: any, i: number) => (
-            <div key={i} className="flex items-center gap-2">
-              <span
-                className="w-2 h-2 rounded-full"
-                style={{ background: p.color }}
-              />
-              <span className="text-muted">{p.name}:</span>
-              <span className="font-semibold text-ink">
-                ₹{(p.value / 1000).toFixed(0)}K
-              </span>
-            </div>
-          ))}
-        </div>
-      );
+  const handleCopyDutySlip = useCallback(async (r: TripRow) => {
+    const pickupText = r.b.date ? `${r.b.date} ${r.b.time || ""}` : "Scheduled";
+    const payout = r.market?.offeredPayout != null ? Number(r.market.offeredPayout) || null : null;
+    const text = buildDutySlip(r.b, { pickupText, payout });
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        showToast(`Duty Slip copied for ${r.b.bookingId || r.b.id}!`);
+      } else {
+        showToast("Clipboard not available in this browser", "error");
+      }
+    } catch {
+      showToast("Could not copy duty slip to clipboard", "error");
     }
-    return null;
+  }, [showToast]);
+
+  const handleStageCardClick = (stage: DeskStage) => {
+    setFilters((f) => ({ ...f, stage }));
+    setActiveView("trips");
   };
 
+  const urgentTotal = stageC.new + stageC.assign;
+
   return (
-    <div className="ds-page-body space-y-6">
+    <div className="space-y-5">
       <Toast toast={toast} />
       {loadError && <ErrorBanner message={loadError} onRetry={() => setRetryKey((k) => k + 1)} />}
 
-      <OfficeDashboard onNavigate={onNavigate} onSelectBooking={onSelectBooking} onNewBooking={onNewBooking} />
-
-      <h2 className="text-lg font-bold text-ink pt-2">Today &amp; tomorrow</h2>
-      <OperationsSection bookings={liveBookings} penalties={livePenalties} now={now} thresholds={ops} loading={!loaded && !loadError} onNavigate={onNavigate} onSelectBooking={onSelectBooking} />
-
-      <h2 className="text-lg font-bold text-ink pt-2">Business overview</h2>
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        {kpiCards.map((card, i) => (
-          <div
-            key={i}
-            className={`rounded-xl p-4 border ${card.accent ? "border-brand/20" : "border-line"} bg-white shadow-sm hover:shadow-md transition-shadow cursor-default`}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div
-                className={`w-9 h-9 rounded-lg flex items-center justify-center ${card.accent ? "" : "bg-brand-soft"}`}
-                style={card.accent ? { background: "#c1232c" } : {}}
-              >
-                <svg
-                  className={`w-[18px] h-[18px] ${card.accent ? "text-white" : "text-brand"}`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={1.75}
-                >
-                  {card.icon.split(" M").map((d, idx) => (
-                    <path
-                      key={idx}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d={idx === 0 ? d : "M" + d}
-                    />
-                  ))}
-                </svg>
+      {/* ========================================================= */}
+      {/* TOP COMMAND BAR (SINGLE-ROW CLEAN SAAS HEADER)             */}
+      {/* ========================================================= */}
+      <header className="bg-white rounded-2xl border border-slate-200/90 px-4 sm:px-5 py-3 shadow-2xs">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          {/* Left: Brand Identity + Navigation Pills */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2.5 shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-[#991B1B] text-white font-extrabold text-xs flex items-center justify-center shadow-2xs">
+                NC
               </div>
-              {card.live && (
-                <span className="flex items-center gap-1 text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
-                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full badge-pulse" />
-                  LIVE
-                </span>
-              )}
+              <div className="leading-none">
+                <p className="text-xs font-extrabold tracking-wide text-slate-900">NESAM CABS</p>
+                <span className="text-[10px] font-medium text-slate-400">Master Admin Desk</span>
+              </div>
             </div>
-            <div className="text-[22px] font-bold text-ink leading-tight">
-              {card.value}
-            </div>
-            <div className="text-[11px] font-medium text-ink mt-1 leading-tight">
-              {card.title}
-            </div>
-            <div className="text-[10px] text-faint mt-0.5">{card.sub}</div>
-          </div>
-        ))}
-      </div>
 
-      {/* Revenue Chart + Booking Distribution */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Revenue Area Chart */}
-        <div className="xl:col-span-2 bg-white rounded-xl border border-line shadow-sm p-5">
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <h2 className="text-[15px] font-bold text-ink">
-                Revenue Overview
-              </h2>
-              <p className="text-[12px] text-faint mt-0.5">
-                Monthly breakdown by service type
-              </p>
-            </div>
-            <div className="flex gap-1 bg-hover rounded-lg p-1">
-              {["today", "week", "month", "year"].map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setRevenueTab(tab)}
-                  className={`px-3 py-1 rounded text-[11px] font-semibold transition-all capitalize ${
-                    revenueTab === tab
-                      ? "text-white shadow-sm"
-                      : "text-muted hover:text-ink"
-                  }`}
-                  style={revenueTab === tab ? { background: "#c1232c" } : {}}
-                >
-                  {tab === "today"
-                    ? "Today"
-                    : tab === "week"
-                      ? "Week"
-                      : tab === "month"
-                        ? "Month"
-                        : "Year"}
-                </button>
-              ))}
-            </div>
-          </div>
-          {!hasRevenue && (
-            <div className="h-[240px] flex flex-col items-center justify-center text-center">
-              <svg
-                className="w-10 h-10 text-line mb-2"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={1.5}
+            <nav className="flex items-center bg-slate-100 p-0.5 rounded-xl text-xs gap-0.5">
+              <button
+                type="button"
+                onClick={() => setActiveView("command")}
+                className={`nav-pill px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  activeView === "command"
+                    ? "bg-white text-[#991B1B] shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900 font-medium"
+                }`}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                />
-              </svg>
-              <p className="text-[13px] font-medium text-faint">
-                No revenue recorded for this period
-              </p>
-              <p className="text-[11px] text-subtle mt-0.5">
-                Chart populates as bookings come in
-              </p>
-            </div>
-          )}
-          {hasRevenue && (
-          <ResponsiveContainer width="100%" height={240}>
-            <AreaChart
-              data={revenueData}
-              margin={{ top: 5, right: 5, left: -20, bottom: 0 }}
-            >
-              <defs>
-                <linearGradient id="redGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#c1232c" stopOpacity={0.15} />
-                  <stop offset="95%" stopColor="#c1232c" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F0F0F0" />
-              <XAxis
-                dataKey="month"
-                tick={{ fontSize: 11, fill: "#999" }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                tick={{ fontSize: 11, fill: "#999" }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={(v) => `₹${v / 1000}K`}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Area
-                type="monotone"
-                dataKey="total"
-                name="Total"
-                stroke="#c1232c"
-                strokeWidth={2.5}
-                fill="url(#redGrad)"
-                dot={false}
-              />
-              <Area
-                type="monotone"
-                dataKey="booking"
-                name="Bookings"
-                stroke="#111111"
-                strokeWidth={1.5}
-                fill="none"
-                dot={false}
-              />
-              <Area
-                type="monotone"
-                dataKey="tour"
-                name="Tours"
-                stroke="#888888"
-                strokeWidth={1.5}
-                fill="none"
-                dot={false}
-                strokeDasharray="4 2"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-          )}
-        </div>
-
-        {/* Booking Distribution Pie */}
-        <div className="bg-white rounded-xl border border-line shadow-sm p-5">
-          <div className="mb-5">
-            <h2 className="text-[15px] font-bold text-ink">Booking Types</h2>
-            <p className="text-[12px] text-faint mt-0.5">
-              Distribution by service
-            </p>
+                Command Desk
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveView("trips")}
+                className={`nav-pill px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  activeView === "trips"
+                    ? "bg-white text-[#991B1B] shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900 font-medium"
+                }`}
+              >
+                <span>All Trips</span>
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 text-slate-700 font-bold">
+                  {scopedRows.length}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveView("analytics")}
+                className={`nav-pill px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  activeView === "analytics"
+                    ? "bg-white text-[#991B1B] shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900 font-medium"
+                }`}
+              >
+                Revenue &amp; GST
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveView("dispatch")}
+                className={`nav-pill px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  activeView === "dispatch"
+                    ? "bg-white text-[#991B1B] shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900 font-medium"
+                }`}
+              >
+                Dispatch Desk
+              </button>
+            </nav>
           </div>
-          {(() => {
-            const categories = [
-              "Airport Taxi",
-              "Outstation Cab",
-              "One Way Taxi",
-              "Local Rental",
-              "Tour Package",
-            ];
-            const catData = categories.map((cat) => ({
-              name: cat,
-              value: liveBookings.filter((b) =>
-                (b.service || b.serviceType || "").includes(cat),
-              ).length,
-              color: categoryColors[cat] || "#c1232c",
-            }));
-            const hasCatData = catData.some((c) => c.value > 0);
-            if (!hasCatData) {
-              return (
-                <div className="h-[220px] flex flex-col items-center justify-center text-center">
-                  <svg
-                    className="w-10 h-10 text-line mb-2"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"
-                    />
-                  </svg>
-                  <p className="text-[13px] font-medium text-faint">
-                    No bookings yet
-                  </p>
+
+          {/* Right: Search, Source Filter, Alerts & Primary Actions */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative w-44 sm:w-52">
+              <input
+                type="text"
+                value={globalSearch}
+                onChange={(e) => setGlobalSearch(e.target.value)}
+                placeholder="Search ID, route, customer..."
+                className="w-full h-8 pl-3 pr-2.5 text-xs font-medium bg-slate-50 border border-slate-200/90 rounded-lg focus:bg-white focus:border-[#991B1B] focus:outline-none transition-colors"
+              />
+            </div>
+
+            {/* Brand Source Filter */}
+            <div className="relative">
+              <select
+                aria-label="Filter by Booking Source"
+                value={sourceScope}
+                onChange={(e) => setSourceScope(e.target.value as SourceScope)}
+                className="h-8 pl-2.5 pr-7 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200/90 text-slate-700 text-xs font-semibold appearance-none cursor-pointer focus:outline-none focus:border-[#991B1B] transition-colors"
+              >
+                <option value="ALL">All Sources ({liveBookings.length})</option>
+                <option value="nesam">Nesam Cabs ({srcC.nesam})</option>
+                <option value="people_taxi">PeopleTaxi.in ({srcC.people_taxi})</option>
+                <option value="onewaycarrentals">One Way Car Rentals ({srcC.onewaycarrentals})</option>
+              </select>
+            </div>
+
+            {/* Alert Counter Cluster */}
+            <button
+              type="button"
+              onClick={() => { setFilters((f) => ({ ...f, stage: "assign" })); setActiveView("trips"); }}
+              className="h-8 px-2.5 rounded-lg bg-crimson-50 hover:bg-crimson-100 text-[#991B1B] text-[11px] font-bold flex items-center gap-1.5 transition-colors border border-crimson-200/60"
+            >
+              <span className={`w-2 h-2 rounded-full bg-[#991B1B] ${urgentTotal > 0 ? "animate-pulse" : ""}`} />
+              <span>{urgentTotal} Urgent Alert{urgentTotal === 1 ? "" : "s"}</span>
+            </button>
+
+            {/* Quick Fare Button */}
+            <button
+              type="button"
+              onClick={() => onNavigate("quick-fare")}
+              className="h-8 px-3 rounded-lg bg-white hover:bg-slate-50 border border-slate-200/90 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs"
+            >
+              <span>Quick Fare</span>
+            </button>
+
+            {/* New Booking Button */}
+            <button
+              type="button"
+              onClick={onNewBooking}
+              className="h-8 px-3.5 rounded-lg bg-[#991B1B] hover:bg-[#7F1D1D] text-white text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-colors"
+            >
+              <span>+ New Booking</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* ========================================================= */}
+      {/* VIEW 1: COMMAND DESK                                      */}
+      {/* ========================================================= */}
+      {activeView === "command" && (
+        <div className="space-y-5 fade-in">
+          {/* 5-Stage Dispatch Pipeline */}
+          <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <button
+              type="button"
+              onClick={() => handleStageCardClick("new")}
+              className="p-3.5 rounded-2xl bg-white border border-slate-200/90 hover:border-amber-400 text-left shadow-2xs transition-all hover:shadow-xs group cursor-pointer"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700">1. New Bookings</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 group-hover:scale-110 transition-transform" />
+              </div>
+              <p className="text-2xl font-extrabold text-slate-900 mt-1.5">{stageC.new}</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">Awaiting office review</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleStageCardClick("publish")}
+              className="p-3.5 rounded-2xl bg-white border border-slate-200/90 hover:border-blue-400 text-left shadow-2xs transition-all hover:shadow-xs group cursor-pointer"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-blue-700">2. To Publish</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-blue-500 group-hover:scale-110 transition-transform" />
+              </div>
+              <p className="text-2xl font-extrabold text-slate-900 mt-1.5">{stageC.publish}</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">Ready for partner pool</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleStageCardClick("published")}
+              className="p-3.5 rounded-2xl bg-white border border-indigo-200/90 hover:border-indigo-400 text-left shadow-2xs transition-all hover:shadow-xs group cursor-pointer"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700">3. Published</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 group-hover:scale-110 transition-transform" />
+              </div>
+              <p className="text-2xl font-extrabold text-slate-900 mt-1.5">{stageC.published}</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">Open vendor bidding</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleStageCardClick("assign")}
+              className="p-3.5 rounded-2xl bg-white border border-crimson-200 hover:border-[#991B1B] text-left shadow-2xs transition-all hover:shadow-xs group cursor-pointer"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#991B1B]">4. Assign Pending</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-[#991B1B] animate-pulse" />
+              </div>
+              <p className="text-2xl font-extrabold text-[#991B1B] mt-1.5">{stageC.assign}</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">Needs driver &amp; cab</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleStageCardClick("ontrip")}
+              className="p-3.5 rounded-2xl bg-white border border-slate-200/90 hover:border-emerald-400 text-left shadow-2xs transition-all hover:shadow-xs group cursor-pointer col-span-2 sm:col-span-1"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">5. On Trip</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 group-hover:scale-110 transition-transform" />
+              </div>
+              <p className="text-2xl font-extrabold text-emerald-700 mt-1.5">{stageC.ontrip}</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">Active duties on road</p>
+            </button>
+          </section>
+
+          {/* Action-First 2-Column Workbench */}
+          <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Left: New Bookings Queue */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col">
+              <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                    New Bookings (Review &amp; Approve)
+                  </h2>
                 </div>
-              );
-            }
-            return (
-              <>
-                <ResponsiveContainer width="100%" height={160}>
-                  <PieChart>
-                    <Pie
-                      data={catData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={45}
-                      outerRadius={75}
-                      paddingAngle={3}
-                      dataKey="value"
-                    >
-                      {catData.map((entry, index) => (
-                        <Cell key={index} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(v: any) => [v.toLocaleString(), ""]} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="space-y-2 mt-2">
-                  {catData.map((item) => (
+                <button
+                  type="button"
+                  onClick={() => handleStageCardClick("new")}
+                  className="text-[11px] font-semibold text-[#991B1B] hover:underline"
+                >
+                  View All ({stageC.new})
+                </button>
+              </div>
+              <div className="p-4 space-y-2.5 flex-1 max-h-[360px] overflow-y-auto">
+                {scopedRows.filter((r) => r.stage === "new").length === 0 ? (
+                  <div className="h-full min-h-[140px] flex flex-col items-center justify-center text-center p-4 text-slate-400">
+                    <p className="text-xs font-bold text-slate-700">No new bookings awaiting review</p>
+                    <p className="text-[11px] mt-0.5">New bookings appear here immediately for office review.</p>
+                  </div>
+                ) : (
+                  scopedRows.filter((r) => r.stage === "new").slice(0, 5).map((r) => (
                     <div
-                      key={item.name}
-                      className="flex items-center justify-between"
+                      key={r.b.id}
+                      className="p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 transition-colors"
                     >
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="w-2.5 h-2.5 rounded-sm shrink-0"
-                          style={{ background: item.color }}
-                        />
-                        <span className="text-[11px] text-muted">
-                          {item.name}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[11px] font-bold text-[#991B1B]">{r.b.bookingId || r.b.id}</span>
+                          <BookingSourceBadge booking={r.b} size="sm" />
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
+                            {r.b.service || r.b.serviceType || "Taxi"}
+                          </span>
+                        </div>
+                        <p className="text-xs font-bold text-slate-900 mt-1 truncate">
+                          {r.b.pickup} → {r.b.drop}
+                        </p>
+                        <p className="text-[11px] text-slate-500">
+                          {r.b.customer || r.b.customerName} • {r.b.date} ({r.b.time}) • {formatINR(fareOf(r.b))}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          disabled={approvingId === r.b.id}
+                          onClick={() => handleApproveDuty(r.b.id)}
+                          className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition-colors disabled:opacity-50"
+                        >
+                          {approvingId === r.b.id ? "Approving..." : "Approve Duty"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onSelectBooking(r.b.id)}
+                          className="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border border-slate-200 hover:bg-slate-100 text-slate-700 transition-colors"
+                        >
+                          View
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Right: Assignment Priority Queue */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col">
+              <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#991B1B] animate-pulse" />
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                    Assignment Priority (Own Cab / Vendor)
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleStageCardClick("assign")}
+                  className="text-[11px] font-semibold text-[#991B1B] hover:underline"
+                >
+                  Open Queue ({stageC.assign})
+                </button>
+              </div>
+              <div className="p-4 space-y-2.5 flex-1 max-h-[360px] overflow-y-auto">
+                {scopedRows.filter((r) => r.stage === "assign").length === 0 ? (
+                  <div className="h-full min-h-[140px] flex flex-col items-center justify-center text-center p-4 text-slate-400">
+                    <p className="text-xs font-bold text-slate-700">All accepted duties are allocated</p>
+                    <p className="text-[11px] mt-0.5">Duties needing cab &amp; driver assignment appear here.</p>
+                  </div>
+                ) : (
+                  scopedRows.filter((r) => r.stage === "assign").slice(0, 5).map((r) => (
+                    <div
+                      key={r.b.id}
+                      className="p-3 rounded-xl border border-crimson-100 bg-crimson-50/20 hover:bg-crimson-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 transition-colors"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[11px] font-bold text-[#991B1B]">{r.b.bookingId || r.b.id}</span>
+                          <BookingSourceBadge booking={r.b} size="sm" />
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">
+                            Needs Allocation
+                          </span>
+                        </div>
+                        <p className="text-xs font-bold text-slate-900 mt-1 truncate">
+                          {r.b.pickup} → {r.b.drop}
+                        </p>
+                        <p className="text-[11px] text-slate-600">
+                          Pickup: <strong>{r.b.date} {r.b.time}</strong> • Fare: {formatINR(fareOf(r.b))}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => onSelectBooking(r.b.id)}
+                          className="px-3.5 py-1.5 rounded-lg text-[11px] font-bold bg-[#991B1B] hover:bg-[#7F1D1D] text-white shadow-2xs transition-colors"
+                        >
+                          Assign Driver / Cab
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </section>
+
+          {/* Quick Operational Strip */}
+          <section className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-white border border-slate-200/90 text-xs shadow-2xs">
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => handleStageCardClick("publish")}
+                className="px-3 py-1.5 rounded-xl bg-blue-50 text-blue-800 font-semibold border border-blue-200/80 hover:bg-blue-100 flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <span>To Publish</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-blue-600 text-white text-[10px] font-bold">
+                  {stageC.publish}
+                </span>
+              </button>
+              <span className="text-slate-300">|</span>
+              <span className="text-slate-600 font-medium">
+                Sources: <strong className="text-[#991B1B]">Nesam Cabs ({srcC.nesam})</strong> •{" "}
+                <strong className="text-emerald-700">PeopleTaxi.in ({srcC.people_taxi})</strong> •{" "}
+                <strong className="text-blue-700">One Way Car Rentals ({srcC.onewaycarrentals})</strong>
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActiveView("analytics")}
+              className="text-xs font-bold text-[#991B1B] hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <span>GST &amp; Revenue Report →</span>
+            </button>
+          </section>
+
+          {/* Latest Revenue Overview & Brand Source Performance */}
+          <section className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs flex flex-col justify-between space-y-4">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-sm font-bold text-slate-900">Latest Revenue Overview</h3>
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${
+                      cmdChange.kind === "up" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : cmdChange.kind === "down" ? "bg-red-50 text-red-700 border-red-200" : "bg-slate-50 text-slate-700 border-slate-200"
+                    }`}>
+                      {changeLabel(cmdChange)}
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      Live
+                    </span>
+                  </div>
+                  <div className="flex items-baseline gap-2.5 mt-1">
+                    <p className="text-xl font-extrabold tracking-tight text-slate-900">
+                      {formatINR(cmdSummary.booked)}
+                    </p>
+                    <p className="text-[11px] font-medium text-slate-500">
+                      Pipeline Gross: {formatINR(pipelineGross)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl shrink-0">
+                  {(["Today", "Week", "Month"] as Period[]).map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setCmdPeriod(p)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                        cmdPeriod === p
+                          ? "bg-[#991B1B] text-white shadow-2xs"
+                          : "text-slate-600 hover:text-slate-900 font-medium"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Area Trend Chart */}
+              <div className="h-36 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={cmdWin.buckets.map((b, i) => ({ label: b.label, amount: cmdSummary.buckets[i] ?? 0 }))}
+                    margin={{ top: 5, right: 5, left: -20, bottom: 0 }}
+                  >
+                    <defs>
+                      <linearGradient id="cmdRedGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#991B1B" stopOpacity={0.2} />
+                        <stop offset="95%" stopColor="#991B1B" stopOpacity={0.0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 10, fill: "#94A3B8" }} axisLine={false} tickLine={false} tickFormatter={(v) => `₹${v >= 1000 ? (v / 1000).toFixed(0) + "k" : v}`} />
+                    <Tooltip formatter={(val: any) => [formatINR(Number(val) || 0), "Revenue"]} />
+                    <Area type="monotone" dataKey="amount" stroke="#991B1B" strokeWidth={2} fill="url(#cmdRedGrad)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Service-Wise Market Ticker Strip (NSE/BSE style) */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 pt-2 border-t border-slate-100">
+                {SERVICE_KEYS.map((k) => (
+                  <div key={k} className="p-2 rounded-xl bg-slate-50 border border-slate-200/70 text-center">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase">{SERVICE_NAME[k]}</p>
+                    <p className="text-xs font-extrabold text-slate-900 mt-0.5">
+                      {formatINR(cmdSummary.byService[k])}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Revenue by Booking Source */}
+            <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs flex flex-col justify-between space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Revenue by Booking Source</h3>
+                  <p className="text-[11px] text-slate-500">Nesam Cabs vs PeopleTaxi.in vs One Way Car Rentals</p>
+                </div>
+                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-600">
+                  3 Channels
+                </span>
+              </div>
+
+              <div className="space-y-3.5">
+                {SOURCE_ORDER.map((s) => {
+                  const bkg = cmdSummary.bySource[s];
+                  const totalBooked = Math.max(1, cmdSummary.booked);
+                  const pct = Math.round((bkg.booked / totalBooked) * 100);
+                  const colorCls = s === "nesam" ? "bg-[#991B1B]" : s === "people_taxi" ? "bg-emerald-600" : "bg-blue-600";
+                  return (
+                    <div key={s} className="space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-slate-800">{SOURCE_NAME[s]}</span>
+                        <span className="font-extrabold text-slate-900">
+                          {formatINR(bkg.booked)} <span className="text-[11px] text-slate-400 font-normal">({bkg.count} trips • {pct}%)</span>
                         </span>
                       </div>
-                      <span className="text-[11px] font-semibold text-ink">
-                        {item.value.toLocaleString()}
-                      </span>
+                      <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                        <div className={`h-full rounded-full ${colorCls} transition-all duration-500`} style={{ width: `${pct}%` }} />
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </>
-            );
-          })()}
-        </div>
-      </div>
-
-      {/* Status Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          {
-            label: "Pending",
-            count: liveBookings.filter((b) => b.status === "Pending").length,
-            color: "#F59E0B",
-          },
-          {
-            label: "Confirmed",
-            count: liveBookings.filter((b) => b.status === "Confirmed").length,
-            color: "#3B82F6",
-          },
-          {
-            label: "Ongoing",
-            count: liveBookings.filter(
-              (b) => b.status === "Ongoing" || b.status === "Trip Started",
-            ).length,
-            color: "#c1232c",
-          },
-          {
-            label: "Completed",
-            count: liveBookings.filter((b) => b.status === "Completed").length,
-            color: "#10B981",
-          },
-        ].map((s) => (
-          <div
-            key={s.label}
-            className="bg-white rounded-xl border border-line shadow-sm p-4"
-          >
-            <div className="flex items-center gap-3">
-              <div
-                className="w-10 h-10 rounded-lg flex items-center justify-center"
-                style={{ background: s.color + "15" }}
-              >
-                <div
-                  className="w-3 h-3 rounded-full"
-                  style={{ background: s.color }}
-                />
+                  );
+                })}
               </div>
+
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 text-xs flex items-center justify-between">
+                <span className="text-slate-600">Total Bookings in Window:</span>
+                <span className="font-bold text-slate-900">{cmdSummary.count} bookings</span>
+              </div>
+            </div>
+          </section>
+
+          {/* Side-by-Side Today & Tomorrow Schedule */}
+          <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Today */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+              <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">Today's Schedule</h3>
+                <span className="text-[11px] font-medium text-slate-500">{todayTrips.length} active trips</span>
+              </div>
+              <div className="divide-y divide-slate-100 max-h-[300px] overflow-y-auto">
+                {todayTrips.length === 0 ? (
+                  <div className="p-6 text-center text-slate-400 text-xs">No active pickups scheduled for today.</div>
+                ) : (
+                  todayTrips.map((r) => {
+                    const as = assigneeOf(r);
+                    return (
+                      <div key={r.b.id} className="p-3.5 flex items-center justify-between gap-3 hover:bg-slate-50/80 transition-colors">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs font-bold text-[#991B1B]">{r.b.bookingId || r.b.id}</span>
+                            <span className="text-[11px] font-semibold text-slate-700">{r.b.time || "Scheduled"}</span>
+                            <BookingSourceBadge booking={r.b} size="sm" />
+                          </div>
+                          <p className="text-xs font-semibold text-slate-900 truncate mt-0.5">{r.b.pickup} → {r.b.drop}</p>
+                          <p className="text-[11px] text-slate-500 truncate">{as.primary} {as.secondary ? `(${as.secondary})` : ""}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-xs font-extrabold text-slate-900">{formatINR(fareOf(r.b))}</p>
+                          <button
+                            type="button"
+                            onClick={() => onSelectBooking(r.b.id)}
+                            className="mt-1 text-[11px] font-semibold text-[#991B1B] hover:underline"
+                          >
+                            Manage →
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Tomorrow */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+              <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">Tomorrow's Schedule</h3>
+                <span className="text-[11px] font-medium text-slate-500">{tomorrowTrips.length} upcoming trips</span>
+              </div>
+              <div className="divide-y divide-slate-100 max-h-[300px] overflow-y-auto">
+                {tomorrowTrips.length === 0 ? (
+                  <div className="p-6 text-center text-slate-400 text-xs">No active pickups scheduled for tomorrow.</div>
+                ) : (
+                  tomorrowTrips.map((r) => {
+                    const as = assigneeOf(r);
+                    return (
+                      <div key={r.b.id} className="p-3.5 flex items-center justify-between gap-3 hover:bg-slate-50/80 transition-colors">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs font-bold text-[#991B1B]">{r.b.bookingId || r.b.id}</span>
+                            <span className="text-[11px] font-semibold text-slate-700">{r.b.time || "Scheduled"}</span>
+                            <BookingSourceBadge booking={r.b} size="sm" />
+                          </div>
+                          <p className="text-xs font-semibold text-slate-900 truncate mt-0.5">{r.b.pickup} → {r.b.drop}</p>
+                          <p className="text-[11px] text-slate-500 truncate">{as.primary} {as.secondary ? `(${as.secondary})` : ""}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-xs font-extrabold text-slate-900">{formatINR(fareOf(r.b))}</p>
+                          <button
+                            type="button"
+                            onClick={() => onSelectBooking(r.b.id)}
+                            className="mt-1 text-[11px] font-semibold text-[#991B1B] hover:underline"
+                          >
+                            Manage →
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </section>
+
+          {/* Active & Recent Bookings Table */}
+          <section className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
               <div>
-                <div className="text-[20px] font-bold text-ink">
-                  {s.count.toLocaleString()}
-                </div>
-                <div className="text-[11px] text-faint">
-                  {s.label} Bookings
-                </div>
+                <h3 className="text-sm font-bold text-slate-900">Active &amp; Recent Bookings</h3>
+                <p className="text-[11px] text-slate-500">Live operational duties across all three brands</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveView("trips")}
+                className="text-xs font-bold text-[#991B1B] hover:underline cursor-pointer"
+              >
+                Full Explorer →
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50/70 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    <th className="py-3 px-5">Booking ID &amp; Source</th>
+                    <th className="py-3 px-4">Customer</th>
+                    <th className="py-3 px-4">Service</th>
+                    <th className="py-3 px-4">Route</th>
+                    <th className="py-3 px-4">Pickup</th>
+                    <th className="py-3 px-4">Driver / Vendor</th>
+                    <th className="py-3 px-4">Fare</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {scopedRows.slice(0, 8).map((r) => {
+                    const as = assigneeOf(r);
+                    return (
+                      <tr key={r.b.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="py-3 px-5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-mono font-bold text-[#991B1B]">{r.b.bookingId || r.b.id}</span>
+                            <BookingSourceBadge booking={r.b} size="sm" />
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 font-medium text-slate-900">
+                          {r.b.customer || r.b.customerName || "Customer"}
+                        </td>
+                        <td className="py-3 px-4 text-slate-600">
+                          {r.b.service || r.b.serviceType || "Taxi"}
+                        </td>
+                        <td className="py-3 px-4">
+                          <p className="font-medium text-slate-900">{r.b.pickup}</p>
+                          <p className="text-[11px] text-slate-500">→ {r.b.drop}</p>
+                        </td>
+                        <td className="py-3 px-4">
+                          <p className="font-medium text-slate-900">{r.b.date}</p>
+                          <p className="text-[11px] text-slate-500">{r.b.time}</p>
+                        </td>
+                        <td className="py-3 px-4">
+                          <p className="font-semibold text-slate-800">{as.primary}</p>
+                          {as.secondary && <p className="text-[11px] text-slate-500">{as.secondary}</p>}
+                        </td>
+                        <td className="py-3 px-4 font-bold text-slate-900">
+                          {formatINR(fareOf(r.b))}
+                        </td>
+                        <td className="py-3 px-4">
+                          <StatusBadge status={r.b.status} />
+                        </td>
+                        <td className="py-3 px-5 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleCopyDutySlip(r)}
+                              className="px-2 py-1 rounded text-[11px] font-semibold border border-slate-200 hover:bg-slate-100 text-slate-700 transition-colors"
+                              title="Copy WhatsApp Duty Slip"
+                            >
+                              Slip
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => onSelectBooking(r.b.id)}
+                              className="px-2.5 py-1 rounded text-[11px] font-bold bg-[#991B1B] hover:bg-[#7F1D1D] text-white transition-colors"
+                            >
+                              Manage
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* VIEW 2: ALL TRIPS EXPLORER                                */}
+      {/* ========================================================= */}
+      {activeView === "trips" && (
+        <div className="space-y-4 fade-in">
+          {/* Filter Bar & Tabs */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-4 space-y-3 shadow-2xs">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {[
+                  { id: "all" as StageFilter, label: "All Trips", count: scopedRows.length },
+                  { id: "new" as StageFilter, label: "New bookings", count: stageC.new },
+                  { id: "publish" as StageFilter, label: "To publish", count: stageC.publish },
+                  { id: "published" as StageFilter, label: "Published", count: stageC.published },
+                  { id: "assign" as StageFilter, label: "Assign pending", count: stageC.assign },
+                  { id: "ontrip" as StageFilter, label: "Ongoing", count: stageC.ontrip },
+                  { id: "assigned" as StageFilter, label: "Assigned", count: stageC.assigned },
+                  { id: "completed" as StageFilter, label: "Completed", count: stageC.completed },
+                  { id: "cancelled" as StageFilter, label: "Cancelled", count: stageC.cancelled },
+                ].map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setFilters((f) => ({ ...f, stage: t.id }))}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      filters.stage === t.id
+                        ? "bg-[#991B1B] text-white shadow-2xs"
+                        : "bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium"
+                    }`}
+                  >
+                    <span>{t.label}</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                      filters.stage === t.id ? "bg-white/20 text-white" : "bg-white text-slate-700 font-bold"
+                    }`}>
+                      {t.count}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <span className="text-xs font-semibold text-slate-500">
+                {tripsFiltered.length} matching records
+              </span>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2.5 border-t border-slate-100">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {SERVICE_PILLS.map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setFilters((f) => ({ ...f, service: p }))}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                      filters.service === p
+                        ? "bg-slate-900 text-white"
+                        : "bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/80"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={filters.search}
+                  onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
+                  placeholder="Filter by ID, city, customer..."
+                  className="h-8 px-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-[#991B1B] focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => { setFilters(NO_TRIP_FILTERS); setGlobalSearch(""); }}
+                  className="h-8 px-3 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+                >
+                  Clear
+                </button>
               </div>
             </div>
           </div>
-        ))}
-      </div>
 
-      {/* Recent Bookings Table */}
-      <div className="bg-white rounded-xl border border-line shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-line">
-          <div>
-            <h2 className="text-[15px] font-bold text-ink">
-              Recent Bookings
-            </h2>
-            <p className="text-[12px] text-faint mt-0.5">
-              Latest booking activity
-            </p>
-          </div>
-          <button
-            onClick={() => onNavigate("bookings")}
-            className="text-[12px] font-semibold px-4 py-2 rounded-lg border border-line text-brand hover:bg-brand-soft transition-colors"
-          >
-            View All
-          </button>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px]">
-            <thead>
-              <tr className="bg-surface-2 border-b border-line">
-                {[
-                  "Booking ID",
-                  "Customer",
-                  "Service",
-                  "Pickup → Drop",
-                  "Date & Time",
-                  "Driver",
-                  "Fare",
-                  "Payment",
-                  "Status",
-                  "",
-                ].map((h) => (
-                  <th
-                    key={h}
-                    className="px-4 py-3 text-left text-[11px] font-semibold text-faint uppercase tracking-wide"
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {liveBookings.slice(0, 6).map((b, i) => (
-                <tr
-                  key={i}
-                  className={`table-row border-b border-hover last:border-0 ${bookingSourceRowCls(b)}`}
-                >
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                    <span
-                      className="text-[12px] font-mono font-semibold"
-                      style={{ color: "#c1232c" }}
-                    >
-                      {b.bookingId || b.id}
-                    </span>
-                    <BookingSourceBadge booking={b} size="sm" />
-                  </div>
-                  </td>
-                  <td className="px-4 py-3 text-[12px] font-medium text-ink">
-                    {b.customer}
-                  </td>
-                  <td className="px-4 py-3 text-[12px] text-muted">
-                    {b.service}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="text-[11px] text-ink">{b.pickup}</div>
-                    <div className="text-[11px] text-faint">→ {b.drop}</div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="text-[11px] text-ink">{b.date}</div>
-                    <div className="text-[11px] text-faint">{b.time}</div>
-                  </td>
-                  <td className="px-4 py-3 text-[12px] text-muted">
-                    {b.driver}
-                  </td>
-                  <td className="px-4 py-3 text-[12px] font-semibold text-ink">
-                    {b.fare}
-                  </td>
-                  <td className="px-4 py-3">
-                    <PaymentBadge status={paymentOf(b).status} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={b.status} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <button type="button" onClick={() => onSelectBooking(b.id)} className="text-[11px] font-medium px-2.5 py-1 rounded-lg border border-line hover:bg-brand-soft text-brand transition-colors">
-                      View
-                    </button>
-                  </td>
+          {/* Full Trips Table */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50/70 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  <th className="py-3 px-5">Booking ID &amp; Source</th>
+                  <th className="py-3 px-4">Customer</th>
+                  <th className="py-3 px-4">Service</th>
+                  <th className="py-3 px-4">Route</th>
+                  <th className="py-3 px-4">Pickup</th>
+                  <th className="py-3 px-4">Driver / Vendor</th>
+                  <th className="py-3 px-4">Fare</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-5 text-right">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {tripsFiltered.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="py-12 text-center text-slate-400">
+                      No bookings match the selected filters.
+                    </td>
+                  </tr>
+                ) : (
+                  tripsFiltered.map((r) => {
+                    const as = assigneeOf(r);
+                    return (
+                      <tr key={r.b.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="py-3 px-5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-mono font-bold text-[#991B1B]">{r.b.bookingId || r.b.id}</span>
+                            <BookingSourceBadge booking={r.b} size="sm" />
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 font-medium text-slate-900">
+                          {r.b.customer || r.b.customerName || "Customer"}
+                        </td>
+                        <td className="py-3 px-4 text-slate-600">
+                          {r.b.service || r.b.serviceType || "Taxi"}
+                        </td>
+                        <td className="py-3 px-4">
+                          <p className="font-medium text-slate-900">{r.b.pickup}</p>
+                          <p className="text-[11px] text-slate-500">→ {r.b.drop}</p>
+                        </td>
+                        <td className="py-3 px-4">
+                          <p className="font-medium text-slate-900">{r.b.date}</p>
+                          <p className="text-[11px] text-slate-500">{r.b.time}</p>
+                        </td>
+                        <td className="py-3 px-4">
+                          <p className="font-semibold text-slate-800">{as.primary}</p>
+                          {as.secondary && <p className="text-[11px] text-slate-500">{as.secondary}</p>}
+                        </td>
+                        <td className="py-3 px-4 font-bold text-slate-900">
+                          {formatINR(fareOf(r.b))}
+                        </td>
+                        <td className="py-3 px-4">
+                          <StatusBadge status={r.b.status} />
+                        </td>
+                        <td className="py-3 px-5 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleCopyDutySlip(r)}
+                              className="px-2 py-1 rounded text-[11px] font-semibold border border-slate-200 hover:bg-slate-100 text-slate-700 transition-colors"
+                              title="Copy WhatsApp Duty Slip"
+                            >
+                              Slip
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => onSelectBooking(r.b.id)}
+                              className="px-2.5 py-1 rounded text-[11px] font-bold bg-[#991B1B] hover:bg-[#7F1D1D] text-white transition-colors"
+                            >
+                              Manage
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* VIEW 3: REVENUE & GST ANALYTICS                           */}
+      {/* ========================================================= */}
+      {activeView === "analytics" && (
+        <div className="space-y-5 fade-in">
+          {/* Top KPI Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Bookings</p>
+              <p className="text-2xl font-extrabold text-slate-900 mt-1">{scopedBookings.length}</p>
+            </div>
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Active On-Road Trips</p>
+              <p className="text-2xl font-extrabold text-emerald-700 mt-1">{stageC.ontrip}</p>
+            </div>
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Pipeline Gross Value</p>
+              <p className="text-2xl font-extrabold text-[#991B1B] mt-1">{formatINR(pipelineGross)}</p>
+            </div>
+          </div>
+
+          {/* Revenue Chart + Booking Types Split */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Revenue Overview</h3>
+                  <p className="text-xs font-semibold text-emerald-700">Total in Period: {formatINR(anSummary.booked)}</p>
+                </div>
+                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+                  {(["Today", "Week", "Month", "Year"] as Period[]).map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setAnalyticsPeriod(p)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                        analyticsPeriod === p
+                          ? "bg-[#991B1B] text-white shadow-2xs"
+                          : "text-slate-600 hover:text-slate-900 font-medium"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="h-44 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={anWin.buckets.map((b, i) => ({ label: b.label, amount: anSummary.buckets[i] ?? 0 }))}
+                    margin={{ top: 5, right: 5, left: -20, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 10, fill: "#94A3B8" }} axisLine={false} tickLine={false} tickFormatter={(v) => `₹${v >= 1000 ? (v / 1000).toFixed(0) + "k" : v}`} />
+                    <Tooltip formatter={(val: any) => [formatINR(Number(val) || 0), "Revenue"]} />
+                    <Bar dataKey="amount" fill="#991B1B" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Booking Types Distribution */}
+            <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-4">
+              <h3 className="text-sm font-bold text-slate-900">Booking Types Split</h3>
+              <div className="space-y-3">
+                {[
+                  "Airport Taxi",
+                  "Outstation Cab",
+                  "One Way Taxi",
+                  "Local Rental",
+                  "Tour Package",
+                ].map((cat) => {
+                  const count = scopedBookings.filter((b) => (b.service || b.serviceType || "").includes(cat)).length;
+                  const total = Math.max(1, scopedBookings.length);
+                  const pct = Math.round((count / total) * 100);
+                  const color = categoryColors[cat] || "#991B1B";
+                  return (
+                    <div key={cat} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-semibold text-slate-800">{cat}</span>
+                        <span className="font-bold text-slate-900">{count} trips ({pct}%)</span>
+                      </div>
+                      <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: color }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* GST Breakdown & Tax Compliance Card */}
+          <section className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">GST Compliance &amp; Tax Summary (5% Standard)</h3>
+                <p className="text-[11px] text-slate-500">Government GST collection on transport passenger services (CGST 2.5% + SGST 2.5%)</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => onNavigate("reports-gst")}
+                className="text-xs font-bold text-[#991B1B] hover:underline"
+              >
+                Detailed GST Ledger →
+              </button>
+            </div>
+
+            {(() => {
+              const totalGross = anSummary.booked;
+              const taxable = Math.round(totalGross / 1.05);
+              const totalGst = totalGross - taxable;
+              const cgst = Math.round(totalGst / 2);
+              const sgst = totalGst - cgst;
+              return (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Gross Taxable Value</p>
+                    <p className="text-lg font-extrabold text-slate-900 mt-1">{formatINR(taxable)}</p>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">CGST (2.5%)</p>
+                    <p className="text-lg font-extrabold text-slate-900 mt-1">{formatINR(cgst)}</p>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">SGST (2.5%)</p>
+                    <p className="text-lg font-extrabold text-slate-900 mt-1">{formatINR(sgst)}</p>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200/80">
+                    <p className="text-[10px] font-bold text-emerald-700 uppercase">Total GST Output (5%)</p>
+                    <p className="text-lg font-extrabold text-emerald-800 mt-1">{formatINR(totalGst)}</p>
+                  </div>
+                </div>
+              );
+            })()}
+          </section>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* VIEW 4: DISPATCH DESK (PRESERVED OPERATIONS & OFFICE)      */}
+      {/* ========================================================= */}
+      {activeView === "dispatch" && (
+        <div className="space-y-6 fade-in">
+          <OfficeDashboard
+            onNavigate={onNavigate}
+            onSelectBooking={onSelectBooking}
+            onNewBooking={onNewBooking}
+          />
+          <OperationsSection
+            bookings={liveBookings}
+            penalties={livePenalties}
+            now={now}
+            thresholds={ops}
+            loading={!loaded && !loadError}
+            onNavigate={onNavigate}
+            onSelectBooking={onSelectBooking}
+          />
+        </div>
+      )}
     </div>
   );
 }

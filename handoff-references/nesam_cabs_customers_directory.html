@@ -1,0 +1,1473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NESAM CABS — Customers Directory</title>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Lucide Icons via CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+          },
+          colors: {
+            crimson: {
+              50: '#FEF2F2',
+              100: '#FEE2E2',
+              200: '#FECACA',
+              600: '#DC2626',
+              700: '#B91C1C',
+              800: '#991B1B',
+              900: '#7F1D1D',
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: #F8FAFC;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .drawer-slide-in {
+      animation: drawerSlide 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes drawerSlide {
+      from { transform: translateX(100%); opacity: 0.6; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    .fade-in {
+      animation: fadeIn 0.2s ease-out forwards;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #CBD5E1;
+      border-radius: 999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94A3B8;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col lg:flex-row">
+
+  <!-- ========================================================= -->
+  <!-- LEFT SIDEBAR: MASTER ADMIN NAVIGATION                     -->
+  <!-- ========================================================= -->
+  <aside class="w-full lg:w-64 bg-white border-b lg:border-b-0 lg:border-r border-slate-200/90 flex flex-col shrink-0">
+    <!-- Brand Header -->
+    <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-[#991B1B] text-white flex items-center justify-center font-bold text-sm shadow-xs">
+          NC
+        </div>
+        <div>
+          <p class="text-xs font-bold tracking-wide text-slate-900">NESAM CABS</p>
+          <span id="sidebarRoleBadge" class="inline-flex items-center gap-1 text-[10px] font-semibold text-[#991B1B] bg-crimson-50 px-1.5 py-0.5 rounded">
+            <i data-lucide="shield-check" class="w-2.5 h-2.5"></i>
+            Master Admin
+          </span>
+        </div>
+      </div>
+      <span id="sidebarMobileSession" class="lg:hidden text-[11px] font-medium text-slate-400">admin@gmail.com</span>
+    </div>
+
+    <!-- Navigation Links -->
+    <nav class="hidden lg:block flex-1 px-3 py-4 space-y-5 overflow-y-auto text-xs">
+      <div>
+        <p class="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Core Operations</p>
+        <div class="space-y-0.5">
+          <a href="#dashboard" onclick="return false;" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-600 hover:bg-slate-50 font-medium">
+            <i data-lucide="layout-dashboard" class="w-4 h-4 text-slate-400"></i>
+            <span>Dashboard</span>
+          </a>
+          <a href="#bookings" onclick="return false;" class="flex items-center justify-between px-3 py-2 rounded-xl text-slate-600 hover:bg-slate-50 font-medium">
+            <span class="flex items-center gap-2.5">
+              <i data-lucide="calendar-check" class="w-4 h-4 text-slate-400"></i>
+              <span>Bookings &amp; Dispatch</span>
+            </span>
+            <span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-crimson-50 text-[#991B1B]">14</span>
+          </a>
+          <div class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-crimson-50 text-[#991B1B] font-bold">
+            <span class="flex items-center gap-2.5">
+              <i data-lucide="users" class="w-4 h-4 text-[#991B1B]"></i>
+              <span>Customers</span>
+            </span>
+            <span class="w-1.5 h-1.5 rounded-full bg-[#991B1B]"></span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <p class="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Fleet &amp; Partners</p>
+        <div class="space-y-0.5">
+          <a href="#drivers" onclick="return false;" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-600 hover:bg-slate-50 font-medium">
+            <i data-lucide="car" class="w-4 h-4 text-slate-400"></i>
+            <span>Driver Partners</span>
+          </a>
+          <a href="#vendors" onclick="return false;" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-600 hover:bg-slate-50 font-medium">
+            <i data-lucide="building-2" class="w-4 h-4 text-slate-400"></i>
+            <span>Vendors &amp; Vehicles</span>
+          </a>
+        </div>
+      </div>
+
+      <div>
+        <p class="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Finance &amp; Billing</p>
+        <div class="space-y-0.5">
+          <a href="#accounts" onclick="return false;" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-600 hover:bg-slate-50 font-medium">
+            <i data-lucide="indian-rupee" class="w-4 h-4 text-slate-400"></i>
+            <span>Accounts &amp; Settlements</span>
+          </a>
+          <a href="#gst" onclick="return false;" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-600 hover:bg-slate-50 font-medium">
+            <i data-lucide="file-spreadsheet" class="w-4 h-4 text-slate-400"></i>
+            <span>Invoices &amp; GST</span>
+          </a>
+        </div>
+      </div>
+
+      <div>
+        <p class="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">System &amp; Security</p>
+        <div class="space-y-0.5">
+          <a href="#staff" onclick="return false;" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-600 hover:bg-slate-50 font-medium">
+            <i data-lucide="user-cog" class="w-4 h-4 text-slate-400"></i>
+            <span>Staff &amp; Access</span>
+          </a>
+          <a href="#settings" onclick="return false;" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-slate-600 hover:bg-slate-50 font-medium">
+            <i data-lucide="settings" class="w-4 h-4 text-slate-400"></i>
+            <span>Master Settings</span>
+          </a>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Bottom Signed-In Footer -->
+    <div class="hidden lg:flex px-4 py-3.5 border-t border-slate-100 items-center justify-between text-[11px] text-slate-500">
+      <div class="flex items-center gap-2 min-w-0">
+        <span id="sidebarOnlineDot" class="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+        <span id="sidebarEmailText" class="truncate font-medium">admin@gmail.com</span>
+      </div>
+      <span id="sidebarOwnerTag" class="text-[10px] font-bold uppercase text-slate-400">Owner</span>
+    </div>
+  </aside>
+
+  <!-- ========================================================= -->
+  <!-- MAIN CONTENT WORKSPACE                                    -->
+  <!-- ========================================================= -->
+  <main class="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full space-y-6">
+
+    <!-- Top Header + Master Admin vs Staff Session Switcher -->
+    <header class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <h1 class="text-lg sm:text-xl font-bold text-slate-900">Customers Directory</h1>
+          <span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-crimson-50 text-[#991B1B] border border-crimson-200/70">
+            CRM &amp; Privacy Guard
+          </span>
+        </div>
+        <p class="text-xs text-slate-500 mt-1">
+          Manage individual, VIP, and corporate accounts • Number reveals require a logged reason • Export restricted to Master Admin.
+        </p>
+      </div>
+
+      <div class="flex items-center gap-2.5 flex-wrap">
+        <!-- Session Mode Switcher (Test Master Admin vs Staff View) -->
+        <div class="inline-flex items-center p-1 rounded-xl bg-white border border-slate-200 shadow-xs text-[11px]">
+          <button type="button" data-session-mode="master" class="session-mode-btn px-2.5 py-1.5 rounded-lg font-bold bg-[#991B1B] text-white transition-all flex items-center gap-1">
+            <i data-lucide="shield-check" class="w-3 h-3"></i>
+            <span>Master Admin</span>
+          </button>
+          <button type="button" data-session-mode="staff" class="session-mode-btn px-2.5 py-1.5 rounded-lg font-medium text-slate-600 hover:text-slate-900 transition-all flex items-center gap-1">
+            <i data-lucide="user" class="w-3 h-3"></i>
+            <span>Staff View (@booking.karthik)</span>
+          </button>
+        </div>
+
+        <!-- Master-Admin-Only Export Data Button -->
+        <button
+          type="button"
+          id="exportCustomersBtn"
+          class="h-10 px-3.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+        >
+          <i data-lucide="download" class="w-3.5 h-3.5 text-slate-500"></i>
+          <span>Export Data</span>
+        </button>
+
+        <!-- Add Customer Primary CTA -->
+        <button
+          type="button"
+          id="openAddCustomerBtn"
+          class="h-10 px-4 rounded-xl bg-[#991B1B] hover:bg-[#7F1D1D] active:scale-[0.99] text-white text-xs font-semibold flex items-center gap-2 shadow-sm transition-all"
+        >
+          <i data-lucide="user-plus" class="w-4 h-4"></i>
+          <span>+ Add Customer</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- 4 KPI Summary Cards -->
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div class="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Total Customers</span>
+          <span class="w-7 h-7 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
+            <i data-lucide="users" class="w-3.5 h-3.5"></i>
+          </span>
+        </div>
+        <p id="kpiTotalCust" class="text-2xl font-bold text-slate-900 mt-2">5</p>
+        <p class="text-[11px] text-slate-500 mt-0.5">Verified Nesam Cabs riders</p>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Repeat / VIP (3+ Trips)</span>
+          <span class="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+            <i data-lucide="crown" class="w-3.5 h-3.5"></i>
+          </span>
+        </div>
+        <p id="kpiVipCust" class="text-2xl font-bold text-amber-600 mt-2">2</p>
+        <p class="text-[11px] text-slate-500 mt-0.5">High-retention regular callers</p>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Corporate / GST</span>
+          <span class="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+            <i data-lucide="building-2" class="w-3.5 h-3.5"></i>
+          </span>
+        </div>
+        <p id="kpiCorpCust" class="text-2xl font-bold text-blue-700 mt-2">1</p>
+        <p class="text-[11px] text-slate-500 mt-0.5">B2B monthly invoice accounts</p>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Pending Credit Due</span>
+          <span class="w-7 h-7 rounded-lg bg-crimson-50 text-[#991B1B] flex items-center justify-center">
+            <i data-lucide="indian-rupee" class="w-3.5 h-3.5"></i>
+          </span>
+        </div>
+        <p id="kpiPendingDue" class="text-2xl font-bold text-[#991B1B] mt-2">₹12,400</p>
+        <p id="kpiPendingSub" class="text-[11px] text-slate-500 mt-0.5">2 accounts • 100% reason-logged views</p>
+      </div>
+    </section>
+
+    <!-- Main Customers Card -->
+    <section class="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+      <!-- Top Segment Tabs + Search & Brand Filter -->
+      <div class="p-4 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <!-- Segment Filter Pills -->
+        <div id="segmentTabsGroup" class="flex items-center gap-1.5 flex-wrap"></div>
+
+        <!-- Search & Brand Filter -->
+        <div class="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          <div class="relative w-full sm:w-72">
+            <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+            <input
+              type="text"
+              id="customerSearchInput"
+              placeholder="Search name, ID (NSM-CU), mobile or city..."
+              class="w-full h-9 pl-8 pr-3 text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-[#991B1B] focus:outline-none"
+            />
+          </div>
+
+          <select id="brandFilterSelect" class="h-9 px-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#991B1B]">
+            <option value="all">All Brands</option>
+            <option value="Nesam Cabs">Nesam Cabs</option>
+            <option value="One Way Car Rentals">One Way Car Rentals</option>
+            <option value="People Taxi">People Taxi</option>
+          </select>
+
+          <button type="button" id="clearFiltersBtn" class="hidden h-9 px-3 rounded-xl text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200/80">
+            Clear
+          </button>
+        </div>
+      </div>
+
+      <!-- Bulk Selection Toolbar (Master Admin Only) -->
+      <div id="bulkActionBar" class="hidden px-5 py-2.5 bg-crimson-50/70 border-b border-crimson-100 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <span id="selectedCountText" class="font-bold text-[#991B1B]">0 selected</span>
+        <div class="flex items-center gap-2">
+          <button type="button" id="bulkMarkVipBtn" class="px-2.5 py-1 rounded-lg font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50">
+            Mark as VIP
+          </button>
+          <button type="button" id="bulkExportSelectedBtn" class="px-2.5 py-1 rounded-lg font-semibold bg-[#991B1B] text-white hover:bg-[#7F1D1D]">
+            Export Selected CSV
+          </button>
+        </div>
+      </div>
+
+      <!-- Customers Data Table -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-100 bg-slate-50/70 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              <th class="py-3 pl-5 pr-2 w-8">
+                <input type="checkbox" id="selectAllCheckbox" class="rounded border-slate-300 text-[#991B1B] focus:ring-[#991B1B]" />
+              </th>
+              <th class="py-3 px-4">Name / Customer ID</th>
+              <th class="py-3 px-4">Contact (Privacy Protected)</th>
+              <th class="py-3 px-4">Booking History &amp; Spend</th>
+              <th class="py-3 px-4">Segment &amp; Status</th>
+              <th class="py-3 px-5 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="customersTableBody" class="divide-y divide-slate-100 text-xs"></tbody>
+        </table>
+      </div>
+
+      <!-- Table Footer -->
+      <div class="px-5 py-3 bg-slate-50/50 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
+        <span id="tableFooterCount">Showing 1–5 of 5 customers</span>
+        <span class="font-medium text-slate-400">All customer number reveals are audited in Master Admin Logs</span>
+      </div>
+    </section>
+
+    <!-- Live Customer Number Reveal Audit Strip -->
+    <section class="bg-white rounded-2xl border border-amber-200/90 shadow-xs overflow-hidden">
+      <div class="px-5 py-3 bg-amber-50/60 border-b border-amber-200/70 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <i data-lucide="shield-alert" class="w-4 h-4 text-amber-700"></i>
+          <h2 class="text-xs font-bold text-amber-950">Recent Customer Number Views (Mandatory Reason Audit Log)</h2>
+        </div>
+        <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-amber-100 text-amber-900">100% Logged</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="border-b border-slate-100 bg-slate-50/70 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              <th class="py-2.5 px-5">Viewed By</th>
+              <th class="py-2.5 px-4">Customer</th>
+              <th class="py-2.5 px-4">Mandatory Reason Given</th>
+              <th class="py-2.5 px-5 text-right">Time</th>
+            </tr>
+          </thead>
+          <tbody id="revealAuditBody" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================================= -->
+  <!-- SLIDE-OVER DRAWER: CUSTOMER 360° PROFILE & TRIP HISTORY   -->
+  <!-- ========================================================= -->
+  <div id="profileDrawerOverlay" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex justify-end">
+    <div class="w-full max-w-xl bg-white h-full shadow-2xl flex flex-col drawer-slide-in">
+      <!-- Drawer Header -->
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-3 min-w-0">
+          <div id="drAvatar" class="w-10 h-10 rounded-xl bg-crimson-50 text-[#991B1B] font-bold text-sm flex items-center justify-center shrink-0">
+            MV
+          </div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2">
+              <h2 id="drName" class="text-sm font-bold text-slate-900 truncate">Mithravarun</h2>
+              <span id="drSegmentBadge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700">New</span>
+            </div>
+            <p id="drIdAndBrand" class="text-[11px] text-slate-500 truncate">NSM-CU-9R4BVI • Nesam Cabs</p>
+          </div>
+        </div>
+        <button type="button" id="closeProfileDrawerBtn" class="w-8 h-8 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Drawer Body -->
+      <div class="flex-1 overflow-y-auto p-5 space-y-5 text-xs">
+        <!-- Quick Action Strip -->
+        <div class="grid grid-cols-3 gap-2.5">
+          <button type="button" id="drQuickBookBtn" class="py-2.5 px-3 rounded-xl bg-[#991B1B] hover:bg-[#7F1D1D] text-white font-semibold flex items-center justify-center gap-1.5 shadow-xs">
+            <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
+            <span>+ Book Cab</span>
+          </button>
+          <button type="button" id="drCopyStatementBtn" class="py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-slate-800 font-semibold flex items-center justify-center gap-1.5">
+            <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+            <span>Copy Statement</span>
+          </button>
+          <button type="button" id="drToggleBlockBtn" class="py-2.5 px-3 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 font-semibold flex items-center justify-center gap-1.5">
+            <i data-lucide="ban" class="w-3.5 h-3.5"></i>
+            <span id="drBlockLabel">Block Rider</span>
+          </button>
+        </div>
+
+        <!-- Contact & Privacy Card -->
+        <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Contact &amp; Billing Info</span>
+            <button type="button" id="drRevealMobileBtn" class="text-[11px] font-semibold text-[#991B1B] hover:underline flex items-center gap-1">
+              <i data-lucide="eye" class="w-3 h-3"></i>
+              <span>View Full Number</span>
+            </button>
+          </div>
+          <div class="grid grid-cols-2 gap-3 pt-1">
+            <div>
+              <p class="text-[10px] text-slate-400">Mobile Number</p>
+              <p id="drMobileText" class="text-sm font-bold text-slate-900 mt-0.5">+91 63790 •••••</p>
+            </div>
+            <div>
+              <p class="text-[10px] text-slate-400">Email Address</p>
+              <p id="drEmailText" class="font-semibold text-slate-800 mt-0.5 truncate">nesamtoursandtravels@gmail.com</p>
+            </div>
+            <div>
+              <p class="text-[10px] text-slate-400">Home City &amp; Lead Source</p>
+              <p id="drCityText" class="font-semibold text-slate-800 mt-0.5">Coimbatore • Google Search</p>
+            </div>
+            <div>
+              <p class="text-[10px] text-slate-400">GST / Company</p>
+              <p id="drGstText" class="font-semibold text-slate-800 mt-0.5">Individual Rider</p>
+            </div>
+            <div>
+              <p class="text-[10px] text-slate-400">Preferred Cab &amp; Driver</p>
+              <p id="drPreferenceText" class="font-semibold text-slate-800 mt-0.5">Any Cab • Any Driver</p>
+            </div>
+            <div>
+              <p class="text-[10px] text-slate-400">Pending Credit Due</p>
+              <div class="flex items-center gap-2 mt-0.5">
+                <p id="drPendingDueText" class="font-bold text-emerald-700">₹0 (Settled)</p>
+                <button type="button" id="drSendPayReminderBtn" class="hidden px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100">
+                  Remind WA
+                </button>
+                <button type="button" id="drMarkSettledBtn" class="hidden px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100">
+                  Mark Paid
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- VIP Loyalty Coupon Box -->
+        <div class="p-3.5 rounded-2xl border border-amber-200/80 bg-amber-50/40 flex items-center justify-between gap-3">
+          <div>
+            <p class="text-[11px] font-bold text-amber-950 flex items-center gap-1.5">
+              <i data-lucide="gift" class="w-3.5 h-3.5 text-amber-700"></i>
+              <span>Loyalty &amp; Repeat Reward Coupon</span>
+            </p>
+            <p id="drLoyaltySubText" class="text-[11px] text-slate-600 mt-0.5">Send instant ₹500 loyalty discount code via WhatsApp</p>
+          </div>
+          <button type="button" id="drSendCouponBtn" class="px-3 py-1.5 rounded-xl text-[11px] font-bold bg-amber-600 hover:bg-amber-700 text-white shrink-0 shadow-xs">
+            Send VIP500
+          </button>
+        </div>
+
+        <!-- Saved Pickup Addresses -->
+        <div class="space-y-2">
+          <h3 class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Saved Pickup Addresses</h3>
+          <div id="drAddressesList" class="space-y-2"></div>
+        </div>
+
+        <!-- Preferred Driver & Cab + Admin Notes -->
+        <div class="p-4 rounded-2xl border border-slate-200 bg-white space-y-3">
+          <div class="grid grid-cols-2 gap-2.5">
+            <div>
+              <label for="drPrefCabSelect" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Preferred Cab</label>
+              <select id="drPrefCabSelect" class="w-full h-9 px-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-[#991B1B]">
+                <option value="Any Cab">Any Cab</option>
+                <option value="Hatchback">Hatchback (Wagon R)</option>
+                <option value="Sedan">Sedan (Dzire / Etios)</option>
+                <option value="SUV (Ertiga)">SUV (Ertiga)</option>
+                <option value="Innova">Innova</option>
+                <option value="Innova Crysta">Innova Crysta</option>
+              </select>
+            </div>
+            <div>
+              <label for="drPrefDriverInput" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Preferred Driver</label>
+              <input type="text" id="drPrefDriverInput" placeholder="e.g., Murugan S" class="w-full h-9 px-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]" />
+            </div>
+          </div>
+
+          <div>
+            <label for="drAdminNoteInput" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Admin Note &amp; Special Instructions</label>
+            <div class="flex gap-2">
+              <input type="text" id="drAdminNoteInput" placeholder="e.g., Morning 5 AM airport pickup • English speaking driver" class="flex-1 h-9 px-3 border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]" />
+              <button type="button" id="drSaveNoteBtn" class="px-3.5 h-9 rounded-xl bg-slate-900 text-white font-semibold hover:bg-slate-800">Save</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trip History -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <h3 class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Completed &amp; Recent Trips</h3>
+            <span id="drTotalSpendBadge" class="font-bold text-[#991B1B]">Total Spend: ₹0</span>
+          </div>
+          <div id="drTripsList" class="border border-slate-200 rounded-2xl divide-y divide-slate-100 overflow-hidden"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODAL 1: MANDATORY REASON TO VIEW CUSTOMER NUMBER         -->
+  <!-- ========================================================= -->
+  <div id="reasonRevealModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden fade-in">
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-amber-50/60">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center">
+            <i data-lucide="eye" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-900">Mandatory Reason Required</h3>
+            <p id="rrCustomerSubtitle" class="text-[11px] text-slate-600">Viewing customer number logs your ID &amp; reason</p>
+          </div>
+        </div>
+        <button type="button" id="closeReasonModalBtn" class="w-8 h-8 rounded-full text-slate-400 hover:bg-slate-100 flex items-center justify-center">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form id="reasonRevealForm" class="p-5 space-y-3.5 text-xs">
+        <div>
+          <label for="rrPresetSelect" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Reason Category *</label>
+          <select id="rrPresetSelect" required class="w-full h-9 px-2.5 font-semibold border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-[#991B1B]">
+            <option value="">-- Select valid reason --</option>
+            <option value="New booking confirmation call">New booking confirmation call</option>
+            <option value="Pickup landmark / address clarification">Pickup landmark / address clarification</option>
+            <option value="GST invoice / payment receipt follow-up">GST invoice / payment receipt follow-up</option>
+            <option value="Customer support / lost item check">Customer support / lost item check</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="rrDetailInput" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Detailed Note (Min 10 characters) *</label>
+          <input type="text" id="rrDetailInput" required placeholder="e.g., Caller asked for Madurai round-trip quote confirmation" class="w-full h-9 px-3 border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]" />
+        </div>
+
+        <button type="submit" class="w-full bg-[#991B1B] hover:bg-[#7F1D1D] text-white font-semibold py-2.5 rounded-xl shadow-xs">
+          Log Reason &amp; Reveal Number
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODAL 2: ADD NEW CUSTOMER                                 -->
+  <!-- ========================================================= -->
+  <div id="addCustomerModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden fade-in">
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div>
+          <h3 class="text-sm font-bold text-slate-900">Add New Customer</h3>
+          <p class="text-[11px] text-slate-500">Duplicate mobile numbers are automatically prevented</p>
+        </div>
+        <button type="button" id="closeAddCustModalBtn" class="w-8 h-8 rounded-full text-slate-400 hover:bg-slate-100 flex items-center justify-center">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form id="addCustomerForm" class="p-5 space-y-3.5 text-xs">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="ncName" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Full Name *</label>
+            <input type="text" id="ncName" required placeholder="e.g., Ramesh Kumar" class="w-full h-9 px-3 border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]" />
+          </div>
+          <div>
+            <label for="ncMobile" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Mobile Number *</label>
+            <input type="tel" id="ncMobile" maxlength="10" required placeholder="10-digit mobile" class="w-full h-9 px-3 border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="ncGroup" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Customer Group</label>
+            <select id="ncGroup" class="w-full h-9 px-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-[#991B1B]">
+              <option value="New">New</option>
+              <option value="VIP">Regular / VIP</option>
+              <option value="Corporate">Corporate (GST)</option>
+            </select>
+          </div>
+          <div>
+            <label for="ncLeadSource" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Lead Source</label>
+            <select id="ncLeadSource" class="w-full h-9 px-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-[#991B1B]">
+              <option value="Google Search">Google Search</option>
+              <option value="WhatsApp Direct">WhatsApp Direct</option>
+              <option value="Repeat / Referral">Repeat / Referral</option>
+              <option value="Justdial">Justdial</option>
+              <option value="Airport Walk-in">Airport Walk-in</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="ncCity" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Primary City</label>
+            <input type="text" id="ncCity" value="Coimbatore" class="w-full h-9 px-3 border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]" />
+          </div>
+          <div>
+            <label for="ncPrefCab" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Preferred Cab</label>
+            <select id="ncPrefCab" class="w-full h-9 px-2.5 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-[#991B1B]">
+              <option value="Any Cab">Any Cab</option>
+              <option value="Sedan">Sedan</option>
+              <option value="SUV (Ertiga)">SUV (Ertiga)</option>
+              <option value="Innova Crysta">Innova Crysta</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label for="ncGst" class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Company / GSTIN (Optional)</label>
+          <input type="text" id="ncGst" placeholder="e.g., 33AABCN1234F1Z5 • Sri Tex Exports" class="w-full h-9 px-3 border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]" />
+        </div>
+
+        <button type="submit" class="w-full bg-[#991B1B] hover:bg-[#7F1D1D] text-white font-semibold py-2.5 rounded-xl">
+          Save Customer Profile
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Floating Toast Banner -->
+  <div id="toastBanner" class="hidden fixed bottom-5 right-5 z-50 max-w-sm bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl text-xs font-medium flex items-center gap-2.5 fade-in">
+    <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400 shrink-0"></i>
+    <span id="toastBannerText"></span>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      function refreshIcons() {
+        try {
+          if (window.lucide && typeof window.lucide.createIcons === 'function') {
+            window.lucide.createIcons();
+          }
+        } catch (err) {
+          // Ignore icon rendering issues if CDN is slow
+        }
+      }
+
+      refreshIcons();
+
+      // Customer Dataset (Includes Screenshot Customers + VIP, Corporate, Lead Source, Credit Due & Preferences)
+      const customers = [
+        {
+          id: 'NSM-CU-9R4BVI',
+          name: 'Mithravarun',
+          mobile: '6379056759',
+          email: 'nesamtoursandtravels@gmail.com',
+          city: 'Coimbatore',
+          brand: 'Nesam Cabs',
+          leadSource: 'WhatsApp Direct',
+          segment: 'New',
+          status: 'Approved',
+          trips: 0,
+          totalSpend: 0,
+          pendingDue: 0,
+          prefCab: 'Sedan',
+          prefDriver: '',
+          gst: '',
+          note: 'Enquired for weekend Ooty package',
+          addresses: ['Gandhipuram Central Bus Stand, Coimbatore'],
+          history: [],
+        },
+        {
+          id: 'NSM-CU-CLBGGZ',
+          name: 'suresh',
+          mobile: '8531970197',
+          email: '',
+          city: 'Madurai',
+          brand: 'Nesam Cabs',
+          leadSource: 'Google Search',
+          segment: 'New',
+          status: 'Approved',
+          trips: 0,
+          totalSpend: 0,
+          pendingDue: 0,
+          prefCab: 'Any Cab',
+          prefDriver: '',
+          gst: '',
+          note: '',
+          addresses: ['Periyar Bus Stand, Madurai'],
+          history: [],
+        },
+        {
+          id: 'NSM-CU-KOWYQW',
+          name: 'Suresh',
+          mobile: '9025099990',
+          email: 'nesamtoursandtravels@gmail.com',
+          city: 'Coimbatore',
+          brand: 'One Way Car Rentals',
+          leadSource: 'Justdial',
+          segment: 'New',
+          status: 'Approved',
+          trips: 0,
+          totalSpend: 0,
+          pendingDue: 0,
+          prefCab: 'Hatchback',
+          prefDriver: '',
+          gst: '',
+          note: '',
+          addresses: ['RS Puram, Coimbatore'],
+          history: [],
+        },
+        {
+          id: 'NSM-CU-4410KR',
+          name: 'Karthik Rajendran',
+          mobile: '9842144510',
+          email: 'karthik.r@gmail.com',
+          city: 'Coimbatore',
+          brand: 'Nesam Cabs',
+          leadSource: 'Repeat / Referral',
+          segment: 'VIP',
+          status: 'Approved',
+          trips: 6,
+          totalSpend: 24850,
+          pendingDue: 1200,
+          prefCab: 'Innova Crysta',
+          prefDriver: 'Murugan S',
+          gst: '',
+          note: 'Prefers Innova Crysta • Morning 5:30 AM airport drops',
+          addresses: ['Avinashi Road, Peelamedu, Coimbatore', 'Coimbatore International Airport'],
+          history: [
+            { id: '#NSM-2611-8412', route: 'Coimbatore → Madurai', date: '18-11-2026', cab: 'Innova Crysta', fare: 5450 },
+            { id: '#NSM-2611-7904', route: 'Coimbatore ⇄ Ooty', date: '04-11-2026', cab: 'Innova', fare: 4800 },
+          ],
+        },
+        {
+          id: 'NSM-CU-8890ST',
+          name: 'Sri Tex Exports Pvt Ltd',
+          mobile: '9842277890',
+          email: 'admin@sritexexports.in',
+          city: 'Tiruppur',
+          brand: 'People Taxi',
+          leadSource: 'Corporate B2B',
+          segment: 'Corporate',
+          status: 'Approved',
+          trips: 19,
+          totalSpend: 86400,
+          pendingDue: 11200,
+          prefCab: 'Innova Crysta',
+          prefDriver: 'Anand K',
+          gst: '33AABCS8890K1Z2 • Sri Tex Exports',
+          note: 'Monthly GST consolidated invoice • Buyer airport pickups',
+          addresses: ['Avinashi Road, Tiruppur', 'Chennai Airport Terminal 1'],
+          history: [
+            { id: '#NSM-2611-8390', route: 'Chennai Airport → Tiruppur', date: '19-11-2026', cab: 'Innova Crysta', fare: 11200 },
+          ],
+        },
+      ];
+
+      const revealAuditLogs = [
+        {
+          id: 'REV-1',
+          staff: 'Karthik Raja (@booking.karthik)',
+          customer: 'Karthik Rajendran (NSM-CU-4410KR)',
+          reason: 'Pickup landmark / address clarification — Confirming Peelamedu gate',
+          time: '11:42 AM',
+        },
+        {
+          id: 'REV-2',
+          staff: 'Master Admin (admin@gmail.com)',
+          customer: 'Sri Tex Exports Pvt Ltd (NSM-CU-8890ST)',
+          reason: 'GST invoice / payment receipt follow-up — Monthly B2B statement',
+          time: '10:15 AM',
+        },
+      ];
+
+      const state = {
+        sessionMode: 'master', // 'master' | 'staff'
+        segment: 'All',
+        search: '',
+        brand: 'all',
+        selectedIds: new Set(),
+        revealedIds: new Set(),
+        pendingRevealCustId: null,
+        activeDrawerCustId: null,
+        duplicateMerged: false,
+      };
+
+      const els = {
+        sidebarRoleBadge: document.getElementById('sidebarRoleBadge'),
+        sidebarMobileSession: document.getElementById('sidebarMobileSession'),
+        sidebarEmailText: document.getElementById('sidebarEmailText'),
+        sidebarOwnerTag: document.getElementById('sidebarOwnerTag'),
+
+        exportCustomersBtn: document.getElementById('exportCustomersBtn'),
+        openAddCustomerBtn: document.getElementById('openAddCustomerBtn'),
+
+        kpiTotalCust: document.getElementById('kpiTotalCust'),
+        kpiVipCust: document.getElementById('kpiVipCust'),
+        kpiCorpCust: document.getElementById('kpiCorpCust'),
+        kpiPendingDue: document.getElementById('kpiPendingDue'),
+        kpiPendingSub: document.getElementById('kpiPendingSub'),
+
+        segmentTabsGroup: document.getElementById('segmentTabsGroup'),
+        customerSearchInput: document.getElementById('customerSearchInput'),
+        brandFilterSelect: document.getElementById('brandFilterSelect'),
+        clearFiltersBtn: document.getElementById('clearFiltersBtn'),
+
+        bulkActionBar: document.getElementById('bulkActionBar'),
+        selectedCountText: document.getElementById('selectedCountText'),
+        bulkMarkVipBtn: document.getElementById('bulkMarkVipBtn'),
+        bulkExportSelectedBtn: document.getElementById('bulkExportSelectedBtn'),
+
+        selectAllCheckbox: document.getElementById('selectAllCheckbox'),
+        customersTableBody: document.getElementById('customersTableBody'),
+        tableFooterCount: document.getElementById('tableFooterCount'),
+        revealAuditBody: document.getElementById('revealAuditBody'),
+
+        profileDrawerOverlay: document.getElementById('profileDrawerOverlay'),
+        closeProfileDrawerBtn: document.getElementById('closeProfileDrawerBtn'),
+        drQuickBookBtn: document.getElementById('drQuickBookBtn'),
+        drCopyStatementBtn: document.getElementById('drCopyStatementBtn'),
+        drToggleBlockBtn: document.getElementById('drToggleBlockBtn'),
+        drRevealMobileBtn: document.getElementById('drRevealMobileBtn'),
+        drSendPayReminderBtn: document.getElementById('drSendPayReminderBtn'),
+        drMarkSettledBtn: document.getElementById('drMarkSettledBtn'),
+        drSendCouponBtn: document.getElementById('drSendCouponBtn'),
+        drPrefCabSelect: document.getElementById('drPrefCabSelect'),
+        drPrefDriverInput: document.getElementById('drPrefDriverInput'),
+        drAdminNoteInput: document.getElementById('drAdminNoteInput'),
+        drSaveNoteBtn: document.getElementById('drSaveNoteBtn'),
+
+        reasonRevealModal: document.getElementById('reasonRevealModal'),
+        closeReasonModalBtn: document.getElementById('closeReasonModalBtn'),
+        reasonRevealForm: document.getElementById('reasonRevealForm'),
+        rrCustomerSubtitle: document.getElementById('rrCustomerSubtitle'),
+        rrPresetSelect: document.getElementById('rrPresetSelect'),
+        rrDetailInput: document.getElementById('rrDetailInput'),
+
+        addCustomerModal: document.getElementById('addCustomerModal'),
+        closeAddCustModalBtn: document.getElementById('closeAddCustModalBtn'),
+        addCustomerForm: document.getElementById('addCustomerForm'),
+
+        toastBanner: document.getElementById('toastBanner'),
+        toastBannerText: document.getElementById('toastBannerText'),
+      };
+
+      function showToast(msg) {
+        els.toastBannerText.textContent = msg;
+        els.toastBanner.classList.remove('hidden');
+        refreshIcons();
+        clearTimeout(window.__custToast);
+        window.__custToast = setTimeout(() => els.toastBanner.classList.add('hidden'), 3400);
+      }
+
+      function copyTextSafe(text, onDone) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+          document.execCommand('copy');
+          if (onDone) onDone();
+        } catch (e) {
+          // ignore
+        }
+        document.body.removeChild(ta);
+      }
+
+      function maskMobile(num) {
+        if (!num || num.length < 10) return num;
+        return `+91 ${num.slice(0, 5)} •••••`;
+      }
+
+      function formatFullMobile(num) {
+        return `+91 ${num.slice(0, 5)} ${num.slice(5)}`;
+      }
+
+      function formatINR(val) {
+        return '₹' + Number(val || 0).toLocaleString('en-IN');
+      }
+
+      function getClockNow() {
+        const d = new Date();
+        let h = d.getHours();
+        const m = String(d.getMinutes()).padStart(2, '0');
+        const mer = h >= 12 ? 'PM' : 'AM';
+        h = h % 12 || 12;
+        return `${String(h).padStart(2, '0')}:${m} ${mer}`;
+      }
+
+      // ---------------------------------------------------------
+      // 1. MASTER ADMIN VS STAFF SESSION MODE
+      // ---------------------------------------------------------
+      function applySessionMode(mode) {
+        state.sessionMode = mode;
+        const isMaster = mode === 'master';
+
+        document.querySelectorAll('.session-mode-btn').forEach((btn) => {
+          const active = btn.dataset.sessionMode === mode;
+          btn.className = active
+            ? 'session-mode-btn px-2.5 py-1.5 rounded-lg font-bold bg-[#991B1B] text-white transition-all flex items-center gap-1'
+            : 'session-mode-btn px-2.5 py-1.5 rounded-lg font-medium text-slate-600 hover:text-slate-900 transition-all flex items-center gap-1';
+        });
+
+        // Hide Export Data completely when viewing as Staff
+        els.exportCustomersBtn.classList.toggle('hidden', !isMaster);
+        els.bulkExportSelectedBtn.classList.toggle('hidden', !isMaster);
+
+        if (isMaster) {
+          els.sidebarRoleBadge.innerHTML = '<i data-lucide="shield-check" class="w-2.5 h-2.5"></i> Master Admin';
+          els.sidebarEmailText.textContent = 'admin@gmail.com';
+          els.sidebarMobileSession.textContent = 'admin@gmail.com';
+          els.sidebarOwnerTag.textContent = 'Owner';
+        } else {
+          els.sidebarRoleBadge.innerHTML = '<i data-lucide="user" class="w-2.5 h-2.5"></i> Booking Staff';
+          els.sidebarEmailText.textContent = '@booking.karthik';
+          els.sidebarMobileSession.textContent = '@booking.karthik';
+          els.sidebarOwnerTag.textContent = 'Staff';
+          // Re-mask numbers in Staff mode unless explicitly revealed with reason
+          state.revealedIds.clear();
+        }
+
+        renderCustomersTable();
+        if (state.activeDrawerCustId) openProfileDrawer(state.activeDrawerCustId);
+      }
+
+      document.querySelectorAll('.session-mode-btn').forEach((btn) => {
+        btn.addEventListener('click', () => applySessionMode(btn.dataset.sessionMode));
+      });
+
+      // ---------------------------------------------------------
+      // 2. KPI & SEGMENT TABS
+      // ---------------------------------------------------------
+      function updateKPIs() {
+        els.kpiTotalCust.textContent = customers.length;
+        els.kpiVipCust.textContent = customers.filter((c) => c.segment === 'VIP').length;
+        els.kpiCorpCust.textContent = customers.filter((c) => c.segment === 'Corporate').length;
+        const totalDue = customers.reduce((sum, c) => sum + (c.pendingDue || 0), 0);
+        const dueAccounts = customers.filter((c) => (c.pendingDue || 0) > 0).length;
+        els.kpiPendingDue.textContent = formatINR(totalDue);
+        els.kpiPendingSub.textContent = `${dueAccounts} due account${dueAccounts === 1 ? '' : 's'} • ${revealAuditLogs.length} reason-logged views`;
+      }
+
+      function renderSegmentTabs() {
+        const tabs = [
+          { id: 'All', label: `All (${customers.length})` },
+          { id: 'New', label: `New (${customers.filter((c) => c.segment === 'New').length})` },
+          { id: 'VIP', label: `Regular / VIP (${customers.filter((c) => c.segment === 'VIP').length})` },
+          { id: 'Corporate', label: `Corporate (${customers.filter((c) => c.segment === 'Corporate').length})` },
+          { id: 'Due', label: `Credit Due (${customers.filter((c) => (c.pendingDue || 0) > 0).length})` },
+          { id: 'Blocked', label: `Blocked (${customers.filter((c) => c.status === 'Blocked').length})` },
+        ];
+
+        els.segmentTabsGroup.innerHTML = '';
+        tabs.forEach((t) => {
+          const active = state.segment === t.id;
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = active
+            ? 'px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-white'
+            : 'px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200/70';
+          btn.textContent = t.label;
+          btn.addEventListener('click', () => {
+            state.segment = t.id;
+            renderCustomersTable();
+          });
+          els.segmentTabsGroup.appendChild(btn);
+        });
+      }
+
+      // ---------------------------------------------------------
+      // 3. CUSTOMERS TABLE & MANDATORY REASON REVEAL
+      // ---------------------------------------------------------
+      function getFilteredCustomers() {
+        const q = state.search.toLowerCase().trim();
+        return customers.filter((c) => {
+          const matchSeg = state.segment === 'All'
+            ? true
+            : state.segment === 'Blocked'
+              ? c.status === 'Blocked'
+              : state.segment === 'Due'
+                ? (c.pendingDue || 0) > 0
+                : c.segment === state.segment;
+          const matchBrand = state.brand === 'all' || c.brand === state.brand;
+          const matchQuery = !q ||
+            c.name.toLowerCase().includes(q) ||
+            c.id.toLowerCase().includes(q) ||
+            c.mobile.includes(q) ||
+            c.city.toLowerCase().includes(q) ||
+            (c.leadSource || '').toLowerCase().includes(q);
+          return matchSeg && matchBrand && matchQuery;
+        });
+      }
+
+      function renderCustomersTable() {
+        updateKPIs();
+        renderSegmentTabs();
+
+        const hasFilters = state.segment !== 'All' || state.brand !== 'all' || state.search.trim() !== '';
+        els.clearFiltersBtn.classList.toggle('hidden', !hasFilters);
+
+        const list = getFilteredCustomers();
+        els.tableFooterCount.textContent = `Showing ${list.length} of ${customers.length} customers`;
+
+        // Update Bulk Selection Bar
+        const selCount = state.selectedIds.size;
+        els.bulkActionBar.classList.toggle('hidden', selCount === 0);
+        els.selectedCountText.textContent = `${selCount} customer${selCount > 1 ? 's' : ''} selected`;
+
+        els.customersTableBody.innerHTML = '';
+        if (list.length === 0) {
+          els.customersTableBody.innerHTML = `
+            <tr>
+              <td colspan="6" class="py-10 text-center text-xs text-slate-400">No customers match the current filter.</td>
+            </tr>
+          `;
+          return;
+        }
+
+        list.forEach((c) => {
+          const isRevealed = state.revealedIds.has(c.id);
+          const phoneDisplay = isRevealed ? formatFullMobile(c.mobile) : maskMobile(c.mobile);
+
+          const segBadge = c.segment === 'VIP'
+            ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">VIP</span>'
+            : c.segment === 'Corporate'
+              ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">Corporate</span>'
+              : '<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">New</span>';
+
+          const statusBadge = c.status === 'Blocked'
+            ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-700 border border-red-200">Blocked</span>'
+            : '<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700">Approved</span>';
+
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-slate-50/80 transition-colors';
+          tr.innerHTML = `
+            <td class="py-3.5 pl-5 pr-2">
+              <input type="checkbox" data-sel-id="${c.id}" ${state.selectedIds.has(c.id) ? 'checked' : ''} class="row-checkbox rounded border-slate-300 text-[#991B1B]" />
+            </td>
+
+            <td class="py-3.5 px-4">
+              <div class="flex items-center gap-2">
+                <div>
+                  <p class="font-bold text-slate-900">${c.name}</p>
+                  <p class="text-[11px] text-slate-400 mt-0.5">${c.id} • ${c.city} • <span class="text-slate-600 font-medium">${c.leadSource}</span></p>
+                </div>
+                ${segBadge}
+              </div>
+            </td>
+
+            <td class="py-3.5 px-4">
+              <div class="flex items-center gap-2">
+                <span class="font-bold ${isRevealed ? 'text-emerald-700' : 'text-slate-800'}">${phoneDisplay}</span>
+                ${!isRevealed ? `
+                  <button
+                    type="button"
+                    data-reveal-id="${c.id}"
+                    title="Mandatory reason required to view full number"
+                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 transition-colors"
+                  >
+                    <i data-lucide="eye" class="w-3 h-3"></i>
+                    <span>View #</span>
+                  </button>
+                ` : '<span class="text-[10px] font-semibold text-emerald-600">(Logged)</span>'}
+              </div>
+              <p class="text-[11px] text-slate-400 mt-0.5 truncate max-w-[210px]">
+                ${c.prefCab && c.prefCab !== 'Any Cab' ? `Pref: ${c.prefCab}${c.prefDriver ? ' • ' + c.prefDriver : ''}` : (c.email || 'Email not supplied')}
+              </p>
+            </td>
+
+            <td class="py-3.5 px-4">
+              <div class="flex items-center gap-2 flex-wrap">
+                <p class="font-bold text-slate-800">${c.trips} trip${c.trips === 1 ? '' : 's'}</p>
+                ${c.pendingDue > 0 ? `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">Due ${formatINR(c.pendingDue)}</span>` : ''}
+              </div>
+              <p class="text-[11px] text-slate-500 mt-0.5">${c.totalSpend > 0 ? `Total Spend: ${formatINR(c.totalSpend)}` : 'No completed trips yet'}</p>
+            </td>
+
+            <td class="py-3.5 px-4">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                ${statusBadge}
+                <span class="px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 text-slate-600">${c.brand}</span>
+              </div>
+            </td>
+
+            <td class="py-3.5 px-5 text-right">
+              <div class="inline-flex items-center gap-1.5">
+                ${c.pendingDue > 0 ? `
+                  <button type="button" data-remind-cust="${c.id}" title="Copy WhatsApp Payment Reminder" class="px-2 py-1.5 rounded-lg text-[11px] font-semibold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200/80">
+                    Remind
+                  </button>
+                ` : ''}
+                <button type="button" data-book-cust="${c.id}" class="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-crimson-50 hover:bg-crimson-100 text-[#991B1B] border border-crimson-200/70">
+                  + Book
+                </button>
+                <button type="button" data-view-cust="${c.id}" class="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-white border border-slate-200 hover:bg-slate-50 text-slate-800">
+                  View
+                </button>
+              </div>
+            </td>
+          `;
+          els.customersTableBody.appendChild(tr);
+        });
+
+        // Wire Row Events
+        els.customersTableBody.querySelectorAll('.row-checkbox').forEach((chk) => {
+          chk.addEventListener('change', () => {
+            if (chk.checked) state.selectedIds.add(chk.dataset.selId);
+            else state.selectedIds.delete(chk.dataset.selId);
+            renderCustomersTable();
+          });
+        });
+
+        els.customersTableBody.querySelectorAll('[data-reveal-id]').forEach((btn) => {
+          btn.addEventListener('click', () => openReasonRevealModal(btn.dataset.revealId));
+        });
+
+        els.customersTableBody.querySelectorAll('[data-view-cust]').forEach((btn) => {
+          btn.addEventListener('click', () => openProfileDrawer(btn.dataset.viewCust));
+        });
+
+        els.customersTableBody.querySelectorAll('[data-remind-cust]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const c = customers.find((x) => x.id === btn.dataset.remindCust);
+            if (!c) return;
+            const msg = `*NESAM CABS — Payment Reminder*\nHello ${c.name},\nPending balance for your recent trip(s) is *${formatINR(c.pendingDue)}*.\nPlease settle via UPI/Razorpay at your convenience. Thank you!`;
+            copyTextSafe(msg, () => showToast(`WhatsApp payment reminder copied for ${c.name} (${formatINR(c.pendingDue)})`));
+          });
+        });
+
+        els.customersTableBody.querySelectorAll('[data-book-cust]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const c = customers.find((x) => x.id === btn.dataset.bookCust);
+            if (c) showToast(`Opening New Booking for ${c.name} (Pref: ${c.prefCab || 'Any'})...`);
+          });
+        });
+
+        refreshIcons();
+      }
+
+      // Render Audit Ledger
+      function renderRevealAuditLedger() {
+        els.revealAuditBody.innerHTML = '';
+        revealAuditLogs.forEach((log) => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="py-2.5 px-5 font-semibold text-slate-900">${log.staff}</td>
+            <td class="py-2.5 px-4 font-medium text-[#991B1B]">${log.customer}</td>
+            <td class="py-2.5 px-4 text-slate-700">${log.reason}</td>
+            <td class="py-2.5 px-5 text-right text-[11px] text-slate-500 font-semibold">${log.time}</td>
+          `;
+          els.revealAuditBody.appendChild(tr);
+        });
+      }
+
+      // ---------------------------------------------------------
+      // 4. MANDATORY REASON TO REVEAL NUMBER
+      // ---------------------------------------------------------
+      function openReasonRevealModal(custId) {
+        const c = customers.find((x) => x.id === custId);
+        if (!c) return;
+        state.pendingRevealCustId = c.id;
+        const actor = state.sessionMode === 'master' ? 'Master Admin' : 'Karthik Raja (@booking.karthik)';
+        els.rrCustomerSubtitle.textContent = `${c.name} (${c.id}) • Logging under ${actor}`;
+        els.rrPresetSelect.value = '';
+        els.rrDetailInput.value = '';
+        els.reasonRevealModal.classList.remove('hidden');
+      }
+
+      els.closeReasonModalBtn.addEventListener('click', () => els.reasonRevealModal.classList.add('hidden'));
+
+      els.reasonRevealForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const preset = els.rrPresetSelect.value.trim();
+        const detail = els.rrDetailInput.value.trim();
+        if (!preset || detail.length < 10) {
+          showToast('Please select a reason and enter at least 10 characters.');
+          return;
+        }
+        const c = customers.find((x) => x.id === state.pendingRevealCustId);
+        if (!c) return;
+
+        state.revealedIds.add(c.id);
+        const actor = state.sessionMode === 'master'
+          ? 'Master Admin (admin@gmail.com)'
+          : 'Karthik Raja (@booking.karthik)';
+
+        revealAuditLogs.unshift({
+          id: 'REV-' + Date.now(),
+          staff: actor,
+          customer: `${c.name} (${c.id})`,
+          reason: `${preset} — ${detail}`,
+          time: getClockNow(),
+        });
+
+        els.reasonRevealModal.classList.add('hidden');
+        renderCustomersTable();
+        renderRevealAuditLedger();
+        if (state.activeDrawerCustId === c.id) openProfileDrawer(c.id);
+        showToast(`Number revealed & logged under ${actor}`);
+      });
+
+      // ---------------------------------------------------------
+      // 5. CUSTOMER 360° SLIDE-OVER PROFILE DRAWER
+      // ---------------------------------------------------------
+      function openProfileDrawer(custId) {
+        const c = customers.find((x) => x.id === custId);
+        if (!c) return;
+        state.activeDrawerCustId = c.id;
+
+        const initials = c.name.trim().split(/\s+/).map((p) => p[0]).slice(0, 2).join('').toUpperCase();
+        document.getElementById('drAvatar').textContent = initials;
+        document.getElementById('drName').textContent = c.name;
+        document.getElementById('drSegmentBadge').textContent = c.segment;
+        document.getElementById('drIdAndBrand').textContent = `${c.id} • ${c.brand}`;
+
+        const isRevealed = state.revealedIds.has(c.id);
+        document.getElementById('drMobileText').textContent = isRevealed ? formatFullMobile(c.mobile) : maskMobile(c.mobile);
+        els.drRevealMobileBtn.classList.toggle('hidden', isRevealed);
+
+        document.getElementById('drEmailText').textContent = c.email || 'Not supplied';
+        document.getElementById('drCityText').textContent = `${c.city} • ${c.leadSource}`;
+        document.getElementById('drGstText').textContent = c.gst || 'Individual Rider';
+        document.getElementById('drPreferenceText').textContent = `${c.prefCab || 'Any Cab'}${c.prefDriver ? ' • ' + c.prefDriver : ''}`;
+
+        const dueEl = document.getElementById('drPendingDueText');
+        if (c.pendingDue > 0) {
+          dueEl.className = 'font-bold text-amber-700';
+          dueEl.textContent = formatINR(c.pendingDue);
+          els.drSendPayReminderBtn.classList.remove('hidden');
+          els.drMarkSettledBtn.classList.remove('hidden');
+        } else {
+          dueEl.className = 'font-bold text-emerald-700';
+          dueEl.textContent = '₹0 (Settled)';
+          els.drSendPayReminderBtn.classList.add('hidden');
+          els.drMarkSettledBtn.classList.add('hidden');
+        }
+
+        els.drPrefCabSelect.value = c.prefCab || 'Any Cab';
+        els.drPrefDriverInput.value = c.prefDriver || '';
+        els.drAdminNoteInput.value = c.note || '';
+        document.getElementById('drBlockLabel').textContent = c.status === 'Blocked' ? 'Unblock' : 'Block Rider';
+
+        // Addresses
+        const addrEl = document.getElementById('drAddressesList');
+        addrEl.innerHTML = c.addresses.map((a) => `
+          <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center gap-2 text-slate-700">
+            <i data-lucide="map-pin" class="w-3.5 h-3.5 text-[#991B1B] shrink-0"></i>
+            <span>${a}</span>
+          </div>
+        `).join('');
+
+        // Trips
+        document.getElementById('drTotalSpendBadge').textContent = `Total Spend: ${formatINR(c.totalSpend)}`;
+        const tripsEl = document.getElementById('drTripsList');
+        if (c.history.length === 0) {
+          tripsEl.innerHTML = '<p class="p-4 text-center text-slate-400">No completed trips recorded yet.</p>';
+        } else {
+          tripsEl.innerHTML = c.history.map((t) => `
+            <div class="p-3 bg-white flex items-center justify-between gap-2">
+              <div>
+                <p class="font-bold text-slate-900">${t.route}</p>
+                <p class="text-[11px] text-slate-500">${t.id} • ${t.date} • ${t.cab}</p>
+              </div>
+              <span class="font-bold text-emerald-700">${formatINR(t.fare)}</span>
+            </div>
+          `).join('');
+        }
+
+        els.profileDrawerOverlay.classList.remove('hidden');
+        refreshIcons();
+      }
+
+      els.closeProfileDrawerBtn.addEventListener('click', () => {
+        state.activeDrawerCustId = null;
+        els.profileDrawerOverlay.classList.add('hidden');
+      });
+
+      els.drRevealMobileBtn.addEventListener('click', () => {
+        if (state.activeDrawerCustId) openReasonRevealModal(state.activeDrawerCustId);
+      });
+
+      els.drSaveNoteBtn.addEventListener('click', () => {
+        const c = customers.find((x) => x.id === state.activeDrawerCustId);
+        if (!c) return;
+        c.prefCab = els.drPrefCabSelect.value;
+        c.prefDriver = els.drPrefDriverInput.value.trim();
+        c.note = els.drAdminNoteInput.value.trim();
+        renderCustomersTable();
+        openProfileDrawer(c.id);
+        showToast(`Saved preferences & note for ${c.name}`);
+      });
+
+      els.drSendPayReminderBtn.addEventListener('click', () => {
+        const c = customers.find((x) => x.id === state.activeDrawerCustId);
+        if (!c) return;
+        const msg = `*NESAM CABS — Payment Reminder*\nHello ${c.name},\nPending balance for your recent trip(s) is *${formatINR(c.pendingDue)}*.\nPlease complete payment via Razorpay/UPI. Thank you!`;
+        copyTextSafe(msg, () => showToast(`WhatsApp payment reminder copied for ${c.name}!`));
+      });
+
+      els.drMarkSettledBtn.addEventListener('click', () => {
+        const c = customers.find((x) => x.id === state.activeDrawerCustId);
+        if (!c) return;
+        c.pendingDue = 0;
+        renderCustomersTable();
+        openProfileDrawer(c.id);
+        showToast(`Credit balance marked as settled for ${c.name}!`);
+      });
+
+      els.drSendCouponBtn.addEventListener('click', () => {
+        const c = customers.find((x) => x.id === state.activeDrawerCustId);
+        if (!c) return;
+        const code = c.segment === 'VIP' || c.trips >= 3 ? 'VIP500' : 'NESAM250';
+        const amt = code === 'VIP500' ? '₹500' : '₹250';
+        const msg = `*NESAM CABS — Special Loyalty Reward*\nHello ${c.name},\nThank you for riding with Nesam Cabs! Use promo code *${code}* on your next outstation booking to get *${amt} OFF*.\nCall/WhatsApp us anytime to book!`;
+        copyTextSafe(msg, () => showToast(`Copied ${code} (${amt} OFF) WhatsApp message for ${c.name}!`));
+      });
+
+      els.drQuickBookBtn.addEventListener('click', () => {
+        const c = customers.find((x) => x.id === state.activeDrawerCustId);
+        if (c) showToast(`Launching New Booking for ${c.name} (${c.id})...`);
+      });
+
+      els.drCopyStatementBtn.addEventListener('click', () => {
+        const c = customers.find((x) => x.id === state.activeDrawerCustId);
+        if (!c) return;
+        const text = `NESAM CABS — Customer Statement\nCustomer: ${c.name} (${c.id})\nCompleted Trips: ${c.trips}\nTotal Spend: ${formatINR(c.totalSpend)}`;
+        copyTextSafe(text, () => showToast('Customer trip statement copied!'));
+      });
+
+      els.drToggleBlockBtn.addEventListener('click', () => {
+        const c = customers.find((x) => x.id === state.activeDrawerCustId);
+        if (!c) return;
+        c.status = c.status === 'Blocked' ? 'Approved' : 'Blocked';
+        renderCustomersTable();
+        openProfileDrawer(c.id);
+        showToast(`${c.name} is now ${c.status}`);
+      });
+
+      // ---------------------------------------------------------
+      // 6. SEARCH, FILTERS, ADD CUSTOMER & MASTER-ONLY EXPORT
+      // ---------------------------------------------------------
+      els.customerSearchInput.addEventListener('input', (e) => {
+        state.search = e.target.value;
+        renderCustomersTable();
+      });
+
+      els.brandFilterSelect.addEventListener('change', (e) => {
+        state.brand = e.target.value;
+        renderCustomersTable();
+      });
+
+      els.clearFiltersBtn.addEventListener('click', () => {
+        state.segment = 'All';
+        state.brand = 'all';
+        state.search = '';
+        els.customerSearchInput.value = '';
+        els.brandFilterSelect.value = 'all';
+        renderCustomersTable();
+      });
+
+      els.selectAllCheckbox.addEventListener('change', (e) => {
+        const visible = getFilteredCustomers();
+        if (e.target.checked) visible.forEach((c) => state.selectedIds.add(c.id));
+        else visible.forEach((c) => state.selectedIds.delete(c.id));
+        renderCustomersTable();
+      });
+
+      els.bulkMarkVipBtn.addEventListener('click', () => {
+        customers.forEach((c) => {
+          if (state.selectedIds.has(c.id)) c.segment = 'VIP';
+        });
+        state.selectedIds.clear();
+        els.selectAllCheckbox.checked = false;
+        renderCustomersTable();
+        showToast('Selected customers upgraded to VIP!');
+      });
+
+      function exportCustomersCsv(targetList) {
+        if (state.sessionMode !== 'master') {
+          showToast('Access Denied: Only Master Admin can export Customer data.');
+          return;
+        }
+        const rows = ['Customer ID,Name,Mobile,City,Segment,Trips,Total Spend'];
+        targetList.forEach((c) => {
+          rows.push(`${c.id},"${c.name}",${c.mobile},"${c.city}",${c.segment},${c.trips},${c.totalSpend}`);
+        });
+        copyTextSafe(rows.join('\n'), () => {
+          showToast(`Master Admin Export: ${targetList.length} customer records copied as CSV!`);
+        });
+      }
+
+      els.exportCustomersBtn.addEventListener('click', () => exportCustomersCsv(getFilteredCustomers()));
+      els.bulkExportSelectedBtn.addEventListener('click', () => {
+        const chosen = customers.filter((c) => state.selectedIds.has(c.id));
+        exportCustomersCsv(chosen);
+      });
+
+      els.openAddCustomerBtn.addEventListener('click', () => {
+        els.addCustomerForm.reset();
+        els.addCustomerModal.classList.remove('hidden');
+      });
+      els.closeAddCustModalBtn.addEventListener('click', () => els.addCustomerModal.classList.add('hidden'));
+
+      els.addCustomerForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const name = document.getElementById('ncName').value.trim();
+        const mobile = document.getElementById('ncMobile').value.replace(/\D/g, '').slice(0, 10);
+        if (!name || mobile.length < 10) {
+          showToast('Please enter valid name and 10-digit mobile number.');
+          return;
+        }
+        const exists = customers.find((c) => c.mobile === mobile);
+        if (exists) {
+          showToast(`Duplicate blocked: +91 ${mobile} already exists under ${exists.name} (${exists.id})`);
+          return;
+        }
+        const newCust = {
+          id: 'NSM-CU-' + Math.random().toString(36).substring(2, 8).toUpperCase(),
+          name,
+          mobile,
+          email: '',
+          city: document.getElementById('ncCity').value.trim() || 'Coimbatore',
+          brand: 'Nesam Cabs',
+          leadSource: document.getElementById('ncLeadSource').value,
+          segment: document.getElementById('ncGroup').value,
+          status: 'Approved',
+          trips: 0,
+          totalSpend: 0,
+          pendingDue: 0,
+          prefCab: document.getElementById('ncPrefCab').value,
+          prefDriver: '',
+          gst: document.getElementById('ncGst').value.trim(),
+          note: '',
+          addresses: [document.getElementById('ncCity').value.trim() || 'Coimbatore'],
+          history: [],
+        };
+        customers.unshift(newCust);
+        els.addCustomerModal.classList.add('hidden');
+        renderCustomersTable();
+        showToast(`Customer ${name} (${newCust.id}) added!`);
+      });
+
+      // Initial Boot
+      renderCustomersTable();
+      renderRevealAuditLedger();
+    });
+  </script>
+</body>
+</html>

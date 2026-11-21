@@ -46,13 +46,23 @@ export const CALLABLES: Readonly<Record<string, CallableLike>> = Object.freeze({
   updateSettlement: fns.updateSettlement,
   createRazorpayOrder,
   verifyRazorpayPayment,
+  createBookingPaymentLink: fns.createBookingPaymentLink,
   reconcile,
   // trips
   getCustomerContact: fns.getCustomerContact,
+  getCustomerDirectory: fns.getCustomerDirectory,
+  getCustomerSavedPlaces: fns.getCustomerSavedPlaces,
+  findCustomerByMobile: fns.findCustomerByMobile,
+  revealCustomerNumber: fns.revealCustomerNumber,
+  revealEnquiryNumber: fns.revealEnquiryNumber,
+  getCustomerNumberViews: fns.getCustomerNumberViews,
+  exportCustomerNumbers: fns.exportCustomerNumbers,
+  saveCustomerProfile: fns.saveCustomerProfile,
   updateBookingContact: fns.updateBookingContact,
   migrateBookingContacts: fns.migrateBookingContacts,
   advanceTrip: fns.advanceTrip,
   overrideReachedPickup: fns.overrideReachedPickup,
+  officeCloseTrip: fns.officeCloseTrip,
   verifyBoarding: fns.verifyBoarding,
   createCaptureSession: fns.createCaptureSession,
   getSlotChallenge: fns.getSlotChallenge,
@@ -177,7 +187,7 @@ export const BOOKING_ID_FIELDS = ['bookingId', 'requestId', 'tripId', 'id'] as c
 /** Callables that create / change bookings or payout requests (reconciled after success). */
 export const RECONCILES_BOOKING = new Set([
   'createBooking', 'createAdminBooking', 'overrideBookingFare', 'approveBooking', 'rejectBooking', 'cancelBooking', 'updateRefund',
-  'assignDriver', 'recordPayment', 'voidPayment', 'advanceTrip', 'overrideReachedPickup', 'verifyBoarding', 'awardMarketplaceBid', 'rejectMarketplaceBid', 'postBookingToMarketplace',
+  'assignDriver', 'recordPayment', 'voidPayment', 'advanceTrip', 'overrideReachedPickup', 'officeCloseTrip', 'verifyBoarding', 'awardMarketplaceBid', 'rejectMarketplaceBid', 'postBookingToMarketplace',
   'assignIndependentDriver', 'assignVendor', 'vendorAssignDriver', 'claimMarketplaceDuty', 'submitMarketplaceBid', 'withdrawMarketplaceBid', 'finalizeVehicleVerification',
   'requestDutyCancellation', 'acknowledgeAssignment', 'reviewExtraUsage', 'takeLocalOrder', 'releaseLocalOrder',
 ]);

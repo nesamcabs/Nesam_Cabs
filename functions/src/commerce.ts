@@ -2,7 +2,6 @@ import { bookingAddOnsOf } from './domain/bookingAddOns';
 import { fareBoardingState, recipientAddressState, recipientGstState } from './fareGstContext';
 import { fareServiceKey } from './fareScope';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { assertCashAllowed } from './channelPolicy';
 import { assertCatalogAvailable, matchAuthoritativeService, ServiceMasterDoc } from './onlineCatalog';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { randomInt } from 'crypto';
@@ -67,12 +66,10 @@ export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (requ
     p.catch(() => undefined); // reported where it is awaited, never as an unhandled rejection
     return p;
   };
-  const cashCheck = settled(assertCashAllowed(input.paymentMethod));
   const legalCheck = settled(assertLegalAccepted(uid, 'customer'));
   const operationsRead = settled(db.doc('settings/operations').get());
   const serviceRulesRead = settled(loadServiceRules());
   // Customers must have accepted the current published Terms & Privacy Policy (none published → no block).
-  await cashCheck;
   await legalCheck;
   // NESAM takes advance bookings only. The pickup must be an unambiguous instant
   // (ISO-8601 with "Z" or an offset) inside the booking window; there is no

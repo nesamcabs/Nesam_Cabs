@@ -309,6 +309,7 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
         {fareScope.service === "Round Trip" ? <TimeBasedRoundTripCard vehicles={vehicles} /> : null}
         <NightAllowanceCard />
         <DisplayMarkupCard scope={fareScope} />
+        <FareAdjustmentCard />
       </div>}
       {tab === "Platform fee" && <PlatformFeeCard />}
       {tab === "Payment options" && <PaymentOptionsCard />}

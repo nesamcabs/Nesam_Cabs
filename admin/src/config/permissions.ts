@@ -269,7 +269,13 @@ export const ACCOUNT_ACTIONS = ["suspend", "reactivate", "inactive", "dispute"] 
 export type AccountAction = (typeof ACCOUNT_ACTIONS)[number];
 export const STAFF_STATUSES = ["Invited", "Active", "Inactive", "Suspended"] as const;
 export type StaffStatus = (typeof STAFF_STATUSES)[number];
-export const STAFF_PRESETS = ["Booking staff", "Dispatcher", "Accounts staff", "Support staff", "Manager", "Custom"] as const;
+export const STAFF_PRESETS = [
+  "Booking staff", "Dispatcher", "Accounts staff", "Support staff", "Manager",
+  "Booking & Enquiry Executive", "Dispatch & Trip Controller", "Night Shift / After-Hours Desk",
+  "Fleet & Driver Onboarding Officer", "Vendor & B2B Partner Coordinator", "Accounts, GST & Payout Officer",
+  "Customer Support & Escalation Desk",
+  "Custom",
+] as const;
 export type StaffPreset = (typeof STAFF_PRESETS)[number];
 export const STAFF_FLAGS = {
   sensitive: ["vendorPayout", "bankDetails"],
@@ -337,18 +343,68 @@ export function presetAccess(preset: StaffPreset): { matrix: StaffMatrix; duty: 
   let duty: DutyAction[] = [];
   give("Dashboard", "view");
   m.privacy.requestApproval = true;
-  if (preset === "Booking staff") { give("Bookings", "view create edit"); give("Customers", "view create edit"); give("Support", "view create"); }
-  if (preset === "Dispatcher") {
-    give("Bookings", "view edit approve"); give("Support", "view edit approve");
-    for (const mod of ["Partners & Fleet", "Driver Partners", "Vendors", "Vendor Drivers", "Vehicles"] as const) give(mod, "view");
+  if (preset === "Booking staff" || preset === "Booking & Enquiry Executive") {
+    give("Bookings", "view create edit");
+    give("Customers", "view create edit");
+    give("Communication", "view create edit send");
+    give("Support", "view create");
+    m.privacy.temporaryReveal = true;
+  }
+  if (preset === "Dispatcher" || preset === "Dispatch & Trip Controller") {
+    give("Bookings", "view create edit approve export");
+    give("Communication", "view create edit send");
+    give("Support", "view edit approve");
+    for (const mod of ["Partners & Fleet", "Driver Partners", "Vendors", "Vendor Drivers", "Vehicles"] as const) give(mod, "view edit");
     duty = ["publish", "assign"];
+    m.fleetSwap.driver = true;
+    m.fleetSwap.vehicle = true;
     m.sensitive.vendorPayout = true;
   }
-  if (preset === "Accounts staff") {
-    give("Accounts", "view create approve export"); give("Invoices", "view create edit approve export"); give("Reports & GST", "view export"); give("Bookings", "view");
+  if (preset === "Night Shift / After-Hours Desk") {
+    give("Bookings", "view create edit approve");
+    give("Customers", "view");
+    give("Driver Partners", "view edit");
+    give("Vehicles", "view edit");
+    give("Support", "view create edit approve");
+    duty = ["publish", "assign"];
+    m.fleetSwap.driver = true;
+    m.fleetSwap.vehicle = true;
+    m.privacy.temporaryReveal = true;
     m.sensitive.vendorPayout = true;
   }
-  if (preset === "Support staff") { give("Customers", "view"); give("Bookings", "view"); give("Support", "view create edit"); }
+  if (preset === "Fleet & Driver Onboarding Officer") {
+    for (const mod of ["Partners & Fleet", "Driver Partners", "Vehicles"] as const) give(mod, "view create edit approve export");
+    give("Penalties", "view edit");
+    m.partnerRights.createVehicle = true;
+    m.partnerRights.createDriver = true;
+    m.partnerRights.approveVehicleDocs = true;
+    m.partnerRights.approveDriverDocs = true;
+  }
+  if (preset === "Vendor & B2B Partner Coordinator") {
+    give("Bookings", "view edit");
+    for (const mod of ["Partners & Fleet", "Vendors", "Vendor Drivers"] as const) give(mod, "view create edit approve export");
+    give("Vehicles", "view edit");
+    m.sensitive.vendorPayout = true;
+  }
+  if (preset === "Accounts staff" || preset === "Accounts, GST & Payout Officer") {
+    give("Accounts", "view create edit approve export");
+    give("Invoices", "view create edit approve export");
+    give("Reports & GST", "view export");
+    give("Bookings", "view");
+    give("Penalties", "view create edit approve export");
+    give("Business accounts", "view");
+    m.sensitive.vendorPayout = true;
+    m.sensitive.bankDetails = true;
+  }
+  if (preset === "Support staff" || preset === "Customer Support & Escalation Desk") {
+    give("Customers", "view");
+    give("Bookings", "view create");
+    give("Communication", "view create edit send");
+    give("Support", "view create edit approve");
+    m.privacy.temporaryReveal = true;
+    m.partnerRights.viewCoupons = true;
+    m.partnerRights.applyCoupon = true;
+  }
   if (preset === "Manager") {
     for (const mod of STAFF_MODULES) if (mod !== "Dashboard" && !MASTER_ONLY_MODULES.includes(mod) && !LIMITED_MODULES[mod]) give(mod, "view create edit approve export");
     duty = ["approve"];
