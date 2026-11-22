@@ -233,10 +233,10 @@ function MasterDashboard({
       {/* ========================================================= */}
       {/* TOP COMMAND BAR (SINGLE-ROW CLEAN SAAS HEADER)             */}
       {/* ========================================================= */}
-      <header className="bg-white rounded-2xl border border-slate-200/90 px-4 sm:px-5 py-3 shadow-2xs">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          {/* Left: Brand Identity + Navigation Pills */}
-          <div className="flex items-center gap-3 flex-wrap">
+<header className="bg-white rounded-2xl border border-slate-200/90 px-3 py-3 shadow-2xs overflow-x-auto">
+<div className="flex flex-col lg:flex-row lg:items-center gap-3 lg:min-w-max lg:justify-between">
+        {/* Left: Brand Identity + Navigation Pills */}
+<div className="flex items-center gap-2 flex-nowrap shrink-0 whitespace-nowrap">
             <div className="flex items-center gap-2.5 shrink-0">
               <div className="w-8 h-8 rounded-lg bg-[#991B1B] text-white font-extrabold text-xs flex items-center justify-center shadow-2xs">
                 NC
@@ -247,7 +247,7 @@ function MasterDashboard({
               </div>
             </div>
 
-            <nav className="flex items-center bg-slate-100 p-0.5 rounded-xl text-xs gap-0.5">
+<nav className="flex shrink-0 items-center bg-slate-100 p-0.5 rounded-xl text-xs gap-0.5 whitespace-nowrap">
               <button
                 type="button"
                 onClick={() => setActiveView("command")}
@@ -299,7 +299,7 @@ function MasterDashboard({
           </div>
 
           {/* Right: Search, Source Filter, Alerts & Primary Actions */}
-          <div className="flex items-center gap-2 flex-wrap">
+<div className="flex items-center gap-1.5 flex-nowrap shrink-0 whitespace-nowrap">
             <div className="relative w-44 sm:w-52">
               <input
                 type="text"
