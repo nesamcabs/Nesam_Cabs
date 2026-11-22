@@ -108,7 +108,13 @@ export default function Header({ title, onNavigate, onOpen, onCreateBooking, onQ
           </div>
         </div>
 
-      <div className="ds-header-actions">
+
+<div
+  id="dashboard-topbar-slot"
+  className="hidden lg:flex min-w-0 flex-1 items-center overflow-x-auto"
+/>
+
+        <div className="ds-header-actions">
         <Button variant="ghost" iconOnly icon="lock" onClick={() => setLocked(true)} aria-label="Lock workspace" title="Lock workspace" />
         <Button variant="ghost" iconOnly icon="log-out" onClick={() => onSignOut?.()} aria-label="Sign out" title="Sign out" />
         <Button iconOnly icon="shield-check" onClick={() => setSheet("privacy")} aria-label="Privacy" title="Customer privacy & access" />
