@@ -4,6 +4,7 @@
  */
 import type { BookingSourceType } from "./bookingSource";
 import type { Enquiry, EnquiryStatus } from "../services/enquiryService";
+import { formatDateTime12 } from "../utils/time";
 
 export type DeskBrand = "nesam" | "onewaycarrentals" | "people_taxi";
 
@@ -133,14 +134,8 @@ export function dueLabelOf(e: Enquiry, nowMs = Date.now()): string {
   if (dueMs <= nowMs) return "Due Now";
   const diffMin = Math.round((dueMs - nowMs) / 60000);
   if (diffMin <= 60) return `In ${diffMin} min${diffMin === 1 ? "" : "s"}`;
-  const dt = new Date(dueMs);
-  const istDate = new Date(dt.getTime() + 330 * 60000).toISOString();
-  const d = `${istDate.slice(8, 10)}-${istDate.slice(5, 7)}-${istDate.slice(0, 4)}`;
-  const hours = dt.getHours();
-  const mins = String(dt.getMinutes()).padStart(2, "0");
-  const mer = hours >= 12 ? "PM" : "AM";
-  const h12 = hours % 12 || 12;
-  return `${d} • ${h12}:${mins} ${mer}`;
+  // India time for both the date and the clock (the office works in IST whatever the browser's zone).
+  return formatDateTime12(new Date(dueMs));
 }
 
 export function formatDuration(mins: number): string {

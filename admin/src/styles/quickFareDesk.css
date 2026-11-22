@@ -103,3 +103,19 @@
   padding: 0;
   background: #f8fafc;
 }
+
+/* Pickup / drop / stop search (shared PlaceField) inside the desk's location boxes:
+   the box draws the border and label, the field draws only the text, suggestions, pin and clear buttons. */
+.qfd-place .ds-field { gap: 2px; }
+.qfd-place .ds-input {
+  height: 24px; min-height: 0; padding: 0; padding-right: 58px; border: 0; border-radius: 0; background: transparent; box-shadow: none;
+  font-size: 14px; font-weight: 500; color: #1e293b;
+}
+.qfd-place .ds-input::placeholder { color: #94a3b8; font-weight: 400; }
+.qfd-place .ds-input:hover, .qfd-place .ds-input:focus { border: 0; box-shadow: none; }
+.qfd-place .ds-combo-list { left: -14px; width: calc(100% + 28px); top: calc(100% + 10px); }
+.qfd-place .ds-field > small { font-size: 10px; line-height: 1.3; }
+.qfd-place--stop .ds-input { height: 28px; font-size: 12px; }
+.qfd-place--stop .ds-combo-list { left: -10px; width: calc(100% + 20px); }
+/* The location box already shows focus (focus-within ring); no second outline on the bare input. */
+.qfd-root .qfd-place .ds-input:focus-visible { outline: none; }

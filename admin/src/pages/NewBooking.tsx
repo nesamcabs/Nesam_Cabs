@@ -25,6 +25,8 @@ export interface NewBookingDraft {
   enquiry?: Enquiry;
   /** Opened from the Customers Directory: this existing customer is selected. Their number never reaches a Staff ID; the server books on the saved one. */
   customer?: { id: string; name: string; email: string; phoneMasked: string; preferredCab?: string; preferredDriver?: string };
+  /** Booking source the trip was quoted under (e.g. from the Quick Fare desk), so the booking keeps the same brand and prices. */
+  channel?: ManualBookingForm["channel"];
 }
 
 type Step = 1 | 2 | 3 | 4;
@@ -173,7 +175,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
 }) {
   const data = useQuickData();
   const allLocations = useMemo(() => [...(data.pickups || []), ...(data.drops || [])], [data.pickups, data.drops]);
-  const [brand, setBrand] = useState<BrandId>("nesam");
+  const [brand, setBrand] = useState<BrandId>(() => draft?.channel ?? "nesam");
   const [brandMenuOpen, setBrandMenuOpen] = useState(false);
   const brandSwitcherRef = useRef<HTMLDivElement>(null);
 

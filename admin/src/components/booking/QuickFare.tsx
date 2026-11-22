@@ -596,19 +596,35 @@ export function TripFields({ trip, set, data, compact, idPrefix, action, allowed
         </div>
       </div>
       {pin && (
-        <Modal title="Verify location pin" onClose={() => setPin(null)} size="lg" footer={<Button variant="primary" onClick={() => setPin(null)}>Use verified pin</Button>}>
-          <p className="text-[12px] text-muted mb-3">The pin must represent the selected pickup / drop address. Saved rule matching uses these coordinates.</p>
-          <p className="text-[12px] font-semibold text-ink mb-3">{pin === "pickup" ? "Pickup" : "Drop"} · {compact ? "Dashboard Quick fare" : "New booking"}</p>
-          <MapLocationPicker
-            label={pin === "pickup" ? "Pickup" : "Drop"}
-            tone={pin}
-            value={pin === "pickup" ? trip.pickup : trip.drop}
-            startNear={pin === "drop" ? trip.pickup : null}
-            onChange={(p) => pickPoint(pin, p, p?.name || p?.address || (pin === "pickup" ? trip.pickupText : trip.dropText))}
-          />
-        </Modal>
+        <LocationPinDialog
+          side={pin}
+          context={compact ? "Dashboard Quick fare" : "New booking"}
+          value={pin === "pickup" ? trip.pickup : trip.drop}
+          startNear={pin === "drop" ? trip.pickup : null}
+          onChange={(p) => pickPoint(pin, p, p?.name || p?.address || (pin === "pickup" ? trip.pickupText : trip.dropText))}
+          onClose={() => setPin(null)}
+        />
       )}
     </>
+  );
+}
+
+/** Map check for a pickup / drop / stop: drag the pin to the exact spot, then confirm. Shared by New booking and the Quick Fare desk. */
+export function LocationPinDialog({ side, context, value, startNear, onChange, onClose }: {
+  side: "pickup" | "drop" | "stop";
+  context: string;
+  value: PickedPoint | null;
+  startNear: LatLng | null;
+  onChange: (p: PickedPoint | null) => void;
+  onClose: () => void;
+}) {
+  const label = side === "pickup" ? "Pickup" : side === "drop" ? "Drop" : "Stop";
+  return (
+    <Modal title="Verify location pin" onClose={onClose} size="lg" footer={<Button variant="primary" onClick={onClose}>Use verified pin</Button>}>
+      <p className="text-[12px] text-muted mb-3">The pin must represent the selected pickup / drop address. Saved rule matching uses these coordinates.</p>
+      <p className="text-[12px] font-semibold text-ink mb-3">{label} · {context}</p>
+      <MapLocationPicker label={label} tone={side === "pickup" ? "pickup" : "drop"} value={value} startNear={startNear} onChange={onChange} />
+    </Modal>
   );
 }
 
