@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import type { NavBadges } from "../hooks/useNavBadges";
 import Icon from "./ui/Icon";
+import DeskIcon from "./ui/DeskIcons";
 import { CATEGORY_LABEL, TONE_CLASSES, categoryOf, ctaLabelOf, toneOf } from "../services/notificationModel";
 import { useNotifications } from "./NotificationHost";
 import { formatTimeAgo } from "../services/adminNotificationService";
@@ -84,14 +85,14 @@ export default function Header({ title, onNavigate, onOpen, onCreateBooking, onQ
                 title={`${liveSummary}. Open Bookings.`}
                 aria-label={`${liveSummary}. Open Bookings.`}
               >
-                <Icon name="calendar-clock" size={17} />
+                <DeskIcon name="live-bookings" size={18} />
                 <span className="ds-utility-count"><b>{cap(newCount)}</b><span className="ds-live-label">New</span></span>
                 <span className="ds-utility-sep" aria-hidden="true" />
                 <span className="ds-utility-count" data-tone={pendingCount > 0 ? "alert" : undefined}><b>{cap(pendingCount)}</b><span className="ds-live-label">Pending</span></span>
               </button>
             ) : (
               <span className="ds-utility-status" data-static="true" title="Live status">
-                <Icon name="calendar-clock" size={17} />
+                <DeskIcon name="live-bookings" size={18} />
                 <span className="ds-live-label">Live status</span>
               </span>
             )}
@@ -103,7 +104,7 @@ export default function Header({ title, onNavigate, onOpen, onCreateBooking, onQ
                 aria-label={`Assignment reminders, ${reminderCount} booking${reminderCount === 1 ? "" : "s"} need${reminderCount === 1 ? "s" : ""} assignment`}
                 title={`Assignment reminders · ${reminderCount} booking${reminderCount === 1 ? "" : "s"} need${reminderCount === 1 ? "s" : ""} assignment`}
               >
-                <Icon name="alarm-clock" size={17} />
+                <DeskIcon name="reminder" size={18} />
                 {reminderCount > 0 && <span className="ds-utility-badge" aria-hidden="true">{cap(reminderCount)}</span>}
               </button>
             )}
@@ -115,7 +116,7 @@ export default function Header({ title, onNavigate, onOpen, onCreateBooking, onQ
               aria-label={`Sound settings, notification sound ${soundOn ? "on" : "off"}`}
               title={`Sound settings · notification sound ${soundOn ? "on" : "off"}`}
             >
-              <Icon name={soundOn ? "volume-2" : "volume-x"} size={17} />
+              <DeskIcon name={soundOn ? "sound-on" : "sound-off"} size={18} />
             </button>
           </div>
         </div>

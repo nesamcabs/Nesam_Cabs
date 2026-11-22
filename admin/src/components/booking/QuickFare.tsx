@@ -239,6 +239,9 @@ interface PlaceOption {
   label: string;
   detail: string;
   point: () => PickedPoint;
+  /** Where the suggestion came from (the desk list shows these as headings). */
+  group?: "Cities" | "Saved places" | "Map results";
+  icon?: IconName;
 }
 
 const placeFromResult = (r: PlaceResult): PickedPoint => ({ lat: r.lat, lng: r.lng, name: r.name, address: r.address, type: r.type, confirmed: true, placeId: r.id });
@@ -256,8 +259,9 @@ export function PlaceField({ label, placeholder, text, value, saved, near, airpo
   near: LatLng | null;
   airport?: boolean;
   onChange: (text: string, point: PickedPoint | null) => void;
-  /** "cf": drawn as the customer sites draw a location field (label above the value, a pin dot, a remove button for stops). */
-  variant?: "cf";
+  /** "cf": drawn as the customer sites draw a location field (label above the value, a pin dot, a remove button for stops).
+   *  "desk": the Quick Fare desk's route card draws the label, address and map button; the field draws the text and a grouped list. */
+  variant?: "cf" | "desk";
   pin?: "pickup" | "drop" | "stop";
   onRemove?: () => void;
   /** Opens the pin check for this place: a small location button inside the box. */
@@ -309,11 +313,11 @@ export function PlaceField({ label, placeholder, text, value, saved, near, airpo
     const lower = q.toLowerCase();
     const locs = saved.filter((l) => (!airport || l.type === "Airport") && (!lower || locLabel(l).toLowerCase().includes(lower))).slice(0, 5);
     const results = [...(airport ? [] : mainCityPlaces(q)), ...(foundQuery === q ? found : [])].filter(r => !airport || r.type === "airport");
-    const remoteOption = (r: PlaceResult): PlaceOption => ({ key: r.id, label: placeLabel(r), detail: placeDetail(r), point: () => placeFromResult(r) });
+    const remoteOption = (r: PlaceResult, group: PlaceOption["group"]): PlaceOption => ({ key: r.id, label: placeLabel(r), detail: placeDetail(r), point: () => placeFromResult(r), group, icon: r.type === "airport" ? "plane" : group === "Cities" ? "building-2" : "map-pin" });
     const built: PlaceOption[] = [
-      ...results.filter(r => r.kind === "city").map(remoteOption),
-      ...locs.map((l) => ({ key: `loc-${l.id}`, label: l.type === "City" ? [l.name, l.state].filter(Boolean).join(", ") : l.name, detail: l.type === "City" ? "" : [l.city, l.state].filter(Boolean).join(", "), point: () => pointFromLocation(l) })),
-      ...results.filter(r => r.kind !== "city").map(remoteOption),
+      ...results.filter(r => r.kind === "city").map((r) => remoteOption(r, "Cities")),
+      ...locs.map((l): PlaceOption => ({ key: `loc-${l.id}`, label: l.type === "City" ? [l.name, l.state].filter(Boolean).join(", ") : l.name, detail: l.type === "City" ? "" : [l.city, l.state].filter(Boolean).join(", "), point: () => pointFromLocation(l), group: "Saved places", icon: l.type === "Airport" ? "plane" : "star" })),
+      ...results.filter(r => r.kind !== "city").map((r) => remoteOption(r, "Map results")),
     ];
     const apart = (a: PickedPoint, b: PickedPoint) => Math.hypot((a.lat - b.lat) * 111.2, (a.lng - b.lng) * 111.2 * Math.cos((a.lat * Math.PI) / 180));
     // The same name at the same spot is one place. The same name somewhere else is a different place and stays, so the
@@ -369,6 +373,53 @@ export function PlaceField({ label, placeholder, text, value, saved, near, airpo
           : q
             ? "Choose a suggestion to set the location."
             : "";
+  if (variant === "desk") {
+    // Only a problem is explained here; a normal search shows no helper text.
+    const problem = failed ? "Place search is unavailable. Choose a saved place or set it on the map." : !value && !searching && q.length >= 3 && !options.length ? "No matching place. Refine the search or set it on the map." : "";
+    return (
+      <div className="dk-place">
+        <input
+          id={`${id}-input`}
+          className="dk-place__input"
+          role="combobox"
+          aria-label={label}
+          aria-expanded={shown}
+          aria-controls={`${id}-list`}
+          aria-autocomplete="list"
+          aria-activedescendant={shown && active >= 0 && active < options.length ? `${id}-opt-${active}` : undefined}
+          autoComplete="off"
+          placeholder={placeholder}
+          value={text}
+          onChange={(e) => {
+            onChange(e.target.value, null);
+            setOpen(true);
+            setActive(-1);
+          }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setOpen(false)}
+          onKeyDown={onKey}
+        />
+        {searching && !value ? <span className="ds-spinner dk-place__spin" aria-hidden="true" /> : null}
+        {shown && (
+          <ul id={`${id}-list`} role="listbox" className="dk-place__list" aria-label={`${label} suggestions`}>
+            {options.map((o, i) => (
+              <li key={o.key} role="presentation">
+                {o.group && o.group !== options[i - 1]?.group ? <span className="dk-place__group" aria-hidden="true">{o.group}</span> : null}
+                <div id={`${id}-opt-${i}`} role="option" aria-selected={i === active} className="dk-place__opt" onMouseDown={(e) => e.preventDefault()} onClick={() => pick(o)}>
+                  <span className="dk-place__icon" aria-hidden="true"><Icon name={o.icon ?? "map-pin"} size={15} /></span>
+                  <span className="min-w-0">
+                    <strong>{o.label}</strong>
+                    {o.detail && <small>{o.detail}</small>}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        {problem ? <p className="dk-place__problem" role="alert">{problem}</p> : null}
+      </div>
+    );
+  }
   if (variant === "cf") {
     return (
       <div className="cf-place">

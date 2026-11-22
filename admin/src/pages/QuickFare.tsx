@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useMemo, type FormEvent } from "react";
 import { Timestamp } from "firebase/firestore";
 import Icon from "../components/ui/Icon";
+import DeskIcon, { TRIP_ICON } from "../components/ui/DeskIcons";
+import TimeSelect12 from "../components/TimeSelect12";
 import "../styles/quickFareDesk.css";
 import {
   type DeskBrand,
@@ -117,6 +119,22 @@ const quoteKeyOf = (t: QuickTrip, brand: DeskBrand) =>
   JSON.stringify([brand, t.tripType, t.multicity, t.local, t.serviceId, t.airportDirection, t.pickup?.lat, t.pickup?.lng, t.drop?.lat, t.drop?.lng,
     (t.stops ?? []).map((s) => [s.point?.lat, s.point?.lng]), t.date, t.time, t.days, t.rentalHours]);
 
+/** Clock times on the desk always say they are India time. */
+const withIST = (label: string) => (/\d:\d\d [AP]M$/.test(label) ? `${label} IST` : label);
+/** Short class badge (SEDAN, SUV…) unless the vehicle name already says it ("Innova" / INNOVA). */
+const alnum = (v: string) => v.toUpperCase().replace(/[^A-Z0-9]/g, "");
+const classBadgeOf = (c: CategoryEstimate["category"]) => {
+  const code = (c.code || c.tariffClass || "").trim().toUpperCase();
+  return code && !alnum(c.name).includes(alnum(code)) ? code : "";
+};
+/** "₹15/km + ₹500 Bata" from the server quote's customer rate card. */
+const rateLineOf = (q: CategoryEstimate["quote"]) => {
+  const p = (q as { pricing?: { customerRatePaise?: number; customerBataPaise?: number } } | null)?.pricing;
+  const rate = p?.customerRatePaise ? `₹${Math.round(p.customerRatePaise) / 100}/km` : "";
+  const bata = p?.customerBataPaise ? `₹${Math.round(p.customerBataPaise) / 100} Bata` : "";
+  return [rate, bata].filter(Boolean).join(" + ");
+};
+
 const errorText = (e: unknown, fallback: string) => (e instanceof Error && e.message ? e.message : fallback);
 
 function playAlertBeep() {
@@ -152,12 +170,12 @@ function followUpOf(e: Enquiry, nowMs: number): FollowUpItem {
     phone: phoneDigits(e.phone),
     brand: e.brand || "",
     route,
-    pickupLabel: pickupAt ? formatDateTime12(pickupAt) : "Pickup time not set",
+    pickupLabel: pickupAt ? `${formatDateTime12(pickupAt)} IST` : "Pickup time not set",
     vehicleName: e.vehicle || "Vehicle not chosen",
     fare: typeof e.estimate === "number" && e.estimate > 0 ? e.estimate : null,
     note: e.note?.trim() || "",
     status: deskFilterOf(e, nowMs),
-    dueLabel: dueLabelOf(e, nowMs),
+    dueLabel: withIST(dueLabelOf(e, nowMs)),
     dueMs: e.followUpAt?.toMillis?.() ?? e.due?.toMillis?.() ?? null,
   };
 }
@@ -407,7 +425,7 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
       brandName: DESK_BRANDS[brand].name,
       route: quotedRoute,
       dateStr: formatDate(istInstant(quotedTrip.date, "12:00")),
-      timeStr: time12(quotedTrip.time),
+      timeStr: `${time12(quotedTrip.time)} IST`,
       vehicleLines: priced.map((e) => ({ name: e.category.name, seats: e.category.seatingCapacity, fare: e.quote!.quote.total })),
     });
     try {
@@ -503,7 +521,7 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
       });
       setFuModalOpen(false);
       if (onEnquirySaved) onEnquirySaved();
-      else showToast(`Follow-up ${saved.code} saved for ${formatDateTime12(followUpAt)}`);
+      else showToast(`Follow-up ${saved.code} saved for ${formatDateTime12(followUpAt)} IST`);
     } catch (err) {
       setFuError(errorText(err, "The follow-up was not saved. Check the connection and try again."));
     } finally {
@@ -527,7 +545,7 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
     setBusyRow(item.id);
     try {
       const due = await snoozeEnquiry(item.id, 15);
-      showToast(`Follow-up for ${item.name} moved to ${formatTime12(due)}`);
+      showToast(`Follow-up for ${item.name} moved to ${formatTime12(due)} IST`);
     } catch (err) {
       showToast(errorText(err, `Could not snooze the follow-up for ${item.name}. Try again.`), "error");
     } finally {
@@ -599,8 +617,12 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
   };
   const seatsOf = (e: CategoryEstimate) => (e.category.seatingCapacity ? `${e.category.seatingCapacity} Seats` : "");
   const bagsOf = (e: CategoryEstimate) => (e.category.luggageCapacity ? `${e.category.luggageCapacity} Bags` : "");
-
-  const placeBox = "min-h-[54px] px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white focus-within:border-[#991B1B] focus-within:ring-2 focus-within:ring-[#991B1B]/15 transition-all flex flex-col justify-center";
+  /** Address under a chosen place, when it adds something to the name. */
+  const addrOf = (p: PickedPoint | null) => {
+    if (!p?.address || p.placeId === "place-local-disposal") return "";
+    const shown = [p.name, trip.pickup === p ? trip.pickupText : trip.drop === p ? trip.dropText : ""].map((x) => (x || "").trim().toLowerCase());
+    return shown.includes(p.address.trim().toLowerCase()) ? "" : p.address;
+  };
   const airportAt = trip.tripType === "Airport Taxi" ? airportSide(trip) : null;
   const canBook = !!onNewBooking;
 
@@ -616,8 +638,7 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
               <Icon name="calculator" size={20} />
             </div>
             <div className="min-w-0">
-              <h1 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">Quick Fare &amp; Enquiry Desk</h1>
-              <p className="text-xs text-slate-500 truncate">Check instant rates for callers, set follow-up alerts, or confirm booking in 1 click</p>
+              <h1 className="text-base sm:text-lg font-extrabold text-slate-900 leading-tight">Quick Fare &amp; Enquiry Desk</h1>
             </div>
           </div>
 
@@ -759,10 +780,7 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
           {/* LEFT COLUMN (5/12): QUICK FARE CALCULATOR */}
           <section className="lg:col-span-5 bg-white rounded-2xl border border-slate-200/90 shadow-sm flex flex-col">
             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-2">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">Quick Fare Calculator</h2>
-                <p className="text-[11px] text-slate-500 mt-0.5">Nothing is saved until you click Follow-up or Book</p>
-              </div>
+              <h2 className="text-sm font-extrabold text-slate-900">Quick fare</h2>
               <button
                 type="button"
                 onClick={handleClear}
@@ -785,13 +803,13 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
                       role="tab"
                       aria-selected={active}
                       onClick={() => pickDeskTab(s.key)}
-                      className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs transition-all ${
+                      className={`dk-type flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs transition-all ${
                         active
-                          ? "bg-white text-[#991B1B] shadow-sm font-semibold"
-                          : "text-slate-600 hover:text-slate-900 font-medium"
+                          ? "bg-white text-[#991B1B] shadow-sm font-extrabold"
+                          : "text-slate-600 hover:text-slate-900 font-semibold"
                       }`}
                     >
-                      <Icon name={s.icon as never} size={14} className="shrink-0" />
+                      <DeskIcon name={TRIP_ICON[s.key]} size={17} className="shrink-0" />
                       <span>{s.label}</span>
                     </button>
                   );
@@ -815,119 +833,115 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
                 </div>
               )}
 
-              {/* Route Inputs with Visual Track & Swap — places come from saved locations and map search */}
-              <div className="relative flex items-stretch gap-2.5">
-                <div className="w-4 flex flex-col items-center py-5 shrink-0 select-none" aria-hidden="true">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-4 ring-emerald-50 shrink-0"></span>
-                  {trip.tripType !== "Local Rental" && <div className="flex-1 w-0 border-l-2 border-dashed border-slate-300 my-1.5"></div>}
-                  {trip.tripType !== "Local Rental" && <Icon name="map-pin" size={14} className="text-[#991B1B] shrink-0 fill-crimson-50" />}
-                </div>
+              {/* Route card: A pickup → stops → B drop. Places come from saved locations, cities and map search. */}
+              <div className="dk-route" data-single={trip.tripType === "Local Rental" ? "true" : undefined}>
+                {trip.tripType !== "Local Rental" && <span className="dk-route__rail" aria-hidden="true" />}
 
-                <div className="flex-1 space-y-2.5 relative min-w-0">
-                  {/* Pickup */}
-                  <div className={`${placeBox} qfd-place`}>
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 leading-none mb-1" aria-hidden="true">
-                      Pickup Location
-                    </span>
+                <div className="dk-leg">
+                  <span className="dk-mark dk-mark--a" aria-hidden="true">A</span>
+                  <div className="dk-leg__main">
+                    <span className="dk-leg__label" aria-hidden="true">{airportAt === "pickup" ? "Pickup airport" : "Pickup"}</span>
                     <PlaceField
+                      variant="desk"
                       label="Pickup location"
-                      placeholder={airportAt === "pickup" ? "Search airport" : "Search area, landmark or city"}
+                      placeholder={airportAt === "pickup" ? "Search airport" : "Area, landmark or city"}
                       text={trip.pickupText}
                       value={trip.pickup}
                       saved={data.pickups}
                       near={null}
                       airport={airportAt === "pickup"}
                       onChange={(text, p) => pickPoint("pickup", p, text)}
-                      onPin={() => setPinFor("pickup")}
-                      pinned={!!trip.pickup?.confirmed}
                     />
+                    {addrOf(trip.pickup) && <span className="dk-leg__addr" title={addrOf(trip.pickup)}>{addrOf(trip.pickup)}</span>}
                   </div>
-
-                  {/* Optional Stops for Round Trip & Multicity */}
-                  {trip.tripType === "Round Trip" && (
-                    <div className="space-y-2 fade-slide-in">
-                      <div className="flex items-center justify-between gap-2">
-                        <button
-                          type="button"
-                          disabled={(trip.stops ?? []).length >= 4}
-                          onClick={() => set({ stops: [...(trip.stops ?? []), { text: "", point: null }] })}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-[#991B1B] bg-crimson-50/70 border border-crimson-200/70 hover:bg-crimson-50 disabled:opacity-50"
-                        >
-                          <Icon name="plus" size={12} />
-                          <span>{trip.multicity ? "Add Via-Stop" : "Add Itinerary Stop"}</span>
-                        </button>
-                        {!trip.multicity && (
-                          <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                            Itinerary Lock
-                          </span>
-                        )}
-                      </div>
-                      <div className="space-y-1.5">
-                        {(trip.stops ?? []).map((stop, idx) => (
-                          <div key={idx} className="flex items-start gap-1.5">
-                            <div className="flex-1 min-w-0 px-2.5 py-1 rounded-lg bg-slate-50 border border-dashed border-slate-300 focus-within:bg-white focus-within:border-[#991B1B] qfd-place qfd-place--stop">
-                              <PlaceField
-                                label={`Stop ${idx + 1}`}
-                                placeholder={`Search stop ${idx + 1}`}
-                                text={stop.text}
-                                value={stop.point}
-                                saved={data.drops}
-                                near={trip.pickup}
-                                onChange={(text, p) => set({ stops: (trip.stops ?? []).map((x, n) => (n === idx ? { text, point: p } : x)) })}
-                              />
-                            </div>
-                            <button
-                              type="button"
-                              aria-label={`Remove stop ${idx + 1}`}
-                              disabled={!!trip.multicity && (trip.stops ?? []).length === 1}
-                              onClick={() => set({ stops: (trip.stops ?? []).filter((_, n) => n !== idx) })}
-                              className="w-8 h-8 mt-0.5 rounded-lg border border-slate-200 text-slate-400 hover:text-[#991B1B] flex items-center justify-center disabled:opacity-40"
-                            >
-                              <Icon name="x" size={14} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Swap Button */}
-                  {trip.tripType !== "Local Rental" && (trip.stops ?? []).length === 0 && (
-                    <button
-                      type="button"
-                      onClick={handleSwap}
-                      aria-label="Swap pickup and drop"
-                      title="Swap pickup and drop"
-                      className={`qfd-swap absolute -left-[32px] top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-white border border-slate-200 shadow-sm text-slate-500 hover:text-[#991B1B] hover:border-[#991B1B] flex items-center justify-center transition-colors ${
-                        spinSwap ? "swap-spin" : ""
-                      }`}
-                    >
-                      <Icon name="arrow-up-down" size={13} />
+                  <div className="dk-leg__tools">
+                    {trip.pickupText && (
+                      <button type="button" className="dk-clear" aria-label="Clear pickup" onClick={() => pickPoint("pickup", null, "")}><Icon name="x" size={14} /></button>
+                    )}
+                    <button type="button" className="dk-map" data-ok={trip.pickup?.confirmed ? "true" : undefined} onClick={() => setPinFor("pickup")} aria-label={trip.pickup?.confirmed ? "Pickup pin set. Check on map" : "Set pickup on map"}>
+                      <Icon name={trip.pickup?.confirmed ? "check" : "map-pin"} size={13} />Map
                     </button>
-                  )}
+                  </div>
+                </div>
 
-                  {/* Drop */}
-                  {trip.tripType !== "Local Rental" && (
-                    <div className={`${placeBox} qfd-place`}>
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 leading-none mb-1" aria-hidden="true">
-                        {trip.multicity ? "Final Drop Location" : "Drop Location"}
-                      </span>
+                {trip.tripType === "Round Trip" && (trip.stops ?? []).map((stop, idx) => (
+                  <div className="dk-leg dk-leg--stop" key={idx}>
+                    <span className="dk-mark dk-mark--stop" aria-hidden="true">{idx + 1}</span>
+                    <div className="dk-leg__main">
+                      <span className="dk-leg__label" aria-hidden="true">{trip.multicity ? `Via ${idx + 1}` : `Stop ${idx + 1}`}</span>
                       <PlaceField
+                        variant="desk"
+                        label={`Stop ${idx + 1}`}
+                        placeholder="Area, landmark or city"
+                        text={stop.text}
+                        value={stop.point}
+                        saved={data.drops}
+                        near={trip.pickup}
+                        onChange={(text, p) => set({ stops: (trip.stops ?? []).map((x, n) => (n === idx ? { text, point: p } : x)) })}
+                      />
+                      {addrOf(stop.point) && <span className="dk-leg__addr" title={addrOf(stop.point)}>{addrOf(stop.point)}</span>}
+                    </div>
+                    <div className="dk-leg__tools">
+                      <button
+                        type="button"
+                        className="dk-clear"
+                        aria-label={`Remove stop ${idx + 1}`}
+                        disabled={!!trip.multicity && (trip.stops ?? []).length === 1}
+                        onClick={() => set({ stops: (trip.stops ?? []).filter((_, n) => n !== idx) })}
+                      >
+                        <Icon name="trash-2" size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                {trip.tripType !== "Local Rental" && (trip.stops ?? []).length === 0 && (
+                  <button type="button" onClick={handleSwap} aria-label="Swap pickup and drop" title="Swap pickup and drop" className={`dk-swap ${spinSwap ? "swap-spin" : ""}`}>
+                    <Icon name="arrow-up-down" size={15} />
+                  </button>
+                )}
+
+                {trip.tripType !== "Local Rental" && (
+                  <div className="dk-leg">
+                    <span className="dk-mark dk-mark--b" aria-hidden="true">B</span>
+                    <div className="dk-leg__main">
+                      <span className="dk-leg__label" aria-hidden="true">{airportAt === "drop" ? "Drop airport" : trip.multicity ? "Final drop" : "Drop"}</span>
+                      <PlaceField
+                        variant="desk"
                         label={trip.multicity ? "Final drop location" : "Drop location"}
-                        placeholder={airportAt === "drop" ? "Search airport" : "Search area, landmark or city"}
+                        placeholder={airportAt === "drop" ? "Search airport" : "Area, landmark or city"}
                         text={trip.dropText}
                         value={trip.drop}
                         saved={data.drops}
                         near={trip.pickup}
                         airport={airportAt === "drop"}
                         onChange={(text, p) => pickPoint("drop", p, text)}
-                        onPin={() => setPinFor("drop")}
-                        pinned={!!trip.drop?.confirmed}
                       />
+                      {addrOf(trip.drop) && <span className="dk-leg__addr" title={addrOf(trip.drop)}>{addrOf(trip.drop)}</span>}
                     </div>
-                  )}
-                </div>
+                    <div className="dk-leg__tools">
+                      {trip.dropText && (
+                        <button type="button" className="dk-clear" aria-label="Clear drop" onClick={() => pickPoint("drop", null, "")}><Icon name="x" size={14} /></button>
+                      )}
+                      <button type="button" className="dk-map" data-ok={trip.drop?.confirmed ? "true" : undefined} onClick={() => setPinFor("drop")} aria-label={trip.drop?.confirmed ? "Drop pin set. Check on map" : "Set drop on map"}>
+                        <Icon name={trip.drop?.confirmed ? "check" : "map-pin"} size={13} />Map
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
+
+              {trip.tripType === "Round Trip" && (
+                <button
+                  type="button"
+                  disabled={(trip.stops ?? []).length >= 4}
+                  onClick={() => set({ stops: [...(trip.stops ?? []), { text: "", point: null }] })}
+                  className="dk-addstop"
+                >
+                  <Icon name="plus" size={13} />
+                  <span>{trip.multicity ? "Add via-stop" : "Add stop"}</span>
+                </button>
+              )}
 
               {/* Conditional: Rental Duration Card */}
               {trip.tripType === "Local Rental" && (
@@ -944,7 +958,7 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
                       <div className="min-w-0">
                         <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Rental Duration</p>
                         <p className="text-xs sm:text-sm font-bold text-slate-900 truncate">
-                          {trip.rentalHours ?? 1} {(trip.rentalHours ?? 1) === 1 ? "hour" : "hours"} • km included shown with the fare
+                          {trip.rentalHours ?? 1} {(trip.rentalHours ?? 1) === 1 ? "hour" : "hours"}
                         </p>
                       </div>
                     </div>
@@ -959,13 +973,13 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <div className="flex items-center gap-1.5 mb-1">
-                    <label htmlFor="qfDateNative" className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    <label htmlFor="qfDateNative" className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
                       Pickup Date
                     </label>
                     {dayBadgeText && <span className={dayBadgeClass}>{dayBadgeText}</span>}
                   </div>
-                  <div className="relative h-11 px-3 rounded-xl border border-slate-200 bg-white focus-within:border-[#991B1B] flex items-center justify-between">
-                    <span className="text-xs sm:text-sm font-medium text-slate-800">{dateDisplayStr}</span>
+                  <div className="relative h-[46px] px-3 rounded-xl border-[1.5px] border-slate-200 bg-white focus-within:border-[#991B1B] flex items-center justify-between">
+                    <span className="text-sm font-bold text-slate-900">{dateDisplayStr}</span>
                     <Icon name="calendar" size={16} className="text-slate-400 pointer-events-none" />
                     <input
                       type="date"
@@ -979,20 +993,14 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
                 </div>
 
                 <div>
-                  <label htmlFor="qfTimeInput" className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
-                    Pickup Time
-                  </label>
-                  <div className="relative h-11 px-3 rounded-xl border border-slate-200 bg-white focus-within:border-[#991B1B] flex items-center justify-between">
-                    <span className="text-xs sm:text-sm font-medium text-slate-800">{time12(trip.time) || "Choose time"}</span>
-                    <Icon name="clock" size={16} className="text-slate-400 pointer-events-none" />
-                    <input
-                      type="time"
-                      id="qfTimeInput"
-                      step={300}
-                      value={trip.time}
-                      onChange={(e) => set({ time: e.target.value })}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    />
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <label htmlFor="qfTimeHour" className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                      Pickup Time
+                    </label>
+                    <span className="dk-ist">IST</span>
+                  </div>
+                  <div className="dk-timebox">
+                    <TimeSelect12 id="qfTimeHour" label="Pickup time" value={trip.time} onChange={(time) => set({ time })} className="dk-time12" />
                   </div>
                 </div>
               </div>
@@ -1004,7 +1012,7 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
                     <div className="min-w-0">
                       <p className="text-xs font-bold text-slate-900">Days</p>
                       <p className="text-[11px] text-slate-500 truncate">
-                        {trip.days === 1 ? "Same day return" : `Returns ${formatDate(istInstant(addDaysISO(trip.date, trip.days - 1), "12:00"))} by ${time12(trip.time)}`}
+                        {trip.days === 1 ? "Same day return" : `Returns ${formatDate(istInstant(addDaysISO(trip.date, trip.days - 1), "12:00"))} by ${time12(trip.time)} IST`}
                       </p>
                     </div>
                     <div className="flex items-center gap-1 p-1 rounded-xl border border-slate-200 bg-white shrink-0">
@@ -1064,12 +1072,7 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
                 <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
                   <Icon name="car" size={16} />
                 </div>
-                <div className="min-w-0">
-                  <h2 className="text-sm font-bold text-slate-900">Vehicle Fares</h2>
-                  <p className="text-[11px] text-slate-500 truncate">
-                    {calculated && quotedTrip ? `${formatDate(istInstant(quotedTrip.date, "12:00"))} • ${time12(quotedTrip.time)} • ${DESK_BRANDS[brand].name}` : "The fare for every vehicle appears here"}
-                  </p>
-                </div>
+                <h2 className="text-sm font-extrabold text-slate-900">Vehicle fares</h2>
               </div>
 
               {calculated && priced.length > 0 && !stale && (
@@ -1080,7 +1083,7 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
                     className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors flex items-center gap-1.5"
                   >
                     <Icon name="copy" size={14} />
-                    <span>{copyAllStatus}</span>
+                    <span>{copyAllStatus === "Copy All for WhatsApp" ? "Copy for WhatsApp" : copyAllStatus}</span>
                   </button>
                   <button
                     type="button"
@@ -1098,8 +1101,7 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
             {busyEstimates && (
               <div className="flex-1 p-8 sm:p-12 flex flex-col items-center justify-center text-center" role="status">
                 <span className="ds-spinner text-[#991B1B]" aria-hidden="true" style={{ width: 22, height: 22 }} />
-                <p className="text-sm font-bold text-slate-800 mt-3">Getting fares from the pricing server…</p>
-                <p className="text-xs text-slate-500 mt-1">Every vehicle is priced for the chosen route, date and booking source.</p>
+                <p className="text-sm font-bold text-slate-800 mt-3">Getting fares…</p>
               </div>
             )}
 
@@ -1109,10 +1111,8 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
                 <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mb-3">
                   <Icon name="calculator" size={24} />
                 </div>
-                <p className="text-sm font-bold text-slate-800">No fare calculated yet</p>
-                <p className="text-xs text-slate-500 mt-1 max-w-xs">
-                  Choose the pickup and drop from the suggestions (or set the pin on the map), pick the date, then click <strong>Get Fare</strong>.
-                </p>
+                <p className="text-sm font-bold text-slate-800">No fare yet</p>
+                <p className="text-xs text-slate-500 mt-1">Choose pickup and drop, then Get Fare.</p>
               </div>
             )}
 
@@ -1121,17 +1121,15 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
               <div className="flex-1 flex flex-col fade-slide-in">
                 {/* Route & Distance Meta Bar */}
                 <div className="px-5 py-2.5 bg-slate-50/90 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="font-bold text-slate-800 truncate">{quotedRoute}</span>
-                    {roadFacts && (
-                      <span className="text-[11px] font-medium text-slate-500 bg-white border border-slate-200 px-2 py-0.5 rounded-full shrink-0">
-                        {roadFacts.km} km{roadFacts.minutes ? ` • ~${formatDuration(roadFacts.minutes)}` : ""} by road
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/70 shrink-0">
-                    {priced.length} of {estimates!.length} vehicles priced
+                  <span className="min-w-0 truncate">
+                    <b className="font-extrabold text-slate-900">{quotedRoute}</b>
+                    {quotedTrip && <span className="text-slate-500"> · {formatDate(istInstant(quotedTrip.date, "12:00"))}, {time12(quotedTrip.time)} IST</span>}
                   </span>
+                  {roadFacts && (
+                    <span className="text-[11px] font-semibold text-slate-500 bg-white border border-slate-200 px-2.5 py-0.5 rounded-full shrink-0">
+                      {roadFacts.km} km{roadFacts.minutes ? ` · ${formatDuration(roadFacts.minutes)}` : ""} by road
+                    </span>
+                  )}
                 </div>
 
                 {stale && (
@@ -1146,7 +1144,8 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
                   {estimates!.map((e) => {
                     const q = e.quote;
                     const includedKm = q ? estimateFacts.includedKmOf(q) : 0;
-                    const meta = [seatsOf(e), bagsOf(e), q && includedKm ? `${includedKm} km included` : ""].filter(Boolean).join(" • ");
+                    const badge = classBadgeOf(e.category);
+                    const meta = [seatsOf(e), bagsOf(e), q ? rateLineOf(q) || (includedKm ? `${includedKm} km included` : "") : ""].filter(Boolean).join(" • ");
                     return (
                       <div
                         key={e.category.id}
@@ -1154,22 +1153,22 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
                       >
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-bold text-slate-900">{e.category.name}</span>
+                            <span className="text-[15px] font-extrabold text-slate-900">{e.category.name}</span>
+                            {badge && <span className="dk-class">{badge}</span>}
                           </div>
-                          <p className="text-[11px] text-slate-500 mt-0.5">{q ? meta || " " : <span className="text-amber-700">{e.error || "Not available for this trip"}</span>}</p>
+                          <p className="text-xs text-slate-500 mt-0.5">{q ? meta || " " : <span className="font-semibold text-amber-700">{e.error || "Not available on this route"}</span>}</p>
                         </div>
 
                         <div className="flex items-center gap-2.5 shrink-0">
                           <div className="text-right mr-1">
-                            <p className="text-base font-bold text-slate-900">{q ? formatINR(q.quote.total) : "—"}</p>
-                            {q && <p className="text-[10px] text-slate-400">{q.quote.gst ? `incl. ${formatINR(q.quote.gst)} GST` : "Estimated total"}</p>}
+                            <p className="text-lg font-extrabold text-slate-900 tabular-nums">{q ? formatINR(q.quote.total) : "—"}</p>
                           </div>
                           <button
                             type="button"
                             disabled={!q || stale}
                             onClick={() => openFollowUpModal(e.category.id)}
                             title="Save follow-up for this cab"
-                            className="h-8 px-2.5 rounded-lg text-[11px] font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 transition-colors flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="h-9 px-3 rounded-[10px] text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
                           >
                             <Icon name="bell-plus" size={14} />
                             <span className="hidden sm:inline">Follow-up</span>
@@ -1180,7 +1179,7 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
                               disabled={!q || stale}
                               onClick={() => bookFromEstimate(e.category.id)}
                               title="Open New booking with this trip and vehicle"
-                              className="h-8 px-3 rounded-lg text-[11px] font-semibold text-white bg-emerald-600 hover:bg-emerald-700 shadow-xs transition-colors flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
+                              className="h-9 px-3.5 rounded-[10px] text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-xs transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                               <Icon name="check" size={14} />
                               <span>Book</span>
@@ -1192,15 +1191,11 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
                   })}
                 </div>
 
-                {/* Footer Note */}
-                <div className="px-5 py-2.5 bg-slate-50/70 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
-                  <span>Fares from the pricing server for {DESK_BRANDS[brand].name}. The full breakup opens in New booking.</span>
-                  {canBook ? (
-                    <span className="font-medium text-slate-700">Click <strong>Book</strong> if customer says OK</span>
-                  ) : (
-                    <span className="font-medium text-slate-500">Your access can quote and save follow-ups, not create bookings.</span>
-                  )}
-                </div>
+                {!canBook && (
+                  <div className="px-5 py-2.5 bg-slate-50/70 border-t border-slate-100 text-[11px] font-medium text-slate-500">
+                    Your access can quote and save follow-ups, not create bookings.
+                  </div>
+                )}
               </div>
             )}
           </section>
@@ -1215,10 +1210,7 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
               <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
                 <Icon name="clock-alert" size={16} />
               </div>
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">Follow-Up Queue &amp; Alerts</h2>
-                <p className="text-[11px] text-slate-500">Track callers who asked for a fare — call back when alert triggers &amp; convert to booking</p>
-              </div>
+              <h2 className="text-sm font-extrabold text-slate-900">Follow-ups</h2>
             </div>
 
             {/* Filter Pills */}
@@ -1259,7 +1251,6 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
                 {followUps.length === 0 ? (
                   <>
                     <p className="text-sm font-bold text-slate-800">No follow-ups yet</p>
-                    <p className="mt-1">When a caller asks to be called back, get the fare and click <strong>Follow-up</strong>. It appears here with an alert.</p>
                   </>
                 ) : (
                   "No follow-ups in this filter."
@@ -1300,7 +1291,7 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
                           </span>
                         )}
 
-                        <span className="text-sm font-bold text-slate-900">{item.name}</span>
+                        <span className="text-sm font-extrabold text-slate-900">{item.name}</span>
                         <span className={`text-xs font-semibold ${isRev ? "text-emerald-700" : "text-slate-600"}`}>
                           {item.phone ? shownPhone(item) : "No number"}
                         </span>
@@ -1335,9 +1326,9 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
                         )}
                       </div>
 
-                      <p className="text-xs text-slate-700 font-medium">
-                        {item.route} • <span className="text-slate-500">{item.pickupLabel}</span> •{" "}
-                        <strong className="text-[#991B1B]">{item.vehicleName} ({item.fare !== null ? formatINR(item.fare) : "fare not quoted"})</strong>
+                      <p className="text-[12.5px] text-slate-800 font-semibold">
+                        {item.route} · <span className="text-slate-500">{item.pickupLabel}</span> ·{" "}
+                        <strong className="text-[#991B1B] font-extrabold">{item.vehicleName} {item.fare !== null ? formatINR(item.fare) : "(fare not quoted)"}</strong>
                       </p>
                       {item.note && <p className="text-[11px] text-slate-500 italic">&ldquo;{item.note}&rdquo;</p>}
                     </div>
@@ -1352,7 +1343,7 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
                               setLostError(null);
                               setLostModalOpen(true);
                             }}
-                            className="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-red-700 bg-red-50 hover:bg-red-100"
+                            className="h-8 px-3 rounded-[10px] text-xs font-bold text-[#991B1B] bg-white border border-red-200 hover:bg-red-50"
                           >
                             Lost
                           </button>
@@ -1360,7 +1351,7 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
                             type="button"
                             disabled={rowBusy}
                             onClick={() => handleSnooze(item)}
-                            className="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-50"
+                            className="h-8 px-3 rounded-[10px] text-xs font-bold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 disabled:opacity-50"
                           >
                             {rowBusy ? "Saving…" : "Snooze +15m"}
                           </button>
@@ -1368,10 +1359,10 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
                             <button
                               type="button"
                               onClick={() => bookFromEnquiry(item)}
-                              className="px-3 py-1.5 rounded-lg text-[11px] font-semibold text-white bg-emerald-600 hover:bg-emerald-700 shadow-xs flex items-center gap-1"
+                              className="h-8 px-3.5 rounded-[10px] text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-xs flex items-center gap-1.5"
                             >
-                              <Icon name="check-circle-2" size={14} />
-                              <span>Fare OK • Book</span>
+                              <Icon name="check" size={14} />
+                              <span>Book</span>
                             </button>
                           )}
                         </>
@@ -1416,9 +1407,7 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
             </span>
           </div>
           {revealLogs.length === 0 ? (
-            <p className="px-5 py-4 text-[11px] text-slate-500">
-              No numbers viewed in this session. Every view is recorded on the server with your staff ID and reason; this list shows the views made here.
-            </p>
+            <p className="px-5 py-4 text-[11px] text-slate-500">No numbers viewed in this session.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
@@ -1462,26 +1451,21 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
       {/* MODAL 1: SAVE FOLLOW-UP & SET ALERT                       */}
       {/* ========================================================= */}
       {fuModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4" role="dialog" aria-modal="true" aria-label="Save follow-up and set alert">
-          <div className="w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden fade-slide-in">
-            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
-                  <Icon name="bell-plus" size={16} />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-sm font-bold text-slate-900">Save Follow-Up &amp; Set Alert</h3>
-                  <p className="text-[11px] text-slate-500 truncate">
-                    {quotedRoute} • {fuEstimate ? `${fuEstimate.category.name} (${formatINR(fuEstimate.quote!.quote.total)})` : "Choose a priced vehicle"}
-                  </p>
-                </div>
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4" role="dialog" aria-modal="true" aria-label="Save follow-up">
+          <div className="dk-form w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden fade-slide-in">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="text-base font-extrabold text-slate-900">Save follow-up</h3>
+                <p className="text-[12.5px] font-bold text-[#991B1B] truncate">
+                  {quotedRoute}{fuEstimate ? ` · ${fuEstimate.category.name} ${formatINR(fuEstimate.quote!.quote.total)}` : ""}
+                </p>
               </div>
               <button
                 type="button"
                 aria-label="Close"
                 disabled={fuBusy}
                 onClick={() => setFuModalOpen(false)}
-                className="w-8 h-8 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center"
+                className="w-8 h-8 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center shrink-0"
               >
                 <Icon name="x" size={16} />
               </button>
@@ -1489,31 +1473,21 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
 
             <form onSubmit={handleSaveFollowUp} className="p-5 space-y-4" noValidate>
               {priced.length > 1 && (
-                <div>
-                  <label htmlFor="fuVehicleSel" className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
-                    Vehicle quoted
-                  </label>
-                  <select
-                    id="fuVehicleSel"
-                    value={fuCategoryId}
-                    onChange={(e) => setFuCategoryId(e.target.value)}
-                    className="w-full h-10 px-3 text-sm font-medium text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]"
-                  >
+                <div className="dk-ff">
+                  <label htmlFor="fuVehicleSel">Vehicle</label>
+                  <select id="fuVehicleSel" className="dk-in" value={fuCategoryId} onChange={(e) => setFuCategoryId(e.target.value)}>
                     {priced.map((e) => (
                       <option key={e.category.id} value={e.category.id}>{e.category.name} — {formatINR(e.quote!.quote.total)}</option>
                     ))}
                   </select>
                 </div>
               )}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label htmlFor="fuMobileInp" className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
-                    Caller Mobile *
-                  </label>
-                  <div className="flex items-center h-10 bg-white border border-slate-200 rounded-xl overflow-hidden focus-within:border-[#991B1B]">
-                    <span className="px-2.5 text-xs font-semibold text-slate-500 bg-slate-50 h-full flex items-center border-r border-slate-200">
-                      +91
-                    </span>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="dk-ff">
+                  <label htmlFor="fuMobileInp">Mobile *</label>
+                  <div className="dk-in dk-in--pre">
+                    <span>+91</span>
                     <input
                       type="tel"
                       id="fuMobileInp"
@@ -1526,135 +1500,70 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
                         setFuMobile(e.target.value.replace(/\D/g, "").slice(0, 10));
                         setFuError(null);
                       }}
-                      placeholder="10-digit mobile"
-                      className="w-full h-full px-2.5 text-sm font-medium text-slate-800 focus:outline-none"
                     />
                   </div>
                 </div>
-                <div>
-                  <label htmlFor="fuNameInp" className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
-                    Caller Name
-                  </label>
-                  <input
-                    type="text"
-                    id="fuNameInp"
-                    maxLength={80}
-                    value={fuName}
-                    onChange={(e) => setFuName(e.target.value)}
-                    placeholder={fuCallerMatch?.name || "Caller name"}
-                    className="w-full h-10 px-3 text-sm font-medium text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]"
-                  />
+                <div className="dk-ff">
+                  <label htmlFor="fuNameInp">Name</label>
+                  <input type="text" id="fuNameInp" className="dk-in" maxLength={80} value={fuName} onChange={(e) => setFuName(e.target.value)} placeholder={fuCallerMatch?.name || ""} />
                 </div>
               </div>
 
               {fuCallerMatch && (
-                <p className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/70 px-3 py-1.5 rounded-lg">
-                  Existing customer: {fuCallerMatch.name}{fuCallerMatch.city ? ` • ${fuCallerMatch.city}` : ""}
+                <p className="text-[11.5px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/70 px-3 py-1.5 rounded-lg">
+                  Existing customer: {fuCallerMatch.name}{fuCallerMatch.city ? ` · ${fuCallerMatch.city}` : ""}
                 </p>
               )}
 
-              {/* Scheduled Follow-Up Date & Time (India time) */}
-              <div className="p-3 rounded-xl bg-slate-50/90 border border-slate-200/80 space-y-2">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1">
-                    <Icon name="calendar-clock" size={14} className="text-amber-600" />
-                    <span>Follow-Up Date &amp; Time (IST)</span>
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => handleFuTomorrowPreset(9, "tomorrow morning")}
-                      className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-white text-slate-700 border border-slate-200 hover:border-amber-400 hover:text-amber-800 transition-colors"
-                    >
-                      Tomorrow 9 AM
+              <div className="dk-ff">
+                <span className="dk-ff__label">Call back</span>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {[
+                    { label: "15 min", mins: 15 },
+                    { label: "30 min", mins: 30 },
+                    { label: "1 hour", mins: 60 },
+                    { label: "Now", mins: 0 },
+                  ].map((chip) => (
+                    <button key={chip.mins} type="button" className="dk-chip" aria-pressed={fuReminderMins === chip.mins} onClick={() => setScheduleIn(chip.mins)}>
+                      {chip.label}
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => handleFuTomorrowPreset(17, "tomorrow evening")}
-                      className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-white text-slate-700 border border-slate-200 hover:border-amber-400 hover:text-amber-800 transition-colors"
-                    >
-                      Tomorrow 5 PM
-                    </button>
-                  </div>
+                  ))}
+                  <button type="button" className="dk-chip" aria-pressed={fuReminderMins === null && fuScheduleTime === "09:00" && fuScheduleDate === addDaysISO(todayIST, 1)} onClick={() => handleFuTomorrowPreset(9, "tomorrow morning")}>Tmrw 9 AM</button>
+                  <button type="button" className="dk-chip" aria-pressed={fuReminderMins === null && fuScheduleTime === "17:00" && fuScheduleDate === addDaysISO(todayIST, 1)} onClick={() => handleFuTomorrowPreset(17, "tomorrow evening")}>Tmrw 5 PM</button>
                 </div>
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div>
-                    <label htmlFor="fuScheduleDateInp" className="block text-[10px] font-medium text-slate-500 mb-1">
-                      Follow-Up Date
-                    </label>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="dk-ff">
+                  <label htmlFor="fuScheduleDateInp">Date</label>
+                  <div className="dk-in relative flex items-center justify-between">
+                    <span>{fuScheduleDate ? formatDate(istInstant(fuScheduleDate, "12:00")) : "Choose date"}</span>
+                    <Icon name="calendar" size={16} className="text-slate-400 pointer-events-none" />
                     <input
                       type="date"
                       id="fuScheduleDateInp"
                       min={todayIST}
                       value={fuScheduleDate}
                       onChange={(e) => { setFuScheduleDate(e.target.value); setFuReminderMins(null); }}
-                      className="w-full h-9 px-2.5 text-xs font-semibold text-slate-800 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-[#991B1B]"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     />
                   </div>
-                  <div>
-                    <label htmlFor="fuScheduleTimeInp" className="block text-[10px] font-medium text-slate-500 mb-1">
-                      Follow-Up Time
-                    </label>
-                    <input
-                      type="time"
-                      id="fuScheduleTimeInp"
-                      value={fuScheduleTime}
-                      onChange={(e) => { setFuScheduleTime(e.target.value); setFuReminderMins(null); }}
-                      className="w-full h-9 px-2.5 text-xs font-semibold text-slate-800 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-[#991B1B]"
-                    />
+                </div>
+                <div className="dk-ff">
+                  <label htmlFor="fuScheduleTimeHour">Time <span className="dk-ist">IST</span></label>
+                  <div className="dk-in dk-in--time">
+                    <TimeSelect12 id="fuScheduleTimeHour" label="Follow-up time" value={fuScheduleTime} onChange={(v) => { setFuScheduleTime(v); setFuReminderMins(null); }} className="dk-time12" />
                   </div>
                 </div>
               </div>
 
-              {/* Quick Reminder Time Chips */}
-              <div>
-                <span className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
-                  Follow-Up Alert Time
-                </span>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {[
-                    { label: "In 15 min", mins: 15 },
-                    { label: "In 30 min", mins: 30 },
-                    { label: "In 1 hour", mins: 60 },
-                    { label: "Alert Now", mins: 0 },
-                  ].map((chip) => {
-                    const active = fuReminderMins === chip.mins;
-                    return (
-                      <button
-                        key={chip.mins}
-                        type="button"
-                        aria-pressed={active}
-                        onClick={() => setScheduleIn(chip.mins)}
-                        className={`py-2 px-2 rounded-xl text-xs transition-colors ${
-                          active
-                            ? "font-semibold border border-[#991B1B] bg-crimson-50 text-[#991B1B]"
-                            : "font-medium border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                        }`}
-                      >
-                        {chip.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="fuNoteInp" className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
-                  Call Note
-                </label>
-                <input
-                  type="text"
-                  id="fuNoteInp"
-                  maxLength={300}
-                  value={fuNote}
-                  onChange={(e) => setFuNote(e.target.value)}
-                  placeholder="What the caller said"
-                  className="w-full h-10 px-3 text-xs sm:text-sm text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]"
-                />
+              <div className="dk-ff">
+                <label htmlFor="fuNoteInp">Note</label>
+                <input type="text" id="fuNoteInp" className="dk-in" maxLength={300} value={fuNote} onChange={(e) => setFuNote(e.target.value)} placeholder="What the caller said" />
               </div>
 
               {fuError && (
-                <div role="alert" className="px-3 py-2 rounded-xl text-xs font-medium bg-red-50 text-red-800 border border-red-200">
+                <div role="alert" className="px-3 py-2 rounded-xl text-xs font-semibold bg-red-50 text-red-800 border border-red-200">
                   {fuError}
                 </div>
               )}
@@ -1663,10 +1572,10 @@ export default function QuickFare({ onNewBooking, onEnquirySaved, onNavigate }: 
                 type="submit"
                 disabled={fuBusy}
                 aria-busy={fuBusy || undefined}
-                className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold text-sm py-3 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+                className="w-full h-12 bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-[14.5px] rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-70"
               >
                 {fuBusy ? <span className="ds-spinner" aria-hidden="true" /> : <Icon name="bell-ring" size={16} />}
-                <span>{fuBusy ? "Saving follow-up…" : "Save Follow-Up & Activate Alert"}</span>
+                <span>{fuBusy ? "Saving…" : "Save follow-up"}</span>
               </button>
             </form>
           </div>
