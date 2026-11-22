@@ -93,17 +93,18 @@ export default function Header({ title, onNavigate, onOpen, onCreateBooking, onQ
               </Button>
             )}
 
-            <Button
-              variant="ghost"
-              size="sm"
-              icon="sliders-horizontal"
-              className="ds-header-live-btn"
-              onClick={() => setSheet("sounds")}
-              aria-label="Sound settings"
-              title="Sound settings"
-            >
-              <span className="ds-live-label">Sound settings</span>
-            </Button>
+
+<Button
+  variant="ghost"
+  size="sm"
+  icon="sliders-horizontal"
+  iconOnly
+  className="ds-header-live-btn"
+  onClick={() => setSheet("sounds")}
+  aria-label="Sound settings"
+  title="Sound settings"
+/>
+
           </div>
         </div>
 
