@@ -1,229 +1,73 @@
-/* NESAM CABS Quick Fare & Follow-Up Desk — Scoped Styles */
+/* Quick Fare & Enquiry Desk (pages/QuickFare.tsx). Everything here is scoped to the desk (.qfd-root, .qfd-layer, .dk-*);
+   the layout itself is Tailwind utilities in the components. Inter 400–700 is bundled in main.tsx. */
+
+/* Same layer order as Tailwind's own statement, whichever stylesheet loads first. */
+@layer theme, base, components, utilities;
 
 .qfd-root, .qfd-layer {
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color: #0f172a;
   -webkit-font-smoothing: antialiased;
 }
-
 .qfd-root :is(button, input, select, textarea),
-.qfd-layer :is(button, input, select, textarea) {
-  font-family: inherit;
-}
-
-.qfd-root :is(button:not(:disabled)),
-.qfd-layer :is(button:not(:disabled)) {
-  cursor: pointer;
-}
-
+.qfd-layer :is(button, input, select, textarea) { font-family: inherit; }
+.qfd-root button:not(:disabled), .qfd-layer button:not(:disabled) { cursor: pointer; }
 .qfd-root :is(button, input, select, textarea, a, [tabindex]):focus-visible,
-.qfd-layer :is(button, input, select, textarea, a, [tabindex]):focus-visible {
-  outline: 2px solid #991b1b;
-  outline-offset: 2px;
-}
+.qfd-layer :is(button, input, select, textarea, a, [tabindex]):focus-visible { outline: 2px solid #991b1b; outline-offset: 2px; }
+.qfd-root ::selection { background: #fee2e2; color: #991b1b; }
 
-/* Animations */
-.fade-slide-in {
-  animation: qfdFadeSlideIn 0.22s ease-out forwards;
-}
+/* index.css enlarges small text, inputs and placeholders app-wide with unlayered rules (they beat Tailwind's utility layer).
+   Inside the desk those rules step aside (`revert-layer`), so the desk's own Tailwind sizes apply, responsive ones included. */
+:is(.qfd-root, .qfd-layer) :is(.text-xs, .text-\[10px\], .text-\[11px\], .text-\[12px\]) { font-size: revert-layer; line-height: revert-layer; }
+:is(.qfd-root, .qfd-layer) :is(input, select, textarea):not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']) { font-size: revert-layer; line-height: revert-layer; color: revert-layer; }
+:is(.qfd-root, .qfd-layer) input[type='date'] { min-height: revert-layer; }
+:is(.qfd-root, .qfd-layer) :is(.text-red-600, .text-red-700) { font-weight: revert-layer; }
+:is(.qfd-root, .qfd-layer) ::placeholder { color: #94a3b8; }
 
-@keyframes qfdFadeSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
+/* Dialog layer: above the admin header. */
+.qfd-layer { z-index: 120; }
 
-.swap-spin {
-  animation: qfdSpin180 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-}
+/* The desk uses the full content area (its own max-width and gutters). */
+.ds-workspace[data-route='quick-fare'] .ds-main { padding: 0; background: #f8fafc; }
 
-@keyframes qfdSpin180 {
-  0% { transform: translateY(-50%) rotate(0deg); }
-  100% { transform: translateY(-50%) rotate(180deg); }
-}
-
+/* Motion */
+.fade-slide-in { animation: qfdFadeSlideIn 0.22s ease-out forwards; }
+@keyframes qfdFadeSlideIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+/* The swap button is centred with Tailwind's `translate` property, so the spin only rotates. */
+.swap-spin { animation: qfdSpin180 0.35s cubic-bezier(0.4, 0, 0.2, 1); }
+@keyframes qfdSpin180 { from { transform: rotate(0deg); } to { transform: rotate(180deg); } }
 @media (prefers-reduced-motion: reduce) {
-  .fade-slide-in, .swap-spin {
-    animation: none !important;
-  }
+  .fade-slide-in, .swap-spin { animation: none !important; }
+  .qfd-root .animate-ping, .qfd-root .animate-pulse { animation: none !important; }
 }
 
-/* Native date picker input overlay */
-.qfd-date-native::-webkit-calendar-picker-indicator {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  cursor: pointer;
-}
+/* The whole date box opens the native date picker. */
+.qfd-date-native::-webkit-calendar-picker-indicator { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 
-/* Modal and dialog layers */
-.qfd-layer {
-  position: fixed;
-  inset: 0;
-  z-index: 120;
-  background-color: rgba(15, 23, 42, 0.5);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  display: flex;
-}
-
-.qfd-layer[data-kind="bottom-sheet"] {
-  align-items: flex-end;
-  justify-content: center;
-  padding: 0;
-}
-
-@media (min-width: 640px) {
-  .qfd-layer[data-kind="bottom-sheet"] {
-    align-items: center;
-    padding: 16px;
-  }
-}
-
-.qfd-layer[data-kind="center"] {
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-}
-
-/* Route shell matching the reference max-w-6xl */
-.ds-workspace[data-route='quick-fare'] {
-  background: #f8fafc;
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-
-.ds-workspace[data-route='quick-fare'] .ds-main {
-  padding: 0;
-  background: #f8fafc;
-}
-
-/* ══ Route card: A pickup → stops → B drop (shared PlaceField, "desk" variant) ══ */
-.dk-route { position: relative; border: 1.5px solid #e2e8f0; border-radius: 14px; background: #fff; transition: border-color .15s, box-shadow .15s; }
-.dk-route:focus-within { border-color: #991b1b; box-shadow: 0 0 0 3px rgb(153 27 27 / .1); }
-.dk-route__rail { position: absolute; left: 25px; top: 42px; bottom: 42px; border-left: 2px dashed #cbd5e1; pointer-events: none; }
-.dk-leg { position: relative; display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 64px; padding: 10px 12px; }
-.dk-leg + .dk-leg { border-top: 1px dashed #dbe2ea; }
-.dk-mark { position: relative; z-index: 1; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; color: #fff; font-size: 12px; font-weight: 800; }
-.dk-mark--a { background: #059669; box-shadow: 0 0 0 4px #e7f7f0; }
-.dk-mark--b { background: #c1232c; box-shadow: 0 0 0 4px #fdecec; }
-.dk-mark--stop { width: 22px; height: 22px; margin-left: 2px; background: #fff; color: #475569; border: 1.5px solid #94a3b8; font-size: 11px; }
-.dk-leg__main { min-width: 0; }
-.dk-leg__label { display: block; font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: #8a94a3; line-height: 1; margin-bottom: 3px; }
-.dk-leg__addr { display: block; margin-top: 2px; font-size: 11.5px; font-weight: 500; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dk-leg__tools { display: flex; align-items: center; gap: 4px; }
-.dk-clear { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 8px; background: transparent; color: #94a3b8; }
-.dk-clear:hover:not(:disabled) { background: #fdf1f1; color: #991b1b; }
-.dk-clear:disabled { opacity: .35; }
-.dk-map { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 9px; border-radius: 8px; border: 1px solid #e2e8f0; background: #fff; color: #64748b; font-size: 11px; font-weight: 800; }
-.dk-map:hover { border-color: #f1c9c9; color: #991b1b; }
-.dk-map[data-ok="true"] { border-color: #a7e3cb; background: #e7f7f0; color: #047857; }
-.dk-swap { position: absolute; right: 22px; top: 50%; z-index: 2; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; border: 1px solid #cbd5e1; background: #fff; color: #64748b; transform: translateY(-50%); box-shadow: 0 1px 3px rgb(15 23 42 / .08); transition: color .15s, border-color .15s; }
-.dk-swap:hover { color: #991b1b; border-color: #991b1b; }
-.dk-addstop { display: inline-flex; align-items: center; gap: 5px; align-self: flex-start; height: 30px; padding: 0 11px; border-radius: 9px; border: 1px dashed #f1c9c9; background: #fdf6f6; color: #991b1b; font-size: 12px; font-weight: 800; }
-.dk-addstop:disabled { opacity: .5; }
-
+/* ── Place search (components/booking/QuickFare.tsx PlaceField, "desk" variant) ── */
 .dk-place { position: static; }
-.dk-place__input { display: block; width: 100%; height: 24px; padding: 0; border: 0; outline: 0; background: transparent; font-size: 15px; font-weight: 700; color: #0f172a; }
-.dk-place__input::placeholder { color: #94a3b8; font-weight: 500; }
+/* In a layer, so the input reset above falls back to these sizes. */
+@layer components {
+  .dk-place__input { display: block; width: 100%; height: 20px; padding: 0; border: 0; outline: 0; background: transparent; font-size: 14px; line-height: 20px; font-weight: 500; color: #1e293b; text-overflow: ellipsis; }
+  .dk-place__input::placeholder { color: #94a3b8; font-weight: 400; }
+  /* Round-trip / via stops: the reference's dashed stop input. */
+  .dk-stop .dk-place__input { height: 36px; padding: 0 12px; border: 1px dashed #cbd5e1; border-radius: 8px; background: #f8fafc; font-size: 12px; line-height: 34px; font-weight: 500; color: #1e293b; transition: background-color .15s, border-color .15s; }
+  .dk-stop .dk-place__input:focus { background: #fff; border-color: #991b1b; }
+}
 .qfd-root .dk-place__input:focus-visible { outline: none; }
-.dk-place__spin { position: absolute; right: 96px; top: 50%; margin-top: -7px; color: #94a3b8; }
-.dk-place__list { position: absolute; left: 8px; right: 8px; top: calc(100% - 4px); z-index: 60; max-height: min(300px, 46vh); overflow-y: auto; margin: 0; padding: 6px; list-style: none; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 14px 30px rgb(15 23 42 / .16); }
-.dk-place__group { display: block; padding: 7px 8px 3px; font-size: 10px; font-weight: 800; letter-spacing: .9px; text-transform: uppercase; color: #8a94a3; }
+.dk-place__spin { position: absolute; right: 84px; top: 50%; margin-top: -7px; color: #94a3b8; }
+.dk-place__list { position: absolute; left: 8px; right: 8px; top: calc(100% + 4px); z-index: 60; max-height: min(300px, 46vh); overflow-y: auto; margin: 0; padding: 6px; list-style: none; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 14px 30px rgb(15 23 42 / .16); }
+.dk-place__group { display: block; padding: 7px 8px 3px; font-size: 10px; font-weight: 700; letter-spacing: .9px; text-transform: uppercase; color: #94a3b8; }
 .dk-place__opt { display: grid; grid-template-columns: 28px minmax(0, 1fr); align-items: center; gap: 10px; padding: 7px 8px; border-radius: 9px; cursor: pointer; }
 .dk-place__opt:hover, .dk-place__opt[aria-selected="true"] { background: #f1f5f9; }
 .dk-place__icon { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: #f1f5f9; color: #64748b; }
-.dk-place__opt[aria-selected="true"] .dk-place__icon { background: #fdf1f1; color: #991b1b; }
-.dk-place__opt strong { display: block; font-size: 13px; font-weight: 700; color: #0f172a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dk-place__opt[aria-selected="true"] .dk-place__icon { background: #fef2f2; color: #991b1b; }
+.dk-place__opt strong { display: block; font-size: 13px; font-weight: 600; color: #0f172a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dk-place__opt small { display: block; font-size: 11.5px; color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dk-place__problem { margin: 3px 0 0; font-size: 11px; font-weight: 600; color: #b45309; }
-.dk-leg:has(.dk-place__list) { z-index: 5; }
+/* A search problem shows as a small panel under the field while it is being edited (the field has a fixed height). */
+.dk-place__problem { position: absolute; left: 8px; right: 8px; top: calc(100% + 4px); z-index: 60; margin: 0; padding: 8px 10px; border-radius: 10px; border: 1px solid #fde68a; background: #fffbeb; color: #92400e; font-size: 11px; font-weight: 500; box-shadow: 0 8px 20px rgb(15 23 42 / .10); }
+.dk-place:not(:focus-within) .dk-place__problem { display: none; }
+[data-place-field]:has(.dk-place__list), [data-place-field]:has(.dk-place__problem), .dk-stop:has(.dk-place__list), .dk-stop:has(.dk-place__problem) { z-index: 20; }
 
-/* Trip type icons sit a little bolder than text icons */
-.dk-type svg { flex: none; }
-
-/* 12-hour IST time (shared TimeSelect12, restyled) */
-.dk-ist { padding: 1px 6px; border-radius: 999px; border: 1px solid #e2e8f0; background: #f1f5f9; color: #64748b; font-size: 9.5px; font-weight: 800; letter-spacing: .3px; text-transform: none; }
-.dk-timebox { height: 46px; display: flex; align-items: center; padding: 0 6px; border: 1.5px solid #e2e8f0; border-radius: 12px; background: #fff; }
-.dk-timebox:focus-within { border-color: #991b1b; }
-.dk-time12 { display: flex; align-items: center; gap: 2px; width: 100%; max-width: none; }
-.dk-time12 .ds-select { flex: 1 1 0; min-width: 0; height: 34px; min-height: 0; padding: 0 4px; border: 0; border-radius: 8px; background: transparent; box-shadow: none; font-size: 15px; font-weight: 800; color: #0f172a; text-align: center; text-align-last: center; appearance: none; cursor: pointer; }
-.dk-time12 .ds-select:hover { background: #f1f5f9; }
-.dk-time12 .ds-select:focus { box-shadow: none; background: #fdf1f1; }
-.dk-time12 .ds-select:last-child { flex: 0 0 auto; padding: 0 10px; font-size: 12px; color: #991b1b; background: #fdf1f1; }
-.dk-time12 > span { font-weight: 800; color: #94a3b8; }
-
-/* Vehicle class badge (shown only when the name does not already say it) */
-.dk-class { padding: 2px 8px; border-radius: 6px; background: #eef1f5; color: #475569; font-size: 10px; font-weight: 800; letter-spacing: .6px; }
-
-/* Follow-up form: bold labels, one control height */
-.dk-ff label, .dk-ff .dk-ff__label { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 11px; font-weight: 800; color: #1e293b; }
-.dk-in { display: block; width: 100%; height: 44px; padding: 0 12px; border: 1.5px solid #e2e8f0; border-radius: 11px; background: #fff; font-size: 14px; font-weight: 700; color: #0f172a; outline: 0; }
-.dk-in:focus, .dk-in:focus-within { border-color: #991b1b; }
-.dk-in::placeholder { color: #94a3b8; font-weight: 500; }
-.dk-in--pre { display: flex; align-items: center; gap: 8px; }
-.dk-in--pre span { padding-right: 8px; border-right: 1px solid #e2e8f0; color: #64748b; font-weight: 800; }
-.dk-in--pre input { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent; font-weight: 700; letter-spacing: .3px; }
-.qfd-root .dk-in--pre input:focus-visible, .qfd-layer .dk-in--pre input:focus-visible { outline: none; }
-.dk-in--time { display: flex; align-items: center; padding: 0 4px; }
-.dk-chip { height: 36px; border-radius: 10px; border: 1.5px solid #e2e8f0; background: #fff; font-size: 12px; font-weight: 700; color: #334155; }
-.dk-chip:hover { background: #f8fafc; }
-.dk-chip[aria-pressed="true"] { border-color: #991b1b; background: #fdf1f1; color: #991b1b; }
-
-/* ══ Follow-up controls: Due · Upcoming · Sound (one size, one stroke, one hover) ══ */
-.dk-ctrls { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.dk-ctrl {
-  position: relative; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 11px;
-  border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; color: #475569; font-size: 12px; font-weight: 700; white-space: nowrap;
-  transition: background-color .15s, border-color .15s, color .15s;
-}
-.dk-ctrl:hover { background: #f8fafc; border-color: #cbd5e1; color: #0f172a; }
-.dk-ctrl b { min-width: 20px; padding: 1px 6px; border-radius: 999px; background: #f1f5f9; color: #0f172a; font-size: 11px; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; }
-.dk-ctrl[data-tone="due"] { border-color: #f5d9a0; background: #fffbeb; color: #92400e; }
-.dk-ctrl[data-tone="due"] b { background: #b45309; color: #fff; }
-.dk-ctrl[aria-pressed="false"] { color: #94a3b8; }
-.dk-ctrl__ping { position: absolute; top: -3px; right: -3px; width: 9px; height: 9px; border-radius: 50%; background: #d97706; box-shadow: 0 0 0 2px #fff; animation: dkPing 1.6s ease-out infinite; }
-@keyframes dkPing { 0% { box-shadow: 0 0 0 2px #fff, 0 0 0 2px rgb(217 119 6 / .5); } 100% { box-shadow: 0 0 0 2px #fff, 0 0 0 9px rgb(217 119 6 / 0); } }
-
-.dk-day { padding: 1px 6px; border-radius: 999px; border: 1px solid #f5d9a0; background: #fffbeb; color: #b45309; font-size: 9.5px; font-weight: 800; }
-.dk-day--today { border-color: #a7e3cb; background: #ecfdf5; color: #047857; }
-.dk-hint { display: block; margin-top: 4px; font-size: 10.5px; font-weight: 600; color: #94a3b8; }
-.dk-draftbadge { display: inline-block; padding: 1px 7px; border-radius: 6px; border: 1px dashed #d97706; background: #fffbeb; color: #b45309; font-size: 10px; font-weight: 800; letter-spacing: .3px; }
-.dk-manual { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px dashed #cbd5e1; border-radius: 12px; background: #f8fafc; }
-
-/* Queue statuses and small row actions */
-.dk-status { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 800; border: 1px solid transparent; }
-.dk-status--due { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
-.dk-status--upcoming { background: #fffbeb; color: #92400e; border-color: #f5d9a0; }
-.dk-status--booked { background: #ecfdf5; color: #047857; border-color: #a7e3cb; }
-.dk-status--lost { background: #f1f5f9; color: #475569; }
-.dk-status__dot { width: 6px; height: 6px; border-radius: 50%; background: #dc2626; }
-.dk-mini { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 7px; border-radius: 7px; border: 1px solid #e2e8f0; background: #fff; color: #475569; font-size: 10.5px; font-weight: 800; text-decoration: none; }
-.dk-mini:hover { background: #f8fafc; }
-.dk-mini--warn { border-color: #f5d9a0; background: #fffbeb; color: #92400e; }
-.dk-mini--ok { border-color: #a7e3cb; background: #ecfdf5; color: #047857; }
-
-/* Dialogs */
-.dk-dialog { max-height: min(92dvh, 760px); }
-.dk-iconbtn:disabled { opacity: .4; }
-.dk-summary { display: grid; gap: 6px; margin: 0; padding: 12px; border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc; }
-.dk-summary > div { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 8px; font-size: 12px; }
-.dk-summary dt { color: #64748b; font-weight: 700; }
-.dk-summary dd { margin: 0; color: #0f172a; font-weight: 700; overflow-wrap: anywhere; }
-.dk-pay { padding: 10px; border-radius: 12px; border: 1.5px solid #e2e8f0; background: #fff; text-align: left; transition: border-color .15s, background-color .15s; }
-.dk-pay:hover:not(:disabled) { background: #f8fafc; }
-.dk-pay.is-on { border-color: #059669; background: #ecfdf5; }
-.dk-pay:disabled { opacity: .45; cursor: not-allowed; }
-.dk-ff legend.dk-ff__label { padding: 0; }
-.dk-ctrl:focus-visible, .dk-mini:focus-visible, .dk-pay:focus-visible, .dk-chip:focus-visible, .dk-map:focus-visible, .dk-clear:focus-visible, .dk-swap:focus-visible, .dk-addstop:focus-visible { outline: 2px solid #991b1b; outline-offset: 2px; }
-
-@media (prefers-reduced-motion: reduce) {
-  .qfd-root *, .qfd-layer * { animation: none !important; transition: none !important; }
-}
-.dk-in.flex { display: flex; }
+.dk-stop .dk-place__spin { right: 10px; }
+.dk-stop .dk-place__list, .dk-stop .dk-place__problem { left: 0; right: 0; }

@@ -1,20 +1,28 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import Icon from "../components/ui/Icon";
+import { BellRing, Calculator, CircleAlert } from "lucide-react";
 import "../styles/quickFareDesk.css";
 import {
   DESK_BRANDS,
+  DESK_TABS,
   addOnRateLabel,
+  buildQueue,
+  clock12,
+  coverageNote,
+  coverageOf,
+  ddmmyyyy,
   deskAddOnLabels,
   deskExtrasLabel,
-  deskFollowUpStatus,
-  formatDeskQuoteText,
+  deskFuelLabel,
+  deskKeyOf,
+  fareEstimateText,
   formatINR,
-  maskPhone,
-  sortDeskFollowUps,
+  normalizeBrand,
+  openDuplicateOf,
+  scheduleLabel,
+  slabLabelOf,
   type DeskBrand,
-  type DeskFollowUp,
+  type DeskQueueRow,
   type DeskQuoteLine,
-  type DeskTripSnapshot,
   type QueueFilter,
 } from "../domain/quickFareDesk";
 import {
@@ -25,7 +33,6 @@ import {
   withPickup,
   withTripType,
   tripServiceOffered,
-  LocationPinDialog,
   type QuickTrip,
   type CategoryEstimate,
 } from "../components/booking/QuickFare";
@@ -33,20 +40,19 @@ import { useCustomers } from "../hooks/useOfficeData";
 import { useNow } from "../hooks/useNow";
 import { useQuickFareDesk } from "../hooks/useQuickFareDesk";
 import { useNotifications } from "../components/NotificationHost";
-import { getPaymentChoiceSettings } from "../services/bookingOpsService";
-import { auth } from "../services/firebase";
-import { parseChoices } from "../domain/paymentChoices";
-import { formatTime12 } from "../utils/time";
+import { useCanDo, useStaffFlag } from "../components/AccessContext";
+import { copyText } from "../services/customerDirectoryService";
 import type { NewBookingDraft } from "./NewBooking";
 import type { PickedPoint } from "../components/MapLocationPicker";
-import { activeTrip, dateLabel, deskTabOf, lineOfEstimate, quoteKeyOf, routeOf, snapshotOf, time12, type DeskTab } from "../components/quickFareDesk/deskTrip";
+import { SERVICE_KEY, TAB_TRIP, activeTrip, deskTabOf, lineOfEstimate, pricingOf, quickTripOfRecord, quoteKeyOf, routeOf, snapshotOf } from "../components/quickFareDesk/deskTrip";
 import TripForm from "../components/quickFareDesk/TripForm";
 import FareResults, { type FareExtras, type FareView } from "../components/quickFareDesk/FareResults";
-import { FollowUpControls, SourceSwitcher } from "../components/quickFareDesk/DeskHeader";
-import { FollowUpQueue, RevealHistory } from "../components/quickFareDesk/FollowUpQueue";
+import { AlertPill, DueBanner, SourceSwitcher } from "../components/quickFareDesk/DeskHeader";
+import { FollowUpQueue, NumberViewLog } from "../components/quickFareDesk/FollowUpQueue";
 import FollowUpDialog, { type FollowUpSubmit } from "../components/quickFareDesk/FollowUpDialog";
-import BookingDraftDialog, { type PaySettingsState } from "../components/quickFareDesk/BookingDraftDialog";
+import ConfirmBookingDialog, { type BookTarget, type BookedResult } from "../components/quickFareDesk/ConfirmBookingDialog";
 import { LostDialog, RentalDialog, RevealDialog } from "../components/quickFareDesk/SmallDialogs";
+import MapPickerDialog from "../components/quickFareDesk/MapPickerDialog";
 
 interface QuickFareProps {
   onNewBooking?: (draft: NewBookingDraft) => void;
@@ -56,39 +62,27 @@ interface QuickFareProps {
   onSelectBooking?: (bookingId: string) => void;
 }
 
-/** The trip that was priced, with its results. Actions always use this snapshot, never the live form. */
+/** The trip that was priced, with its results. Every action uses this snapshot, never the live form. */
 interface Quote {
   key: string;
   trip: QuickTrip;
   brand: DeskBrand;
   estimates: CategoryEstimate[] | null;
-  lines: DeskQuoteLine[] | null;
+  lines: DeskQuoteLine[];
   unpriced: { vehicle: string; reason: string }[];
   roadKm: number | null;
   roadMinutes: number | null;
-  pricingUnavailable: string | null;
+  /** Set when no server price exists for this trip (a typed draft quote is offered). */
+  unavailable: string | null;
 }
 
-/** Desk tab → the built-in trip-type key the Services page switches on and off. */
-const SERVICE_KEY: Record<DeskTab, string> = { "One Way": "One Way", "Round Trip": "Round Trip", Multicity: "Multicity", Airport: "Airport Taxi", Rental: "Local Rental", Local: "Pickup & Drop" };
-const TAB_TRIP: Record<DeskTab, { tripType: QuickTrip["tripType"]; multicity?: boolean; local?: boolean }> = {
-  "One Way": { tripType: "One Way" },
-  "Round Trip": { tripType: "Round Trip" },
-  Multicity: { tripType: "Round Trip", multicity: true },
-  Airport: { tripType: "Airport Taxi" },
-  Rental: { tripType: "Local Rental" },
-  Local: { tripType: "One Way", local: true },
-};
-const ALL_TABS = Object.keys(TAB_TRIP) as DeskTab[];
-const EMPTY_STOP = () => ({ text: "", point: null });
+const errText = (e: unknown, fallback: string) => (e instanceof Error && e.message ? e.message : fallback);
+const duration = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ""}` : `${m}m`);
 
-const errorText = (e: unknown, fallback: string) => (e instanceof Error && e.message ? e.message : fallback);
-const staffName = () => auth.currentUser?.displayName?.trim() || auth.currentUser?.email?.trim() || "Current user";
-
-/** Desk-specific wording for missing places; every other rule is the shared booking validation. */
+/** Desk wording for missing places; every other rule is the shared booking validation. */
 function deskProblem(t: QuickTrip): string | null {
-  if (!t.pickup) return t.pickupText.trim() ? "Choose the pickup from the suggestions or set it on the map." : "Enter the pickup location.";
-  if (t.tripType !== "Local Rental" && !t.drop) return t.dropText.trim() ? "Choose the drop from the suggestions or set it on the map." : "Enter the drop location.";
+  if (!t.pickup) return t.pickupText.trim() ? "Choose the pickup from the suggestions or set it on the map." : "Please enter a pickup location.";
+  if (t.tripType !== "Local Rental" && !t.drop) return t.dropText.trim() ? "Choose the drop from the suggestions or set it on the map." : "Please enter a drop location.";
   return validateTrip(t);
 }
 
@@ -105,44 +99,49 @@ function playBeep() {
     osc.connect(gain).connect(ctx.destination);
     osc.start();
     osc.stop(ctx.currentTime + 0.35);
+    osc.onended = () => { void ctx.close(); };
   } catch {
-    // Audio blocked: the visual alert still shows.
+    // Audio blocked: the banner and the toast still show.
   }
 }
-
-type BookTarget = { line: DeskQuoteLine; trip: DeskTripSnapshot; followUp: DeskFollowUp | null; quickTrip: QuickTrip | null; estimates: CategoryEstimate[] | null };
 
 export default function QuickFare({ onNewBooking }: QuickFareProps) {
   const data = useQuickData();
   const customers = useCustomers();
   const customerRows = customers.rows ?? [];
-  // The 15 s tick re-renders the queue; status is read against the real current time (so "Alert Now" is due at once).
+  // The 15 s tick moves follow-ups from Upcoming to Due; status is always read against the real current time.
   useNow(15000);
   const nowMs = Date.now();
   const desk = useQuickFareDesk();
-  const { soundOn, setSoundOn } = useNotifications();
+  const { soundOn } = useNotifications();
+  // The server's rule for a number reveal (functions/src/customerDirectory.ts viewerOf): it checks again on every reveal.
+  const canViewCustomers = useCanDo("Customers", "view");
+  const canTemporarilyReveal = useStaffFlag("privacy", "temporaryReveal");
+  const canReveal = canViewCustomers && canTemporarilyReveal;
+  const canBook = !!onNewBooking;
 
-  // ── One source of truth for the enquiry being quoted ──
+  // ── The enquiry being quoted ──
   const [brand, setBrand] = useState<DeskBrand>("nesam");
   const [trip, setTrip] = useState<QuickTrip>(emptyTrip);
   const [notice, setNotice] = useState<string | null>(null);
   const set = (patch: Partial<QuickTrip>) => { setTrip((t) => ({ ...t, ...patch })); setNotice(null); };
   const [swapping, setSwapping] = useState(false);
   const [pinFor, setPinFor] = useState<"pickup" | "drop" | null>(null);
+  const [rentalOpen, setRentalOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [quote, setQuote] = useState<Quote | null>(null);
-  const stale = !!quote && quote.key !== quoteKeyOf(trip, brand);
+  const currentKey = quoteKeyOf(trip, brand);
+  const stale = !!quote && quote.key !== currentKey;
 
-  // ── Queue / dialogs ──
+  // ── Queue and dialogs ──
   const [filter, setFilter] = useState<QueueFilter>("all");
-  const [revealed, setRevealed] = useState<Record<string, true>>({});
-  const [fuTarget, setFuTarget] = useState<{ line: DeskQuoteLine; trip: DeskTripSnapshot } | null>(null);
-  const [bookTarget, setBookTarget] = useState<BookTarget | null>(null);
-  const [revealTarget, setRevealTarget] = useState<DeskFollowUp | null>(null);
-  const [lostTarget, setLostTarget] = useState<DeskFollowUp | null>(null);
-  const [rentalOpen, setRentalOpen] = useState(false);
-  const [pay, setPay] = useState<PaySettingsState>({ loading: false, choices: null, error: null });
-  const payLoaded = useRef(false);
+  const [revealed, setRevealed] = useState<Record<string, string>>({});
+  const revealTimers = useRef<number[]>([]);
+  const [working, setWorking] = useState<ReadonlySet<string>>(() => new Set());
+  const [fuTarget, setFuTarget] = useState<{ line: DeskQuoteLine; quote: Quote } | null>(null);
+  const [bookTarget, setBookTarget] = useState<(BookTarget & { estimates: CategoryEstimate[] | null }) | null>(null);
+  const [revealTarget, setRevealTarget] = useState<DeskQueueRow | null>(null);
+  const [lostTarget, setLostTarget] = useState<DeskQueueRow | null>(null);
 
   const [toast, setToast] = useState<{ text: string; tone: "info" | "error" } | null>(null);
   const toastTimer = useRef<number | null>(null);
@@ -151,8 +150,12 @@ export default function QuickFare({ onNewBooking }: QuickFareProps) {
     if (toastTimer.current) window.clearTimeout(toastTimer.current);
     toastTimer.current = window.setTimeout(() => setToast(null), tone === "error" ? 6000 : 3500);
   };
+  useEffect(() => () => {
+    if (toastTimer.current) window.clearTimeout(toastTimer.current);
+    revealTimers.current.forEach((t) => window.clearTimeout(t));
+  }, []);
 
-  // Audio may play only after the person has interacted with the page (browser autoplay rules).
+  // Sound may play only after the person has used the page (browser autoplay rules).
   const audioOk = useRef(false);
   useEffect(() => {
     const unlock = () => { audioOk.current = true; };
@@ -161,46 +164,32 @@ export default function QuickFare({ onNewBooking }: QuickFareProps) {
     return () => { document.removeEventListener("pointerdown", unlock); document.removeEventListener("keydown", unlock); };
   }, []);
 
-  // ── Follow-up queue (derived on the India clock) ──
-  const rows = useMemo(() => sortDeskFollowUps(desk.followUps, nowMs), [desk.followUps, nowMs]);
-  const counts = useMemo(() => {
-    const c: Record<QueueFilter, number> = { all: rows.length, due: 0, upcoming: 0, booked: 0, lost: 0 };
-    for (const r of rows) c[deskFollowUpStatus(r, nowMs)] += 1;
-    return c;
-  }, [rows, nowMs]);
-  const topDue = rows.find((r) => deskFollowUpStatus(r, nowMs) === "due") ?? null;
+  // ── Follow-up queue: the office's enquiries, read on the India clock ──
+  const queue = useMemo(() => buildQueue(desk.enquiries ?? [], nowMs), [desk.enquiries, nowMs]);
+  const topDue = queue.rows.find((r) => r.status === "due") ?? null;
 
-  // A follow-up that becomes due while the desk is open alerts once (sound only if on and allowed).
+  // A follow-up that becomes due while the desk is open alerts once: a beep (when sound is on) and a toast.
   const alerted = useRef<Set<string> | null>(null);
   useEffect(() => {
-    const due = rows.filter((r) => deskFollowUpStatus(r, nowMs) === "due").map((r) => `${r.id}:${r.reminderAtMs}`);
-    if (alerted.current === null) { alerted.current = new Set(due); return; }
-    const fresh = due.filter((k) => !alerted.current!.has(k));
-    fresh.forEach((k) => alerted.current!.add(k));
+    if (desk.enquiries === null) return;
+    const due = queue.rows.filter((r) => r.status === "due");
+    const keys = due.map((r) => `${r.id}:${r.followUpAtMs}`);
+    if (alerted.current === null) { alerted.current = new Set(keys); return; }
+    const fresh = due.filter((r) => !alerted.current!.has(`${r.id}:${r.followUpAtMs}`));
+    keys.forEach((k) => alerted.current!.add(k));
     if (!fresh.length) return;
-    const first = rows.find((r) => fresh[0].startsWith(`${r.id}:`));
     if (soundOn && audioOk.current) playBeep();
-    if (first) showToast(`Follow-up due: ${first.name || "caller"} · ${first.trip.route}`);
-  }, [rows, nowMs]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Payment options are read once, when a booking draft is first opened.
-  const openBook = (t: BookTarget) => {
-    setBookTarget(t);
-    if (payLoaded.current) return;
-    payLoaded.current = true;
-    setPay({ loading: true, choices: null, error: null });
-    getPaymentChoiceSettings()
-      .then((r) => setPay({ loading: false, choices: parseChoices(r), error: null }))
-      .catch((e) => setPay({ loading: false, choices: null, error: errorText(e, "unavailable") }));
-  };
+    const f = fresh[0];
+    showToast(`Follow-up Alert: Call ${f.name || "Enquiry Caller"}${f.masked ? ` (${f.masked})` : ""} for ${f.route}`);
+  }, [queue, desk.enquiries]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Trip form ──
-  const tabs = ALL_TABS.filter((t) => tripServiceOffered(SERVICE_KEY[t], data, SERVICE_KEY[deskTabOf(trip)]));
-  const pickTab = (tab: DeskTab) => {
+  const tabs = DESK_TABS.filter((t) => tripServiceOffered(SERVICE_KEY[t], data, SERVICE_KEY[deskTabOf(trip)]));
+  const pickTab = (tab: (typeof DESK_TABS)[number]) => {
     const def = TAB_TRIP[tab];
     setTrip((t) => {
       const sameKind = t.tripType === "Round Trip" && !!t.multicity === !!def.multicity;
-      const stops = def.tripType !== "Round Trip" ? [] : sameKind ? t.stops ?? [] : def.multicity ? [EMPTY_STOP()] : [];
+      const stops = def.tripType !== "Round Trip" ? [] : sameKind ? t.stops ?? [] : def.multicity ? [{ text: "", point: null }] : [];
       return { ...t, serviceId: "", multicity: !!def.multicity, local: !!def.local, ...withTripType(t, def.tripType), stops };
     });
     setNotice(null);
@@ -210,26 +199,32 @@ export default function QuickFare({ onNewBooking }: QuickFareProps) {
     setNotice(null);
   };
   const swap = () => {
-    setSwapping(true);
-    window.setTimeout(() => setSwapping(false), 350);
+    setSwapping(false);
+    window.requestAnimationFrame(() => setSwapping(true));
+    window.setTimeout(() => setSwapping(false), 400);
     setTrip((t) => ({
       ...t, pickup: t.drop, pickupText: t.dropText, drop: t.pickup, dropText: t.pickupText,
       ...(t.tripType === "Airport Taxi" ? { airportDirection: t.airportDirection === "to" ? ("from" as const) : ("to" as const) } : {}),
     }));
   };
-  const clear = () => { setTrip(emptyTrip()); setQuote(null); setNotice(null); };
+  const clear = () => { quoteSeq.current++; setBusy(false); setTrip(emptyTrip()); setQuote(null); setNotice(null); };
 
   const quoteSeq = useRef(0);
   /** Prices `t` for every vehicle category with the server's fare settings; a newer request replaces an older one. */
   const runQuote = async (t: QuickTrip, b: DeskBrand) => {
     const snapshot = activeTrip(t);
     const problem = deskProblem(snapshot);
-    if (problem) return setNotice(problem);
+    if (problem) {
+      setNotice(problem);
+      const fields = document.querySelectorAll<HTMLInputElement>("[data-place-field] input");
+      (!snapshot.pickup ? fields[0] : snapshot.tripType !== "Local Rental" && !snapshot.drop ? fields[fields.length - 1] : null)?.focus();
+      return;
+    }
     setNotice(null);
     const seq = ++quoteSeq.current;
     const base = { key: quoteKeyOf(t, b), trip: snapshot, brand: b, roadKm: null, roadMinutes: null, unpriced: [] as Quote["unpriced"] };
     if (!data.categories.length) {
-      setQuote({ ...base, estimates: null, lines: null, pricingUnavailable: "No vehicle categories are set up, so no fare could be priced. You can enter a draft quote." });
+      setQuote({ ...base, estimates: null, lines: [], unavailable: "No vehicle categories are set up, so no fare could be priced. You can enter a draft quote." });
       return;
     }
     setBusy(true);
@@ -240,13 +235,13 @@ export default function QuickFare({ onNewBooking }: QuickFareProps) {
       const unpriced = priced.filter((r) => !r.quote).map((r) => ({ vehicle: r.category.name, reason: r.error || "Not available on this route" }));
       const road = priced.find((r) => r.quote?.roadKm)?.quote;
       setQuote({
-        ...base, estimates: priced, lines: lines.length ? lines : null, unpriced: lines.length ? unpriced : [],
+        ...base, estimates: priced, lines, unpriced: lines.length ? unpriced : [],
         roadKm: road?.roadKm ? Math.round(road.roadKm) : null, roadMinutes: road?.roadMinutes ? Math.round(road.roadMinutes) : null,
-        pricingUnavailable: lines.length ? null : `The fare settings could not price this trip${priced[0]?.error ? ` (${priced[0].error})` : ""}. You can enter a draft quote.`,
+        unavailable: lines.length ? null : `The fare settings could not price this trip${priced[0]?.error ? ` (${priced[0].error})` : ""}. You can enter a draft quote.`,
       });
     } catch (err) {
       if (seq !== quoteSeq.current) return;
-      setQuote({ ...base, estimates: null, lines: null, pricingUnavailable: `Fares are unavailable right now (${errorText(err, "pricing service not reachable")}). You can enter a draft quote.` });
+      setQuote({ ...base, estimates: null, lines: [], unavailable: `Fares are unavailable right now (${errText(err, "pricing service not reachable")}). You can enter a draft quote.` });
     } finally {
       if (seq === quoteSeq.current) setBusy(false);
     }
@@ -255,15 +250,15 @@ export default function QuickFare({ onNewBooking }: QuickFareProps) {
     e.preventDefault();
     void runQuote(trip, brand);
   };
+  // With fares on screen, a change to the trip, fuel, add-ons or source re-prices once the trip is complete (as the
+  // reference desk recalculates). An incomplete trip keeps the old fares marked out of date and unusable.
+  useEffect(() => {
+    if (!quote || quote.key === currentKey || deskProblem(activeTrip(trip))) return undefined;
+    const t = window.setTimeout(() => void runQuote(trip, brand), 350);
+    return () => window.clearTimeout(t);
+  }, [currentKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Fuel bar & add-ons: priced by the server (CNG rate card, pet and roof-carrier charges) ──
-  /** With current fares on screen, a fuel or add-on change re-prices at once (the route is already checked). */
-  const changeExtras = (patch: Partial<QuickTrip>) => {
-    const next = { ...trip, ...patch };
-    setTrip(next);
-    setNotice(null);
-    if (quote && !stale) void runQuote(next, brand);
-  };
+  // ── Fuel bar and add-ons: priced by the server (CNG rate card, pet and roof-carrier charges) ──
   const pricedRates = quote?.estimates ?? [];
   const extras: FareExtras = {
     fuel: trip.fuel === "cng" ? "cng" : null,
@@ -273,149 +268,216 @@ export default function QuickFare({ onNewBooking }: QuickFareProps) {
     cngOffered: data.categories.some((c) => c.cngEnabled === true),
   };
 
-  const when = (t: QuickTrip) => `${dateLabel(t.date)}, ${time12(t.time)} IST`;
+  // ── What the fares card shows, all from the quoted snapshot ──
+  const firstPriced = quote?.estimates?.find((e) => e.quote)?.quote ?? null;
+  const manual = !!quote?.lines.some((l) => l.manual);
+  const qTab = quote ? deskTabOf(quote.trip) : "One Way";
+  const rentalKm = quote && quote.trip.tripType === "Local Rental" && quote.lines[0]?.includedKm ? `${quote.lines[0].includedKm} km` : null;
+  const coverage = coverageOf(firstPriced?.breakup?.lines);
   const fareView: FareView = {
     busy,
-    lines: quote?.lines ?? null,
+    quoted: !!quote,
+    lines: quote?.lines ?? [],
     unpriced: quote?.unpriced ?? [],
     stale,
     route: quote ? routeOf(quote.trip) : "",
-    when: quote ? when(quote.trip) : "",
-    roadKm: quote?.roadKm ?? null,
-    roadMinutes: quote?.roadMinutes ?? null,
-    pricingUnavailable: quote?.pricingUnavailable ?? null,
-    quoted: quote ? { fuel: quote.trip.fuel === "cng" ? "cng" : null, addOns: { pets: quote.trip.pets === true, carrier: quote.trip.carrier === true } } : null,
+    date: quote ? ddmmyyyy(quote.trip.date) : "",
+    time: quote ? clock12(quote.trip.time) : "",
+    distance: !quote ? "" : quote.trip.tripType === "Local Rental"
+      ? (rentalKm ? `${quote.trip.rentalHours ?? 1}h / ${rentalKm}` : `${quote.trip.rentalHours ?? 1}h`)
+      : quote.roadKm ? `${manual ? "" : "Est. "}${quote.roadKm} km${quote.roadMinutes ? ` • ~${duration(quote.roadMinutes)}` : ""}${manual ? " (entered)" : ""}` : "",
+    config: quote && quote.lines.length && !manual ? { fuel: deskFuelLabel(quote.trip.fuel === "cng" ? "cng" : null), addOns: deskAddOnLabels({ pets: quote.trip.pets === true, carrier: quote.trip.carrier === true }) } : null,
+    slab: quote && !manual ? slabLabelOf(qTab, pricingOf(firstPriced), quote.trip.tripType === "Round Trip" && !quote.trip.multicity ? quote.trip.days : null, quote.trip.tripType === "Local Rental" ? quote.trip.rentalHours ?? 1 : null) : "",
+    coverage: manual ? "" : coverageNote(coverage),
+    unavailable: quote?.unavailable ?? null,
   };
-  const snapshotFor = (q: Quote) => snapshotOf(q.trip, q.brand, q.roadKm);
 
   const copyQuote = async () => {
-    if (!quote?.lines?.length) return false;
-    const serverPriced = !quote.lines.some((l) => l.manual);
-    const text = formatDeskQuoteText({
-      brandName: DESK_BRANDS[quote.brand].name, route: routeOf(quote.trip), when: when(quote.trip), roadKm: quote.roadKm, lines: quote.lines,
-      ...(serverPriced ? { fuel: quote.trip.fuel === "cng" ? ("cng" as const) : null, addOns: deskAddOnLabels({ pets: quote.trip.pets === true, carrier: quote.trip.carrier === true }) } : {}),
-    });
-    try { await navigator.clipboard.writeText(text); return true; } catch { return false; }
+    if (!quote?.lines.length) return false;
+    return copyText(fareEstimateText({
+      brandName: DESK_BRANDS[quote.brand].name, route: routeOf(quote.trip), date: ddmmyyyy(quote.trip.date), time: clock12(quote.trip.time),
+      fuel: quote.trip.fuel === "cng" ? "cng" : null,
+      addOns: manual ? [] : deskAddOnLabels({ pets: quote.trip.pets === true, carrier: quote.trip.carrier === true }),
+      lines: quote.lines, coverage: manual ? { includes: [], excludes: [] } : coverage,
+    }));
   };
 
   // ── Follow-ups ──
-  const saveFollowUp = (v: FollowUpSubmit) => {
-    if (!fuTarget) return;
-    const res = desk.saveFollowUp({ ...v, trip: fuTarget.trip, quote: fuTarget.line });
+  const fuSnapshot = fuTarget ? snapshotOf(fuTarget.quote.trip, fuTarget.quote.brand, fuTarget.quote.roadKm) : null;
+  const saveFollowUp = async (v: FollowUpSubmit) => {
+    if (!fuTarget || !fuSnapshot) return;
+    const res = await desk.saveFollowUp({
+      ...v,
+      trip: fuTarget.quote.trip,
+      snapshot: fuSnapshot,
+      line: fuTarget.line,
+      estimate: fuTarget.quote.estimates?.find((e) => e.category.id === fuTarget.line.categoryId && e.quote) ?? null,
+    });
     setFuTarget(null);
-    const at = `${formatTime12(new Date(res.item.reminderAtMs))} IST`;
-    showToast(res.kind === "updated" ? `Updated the open follow-up for this trip · reminder ${at}` : `Follow-up saved · reminder ${at}`);
+    const dueNow = v.followUpAtMs <= Date.now() + 5000;
+    // A follow-up saved as already due is confirmed by this toast; the due alert is for callbacks that fall due later.
+    if (dueNow) alerted.current?.add(`${res.code}:${v.followUpAtMs}`);
+    const when = dueNow ? "Follow-up Alert triggered immediately!" : `Follow-up scheduled for ${scheduleLabel(v.followUpAtMs)}`;
+    showToast(res.kind === "updated" ? `${when} (updated ${res.code})` : `${when} (${res.code})`);
   };
-  const snooze = (f: DeskFollowUp) => { const at = desk.snooze(f.id); if (at) showToast(`Snoozed to ${formatTime12(new Date(at))} IST`); };
-  const scrollToQueue = (f: QueueFilter) => {
-    setFilter(f);
+
+  const busyFor = (id: string, on: boolean) => setWorking((s) => { const n = new Set(s); if (on) n.add(id); else n.delete(id); return n; });
+  const snooze = async (r: DeskQueueRow, from: "banner" | "queue") => {
+    if (working.has(r.id)) return;
+    busyFor(r.id, true);
+    try {
+      await desk.snooze(r.id);
+      showToast(from === "banner" ? `Alert snoozed for 15 mins (${r.name || "Enquiry Caller"})` : `Follow-up snoozed +15m for ${r.name || "Enquiry Caller"}`);
+    } catch (e) {
+      showToast(`Snooze failed: ${errText(e, "try again")}`, "error");
+    } finally {
+      busyFor(r.id, false);
+    }
+  };
+  const scrollToQueue = () => {
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     document.getElementById("followUpQueueSection")?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
   };
-  const bookFromFollowUp = (f: DeskFollowUp) => openBook({ line: f.quote, trip: f.trip, followUp: f, quickTrip: null, estimates: null });
 
+  /** "Fare OK • Book" on a saved follow-up: its own trip, source and quoted vehicle — never the live calculator. */
+  const bookFromRow = (r: DeskQueueRow) => {
+    const e = desk.byId(r.id);
+    if (!e) return;
+    const qt = quickTripOfRecord(e.deskTrip);
+    const q = e.deskQuote;
+    const source = normalizeBrand(e.brand);
+    if (qt && q && !q.manual && q.categoryId && typeof q.fare === "number" && q.fare > 0) {
+      const line: DeskQuoteLine = { categoryId: q.categoryId, vehicle: q.vehicle || e.vehicle || "Vehicle", classBadge: q.classBadge || "", seats: q.seats || "", bags: q.bags || "", fare: q.fare, rateNote: q.rateNote || "", includedKm: q.includedKm ?? null, manual: false };
+      const t = activeTrip(qt);
+      setBookTarget({ trip: t, snapshot: snapshotOf(t, source, null), line, estimates: null, enquiry: { id: e.id, code: e.code, phone: e.phone || "", name: e.customerName || "", customerId: e.customerId ?? null } });
+      return;
+    }
+    if (qt) {
+      // A typed draft quote has no server price to book on: the trip is priced again in the calculator.
+      setBrand(source);
+      setTrip(qt);
+      void runQuote(qt, source);
+      window.scrollTo({ top: 0, behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+      showToast("Draft quote loaded into the calculator. Book from the server fare once it shows.");
+      return;
+    }
+    // Saved on another screen: the office's existing conversion (New booking with this enquiry).
+    onNewBooking?.({ enquiry: e, categoryId: e.categoryId || "", channel: source });
+  };
+
+  const onBooked = async (res: BookedResult): Promise<string | null> => {
+    const t = bookTarget;
+    if (!t) return null;
+    const target = t.enquiry ? desk.byId(t.enquiry.id) : openDuplicateOf(desk.enquiries ?? [], deskKeyOf(res.digits, t.snapshot), Date.now());
+    let warning: string | null = null;
+    if (target) {
+      try { await desk.markConverted(target.id, res.bookingId); }
+      catch (e) { warning = `Booking created, but enquiry ${target.code} could not be marked converted (${errText(e, "try again")}). Mark it in Bookings › Enquiries & quotes.`; }
+    }
+    showToast(`Booking ${res.bookingId} created`);
+    return warning;
+  };
+
+  const caller = (r: DeskQueueRow) => r.name || "Enquiry Caller";
   return (
-    <div className="qfd-root w-full min-h-screen bg-[#F8FAFC] text-slate-900">
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-7 space-y-5">
+    <div className="qfd-root w-full min-h-full bg-[#F8FAFC] text-slate-900">
+      <main className="max-w-[1440px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-5">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <span className="w-10 h-10 rounded-xl bg-crimson-50 border border-crimson-100 text-[#991B1B] flex items-center justify-center shrink-0"><Icon name="calculator" size={20} /></span>
-            <h1 className="text-base sm:text-lg font-extrabold text-slate-900 leading-tight">Quick Fare &amp; Enquiry Desk</h1>
+            <div className="w-10 h-10 rounded-xl bg-crimson-50 border border-crimson-100 text-[#991B1B] flex items-center justify-center shrink-0" aria-hidden="true">
+              <Calculator className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">Quick Fare &amp; Enquiry Desk</h1>
+              <p className="text-xs text-slate-500 truncate">Check instant rates for callers, toggle CNG/Diesel &amp; add-ons, or confirm booking in 1 click</p>
+            </div>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <FollowUpControls due={counts.due} upcoming={counts.upcoming} soundOn={soundOn} onFilter={scrollToQueue}
-              onToggleSound={() => { audioOk.current = true; setSoundOn(!soundOn); }} />
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <AlertPill due={queue.counts.due} onClick={scrollToQueue} />
             <SourceSwitcher brand={brand} onChange={setBrand} />
           </div>
         </header>
 
         {topDue && (
-          <section className="rounded-2xl bg-gradient-to-r from-amber-50 via-orange-50/70 to-amber-50 border border-amber-200/90 p-3.5 sm:px-5 fade-slide-in" aria-label="Follow-up due">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-              <div className="flex items-start sm:items-center gap-3 min-w-0">
-                <span className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0"><Icon name="bell-ring" size={16} /></span>
-                <div className="min-w-0">
-                  <p className="text-xs sm:text-sm font-extrabold text-slate-900 truncate">
-                    <span className="px-2 py-0.5 mr-2 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-600 text-white">Due now</span>
-                    {topDue.name || "Caller"} ({revealed[topDue.id] ? topDue.mobile : maskPhone(topDue.mobile)})
-                  </p>
-                  <p className="text-xs font-semibold text-slate-600 mt-0.5 truncate">{topDue.trip.route} · {topDue.quote.vehicle}{topDue.quote.manual ? "" : ` [${deskExtrasLabel(topDue.trip)}]`} {formatINR(topDue.quote.fare)}{topDue.note ? ` — “${topDue.note}”` : ""}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button type="button" onClick={() => snooze(topDue)} className="h-8 px-3 rounded-[10px] text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50">Snooze +15m</button>
-                <button type="button" onClick={() => bookFromFollowUp(topDue)} className="h-8 px-3.5 rounded-[10px] text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5"><Icon name="check" size={14} />Book</button>
-              </div>
-            </div>
-          </section>
+          <DueBanner row={topDue} phone={revealed[topDue.id] ?? null} busy={working.has(topDue.id)} canBook={canBook}
+            onSnooze={() => void snooze(topDue, "banner")} onBook={() => bookFromRow(topDue)} />
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-          <TripForm trip={trip} set={set} data={data} tabs={tabs} notice={notice} busy={busy} stale={stale} swapping={swapping}
+          <TripForm trip={trip} set={set} data={data} tabs={tabs} notice={notice} busy={busy} swapping={swapping} nowMs={nowMs}
+            rentalKm={!stale ? rentalKm : null}
             onTab={pickTab} onPickPoint={pickPoint} onSwap={swap} onPin={setPinFor} onRental={() => setRentalOpen(true)} onClear={clear} onSubmit={getFare} />
-          <FareResults view={fareView} extras={extras} categories={data.categories} canBook sourceName={DESK_BRANDS[quote?.brand ?? brand].name}
-            onFuel={(f) => changeExtras({ fuel: f ?? undefined })}
-            onAddOn={(k) => changeExtras(k === "pets" ? { pets: !trip.pets } : { carrier: !trip.carrier })}
-            onFollowUp={(line) => quote && setFuTarget({ line, trip: snapshotFor(quote) })}
-            onBook={(line) => quote && openBook({ line, trip: snapshotFor(quote), followUp: null, quickTrip: quote.trip, estimates: quote.estimates })}
+          <FareResults view={fareView} extras={extras} categories={data.categories} canBook={canBook}
+            onFuel={(f) => set({ fuel: f ?? undefined })}
+            onAddOn={(k) => set(k === "pets" ? { pets: !trip.pets } : { carrier: !trip.carrier })}
+            onFollowUp={(line) => quote && !stale && setFuTarget({ line, quote })}
+            onBook={(line) => {
+              if (!quote || stale || line.manual) return;
+              const s = snapshotOf(quote.trip, quote.brand, quote.roadKm);
+              setBookTarget({ trip: quote.trip, snapshot: s, line, estimates: quote.estimates, enquiry: null });
+            }}
             onCopy={copyQuote}
-            onManual={(line, km) => quote && setQuote({ ...quote, lines: [line], roadKm: km, roadMinutes: null })} />
+            onManual={(line, km) => quote && setQuote({ ...quote, lines: [line], unpriced: [], roadKm: km, roadMinutes: null })} />
         </div>
 
-        <FollowUpQueue rows={rows} nowMs={nowMs} filter={filter} onFilter={setFilter} counts={counts} revealed={revealed} canBook
-          onReveal={setRevealTarget}
-          onHide={(f) => setRevealed((r) => { const n = { ...r }; delete n[f.id]; return n; })}
-          onSnooze={snooze}
-          onLost={setLostTarget}
-          onBook={bookFromFollowUp} />
+        <FollowUpQueue rows={queue.rows} filter={filter} onFilter={setFilter} nowMs={nowMs} loading={desk.enquiries === null} error={desk.loadError}
+          revealed={revealed} canReveal={canReveal} canBook={canBook} busy={working}
+          onReveal={setRevealTarget} onSnooze={(r) => void snooze(r, "queue")} onLost={setLostTarget} onBook={bookFromRow} />
 
-        <RevealHistory rows={desk.reveals} />
+        <NumberViewLog rows={desk.views.rows} scope={desk.views.scope} loading={desk.views.loading} error={desk.views.error} nowMs={nowMs} onRetry={() => void desk.reloadViews()} />
       </main>
 
       {pinFor && (
-        <LocationPinDialog side={pinFor} context="Quick Fare & Enquiry Desk" value={pinFor === "pickup" ? trip.pickup : trip.drop} startNear={pinFor === "drop" ? trip.pickup : null}
-          onChange={(p) => pickPoint(pinFor, p, p?.name || p?.address || (pinFor === "pickup" ? trip.pickupText : trip.dropText))} onClose={() => setPinFor(null)} />
-      )}
-
-      {fuTarget && (
-        <FollowUpDialog route={fuTarget.trip.route} line={fuTarget.line} sourceName={DESK_BRANDS[fuTarget.trip.source].name} extras={deskExtrasLabel(fuTarget.trip)} customers={customerRows}
-          onSave={saveFollowUp} onClose={() => setFuTarget(null)} />
-      )}
-
-      {bookTarget && (
-        <BookingDraftDialog trip={bookTarget.trip} line={bookTarget.line} sourceName={DESK_BRANDS[bookTarget.trip.source].name} customers={customerRows}
-          initial={bookTarget.followUp ? { mobile: bookTarget.followUp.mobile, name: bookTarget.followUp.name } : undefined}
-          pay={pay}
-          onSave={(v) => desk.createDraft({ ...v, trip: bookTarget.trip, quote: bookTarget.line, followUpId: bookTarget.followUp?.id ?? null })}
-          onContinue={onNewBooking && bookTarget.quickTrip ? () => {
-            const t = bookTarget;
-            setBookTarget(null);
-            onNewBooking({ trip: t.quickTrip!, categoryId: t.line.categoryId, estimates: t.estimates ?? undefined, channel: t.trip.source });
-          } : undefined}
-          onClose={() => setBookTarget(null)} />
-      )}
-
-      {revealTarget && (
-        <RevealDialog caller={`${revealTarget.name || "Caller"} · ${maskPhone(revealTarget.mobile)}`} onClose={() => setRevealTarget(null)}
-          onReveal={(category, note) => {
-            const f = revealTarget;
-            setRevealed((r) => ({ ...r, [f.id]: true }));
-            desk.addReveal({ staff: staffName(), caller: `${f.name || "Caller"} (${maskPhone(f.mobile)})`, reason: `${category} — ${note}` });
-            setRevealTarget(null);
-            showToast("Number shown and added to this session's history");
-          }} />
-      )}
-
-      {lostTarget && (
-        <LostDialog caller={`${lostTarget.name || "Caller"} · ${lostTarget.trip.route}`} onClose={() => setLostTarget(null)}
-          onSave={(reason) => { const ok = desk.markLost(lostTarget.id, reason); setLostTarget(null); if (ok) showToast(`Marked as lost · ${reason}`); }} />
+        <MapPickerDialog side={pinFor} value={pinFor === "pickup" ? trip.pickup : trip.drop} startNear={pinFor === "drop" ? trip.pickup : null}
+          saved={pinFor === "pickup" ? data.pickups : data.drops}
+          onChange={(p) => pickPoint(pinFor, p, p?.name || p?.address || "")} onClose={() => setPinFor(null)} />
       )}
 
       {rentalOpen && <RentalDialog hours={trip.rentalHours ?? 1} onPick={(h) => { set({ rentalHours: h }); setRentalOpen(false); }} onClose={() => setRentalOpen(false)} />}
 
+      {fuTarget && fuSnapshot && (
+        <FollowUpDialog customers={customerRows} onSave={saveFollowUp} onClose={() => setFuTarget(null)}
+          summary={`${fuSnapshot.route} • ${fuTarget.line.classBadge || fuTarget.line.vehicle} (${fuTarget.line.manual ? "Draft quote" : deskExtrasLabel(fuSnapshot)}) • ${formatINR(fuTarget.line.fare)}`} />
+      )}
+
+      {bookTarget && (
+        <ConfirmBookingDialog target={bookTarget} customers={customerRows} onBooked={onBooked} onClose={() => setBookTarget(null)}
+          onFullForm={onNewBooking ? () => {
+            const t = bookTarget;
+            setBookTarget(null);
+            const enquiry = t.enquiry ? desk.byId(t.enquiry.id) ?? undefined : undefined;
+            onNewBooking({ trip: t.trip, categoryId: t.line.categoryId, estimates: t.estimates ?? undefined, channel: t.snapshot.source, ...(enquiry ? { enquiry } : {}) });
+          } : undefined} />
+      )}
+
+      {revealTarget && (
+        <RevealDialog caller={`${caller(revealTarget)} (${revealTarget.code}) • Reason logged to Master Admin`} onClose={() => setRevealTarget(null)}
+          onReveal={async (category, note) => {
+            const r = revealTarget;
+            const res = await desk.reveal(r.id, category, note);
+            setRevealed((m) => ({ ...m, [r.id]: res.phone }));
+            const secs = Math.max(10, Number(res.revealSeconds) || 60);
+            revealTimers.current.push(window.setTimeout(() => setRevealed((m) => { const n = { ...m }; delete n[r.id]; return n; }), secs * 1000));
+            setRevealTarget(null);
+            showToast(`Caller number revealed & logged (${caller(r)}) — hidden again in ${secs}s`);
+          }} />
+      )}
+
+      {lostTarget && (
+        <LostDialog caller={`${caller(lostTarget)} • ${lostTarget.route}`} onClose={() => setLostTarget(null)}
+          onSave={async (reason) => {
+            const r = lostTarget;
+            const res = await desk.markLost(r.id, reason);
+            setLostTarget(null);
+            showToast(res.converted ? `Not changed: ${caller(r)} was already converted to booking ${res.bookingId ?? ""}`.trim() : `Marked ${caller(r)} as Lost (${reason})`);
+          }} />
+      )}
+
       {toast && (
-        <div role={toast.tone === "error" ? "alert" : "status"} className={`fixed bottom-5 right-5 left-5 sm:left-auto z-50 sm:max-w-sm px-4 py-3 rounded-xl shadow-xl text-xs font-semibold flex items-center gap-2.5 fade-slide-in ${toast.tone === "error" ? "bg-red-700 text-white" : "bg-slate-900 text-white"}`}>
-          <Icon name={toast.tone === "error" ? "circle-alert" : "check"} size={16} className="shrink-0" /><span>{toast.text}</span>
+        <div role={toast.tone === "error" ? "alert" : "status"}
+          className={`fixed bottom-5 right-5 left-5 sm:left-auto z-50 sm:max-w-sm px-4 py-3 rounded-xl shadow-xl text-xs font-medium flex items-center gap-2.5 fade-slide-in text-white ${toast.tone === "error" ? "bg-red-700" : "bg-slate-900"}`}>
+          {toast.tone === "error" ? <CircleAlert className="w-4 h-4 shrink-0" aria-hidden="true" /> : <BellRing className="w-4 h-4 text-amber-400 shrink-0" aria-hidden="true" />}
+          <span>{toast.text}</span>
         </div>
       )}
     </div>

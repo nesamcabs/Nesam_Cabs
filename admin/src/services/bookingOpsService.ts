@@ -192,6 +192,21 @@ export interface GatewayStatus {
 }
 /** Whether Razorpay keys and the webhook secret are set (never the keys themselves), the mode, and the office's online switch. */
 export const getPaymentGatewayStatus = () => callFunction<Record<string, never>, GatewayStatus>("getPaymentGatewayStatus", {});
+/**
+ * The payment choices a customer may use for this trip (Payment options rules for its pickup place and date), and
+ * `online`: true only when the Razorpay keys are configured and online payments are switched on. Any signed-in staff.
+ */
+export interface TripPaymentOptions {
+  online: boolean;
+  provider: string;
+  choices: { id: import("../domain/paymentChoices").PayOptionId; percent: number; recommended: boolean }[];
+  fallback: boolean;
+}
+export const getTripPaymentOptions = (pickup: { name?: string; address?: string } | null, scheduledAt: string) =>
+  callFunction<{ pickup: { name: string; address: string } | null; scheduledAt: string }, TripPaymentOptions>("getPaymentOptions", {
+    pickup: pickup ? { name: pickup.name ?? "", address: pickup.address ?? "" } : null,
+    scheduledAt,
+  });
 /** The office's on/off switch for customer online payments (UPI, cards, net banking through Razorpay). */
 export const setOnlinePayments = (enabled: boolean) => callFunction<{ enabled: boolean }, { onlineEnabled: boolean }>("setOnlinePayments", { enabled });
 /** The customer payment choices (Service & Fare Settings › Payment options). */

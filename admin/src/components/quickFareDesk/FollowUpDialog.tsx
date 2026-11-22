@@ -1,157 +1,191 @@
-import { useMemo, useState, type FormEvent } from "react";
-import Icon from "../ui/Icon";
-import TimeSelect12 from "../TimeSelect12";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { BellPlus, BellRing, CalendarClock, LoaderCircle } from "lucide-react";
 import DeskDialog from "./DeskDialog";
-import { formatINR, normalizeIndianMobile, type DeskQuoteLine } from "../../domain/quickFareDesk";
-import { addDaysISO, isoDateIST } from "../../utils/time";
-import { dateLabel, hhmmIST, istInstant } from "./deskTrip";
+import {
+  HOURS_12,
+  MINUTES_60,
+  REMINDER_CHIPS,
+  TOMORROW_PRESETS,
+  istDateOf,
+  istMs,
+  istTimeOf,
+  joinClock12,
+  mobileInputValue,
+  normalizeIndianMobile,
+  reminderPresetAt,
+  splitClock12,
+  type Meridiem,
+  type ReminderPreset,
+} from "../../domain/quickFareDesk";
+import { callerBadgeText, useCallerLookup } from "../../hooks/useCallerLookup";
 import type { Customer } from "../../types";
 
 export interface FollowUpSubmit {
   customerId: string | null;
   mobile: string;
+  digits: string;
   name: string;
-  reminderAtMs: number;
+  followUpAtMs: number;
   note: string;
 }
 
-type Preset = "15" | "30" | "60" | "now" | "tmrw9" | "tmrw17" | null;
-const QUICK: { id: Exclude<Preset, null>; label: string }[] = [
-  { id: "15", label: "In 15 min" },
-  { id: "30", label: "In 30 min" },
-  { id: "60", label: "In 1 hour" },
-  { id: "now", label: "Alert Now" },
-  { id: "tmrw9", label: "Tomorrow 9 AM" },
-  { id: "tmrw17", label: "Tomorrow 5 PM" },
-];
+const LABEL = "block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1";
+const SELECT = "h-9 px-2 text-xs font-semibold text-slate-800 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-[#991B1B]";
 
-/** Date + time (India) of a quick reminder choice. */
-function presetAt(p: Exclude<Preset, null>): { date: string; time: string } {
-  if (p === "tmrw9" || p === "tmrw17") return { date: addDaysISO(isoDateIST(new Date()), 1), time: p === "tmrw9" ? "09:00" : "17:00" };
-  const at = new Date(Date.now() + (p === "now" ? 0 : Number(p)) * 60000);
-  return { date: isoDateIST(at), time: hhmmIST(at) };
-}
-
-export default function FollowUpDialog({ route, line, sourceName, extras, customers, initial, onSave, onClose }: {
-  route: string;
-  line: DeskQuoteLine;
-  sourceName: string;
-  /** Fuel and add-ons of the quote, "CNG • Pet Friendly". */
-  extras?: string;
+export default function FollowUpDialog({ summary, customers, onSave, onClose }: {
+  /** "Theni → Madurai • SUV (Diesel • Pet Friendly) • ₹4,365". */
+  summary: string;
   customers: Customer[];
-  initial?: { mobile?: string; name?: string };
-  onSave: (v: FollowUpSubmit) => void;
+  onSave: (v: FollowUpSubmit) => Promise<void>;
   onClose: () => void;
 }) {
-  const start = presetAt("15");
-  const [mobile, setMobile] = useState(initial?.mobile ?? "");
-  const [name, setName] = useState(initial?.name ?? "");
-  const [nameAuto, setNameAuto] = useState(false);
-  const [date, setDate] = useState(start.date);
-  const [time, setTime] = useState(start.time);
-  const [preset, setPreset] = useState<Preset>("15");
+  const [mobile, setMobile] = useState("");
+  const [name, setName] = useState("");
+  const nameAuto = useRef(false);
+  // The schedule fields show the chosen reminder; a preset keeps its exact instant until a field is changed by hand.
+  const [preset, setPreset] = useState<{ id: ReminderPreset; atMs: number } | null>(() => ({ id: "15", atMs: reminderPresetAt("15", Date.now()) }));
+  // The initialisers run on the first render only, while the "In 15 min" preset is set.
+  const [date, setDate] = useState(() => istDateOf(preset!.atMs));
+  const [clock, setClock] = useState(() => splitClock12(istTimeOf(preset!.atMs)));
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const today = isoDateIST(new Date());
-
-  // Customers by normalised mobile (a customer without a usable number is never matched).
-  const byMobile = useMemo(() => {
-    const m = new Map<string, Customer>();
-    for (const c of customers) { const n = normalizeIndianMobile(c.phone || ""); if (n.ok && !m.has(n.digits)) m.set(n.digits, c); }
-    return m;
-  }, [customers]);
+  const [busy, setBusy] = useState(false);
+  const lookup = useCallerLookup(mobile, customers);
   const norm = normalizeIndianMobile(mobile);
-  const match = norm.ok ? byMobile.get(norm.digits) ?? null : null;
 
-  const onMobile = (v: string) => {
-    setMobile(v);
+  // A name filled from a customer record belongs to that number: another number clears it (or fills the new match).
+  const foundId = lookup.state === "found" ? lookup.id : "";
+  const foundName = lookup.state === "found" ? lookup.customer?.name ?? "" : "";
+  useEffect(() => {
+    if (foundName && (!name.trim() || nameAuto.current)) { setName(foundName); nameAuto.current = true; }
+    else if (!foundId && nameAuto.current) { setName(""); nameAuto.current = false; }
+  }, [foundId, foundName]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const apply = (id: ReminderPreset) => {
+    const atMs = reminderPresetAt(id, Date.now());
+    setPreset({ id, atMs });
+    setDate(istDateOf(atMs));
+    setClock(splitClock12(istTimeOf(atMs)));
     setError(null);
-    const n = normalizeIndianMobile(v);
-    const m = n.ok ? byMobile.get(n.digits) : undefined;
-    // A name filled from a customer record follows its number: a different number clears it (or fills the new match).
-    if (m && (!name.trim() || nameAuto)) { setName(m.name); setNameAuto(true); }
-    else if (nameAuto) { setName(""); setNameAuto(false); }
+    const tomorrow = TOMORROW_PRESETS.find((t) => t.id === id);
+    if (tomorrow && !note.trim()) setNote(tomorrow.note);
   };
-  const pick = (p: Exclude<Preset, null>) => {
-    const at = presetAt(p);
-    setDate(at.date);
-    setTime(at.time);
-    setPreset(p);
+  const edit = (patch: Partial<{ date: string; hour: string; minute: string; mer: Meridiem }>) => {
+    if (patch.date !== undefined) setDate(patch.date);
+    setClock((c) => ({ hour: patch.hour ?? c.hour, minute: patch.minute ?? c.minute, mer: patch.mer ?? c.mer }));
+    setPreset(null);
     setError(null);
   };
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (busy) return;
     if (!norm.ok) return setError(norm.reason);
-    if (!date || !time) return setError("Choose the reminder date and time.");
-    const at = istInstant(date, time);
-    if (Number.isNaN(at.getTime())) return setError("Choose a valid reminder date and time.");
-    if (at.getTime() < Date.now() - 60000) return setError("The reminder time has passed. Choose a later time or Alert Now.");
-    onSave({ customerId: match?.id ?? null, mobile: norm.e164, name: name.trim(), reminderAtMs: preset === "now" ? Date.now() : at.getTime(), note: note.trim() });
+    const atMs = preset ? preset.atMs : istMs(date, joinClock12(clock.hour, clock.minute, clock.mer));
+    if (!Number.isFinite(atMs)) return setError("Choose the follow-up date and time.");
+    if (atMs < Date.now() - 60000 && preset?.id !== "now") return setError("That follow-up time has passed. Choose a later time, or Alert Now.");
+    setBusy(true);
+    setError(null);
+    try {
+      await onSave({ customerId: foundId || null, mobile: norm.e164, digits: norm.digits, name: name.trim(), followUpAtMs: atMs, note: note.trim() });
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : "The follow-up was not saved. Try again.");
+      setBusy(false);
+    }
   };
 
+  const badge = callerBadgeText(lookup);
   return (
-    <DeskDialog title="Save follow-up & set alert" icon="bell-plus" tone="amber" subtitle={`${route} · ${line.vehicle}${extras && !line.manual ? ` (${extras})` : ""} ${formatINR(line.fare)}${line.manual ? " (draft quote)" : ""} · ${sourceName}`} onClose={onClose}>
+    <DeskDialog title="Save Follow-Up & Set Alert" subtitle={summary} icon={<BellPlus className="w-4 h-4" />} tone="amber" size="md" busy={busy} onClose={onClose}>
       <form onSubmit={submit} className="p-5 space-y-4" noValidate>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="dk-ff">
-            <label htmlFor="fuMobile">Caller mobile *</label>
-            <div className="dk-in dk-in--pre">
-              <span>+91</span>
-              <input id="fuMobile" data-autofocus type="tel" inputMode="tel" autoComplete="off" value={mobile} onChange={(e) => onMobile(e.target.value)} aria-invalid={!!error && !norm.ok} aria-describedby="fuMobileHint" />
-            </div>
-            <small id="fuMobileHint" className="dk-hint">{norm.ok ? `Saved as ${norm.e164}` : "10 digits, +91, 0091 or a leading 0"}</small>
-          </div>
-          <div className="dk-ff">
-            <label htmlFor="fuName">Caller name</label>
-            <input id="fuName" className="dk-in" maxLength={80} autoComplete="off" value={name} onChange={(e) => { setName(e.target.value); setNameAuto(false); }} />
-          </div>
-        </div>
-
-        {match && (
-          <p className="text-[11.5px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/70 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
-            <Icon name="user-check" size={14} /> Existing customer: {match.name}{match.city ? ` · ${match.city}` : ""}
-          </p>
-        )}
-
-        <div className="dk-ff">
-          <span className="dk-ff__label">Remind me</span>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5" role="group" aria-label="Quick reminder">
-            {QUICK.map((q) => (
-              <button key={q.id} type="button" className="dk-chip" aria-pressed={preset === q.id} onClick={() => pick(q.id)}>{q.label}</button>
-            ))}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="dk-ff">
-            <label htmlFor="fuDate">Date</label>
-            <div className="dk-in relative flex items-center justify-between">
-              <span>{dateLabel(date) || "Choose date"}</span>
-              <Icon name="calendar" size={16} className="text-slate-400 pointer-events-none" />
-              <input id="fuDate" type="date" min={today} value={date} onChange={(e) => { setDate(e.target.value); setPreset(null); setError(null); }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+          <div>
+            <label htmlFor="fuMobileInput" className={LABEL}>Caller Mobile *</label>
+            <div className="flex items-center h-10 bg-white border border-slate-200 rounded-xl overflow-hidden focus-within:border-[#991B1B]">
+              <span className="px-2.5 text-xs font-semibold text-slate-500 bg-slate-50 h-full flex items-center border-r border-slate-200" aria-hidden="true">+91</span>
+              <input id="fuMobileInput" data-autofocus type="tel" inputMode="tel" autoComplete="off" placeholder="10-digit mobile" value={mobile}
+                onChange={(e) => { setMobile(mobileInputValue(e.target.value)); setError(null); }}
+                aria-invalid={!!error && !norm.ok} aria-describedby={error ? "fuError" : undefined}
+                className="w-full h-full px-2.5 text-sm font-medium text-slate-800 focus:outline-none" />
             </div>
           </div>
-          <div className="dk-ff">
-            <label htmlFor="fuTimeHour">Time <span className="dk-ist">IST</span></label>
-            <div className="dk-in dk-in--time">
-              <TimeSelect12 id="fuTimeHour" label="Reminder time" value={time} onChange={(v) => { setTime(v); setPreset(null); setError(null); }} className="dk-time12" />
+          <div>
+            <label htmlFor="fuNameInput" className={LABEL}>Caller Name</label>
+            <input id="fuNameInput" placeholder="e.g., Ramesh" maxLength={80} autoComplete="off" value={name} onChange={(e) => { setName(e.target.value); nameAuto.current = false; }}
+              className="w-full h-10 px-3 text-sm font-medium text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]" />
+          </div>
+        </div>
+        {badge && <p className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/70 px-3 py-1.5 rounded-lg">{badge}</p>}
+        {lookup.state === "error" && <p className="text-[11px] text-slate-400">Customer lookup is unavailable right now ({lookup.message}).</p>}
+
+        <div className="p-3 rounded-xl bg-slate-50/90 border border-slate-200/80 space-y-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+              <CalendarClock className="w-3.5 h-3.5 text-amber-600" aria-hidden="true" />
+              <span>Follow-Up Date &amp; Time (12 Hrs)</span>
+            </span>
+            <div className="flex items-center gap-1.5">
+              {TOMORROW_PRESETS.map((t) => (
+                <button key={t.id} type="button" aria-pressed={preset?.id === t.id} onClick={() => apply(t.id)}
+                  className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border transition-colors ${preset?.id === t.id ? "bg-amber-50 text-amber-800 border-amber-400" : "bg-white text-slate-700 border-slate-200 hover:border-amber-400 hover:text-amber-800"}`}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+            <div className="sm:col-span-5">
+              <label htmlFor="fuScheduleDateInput" className="block text-[10px] font-medium text-slate-500 mb-1">Follow-Up Date</label>
+              <input id="fuScheduleDateInput" type="date" min={istDateOf(Date.now())} value={date} onChange={(e) => e.target.value && edit({ date: e.target.value })}
+                className="qfd-date-native relative w-full h-9 px-2.5 text-xs font-semibold text-slate-800 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-[#991B1B]" />
+            </div>
+            <div className="sm:col-span-7">
+              <span className="block text-[10px] font-medium text-slate-500 mb-1" id="fuTimeLabel">Follow-Up Time (12-Hr AM/PM)</span>
+              <div className="grid grid-cols-3 gap-1.5" role="group" aria-labelledby="fuTimeLabel">
+                <select aria-label="Hour" className={SELECT} value={clock.hour} onChange={(e) => edit({ hour: e.target.value })}>
+                  {HOURS_12.map((h) => <option key={h} value={h}>{h}</option>)}
+                </select>
+                <select aria-label="Minute" className={SELECT} value={clock.minute} onChange={(e) => edit({ minute: e.target.value })}>
+                  {MINUTES_60.map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
+                <select aria-label="AM or PM" value={clock.mer} onChange={(e) => edit({ mer: e.target.value as Meridiem })}
+                  className="h-9 px-2 text-xs font-bold text-[#991B1B] bg-crimson-50/50 border border-crimson-200 rounded-lg focus:outline-none focus:border-[#991B1B]">
+                  <option value="AM">AM</option>
+                  <option value="PM">PM</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="dk-ff">
-          <label htmlFor="fuNote">Call note</label>
-          <input id="fuNote" className="dk-in" maxLength={300} value={note} onChange={(e) => setNote(e.target.value)} placeholder="What the caller said" />
+        <div>
+          <span className={`${LABEL} mb-1.5`} id="fuChipsLabel">Follow-Up Alert Time</span>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2" role="group" aria-labelledby="fuChipsLabel">
+            {REMINDER_CHIPS.map((c) => {
+              const on = preset?.id === c.id;
+              return (
+                <button key={c.id} type="button" aria-pressed={on} onClick={() => apply(c.id)}
+                  className={`py-2 px-2 rounded-xl text-xs border ${on ? "font-semibold border-[#991B1B] bg-crimson-50 text-[#991B1B]" : "font-medium border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}>
+                  {c.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {error && <div role="alert" className="px-3 py-2 rounded-xl text-xs font-semibold bg-red-50 text-red-800 border border-red-200">{error}</div>}
+        <div>
+          <label htmlFor="fuNoteInput" className={LABEL}>Call Note</label>
+          <input id="fuNoteInput" maxLength={300} placeholder="e.g., Asking family, will confirm by evening" value={note} onChange={(e) => setNote(e.target.value)}
+            className="w-full h-10 px-3 text-xs sm:text-sm text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]" />
+        </div>
 
-        <button type="submit" className="w-full h-12 bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-[14.5px] rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2">
-          <Icon name="bell-ring" size={16} />
-          <span>Save follow-up</span>
+        {error && <div id="fuError" role="alert" className="px-3 py-2 rounded-xl text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200">{error}</div>}
+
+        <button type="submit" disabled={busy} aria-busy={busy || undefined}
+          className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold text-sm py-3 rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 disabled:opacity-80 disabled:cursor-progress">
+          {busy ? <LoaderCircle className="w-4 h-4 animate-spin" aria-hidden="true" /> : <BellRing className="w-4 h-4" aria-hidden="true" />}
+          <span>{busy ? "Saving Follow-Up…" : "Save Follow-Up & Activate Alert"}</span>
         </button>
-        <p className="text-[11px] text-slate-500 text-center">Saved on this browser for this session. Reminders sound while this page is open.</p>
       </form>
     </DeskDialog>
   );

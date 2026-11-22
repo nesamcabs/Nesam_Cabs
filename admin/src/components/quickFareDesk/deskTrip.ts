@@ -1,27 +1,39 @@
 import type { CategoryEstimate, QuickTrip } from "../booking/QuickFare";
-import { estimateFacts, tripPickupDate } from "../booking/QuickFare";
-import type { DeskBrand, DeskQuoteLine, DeskTripSnapshot } from "../../domain/quickFareDesk";
-import { formatDate, formatDateTime12, formatTime12, isoDateIST } from "../../utils/time";
+import { emptyTrip, estimateFacts, tripPickupDate } from "../booking/QuickFare";
+import type { PickedPoint } from "../MapLocationPicker";
+import {
+  deskFuelLabel,
+  istDateOf,
+  istTimeOf,
+  rateNoteOf,
+  type DeskBrand,
+  type DeskQuoteLine,
+  type DeskTab,
+  type DeskTripSnapshot,
+  type PricingLike,
+} from "../../domain/quickFareDesk";
 
 export const DESK_MAX_STOPS = 4;
 export const DESK_MAX_DAYS = 15;
 export const DESK_MAX_RENTAL_HOURS = 15;
 
-/** "YYYY-MM-DD" + "HH:mm" read as India time. */
-export const istInstant = (date: string, time: string) => new Date(`${date}T${time || "09:00"}:00+05:30`);
-/** "HH:mm" of an instant on the India clock. */
-export const hhmmIST = (d: Date) =>
-  new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
-export const time12 = (hhmm: string) => (hhmm ? formatTime12(istInstant(isoDateIST(new Date()), hhmm)) : "");
-export const dateLabel = (iso: string) => (iso ? formatDate(istInstant(iso, "12:00")) : "");
+/** Desk tab → the trip it prices (Multicity is priced from the Round Trip rates; Local is a One Way on the city's Local fare). */
+export const TAB_TRIP: Record<DeskTab, { tripType: QuickTrip["tripType"]; multicity?: boolean; local?: boolean }> = {
+  "One Way": { tripType: "One Way" },
+  "Round Trip": { tripType: "Round Trip" },
+  Multicity: { tripType: "Round Trip", multicity: true },
+  Airport: { tripType: "Airport Taxi" },
+  Rental: { tripType: "Local Rental" },
+  Local: { tripType: "One Way", local: true },
+};
+/** Desk tab → the built-in trip-type key the Services page switches on and off. */
+export const SERVICE_KEY: Record<DeskTab, string> = { "One Way": "One Way", "Round Trip": "Round Trip", Multicity: "Multicity", Airport: "Airport Taxi", Rental: "Local Rental", Local: "Pickup & Drop" };
 
-/** Desk tab of a trip. */
-export type DeskTab = "One Way" | "Round Trip" | "Multicity" | "Airport" | "Rental" | "Local";
 export const deskTabOf = (t: QuickTrip): DeskTab =>
   t.multicity ? "Multicity" : t.local ? "Local" : t.tripType === "Airport Taxi" ? "Airport" : t.tripType === "Local Rental" ? "Rental" : t.tripType === "Round Trip" ? "Round Trip" : "One Way";
 
 /**
- * The trip as it is priced and saved: settings that the chosen trip type does not use are dropped
+ * The trip as it is priced and saved: settings the chosen trip type does not use are dropped
  * (stops outside Round Trip / Multicity, days outside Round Trip, hours outside Rental).
  */
 export function activeTrip(t: QuickTrip): QuickTrip {
@@ -35,7 +47,7 @@ export function activeTrip(t: QuickTrip): QuickTrip {
   };
 }
 
-/** Changes to any of these invalidate a fare result. */
+/** Changes to any of these make a fare result out of date. */
 export const quoteKeyOf = (t: QuickTrip, brand: DeskBrand) => {
   const a = activeTrip(t);
   return JSON.stringify([brand, a.tripType, a.multicity, a.local, a.serviceId, a.airportDirection, a.pickup?.lat, a.pickup?.lng, a.drop?.lat, a.drop?.lng,
@@ -45,33 +57,34 @@ export const quoteKeyOf = (t: QuickTrip, brand: DeskBrand) => {
 const placeName = (p: { name?: string; address?: string } | null, text: string) => p?.name || text.trim() || p?.address || "";
 const round4 = (n?: number) => (typeof n === "number" ? n.toFixed(4) : "-");
 
-/** Route label of a trip, in order. */
+/** Route label of a trip, in order ("Local Rental • Coimbatore" for a rental). */
 export function routeOf(t: QuickTrip): string {
   const a = activeTrip(t);
   const p = placeName(a.pickup, a.pickupText);
   const d = placeName(a.drop, a.dropText);
-  if (a.tripType === "Local Rental") return `Local rental • ${p}`;
+  if (a.tripType === "Local Rental") return `Local Rental • ${p}`;
   const stops = (a.stops ?? []).map((s) => placeName(s.point, s.text)).filter(Boolean);
   if (a.tripType === "Round Trip" && !a.multicity) return stops.length ? `${p} → ${stops.join(" → ")} → ${d} → ${p}` : `${p} ⇄ ${d}`;
   return stops.length ? `${p} → ${stops.join(" → ")} → ${d}` : `${p} → ${d}`;
 }
 
-/** Everything the follow-up / booking draft keeps about the quoted trip. */
+/** Everything a follow-up or booking keeps about the quoted trip. */
 export function snapshotOf(t: QuickTrip, source: DeskBrand, roadKm: number | null): DeskTripSnapshot {
   const a = activeTrip(t);
   const at = tripPickupDate(a);
-  const stops = (a.stops ?? []).map((s) => placeName(s.point, s.text));
+  const ms = at ? at.getTime() : 0;
   const points = [a.pickup, ...(a.stops ?? []).map((s) => s.point), a.tripType === "Local Rental" ? null : a.drop];
   return {
     source,
-    tripLabel: deskTabOf(a),
+    tab: deskTabOf(a),
     route: routeOf(a),
     pickup: placeName(a.pickup, a.pickupText),
     drop: a.tripType === "Local Rental" ? "" : placeName(a.drop, a.dropText),
-    stops,
+    stops: (a.stops ?? []).map((s) => placeName(s.point, s.text)),
     placeKey: points.map((p) => (p ? `${round4(p.lat)},${round4(p.lng)}` : "")).join(";"),
-    pickupAtMs: at ? at.getTime() : 0,
-    pickupLabel: at ? `${formatDateTime12(at)} IST` : "",
+    pickupAtMs: ms,
+    date: ms ? istDateOf(ms) : a.date,
+    time: ms ? istTimeOf(ms) : a.time,
     days: a.tripType === "Round Trip" && !a.multicity ? a.days : null,
     rentalHours: a.tripType === "Local Rental" ? (a.rentalHours ?? 1) : null,
     roadKm,
@@ -86,16 +99,11 @@ export const classBadgeOf = (c: { name: string; code?: string; tariffClass?: str
   const code = (c.code || c.tariffClass || "").trim().toUpperCase();
   return code && !alnum(c.name).includes(alnum(code)) ? code : "";
 };
-export const seatsLineOf = (c: { seatingCapacity?: number; luggageCapacity?: string | number }) =>
-  [c.seatingCapacity ? `${c.seatingCapacity} Seats` : "", c.luggageCapacity ? `${c.luggageCapacity} Bags` : ""].filter(Boolean).join(" • ");
+export const seatsOf = (c: { seatingCapacity?: number }) => (c.seatingCapacity ? `${c.seatingCapacity} Seats` : "");
+export const bagsOf = (c: { luggageCapacity?: string | number }) => (c.luggageCapacity ? `${c.luggageCapacity} Bags` : "");
 
-/** "₹15/km + ₹500 Bata" from the server quote's customer rate card (nothing when the quote does not carry it). */
-export function rateLineOf(q: CategoryEstimate["quote"]): string {
-  const p = (q as { pricing?: { customerRatePaise?: number; customerBataPaise?: number } } | null)?.pricing;
-  const rate = p?.customerRatePaise ? `₹${Math.round(p.customerRatePaise) / 100}/km` : "";
-  const bata = p?.customerBataPaise ? `₹${Math.round(p.customerBataPaise) / 100} Bata` : "";
-  return [rate, bata].filter(Boolean).join(" + ");
-}
+/** The server's pricing snapshot carried by a quote (absent from older servers). */
+export const pricingOf = (q: CategoryEstimate["quote"]): PricingLike | null => ((q as { pricing?: PricingLike } | null)?.pricing ?? null);
 
 /** A priced vehicle → the line shown, copied and saved. */
 export function lineOfEstimate(e: CategoryEstimate): DeskQuoteLine | null {
@@ -105,10 +113,95 @@ export function lineOfEstimate(e: CategoryEstimate): DeskQuoteLine | null {
     categoryId: e.category.id,
     vehicle: e.category.name,
     classBadge: classBadgeOf(e.category),
-    seats: seatsLineOf(e.category),
+    seats: seatsOf(e.category),
+    bags: bagsOf(e.category),
     fare: e.quote.quote.total,
-    rateLine: rateLineOf(e.quote),
+    rateNote: rateNoteOf(pricingOf(e.quote), deskFuelLabel(e.quote.fuelType === "cng" ? "cng" : null)),
     includedKm: km || null,
     manual: false,
+  };
+}
+
+// ── The trip stored with a follow-up, so a saved enquiry can be re-quoted and booked exactly as quoted ──
+
+export interface DeskTripRecord {
+  v: 1;
+  tab: DeskTab;
+  route: string;
+  tripType: QuickTrip["tripType"];
+  multicity: boolean;
+  local: boolean;
+  serviceId: string;
+  airportDirection: "to" | "from";
+  pickup: PickedPoint | null;
+  pickupText: string;
+  drop: PickedPoint | null;
+  dropText: string;
+  stops: { text: string; point: PickedPoint | null }[];
+  date: string;
+  time: string;
+  days: number;
+  rentalHours: number;
+  fuel: "cng" | null;
+  carrier: boolean;
+  pets: boolean;
+}
+
+/** Firestore refuses `undefined`: only defined values are kept. */
+const plain = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
+
+export function deskTripRecord(t: QuickTrip): DeskTripRecord {
+  const a = activeTrip(t);
+  return plain({
+    v: 1 as const,
+    tab: deskTabOf(a),
+    route: routeOf(a),
+    tripType: a.tripType,
+    multicity: !!a.multicity,
+    local: !!a.local,
+    serviceId: a.serviceId || "",
+    airportDirection: a.airportDirection,
+    pickup: a.pickup,
+    pickupText: a.pickupText,
+    drop: a.drop,
+    dropText: a.dropText,
+    stops: a.stops ?? [],
+    date: a.date,
+    time: a.time,
+    days: a.days,
+    rentalHours: a.rentalHours ?? 1,
+    fuel: a.fuel === "cng" ? ("cng" as const) : null,
+    carrier: a.carrier === true,
+    pets: a.pets === true,
+  });
+}
+
+const isPoint = (p: unknown): p is PickedPoint => !!p && typeof (p as PickedPoint).lat === "number" && typeof (p as PickedPoint).lng === "number";
+const TRIP_TYPES: QuickTrip["tripType"][] = ["One Way", "Round Trip", "Local Rental", "Airport Taxi"];
+
+/** The quoted trip of a saved follow-up; null when the enquiry was not saved from this desk (or is unreadable). */
+export function quickTripOfRecord(r: unknown): QuickTrip | null {
+  const x = r as Partial<DeskTripRecord> | null;
+  if (!x || x.v !== 1 || !isPoint(x.pickup) || !x.tripType || !TRIP_TYPES.includes(x.tripType)) return null;
+  if (x.tripType !== "Local Rental" && !isPoint(x.drop)) return null;
+  return {
+    ...emptyTrip(),
+    tripType: x.tripType,
+    multicity: x.multicity === true,
+    local: x.local === true,
+    serviceId: typeof x.serviceId === "string" ? x.serviceId : "",
+    airportDirection: x.airportDirection === "from" ? "from" : "to",
+    pickup: x.pickup,
+    pickupText: x.pickupText || x.pickup.name || "",
+    drop: isPoint(x.drop) ? x.drop : null,
+    dropText: x.dropText || (isPoint(x.drop) ? x.drop.name : "") || "",
+    stops: Array.isArray(x.stops) ? x.stops.map((s) => ({ text: String(s?.text ?? ""), point: isPoint(s?.point) ? s.point : null })) : [],
+    date: typeof x.date === "string" ? x.date : "",
+    time: typeof x.time === "string" ? x.time : "",
+    days: Number(x.days) >= 1 ? Number(x.days) : 1,
+    rentalHours: Number(x.rentalHours) >= 1 ? Number(x.rentalHours) : 1,
+    fuel: x.fuel === "cng" ? "cng" : undefined,
+    carrier: x.carrier === true,
+    pets: x.pets === true,
   };
 }

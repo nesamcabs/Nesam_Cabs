@@ -1,61 +1,90 @@
 import { useState, type FormEvent } from "react";
-import Icon from "../ui/Icon";
+import { Eye, LoaderCircle } from "lucide-react";
 import DeskDialog from "./DeskDialog";
-import { LOST_REASONS, REVEAL_CATEGORIES, type LostReason } from "../../domain/quickFareDesk";
+import { LOST_REASONS, REVEAL_CATEGORIES, REVEAL_NOTE_MIN, type LostReason } from "../../domain/quickFareDesk";
 import { DESK_MAX_RENTAL_HOURS } from "./deskTrip";
 
-/** A note counts when it says something: 10+ characters including at least 3 letters. */
-const meaningful = (v: string) => v.trim().length >= 10 && (v.match(/[a-z஀-௿]/gi)?.length ?? 0) >= 3;
+const errText = (e: unknown, fallback: string) => (e instanceof Error && e.message ? e.message : fallback);
 
-export function RevealDialog({ caller, onReveal, onClose }: { caller: string; onReveal: (category: string, note: string) => void; onClose: () => void }) {
+/** Mandatory reason before a caller's number is shown. The server logs it first and only then releases the number. */
+export function RevealDialog({ caller, onReveal, onClose }: { caller: string; onReveal: (category: string, note: string) => Promise<void>; onClose: () => void }) {
   const [category, setCategory] = useState("");
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const submit = (e: FormEvent) => {
+  const [busy, setBusy] = useState(false);
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!category) return setError("Choose a reason category.");
-    if (!meaningful(note)) return setError("Write a short note (at least 10 characters) saying why you need the number.");
-    onReveal(category, note.trim());
+    if (busy) return;
+    if (!category) return setError("Select a valid reason.");
+    if (note.trim().length < REVEAL_NOTE_MIN) return setError(`Enter a note of at least ${REVEAL_NOTE_MIN} characters.`);
+    setBusy(true);
+    setError(null);
+    try {
+      await onReveal(category, note.trim());
+    } catch (err) {
+      setError(errText(err, "The number could not be shown. Try again."));
+      setBusy(false);
+    }
   };
   return (
-    <DeskDialog title="Reason to view number" icon="eye" tone="amber" subtitle={caller} size="md" onClose={onClose}>
-      <form onSubmit={submit} className="p-5 space-y-3.5" noValidate>
-        <div className="dk-ff">
-          <label htmlFor="rvCategory">Reason category *</label>
-          <select id="rvCategory" data-autofocus className="dk-in" value={category} onChange={(e) => { setCategory(e.target.value); setError(null); }}>
-            <option value="">Select a reason</option>
+    <DeskDialog title="Mandatory Reason to View Number" subtitle={caller} icon={<Eye className="w-4 h-4" />} tone="amberStrong" header="amber" variant="center" size="md" busy={busy} onClose={onClose}>
+      <form onSubmit={submit} className="p-5 space-y-3.5 text-xs" noValidate>
+        <div>
+          <label htmlFor="qfRrPreset" className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Reason Category *</label>
+          <select id="qfRrPreset" data-autofocus required value={category} disabled={busy} onChange={(e) => { setCategory(e.target.value); setError(null); }}
+            className="w-full h-9 px-2.5 font-semibold border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-[#991B1B]">
+            <option value="">-- Select valid reason --</option>
             {REVEAL_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
-        <div className="dk-ff">
-          <label htmlFor="rvNote">Note *</label>
-          <input id="rvNote" className="dk-in" maxLength={200} value={note} onChange={(e) => { setNote(e.target.value); setError(null); }} placeholder="Why you need the number now" />
+        <div>
+          <label htmlFor="qfRrDetail" className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Detailed Note (Min {REVEAL_NOTE_MIN} characters) *</label>
+          <input id="qfRrDetail" required maxLength={200} disabled={busy} value={note} onChange={(e) => { setNote(e.target.value); setError(null); }}
+            placeholder="e.g., Calling back caller to confirm the quoted booking" className="w-full h-9 px-3 border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]" />
         </div>
-        {error && <div role="alert" className="px-3 py-2 rounded-xl text-xs font-semibold bg-red-50 text-red-800 border border-red-200">{error}</div>}
-        <button type="submit" className="w-full h-11 bg-[#991B1B] hover:bg-[#7F1D1D] text-white font-extrabold text-sm rounded-xl flex items-center justify-center gap-2">
-          <Icon name="eye" size={15} />Show number
+        {error && <div role="alert" className="px-3 py-2 rounded-xl font-medium bg-amber-50 text-amber-800 border border-amber-200">{error}</div>}
+        <button type="submit" disabled={busy} className="w-full bg-[#991B1B] hover:bg-[#7F1D1D] text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 disabled:opacity-80 disabled:cursor-progress">
+          {busy && <LoaderCircle className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />}
+          {busy ? "Logging Reason…" : "Log Reason & Reveal Number"}
         </button>
-        <p className="text-[11px] text-slate-500">Recorded in this session's number-view history only.</p>
       </form>
     </DeskDialog>
   );
 }
 
-export function LostDialog({ caller, onSave, onClose }: { caller: string; onSave: (reason: LostReason) => void; onClose: () => void }) {
+export function LostDialog({ caller, onSave, onClose }: { caller: string; onSave: (reason: LostReason) => Promise<void>; onClose: () => void }) {
   const [reason, setReason] = useState<LostReason>(LOST_REASONS[0]);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await onSave(reason);
+    } catch (err) {
+      setError(errText(err, "The enquiry was not updated. Try again."));
+      setBusy(false);
+    }
+  };
   return (
-    <DeskDialog title="Mark enquiry as lost" icon="calendar-x" tone="crimson" subtitle={caller} size="sm" onClose={onClose}>
-      <form onSubmit={(e) => { e.preventDefault(); onSave(reason); }} className="p-5 space-y-3">
-        <fieldset className="space-y-2">
-          <legend className="dk-ff__label">Why did the caller not book?</legend>
+    <DeskDialog title="Mark Enquiry as Lost" subtitle={caller || "Select why caller did not book"} header="plain" variant="center" size="sm" busy={busy} onClose={onClose}>
+      <form onSubmit={submit} className="p-5 space-y-3 text-xs">
+        <fieldset className="space-y-2" disabled={busy}>
+          <legend className="sr-only">Select why the caller did not book</legend>
           {LOST_REASONS.map((r, i) => (
-            <label key={r} className="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 text-xs font-semibold text-slate-800">
+            <label key={r} className="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50">
               <input type="radio" name="lostReason" value={r} data-autofocus={i === 0 || undefined} checked={reason === r} onChange={() => setReason(r)} className="accent-[#991B1B]" />
-              {r}
+              <span className="font-medium text-slate-800">{r}</span>
             </label>
           ))}
         </fieldset>
-        <button type="submit" className="w-full h-11 bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-sm rounded-xl">Save lost reason</button>
+        {error && <div role="alert" className="px-3 py-2 rounded-xl font-medium bg-amber-50 text-amber-800 border border-amber-200">{error}</div>}
+        <button type="submit" disabled={busy} className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 disabled:opacity-80 disabled:cursor-progress">
+          {busy && <LoaderCircle className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />}
+          {busy ? "Saving…" : "Save Lost Reason"}
+        </button>
       </form>
     </DeskDialog>
   );
@@ -63,14 +92,16 @@ export function LostDialog({ caller, onSave, onClose }: { caller: string; onSave
 
 export function RentalDialog({ hours, onPick, onClose }: { hours: number; onPick: (h: number) => void; onClose: () => void }) {
   return (
-    <DeskDialog title="Rental duration" icon="clock" tone="crimson" subtitle={`1 to ${DESK_MAX_RENTAL_HOURS} hours`} size="md" onClose={onClose}>
-      <div className="p-5 grid grid-cols-3 gap-2.5" role="radiogroup" aria-label="Rental hours">
-        {Array.from({ length: DESK_MAX_RENTAL_HOURS }, (_, i) => i + 1).map((h) => (
-          <button key={h} type="button" role="radio" aria-checked={hours === h} data-autofocus={hours === h || undefined} onClick={() => onPick(h)}
-            className={`h-11 rounded-xl text-xs transition-colors ${hours === h ? "font-extrabold border-[1.5px] border-[#991B1B] bg-crimson-50 text-[#991B1B]" : "font-bold border border-slate-200 bg-white text-slate-800 hover:bg-slate-50"}`}>
-            {h} {h === 1 ? "hour" : "hours"}
-          </button>
-        ))}
+    <DeskDialog title="Rental duration" subtitle={`Choose from 1 to ${DESK_MAX_RENTAL_HOURS} hours to calculate instant rental fares.`} header="handle" size="md" onClose={onClose}>
+      <div className="px-5 pb-5">
+        <div className="grid grid-cols-3 gap-2.5 mt-4" role="radiogroup" aria-label="Rental hours">
+          {Array.from({ length: DESK_MAX_RENTAL_HOURS }, (_, i) => i + 1).map((h) => (
+            <button key={h} type="button" role="radio" aria-checked={hours === h} data-autofocus={hours === h || undefined} onClick={() => onPick(h)}
+              className={`py-2.5 px-2 rounded-xl text-xs ${hours === h ? "font-bold border border-[#B91C1C] bg-[#FEF2F2] text-[#991B1B]" : "font-semibold border border-slate-200 bg-white text-slate-800 hover:bg-slate-50"}`}>
+              {h} {h === 1 ? "hour" : "hours"}
+            </button>
+          ))}
+        </div>
       </div>
     </DeskDialog>
   );
