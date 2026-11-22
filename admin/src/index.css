@@ -557,6 +557,43 @@ body:has(.ds-overlay) { overflow: hidden; }
 @keyframes ds-pop { from { opacity: 0; transform: translateY(8px) scale(0.985); } to { opacity: 1; transform: none; } }
 @keyframes ds-slide { from { transform: translateX(32px); opacity: 0.6; } to { transform: none; opacity: 1; } }
 
+/* ══ Header page-toolbar slot (Dashboard desk controls are portalled here) ══ */
+.ds-header-slot { display: none; }
+@media (min-width: 1024px) {
+  .ds-header-menu { display: none; } /* empty on desktop: the menu toggle only shows below 1024px */
+}
+/* ≥1366px: page controls join the header row. Below that the Dashboard renders them inline instead. */
+@media (min-width: 1366px) {
+  .ds-header-slot:not(:empty) {
+    display: flex; align-items: center; justify-content: center;
+    flex: 1 1 auto; min-width: 0;
+    /* Safety net only: at supported desktop widths everything fits without scrolling. */
+    overflow-x: auto; scrollbar-width: thin;
+  }
+  /* With page controls present, the live-status cluster sits at the left instead of floating centred. */
+  .ds-header:has(.ds-header-slot:not(:empty)) .ds-header-center { margin: 0; flex: none; }
+}
+
+/* Compact laptop/desktop tier: keep every control, trade secondary labels for icons
+   (aria-label and title keep the names; the Alerts count and New booking label stay visible). */
+@media (min-width: 1366px) and (max-width: 1919px) {
+  .ds-header:has(.ds-header-slot:not(:empty)) { padding-inline: 16px; gap: 10px; }
+  .ds-header:has(.ds-header-slot:not(:empty)) .ds-header-actions { gap: 4px; }
+  .ds-header:has(.ds-header-slot:not(:empty)) .ds-header-live-pill .ds-live-label { display: none; }
+  .ds-header:has(.ds-header-slot:not(:empty)) .ds-header-live-pill { padding-inline: 8px; }
+  .ds-header:has(.ds-header-slot:not(:empty)) .ds-header-live-btn .ds-live-label { display: none; }
+  .ds-header:has(.ds-header-slot:not(:empty)) .ds-header-live-btn { width: 30px; min-width: 30px; padding: 0; gap: 0; }
+}
+/* Secondary header-action labels collapse to icons on laptop/desktop widths (1024–1919px):
+   Quick fare and the account name up to 1599px, the "Alerts ·" word up to 1919px (its count stays). */
+@media (min-width: 1024px) and (max-width: 1599px) {
+  .ds-header-actions .ds-hdr-collapse-md { display: none; }
+  .ds-header-actions .ds-btn:has(> .ds-hdr-collapse-md) { width: 36px; padding: 0; gap: 0; }
+}
+@media (min-width: 1024px) and (max-width: 1919px) {
+  .ds-header-actions .ds-hdr-collapse-lg { display: none; }
+  .ds-header-actions .ds-btn:has(.ds-hdr-collapse-lg) { padding-inline: 9px; gap: 5px; }
+}
 /* Toast */
 .ds-toast { position: fixed; right: 24px; bottom: 24px; z-index: var(--z-toast); max-width: 380px; display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 10px; border: 1px solid #c8e5d8; background: #f4fbf7; color: #2f6a4f; box-shadow: var(--shadow-xl); font-size: 12px; font-weight: 600; animation: ds-pop 180ms var(--ease-ui); }
 .ds-toast[data-type='error'] { background: #fff5f5; color: #a32831; border-color: #edc7ca; }

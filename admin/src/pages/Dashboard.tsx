@@ -224,124 +224,80 @@ function MasterDashboard({
     setActiveView("trips");
   };
 
-  const urgentTotal = stageC.new + stageC.assign;
-const [topbarTarget, setTopbarTarget] = useState<HTMLElement | null>(null);
+  // The desk toolbar lives in the global Header (#dashboard-topbar-slot) on desktop (≥1366px).
+  // The slot is rendered by the app shell, so it exists before this page mounts.
+  const [topbarTarget, setTopbarTarget] = useState<HTMLElement | null>(() => document.getElementById("dashboard-topbar-slot"));
+  useEffect(() => {
+    setTopbarTarget(document.getElementById("dashboard-topbar-slot"));
+  }, []);
 
-useEffect(() => {
-  setTopbarTarget(document.getElementById("dashboard-topbar-slot"));
-}, []);
+  // "All Trips" and "Revenue & GST" are drill-downs opened from the Command Desk
+  // (stage cards, "Full Explorer →", "GST & Revenue Report →"), so the Command Desk
+  // tab stays highlighted while they are open.
+  const deskTab = activeView === "dispatch" ? "dispatch" : "command";
+  const pillCls = (on: boolean) =>
+    `px-2 min-[1440px]:px-3 h-7 rounded-lg text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#991B1B] ${
+      on ? "bg-white text-[#991B1B] font-bold shadow-2xs" : "text-slate-600 hover:text-slate-900 font-medium"
+    }`;
+
+  const deskToolbar = (
+    <div className="flex items-center gap-1.5 min-[1440px]:gap-2 min-w-0 whitespace-nowrap">
+      <nav aria-label="Dashboard views" className="flex shrink-0 items-center bg-slate-100 p-0.5 rounded-xl gap-0.5">
+        <button
+          type="button"
+          onClick={() => setActiveView("command")}
+          aria-current={deskTab === "command" ? "page" : undefined}
+          className={pillCls(deskTab === "command")}
+        >
+          Command Desk
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveView("dispatch")}
+          aria-current={deskTab === "dispatch" ? "page" : undefined}
+          className={pillCls(deskTab === "dispatch")}
+        >
+          Dispatch Desk
+        </button>
+      </nav>
+
+      <input
+        type="search"
+        value={globalSearch}
+        onChange={(e) => setGlobalSearch(e.target.value)}
+        placeholder="Search trips…"
+        title="Search by booking ID, route or customer"
+        aria-label="Search dashboard trips by booking ID, route or customer"
+        className="w-32 shrink-0 min-[1440px]:w-44 min-[1920px]:w-52 h-8 px-2.5 text-xs font-medium bg-slate-50 border border-slate-200/90 rounded-lg focus:bg-white focus:border-[#991B1B] focus:outline-none transition-colors"
+      />
+
+      <select
+        aria-label="Filter by Booking Source"
+        title="Filter by Booking Source"
+        value={sourceScope}
+        onChange={(e) => setSourceScope(e.target.value as SourceScope)}
+        className="w-36 min-w-28 min-[1440px]:w-44 min-[1920px]:w-52 h-8 pl-2 pr-6 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200/90 text-slate-700 text-xs font-semibold truncate cursor-pointer focus:outline-none focus:border-[#991B1B] transition-colors"
+      >
+        <option value="ALL">All Sources ({liveBookings.length})</option>
+        <option value="nesam">Nesam Cabs ({srcC.nesam})</option>
+        <option value="people_taxi">PeopleTaxi.in ({srcC.people_taxi})</option>
+        <option value="onewaycarrentals">One Way Car Rentals ({srcC.onewaycarrentals})</option>
+      </select>
+    </div>
+  );
+
   return (
     <div className="space-y-5">
       <Toast toast={toast} />
       {loadError && <ErrorBanner message={loadError} onRetry={() => setRetryKey((k) => k + 1)} />}
 
-      {/* ========================================================= */}
-      {/* TOP COMMAND BAR (SINGLE-ROW CLEAN SAAS HEADER)             */}
-      {/* ========================================================= */}      
-{topbarTarget && createPortal(
-<div className="flex items-center min-w-max gap-2 whitespace-nowrap">
-<div className="flex flex-col lg:flex-row lg:items-center gap-3 lg:min-w-max lg:justify-between">
-        {/* Left: Brand Identity + Navigation Pills */}
-<div className="flex items-center gap-2 flex-nowrap shrink-0 whitespace-nowrap">
+      {/* Desk toolbar: portalled into the global Header on desktop (≥1366px, see .ds-header-slot).
+          Below that width — or if the Header slot is missing — it renders inline here instead. */}
+      {topbarTarget && createPortal(deskToolbar, topbarTarget)}
+      <div className={topbarTarget ? "min-[1366px]:hidden" : undefined}>
+        <div className="bg-white rounded-2xl border border-slate-200/90 px-3 py-2 shadow-2xs overflow-x-auto">{deskToolbar}</div>
+      </div>
 
-
-<nav className="flex shrink-0 items-center bg-slate-100 p-0.5 rounded-xl text-xs gap-0.5 whitespace-nowrap">
-              <button
-                type="button"
-                onClick={() => setActiveView("command")}
-                className={`nav-pill px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  activeView === "command"
-                    ? "bg-white text-[#991B1B] shadow-2xs"
-                    : "text-slate-600 hover:text-slate-900 font-medium"
-                }`}
-              >
-                Command Desk
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveView("trips")}
-                className={`nav-pill px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                  activeView === "trips"
-                    ? "bg-white text-[#991B1B] shadow-2xs"
-                    : "text-slate-600 hover:text-slate-900 font-medium"
-                }`}
-              >
-                <span>All Trips</span>
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 text-slate-700 font-bold">
-                  {scopedRows.length}
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveView("analytics")}
-                className={`nav-pill px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  activeView === "analytics"
-                    ? "bg-white text-[#991B1B] shadow-2xs"
-                    : "text-slate-600 hover:text-slate-900 font-medium"
-                }`}
-              >
-                Revenue &amp; GST
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveView("dispatch")}
-                className={`nav-pill px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  activeView === "dispatch"
-                    ? "bg-white text-[#991B1B] shadow-2xs"
-                    : "text-slate-600 hover:text-slate-900 font-medium"
-                }`}
-              >
-                Dispatch Desk
-              </button>
-            </nav>
-          </div>
-
-          {/* Right: Search, Source Filter, Alerts & Primary Actions */}
-<div className="flex items-center gap-1.5 flex-nowrap shrink-0 whitespace-nowrap">
-            <div className="relative w-44 sm:w-52">
-              <input
-                type="text"
-                value={globalSearch}
-                onChange={(e) => setGlobalSearch(e.target.value)}
-                placeholder="Search ID, route, customer..."
-                className="w-full h-8 pl-3 pr-2.5 text-xs font-medium bg-slate-50 border border-slate-200/90 rounded-lg focus:bg-white focus:border-[#991B1B] focus:outline-none transition-colors"
-              />
-            </div>
-
-            {/* Brand Source Filter */}
-            <div className="relative">
-              <select
-                aria-label="Filter by Booking Source"
-                value={sourceScope}
-                onChange={(e) => setSourceScope(e.target.value as SourceScope)}
-                className="h-8 pl-2.5 pr-7 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200/90 text-slate-700 text-xs font-semibold appearance-none cursor-pointer focus:outline-none focus:border-[#991B1B] transition-colors"
-              >
-                <option value="ALL">All Sources ({liveBookings.length})</option>
-                <option value="nesam">Nesam Cabs ({srcC.nesam})</option>
-                <option value="people_taxi">PeopleTaxi.in ({srcC.people_taxi})</option>
-                <option value="onewaycarrentals">One Way Car Rentals ({srcC.onewaycarrentals})</option>
-              </select>
-            </div>
-
-            {/* Alert Counter Cluster */}
-            <button
-              type="button"
-              onClick={() => { setFilters((f) => ({ ...f, stage: "assign" })); setActiveView("trips"); }}
-              className="h-8 px-2.5 rounded-lg bg-crimson-50 hover:bg-crimson-100 text-[#991B1B] text-[11px] font-bold flex items-center gap-1.5 transition-colors border border-crimson-200/60"
-            >
-              <span className={`w-2 h-2 rounded-full bg-[#991B1B] ${urgentTotal > 0 ? "animate-pulse" : ""}`} />
-              <span>{urgentTotal} Urgent Alert{urgentTotal === 1 ? "" : "s"}</span>
-            </button>
-
-          
-
-           
-</div>
-</div>
-</div>
-, topbarTarget)}
-
-{/* VIEW 1: COMMAND DESK */}
       {/* ========================================================= */}
       {/* VIEW 1: COMMAND DESK                                      */}
       {/* ========================================================= */}

@@ -50,7 +50,7 @@ export default function Header({ title, onNavigate, onOpen, onCreateBooking, onQ
   return (
     <>
       <header className="ds-header">
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="ds-header-menu flex items-center gap-3 min-w-0">
           <Button className="ds-menu-toggle" variant="secondary" iconOnly icon="menu" aria-label="Open navigation menu" onClick={onOpenMenu} />
         </div>
 
@@ -93,26 +93,21 @@ export default function Header({ title, onNavigate, onOpen, onCreateBooking, onQ
               </Button>
             )}
 
-
-<Button
-  variant="ghost"
-  size="sm"
-  icon="sliders-horizontal"
-  iconOnly
-  className="ds-header-live-btn"
-  onClick={() => setSheet("sounds")}
-  aria-label="Sound settings"
-  title="Sound settings"
-/>
-
+            <Button
+              variant="ghost"
+              size="sm"
+              icon="sliders-horizontal"
+              iconOnly
+              className="ds-header-live-btn"
+              onClick={() => setSheet("sounds")}
+              aria-label="Sound settings"
+              title="Sound settings"
+            />
           </div>
         </div>
 
-
-<div
-  id="dashboard-topbar-slot"
-  className="hidden lg:flex min-w-0 flex-1 items-center overflow-x-auto"
-/>
+        {/* Desktop slot for page toolbars (the Dashboard desk controls portal in here). Hidden when empty. */}
+        <div id="dashboard-topbar-slot" className="ds-header-slot" role="group" aria-label="Dashboard controls" />
 
         <div className="ds-header-actions">
         <Button variant="ghost" iconOnly icon="lock" onClick={() => setLocked(true)} aria-label="Lock workspace" title="Lock workspace" />
@@ -121,7 +116,7 @@ export default function Header({ title, onNavigate, onOpen, onCreateBooking, onQ
         <Button iconOnly icon="search" onClick={() => setSheet("search")} aria-label="Search records" title="Search records" />
         {onQuickFare && (
           <Button variant="primary" icon="calculator" onClick={onQuickFare} aria-label="Quick fare" title="Check a fare">
-            <span className="ds-btn-label">Quick fare</span>
+            <span className="ds-btn-label ds-hdr-collapse-md">Quick fare</span>
           </Button>
         )}
         {onCreateBooking && (
@@ -130,10 +125,10 @@ export default function Header({ title, onNavigate, onOpen, onCreateBooking, onQ
           </Button>
         )}
         <Button icon="bell" onClick={() => setSheet("alerts")} aria-label={`Alerts, ${alertCount}`}>
-          <span className="ds-btn-label">Alerts · {alertCount > 99 ? "99+" : alertCount}</span>
+          <span className="ds-btn-label"><span className="ds-hdr-collapse-lg">Alerts · </span>{alertCount > 99 ? "99+" : alertCount}</span>
         </Button>
-        <Button variant="ghost" icon="shield-check" onClick={() => setSheet("profile")} aria-label={`Account, ${displayName}`}>
-          <span className="ds-btn-label">{access.isSuper ? "Super Admin" : displayName}</span>
+        <Button variant="ghost" icon="user-round" onClick={() => setSheet("profile")} aria-label={`Account, ${displayName}`} title={access.isSuper ? "Super Admin" : displayName}>
+          <span className="ds-btn-label ds-hdr-collapse-md">{access.isSuper ? "Super Admin" : displayName}</span>
         </Button>
       </div>
 
