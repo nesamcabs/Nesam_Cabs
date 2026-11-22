@@ -19,6 +19,8 @@ export type { PickedPoint };
 export interface ManualBookingForm {
   rentalHours?: number;
   addOns?: { roofCarrier: boolean; pets: boolean };
+  /** "cng": price on the CNG rate card (the vehicle must offer CNG). Absent: the standard Diesel / Petrol rate. */
+  fuelType?: "cng";
   customerId: string;
   customerName: string;
   customerPhone: string;
@@ -281,6 +283,7 @@ const bookingRequest = (f: ManualBookingForm, requestId: string) => {
     dropAddress: f.dropAddress.trim(),
     categoryId: f.categoryId,
     addOns: f.addOns,
+    fuelType: f.fuelType === "cng" ? "cng" : undefined,
     tripType: isMulticity ? "Multicity" : f.tripType === "Local" ? "One Way" : f.tripType,
     multicity: isMulticity,
     rentalHours: f.tripType === "Local Rental" ? (f.rentalHours ?? 1) : undefined,
@@ -328,6 +331,10 @@ export interface FareQuote {
   /** The real road distance and time of the journey (round trips count out and back). */
   roadKm?: number;
   roadMinutes?: number;
+  /** "cng" when the server priced this quote on the CNG rate card. */
+  fuelType?: "cng";
+  /** Whether this vehicle category offers CNG. */
+  cngAvailable?: boolean;
 }
 /** @deprecated use FareQuote */
 export type AdminQuote = FareQuote;
@@ -335,6 +342,8 @@ export type AdminQuote = FareQuote;
 export const quoteAdminBooking = async (f: ManualBookingForm, requestId: string, extras: { businessAccountId?: string; businessBilledTo?: string } = {}) => {
   const result = await callFunction<unknown, FareQuote>("createAdminBooking", { ...bookingRequest(f, requestId), ...extras, quoteOnly: true });
   if ((f.addOns?.roofCarrier && !result.quote.addOns?.roofCarrier) || (f.addOns?.pets && !result.quote.addOns?.pets)) throw new ActionError('Carrier and pet pricing is not available from the booking server yet. Please retry after the pricing update.');
+  // A server without CNG for office quotes ignores the fuel and would return the Diesel price: never show that as CNG.
+  if (f.fuelType === "cng" && result.fuelType !== "cng") throw new ActionError("CNG pricing is not available from the booking server yet. Please retry after the pricing update.");
   return result;
 };
 

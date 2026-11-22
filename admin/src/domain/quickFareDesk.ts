@@ -195,6 +195,39 @@ export interface DeskTripSnapshot {
   days: number | null;
   rentalHours: number | null;
   roadKm: number | null;
+  /** "cng" when the fare is on the CNG rate card; null for the standard Diesel / Petrol rate (absent on older records). */
+  fuel?: "cng" | null;
+  /** Paid add-ons included in the fare (absent on older records). */
+  addOns?: { pets: boolean; carrier: boolean };
+}
+
+// ── Fuel and add-ons (the server prices both: CNG rate cards, pet and roof-carrier charges) ──
+
+/** Desk names for the trip add-ons: pets → "Pet Friendly", roof carrier → "Luggage Carrier". */
+export const DESK_ADDON_LABELS = { pets: "Pet Friendly", carrier: "Luggage Carrier" } as const;
+
+/** "CNG" or "Diesel" (the standard Diesel / Petrol rate). */
+export const deskFuelLabel = (fuel?: "cng" | null): "CNG" | "Diesel" => (fuel === "cng" ? "CNG" : "Diesel");
+
+/** Labels of the add-ons a fare includes, in toolbar order. */
+export function deskAddOnLabels(a?: { pets: boolean; carrier: boolean } | null): string[] {
+  if (!a) return [];
+  return [a.pets ? DESK_ADDON_LABELS.pets : "", a.carrier ? DESK_ADDON_LABELS.carrier : ""].filter(Boolean);
+}
+
+/** Fuel first, then add-ons: "CNG • Pet Friendly". */
+export const deskExtrasLabel = (t: Pick<DeskTripSnapshot, "fuel" | "addOns">) => [deskFuelLabel(t.fuel), ...deskAddOnLabels(t.addOns)].join(" • ");
+
+/**
+ * Price tag of an add-on across the priced vehicles: "+₹300" when they all charge the same,
+ * "from +₹250" when it differs by vehicle, "" when no quote carries it.
+ */
+export function addOnRateLabel(amounts: ReadonlyArray<number | null | undefined>): string {
+  const vals = amounts.filter((n): n is number => typeof n === "number" && Number.isFinite(n) && n > 0);
+  if (!vals.length) return "";
+  const min = Math.min(...vals);
+  const max = Math.max(...vals);
+  return min === max ? `+${formatINR(min)}` : `from +${formatINR(min)}`;
 }
 
 export interface DeskFollowUp {
@@ -281,7 +314,17 @@ export function newLocalDraftRef(nowMs = Date.now()): string {
 }
 
 /** Text of the quote exactly as displayed. It is copied for staff to paste; nothing is sent. */
-export function formatDeskQuoteText(p: { brandName: string; route: string; when: string; roadKm: number | null; lines: DeskQuoteLine[] }): string {
+export function formatDeskQuoteText(p: {
+  brandName: string;
+  route: string;
+  when: string;
+  roadKm: number | null;
+  lines: DeskQuoteLine[];
+  /** Adds "Fuel Type:" (CNG or Diesel) when given. */
+  fuel?: "cng" | null;
+  /** Add-ons the fares include ("Pet Friendly", "Luggage Carrier"). */
+  addOns?: readonly string[];
+}): string {
   const draft = p.lines.some((l) => l.manual);
   const body = p.lines.map((l) => {
     const extra = [l.seats, l.rateLine, l.includedKm ? `${l.includedKm} km included` : ""].filter(Boolean).join(", ");
@@ -292,6 +335,8 @@ export function formatDeskQuoteText(p: { brandName: string; route: string; when:
     `Route: ${p.route}`,
     `Pickup: ${p.when}`,
     ...(p.roadKm ? [`Distance: ${p.roadKm} km by road`] : []),
+    ...(p.fuel !== undefined ? [`Fuel Type: ${deskFuelLabel(p.fuel)}`] : []),
+    ...(p.addOns?.length ? [`Add-ons: ${p.addOns.join(", ")} (included in the fares)`] : []),
     "",
     ...body,
     ...(draft ? ["", "_Draft quote — not yet confirmed._"] : []),

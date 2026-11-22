@@ -2,7 +2,9 @@ import Icon from "../ui/Icon";
 import {
   DESK_BRANDS,
   QUEUE_FILTERS,
+  deskAddOnLabels,
   deskFollowUpStatus,
+  deskFuelLabel,
   deskReminderLabel,
   formatINR,
   maskPhone,
@@ -81,6 +83,10 @@ export function FollowUpQueue({ rows, nowMs, filter, onFilter, counts, revealed,
                     {f.trip.tripLabel} · {f.trip.route} · <span className="text-slate-500">{f.trip.pickupLabel}</span> ·{" "}
                     <strong className="text-[#991B1B] font-extrabold">{f.quote.vehicle} {formatINR(f.quote.fare)}</strong>
                     {f.quote.manual && <span className="dk-draftbadge ml-1.5">Draft quote</span>}
+                    {!f.quote.manual && <span className="ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 align-middle">{deskFuelLabel(f.trip.fuel)}</span>}
+                    {!f.quote.manual && deskAddOnLabels(f.trip.addOns).map((a) => (
+                      <span key={a} className="ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-50 text-[#991B1B] border border-red-200/70 align-middle">{a}</span>
+                    ))}
                   </p>
                   {f.note && <p className="text-[11.5px] text-slate-500 italic">“{f.note}”</p>}
                 </div>

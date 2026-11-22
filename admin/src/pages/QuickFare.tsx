@@ -3,6 +3,9 @@ import Icon from "../components/ui/Icon";
 import "../styles/quickFareDesk.css";
 import {
   DESK_BRANDS,
+  addOnRateLabel,
+  deskAddOnLabels,
+  deskExtrasLabel,
   deskFollowUpStatus,
   formatDeskQuoteText,
   formatINR,
@@ -38,7 +41,7 @@ import type { NewBookingDraft } from "./NewBooking";
 import type { PickedPoint } from "../components/MapLocationPicker";
 import { activeTrip, dateLabel, deskTabOf, lineOfEstimate, quoteKeyOf, routeOf, snapshotOf, time12, type DeskTab } from "../components/quickFareDesk/deskTrip";
 import TripForm from "../components/quickFareDesk/TripForm";
-import FareResults, { type FareView } from "../components/quickFareDesk/FareResults";
+import FareResults, { type FareExtras, type FareView } from "../components/quickFareDesk/FareResults";
 import { FollowUpControls, SourceSwitcher } from "../components/quickFareDesk/DeskHeader";
 import { FollowUpQueue, RevealHistory } from "../components/quickFareDesk/FollowUpQueue";
 import FollowUpDialog, { type FollowUpSubmit } from "../components/quickFareDesk/FollowUpDialog";
@@ -216,20 +219,23 @@ export default function QuickFare({ onNewBooking }: QuickFareProps) {
   };
   const clear = () => { setTrip(emptyTrip()); setQuote(null); setNotice(null); };
 
-  const getFare = async (e: FormEvent) => {
-    e.preventDefault();
-    const snapshot = activeTrip(trip);
+  const quoteSeq = useRef(0);
+  /** Prices `t` for every vehicle category with the server's fare settings; a newer request replaces an older one. */
+  const runQuote = async (t: QuickTrip, b: DeskBrand) => {
+    const snapshot = activeTrip(t);
     const problem = deskProblem(snapshot);
     if (problem) return setNotice(problem);
     setNotice(null);
-    const base = { key: quoteKeyOf(trip, brand), trip: snapshot, brand, roadKm: null, roadMinutes: null, unpriced: [] as Quote["unpriced"] };
+    const seq = ++quoteSeq.current;
+    const base = { key: quoteKeyOf(t, b), trip: snapshot, brand: b, roadKm: null, roadMinutes: null, unpriced: [] as Quote["unpriced"] };
     if (!data.categories.length) {
       setQuote({ ...base, estimates: null, lines: null, pricingUnavailable: "No vehicle categories are set up, so no fare could be priced. You can enter a draft quote." });
       return;
     }
     setBusy(true);
     try {
-      const priced = await estimateAll(snapshot, data.categories, brand);
+      const priced = await estimateAll(snapshot, data.categories, b);
+      if (seq !== quoteSeq.current) return;
       const lines = priced.map(lineOfEstimate).filter((l): l is DeskQuoteLine => !!l);
       const unpriced = priced.filter((r) => !r.quote).map((r) => ({ vehicle: r.category.name, reason: r.error || "Not available on this route" }));
       const road = priced.find((r) => r.quote?.roadKm)?.quote;
@@ -239,10 +245,32 @@ export default function QuickFare({ onNewBooking }: QuickFareProps) {
         pricingUnavailable: lines.length ? null : `The fare settings could not price this trip${priced[0]?.error ? ` (${priced[0].error})` : ""}. You can enter a draft quote.`,
       });
     } catch (err) {
+      if (seq !== quoteSeq.current) return;
       setQuote({ ...base, estimates: null, lines: null, pricingUnavailable: `Fares are unavailable right now (${errorText(err, "pricing service not reachable")}). You can enter a draft quote.` });
     } finally {
-      setBusy(false);
+      if (seq === quoteSeq.current) setBusy(false);
     }
+  };
+  const getFare = (e: FormEvent) => {
+    e.preventDefault();
+    void runQuote(trip, brand);
+  };
+
+  // ── Fuel bar & add-ons: priced by the server (CNG rate card, pet and roof-carrier charges) ──
+  /** With current fares on screen, a fuel or add-on change re-prices at once (the route is already checked). */
+  const changeExtras = (patch: Partial<QuickTrip>) => {
+    const next = { ...trip, ...patch };
+    setTrip(next);
+    setNotice(null);
+    if (quote && !stale) void runQuote(next, brand);
+  };
+  const pricedRates = quote?.estimates ?? [];
+  const extras: FareExtras = {
+    fuel: trip.fuel === "cng" ? "cng" : null,
+    addOns: { pets: trip.pets === true, carrier: trip.carrier === true },
+    petRate: addOnRateLabel(pricedRates.map((e) => e.quote?.addOnRates?.petCharge)),
+    carrierRate: addOnRateLabel(pricedRates.map((e) => e.quote?.addOnRates?.carrierCharge)),
+    cngOffered: data.categories.some((c) => c.cngEnabled === true),
   };
 
   const when = (t: QuickTrip) => `${dateLabel(t.date)}, ${time12(t.time)} IST`;
@@ -256,12 +284,17 @@ export default function QuickFare({ onNewBooking }: QuickFareProps) {
     roadKm: quote?.roadKm ?? null,
     roadMinutes: quote?.roadMinutes ?? null,
     pricingUnavailable: quote?.pricingUnavailable ?? null,
+    quoted: quote ? { fuel: quote.trip.fuel === "cng" ? "cng" : null, addOns: { pets: quote.trip.pets === true, carrier: quote.trip.carrier === true } } : null,
   };
   const snapshotFor = (q: Quote) => snapshotOf(q.trip, q.brand, q.roadKm);
 
   const copyQuote = async () => {
     if (!quote?.lines?.length) return false;
-    const text = formatDeskQuoteText({ brandName: DESK_BRANDS[quote.brand].name, route: routeOf(quote.trip), when: when(quote.trip), roadKm: quote.roadKm, lines: quote.lines });
+    const serverPriced = !quote.lines.some((l) => l.manual);
+    const text = formatDeskQuoteText({
+      brandName: DESK_BRANDS[quote.brand].name, route: routeOf(quote.trip), when: when(quote.trip), roadKm: quote.roadKm, lines: quote.lines,
+      ...(serverPriced ? { fuel: quote.trip.fuel === "cng" ? ("cng" as const) : null, addOns: deskAddOnLabels({ pets: quote.trip.pets === true, carrier: quote.trip.carrier === true }) } : {}),
+    });
     try { await navigator.clipboard.writeText(text); return true; } catch { return false; }
   };
 
@@ -306,7 +339,7 @@ export default function QuickFare({ onNewBooking }: QuickFareProps) {
                     <span className="px-2 py-0.5 mr-2 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-600 text-white">Due now</span>
                     {topDue.name || "Caller"} ({revealed[topDue.id] ? topDue.mobile : maskPhone(topDue.mobile)})
                   </p>
-                  <p className="text-xs font-semibold text-slate-600 mt-0.5 truncate">{topDue.trip.route} · {topDue.quote.vehicle} {formatINR(topDue.quote.fare)}{topDue.note ? ` — “${topDue.note}”` : ""}</p>
+                  <p className="text-xs font-semibold text-slate-600 mt-0.5 truncate">{topDue.trip.route} · {topDue.quote.vehicle}{topDue.quote.manual ? "" : ` [${deskExtrasLabel(topDue.trip)}]`} {formatINR(topDue.quote.fare)}{topDue.note ? ` — “${topDue.note}”` : ""}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -320,7 +353,9 @@ export default function QuickFare({ onNewBooking }: QuickFareProps) {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
           <TripForm trip={trip} set={set} data={data} tabs={tabs} notice={notice} busy={busy} stale={stale} swapping={swapping}
             onTab={pickTab} onPickPoint={pickPoint} onSwap={swap} onPin={setPinFor} onRental={() => setRentalOpen(true)} onClear={clear} onSubmit={getFare} />
-          <FareResults view={fareView} categories={data.categories} canBook sourceName={DESK_BRANDS[quote?.brand ?? brand].name}
+          <FareResults view={fareView} extras={extras} categories={data.categories} canBook sourceName={DESK_BRANDS[quote?.brand ?? brand].name}
+            onFuel={(f) => changeExtras({ fuel: f ?? undefined })}
+            onAddOn={(k) => changeExtras(k === "pets" ? { pets: !trip.pets } : { carrier: !trip.carrier })}
             onFollowUp={(line) => quote && setFuTarget({ line, trip: snapshotFor(quote) })}
             onBook={(line) => quote && openBook({ line, trip: snapshotFor(quote), followUp: null, quickTrip: quote.trip, estimates: quote.estimates })}
             onCopy={copyQuote}
@@ -343,7 +378,7 @@ export default function QuickFare({ onNewBooking }: QuickFareProps) {
       )}
 
       {fuTarget && (
-        <FollowUpDialog route={fuTarget.trip.route} line={fuTarget.line} sourceName={DESK_BRANDS[fuTarget.trip.source].name} customers={customerRows}
+        <FollowUpDialog route={fuTarget.trip.route} line={fuTarget.line} sourceName={DESK_BRANDS[fuTarget.trip.source].name} extras={deskExtrasLabel(fuTarget.trip)} customers={customerRows}
           onSave={saveFollowUp} onClose={() => setFuTarget(null)} />
       )}
 

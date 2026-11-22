@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import Icon from "../ui/Icon";
-import { formatINR, type DeskQuoteLine } from "../../domain/quickFareDesk";
+import { DESK_ADDON_LABELS, deskAddOnLabels, deskFuelLabel, formatINR, type DeskQuoteLine } from "../../domain/quickFareDesk";
 import { classBadgeOf, seatsLineOf } from "./deskTrip";
 import type { VehicleCategory } from "../../types";
 
@@ -17,6 +17,74 @@ export interface FareView {
   roadMinutes: number | null;
   /** Set when no server price is available for this trip (the manual draft path is offered). */
   pricingUnavailable: string | null;
+  /** Fuel and add-ons the shown fares were priced with (null before the first quote). */
+  quoted: { fuel: "cng" | null; addOns: { pets: boolean; carrier: boolean } } | null;
+}
+
+/** The Fuel bar and add-on toggles: what the next quote is priced with. */
+export interface FareExtras {
+  fuel: "cng" | null;
+  addOns: { pets: boolean; carrier: boolean };
+  /** "+₹300" / "from +₹250" from the last quote's add-on rates; "" when not known yet. */
+  petRate: string;
+  carrierRate: string;
+  /** False when no vehicle category offers CNG (CNG is then not offered). */
+  cngOffered: boolean;
+}
+
+const ADDONS = [
+  { key: "pets", label: DESK_ADDON_LABELS.pets, icon: "paw-print" },
+  { key: "carrier", label: DESK_ADDON_LABELS.carrier, icon: "luggage" },
+] as const;
+
+/** CNG / Diesel segmented control and the Pet Friendly / Luggage Carrier toggles. Prices always come from the server. */
+function FuelBar({ extras, disabled, onFuel, onAddOn }: { extras: FareExtras; disabled: boolean; onFuel: (f: "cng" | null) => void; onAddOn: (k: "pets" | "carrier") => void }) {
+  const cng = extras.fuel === "cng";
+  const fuelBtn = (on: boolean, tone: "cng" | "diesel") =>
+    `px-3 py-1.5 rounded-lg text-xs transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed ${
+      on ? `font-extrabold bg-white shadow-xs ${tone === "cng" ? "text-emerald-700" : "text-amber-800"}` : "font-semibold text-slate-600 hover:text-slate-900"
+    }`;
+  return (
+    <div className="px-5 py-3 bg-slate-50/80 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-2.5">
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+          <Icon name="fuel" size={14} className="text-slate-500" /><span>Fuel</span>
+        </span>
+        <div role="radiogroup" aria-label="Fuel" className="inline-flex items-center p-0.5 rounded-xl bg-slate-200/80 border border-slate-200">
+          <button type="button" role="radio" aria-checked={cng} disabled={disabled || !extras.cngOffered} onClick={() => !cng && onFuel("cng")}
+            title={extras.cngOffered ? "Price on the CNG rate card (vehicles that offer CNG)" : "No vehicle category offers CNG. Turn on CNG in Vehicle categories."}
+            className={fuelBtn(cng, "cng")}>
+            <span className={`w-1.5 h-1.5 rounded-full ${cng ? "bg-emerald-500" : "bg-slate-400"}`} aria-hidden="true" />
+            <span>CNG</span>
+          </button>
+          <button type="button" role="radio" aria-checked={!cng} disabled={disabled} onClick={() => cng && onFuel(null)}
+            title="Standard Diesel / Petrol rate" className={fuelBtn(!cng, "diesel")}>
+            <span className={`w-1.5 h-1.5 rounded-full ${!cng ? "bg-amber-500" : "bg-slate-400"}`} aria-hidden="true" />
+            <span>Diesel</span>
+          </button>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 flex-wrap">
+        {ADDONS.map((a) => {
+          const on = extras.addOns[a.key];
+          const rate = a.key === "pets" ? extras.petRate : extras.carrierRate;
+          return (
+            <button key={a.key} type="button" aria-pressed={on} disabled={disabled} onClick={() => onAddOn(a.key)}
+              className={`h-8 px-2.5 rounded-xl border transition-all flex items-center gap-1.5 text-xs shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed ${
+                on ? "border-[#991B1B] bg-red-50 text-[#991B1B] font-extrabold" : "border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold"
+              }`}>
+              <span className={`w-3.5 h-3.5 rounded-md border flex items-center justify-center text-white transition-colors ${on ? "border-[#991B1B] bg-[#991B1B]" : "border-slate-300 bg-white"}`} aria-hidden="true">
+                {on && <Icon name="check" size={10} />}
+              </span>
+              <Icon name={a.icon} size={14} className={on ? "text-[#991B1B]" : "text-slate-500"} />
+              <span>{a.label}</span>
+              {rate && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${on ? "bg-[#991B1B] text-white" : "bg-slate-100 text-slate-600"}`}>{rate}</span>}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 const duration = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ""}` : `${m}m`);
@@ -78,11 +146,14 @@ function ManualQuote({ categories, onUse }: { categories: VehicleCategory[]; onU
   );
 }
 
-export default function FareResults({ view, categories, canBook, sourceName, onFollowUp, onBook, onCopy, onManual }: {
+export default function FareResults({ view, extras, categories, canBook, sourceName, onFuel, onAddOn, onFollowUp, onBook, onCopy, onManual }: {
   view: FareView;
+  extras: FareExtras;
   categories: VehicleCategory[];
   canBook: boolean;
   sourceName: string;
+  onFuel: (fuel: "cng" | null) => void;
+  onAddOn: (key: "pets" | "carrier") => void;
   onFollowUp: (line: DeskQuoteLine) => void;
   onBook: (line: DeskQuoteLine) => void;
   onCopy: () => Promise<boolean>;
@@ -91,6 +162,8 @@ export default function FareResults({ view, categories, canBook, sourceName, onF
   const [copyLabel, setCopyLabel] = useState("Copy All for WhatsApp");
   const lines = view.lines ?? [];
   const actionable = !view.stale && lines.length > 0;
+  const quotedFuel = view.quoted ? deskFuelLabel(view.quoted.fuel) : null;
+  const quotedAddOns = view.quoted ? deskAddOnLabels(view.quoted.addOns) : [];
   const copy = async () => {
     const ok = await onCopy();
     setCopyLabel(ok ? "Copied — paste in WhatsApp" : "Copy failed");
@@ -116,6 +189,8 @@ export default function FareResults({ view, categories, canBook, sourceName, onF
         )}
       </div>
 
+      <FuelBar extras={extras} disabled={view.busy} onFuel={onFuel} onAddOn={onAddOn} />
+
       {view.busy && (
         <div className="flex-1 p-10 flex flex-col items-center justify-center text-center" role="status">
           <span className="ds-spinner text-[#991B1B]" aria-hidden="true" style={{ width: 22, height: 22 }} />
@@ -135,6 +210,13 @@ export default function FareResults({ view, categories, canBook, sourceName, onF
         <div className="flex-1 flex flex-col fade-slide-in min-w-0">
           <div className="px-5 py-2.5 bg-slate-50/90 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs">
             <span className="min-w-0"><b className="font-extrabold text-slate-900">{view.route}</b><span className="text-slate-500"> · {view.when} · {sourceName}</span></span>
+            {quotedFuel && lines.some((l) => !l.manual) && (
+              <span className={`text-[11px] px-2 py-0.5 rounded-full shrink-0 border ${
+                quotedAddOns.length ? "font-extrabold text-[#991B1B] bg-red-50 border-red-200" : quotedFuel === "CNG" ? "font-bold text-emerald-700 bg-emerald-50 border-emerald-200" : "font-bold text-slate-600 bg-white border-slate-200"
+              }`}>
+                {[quotedFuel, ...quotedAddOns].join(" • ")}
+              </span>
+            )}
             {view.roadKm !== null && (
               <span className="text-[11px] font-semibold text-slate-500 bg-white border border-slate-200 px-2.5 py-0.5 rounded-full shrink-0">
                 {view.roadKm} km{view.roadMinutes ? ` · ${duration(view.roadMinutes)}` : ""}{lines.some((l) => l.manual) ? " (entered)" : " by road"}
@@ -164,6 +246,11 @@ export default function FareResults({ view, categories, canBook, sourceName, onF
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-[15px] font-extrabold text-slate-900">{l.vehicle}</span>
                     {l.classBadge && <span className="dk-class">{l.classBadge}</span>}
+                    {!l.manual && quotedFuel && (
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${quotedFuel === "CNG" ? "bg-emerald-50 text-emerald-700 border-emerald-200/70" : "bg-amber-50 text-amber-800 border-amber-200/70"}`}>
+                        {quotedFuel}
+                      </span>
+                    )}
                     {l.manual && <span className="dk-draftbadge">Draft quote</span>}
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5">{[l.seats, l.rateLine, l.includedKm ? `${l.includedKm} km included` : ""].filter(Boolean).join(" • ") || " "}</p>

@@ -336,3 +336,71 @@ describe('Quick Fare Desk - Lost & Reveal Categories', () => {
     assert.ok(REVEAL_CATEGORIES.includes('Pickup time / cab availability update'));
   });
 });
+
+// ── Fuel and add-ons on the live desk (admin/src/domain/quickFareDesk.ts, loaded from the TypeScript source) ──
+const fs = require('node:fs');
+const path = require('node:path');
+const ts = require('../admin/node_modules/typescript');
+const deskCache = new Map();
+function loadDesk(file) {
+  if (deskCache.has(file)) return deskCache.get(file).exports;
+  const module = { exports: {} };
+  deskCache.set(file, module);
+  const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  new Function('require', 'module', 'exports', code)((id) => {
+    if (!id.startsWith('.')) throw Error('Unexpected dependency: ' + id);
+    const base = path.resolve(path.dirname(file), id);
+    return loadDesk([base + '.ts', base + '.tsx'].find(fs.existsSync));
+  }, module, module.exports);
+  return module.exports;
+}
+const D = loadDesk(path.resolve(__dirname, '../admin/src/domain/quickFareDesk.ts'));
+
+describe('Quick Fare Desk - fuel and add-on labels', () => {
+  test('fuel: CNG when priced on the CNG card, otherwise the standard Diesel rate', () => {
+    assert.equal(D.deskFuelLabel('cng'), 'CNG');
+    assert.equal(D.deskFuelLabel(null), 'Diesel');
+    assert.equal(D.deskFuelLabel(undefined), 'Diesel');
+  });
+
+  test('add-ons use the desk names, in toolbar order', () => {
+    assert.deepEqual(D.deskAddOnLabels({ pets: true, carrier: true }), ['Pet Friendly', 'Luggage Carrier']);
+    assert.deepEqual(D.deskAddOnLabels({ pets: false, carrier: true }), ['Luggage Carrier']);
+    assert.deepEqual(D.deskAddOnLabels(undefined), []);
+    assert.equal(D.deskExtrasLabel({ fuel: 'cng', addOns: { pets: true, carrier: false } }), 'CNG • Pet Friendly');
+    assert.equal(D.deskExtrasLabel({}), 'Diesel');
+  });
+
+  test('add-on price tag comes from the server rates and never invents one', () => {
+    assert.equal(D.addOnRateLabel([300, 300, 300]), '+₹300');
+    assert.equal(D.addOnRateLabel([250, 400, null]), 'from +₹250');
+    assert.equal(D.addOnRateLabel([]), '');
+    assert.equal(D.addOnRateLabel([0, undefined, null]), '');
+  });
+});
+
+describe('Quick Fare Desk - copied quote names the fuel and add-ons', () => {
+  const line = { categoryId: 'suv', vehicle: 'SUV', classBadge: '', seats: '6 Seats', fare: 4365, rateLine: '₹16/km + ₹400 Bata', includedKm: 215, manual: false };
+  const base = { brandName: 'Nesam Cabs', route: 'Theni → Madurai', when: '23 Nov 2026, 08:00 AM IST', roadKm: 80, lines: [line] };
+
+  test('fuel and add-on lines follow the pickup and distance', () => {
+    const text = D.formatDeskQuoteText({ ...base, fuel: 'cng', addOns: ['Pet Friendly', 'Luggage Carrier'] });
+    assert.ok(text.includes('Distance: 80 km by road\nFuel Type: CNG\nAdd-ons: Pet Friendly, Luggage Carrier (included in the fares)\n\n• SUV: ₹4,365'));
+  });
+
+  test('Diesel is named; no add-on line when none are chosen; older callers unchanged', () => {
+    const diesel = D.formatDeskQuoteText({ ...base, fuel: null, addOns: [] });
+    assert.ok(diesel.includes('Fuel Type: Diesel') && !diesel.includes('Add-ons'));
+    const plain = D.formatDeskQuoteText(base);
+    assert.ok(!plain.includes('Fuel Type') && !plain.includes('Add-ons'));
+  });
+});
+
+describe('Quick Fare Desk - same enquiry with another fuel updates the open follow-up', () => {
+  test('the duplicate key ignores fuel and add-ons', () => {
+    const trip = { source: 'nesam', tripLabel: 'One Way', route: 'A → B', pickup: 'A', drop: 'B', stops: [], placeKey: '1,1;2,2', pickupAtMs: 1, pickupLabel: '', days: null, rentalHours: null, roadKm: 80 };
+    const k1 = D.deskEnquiryKey({ customerId: null, mobile: '+919842144510', trip: { ...trip, fuel: null, addOns: { pets: false, carrier: false } }, categoryId: 'suv' });
+    const k2 = D.deskEnquiryKey({ customerId: null, mobile: '+919842144510', trip: { ...trip, fuel: 'cng', addOns: { pets: true, carrier: true } }, categoryId: 'suv' });
+    assert.equal(k1, k2);
+  });
+});

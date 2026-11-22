@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import Icon from "../ui/Icon";
 import DeskDialog from "./DeskDialog";
-import { formatINR, normalizeIndianMobile, type DeskBookingDraft, type DeskPayChoice, type DeskQuoteLine, type DeskTripSnapshot } from "../../domain/quickFareDesk";
+import { deskAddOnLabels, deskExtrasLabel, deskFuelLabel, formatINR, normalizeIndianMobile, type DeskBookingDraft, type DeskPayChoice, type DeskQuoteLine, type DeskTripSnapshot } from "../../domain/quickFareDesk";
 import { advanceAmount, type PaymentChoices } from "../../domain/paymentChoices";
 import type { Customer } from "../../types";
 
@@ -83,6 +83,7 @@ export default function BookingDraftDialog({ trip, line, sourceName, customers, 
       `Trip: ${d.trip.tripLabel} · ${d.trip.route}`,
       `Pickup: ${d.trip.pickupLabel}`,
       `Vehicle: ${d.quote.vehicle}`,
+      ...(d.quote.manual ? [] : [`Fuel & add-ons: ${deskExtrasLabel(d.trip)}`]),
       `Fare: ${formatINR(d.quote.fare)}${d.quote.manual ? " (draft quote)" : ""}`,
       `Payment preference: ${PAY_LABEL[d.payment]}${d.payment === "part" && d.partPercent ? ` (${d.partPercent}%)` : ""}`,
       "Status: draft — not yet a confirmed booking.",
@@ -106,6 +107,7 @@ export default function BookingDraftDialog({ trip, line, sourceName, customers, 
             <div><dt>Trip</dt><dd>{d.trip.tripLabel} · {d.trip.route}</dd></div>
             <div><dt>Pickup</dt><dd>{d.trip.pickupLabel}</dd></div>
             <div><dt>Vehicle</dt><dd>{d.quote.vehicle} · {formatINR(d.quote.fare)}{d.quote.manual ? " (draft quote)" : ""}</dd></div>
+            {!d.quote.manual && <div><dt>Fuel &amp; add-ons</dt><dd>{deskExtrasLabel(d.trip)}</dd></div>}
             <div><dt>Payment</dt><dd>{PAY_LABEL[d.payment]}{d.payment === "part" && d.partPercent ? ` · ${d.partPercent}% (${formatINR(d.amountNow)})` : ""}</dd></div>
           </dl>
           <div className="flex flex-col sm:flex-row gap-2">
@@ -131,6 +133,14 @@ export default function BookingDraftDialog({ trip, line, sourceName, customers, 
           <div className="min-w-0">
             <p className="text-sm font-extrabold text-slate-900 truncate" title={trip.route}>{trip.route}</p>
             <p className="text-[11.5px] font-semibold text-slate-500 mt-0.5">{trip.pickupLabel} · {line.vehicle}{line.classBadge ? ` (${line.classBadge})` : ""}</p>
+            {!line.manual && (
+              <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700">Fuel: {deskFuelLabel(trip.fuel)}</span>
+                {deskAddOnLabels(trip.addOns).map((a) => (
+                  <span key={a} className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-red-50 border border-red-200 text-[#991B1B]">{a}</span>
+                ))}
+              </div>
+            )}
           </div>
           <div className="text-right shrink-0">
             <p className="text-base font-extrabold text-[#991B1B] tabular-nums">{formatINR(line.fare)}</p>

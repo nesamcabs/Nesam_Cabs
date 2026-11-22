@@ -32,10 +32,12 @@ function presetAt(p: Exclude<Preset, null>): { date: string; time: string } {
   return { date: isoDateIST(at), time: hhmmIST(at) };
 }
 
-export default function FollowUpDialog({ route, line, sourceName, customers, initial, onSave, onClose }: {
+export default function FollowUpDialog({ route, line, sourceName, extras, customers, initial, onSave, onClose }: {
   route: string;
   line: DeskQuoteLine;
   sourceName: string;
+  /** Fuel and add-ons of the quote, "CNG • Pet Friendly". */
+  extras?: string;
   customers: Customer[];
   initial?: { mobile?: string; name?: string };
   onSave: (v: FollowUpSubmit) => void;
@@ -89,7 +91,7 @@ export default function FollowUpDialog({ route, line, sourceName, customers, ini
   };
 
   return (
-    <DeskDialog title="Save follow-up & set alert" icon="bell-plus" tone="amber" subtitle={`${route} · ${line.vehicle} ${formatINR(line.fare)}${line.manual ? " (draft quote)" : ""} · ${sourceName}`} onClose={onClose}>
+    <DeskDialog title="Save follow-up & set alert" icon="bell-plus" tone="amber" subtitle={`${route} · ${line.vehicle}${extras && !line.manual ? ` (${extras})` : ""} ${formatINR(line.fare)}${line.manual ? " (draft quote)" : ""} · ${sourceName}`} onClose={onClose}>
       <form onSubmit={submit} className="p-5 space-y-4" noValidate>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="dk-ff">

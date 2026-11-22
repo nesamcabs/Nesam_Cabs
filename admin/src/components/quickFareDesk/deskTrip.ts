@@ -39,7 +39,7 @@ export function activeTrip(t: QuickTrip): QuickTrip {
 export const quoteKeyOf = (t: QuickTrip, brand: DeskBrand) => {
   const a = activeTrip(t);
   return JSON.stringify([brand, a.tripType, a.multicity, a.local, a.serviceId, a.airportDirection, a.pickup?.lat, a.pickup?.lng, a.drop?.lat, a.drop?.lng,
-    (a.stops ?? []).map((s) => [s.point?.lat, s.point?.lng]), a.date, a.time, a.days, a.rentalHours]);
+    (a.stops ?? []).map((s) => [s.point?.lat, s.point?.lng]), a.date, a.time, a.days, a.rentalHours, a.fuel ?? "", a.carrier === true, a.pets === true]);
 };
 
 const placeName = (p: { name?: string; address?: string } | null, text: string) => p?.name || text.trim() || p?.address || "";
@@ -75,6 +75,8 @@ export function snapshotOf(t: QuickTrip, source: DeskBrand, roadKm: number | nul
     days: a.tripType === "Round Trip" && !a.multicity ? a.days : null,
     rentalHours: a.tripType === "Local Rental" ? (a.rentalHours ?? 1) : null,
     roadKm,
+    fuel: a.fuel === "cng" ? "cng" : null,
+    addOns: { pets: a.pets === true, carrier: a.carrier === true },
   };
 }
 

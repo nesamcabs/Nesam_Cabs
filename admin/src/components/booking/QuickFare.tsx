@@ -46,6 +46,8 @@ export interface QuickTrip {
   hill: boolean;
   carrier: boolean;
   pets?: boolean;
+  /** Priced on the class's CNG rate card instead of the standard (Diesel / Petrol) rate; only vehicles that offer CNG. */
+  fuel?: "cng";
   waitingMin: string;
   priceEntered: "Excluding GST" | "Including GST";
 }
@@ -83,6 +85,7 @@ export function tripToForm(t: QuickTrip, categoryId: string, base: ManualBooking
     categoryId,
     rentalHours: t.tripType === "Local Rental" ? (t.rentalHours ?? 1) : undefined,
     addOns: { roofCarrier: t.carrier, pets: t.pets === true },
+    fuelType: t.fuel === "cng" ? "cng" : undefined,
     tripType: isMulti ? "Multicity" : t.tripType,
     multicity: isMulti,
     tripDays: t.days,
