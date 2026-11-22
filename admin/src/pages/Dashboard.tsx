@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   AreaChart,
   Area,
@@ -224,7 +225,11 @@ function MasterDashboard({
   };
 
   const urgentTotal = stageC.new + stageC.assign;
+const [topbarTarget, setTopbarTarget] = useState<HTMLElement | null>(null);
 
+useEffect(() => {
+  setTopbarTarget(document.getElementById("dashboard-topbar-slot"));
+}, []);
   return (
     <div className="space-y-5">
       <Toast toast={toast} />
@@ -232,20 +237,13 @@ function MasterDashboard({
 
       {/* ========================================================= */}
       {/* TOP COMMAND BAR (SINGLE-ROW CLEAN SAAS HEADER)             */}
-      {/* ========================================================= */}
-<header className="bg-white rounded-2xl border border-slate-200/90 px-3 py-3 shadow-2xs overflow-x-auto">
+      {/* ========================================================= */}      
+{topbarTarget && createPortal(
+<div className="flex items-center min-w-max gap-2 whitespace-nowrap">
 <div className="flex flex-col lg:flex-row lg:items-center gap-3 lg:min-w-max lg:justify-between">
         {/* Left: Brand Identity + Navigation Pills */}
 <div className="flex items-center gap-2 flex-nowrap shrink-0 whitespace-nowrap">
-            <div className="flex items-center gap-2.5 shrink-0">
-              <div className="w-8 h-8 rounded-lg bg-[#991B1B] text-white font-extrabold text-xs flex items-center justify-center shadow-2xs">
-                NC
-              </div>
-              <div className="leading-none">
-                <p className="text-xs font-extrabold tracking-wide text-slate-900">NESAM CABS</p>
-                <span className="text-[10px] font-medium text-slate-400">Master Admin Desk</span>
-              </div>
-            </div>
+
 
 <nav className="flex shrink-0 items-center bg-slate-100 p-0.5 rounded-xl text-xs gap-0.5 whitespace-nowrap">
               <button
@@ -335,27 +333,15 @@ function MasterDashboard({
               <span>{urgentTotal} Urgent Alert{urgentTotal === 1 ? "" : "s"}</span>
             </button>
 
-            {/* Quick Fare Button */}
-            <button
-              type="button"
-              onClick={() => onNavigate("quick-fare")}
-              className="h-8 px-3 rounded-lg bg-white hover:bg-slate-50 border border-slate-200/90 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs"
-            >
-              <span>Quick Fare</span>
-            </button>
+          
 
-            {/* New Booking Button */}
-            <button
-              type="button"
-              onClick={onNewBooking}
-              className="h-8 px-3.5 rounded-lg bg-[#991B1B] hover:bg-[#7F1D1D] text-white text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-colors"
-            >
-              <span>+ New Booking</span>
-            </button>
-          </div>
-        </div>
-      </header>
+           
+</div>
+</div>
+</div>
+, topbarTarget)}
 
+{/* VIEW 1: COMMAND DESK */}
       {/* ========================================================= */}
       {/* VIEW 1: COMMAND DESK                                      */}
       {/* ========================================================= */}
