@@ -29,7 +29,7 @@ interface HeaderProps {
 
 type Sheet = "alerts" | "privacy" | "search" | "profile" | "reminders" | "sounds" | null;
 
-/** Master Admin top bar: lock · sign out · privacy · search · new booking · alerts · account. */
+/** Master Admin top bar: live utilities · page controls · search · lock · sign out · privacy · quick fare · new booking · alerts · account. */
 export default function Header({ title, onNavigate, onOpen, onCreateBooking, onQuickFare, onOpenMenu, userName, userEmail, userRole, onSignOut, badges }: HeaderProps) {
   const [sheet, setSheet] = useState<Sheet>(null);
   const [locked, setLocked] = useState(false);
@@ -37,7 +37,7 @@ export default function Header({ title, onNavigate, onOpen, onCreateBooking, onQ
   const access = useAccess();
   const canOps = canAccessPage(access, "bookings");
   const { rows } = useBookingAlerts(canOps);
-  const { unread } = useNotifications();
+  const { unread, soundOn } = useNotifications();
   const displayName = userName || userEmail?.split("@")[0] || "Admin";
   const alertCount = (canOps ? rows.length : 0) + unread;
 
@@ -47,6 +47,25 @@ export default function Header({ title, onNavigate, onOpen, onCreateBooking, onQ
     return () => clearTimeout(t);
   }, [notice]);
 
+  // Ctrl/⌘ + K opens the one global search, unless the workspace is locked or another dialog is open.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== "k" || !(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
+      if (locked || document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+      e.preventDefault();
+      setSheet("search");
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [locked]);
+
+  const newCount = badges?.newBookings ?? 0;
+  const pendingCount = badges?.awaitingAssignment ?? 0;
+  const reminderCount = canOps ? rows.length : 0;
+  const liveSummary = `${newCount} new booking${newCount === 1 ? "" : "s"} awaiting office review · ${pendingCount} booking${pendingCount === 1 ? "" : "s"} awaiting driver assignment`;
+  const cap = (n: number) => (n > 99 ? "99+" : String(n));
+  const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+
   return (
     <>
       <header className="ds-header">
@@ -54,55 +73,50 @@ export default function Header({ title, onNavigate, onOpen, onCreateBooking, onQ
           <Button className="ds-menu-toggle" variant="secondary" iconOnly icon="menu" aria-label="Open navigation menu" onClick={onOpenMenu} />
         </div>
 
-        {/* Live operations indicators and quick controls in the header middle */}
-        <div className="ds-header-center" role="region" aria-label="Live operations status">
-          {canOps ? (
+        {/* Live operations utility group: booking counters · reminders · sound settings */}
+        <div className="ds-header-center">
+          <div className="ds-utility" role="group" aria-label="Live operations">
+            {canOps ? (
+              <button
+                type="button"
+                className="ds-utility-status"
+                onClick={() => onNavigate("bookings")}
+                title={`${liveSummary}. Open Bookings.`}
+                aria-label={`${liveSummary}. Open Bookings.`}
+              >
+                <Icon name="calendar-clock" size={17} />
+                <span className="ds-utility-count"><b>{cap(newCount)}</b><span className="ds-live-label">New</span></span>
+                <span className="ds-utility-sep" aria-hidden="true" />
+                <span className="ds-utility-count" data-tone={pendingCount > 0 ? "alert" : undefined}><b>{cap(pendingCount)}</b><span className="ds-live-label">Pending</span></span>
+              </button>
+            ) : (
+              <span className="ds-utility-status" data-static="true" title="Live status">
+                <Icon name="calendar-clock" size={17} />
+                <span className="ds-live-label">Live status</span>
+              </span>
+            )}
+            {canOps && (
+              <button
+                type="button"
+                className="ds-utility-btn"
+                onClick={() => setSheet("reminders")}
+                aria-label={`Assignment reminders, ${reminderCount} booking${reminderCount === 1 ? "" : "s"} need${reminderCount === 1 ? "s" : ""} assignment`}
+                title={`Assignment reminders · ${reminderCount} booking${reminderCount === 1 ? "" : "s"} need${reminderCount === 1 ? "s" : ""} assignment`}
+              >
+                <Icon name="alarm-clock" size={17} />
+                {reminderCount > 0 && <span className="ds-utility-badge" aria-hidden="true">{cap(reminderCount)}</span>}
+              </button>
+            )}
             <button
               type="button"
-              className="ds-header-live-pill"
-              onClick={() => onNavigate("bookings")}
-              title="Click to view Bookings"
-              aria-label={`${badges?.newBookings ?? 0} new bookings, ${badges?.awaitingAssignment ?? 0} assignment pending`}
-            >
-              <Icon name="calendar-clock" />
-              <span className="ds-header-live-counts">
-                <b>{badges?.newBookings ?? 0}</b> <span className="ds-live-label">new</span>
-                <span className="ds-live-dot" aria-hidden="true">·</span>
-                <b>{badges?.awaitingAssignment ?? 0}</b> <span className="ds-live-label">pending</span>
-              </span>
-            </button>
-          ) : (
-            <div className="ds-header-live-pill" title="Live status">
-              <Icon name="calendar-clock" />
-              <span>Live status</span>
-            </div>
-          )}
-
-          <div className="ds-header-live-actions">
-            {canOps && (
-              <Button
-                variant="ghost"
-                size="sm"
-                icon="alarm-clock"
-                className="ds-header-live-btn"
-                onClick={() => setSheet("reminders")}
-                aria-label="Assignment reminders"
-                title="Assignment reminders"
-              >
-                <span className="ds-live-label">Reminders</span>
-              </Button>
-            )}
-
-            <Button
-              variant="ghost"
-              size="sm"
-              icon="sliders-horizontal"
-              iconOnly
-              className="ds-header-live-btn"
+              className="ds-utility-btn"
+              data-muted={soundOn ? undefined : "true"}
               onClick={() => setSheet("sounds")}
-              aria-label="Sound settings"
-              title="Sound settings"
-            />
+              aria-label={`Sound settings, notification sound ${soundOn ? "on" : "off"}`}
+              title={`Sound settings · notification sound ${soundOn ? "on" : "off"}`}
+            >
+              <Icon name={soundOn ? "volume-2" : "volume-x"} size={17} />
+            </button>
           </div>
         </div>
 
@@ -110,27 +124,41 @@ export default function Header({ title, onNavigate, onOpen, onCreateBooking, onQ
         <div id="dashboard-topbar-slot" className="ds-header-slot" role="group" aria-label="Dashboard controls" />
 
         <div className="ds-header-actions">
-        <Button variant="ghost" iconOnly icon="lock" onClick={() => setLocked(true)} aria-label="Lock workspace" title="Lock workspace" />
-        <Button variant="ghost" iconOnly icon="log-out" onClick={() => onSignOut?.()} aria-label="Sign out" title="Sign out" />
-        <Button iconOnly icon="shield-check" onClick={() => setSheet("privacy")} aria-label="Privacy" title="Customer privacy & access" />
-        <Button iconOnly icon="search" onClick={() => setSheet("search")} aria-label="Search records" title="Search records" />
-        {onQuickFare && (
-          <Button variant="primary" icon="calculator" onClick={onQuickFare} aria-label="Quick fare" title="Check a fare">
-            <span className="ds-btn-label ds-hdr-collapse-md">Quick fare</span>
+          {/* The one global search entry point (bookings, drivers, vendors, customers). */}
+          <button
+            type="button"
+            className="ds-header-search"
+            onClick={() => setSheet("search")}
+            aria-label="Search all records"
+            aria-keyshortcuts="Control+K Meta+K"
+            title={`Search bookings, drivers, vendors and customers (${isMac ? "⌘K" : "Ctrl+K"})`}
+          >
+            <Icon name="search" size={16} />
+            <span className="ds-header-search__label"><span className="ds-hdr-wide">Search records…</span><span className="ds-hdr-narrow">Search…</span></span>
+            <kbd className="ds-header-search__kbd">{isMac ? "⌘K" : "Ctrl K"}</kbd>
+          </button>
+          <span className="ds-header-divider" aria-hidden="true" />
+          <Button variant="ghost" iconOnly icon="lock" className="ds-header-icon" onClick={() => setLocked(true)} aria-label="Lock workspace" title="Lock workspace" />
+          <Button variant="ghost" iconOnly icon="log-out" className="ds-header-icon" onClick={() => onSignOut?.()} aria-label="Sign out" title="Sign out" />
+          <Button variant="ghost" iconOnly icon="shield-check" className="ds-header-icon" onClick={() => setSheet("privacy")} aria-label="Customer privacy and access" title="Customer privacy & access" />
+          <span className="ds-header-divider" aria-hidden="true" />
+          {onQuickFare && (
+            <Button variant="primary" icon="calculator" onClick={onQuickFare} aria-label="Quick fare" title="Quick fare · check a fare">
+              <span className="ds-btn-label ds-hdr-collapse-md">Quick fare</span>
+            </Button>
+          )}
+          {onCreateBooking && (
+            <Button variant="primary" icon="plus" onClick={onCreateBooking}>
+              <span className="ds-btn-label">New booking</span>
+            </Button>
+          )}
+          <Button icon="bell" onClick={() => setSheet("alerts")} aria-label={`Alerts, ${alertCount}`} title={`Alerts · ${alertCount}`}>
+            <span className="ds-btn-label"><span className="ds-hdr-collapse-lg">Alerts · </span>{cap(alertCount)}</span>
           </Button>
-        )}
-        {onCreateBooking && (
-          <Button variant="primary" icon="plus" onClick={onCreateBooking}>
-            <span className="ds-btn-label">New booking</span>
+          <Button variant="ghost" icon="user-round" onClick={() => setSheet("profile")} aria-label={`Account, ${displayName}`} title={access.isSuper ? "Super Admin" : displayName}>
+            <span className="ds-btn-label ds-hdr-collapse-md">{access.isSuper ? "Super Admin" : displayName}</span>
           </Button>
-        )}
-        <Button icon="bell" onClick={() => setSheet("alerts")} aria-label={`Alerts, ${alertCount}`}>
-          <span className="ds-btn-label"><span className="ds-hdr-collapse-lg">Alerts · </span>{alertCount > 99 ? "99+" : alertCount}</span>
-        </Button>
-        <Button variant="ghost" icon="user-round" onClick={() => setSheet("profile")} aria-label={`Account, ${displayName}`} title={access.isSuper ? "Super Admin" : displayName}>
-          <span className="ds-btn-label ds-hdr-collapse-md">{access.isSuper ? "Super Admin" : displayName}</span>
-        </Button>
-      </div>
+        </div>
 
       {sheet === "alerts" && <AlertsSheet canOps={canOps} onClose={() => setSheet(null)} onOpen={onOpen} onNavigate={onNavigate} />}
       {sheet === "reminders" && <AlertsDialog onClose={() => setSheet(null)} onOpenBooking={(id) => onOpen("booking-detail", id)} />}

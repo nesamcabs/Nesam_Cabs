@@ -25,6 +25,7 @@ import { useNow } from "../hooks/useNow";
 import { useOperationsSettings } from "../hooks/useOperationsSettings";
 import { paymentOf } from "../domain/bookingFlow";
 import { ErrorBanner, Toast, useToast } from "../components/Feedback";
+import Icon from "../components/ui/Icon";
 import {
   subscribeBookings,
   subscribeDrivers,
@@ -120,7 +121,6 @@ function MasterDashboard({
   const [cmdPeriod, setCmdPeriod] = useState<Period>("Today");
   const [analyticsPeriod, setAnalyticsPeriod] = useState<Period>("Month");
   const [filters, setFilters] = useState<TripFilters>(NO_TRIP_FILTERS);
-  const [globalSearch, setGlobalSearch] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
@@ -180,14 +180,7 @@ function MasterDashboard({
   const anSummary = useMemo(() => revenueSummary(scopedBookings, anWin.start, anWin.end, anWin.buckets), [scopedBookings, anWin]);
 
   // All Trips Explorer Rows
-  const effectiveFilters = useMemo<TripFilters>(() => {
-    return {
-      stage: filters.stage,
-      service: filters.service,
-      search: globalSearch.trim() || filters.search,
-    };
-  }, [filters, globalSearch]);
-  const tripsFiltered = useMemo(() => filterRows(allRows, sourceScope, effectiveFilters), [allRows, sourceScope, effectiveFilters]);
+  const tripsFiltered = useMemo(() => filterRows(allRows, sourceScope, filters), [allRows, sourceScope, filters]);
 
   // Actions
   const handleApproveDuty = useCallback(async (bookingId: string) => {
@@ -233,56 +226,50 @@ function MasterDashboard({
 
   // "All Trips" and "Revenue & GST" are drill-downs opened from the Command Desk
   // (stage cards, "Full Explorer →", "GST & Revenue Report →"), so the Command Desk
-  // tab stays highlighted while they are open.
+  // tab stays highlighted while they are open. Trip text filtering lives in the All Trips view;
+  // record search across bookings, drivers, vendors and customers is the Header's global search.
   const deskTab = activeView === "dispatch" ? "dispatch" : "command";
-  const pillCls = (on: boolean) =>
-    `px-2 min-[1440px]:px-3 h-7 rounded-lg text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#991B1B] ${
-      on ? "bg-white text-[#991B1B] font-bold shadow-2xs" : "text-slate-600 hover:text-slate-900 font-medium"
-    }`;
+  const sourceOptions: { value: SourceScope; label: string }[] = [
+    { value: "ALL", label: `All Sources (${liveBookings.length})` },
+    { value: "nesam", label: `Nesam Cabs (${srcC.nesam})` },
+    { value: "people_taxi", label: `PeopleTaxi.in (${srcC.people_taxi})` },
+    { value: "onewaycarrentals", label: `One Way Car Rentals (${srcC.onewaycarrentals})` },
+  ];
+  const sourceLabel = sourceOptions.find((o) => o.value === sourceScope)?.label ?? "All Sources";
 
   const deskToolbar = (
-    <div className="flex items-center gap-1.5 min-[1440px]:gap-2 min-w-0 whitespace-nowrap">
-      <nav aria-label="Dashboard views" className="flex shrink-0 items-center bg-slate-100 p-0.5 rounded-xl gap-0.5">
-        <button
-          type="button"
-          onClick={() => setActiveView("command")}
-          aria-current={deskTab === "command" ? "page" : undefined}
-          className={pillCls(deskTab === "command")}
-        >
+    <div className="flex items-center gap-2 min-w-0 whitespace-nowrap">
+      <nav
+        aria-label="Dashboard views"
+        className="ds-desk-tabs"
+        onKeyDown={(e) => {
+          // Left/Right move focus between the two desk tabs (activation stays on Enter/Space/click).
+          if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+          const tabs = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>("button"));
+          const i = tabs.indexOf(document.activeElement as HTMLButtonElement);
+          if (i < 0) return;
+          e.preventDefault();
+          tabs[(i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length].focus();
+        }}
+      >
+        <button type="button" onClick={() => setActiveView("command")} aria-current={deskTab === "command" ? "page" : undefined}>
           Command Desk
         </button>
-        <button
-          type="button"
-          onClick={() => setActiveView("dispatch")}
-          aria-current={deskTab === "dispatch" ? "page" : undefined}
-          className={pillCls(deskTab === "dispatch")}
-        >
+        <button type="button" onClick={() => setActiveView("dispatch")} aria-current={deskTab === "dispatch" ? "page" : undefined}>
           Dispatch Desk
         </button>
       </nav>
 
-      <input
-        type="search"
-        value={globalSearch}
-        onChange={(e) => setGlobalSearch(e.target.value)}
-        placeholder="Search trips…"
-        title="Search by booking ID, route or customer"
-        aria-label="Search dashboard trips by booking ID, route or customer"
-        className="w-32 shrink-0 min-[1440px]:w-44 min-[1920px]:w-52 h-8 px-2.5 text-xs font-medium bg-slate-50 border border-slate-200/90 rounded-lg focus:bg-white focus:border-[#991B1B] focus:outline-none transition-colors"
-      />
-
-      <select
-        aria-label="Filter by Booking Source"
-        title="Filter by Booking Source"
-        value={sourceScope}
-        onChange={(e) => setSourceScope(e.target.value as SourceScope)}
-        className="w-36 min-w-28 min-[1440px]:w-44 min-[1920px]:w-52 h-8 pl-2 pr-6 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200/90 text-slate-700 text-xs font-semibold truncate cursor-pointer focus:outline-none focus:border-[#991B1B] transition-colors"
-      >
-        <option value="ALL">All Sources ({liveBookings.length})</option>
-        <option value="nesam">Nesam Cabs ({srcC.nesam})</option>
-        <option value="people_taxi">PeopleTaxi.in ({srcC.people_taxi})</option>
-        <option value="onewaycarrentals">One Way Car Rentals ({srcC.onewaycarrentals})</option>
-      </select>
+      <label className="ds-source-filter" data-active={sourceScope !== "ALL" ? "true" : undefined} title={`Booking source: ${sourceLabel}`}>
+        <span className="sr-only">Filter by Booking Source</span>
+        <Icon name="list-filter" size={15} />
+        <select aria-label="Filter by Booking Source" value={sourceScope} onChange={(e) => setSourceScope(e.target.value as SourceScope)}>
+          {sourceOptions.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        <Icon name="chevron-down" size={14} />
+      </label>
     </div>
   );
 
@@ -894,11 +881,12 @@ function MasterDashboard({
                   value={filters.search}
                   onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
                   placeholder="Filter by ID, city, customer..."
+                  aria-label="Filter trips by booking ID, city or customer"
                   className="h-8 px-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-[#991B1B] focus:outline-none"
                 />
                 <button
                   type="button"
-                  onClick={() => { setFilters(NO_TRIP_FILTERS); setGlobalSearch(""); }}
+                  onClick={() => setFilters(NO_TRIP_FILTERS)}
                   className="h-8 px-3 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
                 >
                   Clear

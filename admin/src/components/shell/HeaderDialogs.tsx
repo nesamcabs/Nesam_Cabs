@@ -3,6 +3,7 @@ import { EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import { auth } from "../../services/firebase";
 import { Modal } from "../Feedback";
 import { Badge, Button, DataTable, EmptyState, Icon, Tabs, toneForStatus } from "../ui";
+import type { IconName } from "../ui/Icon";
 import { useCustomers, useOfficeData } from "../../hooks/useOfficeData";
 import type { AdminAccess } from "../../config/permissions";
 import { PERMISSION_INFO } from "../../config/permissions";
@@ -28,12 +29,24 @@ const tel = (n: string) => `tel:${n.replace(/[^\d+]/g, "")}`;
 
 interface Hit { role: string; status: string; exact: boolean; name: string; record?: string; id: string; contact: string; assignment: string; page: string; bookingId?: string; phone?: string }
 
+/** Search scopes. Every scope filters the same existing in-memory search; none adds a new data source. */
+const SCOPES = [
+  { id: "all", label: "All records", roles: null },
+  { id: "bookings", label: "Bookings & trips", roles: ["Bookings"] },
+  { id: "partners", label: "Drivers & vendors", roles: ["Vendors", "Vendor Drivers", "Driver Partners"] },
+  { id: "customers", label: "Customers", roles: ["Customers"] },
+] as const;
+type ScopeId = (typeof SCOPES)[number]["id"];
+const RESULT_LIMIT = 60;
+const ROLE_ICON: Record<string, IconName> = { Bookings: "calendar-clock", Vendors: "building-2", "Vendor Drivers": "users-round", "Driver Partners": "users-round", Customers: "user-round" };
+
 export function SearchDialog({ onClose, onOpen }: { onClose: () => void; onOpen: (page: string, bookingId?: string) => void }) {
   const data = useOfficeData();
   const customers = useCustomers();
   const [q, setQ] = useState("");
   const [submitted, setSubmitted] = useState("");
-  const hits = useMemo<Hit[]>(() => {
+  const [scope, setScope] = useState<ScopeId>("all");
+  const allHits = useMemo<Hit[]>(() => {
     const term = submitted.trim().toLowerCase();
     if (!term) return [];
     const d = digits(term);
@@ -45,39 +58,89 @@ export function SearchDialog({ onClose, onOpen }: { onClose: () => void; onOpen:
     for (const dr of data.drivers) if (has(dr.name, dr.phone, dr.id, dr.licenseNumber)) out.push({ role: dr.vendorId ? "Vendor Drivers" : "Driver Partners", status: dr.status, exact: mobileHit(dr.phone), name: dr.name, id: dr.id, contact: dr.phone, assignment: `${pending((b) => b.assignedDriverId === dr.id)} assigned`, page: dr.vendorId ? "vendor-drivers" : "drivers", phone: dr.phone });
     for (const c of customers.rows ?? []) if (has(c.name, c.phone, c.id)) out.push({ role: "Customers", status: c.status, exact: mobileHit(c.phone), name: c.name, id: c.id, contact: c.phone, assignment: "—", page: "customers", phone: c.phone });
     for (const b of data.bookings ?? []) if (has(b.bookingId, b.id, b.customer, b.phone)) out.push({ role: "Bookings", status: b.status, exact: false, name: `${b.pickup} → ${b.drop}`, id: b.bookingId || b.id, contact: "", assignment: "—", page: "booking-detail", bookingId: b.id });
-    return out.sort((a, b) => Number(b.exact) - Number(a.exact)).slice(0, 60);
+    return out.sort((a, b) => Number(b.exact) - Number(a.exact));
   }, [submitted, data.vendors, data.drivers, data.bookings, customers.rows]);
+  const inScope = (h: Hit, id: ScopeId) => { const roles = SCOPES.find((s) => s.id === id)?.roles; return !roles || (roles as readonly string[]).includes(h.role); };
+  const scoped = allHits.filter((h) => inScope(h, scope));
+  const hits = scoped.slice(0, RESULT_LIMIT);
+  const countOf = (id: ScopeId) => allHits.filter((h) => inScope(h, id)).length;
+  // Still loading = a source has neither delivered rows nor reported an error yet.
+  const loading = (data.bookings == null && !data.error) || (customers.rows == null && !customers.error);
+  const sourceErrors = [data.error && "bookings", customers.error && "customers"].filter(Boolean) as string[];
+  const scopeLabel = SCOPES.find((s) => s.id === scope)?.label.toLowerCase() ?? "records";
+
   return (
-    <Modal title="Search all records" onClose={onClose} wide>
-      <form onSubmit={(e) => { e.preventDefault(); setSubmitted(q); }} className="flex gap-2 mb-2">
-        <div className="ds-search" style={{ flex: 1 }}>
+    <Modal title="Search all records" subtitle="Bookings, driver partners, vendors and customers" onClose={onClose} centered size="xl">
+      <form role="search" onSubmit={(e) => { e.preventDefault(); setSubmitted(q); }} className="ds-gsearch-form">
+        <div className="ds-search">
           <Icon name="search" />
-          <input autoFocus className="ds-input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Vendor / Driver Partner name, mobile, ID, or Booking ID" aria-label="Search records" />
+          <input
+            autoFocus
+            type="text"
+            className="ds-input"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Name, mobile, permanent ID or Booking ID"
+            aria-label="Search records"
+            aria-describedby="gsearch-hint"
+            enterKeyHint="search"
+          />
         </div>
-        <Button variant="primary" type="submit" icon="search">Search</Button>
+        <Button variant="primary" type="submit" icon="search" disabled={!q.trim()}>Search</Button>
       </form>
-      <p className="text-[11px] text-faint mb-4">Search with +91, spaces or the 10-digit mobile. Exact partner mobile matches appear first.</p>
-      {!submitted ? <EmptyState icon="search" title="Enter a name, mobile number or permanent ID." hint="" /> : hits.length === 0 ? <EmptyState /> : (
-        <DataTable label="Search results" minWidth={880} fixed hasActions>
-          <colgroup><col style={{ width: 160 }} /><col style={{ width: 220 }} /><col style={{ width: 180 }} /><col style={{ width: 110 }} /><col style={{ width: 210 }} /></colgroup>
-          <thead><tr><th>ROLE / STATUS</th><th>NAME / RECORD</th><th>ID / CONTACT</th><th>ASSIGNMENT</th><th className="ds-actions">ACTION</th></tr></thead>
-          <tbody>
-            {hits.map((h) => (
-              <tr key={`${h.role}-${h.id}`}>
-                <td><strong>{h.role}</strong><div className="flex gap-1 mt-1 flex-wrap"><Badge tone={toneForStatus(statusWord(h.status))}>{statusWord(h.status)}</Badge>{h.exact && <Badge tone="blue">Exact mobile match</Badge>}</div></td>
-                <td><strong className="ds-cell-clip">{h.name}</strong></td>
-                <td><strong>{h.id.length > 16 ? `${h.id.slice(0, 14)}…` : h.id}</strong><small>{h.contact}</small></td>
-                <td>{h.assignment}</td>
-                <td className="ds-actions"><div>
-                  <Button size="sm" onClick={() => { onClose(); onOpen(h.page, h.bookingId); }}>{h.bookingId ? "Open" : "Open profile"}</Button>
-                  {h.role !== "Bookings" && h.role !== "Customers" && <Button size="sm" variant="ghost" onClick={() => { onClose(); onOpen("bookings"); }}>View duties</Button>}
-                  {h.phone && <a className="ds-btn ds-btn-ghost ds-btn-sm" href={tel(h.phone)}>Call</a>}
-                </div></td>
-              </tr>
-            ))}
-          </tbody>
-        </DataTable>
+      <p id="gsearch-hint" className="ds-gsearch-hint">Press Enter to search · Mobile works with +91, spaces or 10 digits · Exact partner mobile matches appear first · Esc closes</p>
+
+      <div className="ds-gsearch-scopes" role="radiogroup" aria-label="Search scope">
+        {SCOPES.map((s) => (
+          <button key={s.id} type="button" role="radio" aria-checked={scope === s.id} className="ds-gsearch-scope" onClick={() => setScope(s.id)}>
+            {s.label}
+            {submitted && <span className="ds-gsearch-scope__count">{countOf(s.id)}</span>}
+          </button>
+        ))}
+      </div>
+
+      {sourceErrors.length > 0 && (
+        <div className="ds-error mb-3" role="alert"><Icon name="circle-alert" />Some records could not be loaded ({sourceErrors.join(", ")}), so results may be incomplete.</div>
       )}
+
+      <div className="ds-gsearch-results" aria-live="polite">
+        {!submitted ? (
+          <EmptyState icon="search" title="Search across NESAM records" hint="Enter a name, mobile number, permanent ID or Booking ID, then press Enter." />
+        ) : loading && allHits.length === 0 ? (
+          <div className="ds-empty" role="status"><span className="ds-spinner" aria-hidden="true" /><strong>Loading records…</strong><span>Results appear as soon as live data arrives.</span></div>
+        ) : hits.length === 0 ? (
+          <EmptyState title={`No ${scope === "all" ? "records" : scopeLabel} match “${submitted.trim()}”`} hint={scope === "all" ? "Check the spelling, or try a mobile number or ID." : "Try another scope or a different term."} />
+        ) : (
+          <>
+            <p className="ds-gsearch-meta">
+              {scoped.length > RESULT_LIMIT ? `Showing the first ${RESULT_LIMIT} of ${scoped.length} results — refine your search to narrow them.` : `${scoped.length} result${scoped.length === 1 ? "" : "s"}`}
+              {loading && " · still loading some records"}
+            </p>
+            <ul className="ds-gsearch-list" aria-label="Search results">
+              {hits.map((h) => (
+                <li key={`${h.role}-${h.id}`} className="ds-gsearch-row">
+                  <span className="ds-gsearch-row__icon" aria-hidden="true"><Icon name={ROLE_ICON[h.role] ?? "search"} size={16} /></span>
+                  <div className="ds-gsearch-row__main">
+                    <strong className="ds-cell-clip" title={h.name}>{h.name}</strong>
+                    <span className="ds-gsearch-row__sub">
+                      {h.role} · <span title={h.id}>{h.id.length > 16 ? `${h.id.slice(0, 14)}…` : h.id}</span>{h.contact && ` · ${h.contact}`}{h.assignment !== "—" && ` · ${h.assignment}`}
+                    </span>
+                  </div>
+                  <div className="ds-gsearch-row__badges">
+                    <Badge tone={toneForStatus(statusWord(h.status))}>{statusWord(h.status)}</Badge>
+                    {h.exact && <Badge tone="blue">Exact mobile match</Badge>}
+                  </div>
+                  <div className="ds-gsearch-row__actions">
+                    <Button size="sm" onClick={() => { onClose(); onOpen(h.page, h.bookingId); }}>{h.bookingId ? "Open" : "Open profile"}</Button>
+                    {h.role !== "Bookings" && h.role !== "Customers" && <Button size="sm" variant="ghost" onClick={() => { onClose(); onOpen("bookings"); }}>View duties</Button>}
+                    {h.phone && <a className="ds-btn ds-btn-ghost ds-btn-sm" href={tel(h.phone)}>Call</a>}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
     </Modal>
   );
 }
