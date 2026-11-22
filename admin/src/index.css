@@ -663,7 +663,8 @@ body:has(.ds-overlay) { overflow: hidden; }
   .ds-header-actions .ds-hdr-collapse-lg { display: none; }
   .ds-header-actions .ds-btn:has(.ds-hdr-collapse-lg) { padding-inline: 10px; gap: 6px; }
   .ds-header-search__kbd { display: none; }
-  .ds-utility-count .ds-live-label { display: none; } /* tooltip + aria-label still spell out both counts */
+  /* Only the crowded Dashboard row hides the words; tooltip + aria-label still spell out both counts. */
+  .ds-header:has(.ds-header-slot:not(:empty)) .ds-utility-count .ds-live-label { display: none; }
 }
 @media (min-width: 1024px) and (max-width: 1599px) {
   .ds-header-actions { gap: 4px; }
@@ -675,6 +676,15 @@ body:has(.ds-overlay) { overflow: hidden; }
   .ds-source-filter { width: 180px; }
   .ds-header:has(.ds-header-slot:not(:empty)) { padding-inline: 16px; gap: 12px; }
 }
+/* Phones: the header keeps every action as a 34px icon (search label, shortcut and dividers drop out). */
+@media (max-width: 767px) {
+  .ds-header-actions { gap: 3px; }
+  .ds-header-divider, .ds-header-search__label, .ds-header-search__kbd { display: none; }
+  .ds-header-search { width: 34px; padding: 0; justify-content: center; }
+  .ds-header-actions .ds-btn { min-height: 34px; }
+  .ds-header-actions .ds-btn-icon, .ds-header-actions .ds-btn:has(> .ds-btn-label) { width: 34px; height: 34px; padding: 0; gap: 0; }
+}
+
 /* ══ Global search dialog ══ */
 /* Sized to its content (no tall empty sheet), capped so long result lists scroll inside the body. */
 .ds-dialog:has(.ds-gsearch-form) { max-height: min(720px, calc(100dvh - 48px)); }

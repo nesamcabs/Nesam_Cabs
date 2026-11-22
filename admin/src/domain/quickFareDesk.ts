@@ -146,46 +146,154 @@ export function formatDuration(mins: number): string {
   return `${h}h ${m}m`;
 }
 
-/** WhatsApp fare quote format matching reference */
-export function formatWhatsAppQuote(params: {
-  brandName: string;
-  route: string;
-  dateStr: string;
-  timeStr: string;
-  vehicleLines: { name: string; seats?: number | string; fare: number }[];
-}): string {
-  const lines = params.vehicleLines.map((v) => {
-    const seatText = v.seats ? ` (${typeof v.seats === "number" ? `${v.seats} Seats` : v.seats})` : "";
-    return `• ${v.name}${seatText}: ${formatINR(v.fare)}`;
-  });
-  return `*${params.brandName} — Fare Estimate*
-Route: ${params.route}
-Date: ${params.dateStr} at ${params.timeStr}
+// ── Frontend desk records (this phase keeps them in the browser session; see services/quickFareDeskBackend.ts) ──
 
-${lines.join("\n")}
-
-_(Includes Driver Bata. Toll, Parking & Permit extra as actuals)_
-Reply to confirm your cab!`;
+/**
+ * Indian mobile → "+91XXXXXXXXXX". Accepts 10 digits, +91 / 91 / 0091 prefixes and one leading zero, with spaces,
+ * dashes, dots or brackets. Anything else is rejected — digits are never dropped to make a number fit.
+ */
+export function normalizeIndianMobile(raw: string): { ok: true; e164: string; digits: string } | { ok: false; reason: string } {
+  const compact = (raw || "").trim().replace(/[\s().-]/g, "");
+  if (!compact) return { ok: false, reason: "Enter the caller's mobile number." };
+  if (!/^\+?\d+$/.test(compact)) return { ok: false, reason: "Use digits only (with an optional +91)." };
+  const m = /^(?:\+91|0091|91|0)?([6-9]\d{9})$/.exec(compact);
+  if (!m || (compact.startsWith("+") && !compact.startsWith("+91"))) {
+    return { ok: false, reason: "Enter a valid Indian mobile: 10 digits starting 6–9, optionally with +91, 0091 or 0." };
+  }
+  return { ok: true, e164: `+91${m[1]}`, digits: m[1] };
 }
 
-/** WhatsApp booking confirmation format matching reference */
-export function formatWhatsAppBooking(params: {
-  brandName: string;
-  bookingId: string;
-  customerName: string;
-  phone: string;
-  route: string;
-  dateStr: string;
-  timeStr: string;
-  vehicleName: string;
+export type DeskPayChoice = "later" | "part" | "full";
+
+/** One priced (or manually drafted) vehicle line, exactly as it was shown to the caller. */
+export interface DeskQuoteLine {
+  categoryId: string;
+  vehicle: string;
+  classBadge: string;
+  seats: string;
   fare: number;
-}): string {
-  return `*${params.brandName} — Booking Confirmed*
-Booking ID: ${params.bookingId}
-Customer: ${params.customerName} (+91 ${params.phone})
-Route: ${params.route}
-Pickup: ${params.dateStr} at ${params.timeStr}
-Cab: ${params.vehicleName}
-Fare: ${formatINR(params.fare)} (+ Toll/Parking/Permit actuals)
-Thank you!`;
+  /** "₹15/km + ₹500 Bata" from the pricing server's rate card; empty when not provided. */
+  rateLine: string;
+  includedKm: number | null;
+  /** True when staff typed the fare (pricing data unavailable): a draft quote, not a server price. */
+  manual: boolean;
+}
+
+/** The trip the quote was made for — only the fields that apply to its trip type. */
+export interface DeskTripSnapshot {
+  source: DeskBrand;
+  tripLabel: string;
+  route: string;
+  pickup: string;
+  drop: string;
+  stops: string[];
+  /** Coordinates (rounded) of each chosen place, in order — part of the duplicate check. */
+  placeKey: string;
+  /** Pickup instant (ms) and its India-time label. */
+  pickupAtMs: number;
+  pickupLabel: string;
+  days: number | null;
+  rentalHours: number | null;
+  roadKm: number | null;
+}
+
+export interface DeskFollowUp {
+  id: string;
+  key: string;
+  state: "open" | "draft" | "lost";
+  customerId: string | null;
+  mobile: string; // +91XXXXXXXXXX
+  name: string;
+  trip: DeskTripSnapshot;
+  quote: DeskQuoteLine;
+  reminderAtMs: number;
+  note: string;
+  lostReason?: string;
+  draftRef?: string;
+  createdAtMs: number;
+  updatedAtMs: number;
+}
+
+export interface DeskBookingDraft {
+  ref: string;
+  key: string;
+  trip: DeskTripSnapshot;
+  quote: DeskQuoteLine;
+  customerId: string | null;
+  mobile: string;
+  name: string;
+  payment: DeskPayChoice;
+  /** Percent paid now for "part", from Payment options when that setting could be read. */
+  partPercent: number | null;
+  amountNow: number | null;
+  followUpId: string | null;
+  createdAtMs: number;
+}
+
+export interface DeskRevealEntry {
+  id: string;
+  atMs: number;
+  staff: string;
+  caller: string;
+  reason: string;
+}
+
+/** Same customer + source + itinerary + pickup time + vehicle = the same enquiry. */
+export function deskEnquiryKey(p: { customerId: string | null; mobile: string; trip: DeskTripSnapshot; categoryId: string }): string {
+  const who = p.customerId ? `c:${p.customerId}` : `m:${p.mobile}`;
+  const t = p.trip;
+  return [who, t.source, t.tripLabel, t.placeKey, t.pickupAtMs, t.days ?? "", t.rentalHours ?? "", p.categoryId].join("|");
+}
+
+/** Queue filter of a desk follow-up at `nowMs`. */
+export function deskFollowUpStatus(f: DeskFollowUp, nowMs: number): Exclude<QueueFilter, "all"> {
+  if (f.state === "draft") return "booked";
+  if (f.state === "lost") return "lost";
+  return f.reminderAtMs <= nowMs ? "due" : "upcoming";
+}
+
+const STATUS_RANK: Record<Exclude<QueueFilter, "all">, number> = { due: 0, upcoming: 1, booked: 2, lost: 3 };
+
+/** Due first (oldest reminder first), then upcoming (soonest first), then drafts and lost (newest first). */
+export function sortDeskFollowUps(rows: DeskFollowUp[], nowMs: number): DeskFollowUp[] {
+  return [...rows].sort((a, b) => {
+    const sa = deskFollowUpStatus(a, nowMs), sb = deskFollowUpStatus(b, nowMs);
+    if (sa !== sb) return STATUS_RANK[sa] - STATUS_RANK[sb];
+    return sa === "due" || sa === "upcoming" ? a.reminderAtMs - b.reminderAtMs : b.updatedAtMs - a.updatedAtMs;
+  });
+}
+
+/** "In 12 mins" / "Due now" / "23 Nov 2026, 05:00 PM IST". */
+export function deskReminderLabel(f: DeskFollowUp, nowMs: number): string {
+  const s = deskFollowUpStatus(f, nowMs);
+  if (s === "booked") return "Booking draft";
+  if (s === "lost") return `Lost • ${f.lostReason ?? "Closed"}`;
+  if (s === "due") return "Due now";
+  const mins = Math.max(1, Math.round((f.reminderAtMs - nowMs) / 60000));
+  return mins <= 60 ? `In ${mins} min${mins === 1 ? "" : "s"}` : `${formatDateTime12(new Date(f.reminderAtMs))} IST`;
+}
+
+/** A reference that cannot be mistaken for a production booking ID. */
+export function newLocalDraftRef(nowMs = Date.now()): string {
+  const ist = new Date(nowMs + 330 * 60000).toISOString();
+  const rand = Math.random().toString(36).slice(2, 6).toUpperCase().padEnd(4, "0");
+  return `LOCAL-DRAFT-${ist.slice(2, 4)}${ist.slice(5, 7)}${ist.slice(8, 10)}-${rand}`;
+}
+
+/** Text of the quote exactly as displayed. It is copied for staff to paste; nothing is sent. */
+export function formatDeskQuoteText(p: { brandName: string; route: string; when: string; roadKm: number | null; lines: DeskQuoteLine[] }): string {
+  const draft = p.lines.some((l) => l.manual);
+  const body = p.lines.map((l) => {
+    const extra = [l.seats, l.rateLine, l.includedKm ? `${l.includedKm} km included` : ""].filter(Boolean).join(", ");
+    return `• ${l.vehicle}: ${formatINR(l.fare)}${extra ? ` (${extra})` : ""}`;
+  });
+  return [
+    `*${p.brandName} — ${draft ? "Draft fare quote" : "Fare quote"}*`,
+    `Route: ${p.route}`,
+    `Pickup: ${p.when}`,
+    ...(p.roadKm ? [`Distance: ${p.roadKm} km by road`] : []),
+    "",
+    ...body,
+    ...(draft ? ["", "_Draft quote — not yet confirmed._"] : []),
+  ].join("\n");
 }
