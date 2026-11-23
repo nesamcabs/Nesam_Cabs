@@ -81,6 +81,7 @@ export function playTone(tone: Tone, times = 1): void {
   if (!soundEnabled()) return;
   const c = context();
   if (!c || c.state !== "running") return;
+  activeSoundPreview?.stop();
   try {
     for (let i = 0; i < times; i++) PATTERNS[tone](c, c.currentTime + 0.02 + i * 0.9);
   } catch {
@@ -140,6 +141,108 @@ const PRESET: Record<PresetTone, (c: AudioContext, t: number, g: number) => numb
   "Soft Chime": (c, t, g) => { [784, 988, 1175].forEach((f, i) => note(c, f, t + i * 0.18, 0.6, "sine", 0.18 * g)); return 1.3; },
 };
 
+/** A local, cancellable preview. It never saves settings or creates a notification. */
+export interface SoundPreview {
+  stop: () => void;
+  finished: Promise<void>;
+}
+
+let activeSoundPreview: SoundPreview | null = null;
+
+/** Uses the existing preset patterns and uploaded assets; Stop closes only this preview's context. */
+export function startSoundPreview(tone: string, volume: number, seconds: number): SoundPreview {
+  activeSoundPreview?.stop();
+  let resolveFinished!: () => void;
+  let rejectFinished!: (error: unknown) => void;
+  const finished = new Promise<void>((resolve, reject) => {
+    resolveFinished = resolve;
+    rejectFinished = reject;
+  });
+  let done = false;
+  let previewContext: AudioContext | null = null;
+  let source: AudioBufferSourceNode | null = null;
+  let objectUrl: string | null = null;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+
+  const finish = (error?: unknown) => {
+    if (done) return;
+    done = true;
+    if (timer !== null) clearTimeout(timer);
+    if (source) {
+      source.onended = null;
+      try { source.stop(); } catch { /* Already ended. */ }
+      source.disconnect();
+    }
+    const closing = previewContext;
+    previewContext = null;
+    if (closing && closing.state !== "closed") {
+      void closing.close().catch(() => undefined);
+    }
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+    if (activeSoundPreview === playback) activeSoundPreview = null;
+    if (error !== undefined) rejectFinished(error);
+    else resolveFinished();
+  };
+
+  const playback: SoundPreview = { stop: () => finish(), finished };
+  activeSoundPreview = playback;
+
+  const play = async () => {
+    if (!Number.isFinite(volume) || volume <= 0) throw new Error("Increase the volume above 0 to test this sound.");
+    if (!Number.isFinite(seconds) || seconds <= 0 || seconds > 60) throw new Error("The preview duration is not valid.");
+    if (typeof window === "undefined") throw new Error("Sound preview is available in the browser.");
+    const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctor) throw new Error("This browser does not support sound preview.");
+
+    // Created/resumed directly from the button's user gesture, before awaiting an uploaded asset.
+    const c = new Ctor();
+    previewContext = c;
+    if (c.state !== "running") await c.resume();
+    if (done) return;
+    if (c.state !== "running") throw new Error("Audio is blocked. Allow sound for this site, then click Live Test again.");
+    const gain = Math.min(1, volume / 100);
+
+    if (tone.startsWith("custom:")) {
+      const url = await customSoundUrl(tone.slice(7));
+      if (done) {
+        if (url) URL.revokeObjectURL(url);
+        return;
+      }
+      if (!url) throw new Error("This uploaded sound is unavailable in this browser. Upload it again or select a preset.");
+      objectUrl = url;
+      const response = await fetch(url);
+      if (done) return;
+      if (!response.ok) throw new Error("The uploaded sound could not be loaded.");
+      const bytes = await response.arrayBuffer();
+      if (done) return;
+      const buffer = await c.decodeAudioData(bytes);
+      if (done) return;
+      if (c.state !== "running") throw new Error("Audio was suspended. Click Live Test again.");
+      const level = c.createGain();
+      level.gain.value = gain;
+      source = c.createBufferSource();
+      source.buffer = buffer;
+      source.connect(level).connect(c.destination);
+      source.onended = () => finish();
+      timer = setTimeout(() => finish(), seconds * 1000);
+      source.start();
+      return;
+    }
+
+    if (!(PRESET_TONES as readonly string[]).includes(tone)) throw new Error("Select an available preset tone or uploaded sound.");
+    const pattern = PRESET[tone as PresetTone];
+    let at = c.currentTime + 0.02;
+    const end = at + seconds;
+    while (at < end) at += pattern(c, at, gain);
+    // Closing the context also cuts off the tail of the last scheduled note at the duration limit.
+    timer = setTimeout(() => finish(), (seconds + 0.02) * 1000);
+  };
+
+  void play().catch((error: unknown) => finish(error instanceof Error ? error : new Error("Sound preview failed. Try another sound.")));
+  return playback;
+}
+
+
 /** Plays a preset (or an uploaded sound) for `seconds`, regardless of the global on/off switch. */
 export async function previewTone(tone: string, volume: number, seconds: number): Promise<void> {
   const c = context();
@@ -168,6 +271,7 @@ export function playAlert(kind: AlertKind): void {
   if (!cfg?.on) return;
   const c = context();
   if (!c || c.state !== "running") return;
+  activeSoundPreview?.stop();
   void previewTone(cfg.tone, cfg.volume, ALERT_SECONDS[kind]).catch(() => undefined);
 }
 

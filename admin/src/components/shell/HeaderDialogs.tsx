@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import { auth } from "../../services/firebase";
 import { Modal } from "../Feedback";
@@ -13,8 +13,8 @@ import {
   subscribeRequests, subscribeStaffPrivacy, type AccessLog, type PrivacyPolicy, type PrivacyRequest, type StaffPrivacy,
 } from "../../services/privacyService";
 import {
-  ALERT_KINDS, ALERT_SECONDS, DEFAULT_SOUNDS, PRESET_TONES, REPEATS, addCustomSound, listCustomSounds, loadSoundConfig, previewTone, saveSoundConfig,
-  type SoundConfig,
+  ALERT_KINDS, ALERT_SECONDS, DEFAULT_SOUNDS, PRESET_TONES, REPEATS, addCustomSound, listCustomSounds, loadSoundConfig, startSoundPreview, saveSoundConfig,
+  type SoundConfig, type SoundPreview,
 } from "../../utils/notificationSound";
 import { useNotifications } from "../NotificationHost";
 import { formatDateTime12 } from "../../utils/time";
@@ -403,42 +403,105 @@ export function SoundSettingsDialog({ onClose }: { onClose: () => void }) {
   const [cfg, setCfg] = useState<SoundConfig>(loadSoundConfig);
   const [custom, setCustom] = useState<{ id: string; name: string }[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
-  useEffect(() => { listCustomSounds().then(setCustom); }, []);
-  const set = (k: (typeof ALERT_KINDS)[number], patch: Partial<SoundConfig[typeof k]>) => setCfg({ ...cfg, [k]: { ...cfg[k], ...patch } });
+  const [testing, setTesting] = useState<(typeof ALERT_KINDS)[number] | null>(null);
+  const previewRef = useRef<SoundPreview | null>(null);
+
+  const stopPreview = useCallback(() => {
+    const playback = previewRef.current;
+    previewRef.current = null;
+    playback?.stop();
+    setTesting(null);
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    void listCustomSounds().then((rows) => { if (mounted) setCustom(rows); }).catch(() => {
+      if (mounted) setMsg("Uploaded sounds could not be loaded. Try reopening these settings.");
+    });
+    return () => {
+      mounted = false;
+      const playback = previewRef.current;
+      previewRef.current = null;
+      playback?.stop();
+    };
+  }, []);
+
+  useEffect(() => { if (!soundOn) stopPreview(); }, [soundOn, stopPreview]);
+
+  const set = (k: (typeof ALERT_KINDS)[number], patch: Partial<SoundConfig[typeof k]>) => {
+    stopPreview();
+    setCfg((current) => ({ ...current, [k]: { ...current[k], ...patch } }));
+  };
+
+  const test = (k: (typeof ALERT_KINDS)[number]) => {
+    stopPreview();
+    if (!soundOn || !cfg[k].on) {
+      setMsg("Enable sound and this alert to test it.");
+      return;
+    }
+    if (cfg[k].volume <= 0) {
+      setMsg("Increase the volume above 0 to test this sound.");
+      return;
+    }
+    setMsg(null);
+    const playback = startSoundPreview(cfg[k].tone, cfg[k].volume, ALERT_SECONDS[k]);
+    previewRef.current = playback;
+    setTesting(k);
+    void playback.finished.catch((error: unknown) => {
+      if (previewRef.current === playback) setMsg(error instanceof Error ? error.message : "Sound preview failed.");
+    }).finally(() => {
+      if (previewRef.current !== playback) return;
+      previewRef.current = null;
+      setTesting(null);
+    });
+  };
+
+  const close = () => { stopPreview(); onClose(); };
+
   return (
-    <Modal title="Notification sounds" onClose={onClose} wide footNote="Office defaults · 5 preset tones" footer={<><Button onClick={() => setCfg(DEFAULT_SOUNDS)}>Reset defaults</Button><Button variant="primary" onClick={() => { saveSoundConfig(cfg); onClose(); }}>Save changes</Button></>}>
+    <Modal title="Notification sounds" onClose={close} wide footNote="Office defaults · 5 preset tones" footer={<><Button onClick={() => { stopPreview(); setCfg(DEFAULT_SOUNDS); setMsg(null); }}>Reset defaults</Button><Button variant="primary" onClick={() => { stopPreview(); saveSoundConfig(cfg); onClose(); }}>Save changes</Button></>}>
       <div className="flex items-center justify-between gap-3 mb-4">
-        <div><strong className="text-[15px] text-ink">Notification sounds</strong><p className="text-[12px] text-muted">Choose a sound for each alert.</p></div>
+        <div><strong className="text-[15px] text-ink">Notification sounds</strong><p className="text-[12px] text-muted">Choose a sound for each alert. Live Test previews current choices before saving.</p></div>
         <div className="flex items-center gap-3">
           <span className="text-[12px] font-semibold text-ink">{soundOn ? "Sound on" : "Sound off"}</span>
-          <button type="button" role="switch" aria-checked={soundOn} aria-label={soundOn ? "Turn sound off" : "Turn sound on"} onClick={() => setSoundOn(!soundOn)}
+          <button type="button" role="switch" aria-checked={soundOn} aria-label={soundOn ? "Turn sound off" : "Turn sound on"} onClick={() => { stopPreview(); setSoundOn(!soundOn); }}
             className="relative inline-flex h-6 w-11 items-center rounded-full transition" style={{ background: soundOn ? "var(--color-brand)" : "#cfd6df" }}>
             <span className="inline-block h-5 w-5 rounded-full bg-white shadow transition" style={{ transform: `translateX(${soundOn ? 22 : 2}px)` }} />
           </button>
         </div>
       </div>
+      {msg && <p className="text-[12px] text-bad mb-3" role="alert">{msg}</p>}
       <DataTable label="Alert sounds" minWidth={860} fixed hideTools>
         <thead><tr><th>ALERT / DURATION</th><th>TONE</th><th>VOLUME</th><th>SOUND</th><th>REPEAT</th><th>PREVIEW</th></tr></thead>
-        <tbody>{ALERT_KINDS.map((k) => (
-          <tr key={k}>
-            <td><strong>{k}</strong><small>{ALERT_SECONDS[k]} seconds</small></td>
-            <td><select className="ds-select" value={cfg[k].tone} onChange={(e) => set(k, { tone: e.target.value })}>{PRESET_TONES.map((t) => <option key={t}>{t}</option>)}{custom.map((c) => <option key={c.id} value={`custom:${c.id}`}>{c.name}</option>)}</select></td>
-            <td><input type="range" min={0} max={100} value={cfg[k].volume} aria-label={`${k} volume`} onChange={(e) => set(k, { volume: Number(e.target.value) })} /> <small>{cfg[k].volume}%</small></td>
-            <td><label className="ds-check"><input type="checkbox" checked={cfg[k].on} onChange={(e) => set(k, { on: e.target.checked })} />{cfg[k].on ? "On" : "Off"}</label></td>
-            <td><select className="ds-select" value={cfg[k].repeat} onChange={(e) => set(k, { repeat: e.target.value as SoundConfig[typeof k]["repeat"] })}>{REPEATS.map((r) => <option key={r}>{r}</option>)}</select></td>
-            <td><Button size="sm" icon="play" onClick={() => previewTone(cfg[k].tone, cfg[k].volume, ALERT_SECONDS[k])}>Test sound</Button></td>
-          </tr>
-        ))}</tbody>
+        <tbody>{ALERT_KINDS.map((k) => {
+          const hint = !soundOn || !cfg[k].on ? "Enable sound to test" : cfg[k].volume <= 0 ? "Increase volume to test" : "Test the current tone and volume";
+          return (
+            <tr key={k}>
+              <td><strong>{k}</strong><small>{ALERT_SECONDS[k]} seconds</small></td>
+              <td><select className="ds-select" value={cfg[k].tone} onChange={(e) => set(k, { tone: e.target.value })}>{PRESET_TONES.map((t) => <option key={t}>{t}</option>)}{custom.map((c) => <option key={c.id} value={`custom:${c.id}`}>{c.name}</option>)}</select></td>
+              <td><input type="range" min={0} max={100} value={cfg[k].volume} aria-label={`${k} volume`} onChange={(e) => set(k, { volume: Number(e.target.value) })} /> <small>{cfg[k].volume}%</small></td>
+              <td><label className="ds-check"><input type="checkbox" checked={cfg[k].on} onChange={(e) => set(k, { on: e.target.checked })} />{cfg[k].on ? "On" : "Off"}</label></td>
+              <td><select className="ds-select" value={cfg[k].repeat} onChange={(e) => set(k, { repeat: e.target.value as SoundConfig[typeof k]["repeat"] })}>{REPEATS.map((r) => <option key={r}>{r}</option>)}</select></td>
+              <td>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button type="button" size="sm" icon="play" disabled={!soundOn || !cfg[k].on || cfg[k].volume <= 0 || testing === k} title={hint} aria-label={`Live Test: ${k}`} onClick={() => test(k)}>Live Test</Button>
+                  {testing === k && <Button type="button" size="sm" aria-label={`Stop preview: ${k}`} onClick={stopPreview}>Stop</Button>}
+                </div>
+                <small role="status">{testing === k ? "Testing current tone and volume…" : (!soundOn || !cfg[k].on || cfg[k].volume <= 0) ? hint : ""}</small>
+              </td>
+            </tr>
+          );
+        })}</tbody>
       </DataTable>
       <div className="ds-panel ds-panel-pad mt-4 flex flex-wrap items-center justify-between gap-3">
-        <div><strong className="text-[13px] text-ink">Upload own sound</strong><p className="text-[11px] text-muted">MP3 / WAV · up to 2 MB · up to 60 seconds · {custom.length}/5 uploaded</p>{msg && <p className="text-[11px] text-bad">{msg}</p>}</div>
+        <div><strong className="text-[13px] text-ink">Upload own sound</strong><p className="text-[11px] text-muted">MP3 / WAV · up to 2 MB · up to 60 seconds · {custom.length}/5 uploaded</p></div>
         <label className="ds-btn ds-btn-secondary cursor-pointer"><Icon name="upload" size={14} />Upload sound<input type="file" accept="audio/mpeg,audio/wav" className="sr-only" onChange={async (e) => {
           const f = e.target.files?.[0];
           if (!f) return;
           try { await addCustomSound(f); setCustom(await listCustomSounds()); setMsg(null); } catch (err) { setMsg(err instanceof Error ? err.message : "Upload failed."); }
         }} /></label>
       </div>
-      <p className="text-[11px] text-faint mt-3">Alert duration stays fixed: New 5s · Urgent 10s · Unassigned 5s. Urgent plays first; sounds do not overlap. Ownership ends urgent attention; pending assignment reminders continue until driver + cab are confirmed.</p>
+      <p className="text-[11px] text-faint mt-3">Alert duration stays fixed: New 5s · Urgent 10s · Unassigned 5s. Live Test plays one bounded preview; repeat choices are saved for real alerts. Urgent plays first; sounds do not overlap. Ownership ends urgent attention; pending assignment reminders continue until driver + cab are confirmed.</p>
     </Modal>
   );
 }
