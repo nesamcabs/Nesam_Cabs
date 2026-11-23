@@ -3,6 +3,7 @@ import type { Customer, MasterCoupon } from "../types";
 import "../styles/customersDirectory.css";
 import Icon from "../components/ui/Icon";
 import { ExportDialog, type ExportSpec } from "../components/ui/RecordKit";
+import { csv, type ExportFormat } from "../utils/exportData";
 import { useAccess, useCan, useCanDo } from "../components/AccessContext";
 import { CdToast } from "../components/customers/Layer";
 import { AuditLedger, BTN_PRIMARY, CARD, KpiCards } from "../components/customers/Parts";
@@ -18,8 +19,8 @@ import {
   copyText, exportCustomerNumbers, findCustomersByMobile, revealCustomerNumber, saveCustomerProfile,
 } from "../services/customerDirectoryService";
 import {
-  BRANDS, brandLabel, checkOfferCoupon, computeKpis, countSegments, customersCsv, digitsOf, filterRows, groupOf, inr, isBlockedStatus,
-  loyaltyMessage, offerFor, reminderMessage, segmentName, SEGMENTS, statementText, statusLabel, STATUS_ACTIVE, STATUS_BLOCKED, type Row, type Segment,
+  BRANDS, brandLabel, checkOfferCoupon, computeKpis, countSegments, filterRows, groupOf, inr, isBlockedStatus,
+  loyaltyMessage, offerFor, parseIndianMobile, reminderMessage, SEGMENTS, statementText, statusLabel, STATUS_ACTIVE, STATUS_BLOCKED, type Row, type Segment,
 } from "../domain/customerDirectory";
 import { paymentOf } from "../domain/bookingFlow";
 import { refDateTime } from "../domain/officeStage";
@@ -27,15 +28,6 @@ import { refDateTime } from "../domain/officeStage";
 export { customerCodeOf, emailOf };
 /** Earlier name of customerCodeOf, still imported by Communication › Messages. */
 export const customerCode = customerCodeOf;
-/** Kept for importers of the old page. */
-export function getCanonicalPhoneDigits(input: string): string {
-  const digits = (input || "").replace(/\D/g, "");
-  return digits.length >= 10 ? digits.slice(-10) : digits;
-}
-export function formatIndianPhone(input: string): string {
-  const d = getCanonicalPhoneDigits(input);
-  return d.length === 10 ? `+91 ${d.slice(0, 5)} ${d.slice(5)}` : input.trim();
-}
 
 const PAGE = 10;
 
@@ -88,9 +80,9 @@ export default function Customers({ onNavigate, onBookCustomer }: {
   const [busyBulk, setBusyBulk] = useState(false);
 
   useEffect(() => {
-    let d = digitsOf(q);
-    if (d.length === 12 && d.startsWith("91")) d = d.slice(2);
-    if (d.length !== 10) { setLookedUp(new Set()); return; }
+    // Only a complete number in a supported spelling (+91, 0, spaces, dashes…) is looked up; extra digits never match.
+    const d = parseIndianMobile(q);
+    if (!d) { setLookedUp(new Set()); return; }
     let live = true;
     const t = window.setTimeout(() => { findCustomersByMobile(d).then((r) => live && setLookedUp(new Set(r.ids))).catch(() => live && setLookedUp(new Set())); }, 250);
     return () => { live = false; window.clearTimeout(t); };
@@ -124,7 +116,7 @@ export default function Customers({ onNavigate, onBookCustomer }: {
     timers.current.clear();
     setRevealed({});
   }, []);
-  useEffect(() => { clearReveals(); setSelected(new Set()); setFailed([]); setRevealFor(null); setEditing(null); setViewingId(null); setPaying(null); setExporting(false); }, [scope, clearReveals]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { clearReveals(); setSelected(new Set()); setFailed([]); setRevealFor(null); setEditing(null); setViewingId(null); setPaying(null); setExporting(null); }, [scope, clearReveals]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (preview === "staff") clearReveals(); }, [preview, clearReveals]);
   useEffect(() => () => timers.current.forEach((t) => window.clearTimeout(t)), []);
 
@@ -132,7 +124,7 @@ export default function Customers({ onNavigate, onBookCustomer }: {
   const [viewingId, setViewingId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Customer | "new" | null>(null);
   const [paying, setPaying] = useState<string | null>(null);
-  const [exporting, setExporting] = useState(false);
+  const [exporting, setExporting] = useState<ExportFormat | null>(null);
 
   const actor = access.isSuper && !staffPreview ? `Master Admin (${email})` : `${viewer?.name || "Staff"} (${access.staffCode ? `@${access.staffCode}` : email})`;
 
@@ -198,19 +190,8 @@ export default function Customers({ onNavigate, onBookCustomer }: {
     say(bad.length ? `${ok} marked VIP; ${bad.length} failed and stay selected for a retry.` : "Selected customers upgraded to VIP!", bad.length ? "error" : "success");
   };
 
-  // Export Selected CSV: the server authorises (Master only) before the masked CSV is copied.
-  const exportSelected = async () => {
-    const list = rows.filter((r) => selected.has(r.c.id));
-    if (!list.length || busyBulk) return;
-    setBusyBulk(true);
-    try {
-      await exportCustomerNumbers(list.map((r) => r.c.id), false);
-      const text = customersCsv(list, (c) => c.phoneMasked ?? "", customerCodeOf);
-      const ok = await copyText(text);
-      say(ok ? `Master Admin Export: ${list.length} customer record${list.length === 1 ? "" : "s"} copied as CSV (numbers masked)!` : "Could not copy to the clipboard. Use Export Data to download the file.", ok ? "success" : "error");
-    } catch (e) { say((e as Error).message || "The export was not authorised.", "error"); }
-    finally { setBusyBulk(false); }
-  };
+  /** Opens the one authorised, logged export sheet; "Export Selected CSV" opens it on the selection as a CSV download. */
+  const openExport = (format: ExportFormat) => { setWithNumbers(false); setExportReason(""); setExporting(format); };
 
   // ── Export Data (the existing dialog: all / filtered / selected, Excel / CSV / print) ──
   const numbers = useRef<Record<string, string>>({});
@@ -240,8 +221,8 @@ export default function Customers({ onNavigate, onBookCustomer }: {
   const bigError = dir.error && customers === null;
 
   return (
-    <div className="cd-root space-y-6">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="cd-root @container space-y-6">
+      <header className="flex flex-col @min-[880px]:flex-row @min-[880px]:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-lg sm:text-xl leading-7 font-bold text-slate-900">Customers Directory</h1>
@@ -258,7 +239,7 @@ export default function Customers({ onNavigate, onBookCustomer }: {
           ) : (
             <span className="inline-flex items-center gap-1 px-2.5 py-2 rounded-[12px] bg-white border border-slate-200 text-[11px] leading-4 font-semibold text-slate-700 shadow-xs"><Icon name="user" size={12} />{access.roleName || "Staff"}{access.staffCode ? ` (@${access.staffCode})` : ""}</span>
           )}
-          {canExport && <button type="button" onClick={() => { setWithNumbers(false); setExportReason(""); setExporting(true); }} className="h-10 px-3.5 rounded-[12px] bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"><Icon name="download" size={14} className="text-slate-500" /><span>Export Data</span></button>}
+          {canExport && <button type="button" onClick={() => openExport("xlsx")} className="h-10 px-3.5 rounded-[12px] bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"><Icon name="download" size={14} className="text-slate-500" /><span>Export Data</span></button>}
           {canCreate && <button type="button" onClick={() => setEditing("new")} className={`h-10 px-4 rounded-[12px] text-xs flex items-center gap-2 shadow-sm active:scale-[0.99] transition-all ${BTN_PRIMARY}`}><Icon name="user-plus" size={16} /><span>+ Add Customer</span></button>}
         </div>
       </header>
@@ -269,15 +250,15 @@ export default function Customers({ onNavigate, onBookCustomer }: {
       <KpiCards k={kpis} views={dir.views} viewsError={dir.viewsError} loading={customers === null} />
 
       <section className={`${CARD} overflow-hidden`} aria-label="Customers">
-        <div className="p-4 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <div className="p-4 border-b border-slate-100 flex flex-col @min-[1100px]:flex-row @min-[1100px]:items-center justify-between gap-3">
           <div role="group" aria-label="Segment" className="flex items-center gap-1.5 flex-wrap">
             {SEGMENTS.map((t) => (
               <button key={t.id} type="button" aria-pressed={segment === t.id} onClick={() => { setSegment(t.id); setPage(1); }}
                 className={`px-3 py-1.5 rounded-[12px] text-xs leading-4 ${segment === t.id ? "font-bold bg-slate-900 text-white" : "font-medium bg-slate-100 text-slate-600 hover:bg-slate-200/70"}`}>{t.label} ({counts[t.id]})</button>
             ))}
           </div>
-          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-            <div className="relative w-full sm:w-72">
+          <div className="flex items-center gap-2 flex-wrap @min-[640px]:flex-nowrap">
+            <div className="relative w-full @min-[640px]:w-72">
               <Icon name="search" size={14} className="text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input type="search" aria-label="Search customers" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder="Search name, ID (NSM-CU), mobile or city..."
                 className="w-full h-9 pl-8 pr-3 text-xs font-medium bg-slate-50 border border-slate-200 rounded-[12px] focus:bg-white focus:border-crimson-800 focus:outline-none" />
@@ -300,7 +281,7 @@ export default function Customers({ onNavigate, onBookCustomer }: {
               )}
               <button type="button" onClick={() => { setSelected(new Set()); setFailed([]); }} className="px-2.5 py-1 rounded-lg font-semibold text-slate-600 hover:bg-white">Clear selection</button>
               {canEdit && <button type="button" onClick={() => void markVip()} disabled={busyBulk} className="px-2.5 py-1 rounded-lg font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-60">{busyBulk ? "Working…" : "Mark as VIP"}</button>}
-              {canExport && <button type="button" onClick={() => void exportSelected()} disabled={busyBulk} className="px-2.5 py-1 rounded-lg font-semibold bg-crimson-800 text-white hover:bg-crimson-900 disabled:opacity-60">Export Selected CSV</button>}
+              {canExport && <button type="button" onClick={() => openExport("csv")} disabled={busyBulk} className="px-2.5 py-1 rounded-lg font-semibold bg-crimson-800 text-white hover:bg-crimson-900 disabled:opacity-60">Export Selected CSV</button>}
             </div>
             {failed.length > 0 && (
               <ul className="basis-full text-[11px] text-red-700 list-disc pl-4" role="alert">
@@ -364,7 +345,8 @@ export default function Customers({ onNavigate, onBookCustomer }: {
         />
       )}
       {revealFor && <RevealDialog customer={revealFor} actor={actor} onClose={() => setRevealFor(null)} onReveal={doReveal} />}
-      {editing && <CustomerFormDialog customer={editing === "new" ? null : editing} all={customers ?? []} cabs={categories} onClose={() => setEditing(null)} onSaved={(t) => { setEditing(null); say(t); void dir.refresh(); }} />}
+      {editing && <CustomerFormDialog customer={editing === "new" ? null : editing} all={customers ?? []} cabs={categories} onClose={() => setEditing(null)} onSaved={(t) => { setEditing(null); say(t); void dir.refresh(); }}
+        onShowExisting={(id) => { setEditing(null); setViewingId(id); }} />}
       {payRow && (
         <MarkPaidDialog customer={payRow.c} items={(ledger.owned.get(payRow.c.id) ?? []).filter((b) => b.status === "Completed" && paymentOf(b).balanceDue > 0.004)}
           onClose={() => setPaying(null)} onChanged={(t) => say(t)} />
@@ -372,9 +354,9 @@ export default function Customers({ onNavigate, onBookCustomer }: {
       {exporting && (
         <ExportDialog
           spec={spec} all={rows} filtered={filtered} selected={rows.filter((r) => selected.has(r.c.id))}
-          filters={{ q, segment, brand }} onClose={() => { numbers.current = {}; setExporting(false); }}
+          filters={{ q, segment, brand }} initialFormat={exporting} onClose={() => { numbers.current = {}; setExporting(null); }}
           prepare={authorizeExport}
-          copy={async (list) => ({ text: customersCsv(list, mobileOf, customerCodeOf) })}
+          copy={async (list) => ({ text: csv(spec.headers, list.map(spec.row)) })}
           options={
             <fieldset className="grid gap-2 border border-slate-200 rounded-[12px] p-3">
               <legend className="px-1 text-[11px] font-semibold text-slate-600">Mobile numbers</legend>

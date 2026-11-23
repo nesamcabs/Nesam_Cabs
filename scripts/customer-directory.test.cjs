@@ -75,24 +75,36 @@ test('combined segment + brand + search; alphabetical; unrecorded brand is never
   assert.deepEqual(f({ q: '12345' }), [], 'hidden digits are not searchable');
 });
 
-test('CSV: commas, quotes, line breaks and formula-like text are escaped; numbers stay numbers', () => {
-  assert.equal(D.csvCell('plain'), 'plain');
-  assert.equal(D.csvCell('a,b'), '"a,b"');
-  assert.equal(D.csvCell('say "hi"'), '"say ""hi"""');
-  assert.equal(D.csvCell('line1\nline2'), '"line1\nline2"');
-  assert.equal(D.csvCell('line1\r\nline2'), '"line1\nline2"');
-  for (const bad of ['=1+1', '+91 98765 •••••', '-2+3', '@SUM(A1)', '\tcmd']) assert.ok(D.csvCell(bad).replace(/^"/, '').startsWith("'"), bad);
-  assert.equal(D.csvCell(12500), '12500');
-  assert.equal(D.csvCell(null), '');
-  const r = row(cust('c1', { name: '=HYPERLINK("http://x","y")', city: 'A, B', phoneMasked: '+91 98765 •••••' }), { completed: 2, spend: 4500 });
-  const csv = D.customersCsv([r], (c) => c.phoneMasked, (c) => `NSM-CU-${c.id}`);
-  const [head, line] = csv.split('\n');
-  assert.equal(head, 'Customer ID,Name,Mobile,City,Segment,Trips,Total Spend');
-  assert.ok(line.startsWith('NSM-CU-c1,"\'=HYPERLINK(""http://x"",""y"")",\'+91 98765 •••••,"A, B",Returning,2,4500'), line);
-  // the download path shares the same neutralising
-  assert.equal(X.safeCsvText('=1+1'), "'=1+1");
+test('CSV: the export download and "Copy CSV" share one writer; quotes, commas, line breaks and formula-like text are safe', () => {
+  assert.equal(D.customersCsv, undefined, 'the second CSV writer is gone');
+  const out = X.csv(['Customer ID', 'Name', 'Mobile', 'City'], [['NSM-CU-c1', '=HYPERLINK("http://x","y")', '+91 98765 •••••', 'A, B'], ['NSM-CU-c2', 'line1\nline2', '', 'say "hi"']]);
+  const [head, line1] = out.split('\r\n');
+  assert.equal(head, '"Customer ID","Name","Mobile","City"');
+  assert.equal(line1, '"NSM-CU-c1","\'=HYPERLINK(""http://x"",""y"")","\'+91 98765 •••••","A, B"');
+  assert.ok(out.includes('"line1\nline2"') && out.includes('"say ""hi"""'));
+  for (const bad of ['=1+1', '+91 98765 •••••', '-2+3', '@SUM(A1)', '\tcmd']) assert.ok(X.safeCsvText(bad).startsWith("'"), bad);
+  assert.equal(X.safeCsvText(12500), '12500');
   assert.equal(X.safeCsvText(-5), '-5');
-  assert.ok(X.csv(['H'], [['=cmd'], ['x"y']]).includes('"\'=cmd"') && X.csv(['H'], [['x"y']]).includes('"x""y"'));
+  assert.equal(X.safeCsvText(null), '');
+});
+
+test('mobile identity: supported spellings normalise to 10 digits; longer numbers are never truncated', () => {
+  for (const v of ['9876543210', '+91 98765 43210', '+91-98765-43210', '(+91) 98765.43210', '919876543210', '09876543210', '0091 98765 43210', '091 9876543210'])
+    assert.equal(D.parseIndianMobile(v), '9876543210', v);
+  for (const v of ['19876543210', '129876543210', '12349876543210', '98765432101', '919876543', '5876543210', '9876x43210', 'Ramesh', ''])
+    assert.equal(D.parseIndianMobile(v), null, v);
+});
+
+test('search: a full mobile in any supported spelling uses the server lookup; a name never identifies a mobile match', () => {
+  const c = cust('c1', { name: 'Ramesh Kumar', phoneMasked: '+91 98765 •••••' });
+  const other = cust('c2', { name: 'Ramesh Kumar', phoneMasked: '+91 91234 •••••' });
+  const found = new Set(['c1']);
+  for (const q of ['+91 98765 43210', '098765-43210', '9876543210']) {
+    assert.equal(D.matchesSearch(c, q, found), true, q);
+    assert.equal(D.matchesSearch(other, q, found), false, q + ' (same name, different number)');
+  }
+  assert.equal(D.matchesSearch(c, '1 98765 43210 9', found), false, 'extra digits do not match');
+  assert.equal(D.matchesSearch(c, '98765', new Set()), true, 'first five visible digits still match');
 });
 
 test('loyalty rule: VIP or three completed trips = VIP500 / ₹500, otherwise NESAM250 / ₹250', () => {

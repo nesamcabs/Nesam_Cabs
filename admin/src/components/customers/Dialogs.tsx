@@ -4,9 +4,8 @@ import Icon from "../ui/Icon";
 import { ActionError } from "../../services/callables";
 import { recordPayment, type PaymentMethodName } from "../../services/bookingOpsService";
 import { findCustomersByMobile, NOTE_MIN, REVEAL_CATEGORIES, saveCustomerProfile, type CustomerInput } from "../../services/customerDirectoryService";
-import { inr, isActiveStatus, isBlockedStatus, joinCompanyGstin, splitCompanyGstin } from "../../domain/customerDirectory";
+import { inr, isActiveStatus, isBlockedStatus, joinCompanyGstin, parseIndianMobile, splitCompanyGstin } from "../../domain/customerDirectory";
 import { paymentOf } from "../../domain/bookingFlow";
-import { phoneKey } from "../../services/customerStats";
 import { CloseButton, Layer, useTitleId } from "./Layer";
 import { BTN_PRIMARY, FIELD, FIELD_LABEL } from "./Parts";
 import { customerCodeOf } from "./CustomerTable";
@@ -81,8 +80,10 @@ export const cabChoices = (categories: string[], current?: string) =>
 
 type Group = "New" | "VIP" | "Corporate";
 
-export function CustomerFormDialog({ customer, all, cabs, onClose, onSaved }: {
+export function CustomerFormDialog({ customer, all, cabs, onClose, onSaved, onShowExisting }: {
   customer: Customer | null; all: Customer[]; cabs: string[]; onClose: () => void; onSaved: (text: string) => void;
+  /** Opens a customer who already holds the typed mobile (instead of creating a duplicate). */
+  onShowExisting?: (id: string) => void;
 }) {
   const titleId = useTitleId();
   const editing = !!customer;
@@ -106,11 +107,13 @@ export function CustomerFormDialog({ customer, all, cabs, onClose, onSaved }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dupIds, setDupIds] = useState<string[]>([]);
-  const key = phoneKey(f.phone);
+  // The same identity rule as the server: a supported spelling of one 10-digit mobile, never a truncated longer number.
+  const key = parseIndianMobile(f.phone) ?? "";
 
-  // Duplicate check as the number is typed: the server answers with ids only; the save re-checks inside a transaction.
+  // Duplicate check as the number is typed — by mobile only, never by name. The server answers with ids only; the
+  // save re-checks inside a transaction. Existing records are reported, never merged or deleted here.
   useEffect(() => {
-    if (editing || key.length !== 10) { setDupIds([]); return; }
+    if (editing || !key) { setDupIds([]); return; }
     let live = true;
     const t = window.setTimeout(() => { findCustomersByMobile(key).then((r) => live && setDupIds(r.ids)).catch(() => live && setDupIds([])); }, 250);
     return () => { live = false; window.clearTimeout(t); };
@@ -120,7 +123,7 @@ export function CustomerFormDialog({ customer, all, cabs, onClose, onSaved }: {
   const save = async (e: FormEvent) => {
     e.preventDefault();
     if (f.name.trim().length < 2) return setError("Enter the customer name.");
-    if (!editing && !/^[6-9]\d{9}$/.test(key)) return setError("Enter a valid 10-digit Indian mobile number.");
+    if (!editing && !key) return setError("Enter a valid 10-digit Indian mobile number (+91, 0 and spaces are fine).");
     if (f.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) return setError("Enter a valid email address.");
     if (dupIds.length) return setError(`A customer with this mobile already exists${dup ? ` (${dup.name})` : ""}.`);
     const parsed = splitCompanyGstin(f.companyGstin);
@@ -171,7 +174,11 @@ export function CustomerFormDialog({ customer, all, cabs, onClose, onSaved }: {
             {editing
               ? <input id="cd-f-phone" disabled value={customer!.phoneMasked || "No number on file"} className={FIELD} />
               : <input id="cd-f-phone" type="tel" inputMode="tel" autoComplete="off" maxLength={20} value={f.phone} onChange={(e) => set("phone", e.target.value)} placeholder="10-digit mobile" className={FIELD} aria-describedby="cd-f-dup" />}
-            <p id="cd-f-dup" role="status" className="text-[11px] mt-1 text-red-700 min-h-0">{dup ? `Already registered · ${dup.name} (${customerCodeOf(dup)})` : dupIds.length ? "Already registered to another customer" : ""}</p>
+            <p id="cd-f-dup" role="status" className="text-[11px] mt-1 text-red-700 min-h-0">
+              {dup ? `Already registered · ${dup.name} (${customerCodeOf(dup)})` : dupIds.length ? "Already registered to another customer" : ""}
+              {dupIds.length > 1 && ` · ${dupIds.length} records share this number — review them; nothing is merged automatically.`}
+            </p>
+            {dup && onShowExisting && <button type="button" onClick={() => onShowExisting(dup.id)} className="mt-1 text-[11px] font-semibold text-crimson-800 hover:underline">Open existing customer</button>}
           </div>
         </div>
         {editing ? (
@@ -209,7 +216,7 @@ export function CustomerFormDialog({ customer, all, cabs, onClose, onSaved }: {
         )}
         <div>
           <label htmlFor="cd-f-gst" className={FIELD_LABEL}>Company / GSTIN (Optional)</label>
-          <input id="cd-f-gst" maxLength={140} value={f.companyGstin} onChange={(e) => set("companyGstin", e.target.value)} placeholder="e.g., 33AABCN1234F1Z5 • Sri Tex Exports" className={FIELD} />
+          <input id="cd-f-gst" maxLength={140} value={f.companyGstin} onChange={(e) => set("companyGstin", e.target.value)} placeholder="e.g., 33AABCN1234F1Z5 • Company name" className={FIELD} />
         </div>
         {editing && <div><label htmlFor="cd-f-notes" className={FIELD_LABEL}>Admin note</label><input id="cd-f-notes" maxLength={300} value={f.notes} onChange={(e) => set("notes", e.target.value)} className={FIELD} /></div>}
         <button type="submit" disabled={busy} className={`w-full py-2.5 rounded-[12px] ${BTN_PRIMARY}`}>{busy ? "Saving…" : editing ? "Save changes" : "Save Customer Profile"}</button>

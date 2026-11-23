@@ -6,6 +6,7 @@
   "scripts": {
     "test:workspaces": "node --test ../scripts/admin-workspaces.test.cjs",
     "test:sounds": "node --test ../scripts/admin-notification-sound.test.cjs",
+    "test:customers": "node --test ../scripts/customer-directory.test.cjs",
     "dev": "vite --host 0.0.0.0",
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit && vite build --configLoader runner",

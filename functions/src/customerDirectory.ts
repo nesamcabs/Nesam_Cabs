@@ -46,6 +46,19 @@ export function phoneKey(v: unknown): string {
   const d = typeof v === 'string' ? v.replace(/\D/g, '') : '';
   return d.length >= 10 ? d.slice(-10) : '';
 }
+/**
+ * A typed Indian mobile in one of the supported spellings — 10 digits, or with a 0 / 91 / +91 / 091 / 0091 prefix,
+ * separated by spaces, dashes, dots or brackets — as its 10 digits; null for anything else. Unlike `phoneKey` (which
+ * reads stored records), extra digits are never cut off, so a mistyped 11–14 digit number cannot match a customer.
+ */
+export function parseIndianMobile(v: unknown): string | null {
+  if (typeof v !== 'string' || /[^\d\s+()\-.]/.test(v)) return null;
+  const d = v.replace(/\D/g, '');
+  const m = /^(?:0091|091|91|0)?([6-9]\d{9})$/.exec(d);
+  if (!m) return null;
+  // A bare 10-digit number is taken as is; a prefix is accepted only when it leaves exactly 10 digits.
+  return m[1];
+}
 /** "+91 98765 •••••" — the reference's masked form. */
 export function maskCustomerPhone(v: unknown): string {
   const k = phoneKey(v);
@@ -178,8 +191,8 @@ export const getCustomerSavedPlaces = onCall({ timeoutSeconds: 30 }, async (requ
  */
 export const findCustomerByMobile = onCall({ timeoutSeconds: 30 }, async (request) => {
   await requireAdmin(request.auth);
-  const key = phoneKey(request.data?.phone);
-  if (key.length !== 10) throw new HttpsError('invalid-argument', 'Enter the full 10-digit mobile number.');
+  const key = parseIndianMobile(request.data?.phone);
+  if (!key) throw new HttpsError('invalid-argument', 'Enter the full 10-digit mobile number.');
   const [idx, legacy] = await Promise.all([db.doc(`customer_phone_index/${key}`).get(), db.collection('customers').where('phone', 'in', phoneVariants(key)).limit(5).get()]);
   const ids = new Set(legacy.docs.map((d) => d.id));
   if (idx.exists) ids.add(String(idx.data()!.customerId));
@@ -384,8 +397,8 @@ export const saveCustomerProfile = onCall({ timeoutSeconds: 30 }, async (request
   const lead = has('leadSource') ? clean(input.leadSource, 60) : undefined;
 
   if (creating) {
-    const key = phoneKey(input.phone);
-    if (!/^[6-9]\d{9}$/.test(key)) throw new HttpsError('invalid-argument', 'Enter a valid 10-digit Indian mobile number.');
+    const key = parseIndianMobile(input.phone);
+    if (!key) throw new HttpsError('invalid-argument', 'Enter a valid 10-digit Indian mobile number.');
     if (lead !== undefined && lead && !LEAD_SOURCES.includes(lead)) throw new HttpsError('invalid-argument', 'Choose a lead source from the list.');
     if (lead) patch.leadSource = lead;
     const id = db.collection('customers').doc().id;

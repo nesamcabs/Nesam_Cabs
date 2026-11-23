@@ -120,7 +120,7 @@ export function CustomerDrawer(p: DrawerProps) {
               <p className={LABEL}>Pending Credit Due</p>
               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                 <p className={`font-bold ${due > 0.004 ? "text-amber-700" : "text-emerald-700"}`}>{due > 0.004 ? inr(due) : "₹0 (Settled)"}</p>
-                {due > 0.004 && <button type="button" onClick={p.onRemind} className="px-2 py-0.5 rounded text-[10px] leading-4 font-semibold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100">Remind WA</button>}
+                {due > 0.004 && <button type="button" onClick={p.onRemind} className="px-2 py-0.5 rounded text-[10px] leading-4 font-semibold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100" title="Copies a WhatsApp payment reminder; it is not sent">Copy WA reminder</button>}
                 {due > 0.004 && (p.canSettle
                   ? <button type="button" onClick={p.onMarkPaid} className="px-2 py-0.5 rounded text-[10px] leading-4 font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100">Mark Paid</button>
                   : <button type="button" onClick={p.onStatement} className="px-2 py-0.5 rounded text-[10px] leading-4 font-semibold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50" title="Settlement is recorded in Accounts">Open statement</button>)}

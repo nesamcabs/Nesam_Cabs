@@ -44,7 +44,7 @@ export function KpiCards({ k, views, viewsError, loading }: { k: Kpis; views: Nu
   const dash = (v: string) => (loading ? "—" : v);
   const logged = viewsError ? "view log unavailable" : views ? `${views.total} reason-logged view${views.total === 1 ? "" : "s"}` : "loading views";
   return (
-    <section aria-label="Summary" className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+    <section aria-label="Summary" className="grid grid-cols-2 @min-[880px]:grid-cols-4 gap-3.5">
       <Kpi label="Total Customers" icon="users" iconCls="bg-slate-100 text-slate-600" value={dash(String(k.total))} valueCls="text-slate-900" sub="Customer accounts on record" />
       <Kpi label="Repeat / VIP (3+ Trips)" icon="crown" iconCls="bg-amber-50 text-amber-600" value={dash(String(k.vip))} valueCls="text-amber-600" sub="Regular riders and marked VIPs" />
       <Kpi label="Corporate / GST" icon="building-2" iconCls="bg-blue-50 text-blue-600" value={dash(String(k.corporate))} valueCls="text-blue-700" sub="Corporate accounts" />

@@ -2,6 +2,7 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../../services/firebase";
 import { exportRows, type Cell, type ExportFormat } from "../../utils/exportData";
+import { copyText } from "../../utils/clipboard";
 import { Modal } from "../Feedback";
 import Button from "./Button";
 
@@ -10,20 +11,6 @@ export function Initials({ name }: { name: string }) {
   const parts = name.replace(/[^\p{L}\p{N}\s·]/gu, "").split(/\s+/).filter(Boolean);
   const t = parts.length > 1 ? `${parts[0][0]}${parts[1][0] === "·" ? "·" : parts[1][0]}` : (parts[0] ?? "?").slice(0, 2);
   return <span className="ds-initials" aria-hidden="true">{t.toUpperCase()}</span>;
-}
-
-async function copyToClipboard(text: string): Promise<boolean> {
-  try {
-    if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text); return true; }
-  } catch { /* use the selection fallback */ }
-  try {
-    const ta = document.createElement("textarea");
-    ta.value = text; ta.setAttribute("readonly", ""); ta.style.cssText = "position:fixed;opacity:0;top:0;left:0";
-    document.body.appendChild(ta); ta.select();
-    const ok = document.execCommand("copy");
-    document.body.removeChild(ta);
-    return ok;
-  } catch { return false; }
 }
 
 export interface ExportSpec<T> {
@@ -36,7 +23,7 @@ export interface ExportSpec<T> {
  * "Export <scope>" sheet: selected / filtered / all records as Excel, CSV or a printable page.
  * Every export is logged with the staff member, time, filters and record count.
  */
-export function ExportDialog<T>({ spec, all, filtered, selected, filters, onClose, options, prepare, copy }: {
+export function ExportDialog<T>({ spec, all, filtered, selected, filters, onClose, options, prepare, copy, initialFormat = "xlsx" }: {
   spec: ExportSpec<T>;
   all: T[];
   filtered: T[];
@@ -49,9 +36,11 @@ export function ExportDialog<T>({ spec, all, filtered, selected, filters, onClos
   prepare?: (rows: T[]) => Promise<string | null>;
   /** Adds "Copy CSV": returns the text to copy (or an error message). */
   copy?: (rows: T[]) => Promise<{ text: string } | { error: string }>;
+  /** The file format chosen when the sheet opens (e.g. CSV for an "Export … CSV" button). */
+  initialFormat?: ExportFormat;
 }) {
   const [which, setWhich] = useState<"selected" | "filtered" | "all">(selected.length ? "selected" : "filtered");
-  const [format, setFormat] = useState<ExportFormat>("xlsx");
+  const [format, setFormat] = useState<ExportFormat>(initialFormat);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const rows = which === "selected" ? selected : which === "filtered" ? filtered : all;
@@ -67,7 +56,7 @@ export function ExportDialog<T>({ spec, all, filtered, selected, filters, onClos
       if (refused) return setError(refused);
       const r = await copy(rows);
       if ("error" in r) return setError(r.error);
-      if (await copyToClipboard(r.text)) setCopied(true);
+      if (await copyText(r.text)) setCopied(true);
       else setError("The browser did not allow copying. Use the file download instead.");
     } finally {
       setBusy(false);
