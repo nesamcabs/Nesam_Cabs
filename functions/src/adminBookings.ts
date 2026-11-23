@@ -236,6 +236,9 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
     if (!configured.length) throw new HttpsError('failed-precondition', NO_BOOKABLE_CATEGORIES);
     const category = configured.find((c) => c.id === input.categoryId);
     if (!category) throw new HttpsError('failed-precondition', 'This vehicle category is not bookable (it is inactive or has no name).');
+    // CNG is priced from the class's CNG rate card, only on vehicles that offer it (the same rule as customer bookings).
+    const fuel = input.fuelType === 'cng' ? ('cng' as const) : undefined;
+    if (fuel && category.cngEnabled !== true) throw new HttpsError('failed-precondition', 'CNG is not offered on this vehicle.');
     let service = serviceName(pickup, drop, route.distanceKm, tripType), serviceId = '';
     const allServices: ServiceMasterDoc[] = servicesSnap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
     if (serviceSnap) {
@@ -275,7 +278,7 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
 
     const boardingState = await fareBoardingState(tariff, pickup);
     const recipientState = recipientGstState(business?.data() ?? customer?.data());
-    const priceInput = { addOns: bookingAddOnsOf(input.addOns ?? input.tripExtras), boardingState, recipientState, recipientAddressState: recipientAddressState(business?.data() ?? customer?.data()), category, route, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, adminDiscount: discountIn, localCityId, localZoneId, rentalHours, fixedRoutes, serviceId, businessContract:contract, brand: bookingChannel, platformFee, nightAllowance, tripDays, timePackage, stops, multicity };
+    const priceInput = { addOns: bookingAddOnsOf(input.addOns ?? input.tripExtras), fuel, boardingState, recipientState, recipientAddressState: recipientAddressState(business?.data() ?? customer?.data()), category, route, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, adminDiscount: discountIn, localCityId, localZoneId, rentalHours, fixedRoutes, serviceId, businessContract:contract, brand: bookingChannel, platformFee, nightAllowance, tripDays, timePackage, stops, multicity };
     // Coupon: the same server checks as customer checkout (validity, usage limits, minimum fare,
     // category / service, audience) against the fare before discount; then the booking is priced with it.
     let couponDiscount = 0;
@@ -311,6 +314,8 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
       }
     }
     const pricedRaw = priceBooking({ ...priceInput, ...(couponDiscount ? { discount: couponDiscount } : {}) });
+    // Some trips have no CNG rate (time-based round-trip packages, for example): never sell them as CNG at the standard rate.
+    if (fuel && pricedRaw.pricing.fuelType !== 'cng') throw new HttpsError('failed-precondition', 'CNG is not available for this trip on this vehicle.');
     const priced = { ...pricedRaw, pricing: adjustPartner(pricedRaw.pricing, rules) };
     assertWithinLimits(rules, { categoryName: category.name, customerFare: priced.fare.total, partnerPayout: partnerPayoutRupees(priced.pricing) });
     const calculated = priced.fare;
@@ -325,7 +330,7 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
       const roundTrip = tripType === 'Round Trip' || multicity;
       const roadKm = Math.round(route.distanceKm * (roundTrip ? 2 : 1) * 10) / 10;
       const roadMinutes = Math.round(route.durationMin * (roundTrip ? 2 : 1));
-      return { quote: calculated, addOnRates: (() => { const r = addOnRatesOf(priceInput); return { carrierCharge: r.carrier, petCharge: r.pet }; })(), breakup, service, categoryName: category.name, commissionConfigured: true, adjustmentApplied: calculated.globalAdjustment, pricing: quotePricing, roadKm, roadMinutes, ...(couponCode ? { couponCode, couponDiscount } : {}) };
+      return { quote: calculated, addOnRates: (() => { const r = addOnRatesOf(priceInput); return { carrierCharge: r.carrier, petCharge: r.pet }; })(), breakup, service, categoryName: category.name, commissionConfigured: true, adjustmentApplied: calculated.globalAdjustment, pricing: quotePricing, roadKm, roadMinutes, cngAvailable: category.cngEnabled === true, ...(fuel ? { fuelType: fuel } : {}), ...(couponCode ? { couponCode, couponDiscount } : {}) };
     }
     if (!Number.isFinite(input.expectedFare) || input.expectedFare !== calculated.total) {
       throw new HttpsError('failed-precondition', `The calculated fare is ₹${calculated.total}. Review it and submit again.`, { fare: calculated });
@@ -374,6 +379,7 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
       ...officeBookingExtras(input, admin),
       routeEstimated: false, couponCode: couponDiscount ? couponCode : '', discount: fare.discount, notes: text(input.notes), payment: summary.status === 'Paid' ? 'Paid' : 'Pending', paymentStatus: summary.status,
       paymentSummary: { ...summary, updatedAt: Timestamp.now() }, paymentMethod,
+      ...(fuel ? { fuelType: fuel } : {}),
       rideTiming: 'scheduled', bookingType: 'advance', scheduledAt: Timestamp.fromDate(when), pickupAt: Timestamp.fromDate(when),
       date, time, status: 'Pending', tripSubStatus: 'Not Started', source: bookingChannel === 'nesam' ? 'admin' : bookingChannel, bookingSource: bookingChannel, brand: bookingChannel, ...availabilityFields(rules), createdBy: admin.uid, createdByName: admin.name, createdAt: stamp, updatedAt: stamp,
     });
@@ -412,7 +418,7 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
     const n: NotifyInput = {
       recipientType: 'admin', recipientId: 'admin', category: 'bookings', severity: 'info', sound: 'new_booking',
       title: 'New booking request to review',
-      message: `${bookingCode} · ${name} · ${pickup.name} → ${drop.name} · ${formatDateTime12(when)} · ${inr(fare.total)}`,
+      message: `${bookingCode}${fuel ? ' · CNG' : ''} · ${name} · ${pickup.name} → ${drop.name} · ${formatDateTime12(when)} · ${inr(fare.total)}`,
       bookingId: requestId, bookingCode, cta: { label: 'Review booking', page: 'booking-detail', bookingId: requestId }, push: true, sentBy: admin.uid,
     };
     pushes.push({ id: notifyInTx(tx, n), input: n });

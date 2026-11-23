@@ -77,6 +77,10 @@ export interface Enquiry {
   createdAt?: Timestamp;
   createdBy: string;
   createdByName?: string;
+  /** Saved from the Quick Fare desk: its duplicate key, the quoted trip and the vehicle line (components/quickFareDesk). */
+  deskKey?: string;
+  deskTrip?: (Record<string, unknown> & { tab?: string; route?: string; fuel?: "cng" | null; carrier?: boolean; pets?: boolean }) | null;
+  deskQuote?: Partial<import("../domain/quickFareDesk").DeskQuoteLine> | null;
 }
 
 const COL = "enquiries";
@@ -126,6 +130,25 @@ export async function saveEnquiry(e: NewEnquiry): Promise<Enquiry> {
 export async function updateEnquiryStatus(id: string, status: EnquiryStatus, note: string) {
   const who = me();
   await updateDoc(doc(db, COL, id), { status, ...(note ? { note } : {}), history: arrayUnion({ status, note, byName: who.name, at: Timestamp.now() }) });
+}
+
+/**
+ * Saves a new quote and callback time on an open enquiry (the Quick Fare desk's "same caller, same trip" rule).
+ * Refused when the enquiry was converted, closed or expired meanwhile, so a finished enquiry is never reopened.
+ */
+export async function updateEnquiryFollowUp(id: string, patch: Partial<NewEnquiry>, note: string): Promise<void> {
+  const who = me();
+  const ref = doc(db, COL, id);
+  await runTransaction(db, async (tx) => {
+    const row = (await tx.get(ref)).data() as Enquiry | undefined;
+    if (!row) throw new Error("This enquiry no longer exists. Save the follow-up again.");
+    if (["Converted", "Closed", "Expired"].includes(effectiveStatus(row)) || row.convertedBookingId) throw new Error("This enquiry was closed meanwhile. Save the follow-up again to start a new one.");
+    tx.update(ref, {
+      ...Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)),
+      status: "Call back",
+      history: arrayUnion({ status: "Call back", note, byName: who.name, at: Timestamp.now() }),
+    });
+  });
 }
 
 export async function markEnquirySent(id: string) {

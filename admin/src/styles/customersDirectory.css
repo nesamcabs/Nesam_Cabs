@@ -42,7 +42,6 @@
 .ds-workspace[data-route='customers'] .ds-master-tag { border-top: 1px solid #f1f5f9; padding: 14px 4px 0; font-size: 11px; color: #64748b; }
 .ds-workspace[data-route='customers'] .ds-master-tag strong { font-size: 11px; color: #475569; font-weight: 600; }
 .ds-workspace[data-route='customers'] .ds-master-tag svg { color: #991b1b; }
-.ds-workspace[data-route='customers'] .ds-header { border-bottom-color: rgb(226 232 240 / 0.9); }
 .ds-workspace[data-route='customers'] .ds-main { padding: 16px; }
 .ds-workspace[data-route='customers'] .ds-page { max-width: 80rem; margin-inline: auto; width: 100%; }
 @media (min-width: 640px) { .ds-workspace[data-route='customers'] .ds-main { padding: 24px; } }

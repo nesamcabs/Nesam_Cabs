@@ -1,105 +1,73 @@
-/* NESAM CABS Quick Fare & Follow-Up Desk — Scoped Styles */
+/* Quick Fare & Enquiry Desk (pages/QuickFare.tsx). Everything here is scoped to the desk (.qfd-root, .qfd-layer, .dk-*);
+   the layout itself is Tailwind utilities in the components. Inter 400–700 is bundled in main.tsx. */
+
+/* Same layer order as Tailwind's own statement, whichever stylesheet loads first. */
+@layer theme, base, components, utilities;
 
 .qfd-root, .qfd-layer {
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color: #0f172a;
   -webkit-font-smoothing: antialiased;
 }
-
 .qfd-root :is(button, input, select, textarea),
-.qfd-layer :is(button, input, select, textarea) {
-  font-family: inherit;
-}
-
-.qfd-root :is(button:not(:disabled)),
-.qfd-layer :is(button:not(:disabled)) {
-  cursor: pointer;
-}
-
+.qfd-layer :is(button, input, select, textarea) { font-family: inherit; }
+.qfd-root button:not(:disabled), .qfd-layer button:not(:disabled) { cursor: pointer; }
 .qfd-root :is(button, input, select, textarea, a, [tabindex]):focus-visible,
-.qfd-layer :is(button, input, select, textarea, a, [tabindex]):focus-visible {
-  outline: 2px solid #991b1b;
-  outline-offset: 2px;
-}
+.qfd-layer :is(button, input, select, textarea, a, [tabindex]):focus-visible { outline: 2px solid #991b1b; outline-offset: 2px; }
+.qfd-root ::selection { background: #fee2e2; color: #991b1b; }
 
-/* Animations */
-.fade-slide-in {
-  animation: qfdFadeSlideIn 0.22s ease-out forwards;
-}
+/* index.css enlarges small text, inputs and placeholders app-wide with unlayered rules (they beat Tailwind's utility layer).
+   Inside the desk those rules step aside (`revert-layer`), so the desk's own Tailwind sizes apply, responsive ones included. */
+:is(.qfd-root, .qfd-layer) :is(.text-xs, .text-\[10px\], .text-\[11px\], .text-\[12px\]) { font-size: revert-layer; line-height: revert-layer; }
+:is(.qfd-root, .qfd-layer) :is(input, select, textarea):not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']) { font-size: revert-layer; line-height: revert-layer; color: revert-layer; }
+:is(.qfd-root, .qfd-layer) input[type='date'] { min-height: revert-layer; }
+:is(.qfd-root, .qfd-layer) :is(.text-red-600, .text-red-700) { font-weight: revert-layer; }
+:is(.qfd-root, .qfd-layer) ::placeholder { color: #94a3b8; }
 
-@keyframes qfdFadeSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
+/* Dialog layer: above the admin header. */
+.qfd-layer { z-index: 120; }
 
-.swap-spin {
-  animation: qfdSpin180 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-}
+/* The desk uses the full content area (its own max-width and gutters). */
+.ds-workspace[data-route='quick-fare'] .ds-main { padding: 0; background: #f8fafc; }
 
-@keyframes qfdSpin180 {
-  0% { transform: translateY(-50%) rotate(0deg); }
-  100% { transform: translateY(-50%) rotate(180deg); }
-}
-
+/* Motion */
+.fade-slide-in { animation: qfdFadeSlideIn 0.22s ease-out forwards; }
+@keyframes qfdFadeSlideIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+/* The swap button is centred with Tailwind's `translate` property, so the spin only rotates. */
+.swap-spin { animation: qfdSpin180 0.35s cubic-bezier(0.4, 0, 0.2, 1); }
+@keyframes qfdSpin180 { from { transform: rotate(0deg); } to { transform: rotate(180deg); } }
 @media (prefers-reduced-motion: reduce) {
-  .fade-slide-in, .swap-spin {
-    animation: none !important;
-  }
+  .fade-slide-in, .swap-spin { animation: none !important; }
+  .qfd-root .animate-ping, .qfd-root .animate-pulse { animation: none !important; }
 }
 
-/* Native date picker input overlay */
-.qfd-date-native::-webkit-calendar-picker-indicator {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  cursor: pointer;
-}
+/* The whole date box opens the native date picker. */
+.qfd-date-native::-webkit-calendar-picker-indicator { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 
-/* Modal and dialog layers */
-.qfd-layer {
-  position: fixed;
-  inset: 0;
-  z-index: 120;
-  background-color: rgba(15, 23, 42, 0.5);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  display: flex;
+/* ── Place search (components/booking/QuickFare.tsx PlaceField, "desk" variant) ── */
+.dk-place { position: static; }
+/* In a layer, so the input reset above falls back to these sizes. */
+@layer components {
+  .dk-place__input { display: block; width: 100%; height: 20px; padding: 0; border: 0; outline: 0; background: transparent; font-size: 14px; line-height: 20px; font-weight: 500; color: #1e293b; text-overflow: ellipsis; }
+  .dk-place__input::placeholder { color: #94a3b8; font-weight: 400; }
+  /* Round-trip / via stops: the reference's dashed stop input. */
+  .dk-stop .dk-place__input { height: 36px; padding: 0 12px; border: 1px dashed #cbd5e1; border-radius: 8px; background: #f8fafc; font-size: 12px; line-height: 34px; font-weight: 500; color: #1e293b; transition: background-color .15s, border-color .15s; }
+  .dk-stop .dk-place__input:focus { background: #fff; border-color: #991b1b; }
 }
+.qfd-root .dk-place__input:focus-visible { outline: none; }
+.dk-place__spin { position: absolute; right: 84px; top: 50%; margin-top: -7px; color: #94a3b8; }
+.dk-place__list { position: absolute; left: 8px; right: 8px; top: calc(100% + 4px); z-index: 60; max-height: min(300px, 46vh); overflow-y: auto; margin: 0; padding: 6px; list-style: none; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 14px 30px rgb(15 23 42 / .16); }
+.dk-place__group { display: block; padding: 7px 8px 3px; font-size: 10px; font-weight: 700; letter-spacing: .9px; text-transform: uppercase; color: #94a3b8; }
+.dk-place__opt { display: grid; grid-template-columns: 28px minmax(0, 1fr); align-items: center; gap: 10px; padding: 7px 8px; border-radius: 9px; cursor: pointer; }
+.dk-place__opt:hover, .dk-place__opt[aria-selected="true"] { background: #f1f5f9; }
+.dk-place__icon { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: #f1f5f9; color: #64748b; }
+.dk-place__opt[aria-selected="true"] .dk-place__icon { background: #fef2f2; color: #991b1b; }
+.dk-place__opt strong { display: block; font-size: 13px; font-weight: 600; color: #0f172a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dk-place__opt small { display: block; font-size: 11.5px; color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A search problem shows as a small panel under the field while it is being edited (the field has a fixed height). */
+.dk-place__problem { position: absolute; left: 8px; right: 8px; top: calc(100% + 4px); z-index: 60; margin: 0; padding: 8px 10px; border-radius: 10px; border: 1px solid #fde68a; background: #fffbeb; color: #92400e; font-size: 11px; font-weight: 500; box-shadow: 0 8px 20px rgb(15 23 42 / .10); }
+.dk-place:not(:focus-within) .dk-place__problem { display: none; }
+[data-place-field]:has(.dk-place__list), [data-place-field]:has(.dk-place__problem), .dk-stop:has(.dk-place__list), .dk-stop:has(.dk-place__problem) { z-index: 20; }
 
-.qfd-layer[data-kind="bottom-sheet"] {
-  align-items: flex-end;
-  justify-content: center;
-  padding: 0;
-}
-
-@media (min-width: 640px) {
-  .qfd-layer[data-kind="bottom-sheet"] {
-    align-items: center;
-    padding: 16px;
-  }
-}
-
-.qfd-layer[data-kind="center"] {
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-}
-
-/* Route shell matching the reference max-w-6xl */
-.ds-workspace[data-route='quick-fare'] {
-  background: #f8fafc;
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-
-.ds-workspace[data-route='quick-fare'] .ds-main {
-  padding: 0;
-  background: #f8fafc;
-}
+.dk-stop .dk-place__spin { right: 10px; }
+.dk-stop .dk-place__list, .dk-stop .dk-place__problem { left: 0; right: 0; }

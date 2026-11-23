@@ -65,6 +65,8 @@ import { canAccessPage, canExportFrom, landingPage, needsRedactedBookings } from
 import { setRedactedBookingReads, setRedactedCustomerReads } from "./services/adminFirestoreService";
 import { setExportGuard } from "./utils/exportData";
 import { useNavBadges } from "./hooks/useNavBadges";
+import { DeskProvider, hasCommandDesk, loadDeskPrefs, saveDeskPrefs, type DeskId, type DeskState } from "./components/shell/DeskContext";
+import type { SourceScope } from "./domain/commandDesk";
 import { NAV_GROUPS, groupOfPage } from "./components/shell/navConfig";
 import { resolveAdminDestination } from "./config/adminNavigation";
 import { canLeaveFareWorkspace } from "./services/fareWorkspaceGuard";
@@ -139,6 +141,11 @@ function AdminShell({ session }: { session: AdminSession }) {
   const { toast, show: showToast } = useToast(9000);
   const canCreateBooking = canAccessPage(session.access, "new-booking");
   const canQuickFare = canAccessPage(session.access, "quick-fare");
+  // Dashboard desk and booking source: chosen in the header on any page, kept while navigating.
+  const [desk, setDesk] = useState<DeskId>(() => loadDeskPrefs().desk);
+  const [deskRequest, setDeskRequest] = useState(0);
+  const [source, setSource] = useState<SourceScope>(() => loadDeskPrefs().source);
+  useEffect(() => saveDeskPrefs({ desk, source }), [desk, source]);
 
   const currentPage = selectedBookingId ? "booking-detail" : activePage;
   const openNewBooking = (d: NewBookingDraft | null = null) => {
@@ -181,14 +188,24 @@ function AdminShell({ session }: { session: AdminSession }) {
   // What Service & Fare Settings restores on mount (pricingView).
   const pricingView = useRef<PricingView | null>(null);
 
-  const navigate = (page: string, tab?: string) => {
-    if (!canLeaveFareWorkspace()) return;
+  /** Opens a page; false when the open Fare Settings workspace kept the admin on it (unsaved changes). */
+  const navigate = (page: string, tab?: string): boolean => {
+    if (!canLeaveFareWorkspace()) return false;
     ({ page, tab } = resolveAdminDestination(page, tab));
     setBookingsTab(tab);
     setActivePage(page);
     setSelectedBookingId(null);
     setMobileNavOpen(false);
+    return true;
   };
+
+  /** Command Desk / Dispatch Desk from the header: the Dashboard on that desk, from any page; the source stays as chosen. */
+  const selectDesk = (d: DeskId) => {
+    if (currentPage !== "dashboard" && !navigate("dashboard")) return;
+    setDesk(d);
+    setDeskRequest((n) => n + 1);
+  };
+  const deskState: DeskState = { available: hasCommandDesk(session.access), desk, request: deskRequest, source, selectDesk, setSource };
 
   /** Notification / shortcut targets: a booking opens its details, anything else is a page. */
   const openTarget = (page: string, bookingId?: string) => {
@@ -393,6 +410,7 @@ function AdminShell({ session }: { session: AdminSession }) {
   return (
     <AccessProvider value={session.access}>
     <NotificationProvider onOpen={openTarget}>
+    <DeskProvider value={deskState}>
     <div className="ds-workspace" data-collapsed={collapsed} data-route={currentPage}>
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[200] focus:bg-white focus:px-3 focus:py-2 focus:rounded-md focus:shadow-md">
         Skip to content
@@ -424,7 +442,6 @@ function AdminShell({ session }: { session: AdminSession }) {
           userEmail={session.user.email}
           userRole={session.access.roleName}
           onSignOut={endStaffSession}
-          badges={badges}
         />
 
         <main id="main" tabIndex={-1} className="ds-main">
@@ -437,6 +454,7 @@ function AdminShell({ session }: { session: AdminSession }) {
       </div>
       <Toast toast={toast} />
     </div>
+    </DeskProvider>
     </NotificationProvider>
     </AccessProvider>
   );

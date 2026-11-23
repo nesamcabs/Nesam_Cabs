@@ -23,7 +23,7 @@ export const fetchSavedPlaces = (customerId: string) => callFunction<{ customerI
 export const findCustomersByMobile = (phone: string) => callFunction<{ phone: string }, { ids: string[] }>("findCustomerByMobile", { phone });
 export const revealCustomerNumber = (customerId: string, category: string, note: string) =>
   callFunction<{ customerId: string; category: string; note: string; platform: string }, { phone: string; logId: string; revealSeconds: number }>("revealCustomerNumber", { customerId, category, note, platform: "admin" });
-export const fetchNumberViews = () => callFunction<{ limit: number }, NumberViews>("getCustomerNumberViews", { limit: 20 });
+export const fetchNumberViews = (limit = 20) => callFunction<{ limit: number }, NumberViews>("getCustomerNumberViews", { limit });
 /** Master only. Authorises (and logs) a directory export; with `includeNumbers` it also returns the full numbers, which needs a reason. */
 export const exportCustomerNumbers = (customerIds: string[], includeNumbers: boolean, reason = "") =>
   callFunction<{ customerIds: string[]; includeNumbers: boolean; reason: string }, { numbers: Record<string, string>; authorized: boolean }>("exportCustomerNumbers", { customerIds, includeNumbers, reason });

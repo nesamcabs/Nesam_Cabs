@@ -19,6 +19,8 @@ export type { PickedPoint };
 export interface ManualBookingForm {
   rentalHours?: number;
   addOns?: { roofCarrier: boolean; pets: boolean };
+  /** "cng": price on the CNG rate card (the vehicle must offer CNG). Absent: the standard Diesel / Petrol rate. */
+  fuelType?: "cng";
   customerId: string;
   customerName: string;
   customerPhone: string;
@@ -189,12 +191,20 @@ export function readyToQuote(f: ManualBookingForm): boolean {
   return true;
 }
 
+/**
+ * Form date-times are India wall-clock values ("YYYY-MM-DDTHH:mm"). Read them as IST, whatever the
+ * browser's own time zone, so a 08:00 pickup is 08:00 India time on every staff machine.
+ */
+export function indiaInstant(v: string): Date {
+  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(v) ? new Date(`${v.length === 16 ? `${v}:00` : v}+05:30`) : new Date(v);
+}
+
 /** Mirrors the server's default window (settings/operations can change it; the server is authoritative). */
 export const ADMIN_MIN_LEAD_MINUTES = 30;
 
 export function pickupTimeError(pickupAt: string, now = Date.now()): string | null {
   if (!pickupAt) return "Choose the pickup date and time. NESAM takes advance bookings only.";
-  const t = new Date(pickupAt).getTime();
+  const t = indiaInstant(pickupAt).getTime();
   if (!Number.isFinite(t)) return "Enter a valid pickup date and time.";
   if (t < now + ADMIN_MIN_LEAD_MINUTES * 60000) return `Pickup must be at least ${ADMIN_MIN_LEAD_MINUTES} minutes from now.`;
   if (t > now + 180 * 86400000) return "Pickups can be booked up to 180 days ahead.";
@@ -228,7 +238,7 @@ export function validateManualBooking(f: ManualBookingForm, now = Date.now()): P
   if (t) e.pickupAt = t;
   if (f.tripType === "Round Trip") {
     if (!f.tripEndAt && !f.tripDays) e.tripEndAt = "Choose when the round trip ends. It decides the chargeable days.";
-    else if (f.tripEndAt && f.pickupAt && new Date(f.tripEndAt).getTime() < new Date(f.pickupAt).getTime()) e.tripEndAt = "The trip cannot end before it starts.";
+    else if (f.tripEndAt && f.pickupAt && indiaInstant(f.tripEndAt).getTime() < indiaInstant(f.pickupAt).getTime()) e.tripEndAt = "The trip cannot end before it starts.";
   }
   const d = discountOf(f);
   if (d.error) e.discountValue = d.error;
@@ -273,12 +283,13 @@ const bookingRequest = (f: ManualBookingForm, requestId: string) => {
     dropAddress: f.dropAddress.trim(),
     categoryId: f.categoryId,
     addOns: f.addOns,
+    fuelType: f.fuelType === "cng" ? "cng" : undefined,
     tripType: isMulticity ? "Multicity" : f.tripType === "Local" ? "One Way" : f.tripType,
     multicity: isMulticity,
     rentalHours: f.tripType === "Local Rental" ? (f.rentalHours ?? 1) : undefined,
     tripDays: f.tripDays,
-    scheduledAt: f.pickupAt && Number.isFinite(new Date(f.pickupAt).getTime()) ? new Date(f.pickupAt).toISOString() : null,
-    tripEndAt: (f.tripType === "Round Trip" || isMulticity) && f.tripEndAt && Number.isFinite(new Date(f.tripEndAt).getTime()) ? new Date(f.tripEndAt).toISOString() : null,
+    scheduledAt: f.pickupAt && Number.isFinite(indiaInstant(f.pickupAt).getTime()) ? indiaInstant(f.pickupAt).toISOString() : null,
+    tripEndAt: (f.tripType === "Round Trip" || isMulticity) && f.tripEndAt && Number.isFinite(indiaInstant(f.tripEndAt).getTime()) ? indiaInstant(f.tripEndAt).toISOString() : null,
     paymentMethod: f.paymentMethod,
     bookingSource: f.channel || "nesam",
     source: f.channel && f.channel !== "nesam" ? f.channel : "admin",
@@ -320,6 +331,10 @@ export interface FareQuote {
   /** The real road distance and time of the journey (round trips count out and back). */
   roadKm?: number;
   roadMinutes?: number;
+  /** "cng" when the server priced this quote on the CNG rate card. */
+  fuelType?: "cng";
+  /** Whether this vehicle category offers CNG. */
+  cngAvailable?: boolean;
 }
 /** @deprecated use FareQuote */
 export type AdminQuote = FareQuote;
@@ -327,6 +342,9 @@ export type AdminQuote = FareQuote;
 export const quoteAdminBooking = async (f: ManualBookingForm, requestId: string, extras: { businessAccountId?: string; businessBilledTo?: string } = {}) => {
   const result = await callFunction<unknown, FareQuote>("createAdminBooking", { ...bookingRequest(f, requestId), ...extras, quoteOnly: true });
   if ((f.addOns?.roofCarrier && !result.quote.addOns?.roofCarrier) || (f.addOns?.pets && !result.quote.addOns?.pets)) throw new ActionError('Carrier and pet pricing is not available from the booking server yet. Please retry after the pricing update.');
+  // A booking API deployed before office CNG support (functions/src/adminBookings.ts) ignores the fuel and returns the standard
+  // Diesel / Petrol price unmarked. The current API either confirms CNG or refuses with its reason, so only an older one lands here.
+  if (f.fuelType === "cng" && result.fuelType !== "cng") throw new ActionError("The booking API returned its standard Diesel price for a CNG request: the deployed API does not support CNG for office quotes yet. Deploy the latest booking API, then try again.");
   return result;
 };
 

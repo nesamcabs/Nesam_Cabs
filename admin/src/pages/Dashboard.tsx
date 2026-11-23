@@ -16,9 +16,11 @@ import {
 import type { Booking, Driver, Vehicle, Customer, PenaltyRecord, MarketplaceTrip } from "../types";
 import { StatusBadge, PaymentBadge, BookingSourceBadge, bookingSourceRowCls } from "../components/booking/BookingBadges";
 import OperationsSection from "../components/dashboard/OperationsSection";
+import ScheduleCards from "../components/dashboard/ScheduleCards";
 import OfficeDashboard from "../components/dashboard/OfficeDashboard";
 import StaffDashboard from "../components/dashboard/StaffDashboard";
 import { useAccess } from "../components/AccessContext";
+import { hasCommandDesk, useDesk } from "../components/shell/DeskContext";
 import type { NavBadges } from "../hooks/useNavBadges";
 import { useNow } from "../hooks/useNow";
 import { useOperationsSettings } from "../hooks/useOperationsSettings";
@@ -62,7 +64,6 @@ import {
   SERVICE_NAME,
   SOURCE_NAME,
   SOURCE_ORDER,
-  type SourceScope,
   type DeskStage,
   type TripRow,
   type Period,
@@ -97,29 +98,33 @@ interface DashboardProps {
 export default function Dashboard(props: DashboardProps) {
   const access = useAccess();
   if (access.isSuper) return <MasterDashboard {...props} />;
-  const has = (p: (typeof access.permissions)[number]) => access.permissions.includes(p);
-  const fullOverview = has("operations") && has("people") && has("fleet") && has("finance");
-  const workspace = fullOverview ? (
+  // The same rule decides whether the header shows the Command / Dispatch desk switch.
+  const workspace = hasCommandDesk(access) ? (
     <MasterDashboard {...props} />
-  ) : has("operations") ? (
+  ) : access.permissions.includes("operations") ? (
     <OfficeDashboard onNavigate={props.onNavigate} onSelectBooking={props.onSelectBooking} onNewBooking={props.onNewBooking} />
   ) : null;
   return <StaffDashboard access={access} badges={props.badges} onNavigate={props.onNavigate} onNewBooking={props.onNewBooking} workspace={workspace} />;
 }
 
 type DashboardView = "command" | "trips" | "analytics" | "dispatch";
+/** Command Desk drill-downs ("All Trips" and "Revenue & GST" open from its cards and links). */
+type CommandView = "command" | "trips" | "analytics";
 
 function MasterDashboard({
   onNavigate,
   onSelectBooking,
   onNewBooking,
 }: DashboardProps) {
-  const [activeView, setActiveView] = useState<DashboardView>("command");
-  const [sourceScope, setSourceScope] = useState<SourceScope>("ALL");
+  // The desk and booking source are chosen in the app header (on every page) and kept while navigating.
+  const { desk, request: deskRequest, source: sourceScope } = useDesk();
+  const [commandView, setCommandView] = useState<CommandView>("command");
+  // Choosing a desk in the header (again) returns to that desk's main view, also from a drill-down.
+  useEffect(() => setCommandView("command"), [deskRequest]);
+  const activeView: DashboardView = desk === "dispatch" ? "dispatch" : commandView;
   const [cmdPeriod, setCmdPeriod] = useState<Period>("Today");
   const [analyticsPeriod, setAnalyticsPeriod] = useState<Period>("Month");
   const [filters, setFilters] = useState<TripFilters>(NO_TRIP_FILTERS);
-  const [globalSearch, setGlobalSearch] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
@@ -179,14 +184,7 @@ function MasterDashboard({
   const anSummary = useMemo(() => revenueSummary(scopedBookings, anWin.start, anWin.end, anWin.buckets), [scopedBookings, anWin]);
 
   // All Trips Explorer Rows
-  const effectiveFilters = useMemo<TripFilters>(() => {
-    return {
-      stage: filters.stage,
-      service: filters.service,
-      search: globalSearch.trim() || filters.search,
-    };
-  }, [filters, globalSearch]);
-  const tripsFiltered = useMemo(() => filterRows(allRows, sourceScope, effectiveFilters), [allRows, sourceScope, effectiveFilters]);
+  const tripsFiltered = useMemo(() => filterRows(allRows, sourceScope, filters), [allRows, sourceScope, filters]);
 
   // Actions
   const handleApproveDuty = useCallback(async (bookingId: string) => {
@@ -220,10 +218,8 @@ function MasterDashboard({
 
   const handleStageCardClick = (stage: DeskStage) => {
     setFilters((f) => ({ ...f, stage }));
-    setActiveView("trips");
+    setCommandView("trips");
   };
-
-  const urgentTotal = stageC.new + stageC.assign;
 
   return (
     <div className="space-y-5">
@@ -231,137 +227,11 @@ function MasterDashboard({
       {loadError && <ErrorBanner message={loadError} onRetry={() => setRetryKey((k) => k + 1)} />}
 
       {/* ========================================================= */}
-      {/* TOP COMMAND BAR (SINGLE-ROW CLEAN SAAS HEADER)             */}
-      {/* ========================================================= */}
-      <header className="bg-white rounded-2xl border border-slate-200/90 px-4 sm:px-5 py-3 shadow-2xs">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          {/* Left: Brand Identity + Navigation Pills */}
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-2.5 shrink-0">
-              <div className="w-8 h-8 rounded-lg bg-[#991B1B] text-white font-extrabold text-xs flex items-center justify-center shadow-2xs">
-                NC
-              </div>
-              <div className="leading-none">
-                <p className="text-xs font-extrabold tracking-wide text-slate-900">NESAM CABS</p>
-                <span className="text-[10px] font-medium text-slate-400">Master Admin Desk</span>
-              </div>
-            </div>
-
-            <nav className="flex items-center bg-slate-100 p-0.5 rounded-xl text-xs gap-0.5">
-              <button
-                type="button"
-                onClick={() => setActiveView("command")}
-                className={`nav-pill px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  activeView === "command"
-                    ? "bg-white text-[#991B1B] shadow-2xs"
-                    : "text-slate-600 hover:text-slate-900 font-medium"
-                }`}
-              >
-                Command Desk
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveView("trips")}
-                className={`nav-pill px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                  activeView === "trips"
-                    ? "bg-white text-[#991B1B] shadow-2xs"
-                    : "text-slate-600 hover:text-slate-900 font-medium"
-                }`}
-              >
-                <span>All Trips</span>
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 text-slate-700 font-bold">
-                  {scopedRows.length}
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveView("analytics")}
-                className={`nav-pill px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  activeView === "analytics"
-                    ? "bg-white text-[#991B1B] shadow-2xs"
-                    : "text-slate-600 hover:text-slate-900 font-medium"
-                }`}
-              >
-                Revenue &amp; GST
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveView("dispatch")}
-                className={`nav-pill px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  activeView === "dispatch"
-                    ? "bg-white text-[#991B1B] shadow-2xs"
-                    : "text-slate-600 hover:text-slate-900 font-medium"
-                }`}
-              >
-                Dispatch Desk
-              </button>
-            </nav>
-          </div>
-
-          {/* Right: Search, Source Filter, Alerts & Primary Actions */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="relative w-44 sm:w-52">
-              <input
-                type="text"
-                value={globalSearch}
-                onChange={(e) => setGlobalSearch(e.target.value)}
-                placeholder="Search ID, route, customer..."
-                className="w-full h-8 pl-3 pr-2.5 text-xs font-medium bg-slate-50 border border-slate-200/90 rounded-lg focus:bg-white focus:border-[#991B1B] focus:outline-none transition-colors"
-              />
-            </div>
-
-            {/* Brand Source Filter */}
-            <div className="relative">
-              <select
-                aria-label="Filter by Booking Source"
-                value={sourceScope}
-                onChange={(e) => setSourceScope(e.target.value as SourceScope)}
-                className="h-8 pl-2.5 pr-7 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200/90 text-slate-700 text-xs font-semibold appearance-none cursor-pointer focus:outline-none focus:border-[#991B1B] transition-colors"
-              >
-                <option value="ALL">All Sources ({liveBookings.length})</option>
-                <option value="nesam">Nesam Cabs ({srcC.nesam})</option>
-                <option value="people_taxi">PeopleTaxi.in ({srcC.people_taxi})</option>
-                <option value="onewaycarrentals">One Way Car Rentals ({srcC.onewaycarrentals})</option>
-              </select>
-            </div>
-
-            {/* Alert Counter Cluster */}
-            <button
-              type="button"
-              onClick={() => { setFilters((f) => ({ ...f, stage: "assign" })); setActiveView("trips"); }}
-              className="h-8 px-2.5 rounded-lg bg-crimson-50 hover:bg-crimson-100 text-[#991B1B] text-[11px] font-bold flex items-center gap-1.5 transition-colors border border-crimson-200/60"
-            >
-              <span className={`w-2 h-2 rounded-full bg-[#991B1B] ${urgentTotal > 0 ? "animate-pulse" : ""}`} />
-              <span>{urgentTotal} Urgent Alert{urgentTotal === 1 ? "" : "s"}</span>
-            </button>
-
-            {/* Quick Fare Button */}
-            <button
-              type="button"
-              onClick={() => onNavigate("quick-fare")}
-              className="h-8 px-3 rounded-lg bg-white hover:bg-slate-50 border border-slate-200/90 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs"
-            >
-              <span>Quick Fare</span>
-            </button>
-
-            {/* New Booking Button */}
-            <button
-              type="button"
-              onClick={onNewBooking}
-              className="h-8 px-3.5 rounded-lg bg-[#991B1B] hover:bg-[#7F1D1D] text-white text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-colors"
-            >
-              <span>+ New Booking</span>
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* ========================================================= */}
       {/* VIEW 1: COMMAND DESK                                      */}
       {/* ========================================================= */}
       {activeView === "command" && (
         <div className="space-y-5 fade-in">
-          {/* 5-Stage Dispatch Pipeline */}
+          {/* A · 5-Stage Dispatch Pipeline */}
           <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             <button
               type="button"
@@ -429,7 +299,7 @@ function MasterDashboard({
             </button>
           </section>
 
-          {/* Action-First 2-Column Workbench */}
+          {/* B · Action-First 2-Column Workbench */}
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Left: New Bookings Queue */}
             <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col">
@@ -558,7 +428,18 @@ function MasterDashboard({
             </div>
           </section>
 
-          {/* Quick Operational Strip */}
+          {/* C · Today's & Tomorrow's pickups, right under the two operational cards */}
+          <ScheduleCards
+            today={todayTrips}
+            tomorrow={tomorrowTrips}
+            now={now}
+            loading={!loaded && !loadError}
+            error={loaded ? null : loadError}
+            onRetry={() => setRetryKey((k) => k + 1)}
+            onManage={onSelectBooking}
+          />
+
+          {/* D · Quick Operational Strip (To Publish · booking sources) */}
           <section className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-white border border-slate-200/90 text-xs shadow-2xs">
             <div className="flex items-center gap-2 flex-wrap">
               <button
@@ -580,14 +461,14 @@ function MasterDashboard({
             </div>
             <button
               type="button"
-              onClick={() => setActiveView("analytics")}
+              onClick={() => setCommandView("analytics")}
               className="text-xs font-bold text-[#991B1B] hover:underline flex items-center gap-1 cursor-pointer"
             >
               <span>GST &amp; Revenue Report →</span>
             </button>
           </section>
 
-          {/* Latest Revenue Overview & Brand Source Performance */}
+          {/* E · Latest Revenue Overview & Brand Source Performance */}
           <section className="grid grid-cols-1 lg:grid-cols-12 gap-4">
             <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs flex flex-col justify-between space-y-4">
               <div className="flex flex-wrap items-start justify-between gap-2">
@@ -708,89 +589,6 @@ function MasterDashboard({
             </div>
           </section>
 
-          {/* Side-by-Side Today & Tomorrow Schedule */}
-          <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Today */}
-            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">Today's Schedule</h3>
-                <span className="text-[11px] font-medium text-slate-500">{todayTrips.length} active trips</span>
-              </div>
-              <div className="divide-y divide-slate-100 max-h-[300px] overflow-y-auto">
-                {todayTrips.length === 0 ? (
-                  <div className="p-6 text-center text-slate-400 text-xs">No active pickups scheduled for today.</div>
-                ) : (
-                  todayTrips.map((r) => {
-                    const as = assigneeOf(r);
-                    return (
-                      <div key={r.b.id} className="p-3.5 flex items-center justify-between gap-3 hover:bg-slate-50/80 transition-colors">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-xs font-bold text-[#991B1B]">{r.b.bookingId || r.b.id}</span>
-                            <span className="text-[11px] font-semibold text-slate-700">{r.b.time || "Scheduled"}</span>
-                            <BookingSourceBadge booking={r.b} size="sm" />
-                          </div>
-                          <p className="text-xs font-semibold text-slate-900 truncate mt-0.5">{r.b.pickup} → {r.b.drop}</p>
-                          <p className="text-[11px] text-slate-500 truncate">{as.primary} {as.secondary ? `(${as.secondary})` : ""}</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-xs font-extrabold text-slate-900">{formatINR(fareOf(r.b))}</p>
-                          <button
-                            type="button"
-                            onClick={() => onSelectBooking(r.b.id)}
-                            className="mt-1 text-[11px] font-semibold text-[#991B1B] hover:underline"
-                          >
-                            Manage →
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-
-            {/* Tomorrow */}
-            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">Tomorrow's Schedule</h3>
-                <span className="text-[11px] font-medium text-slate-500">{tomorrowTrips.length} upcoming trips</span>
-              </div>
-              <div className="divide-y divide-slate-100 max-h-[300px] overflow-y-auto">
-                {tomorrowTrips.length === 0 ? (
-                  <div className="p-6 text-center text-slate-400 text-xs">No active pickups scheduled for tomorrow.</div>
-                ) : (
-                  tomorrowTrips.map((r) => {
-                    const as = assigneeOf(r);
-                    return (
-                      <div key={r.b.id} className="p-3.5 flex items-center justify-between gap-3 hover:bg-slate-50/80 transition-colors">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-xs font-bold text-[#991B1B]">{r.b.bookingId || r.b.id}</span>
-                            <span className="text-[11px] font-semibold text-slate-700">{r.b.time || "Scheduled"}</span>
-                            <BookingSourceBadge booking={r.b} size="sm" />
-                          </div>
-                          <p className="text-xs font-semibold text-slate-900 truncate mt-0.5">{r.b.pickup} → {r.b.drop}</p>
-                          <p className="text-[11px] text-slate-500 truncate">{as.primary} {as.secondary ? `(${as.secondary})` : ""}</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-xs font-extrabold text-slate-900">{formatINR(fareOf(r.b))}</p>
-                          <button
-                            type="button"
-                            onClick={() => onSelectBooking(r.b.id)}
-                            className="mt-1 text-[11px] font-semibold text-[#991B1B] hover:underline"
-                          >
-                            Manage →
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          </section>
-
           {/* Active & Recent Bookings Table */}
           <section className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
@@ -800,7 +598,7 @@ function MasterDashboard({
               </div>
               <button
                 type="button"
-                onClick={() => setActiveView("trips")}
+                onClick={() => setCommandView("trips")}
                 className="text-xs font-bold text-[#991B1B] hover:underline cursor-pointer"
               >
                 Full Explorer →
@@ -952,11 +750,12 @@ function MasterDashboard({
                   value={filters.search}
                   onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
                   placeholder="Filter by ID, city, customer..."
+                  aria-label="Filter trips by booking ID, city or customer"
                   className="h-8 px-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-[#991B1B] focus:outline-none"
                 />
                 <button
                   type="button"
-                  onClick={() => { setFilters(NO_TRIP_FILTERS); setGlobalSearch(""); }}
+                  onClick={() => setFilters(NO_TRIP_FILTERS)}
                   className="h-8 px-3 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
                 >
                   Clear

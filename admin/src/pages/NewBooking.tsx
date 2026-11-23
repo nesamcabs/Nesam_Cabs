@@ -25,6 +25,8 @@ export interface NewBookingDraft {
   enquiry?: Enquiry;
   /** Opened from the Customers Directory: this existing customer is selected. Their number never reaches a Staff ID; the server books on the saved one. */
   customer?: { id: string; name: string; email: string; phoneMasked: string; preferredCab?: string; preferredDriver?: string };
+  /** Booking source the trip was quoted under (e.g. from the Quick Fare desk), so the booking keeps the same brand and prices. */
+  channel?: ManualBookingForm["channel"];
 }
 
 type Step = 1 | 2 | 3 | 4;
@@ -173,7 +175,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
 }) {
   const data = useQuickData();
   const allLocations = useMemo(() => [...(data.pickups || []), ...(data.drops || [])], [data.pickups, data.drops]);
-  const [brand, setBrand] = useState<BrandId>("nesam");
+  const [brand, setBrand] = useState<BrandId>(() => draft?.channel ?? "nesam");
   const [brandMenuOpen, setBrandMenuOpen] = useState(false);
   const brandSwitcherRef = useRef<HTMLDivElement>(null);
 
@@ -240,6 +242,8 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
   const [extraPDOpen, setExtraPDOpen] = useState(false);
   const [roofCarrier, setRoofCarrier] = useState(() => draft?.trip?.carrier ?? false);
   const [pets, setPets] = useState(() => draft?.trip?.pets ?? false);
+  // CNG rate card when the quote came from the Quick Fare desk on CNG; cleared to price on the standard Diesel / Petrol rate.
+  const [fuel, setFuel] = useState<"cng" | undefined>(() => (draft?.trip?.fuel === "cng" ? "cng" : undefined));
 
   // Vehicle selection & Fare
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>(() => draft?.categoryId || "sedan");
@@ -387,9 +391,10 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
       rentalHours: tripType === "Rental" ? rentalHours : undefined,
       carrier: roofCarrier,
       pets,
+      fuel,
       waitingMin: String(waitingHours * 60),
     };
-  }, [tripType, pickupText, dropText, pickupPoint, dropPoint, viaStops, pickupDate, pickupTime, roundTripDays, rentalHours, roofCarrier, pets, waitingHours, allLocations]);
+  }, [tripType, pickupText, dropText, pickupPoint, dropPoint, viaStops, pickupDate, pickupTime, roundTripDays, rentalHours, roofCarrier, pets, fuel, waitingHours, allLocations]);
 
   // Compute road distance and duration for preview
   const routeMetrics = useMemo(() => {
@@ -759,6 +764,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
       overrideFare: customFare,
       overrideReason: customFareReason || "Agreed phone tariff",
       couponCode: appliedCoupon?.code,
+      fuelType: fuel,
     };
   };
 
@@ -857,7 +863,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
     const linkLine = paymentPlan !== "later" && !razorpayPaymentId ? `\nPayment Link: ${razorpayLinkUrl}` : razorpayPaymentId ? `\nRazorpay ID: ${razorpayPaymentId}` : "";
     const brandName = BRANDS.find((b) => b.id === brand)?.label || "Nesam Cabs";
 
-    const msg = `*${brandName} — Booking Confirmed*\nBooking ID: ${bookingId}\nCustomer: ${customerName || "Customer"}\nPlan: ${currentCalc.slabName}\nRoute: ${route}${flightLine}\nPickup: ${dateTime}\nCab: ${vehicle}\nFare: ${rupee(fare)} (+ Toll/Parking/Permit actuals)\nPayment: ${paymentBadge}${noteLine}${linkLine}\nThank you for booking with us!`;
+    const msg = `*${brandName} — Booking Confirmed*\nBooking ID: ${bookingId}\nCustomer: ${customerName || "Customer"}\nPlan: ${currentCalc.slabName}\nRoute: ${route}${flightLine}\nPickup: ${dateTime}\nCab: ${vehicle}${fuel === "cng" ? " (CNG)" : ""}\nFare: ${rupee(fare)} (+ Toll/Parking/Permit actuals)\nPayment: ${paymentBadge}${noteLine}${linkLine}\nThank you for booking with us!`;
 
     navigator.clipboard.writeText(msg).then(() => {
       setCopyFeedback("Copied for WhatsApp!");
@@ -1727,6 +1733,17 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                     <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-crimson-50 text-[#9F1212]">
                       {currentCalc.slabName}
                     </span>
+                    {fuel === "cng" && (
+                      <button
+                        type="button"
+                        onClick={() => setFuel(undefined)}
+                        title="Priced on the CNG rate. Click to price on the standard Diesel / Petrol rate instead."
+                        aria-label="CNG rate. Switch to the Diesel / Petrol rate"
+                        className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 inline-flex items-center gap-1"
+                      >
+                        CNG <span aria-hidden="true">×</span>
+                      </button>
+                    )}
                     <span className="text-xs font-medium text-slate-600">
                       {formattedScheduleString}
                     </span>
@@ -1870,8 +1887,11 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Trip &amp; Cab</span>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-crimson-50 text-[#9F1212] truncate">
-                      {currentCalc.slabName}
+                    <span className="flex items-center gap-1 min-w-0">
+                      {fuel === "cng" && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">CNG</span>}
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-crimson-50 text-[#9F1212] truncate">
+                        {currentCalc.slabName}
+                      </span>
                     </span>
                   </div>
                   <p className="text-sm font-bold text-slate-900 leading-snug">{formattedRouteString}</p>
