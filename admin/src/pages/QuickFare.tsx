@@ -39,7 +39,8 @@ import {
 import { useCustomers } from "../hooks/useOfficeData";
 import { useNow } from "../hooks/useNow";
 import { useQuickFareDesk } from "../hooks/useQuickFareDesk";
-import { useNotifications } from "../components/NotificationHost";
+import { loadSoundConfig, playAlert, repeatIntervalMs } from "../utils/notificationSound";
+import { stepFollowUpReminders, type ReminderEntry } from "../utils/followUpReminders";
 import { useCanDo, useStaffFlag } from "../components/AccessContext";
 import { copyText } from "../services/customerDirectoryService";
 import type { NewBookingDraft } from "./NewBooking";
@@ -88,25 +89,6 @@ function deskProblem(t: QuickTrip): string | null {
   return validateTrip(t);
 }
 
-function playBeep() {
-  try {
-    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    if (!Ctx) return;
-    const ctx = new Ctx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.frequency.setValueAtTime(880, ctx.currentTime);
-    gain.gain.setValueAtTime(0.08, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.35);
-    osc.onended = () => { void ctx.close(); };
-  } catch {
-    // Audio blocked: the banner and the toast still show.
-  }
-}
-
 export default function QuickFare({ onNewBooking }: QuickFareProps) {
   const data = useQuickData();
   const customers = useCustomers();
@@ -115,7 +97,6 @@ export default function QuickFare({ onNewBooking }: QuickFareProps) {
   useNow(15000);
   const nowMs = Date.now();
   const desk = useQuickFareDesk();
-  const { soundOn } = useNotifications();
   // The server's rule for a number reveal (functions/src/customerDirectory.ts viewerOf): it checks again on every reveal.
   const canViewCustomers = useCanDo("Customers", "view");
   const canTemporarilyReveal = useStaffFlag("privacy", "temporaryReveal");
@@ -157,32 +138,26 @@ export default function QuickFare({ onNewBooking }: QuickFareProps) {
     revealTimers.current.forEach((t) => window.clearTimeout(t));
   }, []);
 
-  // Sound may play only after the person has used the page (browser autoplay rules).
-  const audioOk = useRef(false);
-  useEffect(() => {
-    const unlock = () => { audioOk.current = true; };
-    document.addEventListener("pointerdown", unlock, { once: true });
-    document.addEventListener("keydown", unlock, { once: true });
-    return () => { document.removeEventListener("pointerdown", unlock); document.removeEventListener("keydown", unlock); };
-  }, []);
-
   // ── Follow-up queue: the office's enquiries, read on the India clock ──
   const queue = useMemo(() => buildQueue(desk.enquiries ?? [], nowMs), [desk.enquiries, nowMs]);
   const topDue = queue.rows.find((r) => r.status === "due") ?? null;
 
-  // A follow-up that becomes due while the desk is open alerts once: a beep (when sound is on) and a toast.
-  const alerted = useRef<Set<string> | null>(null);
+  // Follow-up reminders: a follow-up that becomes due alerts once (sound + toast), then repeats its sound at the
+  // saved "Follow-up reminder" interval while it stays due. Snoozing moves the due time (it alerts again then);
+  // booked / lost follow-ups are no longer due, so they stop. The state is a ref, so re-renders never repeat a sound.
+  const reminders = useRef<Map<string, ReminderEntry> | null>(null);
+  /** "code:due" of follow-ups saved as already due: their save toast is the confirmation, so the first alert is skipped. */
+  const confirmedDue = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (desk.enquiries === null) return;
-    const due = queue.rows.filter((r) => r.status === "due");
-    const keys = due.map((r) => `${r.id}:${r.followUpAtMs}`);
-    if (alerted.current === null) { alerted.current = new Set(keys); return; }
-    const fresh = due.filter((r) => !alerted.current!.has(`${r.id}:${r.followUpAtMs}`));
-    keys.forEach((k) => alerted.current!.add(k));
-    if (!fresh.length) return;
-    if (soundOn && audioOk.current) playBeep();
+    const due = queue.rows.filter((r) => r.status === "due").map((r) => ({ ...r, dueAtMs: r.followUpAtMs }));
+    const step = stepFollowUpReminders(reminders.current, due, nowMs, repeatIntervalMs(loadSoundConfig()["Follow-up reminder"].repeat));
+    reminders.current = step.state;
+    const fresh = step.fresh.filter((r) => !confirmedDue.current.has(`${r.code}:${r.followUpAtMs}`));
+    // Global sound off, or this alert off, mutes it inside playAlert; the saved tone and volume are used.
+    if (fresh.length || step.repeated) playAlert("Follow-up reminder");
     const f = fresh[0];
-    showToast(`Follow-up Alert: Call ${f.name || "Enquiry Caller"}${f.masked ? ` (${f.masked})` : ""} for ${f.route}`);
+    if (f) showToast(`Follow-up Alert: Call ${f.name || "Enquiry Caller"}${f.masked ? ` (${f.masked})` : ""} for ${f.route}`);
   }, [queue, desk.enquiries]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Trip form ──
@@ -327,7 +302,7 @@ export default function QuickFare({ onNewBooking }: QuickFareProps) {
     setFuTarget(null);
     const dueNow = v.followUpAtMs <= Date.now() + 5000;
     // A follow-up saved as already due is confirmed by this toast; the due alert is for callbacks that fall due later.
-    if (dueNow) alerted.current?.add(`${res.code}:${v.followUpAtMs}`);
+    if (dueNow) confirmedDue.current.add(`${res.code}:${v.followUpAtMs}`);
     const when = dueNow ? "Follow-up Alert triggered immediately!" : `Follow-up scheduled for ${scheduleLabel(v.followUpAtMs)}`;
     showToast(res.kind === "updated" ? `${when} (updated ${res.code})` : `${when} (${res.code})`);
   };

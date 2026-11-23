@@ -94,9 +94,9 @@ export function playTone(tone: Tone, times = 1): void {
 
 export const PRESET_TONES = ["Clean Bell", "Double Bell", "Classic Ring", "Quick Ring", "Soft Chime"] as const;
 export type PresetTone = (typeof PRESET_TONES)[number];
-export const ALERT_KINDS = ["New booking", "Urgent booking", "Unassigned booking"] as const;
+export const ALERT_KINDS = ["New booking", "Urgent booking", "Unassigned booking", "Follow-up reminder"] as const;
 export type AlertKind = (typeof ALERT_KINDS)[number];
-export const ALERT_SECONDS: Record<AlertKind, number> = { "New booking": 5, "Urgent booking": 10, "Unassigned booking": 5 };
+export const ALERT_SECONDS: Record<AlertKind, number> = { "New booking": 5, "Urgent booking": 10, "Unassigned booking": 5, "Follow-up reminder": 2 };
 export const REPEATS = ["Once only", "Every 30 sec", "Every 1 min", "Every 2 min", "Every 5 min", "Every 10 min"] as const;
 
 export interface AlertSound {
@@ -112,14 +112,38 @@ export const DEFAULT_SOUNDS: SoundConfig = {
   "New booking": { tone: "Clean Bell", volume: 80, on: true, repeat: "Once only" },
   "Urgent booking": { tone: "Classic Ring", volume: 80, on: true, repeat: "Every 1 min" },
   "Unassigned booking": { tone: "Double Bell", volume: 80, on: true, repeat: "Every 5 min" },
+  "Follow-up reminder": { tone: "Soft Chime", volume: 80, on: true, repeat: "Once only" },
 };
+
+const REPEAT_MS: Record<(typeof REPEATS)[number], number | null> = {
+  "Once only": null, "Every 30 sec": 30_000, "Every 1 min": 60_000, "Every 2 min": 120_000, "Every 5 min": 300_000, "Every 10 min": 600_000,
+};
+/** Milliseconds between repeats of a real alert, or null for "Once only". */
+export function repeatIntervalMs(repeat: string): number | null {
+  return (REPEATS as readonly string[]).includes(repeat) ? REPEAT_MS[repeat as (typeof REPEATS)[number]] : null;
+}
+
+/** One saved alert merged over its default, field by field, so a missing or damaged field never loses the others. */
+function mergeAlert(kind: AlertKind, saved: unknown): AlertSound {
+  const d = DEFAULT_SOUNDS[kind];
+  if (!saved || typeof saved !== "object") return d;
+  const v = saved as Partial<AlertSound>;
+  return {
+    tone: typeof v.tone === "string" && v.tone ? v.tone : d.tone,
+    volume: typeof v.volume === "number" && Number.isFinite(v.volume) ? Math.max(0, Math.min(100, v.volume)) : d.volume,
+    on: typeof v.on === "boolean" ? v.on : d.on,
+    repeat: typeof v.repeat === "string" && (REPEATS as readonly string[]).includes(v.repeat) ? v.repeat : d.repeat,
+  };
+}
 
 const CFG_KEY = "nesam_alert_sounds";
 
 export function loadSoundConfig(): SoundConfig {
   try {
-    const v = JSON.parse(localStorage.getItem(CFG_KEY) || "null");
-    return v ? { ...DEFAULT_SOUNDS, ...v } : DEFAULT_SOUNDS;
+    const v = JSON.parse(localStorage.getItem(CFG_KEY) || "null") as Record<string, unknown> | null;
+    if (!v || typeof v !== "object") return DEFAULT_SOUNDS;
+    // Configurations saved before a category existed (e.g. only the first three) gain its default; others are kept.
+    return Object.fromEntries(ALERT_KINDS.map((k) => [k, mergeAlert(k, v[k])])) as SoundConfig;
   } catch {
     return DEFAULT_SOUNDS;
   }
@@ -161,7 +185,6 @@ export function startSoundPreview(tone: string, volume: number, seconds: number)
   let done = false;
   let previewContext: AudioContext | null = null;
   let source: AudioBufferSourceNode | null = null;
-  let objectUrl: string | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
 
   const finish = (error?: unknown) => {
@@ -178,7 +201,6 @@ export function startSoundPreview(tone: string, volume: number, seconds: number)
     if (closing && closing.state !== "closed") {
       void closing.close().catch(() => undefined);
     }
-    if (objectUrl) URL.revokeObjectURL(objectUrl);
     if (activeSoundPreview === playback) activeSoundPreview = null;
     if (error !== undefined) rejectFinished(error);
     else resolveFinished();
@@ -193,6 +215,8 @@ export function startSoundPreview(tone: string, volume: number, seconds: number)
     if (typeof window === "undefined") throw new Error("Sound preview is available in the browser.");
     const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Ctor) throw new Error("This browser does not support sound preview.");
+    // A real alert that is sounding right now keeps priority over a preview.
+    if (Date.now() < alertBusyUntil) throw new Error("A live alert is playing. Try Live Test again in a few seconds.");
 
     // Created/resumed directly from the button's user gesture, before awaiting an uploaded asset.
     const c = new Ctor();
@@ -203,20 +227,10 @@ export function startSoundPreview(tone: string, volume: number, seconds: number)
     const gain = Math.min(1, volume / 100);
 
     if (tone.startsWith("custom:")) {
-      const url = await customSoundUrl(tone.slice(7));
-      if (done) {
-        if (url) URL.revokeObjectURL(url);
-        return;
-      }
-      if (!url) throw new Error("This uploaded sound is unavailable in this browser. Upload it again or select a preset.");
-      objectUrl = url;
-      const response = await fetch(url);
-      if (done) return;
-      if (!response.ok) throw new Error("The uploaded sound could not be loaded.");
-      const bytes = await response.arrayBuffer();
-      if (done) return;
-      const buffer = await c.decodeAudioData(bytes);
-      if (done) return;
+      // Read the saved Blob straight from IndexedDB and decode it: no object URL and no fetch
+      // (the site's CSP connect-src does not allow blob:, which is what made Live Test fail).
+      const buffer = await loadCustomSoundBuffer(tone.slice(7), c, () => done);
+      if (done || !buffer) return;
       if (c.state !== "running") throw new Error("Audio was suspended. Click Live Test again.");
       const level = c.createGain();
       level.gain.value = gain;
@@ -243,36 +257,86 @@ export function startSoundPreview(tone: string, volume: number, seconds: number)
 }
 
 
-/** Plays a preset (or an uploaded sound) for `seconds`, regardless of the global on/off switch. */
+// ── Real alerts (shared AudioContext — never closed by previews) ──────────
+/** Wall-clock end (ms) of the real alert currently sounding; previews wait for it. */
+let alertBusyUntil = 0;
+/** Each real alert takes a new token; a slower uploaded-sound load that is no longer current never plays. */
+let alertToken = 0;
+let alertSource: { source: AudioBufferSourceNode; gain: GainNode } | null = null;
+
+function stopAlertSource() {
+  const a = alertSource;
+  alertSource = null;
+  if (!a) return;
+  a.source.onended = null;
+  try { a.source.stop(); } catch { /* Already ended. */ }
+  a.source.disconnect();
+  a.gain.disconnect();
+}
+
+function playPresetOn(c: AudioContext, tone: string, gain: number, seconds: number) {
+  const play = PRESET[(PRESET_TONES as readonly string[]).includes(tone) ? (tone as PresetTone) : "Clean Bell"];
+  let t = c.currentTime + 0.02;
+  const end = t + seconds;
+  while (t < end) t += play(c, t, gain);
+}
+
+/**
+ * Plays a preset (or an uploaded sound) for `seconds` on the shared alert context, regardless of the global on/off
+ * switch. Rejects with a clear message when an uploaded sound is missing or cannot be decoded.
+ */
 export async function previewTone(tone: string, volume: number, seconds: number): Promise<void> {
   const c = context();
   if (!c) return;
   if (c.state !== "running") await c.resume().catch(() => undefined);
   const g = Math.max(0, Math.min(1, volume / 100));
+  const token = ++alertToken;
+  stopAlertSource();
+  alertBusyUntil = Date.now() + seconds * 1000;
   if (tone.startsWith("custom:")) {
-    const url = await customSoundUrl(tone.slice(7));
-    if (!url) return;
-    const a = new Audio(url);
-    a.volume = g;
-    void a.play().catch(() => undefined);
-    setTimeout(() => a.pause(), seconds * 1000);
+    const buffer = await loadCustomSoundBuffer(tone.slice(7), c, () => token !== alertToken);
+    if (!buffer || token !== alertToken) return;
+    const gain = c.createGain();
+    gain.gain.value = g;
+    const source = c.createBufferSource();
+    source.buffer = buffer;
+    source.connect(gain).connect(c.destination);
+    const entry = { source, gain };
+    source.onended = () => { if (alertSource === entry) stopAlertSource(); };
+    alertSource = entry;
+    alertBusyUntil = Date.now() + Math.min(seconds, buffer.duration) * 1000;
+    source.start();
+    source.stop(c.currentTime + seconds);
     return;
   }
-  const play = PRESET[(PRESET_TONES as readonly string[]).includes(tone) ? (tone as PresetTone) : "Clean Bell"];
-  let t = c.currentTime + 0.02;
-  const end = t + seconds;
-  while (t < end) t += play(c, t, g);
+  playPresetOn(c, tone, g, seconds);
 }
 
 /** Alert sound for a kind of alert, following the saved configuration. */
+let followUpRetry: ReturnType<typeof setTimeout> | null = null;
+
 export function playAlert(kind: AlertKind): void {
   if (!soundEnabled()) return;
   const cfg = loadSoundConfig()[kind];
   if (!cfg?.on) return;
   const c = context();
   if (!c || c.state !== "running") return;
+  // Booking alerts outrank follow-up reminders: a reminder waits for a sounding alert to finish instead of cutting it off.
+  if (kind === "Follow-up reminder") {
+    const wait = alertBusyUntil - Date.now();
+    if (wait > 0) {
+      if (followUpRetry === null) followUpRetry = setTimeout(() => { followUpRetry = null; playAlert(kind); }, wait + 100);
+      return;
+    }
+  }
+  // Real notifications take priority: any Live Test preview stops (it has its own context, so this one stays open).
   activeSoundPreview?.stop();
-  void previewTone(cfg.tone, cfg.volume, ALERT_SECONDS[kind]).catch(() => undefined);
+  const seconds = ALERT_SECONDS[kind];
+  void previewTone(cfg.tone, cfg.volume, seconds).catch((error: unknown) => {
+    // A missing / undecodable uploaded sound must not silence a real alert: fall back to this alert's default preset.
+    console.warn(`[notification sound] ${kind}: ${error instanceof Error ? error.message : "uploaded sound failed"} Using the default tone.`);
+    if (c.state === "running") playPresetOn(c, DEFAULT_SOUNDS[kind].tone, Math.max(0, Math.min(1, cfg.volume / 100)), seconds);
+  });
 }
 
 // Uploaded sounds (MP3 / WAV, up to 2 MB, at most 5) are kept in this browser's IndexedDB.
@@ -317,16 +381,54 @@ export async function addCustomSound(file: File): Promise<string> {
   });
   return id;
 }
-async function customSoundUrl(id: string): Promise<string | null> {
+export const MISSING_SOUND_MESSAGE = "This uploaded sound is no longer saved in this browser. Upload it again or select a preset.";
+export const UNDECODABLE_SOUND_MESSAGE = "This uploaded sound could not be played. The file may be damaged or in an unsupported format — upload it again or select a preset.";
+
+/** Reads an uploaded sound's saved Blob from IndexedDB ("nesam_sounds" → "sounds"); null when the record is gone. */
+export async function readCustomSoundBlob(id: string): Promise<Blob | null> {
+  let d: IDBDatabase;
   try {
-    const d = await idb();
-    const v = await new Promise<{ blob: Blob } | undefined>((resolve) => {
-      const r = d.transaction("sounds").objectStore("sounds").get(id);
-      r.onsuccess = () => resolve(r.result);
-      r.onerror = () => resolve(undefined);
-    });
-    return v ? URL.createObjectURL(v.blob) : null;
+    d = await idb();
   } catch {
-    return null;
+    throw new Error("Uploaded sounds could not be read in this browser. Select a preset or reopen these settings.");
   }
+  const v = await new Promise<{ blob?: unknown } | undefined>((resolve, reject) => {
+    const r = d.transaction("sounds").objectStore("sounds").get(id);
+    r.onsuccess = () => resolve(r.result as { blob?: unknown } | undefined);
+    r.onerror = () => reject(new Error("Uploaded sounds could not be read in this browser. Select a preset or reopen these settings."));
+  });
+  return v && v.blob instanceof Blob ? v.blob : null;
+}
+
+/** decodeAudioData in its promise form, with the callback form for older Safari. */
+function decodeBytes(c: BaseAudioContext, bytes: ArrayBuffer): Promise<AudioBuffer> {
+  return new Promise((resolve, reject) => {
+    const p = c.decodeAudioData(bytes, resolve, reject) as Promise<AudioBuffer> | undefined;
+    if (p && typeof p.then === "function") p.then(resolve, reject);
+  });
+}
+
+/**
+ * Loads an uploaded sound directly from its saved Blob: blob.arrayBuffer() → decodeAudioData(). Returns null as soon
+ * as `cancelled()` is true after any asynchronous step, so a stopped preview/alert never plays late.
+ */
+export async function loadCustomSoundBuffer(id: string, c: BaseAudioContext, cancelled: () => boolean = () => false): Promise<AudioBuffer | null> {
+  const blob = await readCustomSoundBlob(id);
+  if (cancelled()) return null;
+  if (!blob) throw new Error(MISSING_SOUND_MESSAGE);
+  let bytes: ArrayBuffer;
+  try {
+    bytes = await blob.arrayBuffer();
+  } catch {
+    throw new Error(MISSING_SOUND_MESSAGE);
+  }
+  if (cancelled()) return null;
+  let buffer: AudioBuffer;
+  try {
+    buffer = await decodeBytes(c, bytes);
+  } catch {
+    if (cancelled()) return null;
+    throw new Error(UNDECODABLE_SOUND_MESSAGE);
+  }
+  return cancelled() ? null : buffer;
 }

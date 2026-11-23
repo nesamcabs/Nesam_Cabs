@@ -484,6 +484,11 @@ body:has(.ds-overlay) { overflow: hidden; }
 .ds-gsearch-scope[aria-checked='true'] { background: var(--color-brand-soft); border-color: rgb(193 35 44 / 0.4); color: var(--color-brand); }
 .ds-gsearch-scope__count { min-width: 18px; padding: 2px 5px; border-radius: 999px; background: #eef1f5; color: var(--color-muted); font-size: 10px; text-align: center; font-variant-numeric: tabular-nums; }
 .ds-gsearch-scope[aria-checked='true'] .ds-gsearch-scope__count { background: #fff; color: var(--color-brand); }
+/* The heading (dialog head), search form, hint and scope tabs stay put; only the results scroll. On very short
+   screens the results keep a usable minimum and the body itself scrolls as a fallback. */
+.ds-dialog-body:has(> .ds-gsearch-form) { display: flex; flex-direction: column; }
+.ds-dialog-body:has(> .ds-gsearch-form) > * { flex-shrink: 0; }
+.ds-dialog-body > .ds-gsearch-results { flex: 1 1 auto; min-height: 160px; overflow-y: auto; overscroll-behavior: contain; margin: 0 -6px -6px; padding: 0 6px 6px; }
 .ds-gsearch-results .ds-empty { padding-block: 28px 12px; }
 .ds-gsearch-meta { margin: 0 0 8px; font-size: 11px; color: var(--color-faint); }
 .ds-gsearch-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
