@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { createPortal } from "react-dom";
 import {
   AreaChart,
   Area,
@@ -17,15 +16,16 @@ import {
 import type { Booking, Driver, Vehicle, Customer, PenaltyRecord, MarketplaceTrip } from "../types";
 import { StatusBadge, PaymentBadge, BookingSourceBadge, bookingSourceRowCls } from "../components/booking/BookingBadges";
 import OperationsSection from "../components/dashboard/OperationsSection";
+import ScheduleCards from "../components/dashboard/ScheduleCards";
 import OfficeDashboard from "../components/dashboard/OfficeDashboard";
 import StaffDashboard from "../components/dashboard/StaffDashboard";
 import { useAccess } from "../components/AccessContext";
+import { hasCommandDesk, useDesk } from "../components/shell/DeskContext";
 import type { NavBadges } from "../hooks/useNavBadges";
 import { useNow } from "../hooks/useNow";
 import { useOperationsSettings } from "../hooks/useOperationsSettings";
 import { paymentOf } from "../domain/bookingFlow";
 import { ErrorBanner, Toast, useToast } from "../components/Feedback";
-import Icon from "../components/ui/Icon";
 import {
   subscribeBookings,
   subscribeDrivers,
@@ -64,7 +64,6 @@ import {
   SERVICE_NAME,
   SOURCE_NAME,
   SOURCE_ORDER,
-  type SourceScope,
   type DeskStage,
   type TripRow,
   type Period,
@@ -99,25 +98,30 @@ interface DashboardProps {
 export default function Dashboard(props: DashboardProps) {
   const access = useAccess();
   if (access.isSuper) return <MasterDashboard {...props} />;
-  const has = (p: (typeof access.permissions)[number]) => access.permissions.includes(p);
-  const fullOverview = has("operations") && has("people") && has("fleet") && has("finance");
-  const workspace = fullOverview ? (
+  // The same rule decides whether the header shows the Command / Dispatch desk switch.
+  const workspace = hasCommandDesk(access) ? (
     <MasterDashboard {...props} />
-  ) : has("operations") ? (
+  ) : access.permissions.includes("operations") ? (
     <OfficeDashboard onNavigate={props.onNavigate} onSelectBooking={props.onSelectBooking} onNewBooking={props.onNewBooking} />
   ) : null;
   return <StaffDashboard access={access} badges={props.badges} onNavigate={props.onNavigate} onNewBooking={props.onNewBooking} workspace={workspace} />;
 }
 
 type DashboardView = "command" | "trips" | "analytics" | "dispatch";
+/** Command Desk drill-downs ("All Trips" and "Revenue & GST" open from its cards and links). */
+type CommandView = "command" | "trips" | "analytics";
 
 function MasterDashboard({
   onNavigate,
   onSelectBooking,
   onNewBooking,
 }: DashboardProps) {
-  const [activeView, setActiveView] = useState<DashboardView>("command");
-  const [sourceScope, setSourceScope] = useState<SourceScope>("ALL");
+  // The desk and booking source are chosen in the app header (on every page) and kept while navigating.
+  const { desk, request: deskRequest, source: sourceScope } = useDesk();
+  const [commandView, setCommandView] = useState<CommandView>("command");
+  // Choosing a desk in the header (again) returns to that desk's main view, also from a drill-down.
+  useEffect(() => setCommandView("command"), [deskRequest]);
+  const activeView: DashboardView = desk === "dispatch" ? "dispatch" : commandView;
   const [cmdPeriod, setCmdPeriod] = useState<Period>("Today");
   const [analyticsPeriod, setAnalyticsPeriod] = useState<Period>("Month");
   const [filters, setFilters] = useState<TripFilters>(NO_TRIP_FILTERS);
@@ -214,83 +218,20 @@ function MasterDashboard({
 
   const handleStageCardClick = (stage: DeskStage) => {
     setFilters((f) => ({ ...f, stage }));
-    setActiveView("trips");
+    setCommandView("trips");
   };
-
-  // The desk toolbar lives in the global Header (#dashboard-topbar-slot) on desktop (≥1366px).
-  // The slot is rendered by the app shell, so it exists before this page mounts.
-  const [topbarTarget, setTopbarTarget] = useState<HTMLElement | null>(() => document.getElementById("dashboard-topbar-slot"));
-  useEffect(() => {
-    setTopbarTarget(document.getElementById("dashboard-topbar-slot"));
-  }, []);
-
-  // "All Trips" and "Revenue & GST" are drill-downs opened from the Command Desk
-  // (stage cards, "Full Explorer →", "GST & Revenue Report →"), so the Command Desk
-  // tab stays highlighted while they are open. Trip text filtering lives in the All Trips view;
-  // record search across bookings, drivers, vendors and customers is the Header's global search.
-  const deskTab = activeView === "dispatch" ? "dispatch" : "command";
-  const sourceOptions: { value: SourceScope; label: string }[] = [
-    { value: "ALL", label: `All Sources (${liveBookings.length})` },
-    { value: "nesam", label: `Nesam Cabs (${srcC.nesam})` },
-    { value: "people_taxi", label: `PeopleTaxi.in (${srcC.people_taxi})` },
-    { value: "onewaycarrentals", label: `One Way Car Rentals (${srcC.onewaycarrentals})` },
-  ];
-  const sourceLabel = sourceOptions.find((o) => o.value === sourceScope)?.label ?? "All Sources";
-
-  const deskToolbar = (
-    <div className="flex items-center gap-2 min-w-0 whitespace-nowrap">
-      <nav
-        aria-label="Dashboard views"
-        className="ds-desk-tabs"
-        onKeyDown={(e) => {
-          // Left/Right move focus between the two desk tabs (activation stays on Enter/Space/click).
-          if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-          const tabs = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>("button"));
-          const i = tabs.indexOf(document.activeElement as HTMLButtonElement);
-          if (i < 0) return;
-          e.preventDefault();
-          tabs[(i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length].focus();
-        }}
-      >
-        <button type="button" onClick={() => setActiveView("command")} aria-current={deskTab === "command" ? "page" : undefined}>
-          Command Desk
-        </button>
-        <button type="button" onClick={() => setActiveView("dispatch")} aria-current={deskTab === "dispatch" ? "page" : undefined}>
-          Dispatch Desk
-        </button>
-      </nav>
-
-      <label className="ds-source-filter" data-active={sourceScope !== "ALL" ? "true" : undefined} title={`Booking source: ${sourceLabel}`}>
-        <span className="sr-only">Filter by Booking Source</span>
-        <Icon name="list-filter" size={15} />
-        <select aria-label="Filter by Booking Source" value={sourceScope} onChange={(e) => setSourceScope(e.target.value as SourceScope)}>
-          {sourceOptions.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
-        <Icon name="chevron-down" size={14} />
-      </label>
-    </div>
-  );
 
   return (
     <div className="space-y-5">
       <Toast toast={toast} />
       {loadError && <ErrorBanner message={loadError} onRetry={() => setRetryKey((k) => k + 1)} />}
 
-      {/* Desk toolbar: portalled into the global Header on desktop (≥1366px, see .ds-header-slot).
-          Below that width — or if the Header slot is missing — it renders inline here instead. */}
-      {topbarTarget && createPortal(deskToolbar, topbarTarget)}
-      <div className={topbarTarget ? "min-[1366px]:hidden" : undefined}>
-        <div className="bg-white rounded-2xl border border-slate-200/90 px-3 py-2 shadow-2xs overflow-x-auto">{deskToolbar}</div>
-      </div>
-
       {/* ========================================================= */}
       {/* VIEW 1: COMMAND DESK                                      */}
       {/* ========================================================= */}
       {activeView === "command" && (
         <div className="space-y-5 fade-in">
-          {/* 5-Stage Dispatch Pipeline */}
+          {/* A · 5-Stage Dispatch Pipeline */}
           <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             <button
               type="button"
@@ -358,7 +299,7 @@ function MasterDashboard({
             </button>
           </section>
 
-          {/* Action-First 2-Column Workbench */}
+          {/* B · Action-First 2-Column Workbench */}
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Left: New Bookings Queue */}
             <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col">
@@ -487,7 +428,18 @@ function MasterDashboard({
             </div>
           </section>
 
-          {/* Quick Operational Strip */}
+          {/* C · Today's & Tomorrow's pickups, right under the two operational cards */}
+          <ScheduleCards
+            today={todayTrips}
+            tomorrow={tomorrowTrips}
+            now={now}
+            loading={!loaded && !loadError}
+            error={loaded ? null : loadError}
+            onRetry={() => setRetryKey((k) => k + 1)}
+            onManage={onSelectBooking}
+          />
+
+          {/* D · Quick Operational Strip (To Publish · booking sources) */}
           <section className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-white border border-slate-200/90 text-xs shadow-2xs">
             <div className="flex items-center gap-2 flex-wrap">
               <button
@@ -509,14 +461,14 @@ function MasterDashboard({
             </div>
             <button
               type="button"
-              onClick={() => setActiveView("analytics")}
+              onClick={() => setCommandView("analytics")}
               className="text-xs font-bold text-[#991B1B] hover:underline flex items-center gap-1 cursor-pointer"
             >
               <span>GST &amp; Revenue Report →</span>
             </button>
           </section>
 
-          {/* Latest Revenue Overview & Brand Source Performance */}
+          {/* E · Latest Revenue Overview & Brand Source Performance */}
           <section className="grid grid-cols-1 lg:grid-cols-12 gap-4">
             <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs flex flex-col justify-between space-y-4">
               <div className="flex flex-wrap items-start justify-between gap-2">
@@ -637,89 +589,6 @@ function MasterDashboard({
             </div>
           </section>
 
-          {/* Side-by-Side Today & Tomorrow Schedule */}
-          <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Today */}
-            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">Today's Schedule</h3>
-                <span className="text-[11px] font-medium text-slate-500">{todayTrips.length} active trips</span>
-              </div>
-              <div className="divide-y divide-slate-100 max-h-[300px] overflow-y-auto">
-                {todayTrips.length === 0 ? (
-                  <div className="p-6 text-center text-slate-400 text-xs">No active pickups scheduled for today.</div>
-                ) : (
-                  todayTrips.map((r) => {
-                    const as = assigneeOf(r);
-                    return (
-                      <div key={r.b.id} className="p-3.5 flex items-center justify-between gap-3 hover:bg-slate-50/80 transition-colors">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-xs font-bold text-[#991B1B]">{r.b.bookingId || r.b.id}</span>
-                            <span className="text-[11px] font-semibold text-slate-700">{r.b.time || "Scheduled"}</span>
-                            <BookingSourceBadge booking={r.b} size="sm" />
-                          </div>
-                          <p className="text-xs font-semibold text-slate-900 truncate mt-0.5">{r.b.pickup} → {r.b.drop}</p>
-                          <p className="text-[11px] text-slate-500 truncate">{as.primary} {as.secondary ? `(${as.secondary})` : ""}</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-xs font-extrabold text-slate-900">{formatINR(fareOf(r.b))}</p>
-                          <button
-                            type="button"
-                            onClick={() => onSelectBooking(r.b.id)}
-                            className="mt-1 text-[11px] font-semibold text-[#991B1B] hover:underline"
-                          >
-                            Manage →
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-
-            {/* Tomorrow */}
-            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">Tomorrow's Schedule</h3>
-                <span className="text-[11px] font-medium text-slate-500">{tomorrowTrips.length} upcoming trips</span>
-              </div>
-              <div className="divide-y divide-slate-100 max-h-[300px] overflow-y-auto">
-                {tomorrowTrips.length === 0 ? (
-                  <div className="p-6 text-center text-slate-400 text-xs">No active pickups scheduled for tomorrow.</div>
-                ) : (
-                  tomorrowTrips.map((r) => {
-                    const as = assigneeOf(r);
-                    return (
-                      <div key={r.b.id} className="p-3.5 flex items-center justify-between gap-3 hover:bg-slate-50/80 transition-colors">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-xs font-bold text-[#991B1B]">{r.b.bookingId || r.b.id}</span>
-                            <span className="text-[11px] font-semibold text-slate-700">{r.b.time || "Scheduled"}</span>
-                            <BookingSourceBadge booking={r.b} size="sm" />
-                          </div>
-                          <p className="text-xs font-semibold text-slate-900 truncate mt-0.5">{r.b.pickup} → {r.b.drop}</p>
-                          <p className="text-[11px] text-slate-500 truncate">{as.primary} {as.secondary ? `(${as.secondary})` : ""}</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-xs font-extrabold text-slate-900">{formatINR(fareOf(r.b))}</p>
-                          <button
-                            type="button"
-                            onClick={() => onSelectBooking(r.b.id)}
-                            className="mt-1 text-[11px] font-semibold text-[#991B1B] hover:underline"
-                          >
-                            Manage →
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          </section>
-
           {/* Active & Recent Bookings Table */}
           <section className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
@@ -729,7 +598,7 @@ function MasterDashboard({
               </div>
               <button
                 type="button"
-                onClick={() => setActiveView("trips")}
+                onClick={() => setCommandView("trips")}
                 className="text-xs font-bold text-[#991B1B] hover:underline cursor-pointer"
               >
                 Full Explorer →

@@ -193,13 +193,18 @@ export const subscribeBookings = (cb: (data: Booking[]) => void, onError?: (mess
   let bookings: Booking[] = [];
   let contacts = new Map<string, { phone?: string; email?: string; whatsapp?: string }>();
   let priv = new Map<string, PrivatePricing>();
-  const emit = () =>
+  // Nothing is reported before the bookings themselves arrive: the contact and pricing joins alone would
+  // announce an empty list — a false "no bookings" — while the bookings are still loading or were refused.
+  let ready = false;
+  const emit = () => {
+    if (!ready) return;
     cb(bookings.map((raw) => {
       const b = withPrivatePricing(raw, priv.get(raw.id));
       const c = contacts.get(b.id);
       return c ? { ...b, phone: c.phone || b.phone, customerEmail: c.email || b.customerEmail, customerWhatsapp: b.customerWhatsapp ?? (c.whatsapp ? { e164: c.whatsapp, sameAsMobile: c.whatsapp === c.phone } : undefined) } : b;
     }) as Booking[]);
-  const a = subscribeToCollection<Booking>(COLLECTIONS.BOOKINGS, (d) => { bookings = d; emit(); }, onError);
+  };
+  const a = subscribeToCollection<Booking>(COLLECTIONS.BOOKINGS, (d) => { bookings = d; ready = true; emit(); }, onError);
   const b = subscribeToCollection<{ id: string; phone?: string; email?: string; whatsapp?: string }>("booking_contacts", (d) => { contacts = new Map(d.map((x) => [x.id, x])); emit(); }, () => undefined);
   // Without the payout right the rules refuse this read: the bookings simply carry no partner pricing.
   const p = subscribeToCollection<PrivatePricing & { id: string }>(PRICING_PRIVATE, (d) => { priv = new Map(d.map((x) => [x.id, x])); emit(); }, () => undefined);

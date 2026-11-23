@@ -20,6 +20,13 @@ export interface NavBadges {
   support: number;
 }
 
+type BookingLike = { status?: string; assignedVendorId?: string; assignedDriverId?: string };
+/** "New": bookings waiting for office approval (status Pending). The header and the sidebar count the same way. */
+export const countNewBookings = (rows: readonly BookingLike[]) => rows.filter((b) => b.status === "Pending").length;
+/** "Pending": accepted by a partner, driver and cab not confirmed yet (reference "assignment pending"). */
+export const countAwaitingAssignment = (rows: readonly BookingLike[]) =>
+  rows.filter((b) => b.assignedVendorId && !b.assignedDriverId && ["Approved", "Confirmed"].includes(b.status ?? "")).length;
+
 const EMPTY: NavBadges = { newBookings: 0, awaitingAssignment: 0, trips: 0, marketplace: 0, vendorBids: 0, vendors: 0, drivers: 0, notifications: 0, support: 0 };
 
 /**
@@ -37,9 +44,8 @@ export function useNavBadges(access: AdminAccess): NavBadges {
       unsubs.push(
         subscribeToCollection(COLLECTIONS.BOOKINGS, (data: any[]) => {
           set({
-            newBookings: data.filter((b) => b.status === "Pending").length,
-            // Accepted by a partner, driver and cab not confirmed yet (reference "assignment pending").
-            awaitingAssignment: data.filter((b) => b.assignedVendorId && !b.assignedDriverId && ["Approved", "Confirmed"].includes(b.status)).length,
+            newBookings: countNewBookings(data),
+            awaitingAssignment: countAwaitingAssignment(data),
             trips: data.filter((b) => ["Ongoing", "Assigned", "Trip Started"].includes(b.status)).length,
           });
         }),
