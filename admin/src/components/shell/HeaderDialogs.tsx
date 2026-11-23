@@ -501,7 +501,7 @@ export function SoundSettingsDialog({ onClose }: { onClose: () => void }) {
           try { await addCustomSound(f); setCustom(await listCustomSounds()); setMsg(null); } catch (err) { setMsg(err instanceof Error ? err.message : "Upload failed."); }
         }} /></label>
       </div>
-      <p className="text-[11px] text-faint mt-3">Alert duration stays fixed: New 5s · Urgent 10s · Unassigned 5s. Live Test plays one bounded preview; repeat choices are saved for real alerts. Urgent plays first; sounds do not overlap. Ownership ends urgent attention; pending assignment reminders continue until driver + cab are confirmed.</p>
+      <p className="text-[11px] text-faint mt-3">Alert duration stays fixed: New 5s · Urgent 10s · Unassigned 5s · Follow-up 2s. Live Test plays one bounded preview; repeat choices are saved for real alerts. Urgent plays first; sounds do not overlap. Ownership ends urgent attention; pending assignment reminders continue until driver + cab are confirmed.</p>
     </Modal>
   );
 }

@@ -6,14 +6,16 @@ const fs = require('node:fs');
 const path = require('node:path');
 const ts = require('../admin/node_modules/typescript');
 
-const file = path.resolve(__dirname, '../admin/src/utils/notificationSound.ts');
-const source = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+const transpile = (rel) => ts.transpileModule(fs.readFileSync(path.resolve(__dirname, '../admin/src', rel), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+const source = transpile('utils/notificationSound.ts');
+const reminderSource = transpile('utils/followUpReminders.ts');
 /** A fresh copy of the module per test, so its shared context and active preview never leak between tests. */
-function loadSound() {
+function loadModule(code) {
   const module = { exports: {} };
-  new Function('require', 'module', 'exports', source)(() => { throw Error('notificationSound.ts must not import anything'); }, module, module.exports);
+  new Function('require', 'module', 'exports', code)(() => { throw Error('sound utilities must not import anything'); }, module, module.exports);
   return module.exports;
 }
+const loadSound = () => loadModule(source);
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
 const flush = async (n = 6) => { for (let i = 0; i < n; i++) await tick(); };
@@ -213,4 +215,147 @@ test('a real alert stops an in-progress Live Test that is still loading', async 
   assert.equal(contexts[1].sources.length, 0);
   assert.equal(contexts[1].closed, true);
   assert.equal(contexts[0].closed, false);
+});
+
+// ── Follow-up reminder category ───────────────────────────────────────────
+
+test('Follow-up reminder is the fourth category with its defaults; the other three are unchanged', () => {
+  const sound = loadSound();
+  assert.deepEqual([...sound.ALERT_KINDS], ['New booking', 'Urgent booking', 'Unassigned booking', 'Follow-up reminder']);
+  assert.deepEqual(sound.DEFAULT_SOUNDS['Follow-up reminder'], { tone: 'Soft Chime', volume: 80, on: true, repeat: 'Once only' });
+  assert.deepEqual(sound.ALERT_SECONDS, { 'New booking': 5, 'Urgent booking': 10, 'Unassigned booking': 5, 'Follow-up reminder': 2 });
+  assert.deepEqual(sound.loadSoundConfig(), sound.DEFAULT_SOUNDS); // nothing saved yet
+});
+
+test('a saved three-category configuration keeps its choices and gains the follow-up default; saving round-trips', () => {
+  const sound = loadSound();
+  const old = {
+    'New booking': { tone: 'custom:s1', volume: 35, on: false, repeat: 'Once only' },
+    'Urgent booking': { tone: 'Quick Ring', volume: 90, on: true, repeat: 'Every 30 sec' },
+    'Unassigned booking': { tone: 'Soft Chime', volume: 10, on: true, repeat: 'Every 10 min' },
+  };
+  store.set('nesam_alert_sounds', JSON.stringify(old));
+  const cfg = sound.loadSoundConfig();
+  for (const k of Object.keys(old)) assert.deepEqual(cfg[k], old[k]);
+  assert.deepEqual(cfg['Follow-up reminder'], sound.DEFAULT_SOUNDS['Follow-up reminder']);
+  const changed = { ...cfg, 'Follow-up reminder': { tone: 'custom:s1', volume: 40, on: false, repeat: 'Every 2 min' } };
+  sound.saveSoundConfig(changed);
+  assert.deepEqual(sound.loadSoundConfig(), changed);
+  // A damaged field falls back to its default without losing the rest.
+  store.set('nesam_alert_sounds', JSON.stringify({ ...old, 'Follow-up reminder': { tone: 'Clean Bell', volume: 'loud', repeat: 'Hourly' } }));
+  assert.deepEqual(sound.loadSoundConfig()['Follow-up reminder'], { tone: 'Clean Bell', volume: 80, on: true, repeat: 'Once only' });
+  assert.equal(sound.repeatIntervalMs('Every 2 min'), 120000);
+  assert.equal(sound.repeatIntervalMs('Once only'), null);
+});
+
+test('follow-up alerts use the saved tone and volume, and obey global and per-alert sound off', async () => {
+  const sound = loadSound();
+  installIndexedDB(saved());
+  sound.unlockSound();
+  const shared = contexts[0];
+  sound.saveSoundConfig({ ...sound.DEFAULT_SOUNDS, 'Follow-up reminder': { tone: 'custom:s1', volume: 30, on: true, repeat: 'Once only' } });
+  sound.playAlert('Follow-up reminder');
+  await flush();
+  assert.equal(shared.sources.length, 1, 'uploaded tone played from its saved Blob');
+  assert.deepEqual(shared.sources[0].stops, [2], 'bounded to 2 seconds');
+  assert.equal(shared.gains[0].gain.value, 0.3);
+  await new Promise((r) => setTimeout(r, 2100)); // let the 2 s alert finish
+
+  sound.saveSoundConfig({ ...sound.DEFAULT_SOUNDS, 'Follow-up reminder': { ...sound.DEFAULT_SOUNDS['Follow-up reminder'], on: false } });
+  sound.playAlert('Follow-up reminder');
+  await flush();
+  assert.equal(shared.sources.length, 1);
+  assert.equal(shared.oscillators, 0, 'per-alert off mutes the follow-up');
+  sound.playAlert('New booking'); // other alerts keep playing
+  assert.ok(shared.oscillators > 0);
+
+  const before = shared.oscillators;
+  await new Promise((r) => setTimeout(r, 5100));
+  sound.saveSoundConfig(sound.DEFAULT_SOUNDS);
+  sound.setSoundEnabled(false);
+  sound.playAlert('Follow-up reminder');
+  await flush();
+  assert.equal(shared.oscillators, before, 'global sound off mutes the follow-up');
+});
+
+test('a follow-up reminder waits for a sounding booking alert instead of cutting it off', async () => {
+  const sound = loadSound();
+  installIndexedDB(saved());
+  sound.saveSoundConfig({ ...sound.DEFAULT_SOUNDS, 'New booking': { tone: 'custom:s1', volume: 80, on: true, repeat: 'Once only' } });
+  sound.unlockSound();
+  const shared = contexts[0];
+  sound.playAlert('New booking');
+  await flush();
+  const booking = shared.sources[0];
+  sound.playAlert('Follow-up reminder');
+  sound.playAlert('Follow-up reminder'); // a duplicate request while waiting is not queued twice
+  await flush();
+  assert.deepEqual(booking.stops, [5], 'the booking alert was not stopped early');
+  assert.equal(shared.oscillators, 0);
+  await new Promise((r) => setTimeout(r, 3300)); // the uploaded sound is 3 s long
+  const chime = shared.oscillators;
+  assert.ok(chime > 0, 'the follow-up plays once the booking alert ends');
+  await new Promise((r) => setTimeout(r, 300));
+  assert.equal(shared.oscillators, chime, 'played only once');
+});
+
+test('Live Test previews an unsaved follow-up selection for 2 seconds at most', async () => {
+  const sound = loadSound();
+  installIndexedDB(saved());
+  const preview = sound.startSoundPreview('custom:s1', 55, sound.ALERT_SECONDS['Follow-up reminder']);
+  await flush();
+  assert.equal(contexts[0].gains[0].gain.value, 0.55);
+  const started = Date.now();
+  await preview.finished;
+  const took = Date.now() - started;
+  assert.ok(took >= 1900 && took < 2600, `stopped after ~2 s (took ${took} ms)`);
+  assert.equal(contexts[0].closed, true);
+});
+
+test('follow-up scheduler: alerts once when due, repeats at the interval, no duplicates on re-render', () => {
+  const { stepFollowUpReminders } = loadModule(reminderSource);
+  const a = { id: 'a', dueAtMs: 1000 };
+  let s = stepFollowUpReminders(null, [], 0, null);
+  assert.equal(s.sound, false);
+  s = stepFollowUpReminders(s.state, [a], 1000, null);
+  assert.deepEqual([s.sound, s.fresh.map((r) => r.id)], [true, ['a']]);
+  // The same queue again (re-render / StrictMode double effect): nothing new.
+  const again = stepFollowUpReminders(s.state, [a], 1000, null);
+  assert.deepEqual([again.sound, again.fresh.length], [false, 0]);
+  // "Once only": still due a long time later, still silent.
+  assert.equal(stepFollowUpReminders(s.state, [a], 999999, null).sound, false);
+  // Every 1 min: silent before, rings at the interval, then waits another interval.
+  let r = stepFollowUpReminders(s.state, [a], 1000 + 45000, 60000);
+  assert.equal(r.sound, false);
+  r = stepFollowUpReminders(r.state, [a], 1000 + 60000, 60000);
+  assert.deepEqual([r.sound, r.repeated, r.fresh.length], [true, true, 0]);
+  assert.equal(stepFollowUpReminders(r.state, [a], 1000 + 75000, 60000).sound, false);
+});
+
+test('follow-up scheduler: snooze pauses until the new due time; booked / lost follow-ups stop repeating', () => {
+  const { stepFollowUpReminders } = loadModule(reminderSource);
+  const rep = 30000;
+  let s = stepFollowUpReminders(new Map(), [{ id: 'a', dueAtMs: 0 }, { id: 'b', dueAtMs: 0 }], 0, rep);
+  assert.equal(s.fresh.length, 2);
+  // "a" snoozed +15m: it is upcoming, so not in the due list; "b" is booked / lost: also not due.
+  s = stepFollowUpReminders(s.state, [], 60000, rep);
+  assert.equal(s.sound, false);
+  assert.equal(s.state.size, 0, 'nothing left to repeat');
+  s = stepFollowUpReminders(s.state, [], 600000, rep);
+  assert.equal(s.sound, false, 'silent while snoozed');
+  // At the new due time it alerts afresh.
+  s = stepFollowUpReminders(s.state, [{ id: 'a', dueAtMs: 900000 }], 900000, rep);
+  assert.deepEqual([s.sound, s.fresh.map((r) => r.id)], [true, ['a']]);
+  // A due time moved while it stays in the list (rescheduled) also counts as a new alert.
+  s = stepFollowUpReminders(s.state, [{ id: 'a', dueAtMs: 905000 }], 905000, rep);
+  assert.equal(s.fresh.length, 1);
+});
+
+test('follow-up scheduler: follow-ups already due when the desk opens do not alert at once, but do repeat', () => {
+  const { stepFollowUpReminders } = loadModule(reminderSource);
+  const a = { id: 'a', dueAtMs: 0 };
+  let s = stepFollowUpReminders(null, [a], 10000, 60000);
+  assert.deepEqual([s.sound, s.fresh.length], [false, 0]);
+  s = stepFollowUpReminders(s.state, [a], 70000, 60000);
+  assert.equal(s.sound, true);
 });

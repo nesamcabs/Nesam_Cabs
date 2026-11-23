@@ -94,9 +94,9 @@ export function playTone(tone: Tone, times = 1): void {
 
 export const PRESET_TONES = ["Clean Bell", "Double Bell", "Classic Ring", "Quick Ring", "Soft Chime"] as const;
 export type PresetTone = (typeof PRESET_TONES)[number];
-export const ALERT_KINDS = ["New booking", "Urgent booking", "Unassigned booking"] as const;
+export const ALERT_KINDS = ["New booking", "Urgent booking", "Unassigned booking", "Follow-up reminder"] as const;
 export type AlertKind = (typeof ALERT_KINDS)[number];
-export const ALERT_SECONDS: Record<AlertKind, number> = { "New booking": 5, "Urgent booking": 10, "Unassigned booking": 5 };
+export const ALERT_SECONDS: Record<AlertKind, number> = { "New booking": 5, "Urgent booking": 10, "Unassigned booking": 5, "Follow-up reminder": 2 };
 export const REPEATS = ["Once only", "Every 30 sec", "Every 1 min", "Every 2 min", "Every 5 min", "Every 10 min"] as const;
 
 export interface AlertSound {
@@ -112,14 +112,38 @@ export const DEFAULT_SOUNDS: SoundConfig = {
   "New booking": { tone: "Clean Bell", volume: 80, on: true, repeat: "Once only" },
   "Urgent booking": { tone: "Classic Ring", volume: 80, on: true, repeat: "Every 1 min" },
   "Unassigned booking": { tone: "Double Bell", volume: 80, on: true, repeat: "Every 5 min" },
+  "Follow-up reminder": { tone: "Soft Chime", volume: 80, on: true, repeat: "Once only" },
 };
+
+const REPEAT_MS: Record<(typeof REPEATS)[number], number | null> = {
+  "Once only": null, "Every 30 sec": 30_000, "Every 1 min": 60_000, "Every 2 min": 120_000, "Every 5 min": 300_000, "Every 10 min": 600_000,
+};
+/** Milliseconds between repeats of a real alert, or null for "Once only". */
+export function repeatIntervalMs(repeat: string): number | null {
+  return (REPEATS as readonly string[]).includes(repeat) ? REPEAT_MS[repeat as (typeof REPEATS)[number]] : null;
+}
+
+/** One saved alert merged over its default, field by field, so a missing or damaged field never loses the others. */
+function mergeAlert(kind: AlertKind, saved: unknown): AlertSound {
+  const d = DEFAULT_SOUNDS[kind];
+  if (!saved || typeof saved !== "object") return d;
+  const v = saved as Partial<AlertSound>;
+  return {
+    tone: typeof v.tone === "string" && v.tone ? v.tone : d.tone,
+    volume: typeof v.volume === "number" && Number.isFinite(v.volume) ? Math.max(0, Math.min(100, v.volume)) : d.volume,
+    on: typeof v.on === "boolean" ? v.on : d.on,
+    repeat: typeof v.repeat === "string" && (REPEATS as readonly string[]).includes(v.repeat) ? v.repeat : d.repeat,
+  };
+}
 
 const CFG_KEY = "nesam_alert_sounds";
 
 export function loadSoundConfig(): SoundConfig {
   try {
-    const v = JSON.parse(localStorage.getItem(CFG_KEY) || "null");
-    return v ? { ...DEFAULT_SOUNDS, ...v } : DEFAULT_SOUNDS;
+    const v = JSON.parse(localStorage.getItem(CFG_KEY) || "null") as Record<string, unknown> | null;
+    if (!v || typeof v !== "object") return DEFAULT_SOUNDS;
+    // Configurations saved before a category existed (e.g. only the first three) gain its default; others are kept.
+    return Object.fromEntries(ALERT_KINDS.map((k) => [k, mergeAlert(k, v[k])])) as SoundConfig;
   } catch {
     return DEFAULT_SOUNDS;
   }
@@ -289,12 +313,22 @@ export async function previewTone(tone: string, volume: number, seconds: number)
 }
 
 /** Alert sound for a kind of alert, following the saved configuration. */
+let followUpRetry: ReturnType<typeof setTimeout> | null = null;
+
 export function playAlert(kind: AlertKind): void {
   if (!soundEnabled()) return;
   const cfg = loadSoundConfig()[kind];
   if (!cfg?.on) return;
   const c = context();
   if (!c || c.state !== "running") return;
+  // Booking alerts outrank follow-up reminders: a reminder waits for a sounding alert to finish instead of cutting it off.
+  if (kind === "Follow-up reminder") {
+    const wait = alertBusyUntil - Date.now();
+    if (wait > 0) {
+      if (followUpRetry === null) followUpRetry = setTimeout(() => { followUpRetry = null; playAlert(kind); }, wait + 100);
+      return;
+    }
+  }
   // Real notifications take priority: any Live Test preview stops (it has its own context, so this one stays open).
   activeSoundPreview?.stop();
   const seconds = ALERT_SECONDS[kind];
