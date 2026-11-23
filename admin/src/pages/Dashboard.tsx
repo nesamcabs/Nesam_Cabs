@@ -153,6 +153,14 @@ function MasterDashboard({
     return () => { u1(); u2(); u3(); u4(); u5(); u6(); };
   }, [retryKey]);
 
+  // Until the bookings arrive, booking-derived figures read "…" (or "—" when they could not be loaded), never a fake 0.
+  const bookingsReady = loaded;
+  const pendingText = loadError ? "—" : "…";
+  const shown = <T,>(v: T): T | string => (bookingsReady ? v : pendingText);
+  const money = (v: number) => (bookingsReady ? formatINR(v) : pendingText);
+  /** Loading / error text for a list that has no rows yet; null once the bookings are loaded. */
+  const listNotice = bookingsReady ? null : loadError ? "Bookings could not be loaded. Use Retry above." : "Loading bookings…";
+
   // Index marketplace trips by bookingId
   const marketById = useMemo(() => {
     const m = new Map<string, MarketplaceTrip>();
@@ -242,7 +250,7 @@ function MasterDashboard({
                 <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700">1. New Bookings</span>
                 <span className="w-2.5 h-2.5 rounded-full bg-amber-500 group-hover:scale-110 transition-transform" />
               </div>
-              <p className="text-2xl font-extrabold text-slate-900 mt-1.5">{stageC.new}</p>
+              <p className="text-2xl font-extrabold text-slate-900 mt-1.5">{shown(stageC.new)}</p>
               <p className="text-[11px] text-slate-500 mt-0.5">Awaiting office review</p>
             </button>
 
@@ -255,7 +263,7 @@ function MasterDashboard({
                 <span className="text-[11px] font-bold uppercase tracking-wider text-blue-700">2. To Publish</span>
                 <span className="w-2.5 h-2.5 rounded-full bg-blue-500 group-hover:scale-110 transition-transform" />
               </div>
-              <p className="text-2xl font-extrabold text-slate-900 mt-1.5">{stageC.publish}</p>
+              <p className="text-2xl font-extrabold text-slate-900 mt-1.5">{shown(stageC.publish)}</p>
               <p className="text-[11px] text-slate-500 mt-0.5">Ready for partner pool</p>
             </button>
 
@@ -268,7 +276,7 @@ function MasterDashboard({
                 <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700">3. Published</span>
                 <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 group-hover:scale-110 transition-transform" />
               </div>
-              <p className="text-2xl font-extrabold text-slate-900 mt-1.5">{stageC.published}</p>
+              <p className="text-2xl font-extrabold text-slate-900 mt-1.5">{shown(stageC.published)}</p>
               <p className="text-[11px] text-slate-500 mt-0.5">Open vendor bidding</p>
             </button>
 
@@ -281,7 +289,7 @@ function MasterDashboard({
                 <span className="text-[11px] font-bold uppercase tracking-wider text-[#991B1B]">4. Assign Pending</span>
                 <span className="w-2.5 h-2.5 rounded-full bg-[#991B1B] animate-pulse" />
               </div>
-              <p className="text-2xl font-extrabold text-[#991B1B] mt-1.5">{stageC.assign}</p>
+              <p className="text-2xl font-extrabold text-[#991B1B] mt-1.5">{shown(stageC.assign)}</p>
               <p className="text-[11px] text-slate-500 mt-0.5">Needs driver &amp; cab</p>
             </button>
 
@@ -294,7 +302,7 @@ function MasterDashboard({
                 <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">5. On Trip</span>
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 group-hover:scale-110 transition-transform" />
               </div>
-              <p className="text-2xl font-extrabold text-emerald-700 mt-1.5">{stageC.ontrip}</p>
+              <p className="text-2xl font-extrabold text-emerald-700 mt-1.5">{shown(stageC.ontrip)}</p>
               <p className="text-[11px] text-slate-500 mt-0.5">Active duties on road</p>
             </button>
           </section>
@@ -315,14 +323,14 @@ function MasterDashboard({
                   onClick={() => handleStageCardClick("new")}
                   className="text-[11px] font-semibold text-[#991B1B] hover:underline"
                 >
-                  View All ({stageC.new})
+                  View All ({shown(stageC.new)})
                 </button>
               </div>
               <div className="p-4 space-y-2.5 flex-1 max-h-[360px] overflow-y-auto">
                 {scopedRows.filter((r) => r.stage === "new").length === 0 ? (
-                  <div className="h-full min-h-[140px] flex flex-col items-center justify-center text-center p-4 text-slate-400">
-                    <p className="text-xs font-bold text-slate-700">No new bookings awaiting review</p>
-                    <p className="text-[11px] mt-0.5">New bookings appear here immediately for office review.</p>
+                  <div className="h-full min-h-[140px] flex flex-col items-center justify-center text-center p-4 text-slate-400" role={listNotice ? "status" : undefined}>
+                    <p className="text-xs font-bold text-slate-700">{listNotice ?? "No new bookings awaiting review"}</p>
+                    {!listNotice && <p className="text-[11px] mt-0.5">New bookings appear here immediately for office review.</p>}
                   </div>
                 ) : (
                   scopedRows.filter((r) => r.stage === "new").slice(0, 5).map((r) => (
@@ -382,14 +390,14 @@ function MasterDashboard({
                   onClick={() => handleStageCardClick("assign")}
                   className="text-[11px] font-semibold text-[#991B1B] hover:underline"
                 >
-                  Open Queue ({stageC.assign})
+                  Open Queue ({shown(stageC.assign)})
                 </button>
               </div>
               <div className="p-4 space-y-2.5 flex-1 max-h-[360px] overflow-y-auto">
                 {scopedRows.filter((r) => r.stage === "assign").length === 0 ? (
-                  <div className="h-full min-h-[140px] flex flex-col items-center justify-center text-center p-4 text-slate-400">
-                    <p className="text-xs font-bold text-slate-700">All accepted duties are allocated</p>
-                    <p className="text-[11px] mt-0.5">Duties needing cab &amp; driver assignment appear here.</p>
+                  <div className="h-full min-h-[140px] flex flex-col items-center justify-center text-center p-4 text-slate-400" role={listNotice ? "status" : undefined}>
+                    <p className="text-xs font-bold text-slate-700">{listNotice ?? "All accepted duties are allocated"}</p>
+                    {!listNotice && <p className="text-[11px] mt-0.5">Duties needing cab &amp; driver assignment appear here.</p>}
                   </div>
                 ) : (
                   scopedRows.filter((r) => r.stage === "assign").slice(0, 5).map((r) => (
@@ -449,14 +457,14 @@ function MasterDashboard({
               >
                 <span>To Publish</span>
                 <span className="px-1.5 py-0.2 rounded-full bg-blue-600 text-white text-[10px] font-bold">
-                  {stageC.publish}
+                  {shown(stageC.publish)}
                 </span>
               </button>
               <span className="text-slate-300">|</span>
               <span className="text-slate-600 font-medium">
-                Sources: <strong className="text-[#991B1B]">Nesam Cabs ({srcC.nesam})</strong> •{" "}
-                <strong className="text-emerald-700">PeopleTaxi.in ({srcC.people_taxi})</strong> •{" "}
-                <strong className="text-blue-700">One Way Car Rentals ({srcC.onewaycarrentals})</strong>
+                Sources: <strong className="text-[#991B1B]">Nesam Cabs ({shown(srcC.nesam)})</strong> •{" "}
+                <strong className="text-emerald-700">PeopleTaxi.in ({shown(srcC.people_taxi)})</strong> •{" "}
+                <strong className="text-blue-700">One Way Car Rentals ({shown(srcC.onewaycarrentals)})</strong>
               </span>
             </div>
             <button
@@ -478,7 +486,7 @@ function MasterDashboard({
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${
                       cmdChange.kind === "up" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : cmdChange.kind === "down" ? "bg-red-50 text-red-700 border-red-200" : "bg-slate-50 text-slate-700 border-slate-200"
                     }`}>
-                      {changeLabel(cmdChange)}
+                      {bookingsReady ? changeLabel(cmdChange) : pendingText}
                     </span>
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -487,10 +495,10 @@ function MasterDashboard({
                   </div>
                   <div className="flex items-baseline gap-2.5 mt-1">
                     <p className="text-xl font-extrabold tracking-tight text-slate-900">
-                      {formatINR(cmdSummary.booked)}
+                      {money(cmdSummary.booked)}
                     </p>
                     <p className="text-[11px] font-medium text-slate-500">
-                      Pipeline Gross: {formatINR(pipelineGross)}
+                      Pipeline Gross: {money(pipelineGross)}
                     </p>
                   </div>
                 </div>
@@ -515,6 +523,9 @@ function MasterDashboard({
 
               {/* Area Trend Chart */}
               <div className="h-36 w-full">
+                {!bookingsReady ? (
+                  <div className="h-full flex items-center justify-center text-[11px] text-slate-400" role="status">{listNotice}</div>
+                ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart
                     data={cmdWin.buckets.map((b, i) => ({ label: b.label, amount: cmdSummary.buckets[i] ?? 0 }))}
@@ -533,6 +544,7 @@ function MasterDashboard({
                     <Area type="monotone" dataKey="amount" stroke="#991B1B" strokeWidth={2} fill="url(#cmdRedGrad)" />
                   </AreaChart>
                 </ResponsiveContainer>
+                )}
               </div>
 
               {/* Service-Wise Market Ticker Strip (NSE/BSE style) */}
@@ -541,7 +553,7 @@ function MasterDashboard({
                   <div key={k} className="p-2 rounded-xl bg-slate-50 border border-slate-200/70 text-center">
                     <p className="text-[10px] font-bold text-slate-500 uppercase">{SERVICE_NAME[k]}</p>
                     <p className="text-xs font-extrabold text-slate-900 mt-0.5">
-                      {formatINR(cmdSummary.byService[k])}
+                      {money(cmdSummary.byService[k])}
                     </p>
                   </div>
                 ))}
@@ -571,7 +583,7 @@ function MasterDashboard({
                       <div className="flex items-center justify-between text-xs">
                         <span className="font-bold text-slate-800">{SOURCE_NAME[s]}</span>
                         <span className="font-extrabold text-slate-900">
-                          {formatINR(bkg.booked)} <span className="text-[11px] text-slate-400 font-normal">({bkg.count} trips • {pct}%)</span>
+                          {money(bkg.booked)} <span className="text-[11px] text-slate-400 font-normal">{bookingsReady ? `(${bkg.count} trips • ${pct}%)` : ""}</span>
                         </span>
                       </div>
                       <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
@@ -584,7 +596,7 @@ function MasterDashboard({
 
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 text-xs flex items-center justify-between">
                 <span className="text-slate-600">Total Bookings in Window:</span>
-                <span className="font-bold text-slate-900">{cmdSummary.count} bookings</span>
+                <span className="font-bold text-slate-900">{bookingsReady ? `${cmdSummary.count} bookings` : pendingText}</span>
               </div>
             </div>
           </section>
@@ -620,6 +632,13 @@ function MasterDashboard({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
+                  {scopedRows.length === 0 && (
+                    <tr>
+                      <td colSpan={9} className="py-12 text-center text-slate-400" role={listNotice ? "status" : undefined}>
+                        {listNotice ?? "No bookings yet for this source."}
+                      </td>
+                    </tr>
+                  )}
                   {scopedRows.slice(0, 8).map((r) => {
                     const as = assigneeOf(r);
                     return (
@@ -717,13 +736,13 @@ function MasterDashboard({
                     <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
                       filters.stage === t.id ? "bg-white/20 text-white" : "bg-white text-slate-700 font-bold"
                     }`}>
-                      {t.count}
+                      {shown(t.count)}
                     </span>
                   </button>
                 ))}
               </div>
               <span className="text-xs font-semibold text-slate-500">
-                {tripsFiltered.length} matching records
+                {bookingsReady ? `${tripsFiltered.length} matching records` : pendingText}
               </span>
             </div>
 
@@ -783,8 +802,8 @@ function MasterDashboard({
               <tbody className="divide-y divide-slate-100">
                 {tripsFiltered.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-12 text-center text-slate-400">
-                      No bookings match the selected filters.
+                    <td colSpan={9} className="py-12 text-center text-slate-400" role={listNotice ? "status" : undefined}>
+                      {listNotice ?? "No bookings match the selected filters."}
                     </td>
                   </tr>
                 ) : (
@@ -860,15 +879,15 @@ function MasterDashboard({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs">
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Bookings</p>
-              <p className="text-2xl font-extrabold text-slate-900 mt-1">{scopedBookings.length}</p>
+              <p className="text-2xl font-extrabold text-slate-900 mt-1">{shown(scopedBookings.length)}</p>
             </div>
             <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs">
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Active On-Road Trips</p>
-              <p className="text-2xl font-extrabold text-emerald-700 mt-1">{stageC.ontrip}</p>
+              <p className="text-2xl font-extrabold text-emerald-700 mt-1">{shown(stageC.ontrip)}</p>
             </div>
             <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs">
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Pipeline Gross Value</p>
-              <p className="text-2xl font-extrabold text-[#991B1B] mt-1">{formatINR(pipelineGross)}</p>
+              <p className="text-2xl font-extrabold text-[#991B1B] mt-1">{money(pipelineGross)}</p>
             </div>
           </div>
 
@@ -878,7 +897,7 @@ function MasterDashboard({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h3 className="text-sm font-bold text-slate-900">Revenue Overview</h3>
-                  <p className="text-xs font-semibold text-emerald-700">Total in Period: {formatINR(anSummary.booked)}</p>
+                  <p className="text-xs font-semibold text-emerald-700">Total in Period: {money(anSummary.booked)}</p>
                 </div>
                 <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
                   {(["Today", "Week", "Month", "Year"] as Period[]).map((p) => (
@@ -899,6 +918,9 @@ function MasterDashboard({
               </div>
 
               <div className="h-44 w-full">
+                {!bookingsReady ? (
+                  <div className="h-full flex items-center justify-center text-[11px] text-slate-400" role="status">{listNotice}</div>
+                ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={anWin.buckets.map((b, i) => ({ label: b.label, amount: anSummary.buckets[i] ?? 0 }))}
@@ -911,6 +933,7 @@ function MasterDashboard({
                     <Bar dataKey="amount" fill="#991B1B" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
+                )}
               </div>
             </div>
 
@@ -933,7 +956,7 @@ function MasterDashboard({
                     <div key={cat} className="space-y-1">
                       <div className="flex items-center justify-between text-xs">
                         <span className="font-semibold text-slate-800">{cat}</span>
-                        <span className="font-bold text-slate-900">{count} trips ({pct}%)</span>
+                        <span className="font-bold text-slate-900">{bookingsReady ? `${count} trips (${pct}%)` : pendingText}</span>
                       </div>
                       <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
                         <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: color }} />
@@ -971,19 +994,19 @@ function MasterDashboard({
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
                   <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
                     <p className="text-[10px] font-bold text-slate-400 uppercase">Gross Taxable Value</p>
-                    <p className="text-lg font-extrabold text-slate-900 mt-1">{formatINR(taxable)}</p>
+                    <p className="text-lg font-extrabold text-slate-900 mt-1">{money(taxable)}</p>
                   </div>
                   <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
                     <p className="text-[10px] font-bold text-slate-400 uppercase">CGST (2.5%)</p>
-                    <p className="text-lg font-extrabold text-slate-900 mt-1">{formatINR(cgst)}</p>
+                    <p className="text-lg font-extrabold text-slate-900 mt-1">{money(cgst)}</p>
                   </div>
                   <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
                     <p className="text-[10px] font-bold text-slate-400 uppercase">SGST (2.5%)</p>
-                    <p className="text-lg font-extrabold text-slate-900 mt-1">{formatINR(sgst)}</p>
+                    <p className="text-lg font-extrabold text-slate-900 mt-1">{money(sgst)}</p>
                   </div>
                   <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200/80">
                     <p className="text-[10px] font-bold text-emerald-700 uppercase">Total GST Output (5%)</p>
-                    <p className="text-lg font-extrabold text-emerald-800 mt-1">{formatINR(totalGst)}</p>
+                    <p className="text-lg font-extrabold text-emerald-800 mt-1">{money(totalGst)}</p>
                   </div>
                 </div>
               );
