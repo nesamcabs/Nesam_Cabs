@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { BellPlus, Calculator, Car, Check, CircleAlert, Copy, Fuel, Info, LoaderCircle, Luggage, PawPrint, Pencil } from "lucide-react";
 import { DESK_ADDON_LABELS, formatINR, type DeskQuoteLine } from "../../domain/quickFareDesk";
-import { bagsOf, classBadgeOf, seatsOf } from "./deskTrip";
+import { bagsOf, seatsOf, vehicleLabelsOf } from "./deskTrip";
 import type { VehicleCategory } from "../../types";
 
 export interface FareView {
@@ -106,14 +106,13 @@ function ManualQuote({ categories, onUse }: { categories: VehicleCategory[]; onU
     const amount = Number(fare.replace(/[,\s₹]/g, ""));
     const dist = km.trim() ? Number(km) : null;
     const cat = categories.find((c) => c.id === catId);
-    const name = cat?.name ?? vehicle.trim();
+    const name = cat ? vehicleLabelsOf(cat).vehicle : vehicle.trim();
     if (!name) return setError("Choose or type the vehicle.");
     if (!Number.isFinite(amount) || amount <= 0 || amount > 1000000) return setError("Enter the fare in rupees.");
     if (dist !== null && (!Number.isFinite(dist) || dist <= 0 || dist > 5000)) return setError("Distance must be a number of kilometres, or leave it empty.");
     onUse({
       categoryId: cat?.id ?? `manual:${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
-      vehicle: name,
-      classBadge: cat ? classBadgeOf(cat) : "",
+      ...(cat ? vehicleLabelsOf(cat) : { vehicle: name, classBadge: "", categoryName: name }),
       seats: cat ? seatsOf(cat) : "",
       bags: cat ? bagsOf(cat) : "",
       fare: Math.round(amount),
@@ -131,7 +130,10 @@ function ManualQuote({ categories, onUse }: { categories: VehicleCategory[]; onU
           <label htmlFor="mqVehicle" className="block text-[10px] font-medium text-slate-500 mb-1">Vehicle</label>
           {categories.length ? (
             <select id="mqVehicle" className={INPUT} value={catId} onChange={(e) => setCatId(e.target.value)}>
-              {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {categories.map((c) => {
+                const l = vehicleLabelsOf(c);
+                return <option key={c.id} value={c.id}>{l.classBadge ? `${l.vehicle} (${l.classBadge})` : l.vehicle}</option>;
+              })}
             </select>
           ) : (
             <input id="mqVehicle" className={INPUT} maxLength={60} value={vehicle} onChange={(e) => setVehicle(e.target.value)} />

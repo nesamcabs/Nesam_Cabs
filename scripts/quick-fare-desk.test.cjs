@@ -618,3 +618,58 @@ describe('Quick Fare Desk - copied WhatsApp texts', () => {
     assert.ok(D.bookingConfirmationText({ ...base, paymentLink: { url: 'https://rzp.io/i/abc', amount: 1092 } }).includes('Payment link (₹1,092): https://rzp.io/i/abc'));
   });
 });
+
+describe('Quick Fare Desk - cab names (admin/src/domain/categoryLabel.ts)', () => {
+  const L = loadDesk(path.resolve(__dirname, '../admin/src/domain/categoryLabel.ts'));
+  const six = [
+    ['HATCHBACK', 'Wagon R Or Similar'],
+    ['SEDAN', 'Dzire / Etios Or Similar'],
+    ['SUV', 'Ertiga Or Similar'],
+    ['MUV', 'Kia Carens Or Similar'],
+    ['INNOVA', 'Innova'],
+    ['CRYSTA', 'Innova Crysta'],
+  ];
+
+  test('the six standard categories named only by their category get their cab name; the category is the badge', () => {
+    for (const [code, cab] of six) {
+      const c = { id: `id-${code}`, name: code, code };
+      assert.equal(L.cabDisplayName(c), cab, code);
+      assert.equal(L.cabCategoryBadge(c), code, code);
+    }
+    // A generic name in another case, or the id slug with no code, is the same category.
+    assert.equal(L.cabDisplayName({ id: 'x1', name: 'Sedan', code: '' }), 'Dzire / Etios Or Similar');
+    assert.equal(L.cabDisplayName({ id: 'muv', name: 'MUV' }), 'Kia Carens Or Similar');
+    assert.equal(L.cabCategoryBadge({ id: 'muv', name: 'MUV' }), 'MUV');
+  });
+
+  test('the configured Display Text wins, unless it only repeats the category or is a long description', () => {
+    assert.equal(L.cabDisplayName({ name: 'SEDAN', code: 'SEDAN', description: 'Dzire / Etios or similar' }), 'Dzire / Etios or similar');
+    assert.equal(L.cabDisplayName({ name: 'Hatchback', code: 'HATCHBACK', description: ' Wagon R or Similar ' }), 'Wagon R or Similar');
+    assert.equal(L.cabDisplayName({ name: 'SUV', code: 'SUV', description: 'SUV' }), 'Ertiga Or Similar');
+    assert.equal(L.cabDisplayName({ name: 'SUV', code: 'SUV', description: 'Sedan' }), 'Ertiga Or Similar');
+    assert.equal(L.cabDisplayName({ name: 'SEDAN', code: 'SEDAN', description: 'A comfortable air-conditioned sedan for up to four passengers' }), 'Dzire / Etios Or Similar');
+    assert.equal(L.cabCategoryBadge({ name: 'Sedan', description: 'Dzire / Etios or similar' }), 'SEDAN');
+  });
+
+  test('custom categories keep their configured names and are never forced into the six', () => {
+    assert.equal(L.cabDisplayName({ name: 'Tempo Traveller', code: 'TT' }), 'Tempo Traveller');
+    assert.equal(L.cabCategoryBadge({ name: 'Tempo Traveller', code: 'TT' }), 'TT');
+    assert.equal(L.cabDisplayName({ name: 'Premium SUV', code: 'SUV' }), 'Premium SUV');
+    assert.equal(L.cabDisplayName({ name: 'Ertiga', code: 'SUV' }), 'Ertiga');
+    assert.equal(L.cabDisplayName({ name: 'Innova Crysta', code: 'CRYSTA' }), 'Innova Crysta');
+    assert.equal(L.cabDisplayName({ name: 'Force Urbania', code: '', description: 'Urbania or similar' }), 'Urbania or similar');
+    assert.equal(L.standardCategoryOf({ name: 'Tempo Traveller', code: 'TT', id: 'abc' }), null);
+  });
+
+  test('the badge names the category once and never repeats the heading word for word', () => {
+    assert.equal(L.cabCategoryBadge({ name: 'INNOVA', code: 'INNOVA' }), 'INNOVA');
+    assert.equal(L.cabDisplayName({ name: 'TEMPO', code: 'TEMPO' }), 'TEMPO');
+    assert.equal(L.cabCategoryBadge({ name: 'TEMPO', code: 'TEMPO' }), '');
+    assert.equal(L.cabCategoryBadge({ name: 'Tempo Traveller' }), '');
+  });
+
+  test('the admin list title is unchanged', () => {
+    assert.equal(L.categoryTitle({ name: 'Sedan', description: 'Dzire / Etios or similar' }), 'Dzire / Etios or similar · Sedan');
+    assert.equal(L.categoryTitle({ name: 'Sedan' }), 'Sedan');
+  });
+});

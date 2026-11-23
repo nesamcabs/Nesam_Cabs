@@ -1,6 +1,8 @@
 import type { CategoryEstimate, QuickTrip } from "../booking/QuickFare";
 import { emptyTrip, estimateFacts, tripPickupDate } from "../booking/QuickFare";
 import type { PickedPoint } from "../MapLocationPicker";
+import type { VehicleCategory } from "../../types";
+import { cabCategoryBadge, cabDisplayName } from "../../domain/categoryLabel";
 import {
   deskFuelLabel,
   istDateOf,
@@ -93,12 +95,11 @@ export function snapshotOf(t: QuickTrip, source: DeskBrand, roadKm: number | nul
   };
 }
 
-/** Short class badge (SEDAN, SUV…) unless the vehicle name already says it ("Innova" / INNOVA). */
-const alnum = (v: string) => v.toUpperCase().replace(/[^A-Z0-9]/g, "");
-export const classBadgeOf = (c: { name: string; code?: string; tariffClass?: string }) => {
-  const code = (c.code || c.tariffClass || "").trim().toUpperCase();
-  return code && !alnum(c.name).includes(alnum(code)) ? code : "";
-};
+/** Cab name (main heading), category badge and configured category name of a vehicle category, for a quote line. */
+export function vehicleLabelsOf(c: VehicleCategory): Pick<DeskQuoteLine, "vehicle" | "classBadge" | "categoryName"> {
+  const vehicle = cabDisplayName(c);
+  return { vehicle, classBadge: cabCategoryBadge(c, vehicle), categoryName: c.name };
+}
 export const seatsOf = (c: { seatingCapacity?: number }) => (c.seatingCapacity ? `${c.seatingCapacity} Seats` : "");
 export const bagsOf = (c: { luggageCapacity?: string | number }) => (c.luggageCapacity ? `${c.luggageCapacity} Bags` : "");
 
@@ -111,8 +112,7 @@ export function lineOfEstimate(e: CategoryEstimate): DeskQuoteLine | null {
   const km = estimateFacts.includedKmOf(e.quote);
   return {
     categoryId: e.category.id,
-    vehicle: e.category.name,
-    classBadge: classBadgeOf(e.category),
+    ...vehicleLabelsOf(e.category),
     seats: seatsOf(e.category),
     bags: bagsOf(e.category),
     fare: e.quote.quote.total,

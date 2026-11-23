@@ -44,7 +44,7 @@ import { useCanDo, useStaffFlag } from "../components/AccessContext";
 import { copyText } from "../services/customerDirectoryService";
 import type { NewBookingDraft } from "./NewBooking";
 import type { PickedPoint } from "../components/MapLocationPicker";
-import { SERVICE_KEY, TAB_TRIP, activeTrip, deskTabOf, lineOfEstimate, pricingOf, quickTripOfRecord, quoteKeyOf, routeOf, snapshotOf } from "../components/quickFareDesk/deskTrip";
+import { SERVICE_KEY, TAB_TRIP, activeTrip, deskTabOf, lineOfEstimate, pricingOf, quickTripOfRecord, quoteKeyOf, routeOf, snapshotOf, vehicleLabelsOf } from "../components/quickFareDesk/deskTrip";
 import TripForm from "../components/quickFareDesk/TripForm";
 import FareResults, { type FareExtras, type FareView } from "../components/quickFareDesk/FareResults";
 import { AlertPill, DueBanner, SourceSwitcher } from "../components/quickFareDesk/DeskHeader";
@@ -232,7 +232,7 @@ export default function QuickFare({ onNewBooking }: QuickFareProps) {
       const priced = await estimateAll(snapshot, data.categories, b);
       if (seq !== quoteSeq.current) return;
       const lines = priced.map(lineOfEstimate).filter((l): l is DeskQuoteLine => !!l);
-      const unpriced = priced.filter((r) => !r.quote).map((r) => ({ vehicle: r.category.name, reason: r.error || "Not available on this route" }));
+      const unpriced = priced.filter((r) => !r.quote).map((r) => ({ vehicle: vehicleLabelsOf(r.category).vehicle, reason: r.error || "Not available on this route" }));
       const road = priced.find((r) => r.quote?.roadKm)?.quote;
       setQuote({
         ...base, estimates: priced, lines, unpriced: lines.length ? unpriced : [],
@@ -347,7 +347,8 @@ export default function QuickFare({ onNewBooking }: QuickFareProps) {
     const q = e.deskQuote;
     const source = normalizeBrand(e.brand);
     if (qt && q && !q.manual && q.categoryId && typeof q.fare === "number" && q.fare > 0) {
-      const line: DeskQuoteLine = { categoryId: q.categoryId, vehicle: q.vehicle || e.vehicle || "Vehicle", classBadge: q.classBadge || "", seats: q.seats || "", bags: q.bags || "", fare: q.fare, rateNote: q.rateNote || "", includedKm: q.includedKm ?? null, manual: false };
+      // The names stay as they were quoted (saved with the follow-up); the category id selects the vehicle.
+      const line: DeskQuoteLine = { categoryId: q.categoryId, vehicle: q.vehicle || e.vehicle || "Vehicle", classBadge: q.classBadge || "", categoryName: q.categoryName || e.vehicle || "", seats: q.seats || "", bags: q.bags || "", fare: q.fare, rateNote: q.rateNote || "", includedKm: q.includedKm ?? null, manual: false };
       const t = activeTrip(qt);
       setBookTarget({ trip: t, snapshot: snapshotOf(t, source, null), line, estimates: null, enquiry: { id: e.id, code: e.code, phone: e.phone || "", name: e.customerName || "", customerId: e.customerId ?? null } });
       return;
@@ -437,7 +438,7 @@ export default function QuickFare({ onNewBooking }: QuickFareProps) {
 
       {fuTarget && fuSnapshot && (
         <FollowUpDialog customers={customerRows} onSave={saveFollowUp} onClose={() => setFuTarget(null)}
-          summary={`${fuSnapshot.route} • ${fuTarget.line.classBadge || fuTarget.line.vehicle} (${fuTarget.line.manual ? "Draft quote" : deskExtrasLabel(fuSnapshot)}) • ${formatINR(fuTarget.line.fare)}`} />
+          summary={`${fuSnapshot.route} • ${fuTarget.line.vehicle} (${fuTarget.line.manual ? "Draft quote" : deskExtrasLabel(fuSnapshot)}) • ${formatINR(fuTarget.line.fare)}`} />
       )}
 
       {bookTarget && (

@@ -60,7 +60,9 @@ function enquiryFields(i: FollowUpInput): NewEnquiry {
     service: s.tab,
     tripType: s.tab,
     categoryId: i.line.manual ? null : i.line.categoryId,
-    vehicle: i.line.vehicle,
+    // The office's enquiry field keeps the configured category name (as every other screen saves it); the cab name
+    // customers were quoted is kept with the desk's quote line (deskQuote.vehicle).
+    vehicle: i.line.categoryName || i.line.vehicle,
     includedKm: i.line.includedKm ?? 0,
     extraKmRate: q ? estimateFacts.extraKmRateOf(q) : 0,
     estimate: i.line.fare,

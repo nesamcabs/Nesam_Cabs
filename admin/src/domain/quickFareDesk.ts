@@ -237,9 +237,12 @@ export function addOnRateLabel(amounts: ReadonlyArray<number | null | undefined>
 /** One priced (or manually drafted) vehicle line, exactly as it was shown to the caller. */
 export interface DeskQuoteLine {
   categoryId: string;
+  /** The cab name customers see (domain/categoryLabel.ts cabDisplayName): "Dzire / Etios Or Similar". */
   vehicle: string;
-  /** SEDAN, SUV … (empty when the vehicle name already says it). */
+  /** The category, shown once as a small badge: SEDAN, SUV … (domain/categoryLabel.ts cabCategoryBadge). */
   classBadge: string;
+  /** The configured category name, unchanged ("SEDAN"); absent on lines saved before it was kept. */
+  categoryName?: string;
   /** "4 Seats" ("" when not configured). */
   seats: string;
   /** "2 Bags" ("" when not configured). */
