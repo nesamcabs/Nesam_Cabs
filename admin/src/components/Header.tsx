@@ -34,13 +34,15 @@ type LucideIcon = ComponentType<{ className?: string; strokeWidth?: number; "ari
 const STROKE = 1.85;
 const ICON = "w-[19px] h-[19px] shrink-0";
 /*
- * Width tiers, measured on the header's own width (a container query), so the collapsed / expanded sidebar and the
- * phone drawer are all accounted for. Every tier keeps every control, in the same order:
- *   XS  < 740px    phones           3 rows: menu · alerts · status | desk · source | search … new booking
- *   S   740–1149   tablets, 1366 laptop with the sidebar open   2 rows: alerts … source | search … new booking
- *   M   1150–1399  one row; search, profile and Quick fare as icons (Quick fare's label from 1260)
- *   L   1400–1599  one row; "Search…" and Quick fare labelled
- *   XL  ≥ 1600     one row; every label, as in the reference
+ * Width tiers, measured on the header's own content width (a container query), so the collapsed / expanded sidebar
+ * and the phone drawer are all accounted for. Every tier keeps every control, in the same order:
+ *   Alerts · New / Pending / Reminders / Sound · Command / Dispatch Desk · All Sources · (space) · Search records… ·
+ *   Quick Fare · New Booking · | · Lock · Logout · Security · Profile
+ *   XS  < 740px    phones    rows: menu · alerts · status | desk · source | search · Quick Fare · New Booking · utilities
+ *                            (under 520px the utilities take a fourth row, right-aligned)
+ *   S   740–1279   tablets, laptops with the sidebar open   2 rows: alerts … source | search … profile
+ *   M   1280–1499  one row; short desk names, Quick Fare as an icon, 184px search
+ *   L   ≥ 1500     one row; every label, 220px search with the shortcut hint (profile name from 1680)
  * Controls are 40px tall (36px only on the narrowest phones, under 330px).
  */
 const SIZE = "h-10 @max-[330px]:h-9";
@@ -85,7 +87,7 @@ function StatusCount({ icon: Icon, label, value, loading, error, iconClass, desc
   const text = error ? `${label}: bookings could not be loaded (${error}). Open Bookings.` : loading ? `${label}: loading. Open Bookings.` : `${description}. Open Bookings.`;
   return (
     <button type="button" onClick={onClick} title={text} aria-label={text} aria-busy={loading || undefined}
-      className={`inline-flex items-center gap-1.5 @max-[330px]:gap-1 h-9 @max-[330px]:h-8 px-1.5 @min-[1400px]:px-2.5 rounded-lg text-slate-700 hover:bg-white hover:text-slate-900 ${FOCUS} transition-colors`}>
+      className={`inline-flex items-center gap-1.5 @max-[330px]:gap-1 h-9 @max-[330px]:h-8 px-1.5 @min-[1500px]:px-2.5 rounded-lg text-slate-700 hover:bg-white hover:text-slate-900 ${FOCUS} transition-colors`}>
       {/* The narrowest phones keep the words and counts; the icons give way first. */}
       <Icon className={`${ICON} ${iconClass} @max-[380px]:hidden`} strokeWidth={STROKE} aria-hidden="true" />
       <span className="text-[13px] font-medium whitespace-nowrap">{label}</span>
@@ -96,8 +98,8 @@ function StatusCount({ icon: Icon, label, value, loading, error, iconClass, desc
 
 /**
  * The one admin header, rendered by the app shell for every page (the same controls, order and size on each route):
- * Alerts · New / Pending / Reminders / Sound · Command / Dispatch Desk · All Sources · Search · Lock · Sign out · Security ·
- * Profile · Quick fare · New booking. Wide screens keep one row; narrower ones wrap into the same order on 2–3 rows.
+ * Alerts · New / Pending / Reminders / Sound · Command / Dispatch Desk · All Sources · Search records · Quick Fare ·
+ * New Booking · Lock · Sign out · Security · Profile. Wide screens keep one row; narrower ones wrap in the same order.
  */
 export default function Header({ title, onNavigate, onOpen, onCreateBooking, onQuickFare, onOpenMenu, userName, userEmail, userRole, onSignOut }: HeaderProps) {
   const [sheet, setSheet] = useState<Sheet>(null);
@@ -148,7 +150,7 @@ export default function Header({ title, onNavigate, onOpen, onCreateBooking, onQ
       {/* 72px tall in one row (the shell's --size-header); 2–3 rows on narrower widths, in the same order. */}
       <div className="@container min-h-[calc(var(--size-header)-1px)] flex flex-col justify-center px-3 py-2.5 sm:px-4 lg:px-5">
         {/* Rows meet at the zero-height line breaks below, so 4px + 4px of row gap makes 8px between rows. */}
-        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 @max-[330px]:gap-x-1 @min-[1150px]:flex-nowrap">
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 @max-[330px]:gap-x-1 @min-[1280px]:flex-nowrap">
           {/* Below 1024px the navigation lives in a drawer; its toggle opens the row there. */}
           <button type="button" onClick={onOpenMenu} aria-label="Open navigation menu" title="Menu" className={`${ICON_BUTTON} lg:hidden`}>
             <Menu className={ICON} strokeWidth={STROKE} aria-hidden="true" />
@@ -195,16 +197,16 @@ export default function Header({ title, onNavigate, onOpen, onCreateBooking, onQ
                   const on = desk.desk === d.id;
                   return (
                     <button key={d.id} type="button" aria-pressed={on} onClick={() => desk.selectDesk(d.id)} title={`Open the Dashboard on the ${d.label}`}
-                      className={`h-full px-2 @min-[1400px]:px-2.5 @min-[1600px]:px-3.5 rounded-lg text-[13px] whitespace-nowrap ${FOCUS} transition-colors ${on ? "bg-white text-[var(--color-brand)] font-bold shadow-xs" : "text-slate-500 font-semibold hover:text-slate-800"}`}>
-                      {/* Phones show "Command" / "Dispatch"; the full name stays in the accessible name. */}
-                      {d.label.replace(" Desk", "")}<span className="@max-[740px]:sr-only"> Desk</span>
+                      className={`h-full px-2 @min-[740px]:px-2.5 @min-[1280px]:px-2 @min-[1500px]:px-3 rounded-lg text-[13px] whitespace-nowrap ${FOCUS} transition-colors ${on ? "bg-white text-[var(--color-brand)] font-bold shadow-xs" : "text-slate-500 font-semibold hover:text-slate-800"}`}>
+                      {/* Phones and the compact one-row tier show "Command" / "Dispatch"; the full name stays in the accessible name. */}
+                      {d.label.replace(" Desk", "")}<span className="@max-[740px]:sr-only @min-[1280px]:@max-[1499px]:sr-only"> Desk</span>
                     </button>
                   );
                 })}
               </div>
 
               {/* 4 · Booking source for the Dashboard: kept while navigating */}
-              <label className={`relative inline-flex items-center flex-1 min-w-[112px] max-w-[320px] @min-[1150px]:min-w-[140px] @min-[1150px]:max-w-[200px] @min-[1400px]:min-w-[172px] @min-[1400px]:max-w-[210px] @min-[1600px]:min-w-[188px] @min-[1600px]:max-w-[220px] ${SIZE} rounded-xl border transition-colors focus-within:border-[var(--color-brand)] focus-within:bg-white focus-within:ring-2 focus-within:ring-[var(--color-brand)]/20 ${desk.source !== "ALL" ? "border-[var(--color-brand)]/45 bg-[var(--color-brand-soft)] text-[var(--color-brand)]" : "border-slate-200/90 bg-slate-50 text-slate-700 hover:bg-white hover:border-slate-300"}`}
+              <label className={`relative inline-flex items-center flex-1 min-w-[112px] max-w-[320px] @min-[1280px]:flex-none @min-[1280px]:w-[168px] @min-[1500px]:w-[200px] ${SIZE} rounded-xl border transition-colors focus-within:border-[var(--color-brand)] focus-within:bg-white focus-within:ring-2 focus-within:ring-[var(--color-brand)]/20 ${desk.source !== "ALL" ? "border-[var(--color-brand)]/45 bg-[var(--color-brand-soft)] text-[var(--color-brand)]" : "border-slate-200/90 bg-slate-50 text-slate-700 hover:bg-white hover:border-slate-300"}`}
                 title={bookingsError ? `Dashboard booking source (counts unavailable: ${bookingsError})` : `Dashboard booking source: ${sourceLabel(desk.source, SOURCE_CHOICES.find((c) => c.value === desk.source)?.name ?? "All Sources")}`}>
                 <ListFilter className="absolute left-3 w-4 h-4 pointer-events-none @max-[380px]:hidden" strokeWidth={STROKE} aria-hidden="true" />
                 <select aria-label="Booking source" value={desk.source} onChange={(e) => desk.setSource(e.target.value as SourceScope)}
@@ -217,60 +219,61 @@ export default function Header({ title, onNavigate, onOpen, onCreateBooking, onQ
             </>
           )}
 
-          {/* XS / S: the actions start the next row. */}
-          <span aria-hidden="true" className="basis-full h-0 @min-[1150px]:hidden" />
+          {/* S / XS: the actions start the next row. L / XL: flexible space pushes them to the right edge. */}
+          <span aria-hidden="true" className="basis-full h-0 @min-[1280px]:hidden" />
+          <span aria-hidden="true" className="hidden @min-[1280px]:block flex-1 min-w-0" />
 
-          {/* 5 · Search records: the one global search (Ctrl/⌘ K) */}
+          {/* 5 · Search records: an input-style trigger for the one global search dialog (Ctrl/⌘ K) */}
           <button type="button" onClick={() => setSheet("search")} aria-label="Search records" aria-keyshortcuts="Control+K Meta+K" aria-haspopup="dialog"
             title={`Search bookings, drivers, vendors and customers (${isMac ? "⌘K" : "Ctrl+K"})`}
-            className={`inline-flex items-center gap-2 min-w-10 @max-[330px]:min-w-9 ${SIZE} px-3 rounded-xl ${PALE} ${FOCUS} text-slate-500 transition-colors flex-1 @max-[400px]:justify-center @max-[400px]:px-0
-              @min-[1150px]:ml-auto @min-[1150px]:flex-none @min-[1150px]:w-10 @min-[1150px]:px-0 @min-[1150px]:justify-center
-              @min-[1400px]:flex-1 @min-[1400px]:w-auto @min-[1400px]:min-w-[130px] @min-[1400px]:max-w-[200px] @min-[1400px]:px-3 @min-[1400px]:justify-start
-              @min-[1600px]:min-w-[170px] @min-[1600px]:max-w-[240px]`}>
-            <Search className="w-[18px] h-[18px] shrink-0 text-slate-500" strokeWidth={STROKE} aria-hidden="true" />
-            <span className="text-[13px] font-medium truncate hidden @min-[740px]:inline @min-[1150px]:hidden @min-[1600px]:inline">Search records…</span>
-            <span className="text-[13px] font-medium truncate @max-[400px]:hidden @min-[740px]:hidden @min-[1400px]:inline @min-[1600px]:hidden">Search…</span>
-            <kbd className="hidden @min-[1600px]:inline ml-auto shrink-0 px-1.5 py-0.5 rounded-md border border-slate-200 bg-white text-[10.5px] font-semibold text-slate-400">{isMac ? "⌘K" : "Ctrl K"}</kbd>
+            className={`group inline-flex items-center gap-2 ${SIZE} pl-3 pr-2.5 rounded-xl border border-slate-200/90 bg-slate-50 text-left cursor-text
+              hover:bg-white hover:border-slate-300 ${FOCUS} focus-visible:bg-white focus-visible:border-[var(--color-brand)] transition-colors
+              flex-1 min-w-0 @min-[740px]:min-w-[200px] @min-[1280px]:flex-none @min-[1280px]:min-w-0 @min-[1280px]:w-[184px] @min-[1500px]:w-[220px]`}>
+            <Search className="w-[18px] h-[18px] shrink-0 text-slate-400 group-hover:text-slate-500" strokeWidth={STROKE} aria-hidden="true" />
+            <span className="flex-1 min-w-0 text-[13px] font-medium text-slate-500 truncate">Search records…</span>
+            <kbd className="hidden @min-[1500px]:inline shrink-0 px-1.5 py-0.5 rounded-md border border-slate-200 bg-white text-[10.5px] font-semibold text-slate-400">{isMac ? "⌘K" : "Ctrl K"}</kbd>
           </button>
 
-          {/* 6–8 · Lock · Sign out · Security */}
-          <button type="button" onClick={() => setLocked(true)} aria-label="Lock workspace" title="Lock workspace" className={ICON_BUTTON}>
-            <Lock className={ICON} strokeWidth={STROKE} aria-hidden="true" />
-          </button>
-          <button type="button" onClick={() => onSignOut?.()} aria-label="Sign out" title="Sign out" className={ICON_BUTTON}>
-            <LogOut className={ICON} strokeWidth={STROKE} aria-hidden="true" />
-          </button>
-          <button type="button" onClick={() => setSheet("privacy")} aria-label="Customer privacy and access" title="Customer privacy & access" aria-haspopup="dialog" className={ICON_BUTTON}>
-            <ShieldCheck className={ICON} strokeWidth={STROKE} aria-hidden="true" />
-          </button>
-
-          <Divider className="hidden @min-[740px]:block @min-[1150px]:hidden @min-[1400px]:block mx-0.5" />
-
-          {/* 9 · Signed-in account (name and role in the tooltip and the dialog) */}
-          <button type="button" onClick={() => setSheet("profile")} aria-label={`Account, ${displayName}, ${roleName}`} title={`${displayName} · ${roleName}`} aria-haspopup="dialog"
-            className={`inline-flex items-center justify-center gap-2 shrink-0 ${SIZE} ${SQUARE} rounded-xl text-slate-800 hover:bg-slate-50 ${FOCUS} transition-colors
-              @min-[740px]:w-auto @min-[740px]:px-2.5 @min-[1150px]:w-10 @min-[1150px]:px-0 @min-[1600px]:w-auto @min-[1600px]:px-2.5`}>
-            <UserRound className="w-[20px] h-[20px] shrink-0 text-slate-700" strokeWidth={STROKE} aria-hidden="true" />
-            <span className="text-[13.5px] font-semibold whitespace-nowrap max-w-[120px] truncate hidden @min-[740px]:inline @min-[1150px]:hidden @min-[1600px]:inline">{profileLabel}</span>
-          </button>
-
-          {/* 10 · Quick fare */}
+          {/* 6 · Quick Fare */}
           {onQuickFare && (
-            <button type="button" onClick={onQuickFare} aria-label="Quick fare" title="Quick fare · check a fare"
-              className={`${CRIMSON} ${SQUARE} @min-[740px]:w-auto @min-[740px]:px-4 @min-[1150px]:w-10 @min-[1150px]:px-0 @min-[1260px]:w-auto @min-[1260px]:px-3 @min-[1400px]:px-4`}>
+            <button type="button" onClick={onQuickFare} aria-label="Quick Fare" title="Quick Fare · check a fare"
+              className={`${CRIMSON} ${SQUARE} @min-[740px]:w-auto @min-[740px]:px-4 @min-[1280px]:w-10 @min-[1280px]:px-0 @min-[1500px]:w-auto @min-[1500px]:px-4`}>
               <Calculator className={ICON} strokeWidth={STROKE} aria-hidden="true" />
-              <span className="whitespace-nowrap hidden @min-[740px]:inline @min-[1150px]:hidden @min-[1260px]:inline">Quick fare</span>
+              <span className="whitespace-nowrap hidden @min-[740px]:inline @min-[1280px]:hidden @min-[1500px]:inline">Quick Fare</span>
             </button>
           )}
 
-          {/* 11 · New booking */}
+          {/* 7 · New Booking */}
           {onCreateBooking && (
-            <button type="button" onClick={onCreateBooking} aria-label="New booking" title="New booking"
-              className={`${CRIMSON} ${SQUARE} @min-[740px]:w-auto @min-[740px]:px-4 @min-[1150px]:px-3 @min-[1400px]:px-4`}>
-              <Plus className="w-[19px] h-[19px] shrink-0" strokeWidth={2.1} aria-hidden="true" />
-              <span className="whitespace-nowrap hidden @min-[740px]:inline">New booking</span>
+            <button type="button" onClick={onCreateBooking} aria-label="New Booking" title="New Booking"
+              className={`${CRIMSON} ${SQUARE} @min-[740px]:w-auto @min-[740px]:px-4`}>
+              <Plus className={ICON} strokeWidth={2.1} aria-hidden="true" />
+              <span className="whitespace-nowrap hidden @min-[740px]:inline">New Booking</span>
             </button>
           )}
+
+          {/* Narrow phones: the utilities take their own row, right-aligned, still in the same order. */}
+          <span aria-hidden="true" className="basis-full h-0 @min-[520px]:hidden" />
+
+          {/* 8–12 · divider · Lock · Logout · Security · Profile (always the last item, at the far right) */}
+          <div className="ml-auto inline-flex items-center gap-x-1.5 @max-[330px]:gap-x-1 shrink-0">
+            <Divider className="hidden @min-[520px]:block mx-0.5" />
+            <button type="button" onClick={() => setLocked(true)} aria-label="Lock workspace" title="Lock workspace" className={ICON_BUTTON}>
+              <Lock className={ICON} strokeWidth={STROKE} aria-hidden="true" />
+            </button>
+            <button type="button" onClick={() => onSignOut?.()} aria-label="Sign out" title="Sign out" className={ICON_BUTTON}>
+              <LogOut className={ICON} strokeWidth={STROKE} aria-hidden="true" />
+            </button>
+            <button type="button" onClick={() => setSheet("privacy")} aria-label="Customer privacy and access" title="Customer privacy & access" aria-haspopup="dialog" className={ICON_BUTTON}>
+              <ShieldCheck className={ICON} strokeWidth={STROKE} aria-hidden="true" />
+            </button>
+            {/* Signed-in account (name and role in the tooltip and the dialog; the name shows on very wide headers) */}
+            <button type="button" onClick={() => setSheet("profile")} aria-label={`Account, ${displayName}, ${roleName}`} title={`${displayName} · ${roleName}`} aria-haspopup="dialog"
+              className={`${ICON_BUTTON} @min-[1680px]:w-auto @min-[1680px]:inline-flex @min-[1680px]:gap-2 @min-[1680px]:px-2.5`}>
+              <UserRound className={ICON} strokeWidth={STROKE} aria-hidden="true" />
+              <span className="text-[13.5px] font-semibold text-slate-800 whitespace-nowrap max-w-[120px] truncate hidden @min-[1680px]:inline">{profileLabel}</span>
+            </button>
+          </div>
         </div>
       </div>
 
