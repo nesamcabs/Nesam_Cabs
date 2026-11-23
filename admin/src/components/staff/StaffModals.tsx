@@ -1,470 +1,215 @@
-import { useState, useCallback } from "react";
+import { useState, type FormEvent } from "react";
 import Icon from "../ui/Icon";
-import { ROLE_PRESETS_META, type RolePresetMeta } from "./StaffAccessEditor";
-import { type StaffRole } from "../../services/staffService";
+import { Modal } from "../Feedback";
+import { copyText } from "../../utils/clipboard";
+import { ROLE_PRESETS_META, presetPolicy, type RolePresetMeta } from "./rolePresets";
+import { validateRole, type StaffRole } from "../../services/staffService";
+import { permissionsOf, presetAccess } from "../../config/permissions";
 
+const POLICY_TEXT = { none: "Numbers masked", temporary: "Temporary reveal", "on approval": "Reveal on approval" } as const;
+const btn = "inline-flex items-center justify-center gap-1.5 h-10 px-4 rounded-xl text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#991B1B] disabled:opacity-50 disabled:cursor-not-allowed";
+export const BTN_PRIMARY = `${btn} bg-[#991B1B] hover:bg-[#7F1D1D] text-white shadow-xs`;
+export const BTN_SECONDARY = `${btn} bg-white border border-slate-200 text-slate-700 hover:bg-slate-50`;
+
+/** The one-time login details of a Staff ID that was just created with a Master-set password. */
 export interface ShareCredsData {
   name: string;
   staffCode: string;
   role: string;
   shift: string;
   username: string;
+  /** Present only right after creation; never read back from a stored profile. */
   password?: string;
 }
 
-export function WhatsAppShareModal({
-  creds,
-  onClose,
-  showToast,
-}: {
+/**
+ * Shown once, straight after a Staff ID is created. The password lives only in this dialog's props and is gone when
+ * it closes; later the Master uses Reset password in the profile. Nothing is sent: the actions copy text.
+ */
+export function CredentialsHandoverModal({ creds, onClose, showToast }: {
   creds: ShareCredsData;
   onClose: () => void;
   showToast: (msg: string, type?: "success" | "error") => void;
 }) {
   const [showPass, setShowPass] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const loginUrl = typeof window !== "undefined" ? window.location.origin : "";
+  const message = [
+    "*NESAM CABS — Staff sign-in*",
+    `Name: ${creds.name}`,
+    creds.staffCode ? `Staff code: ${creds.staffCode}` : "",
+    `Role: ${creds.role}`,
+    creds.shift ? `Shift: ${creds.shift}` : "",
+    "",
+    `Sign in at: ${loginUrl}`,
+    `Login ID: ${creds.username}`,
+    creds.password ? `One-time password: ${creds.password}` : "",
+    "",
+    "Please change this password after your first sign-in.",
+  ].filter((l, i, all) => l !== "" || (all[i - 1] ?? "") !== "").join("\n");
 
-  const loginUrl = typeof window !== "undefined" ? window.location.origin : "https://nesamcabs.com/admin";
-
-  const formattedMessage = `*NESAM CABS — STAFF LOGIN CREDENTIALS*
-Staff Member: ${creds.name}
-Staff ID: ${creds.staffCode || "Assigned"}
-Role: ${creds.role}
-Shift: ${creds.shift || "General Day Shift"}
-
-*Login Credentials:*
-• Login URL: ${loginUrl}
-• Username: ${creds.username}
-${creds.password ? `• Temporary Password: ${creds.password}` : "• Password: (As configured privately by Super Admin)"}
-
-_Please sign in and update your temporary credentials. This account has access to the Nesam Cabs Admin Workspace._`;
-
-  const handleCopy = useCallback(async () => {
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(formattedMessage);
-        setCopied(true);
-        showToast("WhatsApp credentials copied to clipboard!");
-        setTimeout(() => setCopied(false), 2500);
-      } else {
-        showToast("Clipboard not available in this browser", "error");
-      }
-    } catch {
-      showToast("Failed to copy to clipboard", "error");
-    }
-  }, [formattedMessage, showToast]);
+  const copy = async (text: string, ok: string) => {
+    const done = await copyText(text);
+    showToast(done ? ok : "The browser did not allow copying.", done ? "success" : "error");
+  };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden fade-in">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-emerald-800">
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <Icon name="message-square" size={16} />
-            </div>
-            <h3 className="text-sm font-bold text-slate-900">WhatsApp Credentials Share Card</h3>
+    <Modal title="Staff ID created" subtitle={`${creds.name}${creds.staffCode ? ` · ${creds.staffCode}` : ""}`} onClose={onClose} centered size="md"
+      footer={<button type="button" onClick={onClose} className={BTN_PRIMARY}>Done</button>}>
+      <div className="space-y-3 text-xs">
+        <dl className="rounded-xl border border-slate-200 divide-y divide-slate-100">
+          <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+            <dt className="text-slate-500">Login ID</dt>
+            <dd className="flex items-center gap-2 min-w-0"><code className="font-semibold text-slate-900 truncate">{creds.username}</code>
+              <button type="button" onClick={() => void copy(creds.username, "Login ID copied.")} className="text-[11px] font-semibold text-[#991B1B] hover:underline shrink-0">Copy ID</button></dd>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-8 h-8 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center"
-          >
-            <Icon name="x" size={16} />
-          </button>
-        </div>
-
-        <div className="p-5 space-y-4">
-          <div className="p-4 rounded-xl bg-emerald-50/60 border border-emerald-200/80 space-y-2.5 text-xs">
-            <div className="flex items-center justify-between border-b border-emerald-200/60 pb-2">
-              <span className="font-bold text-emerald-950 uppercase text-[10px] tracking-wider">
-                NESAM CABS • STAFF LOGIN
-              </span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                {creds.staffCode || "STAFF ID"}
-              </span>
+          {creds.password && (
+            <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+              <dt className="text-slate-500">One-time password</dt>
+              <dd className="flex items-center gap-2 min-w-0"><code className="font-semibold text-slate-900 truncate">{showPass ? creds.password : "••••••••••••••"}</code>
+                <button type="button" onClick={() => setShowPass((v) => !v)} aria-label={showPass ? "Hide password" : "Show password"} className="text-slate-400 hover:text-slate-700 shrink-0">
+                  <Icon name={showPass ? "eye-off" : "eye"} size={14} /></button></dd>
             </div>
-            <div className="space-y-1 text-slate-800">
-              <p>
-                <span className="font-semibold text-slate-500">Name:</span> <strong>{creds.name}</strong>
-              </p>
-              <p>
-                <span className="font-semibold text-slate-500">Role:</span> {creds.role}
-              </p>
-              <p>
-                <span className="font-semibold text-slate-500">Shift / Hub:</span> {creds.shift}
-              </p>
-            </div>
-            <div className="p-2.5 bg-white rounded-lg border border-emerald-200/70 space-y-1 font-mono text-[11px]">
-              <p className="text-slate-700">
-                Username: <strong className="text-slate-900">@{creds.username}</strong>
-              </p>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-700">
-                  Password:{" "}
-                  <strong className="text-slate-900">
-                    {creds.password ? (showPass ? creds.password : "••••••••") : "(Hidden / Master Configured)"}
-                  </strong>
-                </span>
-                {creds.password && (
-                  <button
-                    type="button"
-                    onClick={() => setShowPass(!showPass)}
-                    className="text-[10px] text-emerald-700 hover:underline font-sans"
-                  >
-                    {showPass ? "Hide" : "Show"}
-                  </button>
-                )}
-              </div>
-              <p className="text-slate-500 truncate text-[10px] pt-0.5">URL: {loginUrl}</p>
-            </div>
-          </div>
-
-          <p className="text-[11px] text-slate-500">
-            Share this message securely with the employee. Credentials allow login on desktop, tablet, and mobile.
-          </p>
-
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700"
-            >
-              Close
-            </button>
-            <button
-              type="button"
-              onClick={handleCopy}
-              className="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 shadow-xs"
-            >
-              <Icon name="copy" size={14} />
-              <span>{copied ? "Copied!" : "Copy WhatsApp Message"}</span>
-            </button>
-          </div>
-        </div>
+          )}
+        </dl>
+        <p className="text-[11px] text-slate-500">
+          {creds.password ? "This password is shown only now and is not stored in the panel. To change it later, use Reset password in the staff profile." : "Passwords are never shown again. Use Reset password in the staff profile to issue a new one."}
+        </p>
+        <button type="button" onClick={() => void copy(message, "Sign-in message copied. It has not been sent.")} className={`${BTN_SECONDARY} w-full`}>
+          <Icon name="copy" size={14} />Copy WhatsApp message (not sent)
+        </button>
       </div>
-    </div>
+    </Modal>
   );
 }
 
-export function ManageRolesModal({
-  customRoles,
-  onClose,
-  onOpenAddRole,
-}: {
+/** Built-in presets and custom roles, with how many Staff IDs use each. A role in use cannot be deleted. */
+export function ManageRolesModal({ customRoles, assignedTo, onClose, onOpenAddRole, onDelete }: {
   customRoles: StaffRole[];
+  /** Staff IDs using a preset ("preset:<name>") or a custom role ("role:<id>"). */
+  assignedTo: (key: string) => number;
   onClose: () => void;
   onOpenAddRole: () => void;
+  onDelete: (role: StaffRole) => Promise<void>;
 }) {
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const remove = async (role: StaffRole) => {
+    setDeleting(role.id);
+    setError(null);
+    try { await onDelete(role); } catch (e) { setError(e instanceof Error ? e.message : "The role was not deleted."); } finally { setDeleting(null); }
+  };
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden fade-in max-h-[85vh] flex flex-col">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-crimson-50 text-[#991B1B] flex items-center justify-center font-bold">
-              <Icon name="sliders-horizontal" size={16} />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">Configured Nesam Cabs Roles</h3>
-              <p className="text-[11px] text-slate-500">7 Core Built-In Roles + Custom Role Builder</p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-8 h-8 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center"
-          >
-            <Icon name="x" size={16} />
-          </button>
-        </div>
-
-        <div className="p-5 overflow-y-auto space-y-3 flex-1">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">7 Core Role Presets</span>
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                onOpenAddRole();
-              }}
-              className="text-xs font-semibold text-[#991B1B] hover:underline flex items-center gap-1"
-            >
-              <Icon name="plus" size={12} />
-              <span>+ Add Extra Role</span>
-            </button>
-          </div>
-
+    <Modal title="Roles" subtitle={`${ROLE_PRESETS_META.length} built-in presets · ${customRoles.length} custom`} onClose={onClose} size="xl" busy={!!deleting}
+      footer={<><button type="button" onClick={() => { onClose(); onOpenAddRole(); }} className={BTN_SECONDARY}><Icon name="plus" size={14} />Add Extra Role</button><button type="button" onClick={onClose} className={BTN_PRIMARY}>Done</button></>}>
+      <div className="space-y-5 text-xs">
+        {error && <div role="alert" className="ds-error">{error}</div>}
+        <section aria-labelledby="roles-builtin" className="space-y-2.5">
+          <h3 id="roles-builtin" className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Built-in presets</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {ROLE_PRESETS_META.map((meta) => (
-              <div key={meta.id} className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 space-y-1.5 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${meta.badgeClass}`}>
-                    {meta.shortName}
-                  </span>
-                  <span className="text-[10px] font-semibold text-slate-400 uppercase">Built-In</span>
-                </div>
-                <h4 className="font-bold text-slate-900">{meta.name}</h4>
-                <p className="text-[11px] text-slate-500">{meta.desc}</p>
-                <div className="flex items-center gap-2 text-[10px] text-slate-500 pt-1 border-t border-slate-200/60">
-                  <span>Prefix: <code>{meta.prefix}.*</code></span>
-                  <span>•</span>
-                  <span>{meta.maskCustomer ? "Masked Numbers" : "Full Contact"}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {customRoles.length > 0 && (
-            <div className="pt-4 border-t border-slate-100 space-y-3">
-              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Custom Built Roles ({customRoles.length})</span>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {customRoles.map((role) => (
-                  <div key={role.id} className="p-3.5 rounded-xl border border-amber-200 bg-amber-50/30 space-y-1.5 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
-                        Custom Role
-                      </span>
-                      <span className="text-[10px] text-slate-400">{role.permissions.length} permissions</span>
-                    </div>
-                    <h4 className="font-bold text-slate-900">{role.name}</h4>
-                    <p className="text-[11px] text-slate-500">Custom permission set assigned to team members</p>
+            {ROLE_PRESETS_META.map((meta) => {
+              const pol = presetPolicy(meta.preset);
+              return (
+                <div key={meta.id} className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 space-y-1.5 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border truncate ${meta.badgeClass}`}>{meta.shortName}</span>
+                    <span className="text-[10px] font-semibold text-slate-500 shrink-0">{assignedTo(`preset:${meta.preset}`)} assigned</span>
                   </div>
-                ))}
-              </div>
+                  <h4 className="font-bold text-slate-900 break-words">{meta.name}</h4>
+                  <p className="text-[11px] text-slate-500">{meta.desc}</p>
+                  <p className="text-[10px] text-slate-500 pt-1 border-t border-slate-200/60">Login prefix <code>{meta.prefix}.</code> · {POLICY_TEXT[pol.reveal]} · {pol.exports ? "Some exports" : "No exports"}</p>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+        <section aria-labelledby="roles-custom" className="space-y-2.5">
+          <h3 id="roles-custom" className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Custom roles</h3>
+          {customRoles.length === 0 ? <p className="text-slate-500">No custom roles yet.</p> : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {customRoles.map((role) => {
+                const n = assignedTo(`role:${role.id}`);
+                return (
+                  <div key={role.id} className="p-3.5 rounded-xl border border-amber-200 bg-amber-50/30 space-y-1.5 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">Custom</span>
+                      <span className="text-[10px] font-semibold text-slate-500">{n} assigned</span>
+                    </div>
+                    <h4 className="font-bold text-slate-900 break-words">{role.name}</h4>
+                    <p className="text-[11px] text-slate-500">{role.basePreset ? `Starts from ${role.basePreset}` : "Older role: permission areas only"} · {role.permissions.length} area{role.permissions.length === 1 ? "" : "s"}</p>
+                    <div className="pt-1 border-t border-amber-200/60 flex items-center justify-between gap-2">
+                      <span className="text-[10px] text-slate-500">{n ? "Move its staff to another role before deleting." : ""}</span>
+                      <button type="button" disabled={n > 0 || !!deleting} onClick={() => void remove(role)} title={n ? "Assigned roles cannot be deleted" : "Delete this role"}
+                        className="text-[11px] font-semibold text-red-700 hover:underline disabled:text-slate-400 disabled:no-underline disabled:cursor-not-allowed">
+                        {deleting === role.id ? "Deleting…" : "Delete"}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
-        </div>
-
-        <div className="px-5 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-end shrink-0">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
-          >
-            Done
-          </button>
-        </div>
+        </section>
       </div>
-    </div>
+    </Modal>
   );
 }
 
-export function CustomRoleModal({
-  onClose,
-  onSave,
-  saving,
-}: {
+/** Adds a custom role that starts from a built-in preset's modules and duties; resolves the saved role. */
+export function CustomRoleModal({ roles, onClose, onSave }: {
+  roles: StaffRole[];
   onClose: () => void;
   onSave: (name: string, preset: RolePresetMeta) => Promise<void>;
-  saving: boolean;
 }) {
   const [name, setName] = useState("");
-  const [selectedPresetId, setSelectedPresetId] = useState(ROLE_PRESETS_META[0].id);
+  const [presetId, setPresetId] = useState(ROLE_PRESETS_META[0].id);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const meta = ROLE_PRESETS_META.find((p) => p.id === presetId) ?? ROLE_PRESETS_META[0];
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (name.trim().length < 3) {
-      setError("Role name must be at least 3 characters.");
-      return;
-    }
+    const problems = validateRole(name, permissionsOf(presetAccess(meta.preset).matrix), roles, null);
+    if (problems.name || problems.permissions) return setError(problems.name ?? problems.permissions ?? null);
+    setSaving(true);
     setError(null);
-    const preset = ROLE_PRESETS_META.find((p) => p.id === selectedPresetId) || ROLE_PRESETS_META[0];
-    await onSave(name.trim(), preset);
+    try { await onSave(name.trim(), meta); } catch (err) { setError(err instanceof Error ? err.message : "The role was not saved."); setSaving(false); }
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden fade-in">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center font-bold">
-              <Icon name="plus-circle" size={16} />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">Add Extra / Custom Role</h3>
-              <p className="text-[11px] text-slate-500">Define a custom role preset with tailored permissions</p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={saving}
-            className="w-8 h-8 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center"
-          >
-            <Icon name="x" size={16} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-5 space-y-4 text-xs">
-          {error && (
-            <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-700 font-medium">
-              {error}
-            </div>
-          )}
-
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-              Role Title *
-            </label>
-            <input
-              type="text"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Airport VIP Desk Controller"
-              className="w-full h-10 px-3 text-sm font-medium text-slate-900 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]"
-            />
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-              Base Preset Template
-            </label>
-            <select
-              value={selectedPresetId}
-              onChange={(e) => setSelectedPresetId(e.target.value)}
-              className="w-full h-10 px-3 text-xs sm:text-sm font-medium text-slate-900 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]"
-            >
-              {ROLE_PRESETS_META.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name} ({m.shortName})
-                </option>
-              ))}
-            </select>
-            <p className="text-[11px] text-slate-500 mt-1">
-              New role will start with the default modules and security policies of the chosen template.
-            </p>
-          </div>
-
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={saving}
-              className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-4 py-2 rounded-xl text-xs font-semibold bg-[#991B1B] hover:bg-[#7F1D1D] text-white flex items-center gap-1.5 shadow-xs disabled:opacity-50"
-            >
-              <Icon name="check" size={14} />
-              <span>{saving ? "Saving…" : "Save Custom Role"}</span>
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <Modal title="Add extra role" subtitle="A custom role starts from a built-in preset; adjust each Staff ID's modules afterwards." onClose={onClose} centered size="md" busy={saving}
+      footer={<><button type="button" onClick={onClose} disabled={saving} className={BTN_SECONDARY}>Cancel</button><button type="submit" form="custom-role-form" disabled={saving} className={BTN_PRIMARY}><Icon name="check" size={14} />{saving ? "Saving…" : "Save role"}</button></>}>
+      <form id="custom-role-form" onSubmit={submit} className="space-y-4 text-xs" noValidate>
+        {error && <div role="alert" className="ds-error">{error}</div>}
+        <label className="ds-field"><span>Role name *</span>
+          <input autoFocus required maxLength={40} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Airport VIP Desk Controller" className="ds-input" /></label>
+        <label className="ds-field"><span>Starts from</span>
+          <select value={presetId} onChange={(e) => setPresetId(e.target.value)} className="ds-select">
+            {ROLE_PRESETS_META.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+          </select>
+        </label>
+      </form>
+    </Modal>
   );
 }
 
-export function UnmaskReasonModal({
-  onClose,
-  onSubmit,
-}: {
-  onClose: () => void;
-  onSubmit: (reason: string) => void;
-}) {
+/** Development only: walks through the reason form. It reveals nothing and writes no log. */
+export function DevUnmaskPreviewModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: (reason: string) => void }) {
   const [category, setCategory] = useState("");
   const [detail, setDetail] = useState("");
-  const [error, setError] = useState<string | null>(null);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!category) {
-      setError("Please select a valid reason category.");
-      return;
-    }
-    const combined = detail.trim() ? `${category}: ${detail.trim()}` : category;
-    onSubmit(combined);
-  };
-
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden fade-in">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center font-bold">
-              <Icon name="shield-alert" size={16} />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">Mandatory Reason to View Customer Number</h3>
-              <p className="text-[11px] text-slate-500">Every reveal is audited under your Staff ID</p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-8 h-8 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center"
-          >
-            <Icon name="x" size={16} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-5 space-y-4 text-xs">
-          {error && (
-            <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-700 font-medium">
-              {error}
-            </div>
-          )}
-
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-              Select Reason Category *
-            </label>
-            <select
-              required
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full h-10 px-3 text-xs sm:text-sm font-medium text-slate-900 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]"
-            >
-              <option value="">-- Choose valid reason --</option>
-              <option value="Pickup address landmark clarification">Pickup address landmark clarification</option>
-              <option value="Driver delayed / breakdown reassignment">Driver delayed / breakdown reassignment</option>
-              <option value="Flight/Train delay rescheduling">Flight/Train delay rescheduling</option>
-              <option value="Customer cancellation & refund inquiry">Customer cancellation & refund inquiry</option>
-              <option value="Other emergency operations">Other emergency operations</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-              Operational Note / Booking Reference
-            </label>
-            <textarea
-              rows={3}
-              value={detail}
-              onChange={(e) => setDetail(e.target.value)}
-              placeholder="e.g., Driver unable to locate passenger at Airport Terminal 1 Gate 4"
-              className="w-full p-3 text-xs text-slate-900 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]"
-            />
-          </div>
-
-          <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200 text-[11px] text-amber-900">
-            ⚠️ <strong>Customer Privacy Policy:</strong> Phone reveals are permanently logged with timestamp and staff
-            identifier in the compliance audit trail. Zero unlogged views allowed.
-          </div>
-
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 rounded-xl text-xs font-semibold bg-[#991B1B] hover:bg-[#7F1D1D] text-white flex items-center gap-1.5 shadow-xs"
-            >
-              <Icon name="eye" size={14} />
-              <span>Authorize &amp; View Number</span>
-            </button>
-          </div>
-        </form>
+    <Modal title="Reveal reason form (development preview)" subtitle="Nothing is revealed or logged from this preview." onClose={onClose} centered size="md"
+      footer={<><button type="button" onClick={onClose} className={BTN_SECONDARY}>Cancel</button><button type="button" disabled={!category} onClick={() => onSubmit(detail.trim() ? `${category}: ${detail.trim()}` : category)} className={BTN_PRIMARY}>Check form</button></>}>
+      <div className="space-y-3 text-xs">
+        <label className="ds-field"><span>Reason category *</span>
+          <select value={category} onChange={(e) => setCategory(e.target.value)} className="ds-select">
+            <option value="">Choose a reason</option>
+            <option>Pickup address landmark clarification</option>
+            <option>Driver delayed / breakdown reassignment</option>
+            <option>Customer cancellation &amp; refund inquiry</option>
+          </select>
+        </label>
+        <label className="ds-field"><span>Note</span><textarea rows={3} value={detail} onChange={(e) => setDetail(e.target.value)} className="ds-input h-auto py-2" /></label>
       </div>
-    </div>
+    </Modal>
   );
 }

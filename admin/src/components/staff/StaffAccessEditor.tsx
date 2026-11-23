@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ACCOUNT_ACTIONS,
   ACCOUNT_TYPES,
@@ -6,7 +6,6 @@ import {
   LIMITED_MODULES,
   MASTER_ONLY_MODULES,
   MODULE_ACTIONS,
-  STAFF_MODULES,
   STAFF_PRESETS,
   accessProblems,
   describeRequirement,
@@ -31,8 +30,23 @@ import {
   validateStaffIdentity,
   type StaffAccount,
   type StaffErrorKind,
+  type StaffRole,
   type StaffSaveResult,
 } from "../../services/staffService";
+import {
+  ACCESS_LEVELS,
+  USERNAME_RULE,
+  joinBranch,
+  levelActions,
+  moduleCounts,
+  moduleLevel,
+  splitBranch,
+  strongPassword,
+  suggestUsername,
+  takenUsernames,
+} from "../../domain/staffAccess";
+import { parseIndianMobile } from "../../utils/phone";
+import { presetPolicy } from "./rolePresets";
 import { newId } from "../../services/callables";
 import { ConfirmDialog } from "../Feedback";
 import Icon from "../ui/Icon";
@@ -46,124 +60,8 @@ const ACTION_LABEL: Record<ModuleAction, string> = {
   send: "Send",
 };
 
-export interface RolePresetMeta {
-  id: string;
-  name: string;
-  shortName: string;
-  prefix: string;
-  badgeClass: string;
-  desc: string;
-  isBuiltIn: boolean;
-  maskCustomer: boolean;
-  blockExport: boolean;
-  preset: StaffPreset;
-}
-
-export const ROLE_PRESETS_META: RolePresetMeta[] = [
-  {
-    id: "booking_exec",
-    name: "Booking & Enquiry Executive",
-    shortName: "Booking Staff",
-    prefix: "booking",
-    badgeClass: "bg-red-50 text-red-700 border-red-200",
-    desc: "Instant fare quotes, caller follow-ups & booking creation",
-    isBuiltIn: true,
-    maskCustomer: true,
-    blockExport: true,
-    preset: "Booking & Enquiry Executive",
-  },
-  {
-    id: "dispatch_ctrl",
-    name: "Dispatch & Trip Controller",
-    shortName: "Dispatch",
-    prefix: "dispatch",
-    badgeClass: "bg-blue-50 text-blue-700 border-blue-200",
-    desc: "Live cab allocation, driver/vehicle swaps & airport tracking",
-    isBuiltIn: true,
-    maskCustomer: false,
-    blockExport: true,
-    preset: "Dispatch & Trip Controller",
-  },
-  {
-    id: "night_desk",
-    name: "Night Shift / After-Hours Desk",
-    shortName: "Night Shift",
-    prefix: "night",
-    badgeClass: "bg-indigo-50 text-indigo-700 border-indigo-200",
-    desc: "Combined night booking, urgent cab swap & emergency support",
-    isBuiltIn: true,
-    maskCustomer: true,
-    blockExport: true,
-    preset: "Night Shift / After-Hours Desk",
-  },
-  {
-    id: "fleet_officer",
-    name: "Fleet & Driver Onboarding Officer",
-    shortName: "Fleet KYC",
-    prefix: "fleet",
-    badgeClass: "bg-amber-50 text-amber-800 border-amber-200",
-    desc: "Driver KYC, RC/FC/Permit verification & vehicle onboarding",
-    isBuiltIn: true,
-    maskCustomer: true,
-    blockExport: true,
-    preset: "Fleet & Driver Onboarding Officer",
-  },
-  {
-    id: "vendor_coord",
-    name: "Vendor & B2B Partner Coordinator",
-    shortName: "Vendor Desk",
-    prefix: "vendor",
-    badgeClass: "bg-purple-50 text-purple-700 border-purple-200",
-    desc: "Attached vendor fleet trips & corporate/B2B bookings",
-    isBuiltIn: true,
-    maskCustomer: true,
-    blockExport: true,
-    preset: "Vendor & B2B Partner Coordinator",
-  },
-  {
-    id: "accounts_gst",
-    name: "Accounts, GST & Payout Officer",
-    shortName: "Accounts & GST",
-    prefix: "accounts",
-    badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    desc: "Invoices, GST reports, Razorpay verification & driver payouts",
-    isBuiltIn: true,
-    maskCustomer: true,
-    blockExport: true,
-    preset: "Accounts, GST & Payout Officer",
-  },
-  {
-    id: "support_desk",
-    name: "Customer Support & Escalation Desk",
-    shortName: "Support Desk",
-    prefix: "support",
-    badgeClass: "bg-teal-50 text-teal-700 border-teal-200",
-    desc: "Trip complaints, refund tickets & promo coupon compensation",
-    isBuiltIn: true,
-    maskCustomer: true,
-    blockExport: true,
-    preset: "Customer Support & Escalation Desk",
-  },
-];
-
-export const MODULE_GROUPS: { title: string; items: StaffModule[] }[] = [
-  {
-    title: "Core Operations",
-    items: ["Dashboard", "Bookings", "Customers", "Communication", "Support"],
-  },
-  {
-    title: "Fleet & Partners",
-    items: ["Partners & Fleet", "Driver Partners", "Vendors", "Vendor Drivers", "Vehicles"],
-  },
-  {
-    title: "Finance & Billing",
-    items: ["Accounts", "Invoices", "Reports & GST", "Business accounts", "Penalties"],
-  },
-  {
-    title: "System & Security",
-    items: ["Settings", "Staff & Access"],
-  },
-];
+export { ROLE_PRESETS_META, MODULE_GROUPS, type RolePresetMeta } from "./rolePresets";
+import { ROLE_PRESETS_META, MODULE_GROUPS, type RolePresetMeta } from "./rolePresets";
 
 const SHIFT_OPTIONS = [
   "General Day Shift (09:00 AM – 06:00 PM)",
@@ -191,11 +89,14 @@ interface Draft {
   contactEmail: string;
   shift: string;
   hub: string;
-  branch: string;
   preset: StaffPreset;
+  /** Custom role (staff_roles) this Staff ID uses; "" for a built-in preset. */
+  customRoleId: string;
+  customRoleName: string;
   accountStatus: "Invited" | "Active";
   matrix: StaffMatrix;
   duty: DutyAction[];
+  adminNotes: string;
   reason: string;
 }
 
@@ -204,36 +105,36 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 const isPreset = (v: string): v is StaffPreset => (STAFF_PRESETS as readonly string[]).includes(v);
 const cellAllowed = (m: StaffModule, a: ModuleAction) =>
   !MASTER_ONLY_MODULES.includes(m) && (!LIMITED_MODULES[m] || LIMITED_MODULES[m]!.includes(a));
+const metaOf = (preset: string): RolePresetMeta | undefined => ROLE_PRESETS_META.find((r) => r.preset === preset);
+const POLICY_TEXT = { none: "Numbers masked", temporary: "Temporary reveal", "on approval": "Reveal on approval" } as const;
 
-function initialDraft(account: StaffAccount | null): Draft {
+function initialDraft(account: StaffAccount | null, startPreset: StaffPreset, taken: ReadonlySet<string>): Draft {
   const p = account?.profile;
   if (!account || !p) {
-    const preset = presetAccess("Booking & Enquiry Executive");
-    const digits = Math.floor(1000 + Math.random() * 9000);
+    const preset = presetAccess(startPreset);
+    const pass = strongPassword();
     return {
-      username: "booking.staff01",
-      password: `Nesam@${digits}`,
-      confirmPassword: `Nesam@${digits}`,
+      username: suggestUsername("", metaOf(startPreset)?.prefix ?? "staff", taken),
+      password: pass,
+      confirmPassword: pass,
       name: "",
       phone: "",
       email: "",
       contactEmail: "",
-      shift: "General Day Shift (09:00 AM – 06:00 PM)",
-      hub: "Coimbatore HQ",
-      branch: "Coimbatore HQ · General Day Shift",
-      preset: "Booking & Enquiry Executive",
+      shift: SHIFT_OPTIONS[0],
+      hub: HUB_OPTIONS[0],
+      preset: startPreset,
+      customRoleId: "",
+      customRoleName: "",
       accountStatus: "Active",
       matrix: preset.matrix,
       duty: preset.duty,
+      adminNotes: "",
       reason: "",
     };
   }
-
-  // Parse existing branch into hub & shift if composite
-  const branchParts = (p.branch || "").split(" · ");
-  const hub = branchParts[0] || "Coimbatore HQ";
-  const shift = branchParts[1] || "General Day Shift (09:00 AM – 06:00 PM)";
-
+  // Existing values are kept exactly as saved: hub / shift from "Hub · Shift", an unknown preset stays "Custom".
+  const { hub, shift } = splitBranch(p.branch || "");
   return {
     username: account.username ?? "",
     password: "",
@@ -244,22 +145,38 @@ function initialDraft(account: StaffAccount | null): Draft {
     contactEmail: account.contactEmail || p.contactEmail || "",
     shift,
     hub,
-    branch: p.branch,
     preset: isPreset(p.preset) ? p.preset : "Custom",
+    customRoleId: p.customRoleId,
+    customRoleName: p.customRoleName,
     accountStatus: p.accountStatus === "Active" ? "Active" : "Invited",
     matrix: clone(p.matrix),
     duty: [...p.duty],
+    adminNotes: p.adminNotes,
     reason: "",
   };
 }
 
 export default function StaffAccessEditor({
   account,
+  accounts,
+  customRoles,
+  startPreset = "Booking & Enquiry Executive",
+  pendingRole,
+  onPendingRoleUsed,
   onClose,
   onSaved,
   onOpenCustomRole,
 }: {
   account: StaffAccount | null;
+  /** Every admin account (login IDs and mobiles already in use). */
+  accounts: StaffAccount[];
+  /** Custom roles; null while they are still loading. */
+  customRoles: StaffRole[] | null;
+  /** Preset a new Staff ID starts with. */
+  startPreset?: StaffPreset;
+  /** A custom role created from this drawer: selected as soon as it is saved (no wait for the list to refresh). */
+  pendingRole?: StaffRole | null;
+  onPendingRoleUsed?: () => void;
   onClose: () => void;
   onSaved: (
     result: StaffSaveResult,
@@ -270,7 +187,11 @@ export default function StaffAccessEditor({
   onOpenCustomRole?: () => void;
 }) {
   const editing = !!account;
-  const [initial] = useState(() => initialDraft(account));
+  const taken = useMemo(() => takenUsernames(accounts.filter((a) => a.uid !== account?.uid)), [accounts, account]);
+  const [initial] = useState(() => initialDraft(account, startPreset, taken));
+  // A typed login ID is never overwritten by the name-based suggestion.
+  const [usernameEdited, setUsernameEdited] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
   const [baseVersion] = useState(() => account?.profile?.accessVersion ?? 0);
   const [d, setD] = useState<Draft>(initial);
   const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1);
@@ -281,7 +202,6 @@ export default function StaffAccessEditor({
   const [requestId] = useState(() => newId("staff"));
   const [touched, setTouched] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [copyCredsSuccess, setCopyCredsSuccess] = useState(false);
   const [enabledOnly, setEnabledOnly] = useState(false);
 
   const dirty = !same(d, initial);
@@ -294,9 +214,15 @@ export default function StaffAccessEditor({
     contactEmail: d.contactEmail,
   });
 
+  const loginId = d.username.trim().toLowerCase();
+  const phoneKey = parseIndianMobile(d.phone);
+  const phoneTaken = !!phoneKey && accounts.some((a) => a.uid !== account?.uid && a.profile?.phone === phoneKey);
+  if (phoneTaken && !identityErrors.phone) identityErrors.phone = "This mobile number already has a Staff ID.";
   const credentialError = !editing
-    ? !/^[a-z][a-z0-9._-]{2,31}$/.test(d.username.trim().toLowerCase())
-      ? "Username must be 3–32 characters, start with a letter, and use letters, numbers, dots, underscores or hyphens."
+    ? !USERNAME_RULE.test(loginId)
+      ? "Login ID must be 3–32 characters, start with a letter, and use letters, numbers, dots, underscores or hyphens."
+      : taken.has(loginId)
+      ? `The login ID "${loginId}" is already in use. Choose another one.`
       : d.password.length < 8 || d.password.length > 128
       ? "Use a password between 8 and 128 characters."
       : d.password !== d.confirmPassword
@@ -313,13 +239,6 @@ export default function StaffAccessEditor({
   const step1Blocked = Object.keys(identityErrors).length > 0 || !!credentialError;
   const blocked = step1Blocked || missing.length > 0 || problems.length > 0 || !!reasonError;
 
-  // Keep branch in sync with hub and shift
-  useEffect(() => {
-    if (!editing) {
-      setD((curr) => ({ ...curr, branch: `${curr.hub} · ${curr.shift}` }));
-    }
-  }, [d.hub, d.shift, editing]);
-
   // Before unload warning
   useEffect(() => {
     if (!dirty) return;
@@ -331,44 +250,40 @@ export default function StaffAccessEditor({
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
 
-  // Auto-generate name-based username when typing name in create mode
-  const handleNameChange = (name: string) => {
-    if (editing) {
-      setD((curr) => ({ ...curr, name }));
-      return;
-    }
-    const cleanFirst = name
-      .trim()
-      .split(/\s+/)[0]
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, "");
-    const presetMeta = ROLE_PRESETS_META.find((r) => r.preset === d.preset) || ROLE_PRESETS_META[0];
-    const newUsername = cleanFirst ? `${presetMeta.prefix}.${cleanFirst}` : `${presetMeta.prefix}.staff01`;
+  // Escape closes the drawer (only when it is the top dialog), focus starts inside it, Tab stays inside, and focus returns.
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    const panel = panelRef.current;
+    panel?.querySelector<HTMLElement>("input,select,button:not([aria-label='Close'])")?.focus({ preventScroll: true });
+    const onKey = (e: KeyboardEvent) => {
+      const dialogs = document.querySelectorAll('[role="dialog"][aria-modal="true"]');
+      if (dialogs[dialogs.length - 1] !== panelRef.current) return;
+      if (e.key === "Escape") { e.preventDefault(); closeRef.current(); return; }
+      if (e.key !== "Tab" || !panelRef.current) return;
+      const items = Array.from(panelRef.current.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled])')).filter((n) => n.offsetParent !== null);
+      if (!items.length) return;
+      const first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("keydown", onKey); if (previous?.isConnected) previous.focus({ preventScroll: true }); };
+  }, []);
 
-    setD((curr) => ({
-      ...curr,
-      name,
-      username: newUsername,
-    }));
+  const prefixOf = (x: Pick<Draft, "preset" | "customRoleId">) => {
+    const base = x.customRoleId ? [...(customRoles ?? []), ...localRoles].find((r) => r.id === x.customRoleId)?.basePreset ?? "" : x.preset;
+    return metaOf(base)?.prefix ?? "staff";
+  };
+
+  // The login ID follows the name until it is typed by hand.
+  const handleNameChange = (name: string) => {
+    setD((curr) => ({ ...curr, name, ...(editing || usernameEdited ? {} : { username: suggestUsername(name, prefixOf(curr), taken) }) }));
   };
 
   const regeneratePassword = () => {
-    const digits = Math.floor(1000 + Math.random() * 9000);
-    const pass = `Nesam@${digits}`;
+    const pass = strongPassword();
     setD((curr) => ({ ...curr, password: pass, confirmPassword: pass }));
-  };
-
-  const copyCredentials = async () => {
-    const text = `Staff Member: ${d.name || "Staff Member"}\nUsername: ${d.username}\nPassword: ${d.password}\nRole: ${d.preset}\nShift: ${d.shift}\nHub: ${d.hub}`;
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
-        setCopyCredsSuccess(true);
-        setTimeout(() => setCopyCredsSuccess(false), 2500);
-      }
-    } catch {
-      // ignore
-    }
+    setShowPassword(false);
   };
 
   const update = (next: { matrix: StaffMatrix; duty: DutyAction[] }, granting: boolean) => {
@@ -420,69 +335,100 @@ export default function StaffAccessEditor({
 
   const choosePreset = (p: StaffPreset) => {
     const next = presetAccess(p);
-    const presetMeta = ROLE_PRESETS_META.find((r) => r.preset === p);
-    let updatedUsername = d.username;
-    if (!editing && presetMeta) {
-      const cleanFirst = d.name
-        .trim()
-        .split(/\s+/)[0]
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, "");
-      updatedUsername = cleanFirst ? `${presetMeta.prefix}.${cleanFirst}` : `${presetMeta.prefix}.staff01`;
-    }
     setAdded([]);
     setD((x) => ({
       ...x,
       preset: p,
-      username: updatedUsername,
+      customRoleId: "",
+      customRoleName: "",
+      ...(editing || usernameEdited ? {} : { username: suggestUsername(x.name, metaOf(p)?.prefix ?? "staff", taken) }),
       matrix: next.matrix,
       duty: next.duty,
     }));
   };
+
+  /** A custom role starts from its base preset's modules and duties; an older role without one keeps the current access. */
+  const chooseCustomRole = (role: StaffRole) => {
+    const base = isPreset(role.basePreset) && role.basePreset !== "Custom" ? role.basePreset : null;
+    const next = base ? presetAccess(base) : { matrix: d.matrix, duty: d.duty };
+    setAdded([]);
+    setD((x) => ({
+      ...x,
+      preset: "Custom",
+      customRoleId: role.id,
+      customRoleName: role.name,
+      ...(editing || usernameEdited ? {} : { username: suggestUsername(x.name, metaOf(base ?? "")?.prefix ?? "staff", taken) }),
+      matrix: next.matrix,
+      duty: next.duty,
+    }));
+  };
+
+  // A role created from this drawer is selected straight away, from the saved role itself, and listed until the
+  // role list catches up.
+  const [localRoles, setLocalRoles] = useState<StaffRole[]>([]);
+  const shownRoles = useMemo(() => {
+    const list = customRoles ?? [];
+    return [...list, ...localRoles.filter((r) => !list.some((x) => x.id === r.id))];
+  }, [customRoles, localRoles]);
+  useEffect(() => {
+    if (!pendingRole) return;
+    setLocalRoles((l) => (l.some((r) => r.id === pendingRole.id) ? l : [...l, pendingRole]));
+    chooseCustomRole(pendingRole);
+    onPendingRoleUsed?.();
+  }, [pendingRole]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const setLevel = (m: StaffModule, level: (typeof ACCESS_LEVELS)[number]) => {
+    const matrix = clone(d.matrix);
+    matrix.modules[m] = levelActions(m, level);
+    update({ matrix, duty: d.duty }, level !== "Off");
+  };
+
+  const missingRole = editing && !!d.customRoleId && customRoles !== null && !shownRoles.some((r) => r.id === d.customRoleId);
 
   const close = () => {
     if (saving) return;
     if (dirty) setConfirmDiscard(true);
     else onClose();
   };
+  const closeRef = useRef(close);
+  closeRef.current = close;
 
   const save = async () => {
     if (saving) return;
     setTouched(true);
+    if (step1Blocked) { setActiveStep(1); return; }
     if (blocked) return;
     setSaving(true);
     setError(null);
     try {
-      const branchValue = editing ? d.branch.trim() : `${d.hub} · ${d.shift}`;
+      // Hub and shift are saved on every edit; an untouched legacy free-text branch is sent back unchanged.
+      const before = account?.profile ? splitBranch(account.profile.branch || "") : null;
+      const hubShiftChanged = !before || before.hub !== d.hub.trim() || before.shift !== d.shift.trim();
+      const branchValue = hubShiftChanged ? joinBranch(d.hub, d.shift) : account!.profile!.branch;
       const result = await saveStaffProfile({
         ...(editing
           ? { uid: account!.uid, expectedVersion: baseVersion }
           : {
               accountStatus: "Active",
               requestId,
-              username: d.username.trim().toLowerCase(),
+              username: loginId,
               password: d.password,
             }),
         name: d.name,
-        phone: d.phone,
-        email: editing ? d.email : `${d.username.trim().toLowerCase()}@staff.nesam.invalid`,
+        phone: phoneKey ?? d.phone,
+        email: editing ? d.email : `${loginId}@staff.nesam.invalid`,
         contactEmail: d.contactEmail,
         branch: branchValue,
         preset: d.preset,
         access: d.matrix,
         duty: d.duty,
         reason: d.reason,
+        ...(!editing || d.customRoleId !== initial.customRoleId ? { customRoleId: d.customRoleId } : {}),
+        ...(!editing || d.adminNotes !== initial.adminNotes ? { adminNotes: d.adminNotes.trim() } : {}),
       });
 
-      const creds = !editing
-        ? {
-            username: d.username.trim().toLowerCase(),
-            password: d.password,
-            shift: d.shift,
-            role: d.preset,
-          }
-        : undefined;
-
+      const roleLabel = d.customRoleId ? d.customRoleName : d.preset;
+      const creds = !editing ? { username: loginId, password: d.password, shift: d.shift, role: roleLabel } : undefined;
       setD((curr) => ({ ...curr, password: "", confirmPassword: "" }));
       onSaved(result, !editing, { name: d.name.trim(), email: d.email.trim().toLowerCase() }, creds);
     } catch (e) {
@@ -496,15 +442,13 @@ export default function StaffAccessEditor({
     }
   };
 
-  // Module count for summary pill
-  const activeModuleCount = useMemo(() => {
-    return STAFF_MODULES.filter((m) => (d.matrix.modules[m] ?? []).length > 0).length;
-  }, [d.matrix]);
+  const counts = useMemo(() => moduleCounts(d.matrix), [d.matrix]);
+  const revealMode = d.matrix.privacy.temporaryReveal ? "Temporary reveal" : d.matrix.privacy.requestApproval ? "Reveal on approval" : "Numbers masked";
 
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex justify-end">
-        <div className="w-full max-w-2xl bg-white h-full shadow-2xl flex flex-col drawer-slide-in">
+      <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex justify-end" onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}>
+        <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="staff-editor-title" className="w-full sm:max-w-2xl min-w-0 bg-white h-full shadow-2xl flex flex-col drawer-slide-in">
           {/* Drawer Header */}
           <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white">
             <div className="flex items-center gap-2.5">
@@ -512,13 +456,13 @@ export default function StaffAccessEditor({
                 <Icon name="user-round-plus" size={18} />
               </div>
               <div>
-                <h2 className="text-sm font-bold text-slate-900">
+                <h2 id="staff-editor-title" className="text-sm font-bold text-slate-900 break-words">
                   {editing ? `Edit Access · ${account!.name || account!.email}` : "Create Staff Login ID"}
                 </h2>
                 <p className="text-[11px] text-slate-500">
                   {editing
                     ? `${account!.profile?.staffCode ?? ""} · ${status}`
-                    : "Type staff name to auto-generate Login ID & matching credentials"}
+                    : "The login ID is suggested from the name; you can type your own."}
                 </p>
               </div>
             </div>
@@ -526,14 +470,15 @@ export default function StaffAccessEditor({
               type="button"
               onClick={close}
               disabled={saving}
-              className="w-8 h-8 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition-colors"
+              aria-label="Close"
+              className="w-8 h-8 shrink-0 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition-colors"
             >
               <Icon name="x" size={16} />
             </button>
           </div>
 
           {/* 3-Step Navigation Bar */}
-          <div className="px-5 py-2.5 bg-slate-50 border-b border-slate-200/80 grid grid-cols-3 gap-2 shrink-0">
+          <nav aria-label="Steps" className="px-3 sm:px-5 py-2.5 bg-slate-50 border-b border-slate-200/80 grid grid-cols-3 gap-1.5 sm:gap-2 shrink-0">
             <button
               type="button"
               onClick={() => setActiveStep(1)}
@@ -571,7 +516,7 @@ export default function StaffAccessEditor({
               >
                 2
               </span>
-              <span>Modules (17)</span>
+              <span>Modules ({counts.enabled}/{counts.available})</span>
             </button>
             <button
               type="button"
@@ -594,7 +539,7 @@ export default function StaffAccessEditor({
               </span>
               <span>Duty &amp; Privacy</span>
             </button>
-          </div>
+          </nav>
 
           {/* Drawer Scrollable Body */}
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
@@ -650,10 +595,11 @@ export default function StaffAccessEditor({
                       </span>
                       <input
                         type="tel"
-                        maxLength={10}
+                        inputMode="tel"
+                        maxLength={18}
                         value={d.phone}
                         onChange={(e) => setD({ ...d, phone: e.target.value })}
-                        placeholder="10-digit mobile"
+                        placeholder="10-digit mobile (+91 optional)"
                         className="w-full h-full px-2.5 text-sm font-medium text-slate-900 focus:outline-none"
                       />
                     </div>
@@ -718,84 +664,49 @@ export default function StaffAccessEditor({
                   </datalist>
                 </div>
 
-                {/* Auto-Generated Credentials Card */}
+                {/* Login ID & one-time password (new Staff IDs). Existing passwords are never shown. */}
                 {!editing ? (
                   <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
-                        <Icon name="sparkles" size={14} className="text-[#991B1B]" />
-                        <span>Login ID &amp; Password (Auto-Generated from Name)</span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={copyCredentials}
-                        className="text-[11px] font-semibold text-[#991B1B] hover:underline flex items-center gap-1"
-                      >
-                        <Icon name="copy" size={12} />
-                        <span>{copyCredsSuccess ? "Copied!" : "Copy Credentials"}</span>
-                      </button>
-                    </div>
-
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+                      <Icon name="key-round" size={14} className="text-[#991B1B]" />
+                      <span>Login ID &amp; one-time password</span>
+                    </span>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[10px] font-semibold text-slate-500 mb-1">
-                          Username / Login ID *
-                        </label>
+                      <div className="min-w-0">
+                        <label htmlFor="staff-login-id" className="block text-[10px] font-semibold text-slate-500 mb-1">Login ID *</label>
                         <div className="flex items-center h-10 bg-white border border-slate-200 rounded-xl overflow-hidden focus-within:border-[#991B1B]">
-                          <span className="px-2.5 text-xs font-bold text-slate-400 bg-slate-50 h-full flex items-center border-r border-slate-200">
-                            @
-                          </span>
-                          <input
-                            type="text"
-                            value={d.username}
-                            onChange={(e) => setD({ ...d, username: e.target.value.toLowerCase() })}
-                            maxLength={32}
-                            className="w-full h-full px-2.5 text-xs sm:text-sm font-semibold text-slate-900 focus:outline-none"
-                          />
+                          <span className="px-2.5 text-xs font-bold text-slate-400 bg-slate-50 h-full flex items-center border-r border-slate-200">@</span>
+                          <input id="staff-login-id" type="text" autoComplete="off" spellCheck={false} value={d.username}
+                            onChange={(e) => { setUsernameEdited(true); setD({ ...d, username: e.target.value.toLowerCase().replace(/\s+/g, "") }); }}
+                            maxLength={32} className="w-full min-w-0 h-full px-2.5 text-xs sm:text-sm font-semibold text-slate-900 focus:outline-none" />
                         </div>
+                        {usernameEdited && (
+                          <button type="button" onClick={() => { setUsernameEdited(false); setD((x) => ({ ...x, username: suggestUsername(x.name, prefixOf(x), taken) })); }}
+                            className="mt-1 text-[11px] font-semibold text-[#991B1B] hover:underline">Use suggestion</button>
+                        )}
                       </div>
-
-                      <div>
-                        <label className="block text-[10px] font-semibold text-slate-500 mb-1">Password *</label>
+                      <div className="min-w-0">
+                        <label htmlFor="staff-password" className="block text-[10px] font-semibold text-slate-500 mb-1">One-time password *</label>
                         <div className="flex items-center h-10 bg-white border border-slate-200 rounded-xl overflow-hidden focus-within:border-[#991B1B]">
-                          <input
-                            type={showPassword ? "text" : "password"}
-                            value={d.password}
+                          <input id="staff-password" type={showPassword ? "text" : "password"} autoComplete="new-password" value={d.password}
                             onChange={(e) => setD({ ...d, password: e.target.value, confirmPassword: e.target.value })}
-                            className="w-full h-full px-3 text-xs sm:text-sm font-semibold text-slate-900 focus:outline-none"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            title="Toggle visibility"
-                            className="px-2 text-slate-400 hover:text-slate-700"
-                          >
+                            className="w-full min-w-0 h-full px-3 text-xs sm:text-sm font-semibold text-slate-900 focus:outline-none" />
+                          <button type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? "Hide password" : "Show password"} className="px-2 h-full text-slate-400 hover:text-slate-700">
                             <Icon name={showPassword ? "eye-off" : "eye"} size={14} />
                           </button>
-                          <button
-                            type="button"
-                            onClick={regeneratePassword}
-                            title="Regenerate password"
-                            className="px-2.5 h-full text-[11px] font-bold text-[#991B1B] bg-crimson-50 hover:bg-crimson-100 border-l border-slate-200"
-                          >
-                            Auto
-                          </button>
+                          <button type="button" onClick={regeneratePassword} title="Generate a new strong password"
+                            className="px-2.5 h-full text-[11px] font-bold text-[#991B1B] bg-crimson-50 hover:bg-crimson-100 border-l border-slate-200">New</button>
                         </div>
                       </div>
                     </div>
-                    {touched && credentialError && (
-                      <p role="alert" className="text-[11px] text-red-600 font-medium">
-                        {credentialError}
-                      </p>
-                    )}
+                    <p className="text-[11px] text-slate-500">After the Staff ID is created you can copy the sign-in details once. Passwords are not stored or shown again; use Reset password in the profile later.</p>
+                    {touched && credentialError && <p role="alert" className="text-[11px] text-red-600 font-medium">{credentialError}</p>}
                   </div>
                 ) : (
-                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
-                    <span className="font-semibold text-slate-700">Login Username: </span>
-                    <span className="font-mono text-slate-900 font-bold">@{account!.username || account!.email}</span>
-                    <span className="block text-[11px] text-slate-500 mt-1">
-                      Credentials are fixed for this account. To change password, use Reset Password in the profile.
-                    </span>
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs min-w-0">
+                    <span className="font-semibold text-slate-700">Login ID: </span>
+                    <span className="font-mono text-slate-900 font-bold break-all">@{account!.username || account!.email}</span>
+                    <span className="block text-[11px] text-slate-500 mt-1">The login ID is fixed. To issue a new password, use Reset password in the profile.</span>
                   </div>
                 )}
 
@@ -816,39 +727,40 @@ export default function StaffAccessEditor({
                       </button>
                     )}
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {missingRole && (
+                    <p role="alert" className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-900">
+                      The custom role “{d.customRoleName || d.customRoleId}” assigned to this Staff ID no longer exists. Its saved modules are kept; choose a role below to change it.
+                    </p>
+                  )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5" role="radiogroup" aria-label="Role">
                     {ROLE_PRESETS_META.map((meta) => {
-                      const isSelected = d.preset === meta.preset;
+                      const isSelected = !d.customRoleId && d.preset === meta.preset;
+                      const pol = presetPolicy(meta.preset);
                       return (
-                        <button
-                          key={meta.id}
-                          type="button"
-                          onClick={() => choosePreset(meta.preset)}
-                          className={`text-left p-3 rounded-2xl border transition-all ${
-                            isSelected
-                              ? "bg-red-50/50 border-red-500 ring-2 ring-red-500/10 shadow-xs"
-                              : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50"
-                          }`}
-                        >
+                        <button key={meta.id} type="button" role="radio" aria-checked={isSelected} onClick={() => choosePreset(meta.preset)}
+                          className={`text-left p-3 rounded-2xl border transition-all min-w-0 ${isSelected ? "bg-red-50/50 border-red-500 ring-2 ring-red-500/10 shadow-xs" : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50"}`}>
                           <div className="flex items-center justify-between gap-1.5 mb-1">
-                            <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${meta.badgeClass}`}
-                            >
-                              {meta.shortName}
-                            </span>
-                            {isSelected && (
-                              <span className="w-4 h-4 rounded-full bg-red-600 text-white flex items-center justify-center text-[10px]">
-                                ✓
-                              </span>
-                            )}
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border truncate ${meta.badgeClass}`}>{meta.shortName}</span>
+                            {isSelected && <Icon name="check" size={14} className="text-red-600 shrink-0" />}
                           </div>
-                          <h4 className="text-xs font-bold text-slate-900">{meta.name}</h4>
+                          <h4 className="text-xs font-bold text-slate-900 break-words">{meta.name}</h4>
                           <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">{meta.desc}</p>
-                          <div className="flex items-center gap-2 mt-2 text-[10px] text-slate-400">
-                            <span>{meta.maskCustomer ? "🔒 Masked Numbers" : "🔓 Full Contact"}</span>
-                            <span>•</span>
-                            <span>{meta.blockExport ? "No Export" : "Export Allowed"}</span>
+                          <p className="mt-2 text-[10px] text-slate-500">{POLICY_TEXT[pol.reveal]} · {pol.exports ? "Some exports" : "No exports"}</p>
+                        </button>
+                      );
+                    })}
+                    {customRoles === null && <p className="text-[11px] text-slate-500 p-3">Loading custom roles…</p>}
+                    {shownRoles.map((role) => {
+                      const isSelected = d.customRoleId === role.id;
+                      return (
+                        <button key={role.id} type="button" role="radio" aria-checked={isSelected} onClick={() => chooseCustomRole(role)}
+                          className={`text-left p-3 rounded-2xl border transition-all min-w-0 ${isSelected ? "bg-amber-50/60 border-amber-500 ring-2 ring-amber-500/10 shadow-xs" : "bg-white border-amber-200 hover:bg-amber-50/40"}`}>
+                          <div className="flex items-center justify-between gap-1.5 mb-1">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-amber-100 text-amber-800 border-amber-200">Custom role</span>
+                            {isSelected && <Icon name="check" size={14} className="text-amber-700 shrink-0" />}
                           </div>
+                          <h4 className="text-xs font-bold text-slate-900 break-words">{role.name}</h4>
+                          <p className="text-[11px] text-slate-500 mt-0.5">{role.basePreset ? `Starts from ${role.basePreset}` : "Keeps the current module access"}</p>
                         </button>
                       );
                     })}
@@ -862,8 +774,7 @@ export default function StaffAccessEditor({
               <div className="space-y-4 fade-in">
                 <div className="flex items-center justify-between gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200/80">
                   <p className="text-xs text-slate-600">
-                    Preset <strong className="text-slate-900">{d.preset}</strong> auto-fills module access below. Customize
-                    any module as needed.
+                    Choose Off, View, Edit or Full per module; tick individual actions for an exception (shown as Custom). {counts.enabled} of {counts.available} modules enabled.
                   </p>
                   <label className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 shrink-0 cursor-pointer">
                     <input
@@ -895,6 +806,7 @@ export default function StaffAccessEditor({
                             <thead>
                               <tr className="border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50/40">
                                 <th className="px-4 py-2 text-left">Module</th>
+                                <th className="px-2 py-2 text-left">Access</th>
                                 {MODULE_ACTIONS.map((a) => (
                                   <th key={a} className="px-2 py-2 text-center">
                                     {ACTION_LABEL[a]}
@@ -916,6 +828,16 @@ export default function StaffAccessEditor({
                                         <span className="block text-[10px] font-normal text-slate-500">
                                           Customer list export stays Master-only · number reveals need “Temporary reveal” (step 3)
                                         </span>
+                                      )}
+                                    </td>
+                                    <td className="px-2 py-2">
+                                      {isMasterOnly ? <span className="text-[11px] text-slate-400">Off</span> : (
+                                        <select aria-label={`${m} access level`} disabled={saving} value={moduleLevel(d.matrix, m)}
+                                          onChange={(e) => e.target.value !== "Custom" && setLevel(m, e.target.value as (typeof ACCESS_LEVELS)[number])}
+                                          className="h-8 px-2 text-[11px] font-semibold border border-slate-200 rounded-lg bg-white focus:outline-none focus:border-[#991B1B]">
+                                          {ACCESS_LEVELS.map((l) => <option key={l}>{l}</option>)}
+                                          {moduleLevel(d.matrix, m) === "Custom" && <option value="Custom">Custom</option>}
+                                        </select>
                                       )}
                                     </td>
                                     {MODULE_ACTIONS.map((a) => (
@@ -997,17 +919,18 @@ export default function StaffAccessEditor({
                   </div>
 
                   <div className="space-y-2 text-xs">
-                    <label className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-amber-200/70 cursor-pointer">
+                    <div className="p-2.5 rounded-xl bg-white border border-amber-200/70">
+                      <p className="font-bold text-slate-900 flex items-center gap-1.5"><Icon name="eye-off" size={14} className="text-amber-700" />Customer numbers stay masked</p>
+                      <p className="text-[11px] text-slate-500">Every Staff ID sees masked numbers. A reveal needs a mandatory reason, is logged under this Staff ID, and hides again automatically.</p>
+                    </div>
+
+                    <label className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-white border border-slate-200 cursor-pointer">
                       <div>
-                        <p className="font-bold text-slate-900">Mask Customer Mobile Numbers</p>
-                        <p className="text-[11px] text-slate-500">Shows 98421 •••10 instead of full 10-digit number</p>
+                        <p className="font-semibold text-slate-800">Request a reveal for Master approval</p>
+                        <p className="text-[11px] text-slate-500">Asks the Master to approve a reveal on other bookings</p>
                       </div>
-                      <input
-                        type="checkbox"
-                        checked={!d.matrix.privacy.fullStandingReveal}
-                        onChange={(e) => toggleFlag("privacy", "fullStandingReveal", !e.target.checked)}
-                        className="w-4 h-4 rounded border-slate-300 text-[#991B1B]"
-                      />
+                      <input type="checkbox" checked={d.matrix.privacy.requestApproval === true} onChange={(e) => toggleFlag("privacy", "requestApproval", e.target.checked)}
+                        className="w-4 h-4 shrink-0 rounded border-slate-300 text-[#991B1B]" />
                     </label>
 
                     <label className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-slate-200 cursor-pointer">
@@ -1162,24 +1085,21 @@ export default function StaffAccessEditor({
                   </div>
                 )}
 
-                {/* Admin Note / Reason */}
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                    {editing ? "Reason for this change *" : "Admin Note (Optional)"}
-                  </label>
-                  <input
-                    type="text"
-                    value={d.reason}
-                    onChange={(e) => setD({ ...d, reason: e.target.value })}
-                    maxLength={300}
-                    placeholder={
-                      editing
-                        ? "e.g., Shift updated to night desk"
-                        : "e.g., Handles Coimbatore morning enquiries & quotes"
-                    }
-                    className="w-full h-10 px-3 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]"
-                  />
-                  {touched && reasonError && <p className="text-[10px] text-red-600 mt-1">{reasonError}</p>}
+                {/* Admin notes (saved with the profile) and, when editing, the audited reason for this change */}
+                <div className="grid grid-cols-1 gap-3">
+                  <div>
+                    <label htmlFor="staff-admin-notes" className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Admin notes · Master only</label>
+                    <textarea id="staff-admin-notes" rows={2} maxLength={1000} value={d.adminNotes} onChange={(e) => setD({ ...d, adminNotes: e.target.value })}
+                      placeholder="e.g., Handles Coimbatore morning enquiries & quotes"
+                      className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B] resize-y" />
+                  </div>
+                  <div>
+                    <label htmlFor="staff-reason" className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">{editing ? "Reason for this change *" : "Reason (optional, kept in the history)"}</label>
+                    <input id="staff-reason" type="text" value={d.reason} onChange={(e) => setD({ ...d, reason: e.target.value })} maxLength={300}
+                      placeholder={editing ? "e.g., Shift updated to night desk" : "e.g., New booking desk hire"}
+                      className="w-full h-10 px-3 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]" />
+                    {touched && reasonError && <p className="text-[10px] text-red-600 mt-1">{reasonError}</p>}
+                  </div>
                 </div>
               </div>
             )}
@@ -1187,9 +1107,8 @@ export default function StaffAccessEditor({
 
           {/* Sticky Drawer Footer with Live Summary Pill */}
           <div className="px-5 py-3.5 border-t border-slate-200 bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
-            <div className="text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-xl truncate">
-              Preset: <strong className="text-slate-900">{d.preset}</strong> • {activeModuleCount} Modules •{" "}
-              {d.matrix.privacy.fullStandingReveal ? "Unmasked" : "Masked"}
+            <div className="min-w-0 text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-xl truncate">
+              Role: <strong className="text-slate-900">{d.customRoleId ? d.customRoleName : d.preset}</strong> • {counts.enabled}/{counts.available} modules • {revealMode}
             </div>
 
             <div className="flex items-center gap-2 shrink-0 justify-end">

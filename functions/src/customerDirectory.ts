@@ -14,6 +14,7 @@ import { db } from './admin';
 import { auditInTx } from './audit';
 import { matrixAllows, matrixFlag, type AdminAccess } from './permissions';
 import { requireAdmin, text } from './shared';
+import { parseIndianMobile } from './phone';
 
 export const REVEAL_CATEGORIES = [
   'New booking confirmation call',
@@ -46,19 +47,7 @@ export function phoneKey(v: unknown): string {
   const d = typeof v === 'string' ? v.replace(/\D/g, '') : '';
   return d.length >= 10 ? d.slice(-10) : '';
 }
-/**
- * A typed Indian mobile in one of the supported spellings — 10 digits, or with a 0 / 91 / +91 / 091 / 0091 prefix,
- * separated by spaces, dashes, dots or brackets — as its 10 digits; null for anything else. Unlike `phoneKey` (which
- * reads stored records), extra digits are never cut off, so a mistyped 11–14 digit number cannot match a customer.
- */
-export function parseIndianMobile(v: unknown): string | null {
-  if (typeof v !== 'string' || /[^\d\s+()\-.]/.test(v)) return null;
-  const d = v.replace(/\D/g, '');
-  const m = /^(?:0091|091|91|0)?([6-9]\d{9})$/.exec(d);
-  if (!m) return null;
-  // A bare 10-digit number is taken as is; a prefix is accepted only when it leaves exactly 10 digits.
-  return m[1];
-}
+export { parseIndianMobile };
 /** "+91 98765 •••••" — the reference's masked form. */
 export function maskCustomerPhone(v: unknown): string {
   const k = phoneKey(v);

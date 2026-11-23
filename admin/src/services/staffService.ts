@@ -7,6 +7,7 @@ import { callBackend } from "./backend";
 import { collection, limit, onSnapshot, orderBy, query, where } from "firebase/firestore";
 import { db } from "./firebase";
 import { describeDataError } from "./adminFirestoreService";
+import { parseIndianMobile } from "../utils/phone";
 import {
   PERMISSIONS, STAFF_ROLE, STAFF_STATUSES, SUPER_ADMIN_ROLE, accessFromAdminDoc, isPermission, normalizeMatrix,
   type DutyAction, type Permission, type StaffMatrix, type StaffPreset, type StaffStatus,
@@ -71,6 +72,11 @@ export interface StaffProfile {
   accessVersion: number;
   statusHistory: StaffStatusEntry[];
   updatedAt: Date | null;
+  /** Custom role (staff_roles) this Staff ID was assigned, if any; its name as saved with the profile. */
+  customRoleId: string;
+  customRoleName: string;
+  /** Master-only notes about this Staff ID. */
+  adminNotes: string;
 }
 
 export interface StaffSessionRecord {
@@ -112,6 +118,8 @@ export interface StaffRole {
   id: string;
   name: string;
   permissions: Permission[];
+  /** Built-in Staff ID preset the role starts from (module / duty template); empty for older roles. */
+  basePreset: string;
 }
 
 export interface LegacyStaffRecord {
@@ -126,6 +134,7 @@ export interface AuditEntry {
   id: string;
   action: string;
   targetId: string;
+  actorId: string;
   actorName: string;
   at: Date | null;
   details: Record<string, unknown>;
@@ -152,6 +161,9 @@ function mapProfile(d: Record<string, unknown>): StaffProfile {
       .map((h) => ({ action: str(h.action), from: str(h.from), to: str(h.to), reason: str(h.reason), byName: str(h.byName), at: toDate(h.at) }))
       .sort((a, b) => (b.at?.getTime() ?? 0) - (a.at?.getTime() ?? 0)),
     updatedAt: toDate(d.updatedAt),
+    customRoleId: str(d.customRoleId),
+    customRoleName: str(d.customRoleName),
+    adminNotes: str(d.adminNotes),
   };
 }
 
@@ -197,6 +209,7 @@ export function subscribeStaffRoles(cb: (roles: StaffRole[]) => void, onError: O
             id: d.id,
             name: str(d.data().name),
             permissions: (Array.isArray(d.data().permissions) ? d.data().permissions : []).filter(isPermission),
+            basePreset: str(d.data().basePreset),
           }))
           .sort((a, b) => a.name.localeCompare(b.name)),
       ),
@@ -223,6 +236,7 @@ export function subscribeAuditLog(cb: (entries: AuditEntry[]) => void, onError: 
           id: d.id,
           action: str(d.data().action),
           targetId: str(d.data().targetId),
+          actorId: str(d.data().actorId),
           actorName: str(d.data().actorName),
           at: toDate(d.data().at),
           details: (d.data().details as Record<string, unknown>) || {},
@@ -284,12 +298,15 @@ export function validateRole(name: string, permissions: Permission[], roles: Sta
   return e;
 }
 
-export async function saveStaffRole(name: string, permissions: Permission[], roleId: string | null) {
-  await call("saveStaffRole", {
+/** Creates or renames a custom role; `basePreset` is the Staff ID template it starts from. Resolves the role id. */
+export async function saveStaffRole(name: string, permissions: Permission[], roleId: string | null, basePreset?: string): Promise<string> {
+  const r = await call<{ roleId: string }>("saveStaffRole", {
     name: name.trim(),
     permissions: PERMISSIONS.filter((p) => permissions.includes(p)),
     ...(roleId ? { roleId } : {}),
+    ...(basePreset ? { basePreset } : {}),
   });
+  return r.roleId;
 }
 
 // ── Staff IDs (Staff & Access matrix) ──────────────────────────────────────
@@ -315,6 +332,10 @@ export interface StaffProfileInput {
   resendInvite?: boolean;
   /** New Staff IDs: one id per Add staff form, so a retry cannot create a second account. */
   requestId?: string;
+  /** Custom role link ("" clears it). Omitted: unchanged. */
+  customRoleId?: string;
+  /** Master-only notes. Omitted: unchanged. */
+  adminNotes?: string;
 }
 
 export interface StaffSaveResult {
@@ -332,7 +353,7 @@ export interface StaffSaveResult {
 export function validateStaffIdentity(v: { name: string; phone: string; email: string; contactEmail?: string }) {
   const e: { name?: string; phone?: string; email?: string; contactEmail?: string } = {};
   if (v.name.trim().length < 2) e.name = "Enter the full name.";
-  if (!/^[6-9]\d{9}$/.test(v.phone.replace(/\D/g, "").slice(-10))) e.phone = "Enter a valid 10-digit mobile number.";
+  if (!parseIndianMobile(v.phone)) e.phone = "Enter a valid 10-digit mobile number (+91 optional).";
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email.trim())) e.email = "Enter a valid email address.";
   const cEmail = (v.contactEmail ?? "").trim();
   if (cEmail.length > 120) e.contactEmail = "Contact email must be 120 characters or fewer.";
@@ -408,6 +429,7 @@ export function subscribeStaffAudit(uid: string, cb: (rows: AuditEntry[]) => voi
             id: d.id,
             action: str(d.data().action),
             targetId: str(d.data().targetId),
+            actorId: str(d.data().actorId),
             actorName: str(d.data().actorName),
             at: toDate(d.data().at),
             details: (d.data().details as Record<string, unknown>) || {},
@@ -421,7 +443,8 @@ export function subscribeStaffAudit(uid: string, cb: (rows: AuditEntry[]) => voi
 /** All recent staff sessions across all staff members (newest first). */
 export function subscribeAllStaffSessions(cb: (rows: StaffSessionRecord[]) => void, onError: OnError) {
   return onSnapshot(
-    query(collection(db, "staff_sessions"), limit(200)),
+    // Newest first on the server, so recent sessions are never cut off by the limit.
+    query(collection(db, "staff_sessions"), orderBy("startedAt", "desc"), limit(200)),
     (snap) =>
       cb(
         snap.docs
@@ -449,7 +472,7 @@ export function subscribeAllStaffSessions(cb: (rows: StaffSessionRecord[]) => vo
 /** Customer contact access / unmask logs (newest first). */
 export function subscribeContactAccessLogs(cb: (rows: ContactAccessLogRecord[]) => void, onError: OnError) {
   return onSnapshot(
-    query(collection(db, "contact_access_logs"), limit(100)),
+    query(collection(db, "contact_access_logs"), orderBy("at", "desc"), limit(100)),
     (snap) =>
       cb(
         snap.docs

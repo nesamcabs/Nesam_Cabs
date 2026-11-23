@@ -4,6 +4,7 @@
  */
 import type { Customer, MasterCoupon } from "../types";
 import type { CustomerStats } from "../services/customerStats";
+import { parseIndianMobile } from "../utils/phone";
 import { getEffectiveCouponStatus, normalizeCouponCode } from "../services/couponEngine";
 
 // ── Status ───────────────────────────────────────────────────────────────────
@@ -89,16 +90,8 @@ export const inBrand = (c: Customer, brand: string) => brand === "all" || (c.bra
 
 // ── Search and filters ───────────────────────────────────────────────────────
 export const digitsOf = (v: string) => v.replace(/\D/g, "");
-/**
- * A typed Indian mobile in a supported spelling — 10 digits, or with a 0 / 91 / +91 / 091 / 0091 prefix, separated by
- * spaces, dashes, dots or brackets — as its 10 digits; null otherwise. Mirrors the server's `parseIndianMobile`
- * (functions/src/customerDirectory.ts), which makes the final decision. Extra digits are never cut off.
- */
-export function parseIndianMobile(v: string): string | null {
-  if (/[^\d\s+()\-.]/.test(v)) return null;
-  const m = /^(?:0091|091|91|0)?([6-9]\d{9})$/.exec(digitsOf(v));
-  return m ? m[1] : null;
-}
+/** The shared mobile identity rule (utils/phone), re-exported for this module's importers. */
+export { parseIndianMobile };
 
 /**
  * Name, customer code, document id, email, city and lead source match by text. The mobile number matches on the digits the
