@@ -912,6 +912,11 @@ export default function StaffAccessEditor({
                                       {isMasterOnly && (
                                         <span className="block text-[10px] font-normal text-amber-700">Master Only</span>
                                       )}
+                                      {m === "Customers" && (
+                                        <span className="block text-[10px] font-normal text-slate-500">
+                                          Customer list export stays Master-only · number reveals need “Temporary reveal” (step 3)
+                                        </span>
+                                      )}
                                     </td>
                                     {MODULE_ACTIONS.map((a) => (
                                       <td key={a} className="px-2 py-2.5 text-center">

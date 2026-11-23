@@ -7,7 +7,7 @@ import { findCustomersByMobile, NOTE_MIN, REVEAL_CATEGORIES, saveCustomerProfile
 import { inr, isActiveStatus, isBlockedStatus, joinCompanyGstin, parseIndianMobile, splitCompanyGstin } from "../../domain/customerDirectory";
 import { paymentOf } from "../../domain/bookingFlow";
 import { CloseButton, Layer, useTitleId } from "./Layer";
-import { BTN_PRIMARY, FIELD, FIELD_LABEL } from "./Parts";
+import { BTN_ACTION, BTN_PRIMARY, BTN_SECONDARY, FIELD, FIELD_LABEL } from "./Parts";
 import { customerCodeOf } from "./CustomerTable";
 
 const msg = (e: unknown, fallback: string) => (e instanceof ActionError || e instanceof Error ? e.message : fallback);
@@ -119,6 +119,8 @@ export function CustomerFormDialog({ customer, all, cabs, onClose, onSaved, onSh
     return () => { live = false; window.clearTimeout(t); };
   }, [key, editing]);
   const dup = dupIds.length ? all.find((c) => dupIds.includes(c.id)) : undefined;
+  // Company / GSTIN belong to corporate (GST) customers; an edited record that already holds them always shows them.
+  const showGst = editing ? f.corporate || !!(customer?.company || customer?.gstin) : f.group === "Corporate";
 
   const save = async (e: FormEvent) => {
     e.preventDefault();
@@ -126,11 +128,11 @@ export function CustomerFormDialog({ customer, all, cabs, onClose, onSaved, onSh
     if (!editing && !key) return setError("Enter a valid 10-digit Indian mobile number (+91, 0 and spaces are fine).");
     if (f.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) return setError("Enter a valid email address.");
     if (dupIds.length) return setError(`A customer with this mobile already exists${dup ? ` (${dup.name})` : ""}.`);
-    const parsed = splitCompanyGstin(f.companyGstin);
-    if (/^[0-9A-Z]{15}$/i.test(f.companyGstin.trim()) && !parsed.gstin) return setError("Enter a valid 15-character GSTIN.");
+    const parsed = splitCompanyGstin(showGst ? f.companyGstin : "");
+    if (showGst && /^[0-9A-Z]{15}$/i.test(f.companyGstin.trim()) && !parsed.gstin) return setError("Enter a valid 15-character GSTIN.");
     const common: CustomerInput = { name: f.name.trim(), city: f.city.trim(), preferredCab: f.cab === "Any Cab" ? "" : f.cab };
     // On an edit, company / GSTIN are sent only when the field was changed, so an untouched value is never re-parsed or overwritten.
-    const cgChanged = f.companyGstin.trim() !== joinCompanyGstin(customer?.company, customer?.gstin);
+    const cgChanged = showGst && f.companyGstin.trim() !== joinCompanyGstin(customer?.company, customer?.gstin);
     const input: CustomerInput = editing
       ? {
         ...common, customerId: customer!.id, email: f.email.trim(), gender: f.gender, notes: f.notes.trim(), preferredDriver: f.driver.trim(),
@@ -153,74 +155,93 @@ export function CustomerFormDialog({ customer, all, cabs, onClose, onSaved, onSh
 
   const historicalLead = editing && f.lead && !(LEAD_SOURCES as readonly string[]).includes(f.lead);
   const cabList = cabChoices(cabs, f.cab);
+  const half = "col-span-2 sm:col-span-1";
+  const req = <span className="text-crimson-800" aria-hidden="true"> *</span>;
   return (
-    <Layer kind="dialog" title={editing ? "Edit customer" : "Add new customer"} labelledBy={titleId} onClose={onClose} busy={busy}>
-      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
+    <Layer kind="dialog" size="form" title={editing ? "Edit customer" : "Add customer"} labelledBy={titleId} onClose={onClose} busy={busy}>
+      <div className="px-5 sm:px-6 py-4 border-b border-slate-100 flex items-start justify-between gap-3 shrink-0">
         <div className="min-w-0">
-          <h3 id={titleId} className="text-sm leading-5 font-bold text-slate-900">{editing ? "Edit Customer" : "Add New Customer"}</h3>
-          <p className="text-[11px] leading-4 text-slate-500">{editing ? `${customerCodeOf(customer!)} · the mobile number cannot be changed here` : "Duplicate mobile numbers are automatically prevented"}</p>
+          <h3 id={titleId} className="text-base leading-6 font-bold text-slate-900">{editing ? "Edit Customer" : "Add Customer"}</h3>
+          <p className="text-xs leading-4 text-slate-500 mt-0.5">{editing ? `${customerCodeOf(customer!)} · the mobile number cannot be changed here` : "Fields marked * are required."}</p>
         </div>
         <CloseButton onClick={onClose} disabled={busy} />
       </div>
-      <form onSubmit={save} className="p-5 space-y-3.5 text-xs" noValidate>
+      <form id="cd-customer-form" onSubmit={save} className="flex-1 min-h-0 overflow-y-auto px-5 sm:px-6 py-5 space-y-5 text-xs" noValidate aria-busy={busy}>
         {error && <div role="alert" className="px-3 py-2 rounded-[12px] bg-red-50 border border-red-200 text-red-700 font-medium">{error}</div>}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="col-span-2 sm:col-span-1">
-            <label htmlFor="cd-f-name" className={FIELD_LABEL}>Full Name *</label>
-            <input id="cd-f-name" data-autofocus maxLength={80} value={f.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g., Ramesh Kumar" className={FIELD} />
+
+        <fieldset className="grid grid-cols-2 gap-x-4 gap-y-3.5">
+          <legend className="sr-only">Customer details</legend>
+          <div className={half}>
+            <label htmlFor="cd-f-name" className={FIELD_LABEL}>Full name{req}</label>
+            <input id="cd-f-name" data-autofocus required aria-required="true" maxLength={80} value={f.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g., Ramesh Kumar" className={FIELD} />
           </div>
-          <div className="col-span-2 sm:col-span-1">
-            <label htmlFor="cd-f-phone" className={FIELD_LABEL}>Mobile Number {editing ? "" : "*"}</label>
+          <div className={half}>
+            <label htmlFor="cd-f-phone" className={FIELD_LABEL}>Mobile number{editing ? "" : req}</label>
             {editing
               ? <input id="cd-f-phone" disabled value={customer!.phoneMasked || "No number on file"} className={FIELD} />
-              : <input id="cd-f-phone" type="tel" inputMode="tel" autoComplete="off" maxLength={20} value={f.phone} onChange={(e) => set("phone", e.target.value)} placeholder="10-digit mobile" className={FIELD} aria-describedby="cd-f-dup" />}
-            <p id="cd-f-dup" role="status" className="text-[11px] mt-1 text-red-700 min-h-0">
+              : <input id="cd-f-phone" type="tel" inputMode="tel" autoComplete="off" required aria-required="true" maxLength={20} value={f.phone} onChange={(e) => set("phone", e.target.value)} placeholder="10-digit mobile (+91 optional)" className={FIELD} aria-describedby="cd-f-dup" />}
+            <p id="cd-f-dup" role="status" className="text-[11px] mt-1 text-red-700 empty:hidden">
               {dup ? `Already registered · ${dup.name} (${customerCodeOf(dup)})` : dupIds.length ? "Already registered to another customer" : ""}
               {dupIds.length > 1 && ` · ${dupIds.length} records share this number — review them; nothing is merged automatically.`}
             </p>
             {dup && onShowExisting && <button type="button" onClick={() => onShowExisting(dup.id)} className="mt-1 text-[11px] font-semibold text-crimson-800 hover:underline">Open existing customer</button>}
           </div>
-        </div>
-        {editing ? (
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2 sm:col-span-1"><label htmlFor="cd-f-email" className={FIELD_LABEL}>Email · optional</label><input id="cd-f-email" type="email" value={f.email} onChange={(e) => set("email", e.target.value)} className={FIELD} /></div>
-            <div className="col-span-2 sm:col-span-1"><label htmlFor="cd-f-gender" className={FIELD_LABEL}>Gender · optional</label>
-              <select id="cd-f-gender" value={f.gender} onChange={(e) => set("gender", e.target.value)} className={`${FIELD} px-2.5`}><option value="">Not specified</option><option>Male</option><option>Female</option><option>Other</option></select></div>
-            <div className="col-span-2 sm:col-span-1"><label htmlFor="cd-f-status" className={FIELD_LABEL}>Status</label>
-              <select id="cd-f-status" value={f.status} onChange={(e) => set("status", e.target.value)} className={`${FIELD} px-2.5`}><option>Active</option><option>Blocked</option></select>
-              {customer && !isActiveStatus(customer.status) && !isBlockedStatus(customer.status) && <p className="text-[11px] text-slate-500 mt-1">Current status “{customer.status}” is kept unless you change it.</p>}</div>
-            <fieldset className="col-span-2 sm:col-span-1"><legend className={FIELD_LABEL}>Designations</legend>
-              <label className="flex items-center gap-2 h-9"><input type="checkbox" checked={f.vip} onChange={(e) => set("vip", e.target.checked)} />VIP</label>
-            </fieldset>
-            <label className="col-span-2 flex items-center gap-2"><input type="checkbox" checked={f.corporate} onChange={(e) => set("corporate", e.target.checked)} />Corporate account (GST)</label>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2 sm:col-span-1"><label htmlFor="cd-f-group" className={FIELD_LABEL}>Customer Group</label>
-              <select id="cd-f-group" value={f.group} onChange={(e) => set("group", e.target.value as Group)} className={`${FIELD} px-2.5`}><option value="New">New</option><option value="VIP">Regular / VIP</option><option value="Corporate">Corporate (GST)</option></select></div>
-            <div className="col-span-2 sm:col-span-1"><label htmlFor="cd-f-lead" className={FIELD_LABEL}>Lead Source</label>
-              <select id="cd-f-lead" value={f.lead} onChange={(e) => set("lead", e.target.value)} className={`${FIELD} px-2.5`}>{LEAD_SOURCES.map((l) => <option key={l}>{l}</option>)}</select></div>
-          </div>
-        )}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="col-span-2 sm:col-span-1"><label htmlFor="cd-f-city" className={FIELD_LABEL}>Primary City</label><input id="cd-f-city" maxLength={60} value={f.city} onChange={(e) => set("city", e.target.value)} className={FIELD} /></div>
-          <div className="col-span-2 sm:col-span-1"><label htmlFor="cd-f-cab" className={FIELD_LABEL}>Preferred Cab</label>
+          {editing ? (
+            <>
+              <div className={half}><label htmlFor="cd-f-status" className={FIELD_LABEL}>Status</label>
+                <select id="cd-f-status" value={f.status} onChange={(e) => set("status", e.target.value)} className={`${FIELD} px-2.5`}><option>Active</option><option>Blocked</option></select>
+                {customer && !isActiveStatus(customer.status) && !isBlockedStatus(customer.status) && <p className="text-[11px] text-slate-500 mt-1">Current status “{customer.status}” is kept unless you change it.</p>}</div>
+              <fieldset className={half}><legend className={FIELD_LABEL}>Customer type</legend>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 min-h-10">
+                  <label className="flex items-center gap-2"><input type="checkbox" checked={f.vip} onChange={(e) => set("vip", e.target.checked)} />VIP</label>
+                  <label className="flex items-center gap-2"><input type="checkbox" checked={f.corporate} onChange={(e) => set("corporate", e.target.checked)} />Corporate (GST)</label>
+                </div>
+              </fieldset>
+            </>
+          ) : (
+            <>
+              <div className={half}><label htmlFor="cd-f-group" className={FIELD_LABEL}>Customer type</label>
+                <select id="cd-f-group" value={f.group} onChange={(e) => set("group", e.target.value as Group)} className={`${FIELD} px-2.5`}><option value="New">New</option><option value="VIP">Regular / VIP</option><option value="Corporate">Corporate (GST)</option></select></div>
+              <div className={half}><label htmlFor="cd-f-lead" className={FIELD_LABEL}>Lead source</label>
+                <select id="cd-f-lead" value={f.lead} onChange={(e) => set("lead", e.target.value)} className={`${FIELD} px-2.5`}>{LEAD_SOURCES.map((l) => <option key={l}>{l}</option>)}</select></div>
+            </>
+          )}
+          {showGst && (
+            <div className="col-span-2">
+              <label htmlFor="cd-f-gst" className={FIELD_LABEL}>Company / GSTIN · optional</label>
+              <input id="cd-f-gst" maxLength={140} value={f.companyGstin} onChange={(e) => set("companyGstin", e.target.value)} placeholder="e.g., 33AABCN1234F1Z5 • Company name" className={FIELD} aria-describedby="cd-f-gst-hint" />
+              <p id="cd-f-gst-hint" className="text-[11px] text-slate-500 mt-1">Enter the company name, the 15-character GSTIN, or both.</p>
+            </div>
+          )}
+        </fieldset>
+
+        <div role="group" aria-labelledby="cd-f-optional" className="pt-4 border-t border-slate-100">
+          <h4 id="cd-f-optional" className="text-[11px] leading-4 font-bold text-slate-700 mb-3">Optional details</h4>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3.5">
+          <div className={half}><label htmlFor="cd-f-city" className={FIELD_LABEL}>Primary city</label><input id="cd-f-city" maxLength={60} value={f.city} onChange={(e) => set("city", e.target.value)} placeholder="e.g., Madurai" className={FIELD} /></div>
+          <div className={half}><label htmlFor="cd-f-cab" className={FIELD_LABEL}>Preferred cab</label>
             <select id="cd-f-cab" value={f.cab} onChange={(e) => set("cab", e.target.value)} className={`${FIELD} px-2.5`}>{editing && <option value="">Not set</option>}{cabList.map((c) => <option key={c}>{c}</option>)}</select></div>
-        </div>
-        {editing && (
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2 sm:col-span-1"><label htmlFor="cd-f-lead2" className={FIELD_LABEL}>Lead Source</label>
-              <select id="cd-f-lead2" value={f.lead} onChange={(e) => set("lead", e.target.value)} className={`${FIELD} px-2.5`}><option value="">Not recorded</option>{historicalLead && <option>{f.lead}</option>}{LEAD_SOURCES.map((l) => <option key={l}>{l}</option>)}</select></div>
-            <div className="col-span-2 sm:col-span-1"><label htmlFor="cd-f-driver" className={FIELD_LABEL}>Preferred Driver</label><input id="cd-f-driver" maxLength={60} value={f.driver} onChange={(e) => set("driver", e.target.value)} placeholder="e.g., Murugan S" className={FIELD} /></div>
+          {editing && (
+            <>
+              <div className={half}><label htmlFor="cd-f-email" className={FIELD_LABEL}>Email</label><input id="cd-f-email" type="email" value={f.email} onChange={(e) => set("email", e.target.value)} className={FIELD} /></div>
+              <div className={half}><label htmlFor="cd-f-gender" className={FIELD_LABEL}>Gender</label>
+                <select id="cd-f-gender" value={f.gender} onChange={(e) => set("gender", e.target.value)} className={`${FIELD} px-2.5`}><option value="">Not specified</option><option>Male</option><option>Female</option><option>Other</option></select></div>
+              <div className={half}><label htmlFor="cd-f-lead2" className={FIELD_LABEL}>Lead source</label>
+                <select id="cd-f-lead2" value={f.lead} onChange={(e) => set("lead", e.target.value)} className={`${FIELD} px-2.5`}><option value="">Not recorded</option>{historicalLead && <option>{f.lead}</option>}{LEAD_SOURCES.map((l) => <option key={l}>{l}</option>)}</select></div>
+              <div className={half}><label htmlFor="cd-f-driver" className={FIELD_LABEL}>Preferred driver</label><input id="cd-f-driver" maxLength={60} value={f.driver} onChange={(e) => set("driver", e.target.value)} placeholder="e.g., Murugan S" className={FIELD} /></div>
+              <div className="col-span-2"><label htmlFor="cd-f-notes" className={FIELD_LABEL}>Admin note</label><textarea id="cd-f-notes" rows={2} maxLength={300} value={f.notes} onChange={(e) => set("notes", e.target.value)} className={`${FIELD} h-auto py-2 resize-y`} /></div>
+            </>
+          )}
           </div>
-        )}
-        <div>
-          <label htmlFor="cd-f-gst" className={FIELD_LABEL}>Company / GSTIN (Optional)</label>
-          <input id="cd-f-gst" maxLength={140} value={f.companyGstin} onChange={(e) => set("companyGstin", e.target.value)} placeholder="e.g., 33AABCN1234F1Z5 • Company name" className={FIELD} />
         </div>
-        {editing && <div><label htmlFor="cd-f-notes" className={FIELD_LABEL}>Admin note</label><input id="cd-f-notes" maxLength={300} value={f.notes} onChange={(e) => set("notes", e.target.value)} className={FIELD} /></div>}
-        <button type="submit" disabled={busy} className={`w-full py-2.5 rounded-[12px] ${BTN_PRIMARY}`}>{busy ? "Saving…" : editing ? "Save changes" : "Save Customer Profile"}</button>
       </form>
+      <div className="px-5 sm:px-6 py-3.5 border-t border-slate-100 bg-slate-50/60 rounded-b-[16px] flex items-center justify-end gap-2.5 shrink-0">
+        <button type="button" onClick={onClose} disabled={busy} className={BTN_SECONDARY}>Cancel</button>
+        <button type="submit" form="cd-customer-form" disabled={busy} className={`${BTN_ACTION} ${BTN_PRIMARY}`}>
+          {busy && <span className="w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin" aria-hidden="true" />}
+          {busy ? "Saving…" : editing ? "Save changes" : "Save Customer"}
+        </button>
+      </div>
     </Layer>
   );
 }

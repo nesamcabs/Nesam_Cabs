@@ -6,7 +6,7 @@ import { ExportDialog, type ExportSpec } from "../components/ui/RecordKit";
 import { csv, type ExportFormat } from "../utils/exportData";
 import { useAccess, useCan, useCanDo } from "../components/AccessContext";
 import { CdToast } from "../components/customers/Layer";
-import { AuditLedger, BTN_PRIMARY, CARD, KpiCards } from "../components/customers/Parts";
+import { AuditLedger, BTN_ACTION, BTN_PRIMARY, BTN_SECONDARY, CARD, KpiCards } from "../components/customers/Parts";
 import { CustomerTable, customerCodeOf, emailOf } from "../components/customers/CustomerTable";
 import { CustomerDrawer } from "../components/customers/Drawer";
 import { CustomerFormDialog, MarkPaidDialog, RevealDialog } from "../components/customers/Dialogs";
@@ -48,9 +48,8 @@ export default function Customers({ onNavigate, onBookCustomer }: {
   const dir = useCustomerDirectory(scope);
   const bookingsQ = useBookingsWithoutContacts();
   const viewer = dir.viewer;
-  const [preview, setPreview] = useState<"master" | "staff">("master");
-  const staffPreview = !!viewer?.isSuper && preview === "staff";
-  const canExport = !!viewer?.canExport && !staffPreview;
+  // Every right comes from the signed-in account (Staff & Access → Customers); the server checks each action again.
+  const canExport = !!viewer?.canExport;
   const canReveal = !!viewer?.canReveal;
   const canEdit = !!viewer?.canEdit;
   const canCreate = !!viewer?.canCreate;
@@ -117,7 +116,6 @@ export default function Customers({ onNavigate, onBookCustomer }: {
     setRevealed({});
   }, []);
   useEffect(() => { clearReveals(); setSelected(new Set()); setFailed([]); setRevealFor(null); setEditing(null); setViewingId(null); setPaying(null); setExporting(null); }, [scope, clearReveals]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (preview === "staff") clearReveals(); }, [preview, clearReveals]);
   useEffect(() => () => timers.current.forEach((t) => window.clearTimeout(t)), []);
 
   const [revealFor, setRevealFor] = useState<Customer | null>(null);
@@ -126,7 +124,7 @@ export default function Customers({ onNavigate, onBookCustomer }: {
   const [paying, setPaying] = useState<string | null>(null);
   const [exporting, setExporting] = useState<ExportFormat | null>(null);
 
-  const actor = access.isSuper && !staffPreview ? `Master Admin (${email})` : `${viewer?.name || "Staff"} (${access.staffCode ? `@${access.staffCode}` : email})`;
+  const actor = access.isSuper ? `Master Admin (${email})` : `${viewer?.name || "Staff"} (${access.staffCode ? `@${access.staffCode}` : email})`;
 
   const doReveal = async (category: string, note: string) => {
     const target = revealFor!;
@@ -222,28 +220,15 @@ export default function Customers({ onNavigate, onBookCustomer }: {
 
   return (
     <div className="cd-root @container space-y-6">
-      <header className="flex flex-col @min-[880px]:flex-row @min-[880px]:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-lg sm:text-xl leading-7 font-bold text-slate-900">Customers Directory</h1>
-            <span className="px-2.5 py-0.5 rounded-full text-[11px] leading-4 font-semibold bg-crimson-50 text-crimson-800 border border-crimson-200/70">CRM &amp; Privacy Guard</span>
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl leading-8 font-bold text-slate-900">Customers</h1>
+        {(canExport || canCreate) && (
+          <div className="flex items-center gap-2.5">
+            {canExport && <button type="button" onClick={() => openExport("xlsx")} className={BTN_SECONDARY}><Icon name="download" size={16} className="text-slate-500" /><span>Export</span></button>}
+            {canCreate && <button type="button" onClick={() => setEditing("new")} className={`${BTN_ACTION} ${BTN_PRIMARY}`}><Icon name="user-plus" size={16} /><span>Add Customer</span></button>}
           </div>
-          <p className="text-xs leading-4 text-slate-500 mt-1">Manage individual, VIP, and corporate accounts • Number reveals require a logged reason • Export restricted to Master Admin.</p>
-        </div>
-        <div className="flex items-center gap-2.5 flex-wrap">
-          {viewer?.isSuper ? (
-            <div role="group" aria-label="Preview as" className="inline-flex items-center p-1 rounded-[12px] bg-white border border-slate-200 shadow-xs text-[11px] leading-4">
-              <button type="button" aria-pressed={preview === "master"} onClick={() => setPreview("master")} className={`px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-all ${preview === "master" ? "font-bold bg-crimson-800 text-white" : "font-medium text-slate-600 hover:text-slate-900"}`}><Icon name="shield-check" size={12} /><span>Master Admin</span></button>
-              <button type="button" aria-pressed={preview === "staff"} onClick={() => setPreview("staff")} title="Preview only: hides what a Staff ID cannot do. Your own permissions still apply." className={`px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-all ${preview === "staff" ? "font-bold bg-crimson-800 text-white" : "font-medium text-slate-600 hover:text-slate-900"}`}><Icon name="user" size={12} /><span>Staff View preview</span></button>
-            </div>
-          ) : (
-            <span className="inline-flex items-center gap-1 px-2.5 py-2 rounded-[12px] bg-white border border-slate-200 text-[11px] leading-4 font-semibold text-slate-700 shadow-xs"><Icon name="user" size={12} />{access.roleName || "Staff"}{access.staffCode ? ` (@${access.staffCode})` : ""}</span>
-          )}
-          {canExport && <button type="button" onClick={() => openExport("xlsx")} className="h-10 px-3.5 rounded-[12px] bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"><Icon name="download" size={14} className="text-slate-500" /><span>Export Data</span></button>}
-          {canCreate && <button type="button" onClick={() => setEditing("new")} className={`h-10 px-4 rounded-[12px] text-xs flex items-center gap-2 shadow-sm active:scale-[0.99] transition-all ${BTN_PRIMARY}`}><Icon name="user-plus" size={16} /><span>+ Add Customer</span></button>}
-        </div>
+        )}
       </header>
-      {staffPreview && <p role="status" className="text-[11px] leading-4 px-3 py-2 rounded-[12px] bg-amber-50 border border-amber-200 text-amber-900">Staff View preview: this only hides Master-only controls on screen. The server still applies your own Master permissions.</p>}
       {dir.error && customers !== null && <p role="alert" className="text-xs px-3 py-2 rounded-[12px] bg-red-50 border border-red-200 text-red-700">The list could not be refreshed ({dir.error}). Showing the last loaded data. <button type="button" className="font-semibold underline" onClick={() => void dir.refresh()}>Retry</button></p>}
       {dir.truncated && <p role="status" className="text-[11px] px-3 py-2 rounded-[12px] bg-slate-100 text-slate-600">Booking history covers the most recent 1,000 bookings for customers matched by mobile number.</p>}
 

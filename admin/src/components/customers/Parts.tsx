@@ -105,3 +105,6 @@ export function AuditLedger({ views, error, onRetry }: { views: NumberViews | nu
 export const FIELD_LABEL = "block text-[10px] leading-4 font-bold uppercase tracking-wider text-slate-500 mb-1";
 export const FIELD = "w-full h-9 px-3 border border-slate-200 rounded-[12px] text-xs bg-white focus:outline-none focus:border-crimson-800 disabled:bg-slate-50 disabled:text-slate-500";
 export const BTN_PRIMARY = "bg-crimson-800 hover:bg-crimson-900 text-white font-semibold disabled:opacity-60 disabled:cursor-not-allowed";
+/** Page / dialog action: 40px tall, balanced padding, keyboard focus ring (pair with BTN_PRIMARY, or use BTN_SECONDARY). */
+export const BTN_ACTION = "inline-flex items-center justify-center gap-2 h-10 px-4 rounded-[12px] text-[13px] leading-5 font-semibold shadow-xs transition-[background-color,box-shadow,transform] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-crimson-800";
+export const BTN_SECONDARY = `${BTN_ACTION} bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-60 disabled:cursor-not-allowed`;
