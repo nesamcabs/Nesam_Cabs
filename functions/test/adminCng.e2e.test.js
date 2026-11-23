@@ -59,3 +59,75 @@ test('an admin booking keeps the CNG fare and records the fuel', async () => {
   const stdBooking = ok(await call(admin, 'createAdminBooking', { ...request('cng-suv'), requestId: rid('stdbook'), expectedFare: std.quote.total }));
   assert.equal((await db.doc(`bookings/${stdBooking.id}`).get()).data().fuelType, undefined);
 });
+
+// ── CNG saved in Service & Fare Settings (admin/src/components/FareMatrix.tsx): business_config/tariff_v2.brandOverrides ──
+// The editor saves one card per Brand › Service › Vehicle class with every rate field present (blanks as null).
+const FARE_FIELDS = ['customerRate', 'partnerRate', 'customerBase', 'partnerBase', 'minKm', 'minKmPerDay', 'customerBata', 'partnerBata',
+  'cngCustomerRate', 'cngPartnerRate', 'cngCustomerBata', 'cngPartnerBata', 'cngExtraKmRate', 'cngMinKmPerDay',
+  'extraKmRate', 'waitingPerHour', 'hillCharge', 'carrierCharge', 'partnerWaitingPerHour', 'partnerHillCharge', 'partnerCarrierCharge', 'petCharge', 'partnerPetCharge'];
+async function fareSettingsSave(brand, service, cls, values, clearOverride = false) {
+  const version = (await db.doc('business_config/tariff_v2').get()).data()?.version ?? 0;
+  const data = Object.fromEntries(FARE_FIELDS.map((k) => [k, values[k] ?? null]));
+  return ok(await call(admin, 'saveTariffSection', { section: 'brandOverride', brand, service, class: cls, expectedVersion: version, reason: 'CNG from Fare Settings (test)', clearOverride, data }));
+}
+const quote = async (extra) => ok(await call(admin, 'createAdminBooking', { ...request('cng-suv', extra), requestId: rid('fsq'), quoteOnly: true }));
+/** The configured rate the quote used (GST-inclusive when the fare includes GST), in rupees. */
+const rateOf = (q, k) => (q.pricing.gstInclusiveBase?.[k] ?? q.pricing[k]) / 100;
+const brandOf = (b) => ({ brand: b, bookingSource: b });
+
+test('CNG saved in Fare Settings prices office quotes: Common for every brand, a brand override for its own brand', async () => {
+  await fareSettingsSave('common', 'One Way', 'suv', { cngCustomerRate: 17, cngCustomerBata: 350, cngPartnerRate: 15, cngPartnerBata: 300, cngExtraKmRate: 17 });
+  await fareSettingsSave('people_taxi', 'One Way', 'suv', { cngCustomerRate: 19 });
+  try {
+    const diesel = await quote({});
+    assert.equal(diesel.fuelType, undefined);
+    assert.equal(rateOf(diesel, 'customerRatePaise'), 20, 'Diesel stays on the standard card');
+    for (const b of ['nesam', 'onewaycarrentals']) {
+      const cng = await quote({ ...brandOf(b), fuelType: 'cng' });
+      assert.equal(cng.fuelType, 'cng', b);
+      assert.equal(rateOf(cng, 'customerRatePaise'), 17, `${b}: the Common CNG rate`);
+      assert.equal(rateOf(cng, 'customerBataPaise'), 350, `${b}: the Common CNG allowance`);
+      assert.ok(cng.quote.total < diesel.quote.total);
+    }
+    const pt = await quote({ ...brandOf('people_taxi'), fuelType: 'cng' });
+    assert.equal(rateOf(pt, 'customerRatePaise'), 19, 'People Taxi: its own CNG rate');
+    assert.equal(rateOf(pt, 'customerBataPaise'), 350, 'People Taxi: the allowance it inherits from Common');
+    assert.equal(rateOf(await quote(brandOf('people_taxi')), 'customerRatePaise'), 20, 'People Taxi Diesel is unchanged');
+  } finally {
+    await fareSettingsSave('people_taxi', 'One Way', 'suv', {}, true);
+    await fareSettingsSave('common', 'One Way', 'suv', {}, true);
+  }
+});
+
+test('Round Trip CNG from Fare Settings uses its own rate and daily minimum; add-ons are charged on both fuels', async () => {
+  await fareSettingsSave('common', 'Round Trip', 'suv', { cngCustomerRate: 15, cngCustomerBata: 400, cngPartnerRate: 13, cngPartnerBata: 300, cngMinKmPerDay: 260 });
+  ok(await call(admin, 'saveTariffSection', { section: 'petCharge', latest: true, data: { petCharge: 200 }, reason: 'Pet charge (test)' }));
+  try {
+    const round = { tripType: 'Round Trip', tripEndAt: inHours(7) };
+    const diesel = await quote(round);
+    const cng = await quote({ ...round, fuelType: 'cng' });
+    assert.equal(cng.fuelType, 'cng');
+    assert.equal(rateOf(cng, 'customerRatePaise'), 15);
+    assert.equal(cng.pricing.minKmPerDay, 260, 'the CNG daily minimum');
+    assert.notEqual(cng.quote.total, diesel.quote.total);
+    for (const fuel of [{}, { fuelType: 'cng' }]) {
+      const plain = await quote({ ...round, ...fuel });
+      const pets = await quote({ ...round, ...fuel, addOns: { roofCarrier: false, pets: true } });
+      assert.equal(pets.quote.addOns?.pets, true, JSON.stringify(fuel));
+      assert.ok(pets.quote.total > plain.quote.total, `pet charge added (${JSON.stringify(fuel)})`);
+      assert.equal(pets.fuelType, plain.fuelType);
+    }
+  } finally {
+    await fareSettingsSave('common', 'Round Trip', 'suv', {}, true);
+  }
+});
+
+test('a vehicle that offers CNG but has no CNG rate saved is refused for CNG, never priced at the Diesel rate', async () => {
+  // The Sedan class has standard rates only (no CNG card in the tariff or in Fare Settings).
+  await db.doc('vehicle_categories/cng-sedan').set({ name: 'Sedan', status: 'Active', tariffClass: 'sedan', seatingCapacity: 4, cngEnabled: true });
+  const diesel = ok(await call(admin, 'createAdminBooking', { ...request('cng-sedan'), requestId: rid('sedstd'), quoteOnly: true }));
+  assert.equal(diesel.cngAvailable, true);
+  const r = await call(admin, 'createAdminBooking', { ...request('cng-sedan', { fuelType: 'cng' }), requestId: rid('sedcng'), quoteOnly: true });
+  assert.equal(r.ok, false, 'refused');
+  assert.match(r.message, /CNG is not available/);
+});

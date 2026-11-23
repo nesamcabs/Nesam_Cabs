@@ -72,8 +72,10 @@ interface Quote {
   unpriced: { vehicle: string; reason: string }[];
   roadKm: number | null;
   roadMinutes: number | null;
-  /** Set when no server price exists for this trip (a typed draft quote is offered). */
+  /** Set when no server price exists for this trip. */
   unavailable: string | null;
+  /** Whether a typed draft quote is offered for it (never for CNG: the CNG rate cards are the only CNG prices). */
+  draftAllowed: boolean;
 }
 
 const errText = (e: unknown, fallback: string) => (e instanceof Error && e.message ? e.message : fallback);
@@ -222,7 +224,7 @@ export default function QuickFare({ onNewBooking }: QuickFareProps) {
     }
     setNotice(null);
     const seq = ++quoteSeq.current;
-    const base = { key: quoteKeyOf(t, b), trip: snapshot, brand: b, roadKm: null, roadMinutes: null, unpriced: [] as Quote["unpriced"] };
+    const base = { key: quoteKeyOf(t, b), trip: snapshot, brand: b, roadKm: null, roadMinutes: null, unpriced: [] as Quote["unpriced"], draftAllowed: true };
     if (!data.categories.length) {
       setQuote({ ...base, estimates: null, lines: [], unavailable: "No vehicle categories are set up, so no fare could be priced. You can enter a draft quote." });
       return;
@@ -234,10 +236,18 @@ export default function QuickFare({ onNewBooking }: QuickFareProps) {
       const lines = priced.map(lineOfEstimate).filter((l): l is DeskQuoteLine => !!l);
       const unpriced = priced.filter((r) => !r.quote).map((r) => ({ vehicle: vehicleLabelsOf(r.category).vehicle, reason: r.error || "Not available on this route" }));
       const road = priced.find((r) => r.quote?.roadKm)?.quote;
+      // CNG that no vehicle could be priced on is reported with the server's own reason(s), and Diesel is the way on.
+      // No typed price is offered for it: a CNG fare comes only from the saved CNG rate cards.
+      const cng = snapshot.fuel === "cng";
+      const reasons = [...new Set(unpriced.map((u) => u.reason.replace(/\s*\[\d{3}\]\s*$/, "")))];
       setQuote({
-        ...base, estimates: priced, lines, unpriced: lines.length ? unpriced : [],
+        ...base, estimates: priced, lines,
+        unpriced: lines.length || (cng && reasons.length > 1) ? unpriced : [],
         roadKm: road?.roadKm ? Math.round(road.roadKm) : null, roadMinutes: road?.roadMinutes ? Math.round(road.roadMinutes) : null,
-        unavailable: lines.length ? null : `The fare settings could not price this trip${priced[0]?.error ? ` (${priced[0].error})` : ""}. You can enter a draft quote.`,
+        unavailable: lines.length ? null
+          : cng ? `No vehicle could be priced on CNG. ${reasons.length === 1 ? reasons[0].replace(/([^.])$/, "$1.") : "Each vehicle's reason is below."} Switch to Diesel for the standard rate.`
+          : `The fare settings could not price this trip${priced[0]?.error ? ` (${priced[0].error})` : ""}. You can enter a draft quote.`,
+        draftAllowed: !cng,
       });
     } catch (err) {
       if (seq !== quoteSeq.current) return;
@@ -290,6 +300,7 @@ export default function QuickFare({ onNewBooking }: QuickFareProps) {
     slab: quote && !manual ? slabLabelOf(qTab, pricingOf(firstPriced), quote.trip.tripType === "Round Trip" && !quote.trip.multicity ? quote.trip.days : null, quote.trip.tripType === "Local Rental" ? quote.trip.rentalHours ?? 1 : null) : "",
     coverage: manual ? "" : coverageNote(coverage),
     unavailable: quote?.unavailable ?? null,
+    draftAllowed: quote?.draftAllowed ?? true,
   };
 
   const copyQuote = async () => {

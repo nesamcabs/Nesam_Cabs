@@ -342,8 +342,9 @@ export type AdminQuote = FareQuote;
 export const quoteAdminBooking = async (f: ManualBookingForm, requestId: string, extras: { businessAccountId?: string; businessBilledTo?: string } = {}) => {
   const result = await callFunction<unknown, FareQuote>("createAdminBooking", { ...bookingRequest(f, requestId), ...extras, quoteOnly: true });
   if ((f.addOns?.roofCarrier && !result.quote.addOns?.roofCarrier) || (f.addOns?.pets && !result.quote.addOns?.pets)) throw new ActionError('Carrier and pet pricing is not available from the booking server yet. Please retry after the pricing update.');
-  // A server without CNG for office quotes ignores the fuel and would return the Diesel price: never show that as CNG.
-  if (f.fuelType === "cng" && result.fuelType !== "cng") throw new ActionError("CNG pricing is not available from the booking server yet. Please retry after the pricing update.");
+  // A booking API deployed before office CNG support (functions/src/adminBookings.ts) ignores the fuel and returns the standard
+  // Diesel / Petrol price unmarked. The current API either confirms CNG or refuses with its reason, so only an older one lands here.
+  if (f.fuelType === "cng" && result.fuelType !== "cng") throw new ActionError("The booking API returned its standard Diesel price for a CNG request: the deployed API does not support CNG for office quotes yet. Deploy the latest booking API, then try again.");
   return result;
 };
 

@@ -23,8 +23,10 @@ export interface FareView {
   config: { fuel: "CNG" | "Diesel"; addOns: string[] } | null;
   slab: string;
   coverage: string;
-  /** Set when no server price is available for this trip (the typed draft is offered). */
+  /** Set when no server price is available for this trip. */
   unavailable: string | null;
+  /** Whether the typed draft quote is offered for it (not for CNG). */
+  draftAllowed: boolean;
 }
 
 /** The fuel toggle and add-ons that the next quote is priced with. */
@@ -254,7 +256,7 @@ export default function FareResults({ view, extras, categories, canBook, onFuel,
               <p role="alert" className="text-xs font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 flex items-start gap-2">
                 <CircleAlert className="w-3.5 h-3.5 shrink-0 mt-0.5" aria-hidden="true" />{view.unavailable}
               </p>
-              <ManualQuote categories={categories} onUse={onManual} />
+              {view.draftAllowed && <ManualQuote categories={categories} onUse={onManual} />}
             </div>
           )}
 
