@@ -106,7 +106,7 @@ export default function Header({ title, onNavigate, onOpen, onCreateBooking, onQ
   const canOps = canAccessPage(access, "bookings");
   // The same shared store the Bookings screens read (one listener for every consumer).
   const { rows: reminderRows, data } = useBookingAlerts(canOps);
-  const { unread, loading: notificationsLoading, soundOn, setSoundOn } = useNotifications();
+  const { unread, loading: notificationsLoading, soundOn } = useNotifications();
   const desk = useDesk();
   const displayName = userName || userEmail?.split("@")[0] || "Admin";
   const roleName = access.isSuper ? "Super Admin" : userRole || access.roleName || "Staff";
@@ -141,7 +141,7 @@ export default function Header({ title, onNavigate, onOpen, onCreateBooking, onQ
   const remindersText = bookingsError
     ? "Assignment reminders: bookings could not be loaded"
     : bookingsLoading ? "Assignment reminders: loading" : `Assignment reminders, ${plural(reminderCount, "booking")} need${reminderCount === 1 ? "s" : ""} assignment`;
-  const soundText = soundOn ? "Notification sound on. Turn sound off" : "Notification sound off. Turn sound on";
+  const soundText = `Sound ${soundOn ? "on" : "off"} · Open sound settings`;
 
   return (
     <header className="ds-header sticky top-0 z-[var(--z-header)] bg-white border-b border-[#e9edf2]">
@@ -178,7 +178,7 @@ export default function Header({ title, onNavigate, onOpen, onCreateBooking, onQ
                 <Divider />
               </>
             )}
-            <button type="button" onClick={() => setSoundOn(!soundOn)} aria-pressed={soundOn} aria-label={soundText} title={`${soundOn ? "Sound on" : "Sound off"} · click to turn ${soundOn ? "off" : "on"} (sound settings are in Alerts)`}
+            <button type="button" onClick={() => setSheet("sounds")} aria-haspopup="dialog" aria-label={soundText} title={soundText}
               className={`${INNER_BUTTON} hover:bg-white ${soundOn ? "text-slate-700 hover:text-slate-900" : "text-slate-400 hover:text-slate-600"}`}>
               {soundOn ? <Volume2 className={ICON} strokeWidth={STROKE} aria-hidden="true" /> : <VolumeX className={ICON} strokeWidth={STROKE} aria-hidden="true" />}
             </button>
