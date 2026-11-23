@@ -6,7 +6,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { FieldValue, Transaction } from 'firebase-admin/firestore';
 import { db } from './admin';
-import { AdminAccess, PERMISSIONS, Permission, STAFF_ROLE, SUPER_ADMIN_ROLE, identityKindOf, isPermission } from './permissions';
+import { AdminAccess, PERMISSIONS, Permission, STAFF_PRESETS, STAFF_ROLE, SUPER_ADMIN_ROLE, identityKindOf, isPermission } from './permissions';
 import { requireSuperAdmin, text } from './shared';
 
 const ROLE_ID = /^[A-Za-z0-9_-]{2,40}$/;
@@ -119,6 +119,12 @@ export const saveStaffRole = onCall(async (request) => {
   const raw = request.data?.permissions;
   if (!Array.isArray(raw) || !raw.length || !raw.every(isPermission)) throw new HttpsError('invalid-argument', 'Choose at least one valid permission.');
   const permissions = PERMISSIONS.filter((p) => raw.includes(p));
+  // Optional: the built-in Staff ID preset this role starts from (its module / duty template in the Staff ID editor).
+  const rawBase = request.data?.basePreset;
+  if (rawBase !== undefined && (typeof rawBase !== 'string' || !(STAFF_PRESETS as readonly string[]).includes(rawBase) || rawBase === 'Custom')) {
+    throw new HttpsError('invalid-argument', 'Choose a valid base preset.');
+  }
+  const basePreset = typeof rawBase === 'string' ? rawBase : undefined;
   const existingId = request.data?.roleId;
   if (existingId !== undefined && (typeof existingId !== 'string' || !ROLE_ID.test(existingId) || existingId === SUPER_ADMIN_ROLE)) {
     throw new HttpsError('invalid-argument', 'Invalid role.');
@@ -135,8 +141,8 @@ export const saveStaffRole = onCall(async (request) => {
       throw new HttpsError('already-exists', 'Another role already has this name.');
     }
     const stamp = FieldValue.serverTimestamp();
-    if (current) tx.update(ref, { name, permissions, updatedBy: actor.uid, updatedAt: stamp });
-    else tx.create(ref, { name, permissions, createdBy: actor.uid, createdAt: stamp, updatedAt: stamp });
+    if (current) tx.update(ref, { name, permissions, ...(basePreset ? { basePreset } : {}), updatedBy: actor.uid, updatedAt: stamp });
+    else tx.create(ref, { name, permissions, ...(basePreset ? { basePreset } : {}), createdBy: actor.uid, createdAt: stamp, updatedAt: stamp });
     for (const h of holders.docs) tx.update(h.ref, { permissions, roleName: name, updatedAt: stamp });
     audit(tx, actor, current ? 'role_updated' : 'role_created', ref.id, {
       name, permissions, ...(current ? { before: { name: current.data().name, permissions: current.data().permissions } } : {}), syncedAdmins: holders.size,
@@ -151,9 +157,12 @@ export const deleteStaffRole = onCall(async (request) => {
   if (typeof roleId !== 'string' || !ROLE_ID.test(roleId) || roleId === SUPER_ADMIN_ROLE) throw new HttpsError('invalid-argument', 'Invalid role.');
   const ref = db.doc(`staff_roles/${roleId}`);
   await db.runTransaction(async (tx) => {
-    const [role, holders] = await Promise.all([tx.get(ref), tx.get(db.collection('admins').where('staffRole', '==', roleId))]);
+    const [role, holders, staffIds] = await Promise.all([
+      tx.get(ref), tx.get(db.collection('admins').where('staffRole', '==', roleId)), tx.get(db.collection('admins').where('customRoleId', '==', roleId)),
+    ]);
     if (!role.exists) throw new HttpsError('not-found', 'That role no longer exists.');
-    if (!holders.empty) throw new HttpsError('failed-precondition', `This role is assigned to ${holders.size} account${holders.size === 1 ? '' : 's'}. Move them to another role first.`);
+    const assigned = holders.size + staffIds.size;
+    if (assigned) throw new HttpsError('failed-precondition', `This role is assigned to ${assigned} account${assigned === 1 ? '' : 's'}. Move them to another role first.`);
     tx.delete(ref);
     audit(tx, actor, 'role_deleted', roleId, { name: role.data()!.name, permissions: role.data()!.permissions });
   });

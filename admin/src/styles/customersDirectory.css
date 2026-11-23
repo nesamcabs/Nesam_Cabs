@@ -24,25 +24,9 @@
 .cd-layer[data-kind='dialog'] { align-items: center; justify-content: center; padding: 16px; z-index: 120; }
 .cd-drawer { width: 100%; max-width: 36rem; height: 100%; background: #fff; box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25); display: flex; flex-direction: column; }
 .cd-dialog { width: 100%; max-width: 28rem; max-height: calc(100dvh - 32px); overflow-y: auto; background: #fff; border-radius: 16px; box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25); }
+.cd-dialog--form { max-width: 40rem; display: flex; flex-direction: column; overflow: hidden; }
 .cd-toast { position: fixed; bottom: 20px; right: 20px; z-index: 130; max-width: 24rem; display: flex; align-items: center; gap: 10px; background: #0f172a; color: #fff; padding: 12px 16px; border-radius: 12px; box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1); font-size: 12px; line-height: 16px; font-weight: 500; font-family: 'Inter', system-ui, sans-serif; }
 @media (max-width: 480px) { .cd-toast { left: 16px; right: 16px; bottom: 16px; max-width: none; } }
 
-/* ── Route shell: the existing sidebar and header, drawn as the reference shows them on this page ───────────── */
-.ds-workspace[data-route='customers'] { --size-sidebar: 256px; background: #f8fafc; font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif; }
-.ds-workspace[data-route='customers'] .ds-sidebar { border-right: 1px solid rgb(226 232 240 / 0.9); font-family: inherit; }
-.ds-workspace[data-route='customers'] .ds-sidebar[data-collapsed='true'] { width: var(--size-sidebar-collapsed); }
-.ds-workspace[data-route='customers'] .ds-nav-group { font-size: 10px; letter-spacing: 0.05em; color: #94a3b8; padding: 16px 12px 6px; font-family: inherit; }
-.ds-workspace[data-route='customers'] .ds-nav-item { font: 500 12px/16px 'Inter', system-ui, sans-serif; color: #475569; padding: 8px 12px; border-radius: 12px; gap: 10px; }
-.ds-workspace[data-route='customers'] .ds-nav-item:hover { background: #f8fafc; color: #475569; }
-.ds-workspace[data-route='customers'] .ds-nav-item[aria-current='page'] { background: #fef2f2; color: #991b1b; font-weight: 700; box-shadow: none; }
-.ds-workspace[data-route='customers'] .ds-nav-item[aria-current='page']::after { content: ''; width: 6px; height: 6px; border-radius: 999px; background: #991b1b; flex: none; }
-.ds-workspace[data-route='customers'] .ds-nav-item svg { width: 16px; height: 16px; color: #94a3b8; }
-.ds-workspace[data-route='customers'] .ds-nav-item[aria-current='page'] svg { color: #991b1b; }
-.ds-workspace[data-route='customers'] .ds-nav-count { background: #fef2f2; color: #991b1b; font-size: 10px; }
-.ds-workspace[data-route='customers'] .ds-master-tag { border-top: 1px solid #f1f5f9; padding: 14px 4px 0; font-size: 11px; color: #64748b; }
-.ds-workspace[data-route='customers'] .ds-master-tag strong { font-size: 11px; color: #475569; font-weight: 600; }
-.ds-workspace[data-route='customers'] .ds-master-tag svg { color: #991b1b; }
-.ds-workspace[data-route='customers'] .ds-main { padding: 16px; }
-.ds-workspace[data-route='customers'] .ds-page { max-width: 80rem; margin-inline: auto; width: 100%; }
-@media (min-width: 640px) { .ds-workspace[data-route='customers'] .ds-main { padding: 24px; } }
-@media (min-width: 1024px) { .ds-workspace[data-route='customers'] .ds-main { padding: 32px; } }
+/* The page sits in the shared shell (.ds-main / .ds-page) like every other admin page: no route-only sidebar,
+   header, width cap or padding overrides, so the content fills the width beside the sidebar. */

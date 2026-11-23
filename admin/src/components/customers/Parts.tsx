@@ -44,7 +44,7 @@ export function KpiCards({ k, views, viewsError, loading }: { k: Kpis; views: Nu
   const dash = (v: string) => (loading ? "—" : v);
   const logged = viewsError ? "view log unavailable" : views ? `${views.total} reason-logged view${views.total === 1 ? "" : "s"}` : "loading views";
   return (
-    <section aria-label="Summary" className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+    <section aria-label="Summary" className="grid grid-cols-2 @min-[880px]:grid-cols-4 gap-3.5">
       <Kpi label="Total Customers" icon="users" iconCls="bg-slate-100 text-slate-600" value={dash(String(k.total))} valueCls="text-slate-900" sub="Customer accounts on record" />
       <Kpi label="Repeat / VIP (3+ Trips)" icon="crown" iconCls="bg-amber-50 text-amber-600" value={dash(String(k.vip))} valueCls="text-amber-600" sub="Regular riders and marked VIPs" />
       <Kpi label="Corporate / GST" icon="building-2" iconCls="bg-blue-50 text-blue-600" value={dash(String(k.corporate))} valueCls="text-blue-700" sub="Corporate accounts" />
@@ -105,3 +105,6 @@ export function AuditLedger({ views, error, onRetry }: { views: NumberViews | nu
 export const FIELD_LABEL = "block text-[10px] leading-4 font-bold uppercase tracking-wider text-slate-500 mb-1";
 export const FIELD = "w-full h-9 px-3 border border-slate-200 rounded-[12px] text-xs bg-white focus:outline-none focus:border-crimson-800 disabled:bg-slate-50 disabled:text-slate-500";
 export const BTN_PRIMARY = "bg-crimson-800 hover:bg-crimson-900 text-white font-semibold disabled:opacity-60 disabled:cursor-not-allowed";
+/** Page / dialog action: 40px tall, balanced padding, keyboard focus ring (pair with BTN_PRIMARY, or use BTN_SECONDARY). */
+export const BTN_ACTION = "inline-flex items-center justify-center gap-2 h-10 px-4 rounded-[12px] text-[13px] leading-5 font-semibold shadow-xs transition-[background-color,box-shadow,transform] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-crimson-800";
+export const BTN_SECONDARY = `${BTN_ACTION} bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-60 disabled:cursor-not-allowed`;

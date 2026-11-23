@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { BellPlus, Calculator, Car, Check, CircleAlert, Copy, Fuel, Info, LoaderCircle, Luggage, PawPrint, Pencil } from "lucide-react";
+import { BellPlus, Calculator, Car, Check, CircleAlert, Copy, Fuel, Info, Leaf, LoaderCircle, Luggage, PawPrint, Pencil } from "lucide-react";
 import { DESK_ADDON_LABELS, formatINR, type DeskQuoteLine } from "../../domain/quickFareDesk";
 import { bagsOf, seatsOf, vehicleLabelsOf } from "./deskTrip";
 import type { VehicleCategory } from "../../types";
@@ -48,25 +48,26 @@ const ADDONS = [
 /** CNG / Diesel and the Pet Friendly / Luggage Carrier toggles. Every price comes from the server. */
 function FuelBar({ extras, disabled, onFuel, onAddOn }: { extras: FareExtras; disabled: boolean; onFuel: (f: "cng" | null) => void; onAddOn: (k: "pets" | "carrier") => void }) {
   const cng = extras.fuel === "cng";
+  // Same segmented control as New Booking: pale-grey track, white selected pill; slate for Diesel, green for CNG.
   const fuelBtn = (on: boolean, tone: "cng" | "diesel") =>
-    `px-3 py-1.5 rounded-lg text-xs transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed ${
-      on ? `font-bold bg-white shadow-xs ${tone === "cng" ? "text-emerald-700" : "text-amber-800"}` : "font-semibold text-slate-600 hover:text-slate-900"
+    `h-8 px-3.5 rounded-lg text-xs transition-all flex items-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#991B1B]/40 disabled:opacity-50 disabled:cursor-not-allowed ${
+      on ? `font-bold bg-white shadow-xs ${tone === "cng" ? "text-emerald-700" : "text-slate-800"}` : "font-semibold text-slate-500 hover:text-slate-900"
     }`;
   return (
     <div className="px-5 py-3 bg-slate-50/80 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-2.5">
       <div className="flex items-center gap-2">
         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1" aria-hidden="true">
-          <Fuel className="w-3.5 h-3.5 text-slate-500" /><span>Fuel</span>
+          <Fuel className="w-4 h-4 text-slate-400" strokeWidth={2} /><span>Fuel</span>
         </span>
-        <div role="group" aria-label="Fuel Type" className="inline-flex items-center p-0.5 rounded-xl bg-slate-200/80 border border-slate-200">
+        <div role="group" aria-label="Fuel Type" className="inline-flex items-center p-1 rounded-xl bg-slate-100 border border-slate-200">
           <button type="button" aria-pressed={cng} disabled={disabled || !extras.cngOffered} onClick={() => !cng && onFuel("cng")}
             title={extras.cngOffered ? "Price on the CNG rate card (vehicles that offer CNG)" : "No vehicle category offers CNG. Turn on CNG in Vehicle categories."}
             className={fuelBtn(cng, "cng")}>
-            <span className={`w-1.5 h-1.5 rounded-full ${cng ? "bg-emerald-500" : "bg-slate-400"}`} aria-hidden="true" />
+            <Leaf className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
             <span>CNG</span>
           </button>
           <button type="button" aria-pressed={!cng} disabled={disabled} onClick={() => cng && onFuel(null)} title="Standard Diesel / Petrol rate" className={fuelBtn(!cng, "diesel")}>
-            <span className={`w-1.5 h-1.5 rounded-full ${!cng ? "bg-amber-500" : "bg-slate-400"}`} aria-hidden="true" />
+            <Fuel className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
             <span>Diesel</span>
           </button>
         </div>

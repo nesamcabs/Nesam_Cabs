@@ -18,6 +18,7 @@ import {
 } from './permissions';
 import { sendEmail } from './providers';
 import { requireSuperAdmin, text } from './shared';
+import { parseIndianMobile } from './phone';
 
 const UID = /^[A-Za-z0-9_-]{6,128}$/;
 
@@ -83,7 +84,8 @@ export const saveStaffProfile = onCall({ timeoutSeconds: 60 }, async (request) =
   const actor = await requireSuperAdmin(request.auth);
   const input = (request.data ?? {}) as Record<string, unknown>;
   const name = text(input.name, 80);
-  const phone = text(input.phone, 20).replace(/\D/g, '').slice(-10);
+  // Supported spellings only (+91, 0, separators); a longer number is rejected, never cut down to ten digits.
+  const phone = parseIndianMobile(text(input.phone, 24)) ?? '';
   const username = typeof input.username === 'string' ? input.username.trim().toLowerCase() : '';
   const password = typeof input.password === 'string' ? input.password : '';
   const directLogin = !input.uid && !!username;
@@ -91,7 +93,15 @@ export const saveStaffProfile = onCall({ timeoutSeconds: 60 }, async (request) =
   if (directLogin && (password.length < 8 || password.length > 128)) throw new HttpsError('invalid-argument', 'Use a password between 8 and 128 characters.');
   if (input.uid && (input.username !== undefined || input.password !== undefined)) throw new HttpsError('invalid-argument', 'Login credentials cannot be changed through the access editor.');
   const email = directLogin ? `${username}@staff.nesam.invalid` : text(input.email, 120).toLowerCase();
-  const branch = text(input.branch, 60);
+  // "Hub · Shift"; long hub and shift names fit without being cut off.
+  const branch = text(input.branch, 140);
+  // Optional link to a custom role (staff_roles) and Master-only notes; both kept unchanged when not sent.
+  const hasCustomRole = input.customRoleId !== undefined;
+  const customRoleId = hasCustomRole ? text(input.customRoleId, 40) : '';
+  if (customRoleId && !/^[A-Za-z0-9_-]{2,40}$/.test(customRoleId)) throw new HttpsError('invalid-argument', 'Invalid custom role.');
+  const hasNotes = input.adminNotes !== undefined;
+  if (hasNotes && typeof input.adminNotes !== 'string') throw new HttpsError('invalid-argument', 'Admin notes must be text.');
+  const adminNotes = hasNotes ? text(input.adminNotes, 1000) : '';
   const preset = (STAFF_PRESETS as readonly string[]).includes(String(input.preset)) ? String(input.preset) : 'Custom';
   if (name.length < 2) throw new HttpsError('invalid-argument', 'Enter the staff member’s full name.');
   if (!/^[6-9]\d{9}$/.test(phone)) throw new HttpsError('invalid-argument', 'Enter a valid 10-digit mobile number.');
@@ -180,7 +190,11 @@ export const saveStaffProfile = onCall({ timeoutSeconds: 60 }, async (request) =
   try {
     const newCode = editing ? '' : await nextStaffCode();
     result = await db.runTransaction(async (tx) => {
-      const [snap, samePhone] = await Promise.all([tx.get(ref), tx.get(db.collection('admins').where('phone', '==', phone).limit(5))]);
+      const [snap, samePhone, customRole] = await Promise.all([
+        tx.get(ref), tx.get(db.collection('admins').where('phone', '==', phone).limit(5)),
+        customRoleId ? tx.get(db.doc(`staff_roles/${customRoleId}`)) : Promise.resolve(null),
+      ]);
+      if (customRoleId && !customRole?.exists) throw new HttpsError('failed-precondition', 'The selected custom role no longer exists. Choose another role.');
       const d = snap.data();
       if (!editing && snap.exists && d?.createRequestId === requestId) return { staffCode: text(d.staffCode, 20), status: statusOf(d), accessVersion: versionOf(d), replayed: d };
       if (samePhone.docs.some((x) => x.id !== uid)) throw new HttpsError('already-exists', 'This mobile number already has a Staff ID.');
@@ -207,11 +221,13 @@ export const saveStaffProfile = onCall({ timeoutSeconds: 60 }, async (request) =
         statusHistory: FieldValue.arrayUnion(entry), updatedBy: actor.uid, updatedAt: stamp,
         ...(editing ? {} : { createdAt: stamp, createdBy: actor.uid, createRequestId: requestId }),
         ...(directLogin ? { username } : {}),
+        ...(hasCustomRole ? { customRoleId, customRoleName: customRoleId ? text(customRole?.data()?.name, 40) : '' } : {}),
+        ...(hasNotes ? { adminNotes } : {}),
       }, { merge: true });
       const ended = endGrantsAndSessions(tx, actor, 'Staff permissions changed', found);
       auditTx(tx, actor, editing ? 'staff_profile_updated' : 'staff_profile_created', uid, {
         staffCode, email, ...(contactEmail ? { contactEmail } : {}), name, reason, accessVersion, ...ended,
-        before: accessSummary(d), after: { preset, status, permissions, duty, access: matrix, branch },
+        before: accessSummary(d), after: { preset, status, permissions, duty, access: matrix, branch, ...(hasCustomRole ? { customRoleId } : {}), ...(hasNotes ? { adminNotesChanged: adminNotes !== text(d?.adminNotes, 1000) } : {}) },
       });
       return { staffCode, status, accessVersion };
     });

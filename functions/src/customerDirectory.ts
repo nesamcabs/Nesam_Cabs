@@ -14,6 +14,7 @@ import { db } from './admin';
 import { auditInTx } from './audit';
 import { matrixAllows, matrixFlag, type AdminAccess } from './permissions';
 import { requireAdmin, text } from './shared';
+import { parseIndianMobile } from './phone';
 
 export const REVEAL_CATEGORIES = [
   'New booking confirmation call',
@@ -46,6 +47,7 @@ export function phoneKey(v: unknown): string {
   const d = typeof v === 'string' ? v.replace(/\D/g, '') : '';
   return d.length >= 10 ? d.slice(-10) : '';
 }
+export { parseIndianMobile };
 /** "+91 98765 •••••" — the reference's masked form. */
 export function maskCustomerPhone(v: unknown): string {
   const k = phoneKey(v);
@@ -178,8 +180,8 @@ export const getCustomerSavedPlaces = onCall({ timeoutSeconds: 30 }, async (requ
  */
 export const findCustomerByMobile = onCall({ timeoutSeconds: 30 }, async (request) => {
   await requireAdmin(request.auth);
-  const key = phoneKey(request.data?.phone);
-  if (key.length !== 10) throw new HttpsError('invalid-argument', 'Enter the full 10-digit mobile number.');
+  const key = parseIndianMobile(request.data?.phone);
+  if (!key) throw new HttpsError('invalid-argument', 'Enter the full 10-digit mobile number.');
   const [idx, legacy] = await Promise.all([db.doc(`customer_phone_index/${key}`).get(), db.collection('customers').where('phone', 'in', phoneVariants(key)).limit(5).get()]);
   const ids = new Set(legacy.docs.map((d) => d.id));
   if (idx.exists) ids.add(String(idx.data()!.customerId));
@@ -384,8 +386,8 @@ export const saveCustomerProfile = onCall({ timeoutSeconds: 30 }, async (request
   const lead = has('leadSource') ? clean(input.leadSource, 60) : undefined;
 
   if (creating) {
-    const key = phoneKey(input.phone);
-    if (!/^[6-9]\d{9}$/.test(key)) throw new HttpsError('invalid-argument', 'Enter a valid 10-digit Indian mobile number.');
+    const key = parseIndianMobile(input.phone);
+    if (!key) throw new HttpsError('invalid-argument', 'Enter a valid 10-digit Indian mobile number.');
     if (lead !== undefined && lead && !LEAD_SOURCES.includes(lead)) throw new HttpsError('invalid-argument', 'Choose a lead source from the list.');
     if (lead) patch.leadSource = lead;
     const id = db.collection('customers').doc().id;

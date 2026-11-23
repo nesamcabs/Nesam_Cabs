@@ -1,9 +1,10 @@
 /**
  * Customers Directory rules, kept free of React and Firebase so they can be tested.
- * Segments, KPIs, filtering, loyalty, messages and the CSV export live here.
+ * Segments, KPIs, filtering, loyalty and messages live here (the CSV export uses utils/exportData).
  */
 import type { Customer, MasterCoupon } from "../types";
 import type { CustomerStats } from "../services/customerStats";
+import { parseIndianMobile } from "../utils/phone";
 import { getEffectiveCouponStatus, normalizeCouponCode } from "../services/couponEngine";
 
 // ── Status ───────────────────────────────────────────────────────────────────
@@ -57,7 +58,7 @@ export function primaryBadge(r: Row): { label: string; tone: "blue" | "amber" | 
   const g = groupOf(r.s.completed);
   return g === "Regular" ? { label: "Regular", tone: "amber" } : g === "Returning" ? { label: "Returning", tone: "blue" } : { label: "New", tone: "green" };
 }
-/** The segment name the CSV and message use. */
+/** The segment name shown for a customer. */
 export const segmentName = (r: Row): string => (isCorporate(r) ? "Corporate" : r.c.isVip ? "VIP" : groupOf(r.s.completed));
 
 export function countSegments(rows: Row[]): Record<Segment, number> {
@@ -89,6 +90,8 @@ export const inBrand = (c: Customer, brand: string) => brand === "all" || (c.bra
 
 // ── Search and filters ───────────────────────────────────────────────────────
 export const digitsOf = (v: string) => v.replace(/\D/g, "");
+/** The shared mobile identity rule (utils/phone), re-exported for this module's importers. */
+export { parseIndianMobile };
 
 /**
  * Name, customer code, document id, email, city and lead source match by text. The mobile number matches on the digits the
@@ -98,9 +101,9 @@ export function matchesSearch(c: Customer, term: string, lookedUp: ReadonlySet<s
   const t = term.trim().toLowerCase();
   if (!t) return true;
   if ([c.name, c.email === "N/A" ? "" : c.email, c.id, c.customerCode ?? "", c.city ?? "", c.leadSource ?? ""].some((v) => (v || "").toLowerCase().includes(t))) return true;
-  const d = digitsOf(t).replace(/^91(?=\d{10}$)/, "");
+  const d = digitsOf(t);
   if (d.length >= 4 && d.length <= 5 && (c.phoneMasked ?? "").replace(/\D/g, "").slice(2).startsWith(d)) return true;
-  return d.length === 10 && lookedUp.has(c.id);
+  return parseIndianMobile(t) !== null && lookedUp.has(c.id);
 }
 
 export function filterRows(rows: Row[], f: { q: string; segment: Segment; brand: string; lookedUp: ReadonlySet<string> }): Row[] {
@@ -141,7 +144,7 @@ export const statementText = (r: Row, code: string) =>
 
 // ── Company / GSTIN single field (the reference's "Company / GSTIN (Optional)") ─────────────
 const GSTIN_IN_TEXT = /\b\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]\b/i;
-/** "33AABCN1234F1Z5 • Sri Tex Exports" → { gstin, company }. Text without a GSTIN is the company name. */
+/** "33AABCN1234F1Z5 • Company name" → { gstin, company }. Text without a GSTIN is the company name. */
 export function splitCompanyGstin(input: string): { company: string; gstin: string } {
   const text = input.trim();
   const m = GSTIN_IN_TEXT.exec(text);
@@ -151,19 +154,3 @@ export function splitCompanyGstin(input: string): { company: string; gstin: stri
 }
 export const joinCompanyGstin = (company?: string, gstin?: string) => [gstin, company].filter(Boolean).join(" • ");
 
-// ── CSV ──────────────────────────────────────────────────────────────────────
-/** A text cell that a spreadsheet would run as a formula is stored as text (OWASP CSV injection guidance). */
-export function csvCell(v: string | number | null | undefined): string {
-  if (v === null || v === undefined) return "";
-  if (typeof v === "number") return Number.isFinite(v) ? String(v) : "";
-  let s = v.replace(/\r\n|\r|\n/g, "\n");
-  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
-export const CSV_HEADERS = ["Customer ID", "Name", "Mobile", "City", "Segment", "Trips", "Total Spend"] as const;
-/** The reference's seven fields. `mobile` is the masked form unless the Master asked for the full numbers. */
-export function customersCsv(rows: Row[], mobile: (c: Customer) => string, code: (c: Customer) => string): string {
-  const lines = [CSV_HEADERS.join(",")];
-  for (const r of rows) lines.push([code(r.c), r.c.name, mobile(r.c), r.c.city ?? "", segmentName(r), r.s.completed, r.s.spend].map(csvCell).join(","));
-  return lines.join("\n");
-}

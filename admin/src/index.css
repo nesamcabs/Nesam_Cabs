@@ -530,8 +530,8 @@ body:has(.ds-overlay) { overflow: hidden; }
   .ds-scrim { position: fixed; inset: 0; z-index: calc(var(--z-sidebar) - 1); background: rgb(22 31 46 / 0.45); }
 }
 @media (max-width: 767px) {
-  .ds-main { padding: 16px 14px 0; }
-  .ds-footer { margin-inline: 14px; flex-direction: column; align-items: flex-start; }
+  .ds-main { padding: 16px 16px 0; }
+  .ds-footer { margin-inline: 16px; flex-direction: column; align-items: flex-start; }
   .ds-title { flex-wrap: wrap; min-height: 0; padding-block: 4px 8px; }
   .ds-title h1 { font-size: 22px; }
   .ds-title-actions { width: 100%; justify-content: flex-start; }

@@ -36,6 +36,11 @@ export default function OfficeDashboard({ onNavigate, onSelectBooking }: {
   const [assign, setAssign] = useState<Booking | null>(null);
   const [approving, setApproving] = useState<string | null>(null);
   const all = data.bookings ?? [];
+  // Until the bookings arrive, counts read "…" (or "—" after a load error) and lists say so, never a fake 0 or "none".
+  const loadingBookings = data.bookings === null;
+  const pendingText = data.error ? "—" : "…";
+  const listNotice = !loadingBookings ? null : data.error ? "Bookings could not be loaded." : "Loading bookings…";
+  const listHint = data.error ? "Check your connection, then reopen the Dashboard." : "Live bookings appear here as soon as they load.";
   // The same dashboard serves every booking / dispatch desk; actions show only when this admin holds them.
   const access = useAccess();
   const canOpen = (page: string) => canAccessPage(access, page);
@@ -106,14 +111,14 @@ export default function OfficeDashboard({ onNavigate, onSelectBooking }: {
         {queues.map((q) => (
           <button key={q.label} type="button" className="ds-queue" onClick={q.go}>
             <span><Icon name={q.icon} />{q.label}</span>
-            <strong>{q.count}</strong>
+            <strong>{loadingBookings ? pendingText : q.count}</strong>
             <Icon name="arrow-up-right" />
           </button>
         ))}
       </div>
 
       <Section title="New bookings" actions={<Button variant="ghost" icon="arrow-right" onClick={() => onNavigate("bookings", "New bookings")}>View all</Button>} flush>
-        {newBookings.length === 0 ? <EmptyState title="No new bookings" hint="New bookings appear here for office review." /> : (
+        {newBookings.length === 0 ? <EmptyState title={listNotice ?? "No new bookings"} hint={listNotice ? listHint : "New bookings appear here for office review."} /> : (
           <DataTable label="New bookings" minWidth={1092} fixed hasActions>
             <colgroup><col style={{ width: 120 }} /><col style={{ width: 250 }} /><col style={{ width: 100 }} /><col style={{ width: 96 }} /><col style={{ width: 190 }} /><col style={{ width: 126 }} /><col style={{ width: 210 }} /></colgroup>
             <thead><tr><th>PICKUP DATE / TIME</th><th>ROUTE</th><th>TRIP TYPE</th><th>VEHICLE</th><th>CUSTOMER</th><th className="ds-num">CUSTOMER FARE</th><th className="ds-actions">ACTIONS</th></tr></thead>
@@ -134,7 +139,7 @@ export default function OfficeDashboard({ onNavigate, onSelectBooking }: {
       </Section>
 
       <Section title="Assignment priority" actions={<Button icon="alarm-clock" onClick={() => setSheet("alerts")}>Open reminders</Button>} flush>
-        {priority.length === 0 ? <EmptyState title="No assignment pending" hint="Accepted duties waiting for a driver and cab appear here." /> : (
+        {priority.length === 0 ? <EmptyState title={listNotice ?? "No assignment pending"} hint={listNotice ? listHint : "Accepted duties waiting for a driver and cab appear here."} /> : (
           <DataTable label="Assignment priority" minWidth={1300} fixed hasActions>
             <colgroup><col style={{ width: 120 }} /><col style={{ width: 230 }} /><col style={{ width: 100 }} /><col style={{ width: 96 }} /><col style={{ width: 126 }} /><col style={{ width: 200 }} /><col style={{ width: 190 }} /><col style={{ width: 200 }} /></colgroup>
             <thead><tr><th>PICKUP DATE / TIME</th><th>ROUTE</th><th>TRIP TYPE</th><th>VEHICLE</th><th className="ds-num">VENDOR PAYOUT</th><th>ACCEPTED BY / TIME</th><th>ASSIGNMENT / DEADLINE</th><th className="ds-actions">ACTIONS</th></tr></thead>
@@ -156,7 +161,7 @@ export default function OfficeDashboard({ onNavigate, onSelectBooking }: {
       </Section>
 
       <div className="ds-chip-row">
-        <Button icon="send" onClick={() => onNavigate("bookings", "To publish")}>To publish · {toPublish.length}</Button>
+        <Button icon="send" onClick={() => onNavigate("bookings", "To publish")}>To publish · {loadingBookings ? pendingText : toPublish.length}</Button>
         {canOpen("pricing") && <Button icon="sliders-horizontal" onClick={() => onNavigate("pricing")}>Service &amp; Fare Settings</Button>}
         {canOpen("security") && <Button icon="history" onClick={() => onNavigate("security")}>Staff activity</Button>}
         {canOpen("full-final") && <Button icon="copy" onClick={() => onNavigate("full-final")}>F&amp;F records</Button>}

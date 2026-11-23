@@ -62,3 +62,13 @@ test('viewer rights: Master all; a Staff ID only what its matrix grants; export 
   assert.deepEqual([reveal.canEdit, reveal.canReveal, reveal.canExport], [true, true, false], 'the Customers export right does not make a Staff ID an exporter');
   assert.equal(d.viewerOf(staff(matrix({}, { temporaryReveal: true }))).canReveal, false, 'the reveal right alone, without Customers view, grants nothing');
 });
+
+test('parseIndianMobile accepts the supported spellings and never truncates extra digits', () => {
+  for (const v of ['9876543210', '+91 98765 43210', '+91-98765-43210', '(+91) 98765.43210', '919876543210', '09876543210', '0091 98765 43210', '091 9876543210'])
+    assert.equal(d.parseIndianMobile(v), '9876543210', v);
+  // 11–14 digits that are not a recognised prefix + 10 digits are rejected, not cut down to their last ten.
+  for (const v of ['19876543210', '129876543210', '12349876543210', '98765432101', '919876543', '5876543210', '9876x43210', '', undefined, 9876543210])
+    assert.equal(d.parseIndianMobile(v), null, String(v));
+  // Stored records keep the tolerant reader, so existing customer links do not change.
+  assert.equal(d.phoneKey('19876543210'), '9876543210');
+});

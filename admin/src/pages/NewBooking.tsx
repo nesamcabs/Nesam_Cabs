@@ -2,21 +2,27 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { Customer, VehicleCategory, MasterLocation } from "../types";
 import { subscribeCustomers } from "../services/adminFirestoreService";
 import {
-  COUNTRY_CODES, PAYMENT_METHODS, createAdminBooking, emailError, emptyManualBooking, newRequestId, normalizePhone, quoteAdminBooking, whatsappError,
+  COUNTRY_CODES, PAYMENT_METHODS, createAdminBooking, emailError, emptyManualBooking, newRequestId, normalizePhone, pointFromLocation, quoteAdminBooking, whatsappError,
   type CreatedAdminBooking, type ManualBookingForm,
 } from "../services/adminBookingService";
 import { ActionError } from "../services/callables";
-import { markEnquiryConverted, isMulticityEnquiry, MULTICITY_CONVERSION_MESSAGE, type Enquiry } from "../services/enquiryService";
+import { createBookingPaymentLink, markEnquiryConverted, isMulticityEnquiry, MULTICITY_CONVERSION_MESSAGE, type Enquiry } from "../services/enquiryService";
+import { getTripPaymentOptions } from "../services/bookingOpsService";
 import { useCan, useStaffFlag } from "../components/AccessContext";
 import { Toast, useToast } from "../components/Feedback";
-import MapLocationPicker, { type PickedPoint } from "../components/MapLocationPicker";
+import { type PickedPoint } from "../components/MapLocationPicker";
+import MapPickerDialog from "../components/quickFareDesk/MapPickerDialog";
+import { pickedForBooking, pinNeedsAddress } from "../domain/bookingPoints";
 import { Icon } from "../components/ui";
 import {
   SaveEnquiryDialog, emptyTrip, estimateAll,
   tripPickupAt, tripEndAt, useQuickData, validateTrip, type CategoryEstimate, type QuickTrip,
 } from "../components/booking/QuickFare";
 import { rupee } from "../domain/officeStage";
-import { isoDateIST } from "../utils/time";
+import { cabCategoryBadge, cabDisplayName } from "../domain/categoryLabel";
+import { formatClock12, isoDateIST } from "../utils/time";
+import { copyText } from "../utils/clipboard";
+import { ArrowRight, Calculator, Check, Fuel, Leaf } from "lucide-react";
 
 export interface NewBookingDraft {
   trip?: QuickTrip;
@@ -49,88 +55,14 @@ const TRIP_TABS: { id: TripTypeTab; label: string; icon: "arrow-right" | "arrow-
   { id: "Local", label: "Local", icon: "map-pin" },
 ];
 
-interface FleetVehicle {
-  id: string;
-  name: string;
-  category: string;
-  seats: string;
-  bags: string;
-  oneWayRate: number;
-  roundRate: number;
-  base30: number;
-  bata: number;
-  rental1Hr: number;
-  rentalPerHr: number;
+/** A typed place → the matching saved location (Service & Fare Settings › Locations) in the booking's point format; null when none matches. */
+function placeFor(text: string, locations?: MasterLocation[]): PickedPoint | null {
+  const lower = (text || "").toLowerCase().trim();
+  if (!lower || !locations?.length) return null;
+  const loc = locations.find((l) => l.name.toLowerCase() === lower) ?? locations.find((l) => l.name.toLowerCase().includes(lower) || lower.includes(l.name.toLowerCase()));
+  return loc && typeof loc.lat === "number" && typeof loc.lng === "number" ? pointFromLocation(loc) : null;
 }
 
-const DEFAULT_VEHICLES: FleetVehicle[] = [
-  { id: "hatchback", name: "Wagon R Or Similar", category: "HATCHBACK", seats: "4 Seats", bags: "2 Bags", oneWayRate: 14, roundRate: 13, base30: 550, bata: 500, rental1Hr: 320, rentalPerHr: 230 },
-  { id: "sedan", name: "Dzire / Etios Or Similar", category: "SEDAN", seats: "4 Seats", bags: "2 Bags", oneWayRate: 15, roundRate: 14, base30: 600, bata: 500, rental1Hr: 350, rentalPerHr: 260 },
-  { id: "suv", name: "Ertiga Or Similar", category: "SUV", seats: "6 Seats", bags: "4 Bags", oneWayRate: 19, roundRate: 18, base30: 750, bata: 500, rental1Hr: 450, rentalPerHr: 330 },
-  { id: "muv", name: "Kia Carens Or Similar", category: "MUV", seats: "7 Seats", bags: "4 Bags", oneWayRate: 20, roundRate: 19, base30: 800, bata: 500, rental1Hr: 480, rentalPerHr: 350 },
-  { id: "innova", name: "Innova", category: "INNOVA", seats: "7 Seats", bags: "4 Bags", oneWayRate: 21, roundRate: 20, base30: 850, bata: 600, rental1Hr: 520, rentalPerHr: 380 },
-  { id: "crysta", name: "Innova Crysta", category: "CRYSTA", seats: "7 Seats", bags: "4 Bags", oneWayRate: 24, roundRate: 23, base30: 950, bata: 600, rental1Hr: 600, rentalPerHr: 430 },
-];
-
-const TN_CITIES: Record<string, [number, number]> = {
-  chennai: [13.0827, 80.2707],
-  madurai: [9.9252, 78.1198],
-  trichy: [10.7905, 78.7047],
-  tiruchirappalli: [10.7905, 78.7047],
-  coimbatore: [11.0168, 76.9558],
-  tiruppur: [11.1085, 77.3411],
-  tirupur: [11.1085, 77.3411],
-  salem: [11.6643, 78.1460],
-  tiruvannamalai: [12.2253, 79.0747],
-  pondicherry: [11.9416, 79.8083],
-  puducherry: [11.9416, 79.8083],
-  kodaikanal: [10.2381, 77.4892],
-  theni: [10.0104, 77.4768],
-  vellore: [12.9165, 79.1325],
-  bengaluru: [12.9716, 77.5946],
-  bangalore: [12.9716, 77.5946],
-  dindigul: [10.3624, 77.9695],
-  tirunelveli: [8.7139, 77.7567],
-  kanyakumari: [8.0883, 77.5385],
-  rameswaram: [9.2876, 79.3129],
-  thanjavur: [10.7870, 79.1378],
-  erode: [11.3410, 77.7172],
-  karur: [10.9601, 78.0766],
-  hosur: [12.7409, 77.8253],
-  ooty: [11.4102, 76.6950],
-  pollachi: [10.6581, 77.0087],
-  kumbakonam: [10.9617, 79.3881],
-  thoothukudi: [8.7642, 78.1348],
-  airport: [12.9941, 80.1709],
-};
-
-function lookupCoord(text: string, locations?: MasterLocation[]): { lat: number; lng: number; name: string; type: "airport" | "other" } | null {
-  if (!text) return null;
-  const lower = text.toLowerCase().trim();
-  if (locations && locations.length) {
-    const loc = locations.find((l) => l.name.toLowerCase().includes(lower) || lower.includes(l.name.toLowerCase()));
-    if (loc && typeof loc.lat === "number" && typeof loc.lng === "number") {
-      return { lat: loc.lat, lng: loc.lng, name: loc.name, type: loc.type === "Airport" ? "airport" : "other" };
-    }
-  }
-  for (const [key, coords] of Object.entries(TN_CITIES)) {
-    if (lower.includes(key)) {
-      const name = key.charAt(0).toUpperCase() + key.slice(1);
-      return { lat: coords[0], lng: coords[1], name, type: key.includes("airport") ? "airport" : "other" };
-    }
-  }
-  return null;
-}
-
-function haversineRoadKm(c1: [number, number], c2: [number, number]): number {
-  const toRad = (deg: number) => (deg * Math.PI) / 180;
-  const R = 6371;
-  const dLat = toRad(c2[0] - c1[0]);
-  const dLon = toRad(c2[1] - c1[1]);
-  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(toRad(c1[0])) * Math.cos(toRad(c2[0])) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return Math.max(15, Math.round(R * c * 1.22));
-}
 
 function formatDuration(totalMins: number): string {
   const hrs = Math.floor(totalMins / 60);
@@ -146,26 +78,57 @@ function formatDateDDMMYYYY(isoDate: string): string {
   return `${d}-${m}-${y}`;
 }
 
-function parseTimeToHours(timeStr: string): number {
-  const [timePart, meridiem] = timeStr.split(" ");
-  const [hrsRaw, minsRaw] = timePart.split(":").map(Number);
-  let hrs = hrsRaw;
-  const mins = minsRaw || 0;
-  if (meridiem === "PM" && hrs !== 12) hrs += 12;
-  if (meridiem === "AM" && hrs === 12) hrs = 0;
-  return hrs + mins / 60;
-}
+/** Pickup times offered at the desk: stored as 24-hour "HH:mm" (what the quote and booking expect), shown on a 12-hour clock. */
+const TIME_VALUES = ["05:00", "06:00", "06:30", "07:00", "07:30", "08:00", "08:30", "09:00", "09:30", "10:00", "11:00", "12:00", "14:00", "15:00", "16:00", "18:00", "20:00", "22:00"];
 
-const TIME_OPTIONS = [
-  "5:00 AM", "6:00 AM", "6:30 AM", "7:00 AM", "7:30 AM", "8:00 AM", "8:30 AM", "9:00 AM", "9:30 AM",
-  "10:00 AM", "11:00 AM", "12:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "6:00 PM", "8:00 PM", "10:00 PM",
-];
+const PIN_ADDRESS_MESSAGE = "No address was found for this map pin. Open Map and type the address under the map, or choose the place from the list.";
 
 const DISPOSAL_ID = "place-local-disposal";
 const DISPOSAL_NAME = "Local City Disposal";
 const disposalFor = (p: PickedPoint): PickedPoint => ({
   lat: p.lat + 0.04, lng: p.lng + 0.04, name: DISPOSAL_NAME, address: `${p.name} & City Limits (Within city disposal)`, type: "other", confirmed: true, placeId: DISPOSAL_ID,
 });
+
+/** Step icons (approved set), drawn inline: 20px, 1.75px rounded strokes in the current text colour. */
+const STROKE = { fill: "none", stroke: "currentColor", strokeWidth: 1.75, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+function StepGlyph({ kind, state }: { kind: "trip" | "cab" | "review"; state: "active" | "done" | "upcoming" }) {
+  if (kind === "trip") {
+    // Route path from an origin dot to a destination pin.
+    return (
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+        <circle cx="5.5" cy="18" r="2.25" {...STROKE} />
+        <path d="M7.75 18h6.5a3.25 3.25 0 0 0 0-6.5h-4.5a3.25 3.25 0 0 1 0-6.5h1.5" {...STROKE} />
+        <path d="M17.5 9.5c-1.9-1.85-2.85-3.3-2.85-4.4a2.85 2.85 0 0 1 5.7 0c0 1.1-.95 2.55-2.85 4.4Z" {...STROKE} />
+        <circle cx="17.5" cy="5.1" r=".6" fill="currentColor" />
+      </svg>
+    );
+  }
+  if (kind === "review") {
+    // Checklist with a completed check.
+    return (
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+        <rect x="5" y="4" width="14" height="17" rx="2.25" {...STROKE} />
+        <path d="M9 3h6v2.5H9z" {...STROKE} />
+        <path d="M8.5 10.5h7M8.5 14h3.5" {...STROKE} />
+        <path d="m12.75 17.25 1.75 1.75 3.25-3.5" {...STROKE} />
+      </svg>
+    );
+  }
+  // Cab with a small fare badge.
+  const badge = state === "active" ? "#ffffff" : state === "done" ? "#991b1b" : "#94a3b8";
+  const glyph = state === "active" ? "#991b1b" : "#ffffff";
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+      <path d="M4 14.5v-3l1.6-4.2A2 2 0 0 1 7.47 6h7.06a2 2 0 0 1 1.87 1.3L18 11.5v3" {...STROKE} />
+      <path d="M3 14.5h15v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" {...STROKE} />
+      <path d="M6 18.5V20M15 18.5V20M5.5 11.5h11" {...STROKE} />
+      <circle cx="6.5" cy="15.75" r=".75" fill="currentColor" />
+      <circle cx="14.5" cy="15.75" r=".75" fill="currentColor" />
+      <rect x="15.25" y="2.5" width="7.5" height="6.5" rx="1.75" fill={badge} />
+      <path d="M17.4 4.4h3.2M17.4 5.8h3.2M18.9 4.4c.9 0 1.3.5 1.3 1.05 0 .6-.5 1.1-1.5 1.1h-.6l2 1.35" fill="none" stroke={glyph} strokeWidth={0.9} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved }: {
   draft?: NewBookingDraft | null;
@@ -213,8 +176,8 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
     if (draft?.trip?.tripType === "Round Trip" || draft?.enquiry?.tripType === "Round Trip") return "Round Trip";
     return "One Way";
   });
-  const [pickupText, setPickupText] = useState(() => draft?.trip?.pickupText ?? draft?.enquiry?.pickup ?? "Coimbatore");
-  const [dropText, setDropText] = useState(() => draft?.trip?.dropText ?? draft?.enquiry?.drop ?? "Madurai");
+  const [pickupText, setPickupText] = useState(() => draft?.trip?.pickupText ?? draft?.enquiry?.pickup ?? "");
+  const [dropText, setDropText] = useState(() => draft?.trip?.dropText ?? draft?.enquiry?.drop ?? "");
   const [pickupPoint, setPickupPoint] = useState<PickedPoint | null>(() => draft?.trip?.pickup ?? null);
   const [dropPoint, setDropPoint] = useState<PickedPoint | null>(() => draft?.trip?.drop ?? null);
   const [viaStops, setViaStops] = useState<string[]>(() => (draft?.trip?.stops ?? []).map((s) => s.text || s.point?.name || ""));
@@ -224,8 +187,9 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
   const [roundTripDays, setRoundTripDays] = useState(() => draft?.trip?.days ?? 1);
   const [swapSpinning, setSwapSpinning] = useState(false);
 
-  // Map Picker Modal
-  const [mapPickerTarget, setMapPickerTarget] = useState<"pickup" | "drop" | number | null>(null);
+  // Map picker (the shared admin map dialog) and pin address problems shown under each location field
+  const [mapPickerTarget, setMapPickerTarget] = useState<"pickup" | "drop" | null>(null);
+  const [pinError, setPinError] = useState<{ pickup?: string; drop?: string }>({});
 
   // Date & Time
   const tomorrowIso = useMemo(() => {
@@ -246,21 +210,22 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
   const [fuel, setFuel] = useState<"cng" | undefined>(() => (draft?.trip?.fuel === "cng" ? "cng" : undefined));
 
   // Vehicle selection & Fare
-  const [selectedVehicleId, setSelectedVehicleId] = useState<string>(() => draft?.categoryId || "sedan");
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string>(() => draft?.categoryId || "");
   const [customFare, setCustomFare] = useState<string>("");
   const [customFareReason, setCustomFareReason] = useState<string>("");
   const [estimates, setEstimates] = useState<CategoryEstimate[] | null>(draft?.estimates ?? null);
-  const [liveQuote, setLiveQuote] = useState<CategoryEstimate | null>(null);
+  const [quoting, setQuoting] = useState(false);
 
   // Step 3 Review & Payment
   const [driverSlipNote, setDriverSlipNote] = useState(() => (draft?.customer?.preferredDriver ? `Preferred driver: ${draft.customer.preferredDriver}` : ""));
   const [paymentPlan, setPaymentPlan] = useState<"later" | "partial" | "full">("later");
-  const [razorpayMode, setRazorpayMode] = useState<"link" | "checkout">("link");
+  /** Online payments and the advance share, from Service & Fare Settings › Payment options (null until checked). */
+  const [payOptions, setPayOptions] = useState<{ online: boolean; partPercent: number; recommended: string } | null>(null);
+  const [payOptionsError, setPayOptionsError] = useState(false);
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number } | null>(null);
   const [couponMsg, setCouponMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [checkingCoupon, setCheckingCoupon] = useState(false);
-  const [sendWhatsapp, setSendWhatsapp] = useState(true);
   const [termsAccepted, setTermsAccepted] = useState(true);
   const [advanceEnabled, setAdvanceEnabled] = useState(false);
   const [advanceAmount, setAdvanceAmount] = useState("");
@@ -273,8 +238,10 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
     bookingId: string;
     fare: number;
     paymentBadge: string;
-    razorpayPaymentId?: string;
-    razorpayLinkUrl?: string;
+    /** Real payment link (createBookingPaymentLink) and whether the server reports it as delivered. */
+    paymentLink?: { url: string; delivered: boolean } | null;
+    /** Why the payment link could not be created (the booking itself is saved). */
+    paymentLinkError?: string;
     route: string;
     dateTime: string;
     vehicle: string;
@@ -282,16 +249,13 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
     driverNote?: string;
   } | null>(null);
 
-  // Razorpay Checkout Modal
-  const [rzpModalOpen, setRzpModalOpen] = useState(false);
-  const [rzpMethod, setRzpMethod] = useState("UPI / QR");
-
   // General state
   const [busy, setBusy] = useState(false);
   const [errorNotice, setErrorNotice] = useState<string | null>(null);
   const [saveEnquiryOpen, setSaveEnquiryOpen] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const [copyLinkFeedback, setCopyLinkFeedback] = useState<string | null>(null);
+  const [mobileSuggestionsLabel] = useState("Customers");
 
   const requestId = useRef(newRequestId());
   const canOverride = useCan("finance");
@@ -320,15 +284,15 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
   // Resolve points from text if points are empty
   useEffect(() => {
     if (!pickupPoint && pickupText) {
-      const p = lookupCoord(pickupText, allLocations);
-      if (p) setPickupPoint({ lat: p.lat, lng: p.lng, name: p.name, address: `${p.name}, Tamil Nadu`, type: p.type, confirmed: true });
+      const p = placeFor(pickupText, allLocations);
+      if (p) setPickupPoint(p);
     }
   }, [pickupText, pickupPoint, allLocations]);
 
   useEffect(() => {
     if (!dropPoint && dropText && tripType !== "Rental") {
-      const d = lookupCoord(dropText, allLocations);
-      if (d) setDropPoint({ lat: d.lat, lng: d.lng, name: d.name, address: `${d.name}, Tamil Nadu`, type: d.type, confirmed: true });
+      const d = placeFor(dropText, allLocations);
+      if (d) setDropPoint(d);
     }
   }, [dropText, dropPoint, tripType, allLocations]);
 
@@ -378,15 +342,15 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
       drop: effectiveDropPoint,
       stops: (tripType === "Round Trip" || tripType === "Multicity")
         ? viaStops.map((text) => {
-            const coord = lookupCoord(text, allLocations);
+            const coord = placeFor(text, allLocations);
             return {
               text,
-              point: coord ? ({ lat: coord.lat, lng: coord.lng, name: coord.name, address: `${coord.name}, Tamil Nadu`, type: coord.type, confirmed: true } as PickedPoint) : null,
+              point: coord,
             };
           })
         : [],
       date: pickupDate,
-      time: pickupTime.replace(" ", ""),
+      time: pickupTime,
       days: roundTripDays,
       rentalHours: tripType === "Rental" ? rentalHours : undefined,
       carrier: roofCarrier,
@@ -396,143 +360,34 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
     };
   }, [tripType, pickupText, dropText, pickupPoint, dropPoint, viaStops, pickupDate, pickupTime, roundTripDays, rentalHours, roofCarrier, pets, fuel, waitingHours, allLocations]);
 
-  // Compute road distance and duration for preview
-  const routeMetrics = useMemo(() => {
-    if (tripType === "Rental") {
-      const km = rentalHours * 10;
-      return { km, minutes: rentalHours * 60, formattedTime: `${rentalHours}h` };
-    }
-    const pCoord: [number, number] | null = pickupPoint ? [pickupPoint.lat, pickupPoint.lng] : (lookupCoord(pickupText, allLocations) ? [lookupCoord(pickupText, allLocations)!.lat, lookupCoord(pickupText, allLocations)!.lng] : null);
-    const dCoord: [number, number] | null = dropPoint ? [dropPoint.lat, dropPoint.lng] : (lookupCoord(dropText, allLocations) ? [lookupCoord(dropText, allLocations)!.lat, lookupCoord(dropText, allLocations)!.lng] : null);
-
-    let totalKm = 130;
-    if (pCoord && dCoord) {
-      const waypoints: [number, number][] = [pCoord];
-      if (tripType === "Multicity" || tripType === "Round Trip") {
-        for (const s of viaStops) {
-          if (s.trim()) {
-            const c = lookupCoord(s, allLocations);
-            if (c) waypoints.push([c.lat, c.lng]);
-          }
-        }
-      }
-      waypoints.push(dCoord);
-      if (tripType === "Round Trip") waypoints.push(pCoord);
-
-      let dist = 0;
-      for (let i = 0; i < waypoints.length - 1; i++) {
-        dist += haversineRoadKm(waypoints[i], waypoints[i + 1]);
-      }
-      totalKm = Math.max(20, dist);
-    }
-    const minutes = Math.round((totalKm / 48) * 60);
-    return { km: totalKm, minutes, formattedTime: formatDuration(minutes) };
-  }, [tripType, rentalHours, pickupPoint, dropPoint, pickupText, dropText, viaStops, allLocations]);
-
-  // Compute live tariff fallback if server estimate not loaded yet
-  const computeTariffFallback = (v: FleetVehicle) => {
-    const kmInput = routeMetrics.km;
-    const breakdown: { label: string; amount: number }[] = [];
-    let slabName: string = tripType;
-
-    if (tripType === "One Way" || tripType === "Multicity") {
-      const billableKm = Math.max(130, kmInput);
-      const kmCharge = billableKm * v.oneWayRate;
-      const bata = v.bata;
-      const extraPDCharge = (extraPickups + extraDrops) * 500;
-      const waitCharge = tripType === "Multicity" ? waitingHours * 150 : 0;
-      slabName = tripType === "One Way" ? `One Way • ${billableKm} km (Min 130 km)` : `Multicity • ${billableKm} km (Min 130 km)`;
-      breakdown.push({ label: `Distance Charge (${billableKm} km × ₹${v.oneWayRate}/km)`, amount: kmCharge });
-      breakdown.push({ label: "Driver Bata", amount: bata });
-      if (extraPDCharge > 0) breakdown.push({ label: `Extra Pickup/Drop (${extraPickups + extraDrops} × ₹500)`, amount: extraPDCharge });
-      if (waitCharge > 0) breakdown.push({ label: `Stop Point Waiting (${waitingHours} hr × ₹150/hr)`, amount: waitCharge });
-      const total = breakdown.reduce((sum, r) => sum + r.amount, 0);
-      return { slabName, total, breakdown };
-    }
-
-    if (tripType === "Round Trip") {
-      const days = roundTripDays;
-      const pHrs = parseTimeToHours(pickupTime);
-      const estHours = routeMetrics.minutes / 60;
-      const rRate = v.roundRate;
-      const b30 = v.base30;
-      const bata = v.bata;
-
-      if (days === 2 && pHrs >= 15) {
-        const slabBBase = b30 + 120 * rRate;
-        const slabCBase = 250 * rRate;
-        const extraKm = Math.max(0, kmInput - 400);
-        slabName = "Slab D • 3 PM+ Overnight (400 km)";
-        breakdown.push({ label: "8-Hr (150 km) + 1-Day (250 km) Base", amount: slabBBase + slabCBase });
-        if (extraKm > 0) breakdown.push({ label: `Extra Distance (${extraKm} km × ₹${rRate}/km)`, amount: extraKm * rRate });
-        breakdown.push({ label: `2-Day Driver Bata (₹${bata} × 2)`, amount: bata * 2 });
-      } else if (days >= 2) {
-        const minKm = days * 250;
-        const billableKm = Math.max(minKm, kmInput);
-        slabName = `Standard ${days}-Day Slab (${minKm} km min)`;
-        breakdown.push({ label: `Distance Charge (${billableKm} km × ₹${rRate}/km)`, amount: billableKm * rRate });
-        breakdown.push({ label: `Driver Bata (${days} days × ₹${bata})`, amount: days * bata });
-      } else if (kmInput > 150) {
-        const billableKm = Math.max(250, kmInput);
-        slabName = "Slab C • 1-Day Slab (250 km / 11:45 PM)";
-        breakdown.push({ label: `Distance Charge (${billableKm} km × ₹${rRate}/km)`, amount: billableKm * rRate });
-        breakdown.push({ label: "Driver Bata", amount: bata });
-      } else if (estHours > 5) {
-        slabName = "Slab B • 8-Hr / 150 km Slab";
-        breakdown.push({ label: "Base 30 km", amount: b30 });
-        breakdown.push({ label: `Balance 120 km (₹${rRate}/km)`, amount: 120 * rRate });
-        breakdown.push({ label: "Driver Bata", amount: bata });
-      } else {
-        const billableKm = Math.max(100, kmInput);
-        const extraBeyond30 = billableKm - 30;
-        slabName = `Slab A • Mini Round Trip (${billableKm} km / ≤5 hrs)`;
-        breakdown.push({ label: "Base 30 km", amount: b30 });
-        breakdown.push({ label: `Next ${extraBeyond30} km (₹${rRate}/km)`, amount: extraBeyond30 * rRate });
-        breakdown.push({ label: "Driver Bata", amount: bata });
-      }
-      const total = breakdown.reduce((sum, r) => sum + r.amount, 0);
-      return { slabName, total, breakdown };
-    }
-
-    if (tripType === "Rental") {
-      const hrs = rentalHours;
-      const pkgPrice = v.rental1Hr + (hrs - 1) * v.rentalPerHr;
-      slabName = `Rental • ${hrs} Hrs / ${hrs * 10} km`;
-      breakdown.push({ label: `Hourly Rental Package (${hrs} Hrs / ${hrs * 10} km)`, amount: pkgPrice });
-      return { slabName, total: pkgPrice, breakdown };
-    }
-
-    const baseFlat = tripType === "Airport" ? v.base30 + 600 : v.base30 + 350;
-    const extraKm = Math.max(0, kmInput - 30);
-    slabName = `${tripType} • Auto-Detected`;
-    breakdown.push({ label: `${tripType} Base (incl. 30 km)`, amount: baseFlat });
-    if (extraKm > 0) breakdown.push({ label: `Extra Distance (${extraKm} km × ₹${v.oneWayRate}/km)`, amount: extraKm * v.oneWayRate });
-    const total = breakdown.reduce((sum, r) => sum + r.amount, 0);
-    return { slabName, total, breakdown };
-  };
-
-  // Get current selected vehicle
-  const currentVehicle = useMemo(() => {
-    return DEFAULT_VEHICLES.find((v) => v.id === selectedVehicleId) || DEFAULT_VEHICLES[1];
-  }, [selectedVehicleId]);
-
-  // Current calculation for selected vehicle
+  // The selected cab and its server quote (every price comes from the booking server; nothing is priced locally).
+  const selectedEstimate = useMemo(() => estimates?.find((e) => e.category.id === selectedVehicleId) ?? null, [estimates, selectedVehicleId]);
+  const liveQuote = selectedEstimate?.quote ? selectedEstimate : null;
   const currentCalc = useMemo(() => {
-    if (liveQuote?.quote) {
-      const q = liveQuote.quote;
-      return {
-        slabName: q.service || tripType,
-        total: q.quote.total,
-        breakdown: q.breakup?.lines.map((l) => ({ label: l.label, amount: l.amount ?? 0 })) || [],
-      };
-    }
-    return computeTariffFallback(currentVehicle);
-  }, [liveQuote, currentVehicle, tripType, computeTariffFallback]);
+    if (!liveQuote?.quote) return null;
+    const q = liveQuote.quote;
+    return {
+      slabName: q.service || tripType,
+      total: q.quote.total,
+      breakdown: q.breakup?.lines.map((l) => ({ label: l.label, amount: l.amount ?? 0 })) || [],
+    };
+  }, [liveQuote, tripType]);
+  /** Customer-facing cab name (Vehicle categories › Display Text), the same as Quick Fare shows; the category id is unchanged. */
+  const vehicleName = selectedEstimate ? cabDisplayName(selectedEstimate.category) : "";
+  /** CNG can be chosen once at least one bookable category has CNG turned on (Vehicle categories). */
+  const cngOffered = data.categories.some((c) => c.cngEnabled === true);
+  /** Road distance and time from the server quote (never estimated in the browser). */
+  const routeText = useMemo(() => {
+    if (tripType === "Rental") return `${rentalHours} ${rentalHours === 1 ? "hour" : "hours"}`;
+    const q = liveQuote?.quote;
+    if (!q?.roadKm) return "";
+    return `${Math.round(q.roadKm)} km${tripType === "Round Trip" ? " (up & down)" : ""}${q.roadMinutes ? ` • ~${formatDuration(Math.round(q.roadMinutes))}` : ""}`;
+  }, [liveQuote, tripType, rentalHours]);
 
   // Calculated and final fares
   const calculatedBaseFare = useMemo(() => {
     if (customFare && Number(customFare) > 0) return Number(customFare);
-    return currentCalc.total;
+    return currentCalc?.total ?? 0;
   }, [customFare, currentCalc]);
 
   const discountAmount = useMemo(() => {
@@ -544,11 +399,15 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
     return Math.max(0, calculatedBaseFare - discountAmount);
   }, [calculatedBaseFare, discountAmount]);
 
+  /** Advance share: the configured "pay part now" percentage, else the desk's standard 25%. */
+  const partPercent = payOptions?.partPercent ?? 25;
+  /** Online plans are offered only when online payments are switched on (unknown status keeps them available). */
+  const onlineBlocked = !!payOptions && !payOptions.online;
   const payNowAmount = useMemo(() => {
     if (paymentPlan === "later") return 0;
-    if (paymentPlan === "partial") return Math.round(finalNetFare * 0.25);
+    if (paymentPlan === "partial") return Math.round((finalNetFare * partPercent) / 100);
     return finalNetFare;
-  }, [paymentPlan, finalNetFare]);
+  }, [paymentPlan, finalNetFare, partPercent]);
 
   // Return formatted route string
   const formattedRouteString = useMemo(() => {
@@ -570,30 +429,70 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
   // Return formatted schedule string
   const formattedScheduleString = useMemo(() => {
     const dt = formatDateDDMMYYYY(pickupDate);
+    const time12 = formatClock12(pickupTime);
     if (tripType === "Round Trip") {
       const days = roundTripDays;
-      if (days === 1) return `${dt} • ${pickupTime} (1 day, Same day)`;
+      if (days === 1) return `${dt} • ${time12} (1 day, Same day)`;
       const endD = new Date(pickupDate + "T00:00:00");
       endD.setDate(endD.getDate() + (days - 1));
       const endFormatted = `${String(endD.getDate()).padStart(2, "0")}-${String(endD.getMonth() + 1).padStart(2, "0")}-${endD.getFullYear()}`;
-      return `${dt} • ${pickupTime} (${days} days • Returns ${endFormatted}, 11:45 PM)`;
+      return `${dt} • ${time12} (${days} days • Returns ${endFormatted}, 11:45 PM)`;
     }
-    return `${dt} at ${pickupTime}`;
+    return `${dt} at ${time12}`;
   }, [pickupDate, pickupTime, tripType, roundTripDays]);
+
+  /**
+   * The map dialog reports the pin as it moves and again once its address is found. The field shows that address's
+   * short name; a pin without an address shows its coordinates and asks for the address (never a generic label).
+   */
+  const applyPickedPoint = (side: "pickup" | "drop", picked: PickedPoint | null) => {
+    const { point: p, label } = pickedForBooking(picked);
+    if (side === "pickup") { setPickupPoint(p); setPickupText(label); }
+    else { setDropPoint(p); setDropText(label); }
+    setPinError((e) => ({ ...e, [side]: undefined }));
+    setEstimates(null);
+  };
 
   // Swap locations handler
   const handleSwapLocations = () => {
     setSwapSpinning(true);
+    setEstimates(null);
     const tempT = pickupText;
     const tempP = pickupPoint;
     setPickupText(dropText);
     setPickupPoint(dropPoint);
     setDropText(tempT);
     setDropPoint(tempP);
+    setPinError((e) => ({ pickup: e.drop, drop: e.pickup }));
     setTimeout(() => setSwapSpinning(false), 350);
   };
 
-  // Get estimate handler (Step 1 -> Step 2)
+  /** Prices every bookable cab for this trip on the server; keeps the chosen cab when it is still priced. */
+  const runQuotes = async (trip: QuickTrip): Promise<boolean> => {
+    if (!data.categories.length) {
+      setErrorNotice("No cab categories are set up for booking yet. Add them in Service & Fare Settings › Vehicle categories.");
+      return false;
+    }
+    setQuoting(true);
+    try {
+      const list = await estimateAll(trip, data.categories, brand);
+      setEstimates(list);
+      const priced = list.filter((x) => x.quote);
+      const pref = matchedCustomer?.preferredCab?.toLowerCase();
+      const keep = priced.find((x) => x.category.id === selectedVehicleId)
+        ?? (pref ? priced.find((x) => x.category.name.toLowerCase().includes(pref) || pref.includes(x.category.name.toLowerCase())) : undefined)
+        ?? priced[0];
+      setSelectedVehicleId(keep?.category.id ?? "");
+      return true;
+    } catch (err) {
+      setErrorNotice(err instanceof ActionError ? err.message : "Fares could not be loaded. Check your connection and try again.");
+      return false;
+    } finally {
+      setQuoting(false);
+    }
+  };
+
+  // View Cab Fares (Step 1 -> Step 2): the same checks as before, then real server prices.
   const handleGetEstimate = async (e?: FormEvent) => {
     e?.preventDefault();
     setErrorNotice(null);
@@ -602,70 +501,115 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
       setErrorNotice(MULTICITY_CONVERSION_MESSAGE);
       return;
     }
-
     if (!pickupText.trim()) {
       setErrorNotice("Please enter a pickup location to continue.");
       return;
     }
-
     if (tripType !== "Rental" && !dropText.trim()) {
       setErrorNotice("Please enter a drop destination to continue.");
       return;
     }
-
     if (tripType === "Multicity" && viaStops.filter((s) => s.trim()).length === 0) {
       setErrorNotice("Add at least one via-stop city between your pickup and final drop.");
       return;
     }
 
-    // Auto-resolve points if missing
+    // Places resolve from the saved locations or a map pick; an unknown place is never given made-up coordinates.
     let pPt = pickupPoint;
     if (!pPt) {
-      const c = lookupCoord(pickupText, allLocations);
-      if (c) {
-        pPt = { lat: c.lat, lng: c.lng, name: c.name, address: `${c.name}, Tamil Nadu`, type: c.type, confirmed: true };
-        setPickupPoint(pPt);
-      }
+      pPt = placeFor(pickupText, allLocations);
+      if (pPt) setPickupPoint(pPt);
+    }
+    if (!pPt) {
+      setErrorNotice("Choose the pickup from the list or set it on the map.");
+      return;
+    }
+    if (pinNeedsAddress(pPt)) {
+      setPinError((e) => ({ ...e, pickup: PIN_ADDRESS_MESSAGE }));
+      setErrorNotice("Add the pickup address for the map pin before viewing fares.");
+      return;
     }
     let dPt = dropPoint;
-    if (tripType === "Rental" && pPt) {
+    if (tripType === "Rental") {
       dPt = disposalFor(pPt);
       setDropPoint(dPt);
     } else if (!dPt) {
-      const c = lookupCoord(dropText, allLocations);
-      if (c) {
-        dPt = { lat: c.lat, lng: c.lng, name: c.name, address: `${c.name}, Tamil Nadu`, type: c.type, confirmed: true };
-        setDropPoint(dPt);
-      }
+      dPt = placeFor(dropText, allLocations);
+      if (dPt) setDropPoint(dPt);
+    }
+    if (!dPt) {
+      setErrorNotice("Choose the drop from the list or set it on the map.");
+      return;
+    }
+    if (pinNeedsAddress(dPt)) {
+      setPinError((e) => ({ ...e, drop: PIN_ADDRESS_MESSAGE }));
+      setErrorNotice("Add the drop address for the map pin before viewing fares.");
+      return;
+    }
+    const trip: QuickTrip = { ...currentQuickTrip, pickup: pPt, drop: dPt };
+    const problem = validateTrip(trip);
+    if (problem) {
+      setErrorNotice(problem);
+      return;
     }
 
     setBusy(true);
     try {
-      if (data.categories.length) {
-        const list = await estimateAll(currentQuickTrip, data.categories, brand);
-        setEstimates(list);
-        const matchCat = list.find((x) => x.category.id === selectedVehicleId && x.quote) || list.find((x) => x.quote);
-        if (matchCat) {
-          setLiveQuote(matchCat);
-          setSelectedVehicleId(matchCat.category.id);
-        }
-      }
-      setStep(2);
-    } catch {
-      // Fallback to local calculations if network/emulator is unavailable
-      setStep(2);
+      if (await runQuotes(trip)) setStep(2);
     } finally {
       setBusy(false);
     }
   };
 
+  // Online payments and the advance share for this trip (Service & Fare Settings › Payment options), checked on Review.
+  useEffect(() => {
+    if (step !== 3) return;
+    let live = true;
+    setPayOptionsError(false);
+    getTripPaymentOptions(pickupPoint, pickupDate && pickupTime ? `${pickupDate}T${pickupTime}` : "")
+      .then((r) => {
+        if (!live) return;
+        const part = r.choices.find((c) => c.id === "part");
+        setPayOptions({ online: r.online, partPercent: part && part.percent > 0 && part.percent < 100 ? part.percent : 25, recommended: r.choices.find((c) => c.recommended)?.id ?? "" });
+        if (!r.online) setPaymentPlan("later");
+      })
+      .catch(() => { if (live) setPayOptionsError(true); });
+    return () => { live = false; };
+  }, [step, pickupPoint, pickupDate, pickupTime]);
+
+  /** Step 2 → 3 only with a priced cab. */
+  const handleContinueToReview = () => {
+    if (!currentCalc) {
+      setErrorNotice("Choose a cab that has a fare to continue.");
+      return;
+    }
+    setErrorNotice(null);
+    setStep(3);
+  };
+
+  /** The stepper: going back keeps every entry; going forward runs the same checks as the buttons. */
+  const goToStep = (n: 1 | 2 | 3) => {
+    if (step === 4 || busy || quoting || n === step) return;
+    if (n < step) { setErrorNotice(null); setStep(n); return; }
+    if (n === 2 && step === 1) { void handleGetEstimate(); return; }
+    if (n === 3 && step === 2) handleContinueToReview();
+  };
+
   // Select vehicle in Step 2
   const handleSelectVehicle = (vehId: string) => {
     setSelectedVehicleId(vehId);
-    if (estimates) {
-      const matchCat = estimates.find((x) => x.category.id === vehId && x.quote);
-      if (matchCat) setLiveQuote(matchCat);
-    }
+    setErrorNotice(null);
+  };
+
+  /** Diesel ⇄ CNG: re-prices every cab on that fuel's configured rates; trip and customer inputs stay as entered. */
+  const handleChangeFuel = async (next: "cng" | undefined) => {
+    if (next === fuel || quoting) return;
+    setFuel(next);
+    // A coupon was checked against the old fare: it is re-applied by the operator on the new one.
+    setAppliedCoupon(null);
+    setCouponMsg(null);
+    setErrorNotice(null);
+    await runQuotes({ ...currentQuickTrip, pickup: pickupPoint, drop: tripType === "Rental" && pickupPoint ? disposalFor(pickupPoint) : dropPoint, fuel: next });
   };
 
   // Apply Coupon
@@ -677,26 +621,21 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
     }
     setCheckingCoupon(true);
     try {
-      if (code === "NESAM10") {
-        const disc = Math.round(calculatedBaseFare * 0.1);
-        setAppliedCoupon({ code, discount: disc });
-        setCouponMsg({ ok: true, text: `Coupon NESAM10 applied! You saved ${rupee(disc)}` });
-      } else if (code === "FLAT200") {
-        const disc = Math.min(200, calculatedBaseFare);
-        setAppliedCoupon({ code, discount: disc });
-        setCouponMsg({ ok: true, text: `Coupon FLAT200 applied! You saved ${rupee(disc)}` });
+      // The booking server checks the code against Offers & Coupons for this trip and fare.
+      const testForm = bookingForm();
+      testForm.couponCode = code;
+      const fresh = await quoteAdminBooking(testForm, newRequestId());
+      const disc = fresh.couponDiscount ?? 0;
+      if (!fresh.couponCode || disc <= 0) {
+        setAppliedCoupon(null);
+        setCouponMsg({ ok: false, text: `${code} does not give a discount on this trip.` });
       } else {
-        // Try server quote
-        const testForm = bookingForm();
-        testForm.couponCode = code;
-        const fresh = await quoteAdminBooking(testForm, newRequestId());
-        const disc = fresh.couponDiscount ?? 0;
-        setAppliedCoupon({ code: fresh.couponCode ?? code, discount: disc });
-        setCouponMsg({ ok: true, text: `${fresh.couponCode ?? code} applied · ${rupee(disc)} off` });
+        setAppliedCoupon({ code: fresh.couponCode, discount: disc });
+        setCouponMsg({ ok: true, text: `${fresh.couponCode} applied · ${rupee(disc)} off` });
       }
     } catch (err) {
       setAppliedCoupon(null);
-      setCouponMsg({ ok: false, text: err instanceof ActionError ? err.message : "Invalid code. Try NESAM10 (10% off) or FLAT200 (₹200 off)." });
+      setCouponMsg({ ok: false, text: err instanceof ActionError ? err.message : "The coupon could not be checked. Try again." });
     } finally {
       setCheckingCoupon(false);
     }
@@ -716,7 +655,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
         ? "Multicity"
         : "One Way";
 
-    const pickupIso = pickupDate && pickupTime ? `${pickupDate}T${pickupTime.replace(" ", "")}` : "";
+    const pickupIso = pickupDate && pickupTime ? `${pickupDate}T${pickupTime}` : "";
     const endIso =
       mappedType === "Round Trip"
         ? `${pickupDate}T23:59`
@@ -736,8 +675,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
       drop: tripType === "Rental" && pickupPoint ? disposalFor(pickupPoint) : dropPoint,
       stops: (tripType === "Round Trip" || tripType === "Multicity")
         ? viaStops.map((t) => {
-            const c = lookupCoord(t, allLocations);
-            return c ? ({ lat: c.lat, lng: c.lng, name: c.name, address: `${c.name}, Tamil Nadu`, type: c.type, confirmed: true } as PickedPoint) : ({ lat: 0, lng: 0, name: t, address: t, type: "other", confirmed: false } as PickedPoint);
+            return placeFor(t, allLocations) ?? ({ lat: 0, lng: 0, name: t, address: t, type: "other", confirmed: false } as PickedPoint);
           }).filter((p) => p.confirmed)
         : [],
       pickupAddress: pickupAddress.trim(),
@@ -750,17 +688,18 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
       pickupAt: pickupIso,
       tripEndAt: endIso,
       paymentMethod: paymentPlan === "later" ? "Cash" : "UPI",
-      advanceEnabled: advanceEnabled || (paymentPlan !== "later" && razorpayMode === "checkout"),
-      advanceAmount: advanceEnabled ? advanceAmount : (paymentPlan !== "later" && razorpayMode === "checkout" ? String(payNowAmount) : ""),
+      // Only an advance actually received is recorded; an online payment is marked paid by the verified Razorpay webhook.
+      advanceEnabled,
+      advanceAmount: advanceEnabled ? advanceAmount : "",
       advanceMethod: advanceEnabled ? advanceMethod : "UPI",
-      advanceReference: advanceEnabled ? advanceReference : "Razorpay Online",
+      advanceReference: advanceEnabled ? advanceReference : "",
       notes: [driverSlipNote.trim(), flightNumber ? `Flight: ${flightNumber}` : ""].filter(Boolean).join(" • "),
       flightNumber: flightNumber.trim() || undefined,
       driverSlipNote: driverSlipNote.trim() || undefined,
       waitingHours,
       extraPickups,
       extraDrops,
-      overrideEnabled: !!(customFare && Number(customFare) > 0 && Number(customFare) !== currentCalc.total),
+      overrideEnabled: !!(customFare && Number(customFare) > 0 && Number(customFare) !== (currentCalc?.total ?? 0)),
       overrideFare: customFare,
       overrideReason: customFareReason || "Agreed phone tariff",
       couponCode: appliedCoupon?.code,
@@ -768,20 +707,22 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
     };
   };
 
-  // Confirm booking
-  const handleConfirmBooking = async (rzpPaymentId = "") => {
+  // Confirm booking: success is shown only after the server saved it. An online plan then creates a real payment link.
+  const handleConfirmBooking = async () => {
     if (!termsAccepted) {
       setErrorNotice("Please accept the booking terms to confirm.");
+      return;
+    }
+    if (!currentCalc) {
+      setErrorNotice("Choose a cab with a fare before confirming.");
       return;
     }
     setBusy(true);
     setErrorNotice(null);
 
+    let created: CreatedAdminBooking;
     try {
-      const form = bookingForm();
-      const expectedFare = currentCalc.total;
-
-      const created = await createAdminBooking(form, requestId.current, expectedFare, {
+      created = await createAdminBooking(bookingForm(), requestId.current, currentCalc.total, {
         passenger: someoneElse ? { name: paxName.trim(), phone: paxPhone, whatsapp: paxWhatsapp.trim() } : null,
         enquirySource: "Phone",
         flightNumber: flightNumber.trim() || undefined,
@@ -797,85 +738,73 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
         },
         termsAccepted: true,
       });
-
-      if (draft?.enquiry) {
-        await markEnquiryConverted(draft.enquiry.id, created.bookingId).catch(() => undefined);
-      }
-
-      const randomNum = Math.floor(1000 + Math.random() * 9000);
-      const code = created.bookingId || `#NSM-2611-${randomNum}`;
-      const rzpLink = `https://rzp.io/i/nsm${randomNum}pay`;
-
-      let badge = "Pay Later to Driver";
-      if (paymentPlan !== "later") {
-        badge = rzpPaymentId ? `Paid via Razorpay (${rupee(payNowAmount)})` : `Razorpay Link Sent (${rupee(payNowAmount)})`;
-      }
-
-      setConfirmedBooking({
-        id: created.id,
-        bookingId: code,
-        fare: finalNetFare,
-        paymentBadge: badge,
-        razorpayPaymentId: rzpPaymentId,
-        razorpayLinkUrl: rzpLink,
-        route: formattedRouteString,
-        dateTime: formattedScheduleString,
-        vehicle: `${currentVehicle.name} (${currentVehicle.category})`,
-        flight: flightNumber,
-        driverNote: driverSlipNote,
-      });
-
-      setStep(4);
     } catch (err) {
-      // In development or if backend throws, provide seamless UI confirmation for testing
-      const randomNum = Math.floor(1000 + Math.random() * 9000);
-      const code = `#NSM-2611-${randomNum}`;
-      const rzpLink = `https://rzp.io/i/nsm${randomNum}pay`;
-      let badge = "Pay Later to Driver";
-      if (paymentPlan !== "later") {
-        badge = rzpPaymentId ? `Paid via Razorpay (${rupee(payNowAmount)})` : `Razorpay Link Sent (${rupee(payNowAmount)})`;
-      }
-      setConfirmedBooking({
-        id: `adm_${randomNum}`,
-        bookingId: code,
-        fare: finalNetFare,
-        paymentBadge: badge,
-        razorpayPaymentId: rzpPaymentId,
-        razorpayLinkUrl: rzpLink,
-        route: formattedRouteString,
-        dateTime: formattedScheduleString,
-        vehicle: `${currentVehicle.name} (${currentVehicle.category})`,
-        flight: flightNumber,
-        driverNote: driverSlipNote,
-      });
-      setStep(4);
-    } finally {
+      setErrorNotice(err instanceof ActionError ? err.message : "The booking was not saved. Check your connection and try again; retrying will not create a duplicate.");
       setBusy(false);
+      return;
     }
+
+    if (draft?.enquiry) {
+      await markEnquiryConverted(draft.enquiry.id, created.bookingId).catch(() => undefined);
+    }
+
+    let paymentLink: { url: string; delivered: boolean } | null = null;
+    let paymentLinkError = "";
+    if (paymentPlan !== "later" && payNowAmount > 0) {
+      try {
+        const link = await createBookingPaymentLink(created.id, payNowAmount, paymentPlan === "full" ? "full" : "advance");
+        paymentLink = { url: link.shortUrl, delivered: link.delivered === true };
+      } catch (err) {
+        paymentLinkError = err instanceof ActionError ? err.message : "The payment link could not be created.";
+      }
+    }
+
+    let badge = "Pay later to driver";
+    if (paymentPlan !== "later") {
+      badge = paymentLink
+        ? paymentLink.delivered ? `Payment link sent (${rupee(payNowAmount)})` : `Payment link created (${rupee(payNowAmount)})`
+        : "Payment link not created";
+    }
+
+    setConfirmedBooking({
+      id: created.id,
+      bookingId: created.bookingId || created.id,
+      fare: finalNetFare,
+      paymentBadge: badge,
+      paymentLink,
+      paymentLinkError: paymentLinkError || undefined,
+      route: formattedRouteString,
+      dateTime: formattedScheduleString,
+      vehicle: `${vehicleName}${fuel === "cng" ? " (CNG)" : ""}`,
+      flight: flightNumber,
+      driverNote: driverSlipNote,
+    });
+    setStep(4);
+    setBusy(false);
   };
 
   // Copy WhatsApp slip
   const handleCopyWhatsApp = () => {
     if (!confirmedBooking) return;
-    const { bookingId, route, dateTime, vehicle, fare, paymentBadge, driverNote, flight, razorpayLinkUrl, razorpayPaymentId } = confirmedBooking;
+    const { bookingId, route, dateTime, vehicle, fare, paymentBadge, driverNote, flight, paymentLink } = confirmedBooking;
     const flightLine = flight ? `\nFlight / Terminal: ${flight}` : "";
     const noteLine = driverNote ? `\nDriver Slip Note: ${driverNote}` : "";
-    const linkLine = paymentPlan !== "later" && !razorpayPaymentId ? `\nPayment Link: ${razorpayLinkUrl}` : razorpayPaymentId ? `\nRazorpay ID: ${razorpayPaymentId}` : "";
+    const linkLine = paymentLink ? `\nPayment Link: ${paymentLink.url}` : "";
     const brandName = BRANDS.find((b) => b.id === brand)?.label || "Nesam Cabs";
 
-    const msg = `*${brandName} — Booking Confirmed*\nBooking ID: ${bookingId}\nCustomer: ${customerName || "Customer"}\nPlan: ${currentCalc.slabName}\nRoute: ${route}${flightLine}\nPickup: ${dateTime}\nCab: ${vehicle}${fuel === "cng" ? " (CNG)" : ""}\nFare: ${rupee(fare)} (+ Toll/Parking/Permit actuals)\nPayment: ${paymentBadge}${noteLine}${linkLine}\nThank you for booking with us!`;
+    const msg = `*${brandName} — Booking Confirmed*\nBooking ID: ${bookingId}\nCustomer: ${customerName || "Customer"}\nPlan: ${currentCalc?.slabName ?? tripType}\nRoute: ${route}${flightLine}\nPickup: ${dateTime}\nCab: ${vehicle}\nFare: ${rupee(fare)} (+ Toll/Parking/Permit actuals)\nPayment: ${paymentBadge}${noteLine}${linkLine}\nThank you for booking with us!`;
 
-    navigator.clipboard.writeText(msg).then(() => {
-      setCopyFeedback("Copied for WhatsApp!");
+    void copyText(msg).then((ok) => {
+      setCopyFeedback(ok ? "Copied — not sent" : "Copy failed");
       setTimeout(() => setCopyFeedback(null), 2500);
     });
   };
 
   // Copy Razorpay link
   const handleCopyLink = () => {
-    if (!confirmedBooking?.razorpayLinkUrl) return;
-    navigator.clipboard.writeText(confirmedBooking.razorpayLinkUrl).then(() => {
-      setCopyLinkFeedback("Copied!");
+    if (!confirmedBooking?.paymentLink) return;
+    void copyText(confirmedBooking.paymentLink.url).then((ok) => {
+      setCopyLinkFeedback(ok ? "Copied!" : "Copy failed");
       setTimeout(() => setCopyLinkFeedback(null), 2000);
     });
   };
@@ -889,8 +818,8 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
     setPhoneOnFile("");
     setCustomerId("");
     setMatchedCustomer(null);
-    setPickupText("Coimbatore");
-    setDropText("Madurai");
+    setPickupText("");
+    setDropText("");
     setPickupPoint(null);
     setDropPoint(null);
     setViaStops([]);
@@ -900,97 +829,29 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
     setCustomFare("");
     setDriverSlipNote("");
     setPaymentPlan("later");
-    setRazorpayMode("link");
+    setEstimates(null);
     setCouponCode("");
     setAppliedCoupon(null);
     setCouponMsg(null);
     setFlightNumber("");
-    setSelectedVehicleId("sedan");
+    setSelectedVehicleId("");
     requestId.current = newRequestId();
   };
 
+  const STEPS: { n: 1 | 2 | 3; label: string; icon: "trip" | "cab" | "review" }[] = [
+    { n: 1, label: "Trip Details", icon: "trip" },
+    { n: 2, label: "Cab & Fare", icon: "cab" },
+    { n: 3, label: "Review & Confirm", icon: "review" },
+  ];
+
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 selection:bg-crimson-100 selection:text-crimson-800">
+    <div className="w-full min-w-0 text-slate-900 selection:bg-crimson-100 selection:text-crimson-800">
       <Toast toast={toast} />
 
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
-        {/* Top Centered Stepper */}
-        <nav aria-label="Booking Progress" className="mb-6 sm:mb-7">
-          <ol className="flex items-center justify-center max-w-md mx-auto">
-            {/* Step 1: Plan */}
-            <li className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => step > 1 && setStep(1)}
-                className="step-nav-btn flex items-center gap-2 focus:outline-none"
-              >
-                <span className={`w-7 h-7 rounded-full text-xs font-semibold flex items-center justify-center shadow-sm transition-all ${
-                  step > 1 ? "bg-emerald-600 text-white" : step === 1 ? "bg-[#9F1212] text-white ring-4 ring-crimson-50" : "bg-slate-100 border border-slate-200 text-slate-500"
-                }`}>
-                  {step > 1 ? <Icon name="check" size={14} /> : 1}
-                </span>
-                <span className={`text-sm font-semibold transition-colors ${step > 1 ? "text-emerald-700" : step === 1 ? "text-[#9F1212]" : "text-slate-500"}`}>
-                  Plan
-                </span>
-              </button>
-            </li>
-
-            {/* Connector Line 1 */}
-            <li className="flex-1 mx-3 sm:mx-4" aria-hidden="true">
-              <div className={`h-0.5 w-full rounded-full transition-colors ${step > 1 ? "bg-emerald-500" : "bg-slate-200"}`} />
-            </li>
-
-            {/* Step 2: Choose */}
-            <li className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => step > 2 && setStep(2)}
-                className="step-nav-btn flex items-center gap-2 focus:outline-none"
-              >
-                <span className={`w-7 h-7 rounded-full text-xs font-semibold flex items-center justify-center shadow-sm transition-all ${
-                  step > 2 ? "bg-emerald-600 text-white" : step === 2 ? "bg-[#9F1212] text-white ring-4 ring-crimson-50" : "bg-slate-100 border border-slate-200 text-slate-500"
-                }`}>
-                  {step > 2 ? <Icon name="check" size={14} /> : 2}
-                </span>
-                <span className={`text-sm font-medium transition-colors ${step > 2 ? "text-emerald-700 font-semibold" : step === 2 ? "text-[#9F1212] font-semibold" : "text-slate-500"}`}>
-                  Choose
-                </span>
-              </button>
-            </li>
-
-            {/* Connector Line 2 */}
-            <li className="flex-1 mx-3 sm:mx-4" aria-hidden="true">
-              <div className={`h-0.5 w-full rounded-full transition-colors ${step > 2 ? "bg-emerald-500" : "bg-slate-200"}`} />
-            </li>
-
-            {/* Step 3: Review */}
-            <li className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => step > 3 && setStep(3)}
-                className="step-nav-btn flex items-center gap-2 focus:outline-none"
-              >
-                <span className={`w-7 h-7 rounded-full text-xs font-semibold flex items-center justify-center shadow-sm transition-all ${
-                  step > 3 ? "bg-emerald-600 text-white" : step === 3 ? "bg-[#9F1212] text-white ring-4 ring-crimson-50" : "bg-slate-100 border border-slate-200 text-slate-500"
-                }`}>
-                  {step > 3 ? <Icon name="check" size={14} /> : 3}
-                </span>
-                <span className={`text-sm font-medium transition-colors ${step > 3 ? "text-emerald-700 font-semibold" : step === 3 ? "text-[#9F1212] font-semibold" : "text-slate-500"}`}>
-                  Review
-                </span>
-              </button>
-            </li>
-          </ol>
-        </nav>
-
-        {/* Single Clean Admin Booking Card */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-visible">
-          {/* Card Top Header: Title + Sleek Brand Source Switcher */}
-          <div className="px-5 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <h1 className="text-base font-bold text-slate-900 leading-tight">New Manual Booking</h1>
-              <p className="text-xs text-slate-500 mt-0.5 truncate">Fast dispatch entry — type mobile to auto-detect customer &amp; cab preference</p>
-            </div>
+      <div className="@container w-full min-w-0 bg-white rounded-2xl border border-slate-200/90 shadow-sm">
+          {/* Card header: title + booking source */}
+          <div className="px-4 sm:px-6 py-3.5 border-b border-slate-100 flex items-center justify-between gap-3">
+            <h1 className="text-lg font-bold text-slate-900 leading-tight">New Booking</h1>
 
             {/* Sleek Custom Brand Source Switcher */}
             <div className="relative shrink-0" ref={brandSwitcherRef}>
@@ -1037,11 +898,53 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
             </div>
           </div>
 
+          {/* Stepper: Trip Details → Cab & Fare → Review & Confirm (forward steps run the same checks as the buttons) */}
+          {step !== 4 && (
+            <nav aria-label="Booking steps" className="px-4 sm:px-6 py-4 border-b border-slate-100">
+              <ol className="flex items-center">
+                {STEPS.map((st, i) => {
+                  const done = step > st.n;
+                  const active = step === st.n;
+                  const reachable = st.n < step || st.n === step + 1;
+                  return (
+                    <li key={st.n} className={`flex items-center min-w-0 ${i < STEPS.length - 1 ? "flex-1" : ""}`}>
+                      <button
+                        type="button"
+                        onClick={() => goToStep(st.n)}
+                        disabled={!reachable && !active}
+                        aria-current={active ? "step" : undefined}
+                        className="group flex flex-col @min-[560px]:flex-row items-center gap-1.5 @min-[560px]:gap-2.5 min-w-0 rounded-xl p-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#991B1B]/40 disabled:cursor-default"
+                      >
+                        <span className={`relative w-10 h-10 shrink-0 rounded-full flex items-center justify-center transition-colors ${
+                          active ? "bg-[#991B1B] text-white ring-4 ring-crimson-100" : done ? "bg-crimson-50 text-[#991B1B] border border-crimson-200" : "bg-white text-slate-400 border border-slate-300"
+                        }`}>
+                          <StepGlyph kind={st.icon} state={active ? "active" : done ? "done" : "upcoming"} />
+                          {done && (
+                            <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-emerald-600 text-white ring-2 ring-white flex items-center justify-center" aria-hidden="true">
+                              <Check className="w-2.5 h-2.5" strokeWidth={3} />
+                            </span>
+                          )}
+                        </span>
+                        <span className={`text-[11px] @min-[560px]:text-sm font-semibold whitespace-nowrap ${active ? "text-[#991B1B]" : done ? "text-slate-800" : "text-slate-500"}`}>
+                          {st.label}
+                          {done && <span className="sr-only"> (completed)</span>}
+                        </span>
+                      </button>
+                      {i < STEPS.length - 1 && (
+                        <span aria-hidden="true" className={`flex-1 h-0.5 mx-2 @min-[560px]:mx-4 rounded-full min-w-4 ${step > st.n ? "bg-[#991B1B]" : "bg-slate-200"}`} />
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            </nav>
+          )}
+
           {/* ========================================================= */}
           {/* STEP 1: PLAN                                              */}
           {/* ========================================================= */}
           {step === 1 && (
-            <div className="p-5 sm:p-6 space-y-5 fade-slide-in">
+            <div className="px-4 sm:px-6 py-5 space-y-5 fade-slide-in">
               {/* 1. Trip Type Segmented Tabs */}
               <div role="tablist" aria-label="Trip Type" className="bg-[#F1F5F9] p-1 rounded-xl grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-1">
                 {TRIP_TABS.map((tab) => {
@@ -1068,6 +971,8 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                 })}
               </div>
 
+              <div className="grid grid-cols-1 gap-5 @min-[1080px]:grid-cols-2 @min-[1080px]:gap-6 items-start">
+              <div className="min-w-0 space-y-5">
               {/* 2. SMART CUSTOMER ROW + CUSTOMER PREFERENCE HINT */}
               <div className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-200/80">
                 <div className="flex items-center justify-between mb-2.5">
@@ -1083,7 +988,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                     </span>
                   ) : matchedCustomer ? (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
-                      Existing • {(matchedCustomer as any).tripsCompleted ?? 5} trips
+                      Existing customer{typeof (matchedCustomer as { tripsCompleted?: unknown }).tripsCompleted === "number" ? ` • ${(matchedCustomer as { tripsCompleted?: number }).tripsCompleted} trips` : ""}
                     </span>
                   ) : customerMobile.length === 10 ? (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200/80">
@@ -1144,7 +1049,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                       <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden fade-slide-in">
                         <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
                           <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                            {customerMobile ? "Matching Customers" : "Recent Callers"}
+                            {customerMobile ? "Matching customers" : mobileSuggestionsLabel}
                           </span>
                           <span className="text-[10px] text-slate-400">Click to auto-fill</span>
                         </div>
@@ -1177,9 +1082,11 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                                       <p className="text-[11px] text-slate-500">+91 {cust.phone}</p>
                                     </div>
                                   </div>
-                                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 shrink-0">
-                                    {(cust as any).tripsCompleted ?? 5} trips
-                                  </span>
+                                  {typeof (cust as { tripsCompleted?: unknown }).tripsCompleted === "number" && (
+                                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 shrink-0">
+                                      {(cust as { tripsCompleted?: number }).tripsCompleted} trips
+                                    </span>
+                                  )}
                                 </button>
                               );
                             })}
@@ -1202,13 +1109,13 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                   </div>
                 </div>
 
-                {/* FEATURE 1: Customer Preference Hint Banner */}
-                {matchedCustomer && (
+                {/* Customer preference hint */}
+                {matchedCustomer && (matchedCustomer.preferredDriver || matchedCustomer.preferredCab) && (
                   <div className="mt-2.5 px-3 py-2 rounded-xl bg-amber-50/95 border border-amber-200/80 flex items-center justify-between gap-2 text-xs fade-slide-in">
                     <div className="flex items-center gap-2 min-w-0">
                       <Icon name="sparkles" size={14} className="text-amber-600 shrink-0" />
                       <span className="font-medium text-amber-950 truncate">
-                        {matchedCustomer.preferredDriver ? `Preferred driver: ${matchedCustomer.preferredDriver} • Regular customer` : `Repeat caller (${(matchedCustomer as any).tripsCompleted ?? 5} trips)`}
+                        {matchedCustomer.preferredDriver ? `Preferred driver: ${matchedCustomer.preferredDriver}` : "Existing customer"}
                       </span>
                     </div>
                     {matchedCustomer.preferredCab && (
@@ -1317,6 +1224,8 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                 )}
               </div>
 
+              </div>
+              <div className="min-w-0 space-y-5">
               {/* 3. Route Section (Pickup, Drop & Optional Airport Flight No.) */}
               <div className="relative flex items-stretch gap-3">
                 {/* Left Route Visual Track */}
@@ -1347,16 +1256,20 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                     <input
                       id="pickupInput"
                       type="text"
+                      list="nb-locations"
+                      autoComplete="off"
                       value={pickupText}
                       onChange={(e) => {
                         setPickupText(e.target.value);
                         setPickupPoint(null);
+                        setPinError((x) => ({ ...x, pickup: undefined }));
                         setEstimates(null);
                       }}
                       placeholder={tripType === "Airport" ? "Enter airport terminal or pickup address" : "Enter pickup city, airport, or address"}
                       className="w-full text-sm font-medium text-slate-800 placeholder:text-slate-400 placeholder:font-normal bg-transparent focus:outline-none text-left pr-10"
                     />
                   </div>
+                  {pinError.pickup && <p role="alert" className="-mt-1 px-1 text-[11px] font-medium text-red-700">{pinError.pickup}</p>}
 
                   {/* Conditional: Multicity & Round Trip Stops Container */}
                   {(tripType === "Round Trip" || tripType === "Multicity") && (
@@ -1389,6 +1302,8 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                               </label>
                               <input
                                 type="text"
+                                list="nb-locations"
+                                autoComplete="off"
                                 value={stopVal}
                                 onChange={(e) => {
                                   const updated = [...viaStops];
@@ -1452,10 +1367,13 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                       <input
                         id="dropInput"
                         type="text"
+                        list="nb-locations"
+                        autoComplete="off"
                         value={dropText}
                         onChange={(e) => {
                           setDropText(e.target.value);
                           setDropPoint(null);
+                          setPinError((x) => ({ ...x, drop: undefined }));
                           setEstimates(null);
                         }}
                         placeholder={tripType === "Multicity" ? "e.g., Trichy (Final Drop)" : tripType === "Airport" ? "Enter destination hotel, city, or airport" : "Enter drop destination (e.g., Madurai)"}
@@ -1463,6 +1381,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                       />
                     </div>
                   )}
+                  {tripType !== "Rental" && pinError.drop && <p role="alert" className="-mt-1 px-1 text-[11px] font-medium text-red-700">{pinError.drop}</p>}
 
                   {/* FEATURE 2: Conditional Airport Flight Number Optional Field */}
                   {tripType === "Airport" && (
@@ -1486,6 +1405,10 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                 </div>
               </div>
 
+              <datalist id="nb-locations">
+                {allLocations.map((l) => <option key={l.id} value={l.name} />)}
+              </datalist>
+
               {/* 4. Conditional: Rental Duration Trigger Card */}
               {tripType === "Rental" && (
                 <div className="fade-slide-in">
@@ -1500,7 +1423,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                       </div>
                       <div className="min-w-0">
                         <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Rental duration</p>
-                        <p className="text-sm font-bold text-slate-900 mt-0.5 truncate">{rentalHours} hours • {rentalHours * 10} km included</p>
+                        <p className="text-sm font-bold text-slate-900 mt-0.5 truncate">{rentalHours} {rentalHours === 1 ? "hour" : "hours"}</p>
                       </div>
                     </div>
                     <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-crimson-50 text-[#991B1B] border border-crimson-200/70 shrink-0">
@@ -1561,8 +1484,8 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                       }}
                       className="w-full h-full pl-3.5 pr-10 text-sm font-medium text-slate-800 bg-transparent appearance-none focus:outline-none cursor-pointer text-left"
                     >
-                      {TIME_OPTIONS.map((t) => (
-                        <option key={t} value={t}>{t}</option>
+                      {(TIME_VALUES.includes(pickupTime) ? TIME_VALUES : [pickupTime, ...TIME_VALUES]).map((t) => (
+                        <option key={t} value={t}>{formatClock12(t)}</option>
                       ))}
                     </select>
                     <Icon name="clock" size={16} className="text-slate-400 absolute right-3.5 pointer-events-none" />
@@ -1625,7 +1548,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                     <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl bg-slate-50/80 border border-slate-200/80 fade-slide-in">
                       <div>
                         <label htmlFor="waitingHoursInput" className="block text-xs font-semibold text-slate-700">Stop Point Waiting</label>
-                        <span className="text-[11px] text-slate-400">Halt charge at via-stops (₹150 / hr)</span>
+                        <span className="text-[11px] text-slate-400">Waiting at via-stops</span>
                       </div>
                       <div className="flex items-center h-9 w-28 bg-white border border-slate-200 rounded-lg overflow-hidden focus-within:border-[#991B1B]">
                         <input
@@ -1653,14 +1576,14 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                       className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-[#991B1B] transition-colors"
                     >
                       <Icon name="plus-circle" size={14} />
-                      <span>{extraPDOpen ? "Hide Extra Pickup / Drop" : "Add Extra Pickup / Drop (₹500 each)"}</span>
+                      <span>{extraPDOpen ? "Hide Extra Pickup / Drop" : "Add Extra Pickup / Drop"}</span>
                     </button>
 
                     {extraPDOpen && (
                       <div className="mt-2.5 p-3 rounded-xl bg-slate-50/80 border border-slate-200/80 grid grid-cols-1 sm:grid-cols-2 gap-3 fade-slide-in">
                         <div>
                           <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
-                            Extra Pickup (+₹500)
+                            Extra Pickup
                           </label>
                           <select
                             value={extraPickups}
@@ -1671,13 +1594,13 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                             className="w-full h-10 px-3 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl"
                           >
                             <option value={0}>None (Direct)</option>
-                            <option value={1}>+1 Pickup (₹500)</option>
-                            <option value={2}>+2 Pickups (₹1,000)</option>
+                            <option value={1}>+1 Pickup</option>
+                            <option value={2}>+2 Pickups</option>
                           </select>
                         </div>
                         <div>
                           <label className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
-                            Extra Drop (+₹500)
+                            Extra Drop
                           </label>
                           <select
                             value={extraDrops}
@@ -1688,8 +1611,8 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                             className="w-full h-10 px-3 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl"
                           >
                             <option value={0}>None (Direct)</option>
-                            <option value={1}>+1 Drop (₹500)</option>
-                            <option value={2}>+2 Drops (₹1,000)</option>
+                            <option value={1}>+1 Drop</option>
+                            <option value={2}>+2 Drops</option>
                           </select>
                         </div>
                       </div>
@@ -1698,24 +1621,28 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                 </div>
               )}
 
+              </div>
+              </div>
+
               {/* Notice / Errors */}
               {errorNotice && (
-                <div className="px-3.5 py-2.5 rounded-xl text-xs font-medium flex items-center gap-2 bg-amber-50 text-amber-800 border border-amber-200 fade-slide-in">
+                <div role="alert" className="px-3.5 py-2.5 rounded-xl text-xs font-medium flex items-center gap-2 bg-amber-50 text-amber-800 border border-amber-200 fade-slide-in">
                   <Icon name="circle-alert" size={16} className="text-amber-600 shrink-0" />
                   <span>{errorNotice}</span>
                 </div>
               )}
 
-              {/* 6. Bottom Primary CTA Button */}
-              <div className="pt-1">
+              {/* 6. Primary action */}
+              <div className="pt-1 flex justify-end">
                 <button
                   type="button"
-                  disabled={busy}
+                  disabled={busy || quoting}
                   onClick={handleGetEstimate}
-                  className="w-full bg-[#991B1B] hover:bg-[#7F1D1D] active:scale-[0.99] text-white font-semibold text-sm py-3.5 px-6 rounded-xl shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+                  className="group w-full @min-[640px]:w-auto @min-[640px]:min-w-[280px] h-12 bg-[#991B1B] hover:bg-[#B91C1C] active:scale-[0.99] text-white font-semibold text-sm px-6 rounded-xl shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#991B1B] disabled:opacity-60"
                 >
-                  <span>{busy ? "Calculating Route & Fare…" : "Get Estimate & Choose Cab"}</span>
-                  <Icon name="arrow-right" size={16} />
+                  <Calculator className="w-[18px] h-[18px]" strokeWidth={1.75} aria-hidden="true" />
+                  <span>{busy || quoting ? "Loading cab fares…" : "View Cab Fares"}</span>
+                  <ArrowRight className="w-[18px] h-[18px] transition-transform duration-200 group-hover:translate-x-1 group-disabled:translate-x-0" strokeWidth={1.75} aria-hidden="true" />
                 </button>
               </div>
             </div>
@@ -1725,152 +1652,202 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
           {/* STEP 2: CHOOSE VEHICLE & FARE REVIEW                      */}
           {/* ========================================================= */}
           {step === 2 && (
-            <div className="p-5 sm:p-6 space-y-5 fade-slide-in">
-              {/* Compact Trip Summary Strip */}
+            <div className="px-4 sm:px-6 py-5 space-y-5 fade-slide-in">
+              {/* Trip summary */}
               <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-crimson-50 text-[#9F1212]">
-                      {currentCalc.slabName}
-                    </span>
-                    {fuel === "cng" && (
-                      <button
-                        type="button"
-                        onClick={() => setFuel(undefined)}
-                        title="Priced on the CNG rate. Click to price on the standard Diesel / Petrol rate instead."
-                        aria-label="CNG rate. Switch to the Diesel / Petrol rate"
-                        className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 inline-flex items-center gap-1"
-                      >
-                        CNG <span aria-hidden="true">×</span>
-                      </button>
-                    )}
-                    <span className="text-xs font-medium text-slate-600">
-                      {formattedScheduleString}
-                    </span>
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-crimson-50 text-[#9F1212]">{currentCalc?.slabName ?? tripType}</span>
+                    <span className="text-xs font-medium text-slate-600">{formattedScheduleString}</span>
+                    {routeText && <span className="text-xs font-medium text-slate-500">• {routeText}</span>}
                   </div>
-                  <p className="text-sm font-semibold text-slate-900 mt-1 truncate">
-                    {formattedRouteString}
-                  </p>
+                  <p className="text-sm font-semibold text-slate-900 mt-1 break-words">{formattedRouteString}</p>
                 </div>
                 <button
                   type="button"
-                  onClick={() => setStep(1)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 transition-colors shrink-0"
+                  onClick={() => goToStep(1)}
+                  className="h-9 px-3 rounded-lg text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 transition-colors shrink-0"
                 >
                   Edit Trip
                 </button>
               </div>
 
-              {/* Vehicle Selection List */}
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2.5">Select Vehicle</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {DEFAULT_VEHICLES.map((v) => {
-                    const isSelected = v.id === selectedVehicleId;
-                    const isPreferred = matchedCustomer?.preferredCab?.toLowerCase().includes(v.category.toLowerCase()) || matchedCustomer?.preferredCab?.toLowerCase().includes(v.name.toLowerCase());
-                    const calc = computeTariffFallback(v);
-                    const serverEst = estimates?.find((e) => e.category.id === v.id || e.category.name.toLowerCase().includes(v.name.toLowerCase()));
-                    const displayFare = serverEst?.quote?.quote.total ?? calc.total;
-                    const rateLabel = tripType === "Round Trip" ? `₹${v.roundRate}/km` : `₹${v.oneWayRate}/km`;
+              {/* Fuel: prices come from the configured Diesel or CNG rates of each category */}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                    <Fuel className="w-4 h-4 text-slate-400" strokeWidth={2} aria-hidden="true" />Fuel
+                  </span>
+                  <div role="radiogroup" aria-label="Fuel" className="inline-flex items-center p-1 rounded-xl bg-slate-100 border border-slate-200">
+                    {([
+                      { id: undefined, label: "Diesel", icon: <Fuel className="w-4 h-4" strokeWidth={2} aria-hidden="true" />, on: "text-amber-800" },
+                      { id: "cng" as const, label: "CNG", icon: <Leaf className="w-4 h-4" strokeWidth={2} aria-hidden="true" />, on: "text-emerald-700" },
+                    ]).map((f) => {
+                      const selected = fuel === f.id;
+                      const cngMissing = f.id === "cng" && !cngOffered;
+                      return (
+                        <button
+                          key={f.label}
+                          type="button"
+                          role="radio"
+                          aria-checked={selected}
+                          disabled={quoting || (cngMissing && !selected)}
+                          onClick={() => void handleChangeFuel(f.id)}
+                          title={cngMissing ? "No vehicle category offers CNG yet. Turn on CNG in Vehicle categories." : `Price on the ${f.label} rates`}
+                          className={`h-9 px-4 rounded-lg text-xs flex items-center gap-1.5 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#991B1B]/40 disabled:opacity-50 disabled:cursor-not-allowed ${
+                            selected ? `bg-white shadow-xs font-bold ${f.on}` : "font-semibold text-slate-600 hover:text-slate-900"
+                          }`}
+                        >
+                          {f.icon}<span>{f.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                {quoting && <span role="status" className="text-xs font-medium text-slate-500">Updating fares…</span>}
+              </div>
 
-                    return (
-                      <button
-                        key={v.id}
-                        type="button"
-                        onClick={() => handleSelectVehicle(v.id)}
-                        className={`p-3.5 rounded-xl text-left transition-all flex items-center justify-between gap-3 ${
-                          isSelected ? "border-2 border-[#9F1212] bg-[#FEF2F2]/60" : "border border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
-                        }`}
-                      >
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className={`text-sm font-bold truncate ${isSelected ? "text-[#9F1212]" : "text-slate-900"}`}>{v.name}</span>
-                            {isPreferred && (
-                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
-                                ★ Customer Favorite
-                              </span>
+              {/* Cabs and their server fares */}
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2.5">Select Cab</p>
+                {!estimates || estimates.length === 0 ? (
+                  <div role="status" className="p-6 rounded-xl border border-dashed border-slate-300 text-center text-xs text-slate-500">
+                    {quoting ? "Loading cab fares…" : "No cab fares yet. Go back to Trip Details and choose View Cab Fares."}
+                  </div>
+                ) : (
+                  <div className={`grid grid-cols-1 @min-[640px]:grid-cols-2 @min-[1080px]:grid-cols-3 gap-3 ${quoting ? "opacity-60 pointer-events-none" : ""}`} role="radiogroup" aria-label="Cab">
+                    {estimates.map((est) => {
+                      const cat = est.category;
+                      const priced = !!est.quote;
+                      const isSelected = priced && cat.id === selectedVehicleId;
+                      const pref = matchedCustomer?.preferredCab?.toLowerCase();
+                      const isPreferred = !!pref && (cat.name.toLowerCase().includes(pref) || pref.includes(cat.name.toLowerCase()));
+                      const title = cabDisplayName(cat);
+                      const badge = cabCategoryBadge(cat, title);
+                      const seats = Number(cat.seatingCapacity) > 0 ? Number(cat.seatingCapacity) : null;
+                      const bags = cat.luggageCapacity != null && String(cat.luggageCapacity).trim() !== "" ? String(cat.luggageCapacity).trim() : "";
+                      return (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          role="radio"
+                          aria-checked={isSelected}
+                          disabled={!priced}
+                          onClick={() => handleSelectVehicle(cat.id)}
+                          className={`p-3.5 rounded-xl text-left transition-all flex items-center justify-between gap-3 min-w-0 disabled:cursor-not-allowed ${
+                            isSelected ? "border-2 border-[#9F1212] bg-[#FEF2F2]/60" : priced ? "border border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50" : "border border-dashed border-slate-200 bg-slate-50/60"
+                          }`}
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className={`text-sm font-bold break-words ${isSelected ? "text-[#9F1212]" : priced ? "text-slate-900" : "text-slate-500"}`}>{title}</span>
+                              {badge && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider bg-slate-100 text-slate-600">{badge}</span>}
+                              {isPreferred && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-900 border border-amber-200">Customer favourite</span>}
+                              {fuel === "cng" && priced && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">CNG</span>}
+                            </div>
+                            <p className="text-[11px] text-slate-500 mt-1">
+                              {priced ? ([seats ? `${seats} seats` : "", bags ? `${/^\d+$/.test(bags) ? `${bags} bags` : bags}` : ""].filter(Boolean).join(" • ") || "\u00a0") : est.error || "Not available for this trip"}
+                            </p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            {priced ? (
+                              <>
+                                <p className={`text-sm font-bold ${isSelected ? "text-[#9F1212]" : "text-slate-900"}`}>{rupee(est.quote!.quote.total)}</p>
+                                <span className={`text-[10px] font-semibold ${isSelected ? "text-[#9F1212]" : "text-slate-400"}`}>{isSelected ? "Selected" : "Select"}</span>
+                              </>
+                            ) : (
+                              <span className="text-[10px] font-semibold text-slate-400">Unavailable</span>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">{v.category}</span>
-                            <span className="text-[11px] text-slate-500">{v.seats} • {v.bags} • {rateLabel}</span>
-                          </div>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className={`text-sm font-bold ${isSelected ? "text-[#9F1212]" : "text-slate-900"}`}>{rupee(displayFare)}</p>
-                          <span className={`text-[10px] font-semibold ${isSelected ? "text-[#9F1212]" : "text-slate-400"}`}>{isSelected ? "Selected" : "Select"}</span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
-              {/* Live Tariff Breakdown Card */}
-              <div className="p-4 rounded-xl bg-white border border-slate-200 space-y-2">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
+              <div className="grid grid-cols-1 gap-4 @min-[1080px]:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] items-start">
+                {/* Fare breakdown from the server quote */}
+                <div className="p-4 rounded-xl bg-white border border-slate-200 space-y-2 min-w-0">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Fare Breakdown</span>
-                    <span className="text-[11px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                      {tripType === "Rental" ? `${rentalHours} Hrs / ${rentalHours * 10} km` : `Est. ${routeMetrics.km} km${tripType === "Round Trip" ? " Up & Down" : ""} • ~${routeMetrics.formattedTime}`}
-                    </span>
+                    {routeText && <span className="text-[11px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{routeText}</span>}
                   </div>
-                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/70">
-                    {currentCalc.slabName}
-                  </span>
+                  {currentCalc ? (
+                    <>
+                      <div className="space-y-1.5 text-xs text-slate-600 pt-1">
+                        {currentCalc.breakdown.map((r, i) => (
+                          <div key={i} className="flex items-center justify-between gap-3">
+                            <span className="min-w-0">{r.label}</span>
+                            <span className="font-semibold text-slate-800 shrink-0">{rupee(r.amount)}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-3 text-[11px] text-slate-500">
+                        <span>{vehicleName}{fuel === "cng" ? " • CNG" : ""} • excludes toll, parking &amp; permit (actuals)</span>
+                        <span className="text-sm font-bold text-[#991B1B] shrink-0">{rupee(currentCalc.total)}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <p role="status" className="text-xs text-slate-500 py-2">Choose a cab with a fare to see its breakdown.</p>
+                  )}
                 </div>
-                <div className="space-y-1.5 text-xs text-slate-600 pt-1">
-                  {currentCalc.breakdown.map((r, i) => (
-                    <div key={i} className="flex items-center justify-between">
-                      <span>{r.label}</span>
-                      <span className="font-semibold text-slate-800">{rupee(r.amount)}</span>
+
+                {/* Permitted override of the quoted fare */}
+                {canOverride && (
+                  <div className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-2 min-w-0">
+                    <label htmlFor="nb-custom-fare" className="block text-xs font-semibold text-slate-800">Custom fare (optional)</label>
+                    <div className="flex items-center h-10 w-full bg-white border border-slate-200 rounded-xl overflow-hidden focus-within:border-[#9F1212] focus-within:ring-2 focus-within:ring-[#9F1212]/15">
+                      <span className="px-3 text-xs font-semibold text-slate-500 bg-slate-50 h-full flex items-center border-r border-slate-200">₹</span>
+                      <input
+                        id="nb-custom-fare"
+                        type="number"
+                        min="0"
+                        value={customFare}
+                        onChange={(e) => setCustomFare(e.target.value)}
+                        placeholder="Quoted fare"
+                        className="w-full h-full px-3 text-sm font-semibold text-slate-800 placeholder:text-slate-400 placeholder:font-normal focus:outline-none"
+                      />
                     </div>
-                  ))}
-                </div>
-                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
-                  <span>Excludes Toll, Parking &amp; State Permit Tax (Actuals)</span>
-                  <span className="text-sm font-bold text-[#991B1B]">{rupee(currentCalc.total)}</span>
-                </div>
+                    {customFare && Number(customFare) > 0 && (
+                      <input
+                        type="text"
+                        aria-label="Reason for the custom fare"
+                        value={customFareReason}
+                        onChange={(e) => setCustomFareReason(e.target.value)}
+                        placeholder="Reason (e.g., agreed phone tariff)"
+                        className="w-full h-9 px-3 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-[#9F1212]"
+                      />
+                    )}
+                  </div>
+                )}
               </div>
 
-              {/* Admin Quick Fare Override */}
-              {canOverride && (
-                <div className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-semibold text-slate-800">Admin Custom Fare (Optional)</p>
-                    <p className="text-[11px] text-slate-500">Leave blank to use standard tariff, or enter agreed phone rate</p>
-                  </div>
-                  <div className="flex items-center h-10 w-full sm:w-44 bg-white border border-slate-200 rounded-xl overflow-hidden focus-within:border-[#9F1212] focus-within:ring-2 focus-within:ring-[#9F1212]/15">
-                    <span className="px-3 text-xs font-semibold text-slate-500 bg-slate-50 h-full flex items-center border-r border-slate-200">₹</span>
-                    <input
-                      type="number"
-                      min="0"
-                      value={customFare}
-                      onChange={(e) => setCustomFare(e.target.value)}
-                      placeholder="Standard fare"
-                      className="w-full h-full px-3 text-sm font-semibold text-slate-800 placeholder:text-slate-400 placeholder:font-normal focus:outline-none"
-                    />
-                  </div>
+              {errorNotice && (
+                <div role="alert" className="px-3.5 py-2.5 rounded-xl text-xs font-medium flex items-center gap-2 bg-amber-50 text-amber-800 border border-amber-200">
+                  <Icon name="circle-alert" size={16} className="text-amber-600 shrink-0" />
+                  <span>{errorNotice}</span>
                 </div>
               )}
 
-              {/* Step 2 Navigation */}
+              {/* Step 2 navigation */}
               <div className="flex items-center justify-between gap-3 pt-1">
                 <button
                   type="button"
-                  onClick={() => setStep(1)}
-                  className="px-4 py-3 rounded-xl text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200/80 transition-colors flex items-center gap-1.5"
+                  onClick={() => goToStep(1)}
+                  className="h-11 px-4 rounded-xl text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200/80 transition-colors flex items-center gap-1.5"
                 >
                   <Icon name="arrow-left" size={16} />
                   <span>Back</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => setStep(3)}
-                  className="flex-1 sm:flex-none sm:min-w-[230px] bg-[#9F1212] hover:bg-[#820E0E] active:scale-[0.99] text-white font-semibold text-sm py-3 px-6 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2"
+                  disabled={quoting || !currentCalc}
+                  onClick={handleContinueToReview}
+                  className="flex-1 @min-[640px]:flex-none @min-[640px]:min-w-[240px] h-11 bg-[#9F1212] hover:bg-[#820E0E] active:scale-[0.99] text-white font-semibold text-sm px-6 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <span>Continue to Review &amp; Payment</span>
-                  <Icon name="arrow-right" size={16} />
+                  <span>Continue to Review</span>
+                  <ArrowRight className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
                 </button>
               </div>
             </div>
@@ -1880,9 +1857,9 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
           {/* STEP 3: REVIEW, QUICK DRIVER SLIP NOTE & PAYMENT          */}
           {/* ========================================================= */}
           {step === 3 && (
-            <div className="p-5 sm:p-6 space-y-5 fade-slide-in">
+            <div className="px-4 sm:px-6 py-5 space-y-5 fade-slide-in">
               {/* Compact Trip & Customer Summary */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div className="grid grid-cols-1 @min-[760px]:grid-cols-2 gap-3.5">
                 {/* Trip & Cab Box */}
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5">
                   <div className="flex items-center justify-between gap-2">
@@ -1890,20 +1867,18 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                     <span className="flex items-center gap-1 min-w-0">
                       {fuel === "cng" && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">CNG</span>}
                       <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-crimson-50 text-[#9F1212] truncate">
-                        {currentCalc.slabName}
+                        {currentCalc?.slabName ?? tripType}
                       </span>
                     </span>
                   </div>
-                  <p className="text-sm font-bold text-slate-900 leading-snug">{formattedRouteString}</p>
+                  <p className="text-sm font-bold text-slate-900 leading-snug break-words">{formattedRouteString}</p>
                   {flightNumber && (
                     <p className="text-[11px] font-semibold text-sky-700">Flight / Terminal: {flightNumber}</p>
                   )}
-                  <p className="text-[11px] font-medium text-emerald-700">
-                    {tripType === "Rental" ? `${rentalHours} Hrs / ${rentalHours * 10} km included` : `Auto-calculated: ${routeMetrics.km} km${tripType === "Round Trip" ? " (Up & Down)" : ""} • ~${routeMetrics.formattedTime}`}
-                  </p>
+                  {routeText && <p className="text-[11px] font-medium text-emerald-700">{routeText}</p>}
                   <p className="text-xs text-slate-600">{formattedScheduleString}</p>
                   <div className="pt-2 border-t border-slate-200/70 flex items-center justify-between">
-                    <span className="text-xs font-semibold text-slate-800">{currentVehicle.name} ({currentVehicle.category})</span>
+                    <span className="text-xs font-semibold text-slate-800 min-w-0 break-words">{vehicleName}{fuel === "cng" ? " • CNG" : ""}</span>
                     <span className="text-base font-bold text-[#9F1212]">{rupee(finalNetFare)}</span>
                   </div>
                 </div>
@@ -1920,7 +1895,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                     <p className="text-sm font-bold text-slate-900">{customerName || "Customer"}</p>
                     <p className="text-xs text-slate-600">{phoneOnFile ? `Phone: ${phoneOnFile}` : `+91 ${customerMobile}`}</p>
                     <span className="inline-block text-[11px] font-medium text-emerald-700">
-                      {phoneOnFile ? "Staff Authorized Booking" : matchedCustomer ? `Existing Customer (${(matchedCustomer as any).tripsCompleted ?? 5} previous trips)` : "New Customer (Will auto-save)"}
+                      {phoneOnFile ? "Staff Authorized Booking" : matchedCustomer ? "Existing customer" : "New customer (saved with the booking)"}
                     </span>
                   </div>
 
@@ -1998,18 +1973,17 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
 
               {/* MODERN SECURE PAYMENT SECTION (RAZORPAY) */}
               <div className="space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/70 text-xs font-semibold">
-                    <Icon name="shield-check" size={16} className="text-emerald-600" />
-                    <span>Secure Payment</span>
-                  </span>
-                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400">
-                    <span>Powered by</span>
-                    <span className="text-[#2563EB] font-bold tracking-tight">Razorpay</span>
-                  </span>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Payment</span>
+                  {payOptions && !payOptions.online && (
+                    <span role="status" className="text-[11px] font-medium text-amber-800">Online payments are not set up, so only Pay Later is available.</span>
+                  )}
+                  {payOptionsError && (
+                    <span role="status" className="text-[11px] font-medium text-slate-500">Online payment settings could not be checked.</span>
+                  )}
                 </div>
 
-                <div className="space-y-2.5">
+                <div className="grid grid-cols-1 @min-[900px]:grid-cols-3 gap-2.5">
                   {/* Option 1: Book Now, Pay Later */}
                   <label
                     onClick={() => setPaymentPlan("later")}
@@ -2025,7 +1999,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                       </span>
                       <div>
                         <p className="text-sm font-bold text-slate-900">Book Now, Pay Later</p>
-                        <p className="text-xs text-slate-500 mt-0.5">Pay your driver at the end of the trip</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Customer pays the driver after the trip</p>
                       </div>
                     </div>
                     <span className="px-3.5 py-2 rounded-xl bg-blue-50 text-slate-900 text-sm font-bold shrink-0">₹0</span>
@@ -2033,9 +2007,10 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
 
                   {/* Option 2: Pay 25% Now */}
                   <label
-                    onClick={() => setPaymentPlan("partial")}
+                    aria-disabled={onlineBlocked}
+                    onClick={() => !onlineBlocked && setPaymentPlan("partial")}
                     className={`flex items-center justify-between gap-3 p-4 rounded-2xl cursor-pointer transition-all ${
-                      paymentPlan === "partial" ? "border-2 border-[#2563EB] bg-blue-50/20 shadow-sm" : "border border-slate-200 bg-white hover:border-slate-300"
+                      paymentPlan === "partial" ? "border-2 border-[#2563EB] bg-blue-50/20 shadow-sm" : onlineBlocked ? "border border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed" : "border border-slate-200 bg-white hover:border-slate-300"
                     }`}
                   >
                     <div className="flex items-start gap-3 min-w-0">
@@ -2045,24 +2020,25 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                         {paymentPlan === "partial" && <span className="w-2.5 h-2.5 rounded-full bg-[#2563EB]" />}
                       </span>
                       <div>
-                        <p className="text-sm font-bold text-slate-900">Pay 25% Now</p>
-                        <span className="inline-flex items-center gap-1 mt-1 px-2.5 py-0.5 rounded-full bg-[#2563EB] text-white text-[10px] font-semibold">
-                          ★ Recommended
-                        </span>
-                        <p className="text-xs text-slate-500 mt-1">Pay the remaining 75% after your trip</p>
+                        <p className="text-sm font-bold text-slate-900">Pay {partPercent}% Now</p>
+                        {payOptions?.recommended === "part" && (
+                          <span className="inline-flex items-center gap-1 mt-1 px-2.5 py-0.5 rounded-full bg-[#2563EB] text-white text-[10px] font-semibold">Recommended</span>
+                        )}
+                        <p className="text-xs text-slate-500 mt-1">Balance {100 - partPercent}% after the trip</p>
                       </div>
                     </div>
                     <div className="text-right pl-3 border-l border-slate-100 shrink-0">
-                      <p className="text-[11px] font-medium text-slate-400">Pay Now (25%)</p>
-                      <p className="text-base font-bold text-slate-900 mt-0.5">{rupee(Math.round(finalNetFare * 0.25))}</p>
+                      <p className="text-[11px] font-medium text-slate-400">Pay now</p>
+                      <p className="text-base font-bold text-slate-900 mt-0.5">{rupee(Math.round((finalNetFare * partPercent) / 100))}</p>
                     </div>
                   </label>
 
                   {/* Option 3: Pay 100% Now */}
                   <label
-                    onClick={() => setPaymentPlan("full")}
+                    aria-disabled={onlineBlocked}
+                    onClick={() => !onlineBlocked && setPaymentPlan("full")}
                     className={`flex items-center justify-between gap-3 p-4 rounded-2xl cursor-pointer transition-all ${
-                      paymentPlan === "full" ? "border-2 border-[#2563EB] bg-blue-50/20 shadow-sm" : "border border-slate-200 bg-white hover:border-slate-300"
+                      paymentPlan === "full" ? "border-2 border-[#2563EB] bg-blue-50/20 shadow-sm" : onlineBlocked ? "border border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed" : "border border-slate-200 bg-white hover:border-slate-300"
                     }`}
                   >
                     <div className="flex items-start gap-3 min-w-0">
@@ -2073,7 +2049,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                       </span>
                       <div>
                         <p className="text-sm font-bold text-slate-900">Pay 100% Now</p>
-                        <p className="text-xs text-slate-500 mt-0.5">Complete your payment securely online</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Full fare by payment link</p>
                       </div>
                     </div>
                     <div className="text-right pl-3 border-l border-slate-100 shrink-0">
@@ -2093,7 +2069,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                         type="text"
                         value={couponCode}
                         onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                        placeholder="Enter coupon code (try NESAM10 or FLAT200)"
+                        placeholder="Coupon code"
                         className="w-full text-xs sm:text-sm font-medium text-slate-800 placeholder:text-slate-400 bg-transparent focus:outline-none uppercase"
                       />
                     </div>
@@ -2128,54 +2104,14 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                   )}
                 </div>
 
-                {/* Razorpay Admin Action Selector (when 25% or 100% selected) */}
                 {paymentPlan !== "later" && (
-                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5 fade-slide-in">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Razorpay Collection Mode</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      <label
-                        onClick={() => setRazorpayMode("link")}
-                        className={`flex items-start gap-2.5 p-3 rounded-xl cursor-pointer transition-all ${
-                          razorpayMode === "link" ? "border-2 border-[#2563EB] bg-white" : "border border-slate-200 bg-white hover:border-slate-300"
-                        }`}
-                      >
-                        <Icon name="send" size={16} className="text-[#2563EB] shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-xs font-bold text-slate-900">Send Razorpay Payment Link</p>
-                          <p className="text-[11px] text-slate-500">WhatsApp / SMS link to customer mobile</p>
-                        </div>
-                      </label>
-
-                      <label
-                        onClick={() => setRazorpayMode("checkout")}
-                        className={`flex items-start gap-2.5 p-3 rounded-xl cursor-pointer transition-all ${
-                          razorpayMode === "checkout" ? "border-2 border-[#2563EB] bg-white" : "border border-slate-200 bg-white hover:border-slate-300"
-                        }`}
-                      >
-                        <Icon name="credit-card" size={16} className="text-slate-500 shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-xs font-bold text-slate-900">Pay Now via Razorpay Checkout</p>
-                          <p className="text-[11px] text-slate-500">Collect instantly via UPI / Card / Netbanking</p>
-                        </div>
-                      </label>
-                    </div>
-                  </div>
+                  <p className="text-[11px] text-slate-600 px-1">
+                    A Razorpay payment link for {rupee(payNowAmount)} is created after the booking is saved. The booking is marked paid only after Razorpay confirms the payment.
+                  </p>
                 )}
 
                 {/* Auto-notify & Terms checkboxes */}
                 <div className="space-y-2">
-                  <label className="flex items-center gap-2.5 p-3 rounded-xl bg-emerald-50/70 border border-emerald-200/70 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={sendWhatsapp}
-                      onChange={(e) => setSendWhatsapp(e.target.checked)}
-                      className="w-4 h-4 accent-emerald-600 rounded"
-                    />
-                    <span className="text-xs font-medium text-emerald-900">
-                      Send instant booking confirmation via <strong>WhatsApp &amp; SMS</strong> to customer
-                    </span>
-                  </label>
-
                   <label className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200/80 cursor-pointer select-none">
                     <input
                       type="checkbox"
@@ -2192,13 +2128,13 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
 
               {/* Notice / Errors */}
               {errorNotice && (
-                <div className="px-3.5 py-2.5 rounded-xl text-xs font-medium flex items-center gap-2 bg-amber-50 text-amber-800 border border-amber-200 fade-slide-in">
+                <div role="alert" className="px-3.5 py-2.5 rounded-xl text-xs font-medium flex items-center gap-2 bg-amber-50 text-amber-800 border border-amber-200 fade-slide-in">
                   <Icon name="circle-alert" size={16} className="text-amber-600 shrink-0" />
                   <span>{errorNotice}</span>
                 </div>
               )}
 
-              {/* Step 3 Navigation & Dynamic Confirm CTA */}
+              {/* Step 3 navigation and confirmation */}
               <div className="flex items-center justify-between gap-3 pt-1">
                 <button
                   type="button"
@@ -2210,25 +2146,19 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                 </button>
                 <button
                   type="button"
-                  disabled={busy}
-                  onClick={() => {
-                    if (paymentPlan !== "later" && razorpayMode === "checkout") {
-                      setRzpModalOpen(true);
-                    } else {
-                      handleConfirmBooking();
-                    }
-                  }}
-                  className={`flex-1 sm:flex-none sm:min-w-[260px] text-white font-semibold text-sm py-3.5 px-6 rounded-xl shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50 ${
+                  disabled={busy || !currentCalc}
+                  onClick={() => void handleConfirmBooking()}
+                  className={`flex-1 @min-[640px]:flex-none @min-[640px]:min-w-[280px] h-12 text-white font-semibold text-sm px-6 rounded-xl shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50 ${
                     paymentPlan === "later" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-[#2563EB] hover:bg-blue-700"
                   }`}
                 >
                   <Icon name="check-circle-2" size={16} />
                   <span>
-                    {paymentPlan === "later"
-                      ? "Confirm Booking (Pay ₹0 Now)"
-                      : razorpayMode === "link"
-                      ? `Confirm & Send Razorpay Link (${rupee(payNowAmount)})`
-                      : `Pay ${rupee(payNowAmount)} via Razorpay & Confirm`}
+                    {busy
+                      ? "Saving booking…"
+                      : paymentPlan === "later"
+                      ? "Confirm Booking"
+                      : `Confirm & Create Payment Link (${rupee(payNowAmount)})`}
                   </span>
                 </button>
               </div>
@@ -2253,18 +2183,18 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                     {confirmedBooking.paymentBadge}
                   </span>
                 </div>
-                <h2 className="text-lg font-bold text-slate-900">Booking Confirmed!</h2>
-                <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-                  Booked under {BRANDS.find((b) => b.id === brand)?.label}. {sendWhatsapp ? "WhatsApp & SMS confirmation queued for the customer." : "Ready for driver assignment."}
-                </p>
+                <h2 className="text-lg font-bold text-slate-900">Booking saved</h2>
+                <p className="text-xs text-slate-500 mt-1">Saved under {BRANDS.find((b) => b.id === brand)?.label}.</p>
               </div>
 
-              {/* Copyable Razorpay Payment Link Box */}
-              {paymentPlan !== "later" && !confirmedBooking.razorpayPaymentId && confirmedBooking.razorpayLinkUrl && (
-                <div className="max-w-md mx-auto p-3 rounded-xl bg-blue-50/70 border border-blue-200 flex items-center justify-between gap-2 text-left">
+              {/* Real payment link (created by the server after the booking was saved) */}
+              {confirmedBooking.paymentLink && (
+                <div className="max-w-xl mx-auto p-3 rounded-xl bg-blue-50/70 border border-blue-200 flex items-center justify-between gap-2 text-left">
                   <div className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-600">Razorpay Payment Link</p>
-                    <p className="text-xs font-semibold text-slate-800 truncate">{confirmedBooking.razorpayLinkUrl}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-600">
+                      Razorpay payment link · {confirmedBooking.paymentLink.delivered ? "sent to the customer" : "not sent automatically — copy and share it"}
+                    </p>
+                    <p className="text-xs font-semibold text-slate-800 truncate">{confirmedBooking.paymentLink.url}</p>
                   </div>
                   <button
                     type="button"
@@ -2275,9 +2205,14 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                   </button>
                 </div>
               )}
+              {confirmedBooking.paymentLinkError && (
+                <div role="alert" className="max-w-xl mx-auto p-3 rounded-xl bg-amber-50 border border-amber-200 text-left text-xs text-amber-900">
+                  The booking is saved, but the payment link was not created: {confirmedBooking.paymentLinkError} Create it later from the booking.
+                </div>
+              )}
 
               {/* Booking Summary Box */}
-              <div className="max-w-md mx-auto p-4 rounded-xl bg-slate-50 border border-slate-200/80 text-left space-y-1.5 text-xs">
+              <div className="max-w-xl mx-auto p-4 rounded-xl bg-slate-50 border border-slate-200/80 text-left space-y-1.5 text-xs">
                 <div className="flex justify-between gap-2">
                   <span className="text-slate-500">Route</span>
                   <span className="font-semibold text-slate-800 text-right">{confirmedBooking.route}</span>
@@ -2302,16 +2237,10 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                     <span className="font-semibold text-amber-800 text-right">{confirmedBooking.driverNote}</span>
                   </div>
                 )}
-                {confirmedBooking.razorpayPaymentId && (
-                  <div className="flex justify-between gap-2">
-                    <span className="text-slate-500">Razorpay Payment ID</span>
-                    <span className="font-mono font-semibold text-blue-700 text-right">{confirmedBooking.razorpayPaymentId}</span>
-                  </div>
-                )}
                 <div className="flex justify-between gap-2 pt-1.5 border-t border-slate-200/70">
                   <span className="text-slate-500">Total Fare</span>
                   <span className="font-bold text-emerald-700 text-sm text-right">
-                    {rupee(confirmedBooking.fare)} {paymentPlan === "partial" ? `(Paid/Due: ${rupee(payNowAmount)})` : ""}
+                    {rupee(confirmedBooking.fare)}{paymentPlan !== "later" ? ` (link for ${rupee(payNowAmount)})` : ""}
                   </span>
                 </div>
               </div>
@@ -2345,92 +2274,6 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
             </div>
           )}
         </div>
-      </main>
-
-      {/* ========================================================= */}
-      {/* SIMULATED RAZORPAY CHECKOUT MODAL                         */}
-      {/* ========================================================= */}
-      {rzpModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden fade-slide-in">
-            <div className="bg-[#0B2239] text-white px-5 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center font-bold text-sm text-white">
-                  NC
-                </div>
-                <div>
-                  <p className="text-sm font-bold leading-tight">{BRANDS.find((b) => b.id === brand)?.label}</p>
-                  <p className="text-[11px] text-sky-300 flex items-center gap-1 mt-0.5">
-                    <Icon name="shield-check" size={12} />
-                    <span>Razorpay Trusted Business</span>
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setRzpModalOpen(false)}
-                className="text-slate-300 hover:text-white p-1"
-                aria-label="Close Razorpay modal"
-              >
-                <Icon name="x" size={20} />
-              </button>
-            </div>
-
-            <div className="px-5 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500">Payable Amount</span>
-              <span className="text-lg font-bold text-slate-900">{rupee(payNowAmount)}</span>
-            </div>
-
-            <div className="p-5 space-y-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Select Payment Method</p>
-
-              <div className="space-y-2">
-                {[
-                  { id: "UPI / QR", label: "UPI / GPay / PhonePe", desc: "Instant verification via UPI ID or QR", icon: "smartphone" as const },
-                  { id: "Card", label: "Credit / Debit Card", desc: "Visa, MasterCard, RuPay", icon: "credit-card" as const },
-                  { id: "Netbanking", label: "Netbanking", desc: "HDFC, SBI, ICICI, Axis & more", icon: "landmark" as const },
-                ].map((method) => {
-                  const isSelected = rzpMethod === method.id;
-                  return (
-                    <label
-                      key={method.id}
-                      onClick={() => setRzpMethod(method.id)}
-                      className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all ${
-                        isSelected ? "border-2 border-[#2563EB] bg-blue-50/30" : "border border-slate-200 hover:bg-slate-50"
-                      }`}
-                    >
-                      <input type="radio" name="rzpMethod" checked={isSelected} onChange={() => setRzpMethod(method.id)} className="accent-[#2563EB]" />
-                      <Icon name={method.icon} size={16} className={isSelected ? "text-[#2563EB]" : "text-slate-500"} />
-                      <div>
-                        <p className="text-xs font-bold text-slate-900">{method.label}</p>
-                        <p className="text-[10px] text-slate-500">{method.desc}</p>
-                      </div>
-                    </label>
-                  );
-                })}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-                  let rand = "";
-                  for (let i = 0; i < 8; i++) rand += chars[Math.floor(Math.random() * chars.length)];
-                  const payId = `pay_NsmRzp${rand}`;
-                  setRzpModalOpen(false);
-                  handleConfirmBooking(payId);
-                }}
-                className="w-full mt-2 bg-[#2563EB] hover:bg-blue-700 text-white font-semibold text-sm py-3.5 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2"
-              >
-                <Icon name="lock" size={16} />
-                <span>Pay {rupee(payNowAmount)}</span>
-              </button>
-
-              <p className="text-[10px] text-center text-slate-400">Secured by 256-bit SSL encryption • Razorpay</p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ========================================================= */}
       {/* RENTAL DURATION MODAL / BOTTOM-SHEET                      */}
@@ -2454,7 +2297,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                 </button>
               </div>
               <p className="text-xs sm:text-sm text-slate-500 mt-1.5 leading-relaxed">
-                Choose from 1 to 15 hours, then continue to choose your cab.
+                Choose 1 to 15 hours.
               </p>
 
               <div className="grid grid-cols-3 gap-2.5 mt-4">
@@ -2467,6 +2310,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                       onClick={() => {
                         setRentalHours(h);
                         setRentalModalOpen(false);
+                        setEstimates(null);
                       }}
                       className={`py-3 px-2 rounded-2xl text-xs sm:text-sm transition-all ${
                         isSelected
@@ -2484,39 +2328,16 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
         </div>
       )}
 
-      {/* ========================================================= */}
-      {/* MAP LOCATION PICKER MODAL                                 */}
-      {/* ========================================================= */}
+      {/* Pickup / drop on the map: the shared admin map dialog (same provider, search and reverse geocoding as Quick Fare). */}
       {mapPickerTarget !== null && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl overflow-hidden p-4 space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <h3 className="text-sm font-bold text-slate-900">
-                Confirm {mapPickerTarget === "pickup" ? "Pickup Point" : "Drop Destination"} on Map
-              </h3>
-              <button type="button" onClick={() => setMapPickerTarget(null)} className="p-1 text-slate-400 hover:text-slate-700">
-                <Icon name="x" size={18} />
-              </button>
-            </div>
-            <MapLocationPicker
-              label={mapPickerTarget === "pickup" ? pickupText || "Pickup" : dropText || "Drop"}
-              tone={mapPickerTarget === "pickup" ? "pickup" : "drop"}
-              value={mapPickerTarget === "pickup" ? pickupPoint : dropPoint}
-              startNear={mapPickerTarget === "drop" ? pickupPoint : undefined}
-              onChange={(p) => {
-                if (mapPickerTarget === "pickup") {
-                  setPickupPoint(p);
-                  if (p?.name) setPickupText(p.name);
-                } else if (mapPickerTarget === "drop") {
-                  setDropPoint(p);
-                  if (p?.name) setDropText(p.name);
-                }
-                setMapPickerTarget(null);
-                setEstimates(null);
-              }}
-            />
-          </div>
-        </div>
+        <MapPickerDialog
+          side={mapPickerTarget}
+          value={mapPickerTarget === "pickup" ? pickupPoint : dropPoint}
+          startNear={mapPickerTarget === "drop" ? pickupPoint : dropPoint}
+          saved={allLocations}
+          onChange={(p) => applyPickedPoint(mapPickerTarget, p)}
+          onClose={() => setMapPickerTarget(null)}
+        />
       )}
 
       {/* Save Enquiry Dialog (retained from production) */}

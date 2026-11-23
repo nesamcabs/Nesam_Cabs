@@ -9,7 +9,11 @@ const stack: symbol[] = [];
  * The reference's backdrop with a right-hand drawer or a centred dialog. Focus moves in, Tab stays inside,
  * Escape closes only the top layer, and focus returns to the control that opened it.
  */
-export function Layer({ kind, title, onClose, busy, children, labelledBy }: { kind: "drawer" | "dialog"; title: string; onClose: () => void; busy?: boolean; children: ReactNode; labelledBy?: string }) {
+export function Layer({ kind, title, onClose, busy, children, labelledBy, size }: {
+  kind: "drawer" | "dialog"; title: string; onClose: () => void; busy?: boolean; children: ReactNode; labelledBy?: string;
+  /** "form": a wider dialog whose header and footer stay put while its form scrolls (short screens). */
+  size?: "form";
+}) {
   const panel = useRef<HTMLDivElement>(null);
   const me = useRef(Symbol("layer"));
   const closeRef = useRef(onClose);
@@ -44,7 +48,7 @@ export function Layer({ kind, title, onClose, busy, children, labelledBy }: { ki
 
   return createPortal(
     <div className="cd-layer" data-kind={kind} onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onClose(); }}>
-      <div ref={panel} role="dialog" aria-modal="true" aria-label={labelledBy ? undefined : title} aria-labelledby={labelledBy} tabIndex={-1} className={kind === "drawer" ? "cd-drawer cd-drawer-in" : "cd-dialog cd-fade-in"}>
+      <div ref={panel} role="dialog" aria-modal="true" aria-label={labelledBy ? undefined : title} aria-labelledby={labelledBy} tabIndex={-1} className={kind === "drawer" ? "cd-drawer cd-drawer-in" : `cd-dialog cd-fade-in${size === "form" ? " cd-dialog--form" : ""}`}>
         {children}
       </div>
     </div>,

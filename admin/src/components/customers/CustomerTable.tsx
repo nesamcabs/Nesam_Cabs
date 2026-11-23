@@ -95,7 +95,7 @@ export function CustomerTable({ rows, selected, onToggle, onTogglePage, a }: { r
                 </td>
                 <td className="py-3.5 px-5 align-top text-right">
                   <div className="inline-flex items-center gap-1.5">
-                    {s.outstanding > 0.004 && <button type="button" onClick={() => a.onRemind(r)} title="Copy WhatsApp payment reminder" className="px-2 py-1.5 rounded-lg text-[11px] leading-4 font-semibold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200/80">Remind</button>}
+                    {s.outstanding > 0.004 && <button type="button" onClick={() => a.onRemind(r)} title="Copy a WhatsApp payment reminder to send yourself (it is not sent)" aria-label={`Copy payment reminder for ${r.c.name}`} className="px-2 py-1.5 rounded-lg text-[11px] leading-4 font-semibold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200/80 whitespace-nowrap">Copy reminder</button>}
                     {a.canBook && !isBlockedStatus(c.status) && <button type="button" onClick={() => a.onBook(r)} className="px-2.5 py-1.5 rounded-lg text-[11px] leading-4 font-semibold bg-crimson-50 hover:bg-crimson-100 text-crimson-800 border border-crimson-200/70">+ Book</button>}
                     <button type="button" onClick={() => a.onView(r)} className="px-2.5 py-1.5 rounded-lg text-[11px] leading-4 font-semibold bg-white border border-slate-200 hover:bg-slate-50 text-slate-800">View</button>
                     <MenuButton iconOnly label={`More actions for ${c.name}`} items={[
