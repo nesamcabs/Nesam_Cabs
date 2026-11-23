@@ -40,9 +40,9 @@ const ICON = "w-[19px] h-[19px] shrink-0";
  *   Quick Fare · New Booking · | · Lock · Logout · Security · Profile
  *   XS  < 740px    phones    rows: menu · alerts · status | desk · source | search · Quick Fare · New Booking · utilities
  *                            (under 520px the utilities take a fourth row, right-aligned)
- *   S   740–1279   tablets, laptops with the sidebar open   2 rows: alerts … source | search … profile
- *   M   1280–1499  one row; short desk names, Quick Fare as an icon, 184px search
- *   L   ≥ 1500     one row; every label, 220px search with the shortcut hint (profile name from 1680)
+ *   S   740–1339   tablets, laptops with the sidebar open   2 rows: alerts … source | search … profile
+ *   M   1340–1539  one row; short desk names, 176px search, Quick Fare and New Booking labelled
+ *   L   ≥ 1540     one row; every label, 220px search with the shortcut hint (profile name from 1680)
  * Controls are 40px tall (36px only on the narrowest phones, under 330px).
  */
 const SIZE = "h-10 @max-[330px]:h-9";
@@ -87,7 +87,7 @@ function StatusCount({ icon: Icon, label, value, loading, error, iconClass, desc
   const text = error ? `${label}: bookings could not be loaded (${error}). Open Bookings.` : loading ? `${label}: loading. Open Bookings.` : `${description}. Open Bookings.`;
   return (
     <button type="button" onClick={onClick} title={text} aria-label={text} aria-busy={loading || undefined}
-      className={`inline-flex items-center gap-1.5 @max-[330px]:gap-1 h-9 @max-[330px]:h-8 px-1.5 @min-[1500px]:px-2.5 rounded-lg text-slate-700 hover:bg-white hover:text-slate-900 ${FOCUS} transition-colors`}>
+      className={`inline-flex items-center gap-1.5 @max-[330px]:gap-1 h-9 @max-[330px]:h-8 px-1.5 @min-[1540px]:px-2.5 rounded-lg text-slate-700 hover:bg-white hover:text-slate-900 ${FOCUS} transition-colors`}>
       {/* The narrowest phones keep the words and counts; the icons give way first. */}
       <Icon className={`${ICON} ${iconClass} @max-[380px]:hidden`} strokeWidth={STROKE} aria-hidden="true" />
       <span className="text-[13px] font-medium whitespace-nowrap">{label}</span>
@@ -150,7 +150,7 @@ export default function Header({ title, onNavigate, onOpen, onCreateBooking, onQ
       {/* 72px tall in one row (the shell's --size-header); 2–3 rows on narrower widths, in the same order. */}
       <div className="@container min-h-[calc(var(--size-header)-1px)] flex flex-col justify-center px-3 py-2.5 sm:px-4 lg:px-5">
         {/* Rows meet at the zero-height line breaks below, so 4px + 4px of row gap makes 8px between rows. */}
-        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 @max-[330px]:gap-x-1 @min-[1280px]:flex-nowrap">
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 @max-[330px]:gap-x-1 @min-[1340px]:flex-nowrap">
           {/* Below 1024px the navigation lives in a drawer; its toggle opens the row there. */}
           <button type="button" onClick={onOpenMenu} aria-label="Open navigation menu" title="Menu" className={`${ICON_BUTTON} lg:hidden`}>
             <Menu className={ICON} strokeWidth={STROKE} aria-hidden="true" />
@@ -197,16 +197,16 @@ export default function Header({ title, onNavigate, onOpen, onCreateBooking, onQ
                   const on = desk.desk === d.id;
                   return (
                     <button key={d.id} type="button" aria-pressed={on} onClick={() => desk.selectDesk(d.id)} title={`Open the Dashboard on the ${d.label}`}
-                      className={`h-full px-2 @min-[740px]:px-2.5 @min-[1280px]:px-2 @min-[1500px]:px-3 rounded-lg text-[13px] whitespace-nowrap ${FOCUS} transition-colors ${on ? "bg-white text-[var(--color-brand)] font-bold shadow-xs" : "text-slate-500 font-semibold hover:text-slate-800"}`}>
+                      className={`h-full px-2 @min-[740px]:px-2.5 @min-[1340px]:px-2 @min-[1540px]:px-3 rounded-lg text-[13px] whitespace-nowrap ${FOCUS} transition-colors ${on ? "bg-white text-[var(--color-brand)] font-bold shadow-xs" : "text-slate-500 font-semibold hover:text-slate-800"}`}>
                       {/* Phones and the compact one-row tier show "Command" / "Dispatch"; the full name stays in the accessible name. */}
-                      {d.label.replace(" Desk", "")}<span className="@max-[740px]:sr-only @min-[1280px]:@max-[1499px]:sr-only"> Desk</span>
+                      {d.label.replace(" Desk", "")}<span className="@max-[740px]:sr-only @min-[1340px]:@max-[1539px]:sr-only"> Desk</span>
                     </button>
                   );
                 })}
               </div>
 
               {/* 4 · Booking source for the Dashboard: kept while navigating */}
-              <label className={`relative inline-flex items-center flex-1 min-w-[112px] max-w-[320px] @min-[1280px]:flex-none @min-[1280px]:w-[168px] @min-[1500px]:w-[200px] ${SIZE} rounded-xl border transition-colors focus-within:border-[var(--color-brand)] focus-within:bg-white focus-within:ring-2 focus-within:ring-[var(--color-brand)]/20 ${desk.source !== "ALL" ? "border-[var(--color-brand)]/45 bg-[var(--color-brand-soft)] text-[var(--color-brand)]" : "border-slate-200/90 bg-slate-50 text-slate-700 hover:bg-white hover:border-slate-300"}`}
+              <label className={`relative inline-flex items-center flex-1 min-w-[112px] max-w-[320px] @min-[1340px]:flex-auto @min-[1340px]:min-w-[160px] @min-[1340px]:max-w-[184px] @min-[1540px]:min-w-[188px] @min-[1540px]:max-w-[220px] ${SIZE} rounded-xl border transition-colors focus-within:border-[var(--color-brand)] focus-within:bg-white focus-within:ring-2 focus-within:ring-[var(--color-brand)]/20 ${desk.source !== "ALL" ? "border-[var(--color-brand)]/45 bg-[var(--color-brand-soft)] text-[var(--color-brand)]" : "border-slate-200/90 bg-slate-50 text-slate-700 hover:bg-white hover:border-slate-300"}`}
                 title={bookingsError ? `Dashboard booking source (counts unavailable: ${bookingsError})` : `Dashboard booking source: ${sourceLabel(desk.source, SOURCE_CHOICES.find((c) => c.value === desk.source)?.name ?? "All Sources")}`}>
                 <ListFilter className="absolute left-3 w-4 h-4 pointer-events-none @max-[380px]:hidden" strokeWidth={STROKE} aria-hidden="true" />
                 <select aria-label="Booking source" value={desk.source} onChange={(e) => desk.setSource(e.target.value as SourceScope)}
@@ -220,26 +220,26 @@ export default function Header({ title, onNavigate, onOpen, onCreateBooking, onQ
           )}
 
           {/* S / XS: the actions start the next row. L / XL: flexible space pushes them to the right edge. */}
-          <span aria-hidden="true" className="basis-full h-0 @min-[1280px]:hidden" />
-          <span aria-hidden="true" className="hidden @min-[1280px]:block flex-1 min-w-0" />
+          <span aria-hidden="true" className="basis-full h-0 @min-[1340px]:hidden" />
+          <span aria-hidden="true" className="hidden @min-[1340px]:block flex-1 min-w-0" />
 
           {/* 5 · Search records: an input-style trigger for the one global search dialog (Ctrl/⌘ K) */}
           <button type="button" onClick={() => setSheet("search")} aria-label="Search records" aria-keyshortcuts="Control+K Meta+K" aria-haspopup="dialog"
             title={`Search bookings, drivers, vendors and customers (${isMac ? "⌘K" : "Ctrl+K"})`}
             className={`group inline-flex items-center gap-2 ${SIZE} pl-3 pr-2.5 rounded-xl border border-slate-200/90 bg-slate-50 text-left cursor-text
               hover:bg-white hover:border-slate-300 ${FOCUS} focus-visible:bg-white focus-visible:border-[var(--color-brand)] transition-colors
-              flex-1 min-w-0 @min-[740px]:min-w-[200px] @min-[1280px]:flex-none @min-[1280px]:min-w-0 @min-[1280px]:w-[184px] @min-[1500px]:w-[220px]`}>
+              flex-1 min-w-0 @min-[740px]:min-w-[200px] @min-[1340px]:flex-none @min-[1340px]:min-w-0 @min-[1340px]:w-[176px] @min-[1540px]:w-[220px]`}>
             <Search className="w-[18px] h-[18px] shrink-0 text-slate-400 group-hover:text-slate-500" strokeWidth={STROKE} aria-hidden="true" />
             <span className="flex-1 min-w-0 text-[13px] font-medium text-slate-500 truncate">Search records…</span>
-            <kbd className="hidden @min-[1500px]:inline shrink-0 px-1.5 py-0.5 rounded-md border border-slate-200 bg-white text-[10.5px] font-semibold text-slate-400">{isMac ? "⌘K" : "Ctrl K"}</kbd>
+            <kbd className="hidden @min-[1540px]:inline shrink-0 px-1.5 py-0.5 rounded-md border border-slate-200 bg-white text-[10.5px] font-semibold text-slate-400">{isMac ? "⌘K" : "Ctrl K"}</kbd>
           </button>
 
           {/* 6 · Quick Fare */}
           {onQuickFare && (
             <button type="button" onClick={onQuickFare} aria-label="Quick Fare" title="Quick Fare · check a fare"
-              className={`${CRIMSON} ${SQUARE} @min-[740px]:w-auto @min-[740px]:px-4 @min-[1280px]:w-10 @min-[1280px]:px-0 @min-[1500px]:w-auto @min-[1500px]:px-4`}>
+              className={`${CRIMSON} ${SQUARE} @min-[740px]:w-auto @min-[740px]:px-4 @min-[1340px]:px-3.5 @min-[1540px]:px-4`}>
               <Calculator className={ICON} strokeWidth={STROKE} aria-hidden="true" />
-              <span className="whitespace-nowrap hidden @min-[740px]:inline @min-[1280px]:hidden @min-[1500px]:inline">Quick Fare</span>
+              <span className="whitespace-nowrap hidden @min-[740px]:inline">Quick Fare</span>
             </button>
           )}
 
