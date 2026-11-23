@@ -28,6 +28,11 @@ export interface PickedPoint extends LatLng {
   confirmed: boolean;
   /** Id of the chosen search suggestion, when the point came from one. */
   placeId?: string;
+  /**
+   * false while the address of a clicked / dragged pin is still being looked up, or when the lookup found no address
+   * (the address then holds the coordinates). Absent for saved locations and search results.
+   */
+  resolved?: boolean;
 }
 
 interface Props {
@@ -86,18 +91,19 @@ export default function MapLocationPicker({ label, value, onChange, tone = "pick
     if (googleMarkerRef.current) { googleMarkerRef.current.setPosition(p); googleMarkerRef.current.setVisible(true); }
     if (pan && googleMapRef.current) { googleMapRef.current.setCenter(p); googleMapRef.current.setZoom(Math.max(googleMapRef.current.getZoom() ?? 0, 16)); }
     if (known) {
-      onChangeRef.current({ ...p, ...known, confirmed: false });
+      onChangeRef.current({ ...p, ...known, confirmed: false, resolved: true });
       return;
     }
-    // Keep the pin and show the coordinates straight away; the address follows.
-    onChangeRef.current({ ...p, name: valueRef.current?.name ?? "Pinned location", address: valueRef.current?.address ?? "", type: "other", confirmed: false });
+    // Keep the pin and show the coordinates straight away; the address follows. The previous point's address is never
+    // carried over to the new pin.
+    onChangeRef.current({ ...p, name: "Pinned location", address: "", type: "other", confirmed: false, resolved: false });
     geoAbort.current?.abort();
     const ctl = new AbortController();
     geoAbort.current = ctl;
     setResolving(true);
     try {
       const r = await reverseGeocode(p, ctl.signal);
-      onChangeRef.current({ ...p, name: r.name, address: r.address, type: "other", confirmed: false });
+      onChangeRef.current({ ...p, name: r.name, address: r.address, type: "other", confirmed: false, resolved: r.resolved });
     } catch {
       /* superseded by a newer move */
     } finally {
@@ -266,7 +272,7 @@ export default function MapLocationPicker({ label, value, onChange, tone = "pick
             <span className="block text-xs font-semibold text-body mb-1">Address {resolving && <em className="font-normal text-muted">(finding address…)</em>}</span>
             <textarea
               value={value.address}
-              onChange={(e) => onChange({ ...value, address: e.target.value, confirmed: false })}
+              onChange={(e) => onChange({ ...value, address: e.target.value, confirmed: false, resolved: e.target.value.trim().length >= 3 })}
               disabled={disabled}
               rows={2}
               maxLength={300}

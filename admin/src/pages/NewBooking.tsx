@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { Customer, VehicleCategory, MasterLocation } from "../types";
 import { subscribeCustomers } from "../services/adminFirestoreService";
 import {
-  COUNTRY_CODES, PAYMENT_METHODS, createAdminBooking, emailError, emptyManualBooking, newRequestId, normalizePhone, quoteAdminBooking, whatsappError,
+  COUNTRY_CODES, PAYMENT_METHODS, createAdminBooking, emailError, emptyManualBooking, newRequestId, normalizePhone, pointFromLocation, quoteAdminBooking, whatsappError,
   type CreatedAdminBooking, type ManualBookingForm,
 } from "../services/adminBookingService";
 import { ActionError } from "../services/callables";
@@ -10,16 +10,19 @@ import { createBookingPaymentLink, markEnquiryConverted, isMulticityEnquiry, MUL
 import { getTripPaymentOptions } from "../services/bookingOpsService";
 import { useCan, useStaffFlag } from "../components/AccessContext";
 import { Toast, useToast } from "../components/Feedback";
-import MapLocationPicker, { type PickedPoint } from "../components/MapLocationPicker";
+import { type PickedPoint } from "../components/MapLocationPicker";
+import MapPickerDialog from "../components/quickFareDesk/MapPickerDialog";
+import { pickedForBooking, pinNeedsAddress } from "../domain/bookingPoints";
 import { Icon } from "../components/ui";
 import {
   SaveEnquiryDialog, emptyTrip, estimateAll,
   tripPickupAt, tripEndAt, useQuickData, validateTrip, type CategoryEstimate, type QuickTrip,
 } from "../components/booking/QuickFare";
 import { rupee } from "../domain/officeStage";
+import { cabCategoryBadge, cabDisplayName } from "../domain/categoryLabel";
 import { formatClock12, isoDateIST } from "../utils/time";
 import { copyText } from "../utils/clipboard";
-import { ArrowRight, Calculator, CarFront, ClipboardCheck, Check, Fuel, IndianRupee, Leaf, Route } from "lucide-react";
+import { ArrowRight, Calculator, Check, Fuel, Leaf } from "lucide-react";
 
 export interface NewBookingDraft {
   trip?: QuickTrip;
@@ -52,17 +55,14 @@ const TRIP_TABS: { id: TripTypeTab; label: string; icon: "arrow-right" | "arrow-
   { id: "Local", label: "Local", icon: "map-pin" },
 ];
 
-/** A typed place → the matching master location (Service & Fare Settings › Locations); null when none matches. */
-function lookupCoord(text: string, locations?: MasterLocation[]): { lat: number; lng: number; name: string; type: "airport" | "other" } | null {
-  if (!text) return null;
-  const lower = text.toLowerCase().trim();
+/** A typed place → the matching saved location (Service & Fare Settings › Locations) in the booking's point format; null when none matches. */
+function placeFor(text: string, locations?: MasterLocation[]): PickedPoint | null {
+  const lower = (text || "").toLowerCase().trim();
   if (!lower || !locations?.length) return null;
   const loc = locations.find((l) => l.name.toLowerCase() === lower) ?? locations.find((l) => l.name.toLowerCase().includes(lower) || lower.includes(l.name.toLowerCase()));
-  if (loc && typeof loc.lat === "number" && typeof loc.lng === "number") {
-    return { lat: loc.lat, lng: loc.lng, name: loc.name, type: loc.type === "Airport" ? "airport" : "other" };
-  }
-  return null;
+  return loc && typeof loc.lat === "number" && typeof loc.lng === "number" ? pointFromLocation(loc) : null;
 }
+
 
 function formatDuration(totalMins: number): string {
   const hrs = Math.floor(totalMins / 60);
@@ -81,23 +81,52 @@ function formatDateDDMMYYYY(isoDate: string): string {
 /** Pickup times offered at the desk: stored as 24-hour "HH:mm" (what the quote and booking expect), shown on a 12-hour clock. */
 const TIME_VALUES = ["05:00", "06:00", "06:30", "07:00", "07:30", "08:00", "08:30", "09:00", "09:30", "10:00", "11:00", "12:00", "14:00", "15:00", "16:00", "18:00", "20:00", "22:00"];
 
+const PIN_ADDRESS_MESSAGE = "No address was found for this map pin. Open Map and type the address under the map, or choose the place from the list.";
+
 const DISPOSAL_ID = "place-local-disposal";
 const DISPOSAL_NAME = "Local City Disposal";
 const disposalFor = (p: PickedPoint): PickedPoint => ({
   lat: p.lat + 0.04, lng: p.lng + 0.04, name: DISPOSAL_NAME, address: `${p.name} & City Limits (Within city disposal)`, type: "other", confirmed: true, placeId: DISPOSAL_ID,
 });
 
-/** Step icons (approved set): route with connected markers · cab with a fare tag · clipboard check. 18–20px, one stroke width. */
+/** Step icons (approved set), drawn inline: 20px, 1.75px rounded strokes in the current text colour. */
+const STROKE = { fill: "none", stroke: "currentColor", strokeWidth: 1.75, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
 function StepGlyph({ kind, state }: { kind: "trip" | "cab" | "review"; state: "active" | "done" | "upcoming" }) {
-  if (kind === "trip") return <Route className="w-[19px] h-[19px]" strokeWidth={2} aria-hidden="true" />;
-  if (kind === "review") return <ClipboardCheck className="w-[19px] h-[19px]" strokeWidth={2} aria-hidden="true" />;
+  if (kind === "trip") {
+    // Route path from an origin dot to a destination pin.
+    return (
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+        <circle cx="5.5" cy="18" r="2.25" {...STROKE} />
+        <path d="M7.75 18h6.5a3.25 3.25 0 0 0 0-6.5h-4.5a3.25 3.25 0 0 1 0-6.5h1.5" {...STROKE} />
+        <path d="M17.5 9.5c-1.9-1.85-2.85-3.3-2.85-4.4a2.85 2.85 0 0 1 5.7 0c0 1.1-.95 2.55-2.85 4.4Z" {...STROKE} />
+        <circle cx="17.5" cy="5.1" r=".6" fill="currentColor" />
+      </svg>
+    );
+  }
+  if (kind === "review") {
+    // Checklist with a completed check.
+    return (
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+        <rect x="5" y="4" width="14" height="17" rx="2.25" {...STROKE} />
+        <path d="M9 3h6v2.5H9z" {...STROKE} />
+        <path d="M8.5 10.5h7M8.5 14h3.5" {...STROKE} />
+        <path d="m12.75 17.25 1.75 1.75 3.25-3.5" {...STROKE} />
+      </svg>
+    );
+  }
+  // Cab with a small fare badge.
+  const badge = state === "active" ? "#ffffff" : state === "done" ? "#991b1b" : "#94a3b8";
+  const glyph = state === "active" ? "#991b1b" : "#ffffff";
   return (
-    <span className="relative inline-flex" aria-hidden="true">
-      <CarFront className="w-[19px] h-[19px]" strokeWidth={2} />
-      <span className={`absolute -right-1.5 -bottom-1 w-3 h-3 rounded-[3px] flex items-center justify-center ${state === "active" ? "bg-white text-[#991B1B]" : state === "done" ? "bg-[#991B1B] text-white" : "bg-slate-400 text-white"}`}>
-        <IndianRupee className="w-2.5 h-2.5" strokeWidth={3} />
-      </span>
-    </span>
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+      <path d="M4 14.5v-3l1.6-4.2A2 2 0 0 1 7.47 6h7.06a2 2 0 0 1 1.87 1.3L18 11.5v3" {...STROKE} />
+      <path d="M3 14.5h15v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" {...STROKE} />
+      <path d="M6 18.5V20M15 18.5V20M5.5 11.5h11" {...STROKE} />
+      <circle cx="6.5" cy="15.75" r=".75" fill="currentColor" />
+      <circle cx="14.5" cy="15.75" r=".75" fill="currentColor" />
+      <rect x="15.25" y="2.5" width="7.5" height="6.5" rx="1.75" fill={badge} />
+      <path d="M17.4 4.4h3.2M17.4 5.8h3.2M18.9 4.4c.9 0 1.3.5 1.3 1.05 0 .6-.5 1.1-1.5 1.1h-.6l2 1.35" fill="none" stroke={glyph} strokeWidth={0.9} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 
@@ -158,8 +187,9 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
   const [roundTripDays, setRoundTripDays] = useState(() => draft?.trip?.days ?? 1);
   const [swapSpinning, setSwapSpinning] = useState(false);
 
-  // Map Picker Modal
-  const [mapPickerTarget, setMapPickerTarget] = useState<"pickup" | "drop" | number | null>(null);
+  // Map picker (the shared admin map dialog) and pin address problems shown under each location field
+  const [mapPickerTarget, setMapPickerTarget] = useState<"pickup" | "drop" | null>(null);
+  const [pinError, setPinError] = useState<{ pickup?: string; drop?: string }>({});
 
   // Date & Time
   const tomorrowIso = useMemo(() => {
@@ -254,15 +284,15 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
   // Resolve points from text if points are empty
   useEffect(() => {
     if (!pickupPoint && pickupText) {
-      const p = lookupCoord(pickupText, allLocations);
-      if (p) setPickupPoint({ lat: p.lat, lng: p.lng, name: p.name, address: `${p.name}, Tamil Nadu`, type: p.type, confirmed: true });
+      const p = placeFor(pickupText, allLocations);
+      if (p) setPickupPoint(p);
     }
   }, [pickupText, pickupPoint, allLocations]);
 
   useEffect(() => {
     if (!dropPoint && dropText && tripType !== "Rental") {
-      const d = lookupCoord(dropText, allLocations);
-      if (d) setDropPoint({ lat: d.lat, lng: d.lng, name: d.name, address: `${d.name}, Tamil Nadu`, type: d.type, confirmed: true });
+      const d = placeFor(dropText, allLocations);
+      if (d) setDropPoint(d);
     }
   }, [dropText, dropPoint, tripType, allLocations]);
 
@@ -312,10 +342,10 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
       drop: effectiveDropPoint,
       stops: (tripType === "Round Trip" || tripType === "Multicity")
         ? viaStops.map((text) => {
-            const coord = lookupCoord(text, allLocations);
+            const coord = placeFor(text, allLocations);
             return {
               text,
-              point: coord ? ({ lat: coord.lat, lng: coord.lng, name: coord.name, address: `${coord.name}, Tamil Nadu`, type: coord.type, confirmed: true } as PickedPoint) : null,
+              point: coord,
             };
           })
         : [],
@@ -342,7 +372,8 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
       breakdown: q.breakup?.lines.map((l) => ({ label: l.label, amount: l.amount ?? 0 })) || [],
     };
   }, [liveQuote, tripType]);
-  const vehicleName = selectedEstimate?.category.name ?? "";
+  /** Customer-facing cab name (Vehicle categories › Display Text), the same as Quick Fare shows; the category id is unchanged. */
+  const vehicleName = selectedEstimate ? cabDisplayName(selectedEstimate.category) : "";
   /** CNG can be chosen once at least one bookable category has CNG turned on (Vehicle categories). */
   const cngOffered = data.categories.some((c) => c.cngEnabled === true);
   /** Road distance and time from the server quote (never estimated in the browser). */
@@ -410,6 +441,18 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
     return `${dt} at ${time12}`;
   }, [pickupDate, pickupTime, tripType, roundTripDays]);
 
+  /**
+   * The map dialog reports the pin as it moves and again once its address is found. The field shows that address's
+   * short name; a pin without an address shows its coordinates and asks for the address (never a generic label).
+   */
+  const applyPickedPoint = (side: "pickup" | "drop", picked: PickedPoint | null) => {
+    const { point: p, label } = pickedForBooking(picked);
+    if (side === "pickup") { setPickupPoint(p); setPickupText(label); }
+    else { setDropPoint(p); setDropText(label); }
+    setPinError((e) => ({ ...e, [side]: undefined }));
+    setEstimates(null);
+  };
+
   // Swap locations handler
   const handleSwapLocations = () => {
     setSwapSpinning(true);
@@ -420,6 +463,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
     setPickupPoint(dropPoint);
     setDropText(tempT);
     setDropPoint(tempP);
+    setPinError((e) => ({ pickup: e.drop, drop: e.pickup }));
     setTimeout(() => setSwapSpinning(false), 350);
   };
 
@@ -473,14 +517,16 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
     // Places resolve from the saved locations or a map pick; an unknown place is never given made-up coordinates.
     let pPt = pickupPoint;
     if (!pPt) {
-      const c = lookupCoord(pickupText, allLocations);
-      if (c) {
-        pPt = { lat: c.lat, lng: c.lng, name: c.name, address: `${c.name}, Tamil Nadu`, type: c.type, confirmed: true };
-        setPickupPoint(pPt);
-      }
+      pPt = placeFor(pickupText, allLocations);
+      if (pPt) setPickupPoint(pPt);
     }
     if (!pPt) {
       setErrorNotice("Choose the pickup from the list or set it on the map.");
+      return;
+    }
+    if (pinNeedsAddress(pPt)) {
+      setPinError((e) => ({ ...e, pickup: PIN_ADDRESS_MESSAGE }));
+      setErrorNotice("Add the pickup address for the map pin before viewing fares.");
       return;
     }
     let dPt = dropPoint;
@@ -488,14 +534,16 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
       dPt = disposalFor(pPt);
       setDropPoint(dPt);
     } else if (!dPt) {
-      const c = lookupCoord(dropText, allLocations);
-      if (c) {
-        dPt = { lat: c.lat, lng: c.lng, name: c.name, address: `${c.name}, Tamil Nadu`, type: c.type, confirmed: true };
-        setDropPoint(dPt);
-      }
+      dPt = placeFor(dropText, allLocations);
+      if (dPt) setDropPoint(dPt);
     }
     if (!dPt) {
       setErrorNotice("Choose the drop from the list or set it on the map.");
+      return;
+    }
+    if (pinNeedsAddress(dPt)) {
+      setPinError((e) => ({ ...e, drop: PIN_ADDRESS_MESSAGE }));
+      setErrorNotice("Add the drop address for the map pin before viewing fares.");
       return;
     }
     const trip: QuickTrip = { ...currentQuickTrip, pickup: pPt, drop: dPt };
@@ -627,8 +675,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
       drop: tripType === "Rental" && pickupPoint ? disposalFor(pickupPoint) : dropPoint,
       stops: (tripType === "Round Trip" || tripType === "Multicity")
         ? viaStops.map((t) => {
-            const c = lookupCoord(t, allLocations);
-            return c ? ({ lat: c.lat, lng: c.lng, name: c.name, address: `${c.name}, Tamil Nadu`, type: c.type, confirmed: true } as PickedPoint) : ({ lat: 0, lng: 0, name: t, address: t, type: "other", confirmed: false } as PickedPoint);
+            return placeFor(t, allLocations) ?? ({ lat: 0, lng: 0, name: t, address: t, type: "other", confirmed: false } as PickedPoint);
           }).filter((p) => p.confirmed)
         : [],
       pickupAddress: pickupAddress.trim(),
@@ -1215,12 +1262,14 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                       onChange={(e) => {
                         setPickupText(e.target.value);
                         setPickupPoint(null);
+                        setPinError((x) => ({ ...x, pickup: undefined }));
                         setEstimates(null);
                       }}
                       placeholder={tripType === "Airport" ? "Enter airport terminal or pickup address" : "Enter pickup city, airport, or address"}
                       className="w-full text-sm font-medium text-slate-800 placeholder:text-slate-400 placeholder:font-normal bg-transparent focus:outline-none text-left pr-10"
                     />
                   </div>
+                  {pinError.pickup && <p role="alert" className="-mt-1 px-1 text-[11px] font-medium text-red-700">{pinError.pickup}</p>}
 
                   {/* Conditional: Multicity & Round Trip Stops Container */}
                   {(tripType === "Round Trip" || tripType === "Multicity") && (
@@ -1324,6 +1373,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                         onChange={(e) => {
                           setDropText(e.target.value);
                           setDropPoint(null);
+                          setPinError((x) => ({ ...x, drop: undefined }));
                           setEstimates(null);
                         }}
                         placeholder={tripType === "Multicity" ? "e.g., Trichy (Final Drop)" : tripType === "Airport" ? "Enter destination hotel, city, or airport" : "Enter drop destination (e.g., Madurai)"}
@@ -1331,6 +1381,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                       />
                     </div>
                   )}
+                  {tripType !== "Rental" && pinError.drop && <p role="alert" className="-mt-1 px-1 text-[11px] font-medium text-red-700">{pinError.drop}</p>}
 
                   {/* FEATURE 2: Conditional Airport Flight Number Optional Field */}
                   {tripType === "Airport" && (
@@ -1587,11 +1638,11 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                   type="button"
                   disabled={busy || quoting}
                   onClick={handleGetEstimate}
-                  className="w-full @min-[640px]:w-auto @min-[640px]:min-w-[280px] h-12 bg-[#991B1B] hover:bg-[#7F1D1D] active:scale-[0.99] text-white font-semibold text-sm px-6 rounded-xl shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#991B1B] disabled:opacity-60"
+                  className="group w-full @min-[640px]:w-auto @min-[640px]:min-w-[280px] h-12 bg-[#991B1B] hover:bg-[#B91C1C] active:scale-[0.99] text-white font-semibold text-sm px-6 rounded-xl shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#991B1B] disabled:opacity-60"
                 >
-                  <Calculator className="w-[18px] h-[18px]" strokeWidth={2} aria-hidden="true" />
+                  <Calculator className="w-[18px] h-[18px]" strokeWidth={1.75} aria-hidden="true" />
                   <span>{busy || quoting ? "Loading cab fares…" : "View Cab Fares"}</span>
-                  <ArrowRight className="w-[18px] h-[18px]" strokeWidth={2} aria-hidden="true" />
+                  <ArrowRight className="w-[18px] h-[18px] transition-transform duration-200 group-hover:translate-x-1 group-disabled:translate-x-0" strokeWidth={1.75} aria-hidden="true" />
                 </button>
               </div>
             </div>
@@ -1671,7 +1722,10 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                       const isSelected = priced && cat.id === selectedVehicleId;
                       const pref = matchedCustomer?.preferredCab?.toLowerCase();
                       const isPreferred = !!pref && (cat.name.toLowerCase().includes(pref) || pref.includes(cat.name.toLowerCase()));
-                      const seats = (cat as { seats?: number; seatCapacity?: number }).seats ?? (cat as { seatCapacity?: number }).seatCapacity;
+                      const title = cabDisplayName(cat);
+                      const badge = cabCategoryBadge(cat, title);
+                      const seats = Number(cat.seatingCapacity) > 0 ? Number(cat.seatingCapacity) : null;
+                      const bags = cat.luggageCapacity != null && String(cat.luggageCapacity).trim() !== "" ? String(cat.luggageCapacity).trim() : "";
                       return (
                         <button
                           key={cat.id}
@@ -1686,12 +1740,13 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                         >
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className={`text-sm font-bold break-words ${isSelected ? "text-[#9F1212]" : priced ? "text-slate-900" : "text-slate-500"}`}>{cat.name}</span>
+                              <span className={`text-sm font-bold break-words ${isSelected ? "text-[#9F1212]" : priced ? "text-slate-900" : "text-slate-500"}`}>{title}</span>
+                              {badge && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider bg-slate-100 text-slate-600">{badge}</span>}
                               {isPreferred && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-900 border border-amber-200">Customer favourite</span>}
                               {fuel === "cng" && priced && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">CNG</span>}
                             </div>
                             <p className="text-[11px] text-slate-500 mt-1">
-                              {priced ? (typeof seats === "number" ? `${seats} seats` : "\u00a0") : est.error || "Not available for this trip"}
+                              {priced ? ([seats ? `${seats} seats` : "", bags ? `${/^\d+$/.test(bags) ? `${bags} bags` : bags}` : ""].filter(Boolean).join(" • ") || "\u00a0") : est.error || "Not available for this trip"}
                             </p>
                           </div>
                           <div className="text-right shrink-0">
@@ -2273,39 +2328,16 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
         </div>
       )}
 
-      {/* ========================================================= */}
-      {/* MAP LOCATION PICKER MODAL                                 */}
-      {/* ========================================================= */}
+      {/* Pickup / drop on the map: the shared admin map dialog (same provider, search and reverse geocoding as Quick Fare). */}
       {mapPickerTarget !== null && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl overflow-hidden p-4 space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <h3 className="text-sm font-bold text-slate-900">
-                Confirm {mapPickerTarget === "pickup" ? "Pickup Point" : "Drop Destination"} on Map
-              </h3>
-              <button type="button" onClick={() => setMapPickerTarget(null)} className="p-1 text-slate-400 hover:text-slate-700">
-                <Icon name="x" size={18} />
-              </button>
-            </div>
-            <MapLocationPicker
-              label={mapPickerTarget === "pickup" ? pickupText || "Pickup" : dropText || "Drop"}
-              tone={mapPickerTarget === "pickup" ? "pickup" : "drop"}
-              value={mapPickerTarget === "pickup" ? pickupPoint : dropPoint}
-              startNear={mapPickerTarget === "drop" ? pickupPoint : undefined}
-              onChange={(p) => {
-                if (mapPickerTarget === "pickup") {
-                  setPickupPoint(p);
-                  if (p?.name) setPickupText(p.name);
-                } else if (mapPickerTarget === "drop") {
-                  setDropPoint(p);
-                  if (p?.name) setDropText(p.name);
-                }
-                setMapPickerTarget(null);
-                setEstimates(null);
-              }}
-            />
-          </div>
-        </div>
+        <MapPickerDialog
+          side={mapPickerTarget}
+          value={mapPickerTarget === "pickup" ? pickupPoint : dropPoint}
+          startNear={mapPickerTarget === "drop" ? pickupPoint : dropPoint}
+          saved={allLocations}
+          onChange={(p) => applyPickedPoint(mapPickerTarget, p)}
+          onClose={() => setMapPickerTarget(null)}
+        />
       )}
 
       {/* Save Enquiry Dialog (retained from production) */}
