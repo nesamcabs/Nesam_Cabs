@@ -5,7 +5,8 @@ import { Button, Icon } from "./ui";
 import PincodePicker from "./PincodePicker";
 import { Modal } from "./Feedback";
 import { parentOf } from "../domain/placeZones";
-import { isPincode, pincodesOf, type PincodeList } from "../domain/pincodes";
+import { isPincode } from "../domain/pincodes";
+import { usePincodeScope } from "../hooks/usePincodeScope";
 import { CardBody, Problems, RateTable, SaveBar, SettingCard, type RateColumn, type RateRow, type VehicleCol } from "./RateTable";
 
 // Booking rules on one page: one row per place, and across the top whether bookings are open and which cabs customers see.
@@ -71,9 +72,8 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [added, setAdded] = useState<Place[]>([]);
   const [pick, setPick] = useState<Place>({ state: "", city: "", area: "" });
-  // The pincodes of the chosen city / district (undefined while loading, null when it has no list) and which of them are ticked.
-  const [pinList, setPinList] = useState<PincodeList | null | undefined>(null);
-  const [pickPins, setPickPins] = useState<string[]>([]);
+  // The pincodes of the chosen city / district, all ticked until some are unticked (see usePincodeScope).
+  const scope = usePincodeScope(pick.state, pick.city);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -83,16 +83,6 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
   const [removeError, setRemoveError] = useState<string | null>(null);
   // A different brand or service is a different table.
   useEffect(() => { setDrafts({}); setAdded([]); setMessage(null); }, [fareScope.brand, fareScope.service]);
-  // Choosing a city lists its pincodes, all ticked: leaving them all ticked covers the whole city.
-  useEffect(() => {
-    setPickPins([]);
-    if (!pick.state || !pick.city) { setPinList(null); return undefined; }
-    let current = true;
-    setPinList(undefined);
-    void pincodesOf(pick.state, pick.city).then((found) => { if (current) { setPinList(found); setPickPins(found ? found.pins.map((p) => p.pin) : []); } });
-    return () => { current = false; };
-  }, [pick.state, pick.city]);
-
   // ── Places: everywhere, every place that has a rule, and places added here (in state → city → area order) ──────────
   const places = useMemo(() => {
     const all = new Map<string, Place>([["||", { state: "", city: "", area: "" }]]);
@@ -266,15 +256,10 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
   const brandName = fareScope.brand === "common" ? "All brands (shared)" : BRAND_LABELS[fareScope.brand];
   const where = `${brandName} → ${serviceLabel(fareScope.service)}`;
   const cityChoices = pick.state ? citiesOf(pick.state) : [];
-  const totalPins = pinList?.pins.length ?? 0;
-  // Every pincode ticked (or a city with no list) = the whole city, one setting that covers everything inside it.
-  // Fewer ticked = one setting per ticked pincode, and nothing else in the city is touched.
-  const wholeCity = !pick.city || !pinList || pickPins.length === totalPins;
-  const canAdd = !!pick.state && (!pick.city || (pinList !== undefined && (!pinList || pickPins.length > 0)));
+  const canAdd = !!pick.state && scope.canAdd;
   const addPlace = () => {
     if (!canAdd) return;
-    const places: Place[] = wholeCity ? [{ state: pick.state, city: pick.city, area: "" }]
-      : (pinList?.pins ?? []).filter((p) => pickPins.includes(p.pin)).map((p) => ({ state: pick.state, city: pick.city, area: p.pin }));
+    const places: Place[] = scope.areas.map((area) => ({ state: pick.state, city: pick.city, area }));
     setAdded((list) => [...list, ...places.filter((p) => !list.some((x) => keyOf(x) === keyOf(p)))]);
     setPick({ state: pick.state, city: "", area: "" });
   };
@@ -306,10 +291,10 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
               <div className="fm-mini"><span>Pincodes</span>
                 {/* All ticked = the whole city / district; fewer = only those pincodes. */}
                 <div className="relative">
-                  <PincodePicker list={pinList} selected={pickPins} onChange={setPickPins} cityChosen={!!pick.city} />
+                  <PincodePicker list={scope.list} selected={scope.pins} onChange={scope.setPins} cityChosen={!!pick.city} />
                 </div>
               </div>
-              <Button icon="plus" onClick={addPlace} disabled={!canAdd}>{wholeCity || pickPins.length < 2 ? "Add place" : `Add ${pickPins.length} places`}</Button>
+              <Button icon="plus" onClick={addPlace} disabled={!canAdd}>{scope.areas.length < 2 ? "Add place" : `Add ${scope.areas.length} places`}</Button>
             </div>
           </CardBody>
         )}

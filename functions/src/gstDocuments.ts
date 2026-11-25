@@ -309,83 +309,7 @@ export async function syncGstDocuments(bookingId: string, options: { manual?: bo
   return { invoices: invoice.issued, receipts: receipts.issued, review };
 }
 
-// ── Local Taxi rides ─────────────────────────────────────────────────────────
-export async function syncRideGstDocuments(rideId: string, options: { manual?: boolean; context?: Context } = {}): Promise<SyncResult> {
-  const rideRef = db.doc(`lt_rides/${rideId}`);
-  const ride = (await rideRef.get()).data();
-  const none = { invoices: 0, receipts: 0, review: '' };
-  if (!ride || ride.status !== 'completed' || !ride.final?.breakdown) return none;
-  const context = options.context ?? await loadContext();
-  const br = ride.final.breakdown;
-  const total = round2(Number(ride.final.totalPaise) / 100);
-  const paid = ['paid', 'cash_collected'].includes(ride.paymentStatus);
-  const customer = (await db.doc(`customers/${ride.customerId}`).get()).data() ?? {};
-  const recipient = await recipientOf({ customerId: ride.customerId, customerName: ride.customerName || customer.name });
-  const pickup = str(ride.pickup?.address || ride.pickup?.name);
-  const b = {
-    service: 'Local Pickup & Drop', pickupAddress: pickup, dropAddress: str(ride.drop?.address || ride.drop?.name), vehicleCategory: str(ride.categoryName),
-    driver: str(ride.driverName), date: ride.completedAtMs ? istIsoDate(ride.completedAtMs) : '', totalKm: round2(Number(ride.final.distanceMeters ?? 0) / 1000),
-  };
-  const key = `lt_${rideId}`;
-  const existing = (await db.collection('invoices').where('bookingDocumentId', '==', key).get()).docs.map((d) => ({ ...d.data(), id: d.id }) as DocumentData);
-  const current = existing.find(live);
-  let invoices = 0, receipts = 0, review = '', number = str(current?.invoiceNumber);
-
-  if (current) {
-    const fields = paymentFields(Number(current.grandTotal), paid ? Number(current.grandTotal) : 0);
-    if (current.paymentStatus !== fields.paymentStatus) await db.doc(`invoices/${current.id}`).update({ ...fields, updatedAt: FieldValue.serverTimestamp() });
-  } else if (existing.length) review = 'The invoice for this ride was voided.';
-  else if (!options.manual && Date.now() - Number(ride.completedAtMs ?? 0) > AUTO_WINDOW_MS) review = 'The ride ended more than 30 days ago. Use "Generate pending bills" after checking it.';
-  else if (!(Number(br.taxPaise) > 0)) review = 'GST is switched off in this Local Taxi zone fare, so no tax invoice was issued.';
-  else {
-    const found = determineTax({ company: context.company, policy: context.policy, service: policyService(b.service), recipient, boardingState: stateFromAddress(pickup) });
-    if (!found.ok) review = found.reason;
-    else {
-      const tax = found.tax;
-      const taxableAmount = round2((Number(br.adjustedFarePaise) + Number(br.pickupChargePaise) + Number(br.waitingChargePaise)) / 100);
-      const totalTax = round2(Number(br.taxPaise) / 100);
-      const rate = Number(ride.fare?.config?.tax?.bps) > 0 ? Number(ride.fare.config.tax.bps) / 10000 : Math.round((totalTax / taxableAmount) * 10000) / 10000;
-      const items = [{ description: `Local taxi ride — ${str(ride.pickup?.name)} to ${str(ride.drop?.name)}`, sacCode: tax.sac, quantity: 1, rate: taxableAmount, amount: taxableAmount } as DocumentData];
-      for (const [description, paise] of [['Platform fee (not taxed)', br.platformFeePaise], ['Rounding', br.roundingPaise]] as const) {
-        if (Number(paise)) items.push({ description, quantity: 1, rate: round2(Number(paise) / 100), amount: round2(Number(paise) / 100) });
-      }
-      invoices = await db.runTransaction(async (tx) => {
-        const again = await tx.get(db.collection('invoices').where('bookingDocumentId', '==', key));
-        if (!again.empty) return 0;
-        const today = istIsoDate(Date.now());
-        const n = await nextNumber(tx, 'invoice', today);
-        number = n.number;
-        tx.create(db.doc(`invoices/${n.id}`), {
-          id: n.id, invoiceNumber: n.number, sourceType: 'local_taxi', rideId, bookingId: `LT-${rideId.slice(-8)}`, bookingDocumentId: key, customerId: str(ride.customerId),
-          invoiceDate: today, dueDate: today, customerSnapshot: customerSnapshot(recipient), tripSnapshot: tripSnapshot(b), ...taxFields(context, tax),
-          items, subtotal: taxableAmount, discount: 0, taxableAmount, gstRate: rate, ...gstComponents(totalTax, tax.split), totalTax, tolls: 0, grandTotal: total,
-          ...paymentFields(total, paid ? total : 0), invoiceStatus: 'Issued', terms: `Computer-generated tax invoice. ${tax.classification} under SAC ${tax.sac}.`, ...automatic(),
-        });
-        n.save();
-        tx.update(rideRef, { invoiceId: n.id, invoiceNumber: n.number });
-        return 1;
-      });
-    }
-  }
-  if (paid) {
-    const missing = companyProblems(context.company);
-    if (missing.length) review ||= `Add ${missing.join(', ')} in Settings → Company.`;
-    else if (await writeReceipt(`${key}_payment`, 'payment', {
-      documentType: 'Payment receipt', sourceType: 'payment', rideId, bookingId: `LT-${rideId.slice(-8)}`, bookingDocumentId: key, customerId: str(ride.customerId),
-      customerSnapshot: customerSnapshot(recipient), tripSnapshot: tripSnapshot(b), companySnapshot: context.company, reverseCharge: 'No',
-      items: [{ description: `Payment received — Local taxi ride ${str(ride.pickup?.name)} to ${str(ride.drop?.name)}`, quantity: 1, rate: total, amount: total }],
-      subtotal: total, discount: 0, taxableAmount: 0, gstRate: 0, cgst: 0, sgst: 0, utgst: 0, igst: 0, totalTax: 0, grandTotal: total,
-      ...(number ? { originalInvoiceNumber: number } : {}),
-      payment: { method: str(ride.paymentMethod), reference: '', date: ride.paidAtMs ? istIsoDate(ride.paidAtMs) : '', collectedBy: ride.paymentMethod === 'cash' ? str(ride.driverName) : 'Online payment' },
-      paidAmount: total, balanceAmount: 0, paymentStatus: 'Paid',
-    })) receipts = 1;
-  }
-  await setReview(key, review, { sourceType: 'local_taxi', rideId, bookingDocumentId: key, bookingId: `LT-${rideId.slice(-8)}`, customer: recipient.name, status: 'Completed', amount: total });
-  return { invoices, receipts, review };
-}
-
 /** Never lets a billing problem undo the payment or trip step that triggered it; the sweep tries again. */
-export const syncRideGstSafely = (rideId: string) => syncRideGstDocuments(rideId).catch((err) => console.warn('gst ride documents failed', rideId, err));
 export const syncGstSafely = (bookingId: string) => syncGstDocuments(bookingId).catch((err) => console.warn('gst documents failed', bookingId, err));
 
 /** Periodic safety net: tries the oldest held items again (company details or the tax approval may have been added since). */
@@ -395,7 +319,9 @@ export async function sweepGstReview(limit = 40): Promise<{ checked: number; iss
   const context = held.empty ? undefined : await loadContext();
   for (const d of held.docs) {
     try {
-      const r = d.data().sourceType === 'local_taxi' ? await syncRideGstDocuments(String(d.data().rideId), { context }) : await syncGstDocuments(d.id, { context });
+      // Local Taxi is retired: a held ride entry has nothing left to bill, so it is dropped instead of retried.
+      if (d.data().sourceType === 'local_taxi') { await d.ref.delete(); continue; }
+      const r = await syncGstDocuments(d.id, { context });
       issued += r.invoices + r.receipts;
       if (r.review) await d.ref.update({ updatedAt: FieldValue.serverTimestamp() }); // to the back of the queue
     } catch (err) {
@@ -403,24 +329,17 @@ export async function sweepGstReview(limit = 40): Promise<{ checked: number; iss
       console.warn('gst review retry failed', d.id, err);
     }
   }
-  // Rides have no reconcile step of their own: the latest completed ones are looked at here too.
-  const rides = await db.collection('lt_rides').where('statusAtMs', '>=', Date.now() - 2 * 3600000).limit(100).get();
-  for (const d of rides.docs) {
-    if (d.data().status !== 'completed') continue;
-    try { const r = await syncRideGstDocuments(d.id); issued += r.invoices + r.receipts; } catch (err) { failed++; console.warn('gst ride failed', d.id, err); }
-  }
   return { checked: held.size, issued, failed };
 }
 
 /**
- * "Generate pending bills": walks every booking, then every Local Taxi ride, and issues what is missing. The caller
+ * "Generate pending bills": walks every booking and issues what is missing. The caller
  * repeats with the returned cursor until `done`.
  */
 export const generateGstDocuments = onCall({ timeoutSeconds: 60 }, async (request) => {
   const admin = await requirePermission(request.auth, 'finance');
   requireAction(admin, 'Invoices', 'create');
   const input = (request.data ?? {}) as { phase?: unknown; after?: unknown };
-  let phase: 'bookings' | 'rides' = input.phase === 'rides' ? 'rides' : 'bookings';
   let after = typeof input.after === 'string' && ID.test(input.after) ? input.after : '';
   if (input.after && !after) throw new HttpsError('invalid-argument', 'Invalid position.');
   const context = await loadContext();
@@ -429,13 +348,13 @@ export const generateGstDocuments = onCall({ timeoutSeconds: 60 }, async (reques
   const started = Date.now();
   const report = { checked: 0, invoices: 0, receipts: 0, review: 0, failed: 0 };
   while (Date.now() - started < 35000) {
-    let q = db.collection(phase === 'bookings' ? 'bookings' : 'lt_rides').orderBy(FieldPath.documentId()).limit(25);
+    let q = db.collection('bookings').orderBy(FieldPath.documentId()).limit(25);
     if (after) q = q.startAfter(after);
     const page = await q.get();
     for (const d of page.docs) {
-      if (Date.now() - started >= 35000) return { ...report, done: false, phase, after };
+      if (Date.now() - started >= 35000) return { ...report, done: false, phase: 'bookings', after };
       try {
-        const r = phase === 'bookings' ? await syncGstDocuments(d.id, { manual: true, context }) : await syncRideGstDocuments(d.id, { manual: true, context });
+        const r = await syncGstDocuments(d.id, { manual: true, context });
         report.invoices += r.invoices;
         report.receipts += r.receipts;
         if (r.review) report.review++;
@@ -446,13 +365,9 @@ export const generateGstDocuments = onCall({ timeoutSeconds: 60 }, async (reques
       report.checked++;
       after = d.id;
     }
-    if (page.size < 25) {
-      if (phase === 'rides') return { ...report, done: true, phase, after: '' };
-      phase = 'rides';
-      after = '';
-    }
+    if (page.size < 25) return { ...report, done: true, phase: 'bookings', after: '' };
   }
-  return { ...report, done: false, phase, after };
+  return { ...report, done: false, phase: 'bookings', after };
 });
 
 /** Firebase hosting of the functions: the same step as a trigger (the HTTP API runs it from reconcile instead). */

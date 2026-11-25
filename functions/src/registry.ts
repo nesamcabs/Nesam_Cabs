@@ -174,12 +174,7 @@ export const CALLABLES: Readonly<Record<string, CallableLike>> = Object.freeze({
   reverseGoogleGeocode: fns.reverseGoogleGeocode,
   getGoogleRoute: fns.getGoogleRoute,
   // local taxi
-  ltSaveZone: fns.ltSaveZone, ltSetZoneStatus: fns.ltSetZoneStatus, ltSaveFare: fns.ltSaveFare, ltActivateFare: fns.ltActivateFare, ltSimulateFare: fns.ltSimulateFare,
-  ltSetDriverEligibility: fns.ltSetDriverEligibility, ltCheckServiceability: fns.ltCheckServiceability, ltGetQuotes: fns.ltGetQuotes, ltCreateRide: fns.ltCreateRide,
-  ltCancellationQuote: fns.ltCancellationQuote, ltCancelRide: fns.ltCancelRide, ltAdminCancelRide: fns.ltAdminCancelRide, ltAssignRide: fns.ltAssignRide,
   rateDriver: fns.rateDriver, reviewDriverRating: fns.reviewDriverRating,
-  ltGetRide: fns.ltGetRide, ltRateRide: fns.ltRateRide, ltSetAvailability: fns.ltSetAvailability, ltUpdateLocation: fns.ltUpdateLocation, ltRespondOffer: fns.ltRespondOffer,
-  ltDriverAdvance: fns.ltDriverAdvance, ltCreatePaymentOrder: fns.ltCreatePaymentOrder, ltVerifyPayment: fns.ltVerifyPayment,
 });
 
 /** Names whose result changes a booking, so the booking is reconciled right after the call. */
@@ -195,4 +190,4 @@ export const RECONCILES_BOOKING = new Set([
 export const RECONCILES_PAYOUT = new Set(['requestPartnerPayout']);
 
 /** Callables a signed-out visitor may use: read-only fare quotes, support requests, and AI chatbot. */
-export const PUBLIC_CALLABLES: ReadonlySet<string> = new Set(['quoteBooking', 'ltCheckServiceability', 'chatWithBot', 'submitSupportRequest', 'searchGooglePlaces', 'reverseGoogleGeocode', 'getGoogleRoute']);
+export const PUBLIC_CALLABLES: ReadonlySet<string> = new Set(['quoteBooking', 'chatWithBot', 'submitSupportRequest', 'searchGooglePlaces', 'reverseGoogleGeocode', 'getGoogleRoute']);

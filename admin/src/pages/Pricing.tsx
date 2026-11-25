@@ -24,7 +24,7 @@ import { ALL_BRAND_KEYS, categoryOffersBrand, categoryStatusForBrand } from "../
 import { registerFareWorkspaceGuard } from "../services/fareWorkspaceGuard";
 import { BRANDS, BRAND_LABELS, BRAND_SUPPORTED_SERVICES, CLASS_LABEL, TARIFF_CLASSES, WORKSPACE_SERVICES, PICKUP_DROP, serviceLabel, tariffClassOfCategory, type FareWorkspaceScope, type TariffClass } from "../services/tariffService";
 import { GST_STATES } from "../domain/gstStates";
-import { directoryCities, directoryZones } from "../domain/placeDirectory";
+import { directoryCities } from "../domain/placeDirectory";
 import DisplayMarkupCard from "../components/DisplayMarkupCard";
 import TimeBasedRoundTripCard from "../components/TimeBasedRoundTripCard";
 import { refDateTime } from "../domain/officeStage";
@@ -156,7 +156,6 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
   const jump = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   const stateOptions = [...GST_STATES.map(([c, n]) => ({ value: c, label: n })), ...otherStates.map((st) => ({ value: st, label: st }))];
   const citiesOf = (state: string) => locationOptions([...directoryCities(stateKey(state)), ...locationRows.filter((l) => stateKey(l.state) === stateKey(state)).map((l) => l.city)]);
-  const areasOf = (state: string, city: string) => locationOptions([...directoryZones(city), ...locationRows.filter((l) => (!state || stateKey(l.state) === stateKey(state)) && locationKey(l.city) === locationKey(city)).map((l) => l.area)]);
   const savedView = (): PricingView => ({ tab, sel, filter, scrollY: window.scrollY, fareScope, cabSection, pickupDrop });
   const selectPickupDrop = () => {
     if (workspaceBusy.current) return;
@@ -346,10 +345,10 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
                 stateOptions={stateOptions} citiesOf={citiesOf} onToast={show} />
               <PriceChangeRules rules={rules.filter((r) => r.kind === "pricing" && (!r.brand || r.brand === scopeBrand))} fareScope={fareScope}
                 canEdit={canEdit} loaded={loaded} loadError={loadError} stateName={stateName}
-                stateOptions={stateOptions} citiesOf={citiesOf} areasOf={areasOf} onToast={show} />
+                stateOptions={stateOptions} citiesOf={citiesOf} onToast={show} />
               <DateRules rules={special} allRules={scopedRules.filter((r) => r.status !== "Removed")} isOwn={ownsRule} fareScope={fareScope} vehicles={vehicles}
                 canEdit={canEdit} loaded={loaded} loadError={loadError} stateName={stateName}
-                stateOptions={stateOptions} citiesOf={citiesOf} areasOf={areasOf} onToast={show} />
+                stateOptions={stateOptions} citiesOf={citiesOf} onToast={show} />
             </div>
           </div>
         )

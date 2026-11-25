@@ -69,7 +69,7 @@ const pages=nav.map(page=>{
 // Include global shell controls and screens reached from a record rather than the sidebar.
 const globalFiles=new Set();
 function followGlobal(f){if(globalFiles.has(f))return;globalFiles.add(f);for(const i of info(f).imports)followGlobal(i);}
-for(const f of ['admin/src/App.tsx','admin/src/components/Header.tsx','admin/src/components/Sidebar.tsx','admin/src/pages/BookingDetails.tsx','admin/src/pages/NewBooking.tsx'])followGlobal(f);
+for(const f of ['admin/src/App.tsx','admin/src/components/Header.tsx','admin/src/components/Sidebar.tsx','admin/src/pages/BookingDetails.tsx'])followGlobal(f);
 const controls=[...cache.values()].flatMap(x=>x.controls);
 const suspect=controls.filter(c=>c.tag==='button'&&!c.events.some(e=>e.event==='onClick')&&c.type!=='"submit"'&&c.type!=="'submit'");
 fs.mkdirSync(path.join(root,'output/admin-audit'),{recursive:true});

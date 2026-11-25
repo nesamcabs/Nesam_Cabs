@@ -8,6 +8,8 @@ import {
   type Adjustment, type RuleKind, type ServiceRule, type Side,
 } from "../services/serviceRulesService";
 import { CardBody, SettingCard, type VehicleCol } from "./RateTable";
+import PincodePicker from "./PincodePicker";
+import { usePincodeScope } from "../hooks/usePincodeScope";
 
 // Date-based, special and inherited rules, all inside the page (no side drawer): a filterable list, and the add / edit / switch on-off /
 // remove / details panels open right under the row they belong to. Every rule is an ordinary service_rules document that the booking
@@ -31,7 +33,7 @@ const adjOf = (v: string): Adjustment => {
 const badPct = (v: string) => v.trim() !== "" && !(Number.isFinite(Number(v)) && Math.abs(Number(v)) < 100);
 const dateText = (iso?: string) => (iso ? refDateTime(new Date(iso)) : "");
 
-export default function DateRules({ rules, allRules, isOwn, fareScope, vehicles, canEdit, loaded, loadError, stateName, stateOptions, citiesOf, areasOf, onToast }: {
+export default function DateRules({ rules, allRules, isOwn, fareScope, vehicles, canEdit, loaded, loadError, stateName, stateOptions, citiesOf, onToast }: {
   /** The rules to list: with dates, pickup-only / drop-only, switched off, a second rule for a place, or inherited. */
   rules: ServiceRule[];
   /** Every rule in scope, used to spot two rules that would clash. */
@@ -45,7 +47,6 @@ export default function DateRules({ rules, allRules, isOwn, fareScope, vehicles,
   stateName: (code: string) => string;
   stateOptions: { value: string; label: string }[];
   citiesOf: (state: string) => string[];
-  areasOf: (state: string, city: string) => string[];
   onToast: (text: string) => void;
 }) {
   const [now, setNow] = useState(Date.now);
@@ -112,7 +113,7 @@ export default function DateRules({ rules, allRules, isOwn, fareScope, vehicles,
       {adding && (
         <CardBody>
           <RuleForm key={`new-${adding}`} kind={adding} fareScope={fareScope} vehicles={vehicles} allRules={allRules} placeText={placeText}
-            stateOptions={stateOptions} citiesOf={citiesOf} areasOf={areasOf} onCancel={() => setAdding(null)} onDone={done} />
+            stateOptions={stateOptions} citiesOf={citiesOf} onCancel={() => setAdding(null)} onDone={done} />
         </CardBody>
       )}
 
@@ -180,7 +181,7 @@ export default function DateRules({ rules, allRules, isOwn, fareScope, vehicles,
                             <tr className="fm-expand">
                               <td colSpan={7}>
                                 {isOpen === "edit" ? <RuleForm kind={r.kind} rule={r} fareScope={fareScope} vehicles={vehicles} allRules={allRules} placeText={placeText}
-                                  stateOptions={stateOptions} citiesOf={citiesOf} areasOf={areasOf} onCancel={() => setOpen(null)} onDone={done} />
+                                  stateOptions={stateOptions} citiesOf={citiesOf} onCancel={() => setOpen(null)} onDone={done} />
                                   : isOpen === "details" ? <Details rule={r} own={isOwn(r)} placeText={placeText} phase={phase(r)} onClose={() => setOpen(null)} />
                                   : <StatusPanel rule={r} to={isOpen === "remove" ? "Removed" : isOpen === "on" ? "Enabled" : "Disabled"} onCancel={() => setOpen(null)} onDone={done} />}
                               </td>
@@ -255,9 +256,9 @@ function StatusPanel({ rule, to, onCancel, onDone }: { rule: ServiceRule; to: "E
 }
 
 // ── Add or edit one rule ──────────────────────────────────────────────────────────────────────────────────────────
-function RuleForm({ kind, rule, fareScope, vehicles, allRules, placeText, stateOptions, citiesOf, areasOf, onCancel, onDone }: {
+function RuleForm({ kind, rule, fareScope, vehicles, allRules, placeText, stateOptions, citiesOf, onCancel, onDone }: {
   kind: RuleKind; rule?: ServiceRule; fareScope: FareWorkspaceScope; vehicles: VehicleCol[]; allRules: ServiceRule[]; placeText: (p: Place) => string;
-  stateOptions: { value: string; label: string }[]; citiesOf: (state: string) => string[]; areasOf: (state: string, city: string) => string[];
+  stateOptions: { value: string; label: string }[]; citiesOf: (state: string) => string[];
   onCancel: () => void; onDone: (text: string) => void;
 }) {
   const [scope, setScope] = useState<ServiceRule["scope"]>(rule?.scope ?? { state: "", city: "", area: "", side: "Pickup or drop" });
@@ -278,8 +279,12 @@ function RuleForm({ kind, rule, fareScope, vehicles, allRules, placeText, stateO
 
   const priorityN = Number(priority);
   const cities = scope.state ? citiesOf(scope.state) : [];
-  const areas = scope.city ? areasOf(scope.state, scope.city) : [];
-  const autoName = `${scope.area || scope.city || (scope.state ? "State" : "All locations")} ${kind === "categories" ? "cabs shown" : kind === "availability" ? "booking" : "price change"}`;
+  // A new rule can cover several pincodes at once (one rule each, same dates); an existing rule keeps one place.
+  const pins = usePincodeScope(scope.state, scope.city);
+  const what = kind === "categories" ? "cabs shown" : kind === "availability" ? "booking" : "price change";
+  const nameFor = (sc: ServiceRule["scope"]) => `${sc.area ? `${sc.area}, ${sc.city}` : sc.city || (sc.state ? "State" : "All locations")} ${what}`;
+  const targets: ServiceRule["scope"][] = rule ? [scope] : pins.areas.map((area) => ({ ...scope, area }));
+  const autoName = nameFor(targets[0] ?? scope);
   const service = rule ? rule.service : fareScope.service;
   const draft: Omit<ServiceRule, "id"> = {
     brand: rule?.brand ?? (fareScope.brand === "common" ? "" : fareScope.brand), fareService: rule ? rule.fareService ?? "" : fareScope.service,
@@ -290,12 +295,14 @@ function RuleForm({ kind, rule, fareScope, vehicles, allRules, placeText, stateO
   };
 
   // Same type, place, service and priority with overlapping dates would be ambiguous: the server refuses it, so say so here first.
-  const conflict = allRules.find((r) => r.id !== rule?.id && r.kind === kind && r.status === "Enabled" && r.priority === priorityN
+  const conflictOf = (sc: ServiceRule["scope"]) => allRules.find((r) => r.id !== rule?.id && r.kind === kind && r.status === "Enabled" && r.priority === priorityN
     && (r.brand ?? "") === (draft.brand ?? "") && (r.fareService ?? "") === (draft.fareService ?? "")
-    && norm(r.scope.state) === norm(scope.state) && norm(r.scope.city) === norm(scope.city) && norm(r.scope.area) === norm(scope.area) && norm(r.service) === norm(service)
+    && norm(r.scope.state) === norm(sc.state) && norm(r.scope.city) === norm(sc.city) && norm(r.scope.area) === norm(sc.area) && norm(r.service) === norm(service)
     && (r.schedule.mode === "Always" || mode === "Always" || !((r.schedule.to ? Date.parse(r.schedule.to) : Infinity) <= (from ? Date.parse(istInputToIso(from)) : -Infinity) || (to ? Date.parse(istInputToIso(to)) : Infinity) <= (r.schedule.from ? Date.parse(r.schedule.from) : -Infinity))));
 
+  const conflict = targets.map(conflictOf).find(Boolean);
   const problem = (() => {
+    if (!rule && !pins.canAdd) return "Tick at least one pincode, or choose the whole state.";
     if (!Number.isInteger(priorityN) || priorityN < 1 || priorityN > 100) return "Priority must be a whole number from 1 to 100.";
     if (kind === "categories" && !cats.length) return "Keep at least one cab on. To stop bookings, use Open / pause → Paused.";
     if (kind === "pricing" && (badPct(cust) || badPct(part))) return "A price change must be between −99% and +99%.";
@@ -314,7 +321,11 @@ function RuleForm({ kind, rule, fareScope, vehicles, allRules, placeText, stateO
     submitting.current = true;
     setBusy(true);
     setError(null);
-    try { await saveRule(draft, rule?.id, rule); onDone(`${draft.name} saved.`); }
+    try {
+      if (rule) await saveRule(draft, rule.id, rule);
+      else for (const sc of targets) await saveRule({ ...draft, scope: sc, name: name.trim() ? (targets.length > 1 ? `${name.trim()} · ${sc.area || sc.city}` : name.trim()) : nameFor(sc) }, undefined, undefined);
+      onDone(rule || targets.length < 2 ? `${draft.name} saved.` : `${targets.length} rules saved (${draft.name} …).`);
+    }
     catch (err) { setError(err instanceof Error ? err.message : "The rule was not saved. Check your permissions and try again."); setBusy(false); submitting.current = false; }
   };
 
@@ -325,7 +336,7 @@ function RuleForm({ kind, rule, fareScope, vehicles, allRules, placeText, stateO
   const whenText = mode === "Always" ? "at all times" : `for pickups ${from ? `from ${dateText(istInputToIso(from))}` : "from now"}${to ? ` until ${dateText(istInputToIso(to))}` : " with no end date"} (India time)`;
   const sideText = scope.side === "Pickup only" ? "starting in" : scope.side === "Drop only" ? "ending in" : "starting or ending in";
   // Unsaved changes: anything different from how the form opened. Leaving the browser tab with unsaved changes asks first.
-  const snapshot = JSON.stringify({ scope, name, priority, mode, from, to, availability, cats, cust, part, reason });
+  const snapshot = JSON.stringify({ scope, pins: pins.pins, name, priority, mode, from, to, availability, cats, cust, part, reason });
   const opened = useRef(snapshot);
   const dirty = snapshot !== opened.current;
   useEffect(() => {
@@ -386,13 +397,19 @@ function RuleForm({ kind, rule, fareScope, vehicles, allRules, placeText, stateO
                 {cities.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </label>
-            <label className="fm-mini"><span>Area / zone</span>
-              <select className="ds-select" value={scope.area} disabled={!scope.city} onChange={(e) => setScope({ ...scope, area: e.target.value })}>
-                <option value="">Whole city</option>
-                {scope.area && !areas.includes(scope.area) ? <option value={scope.area}>{scope.area}</option> : null}
-                {areas.map((a) => <option key={a} value={a}>{a}</option>)}
-              </select>
-            </label>
+            {rule ? (
+              <label className="fm-mini"><span>Pincode</span>
+                <select className="ds-select" value={scope.area} disabled={!scope.city} onChange={(e) => setScope({ ...scope, area: e.target.value })}>
+                  <option value="">Whole city</option>
+                  {scope.area && !pins.list?.pins.some((p) => p.pin === scope.area) ? <option value={scope.area}>{scope.area}</option> : null}
+                  {(pins.list?.pins ?? []).map((p) => <option key={p.pin} value={p.pin}>{p.pin} · {p.name}</option>)}
+                </select>
+              </label>
+            ) : (
+              <div className="fm-mini"><span>Pincodes</span>
+                <div className="relative"><PincodePicker list={pins.list} selected={pins.pins} onChange={pins.setPins} cityChosen={!!scope.city} /></div>
+              </div>
+            )}
             <label className="fm-mini"><span>Applies to trips</span>
               <select className="ds-select" value={scope.side ?? "Pickup or drop"} onChange={(e) => setScope({ ...scope, side: e.target.value as Side })}>
                 {SIDES.map((s) => <option key={s} value={s}>{s === "Pickup or drop" ? "Start or end here" : s === "Pickup only" ? "Start here only" : "End here only"}</option>)}
@@ -433,7 +450,7 @@ function RuleForm({ kind, rule, fareScope, vehicles, allRules, placeText, stateO
       <div className="fm-form__row">
         <input className="ds-input" placeholder="Reason for this change" aria-label="Reason for this change" maxLength={300} value={reason} disabled={busy} onChange={(e) => setReason(e.target.value)} />
         <Button onClick={() => { if (!busy && (!dirty || window.confirm("Discard your unsaved changes?"))) onCancel(); }} disabled={busy}>Cancel</Button>
-        <Button variant="primary" icon="check" loading={busy} onClick={() => void save()}>{rule ? "Save changes" : "Save rule"}</Button>
+        <Button variant="primary" icon="check" loading={busy} onClick={() => void save()}>{rule ? "Save changes" : targets.length > 1 ? `Save ${targets.length} rules` : "Save rule"}</Button>
       </div>
       {conflict && !tried && <p className="fm-msg fm-msg--bad"><Icon name="circle-alert" size={13} /> This overlaps "{conflict.name}" (same place, service and priority). Change the place, dates or priority.</p>}
       {(tried && problem) || error ? <p className="fm-msg fm-msg--bad" role="alert"><Icon name="circle-alert" size={13} /> {error || problem}</p> : null}

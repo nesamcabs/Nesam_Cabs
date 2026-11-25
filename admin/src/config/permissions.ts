@@ -41,7 +41,6 @@ export const PAGE_ACCESS: Record<string, Permission | null | "super"> = {
   trips: "operations",
   bookings: "operations",
   "booking-detail": "operations",
-  "new-booking": "operations",
   "quick-fare": "operations",
   marketplace: "operations",
   "local-duties": "operations",
@@ -92,7 +91,6 @@ export const PAGE_MODULE: Record<string, StaffModule | StaffModule[]> = {
   dashboard: "Dashboard",
   bookings: "Bookings",
   "booking-detail": "Bookings",
-  "new-booking": "Bookings",
   "quick-fare": "Bookings",
   trips: "Bookings",
   marketplace: "Bookings",
@@ -135,8 +133,8 @@ export const PAGE_MODULE: Record<string, StaffModule | StaffModule[]> = {
   staff: "Staff & Access",
 };
 
-/** Page-level action a Staff ID needs beyond View (e.g. opening the new-booking form). */
-const PAGE_ACTION: Record<string, ModuleAction> = { "new-booking": "create" };
+/** Page-level action a Staff ID needs beyond View (none now: booking creation is checked on Quick Fare with Bookings → Create). */
+const PAGE_ACTION: Record<string, ModuleAction> = {};
 
 /** Staff & Access › Duty permissions (enforced by the booking server for Staff IDs). */
 export const DUTY_ACTIONS = [["approve", "Approve booking"], ["publish", "Publish duty"], ["payout", "Change payout / bidding"], ["assign", "Assign on behalf"], ["remove", "Remove allocation"]] as const;

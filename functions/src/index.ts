@@ -53,11 +53,6 @@ export { submitSupportRequest, updateSupportRequest, requestAccountDeletion } fr
 export { chatWithBot } from './groqChat';
 export { generateGstDocuments, onBookingGstDocuments } from './gstDocuments';
 export { searchGooglePlaces, reverseGoogleGeocode, getGoogleRoute } from './googleMaps';
-export { ltSaveZone, ltSetZoneStatus, ltSaveFare, ltActivateFare, ltSimulateFare, ltSetDriverEligibility } from './localTaxi/adminFns';
-export { ltCheckServiceability, ltGetQuotes, ltCreateRide, ltCancellationQuote, ltCancelRide, ltAdminCancelRide, ltAssignRide, ltGetRide, ltRateRide } from './localTaxi/rideFns';
-export { ltSetAvailability, ltUpdateLocation, ltRespondOffer, ltDriverAdvance } from './localTaxi/driverFns';
-export { ltCreatePaymentOrder, ltVerifyPayment } from './localTaxi/payFns';
-export { ltDispatchSweep } from './localTaxi/sweep';
 export { onVendorApplicationSubmitted } from './vendorOnboarding';
 export { getPaymentChoiceSettings, savePaymentChoiceSettings } from './paymentChoices';
 export { getPaymentOptions, getPaymentGatewayStatus, setOnlinePayments, refundGatewayPayment } from './paymentGateway';

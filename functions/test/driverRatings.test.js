@@ -89,5 +89,4 @@ test('the server exposes rateDriver and reviewDriverRating to the HTTP API', () 
   const { CALLABLES } = require('../lib/registry');
   assert.ok(CALLABLES.rateDriver, 'rateDriver');
   assert.ok(CALLABLES.reviewDriverRating, 'reviewDriverRating');
-  assert.ok(CALLABLES.ltRateRide, 'ltRateRide');
 });

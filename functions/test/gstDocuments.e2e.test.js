@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { db, TS } = require('./helpers.e2e');
-const { syncGstDocuments, syncRideGstDocuments, sweepGstReview, generateGstDocuments } = require('../lib/gstDocuments');
+const { syncGstDocuments, sweepGstReview, generateGstDocuments } = require('../lib/gstDocuments');
 
 const run = `g${Date.now().toString(36)}`;
 const now = Date.now();
@@ -101,19 +101,6 @@ test('cancellation: charge billed, refund voucher issued; pending extras and unk
   assert.match((await syncGstDocuments(`${run}_p`)).review, /waiting for approval/);
   await make(`${run}_u`, { pickup: 'Bus stand', pickupAddress: 'Bus stand' });
   assert.match((await syncGstDocuments(`${run}_u`)).review, /place of supply/);
-});
-
-test('a Local Taxi ride is billed on completion and its payment receipted', async () => {
-  const rideId = `${run}_r`;
-  await db.doc(`lt_rides/${rideId}`).set({ status: 'completed', completedAtMs: Date.now(), statusAtMs: Date.now(), customerId: `${run}_c`, customerName: 'Devi', paymentStatus: 'cash_due', paymentMethod: 'cash', pickup: { name: 'Bus stand', address: 'Erode, Tamil Nadu' }, drop: { name: 'Junction' }, fare: { config: { tax: { enabled: true, bps: 500 } } },
-    final: { totalPaise: 11000, breakdown: { adjustedFarePaise: 10000, pickupChargePaise: 0, waitingChargePaise: 0, taxPaise: 500, platformFeePaise: 500, roundingPaise: 0 } } });
-  assert.equal((await syncRideGstDocuments(rideId)).invoices, 1);
-  await db.doc(`lt_rides/${rideId}`).update({ paymentStatus: 'cash_collected', paidAtMs: Date.now() });
-  const paid = await syncRideGstDocuments(rideId);
-  assert.deepEqual([paid.invoices, paid.receipts], [0, 1]);
-  const [inv] = await invoicesOf(`lt_${rideId}`);
-  assert.equal(inv.paymentStatus, 'Paid');
-  assert.equal(inv.grandTotal, 110);
 });
 
 test('the office button needs finance access and walks everything', async () => {

@@ -83,7 +83,7 @@ export default function Sidebar({ activePage, onNavigate, collapsed, onToggleCol
                     type="button"
                     className="ds-nav-item"
                     data-page={item.id}
-                    aria-current={activePage === item.id || (activePage === "new-booking" && item.id === "bookings") ? "page" : undefined}
+                    aria-current={activePage === item.id ? "page" : undefined}
                     title={collapsed ? item.label : undefined}
                     aria-label={collapsed ? `${item.label}${count ? `, ${count} pending` : ""}` : undefined}
                     onClick={() => onNavigate(item.id)}

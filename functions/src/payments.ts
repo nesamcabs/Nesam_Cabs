@@ -224,17 +224,6 @@ export async function handleRazorpayEvent(event: any): Promise<{ handled: boolea
     // Wallet checkout may close before capture completes. The signed webhook must
     // finish that payment without depending on the customer's callback returning.
     if (!/^[A-Za-z0-9_-]{1,128}$/.test(entity.order_id)) return { handled: false, detail: 'unknown order' };
-    // Local Taxi ride payment: found through the order we created, amount and currency re-checked, idempotent on the payment id.
-    const ltOrder = await db.doc(`lt_payment_orders/${entity.order_id}`).get();
-    if (ltOrder.exists) {
-      const lt = await import('./localTaxi/payFns');
-      if (type === 'payment.failed') { await lt.recordRidePaymentFailure(entity.order_id, entity.id, entity.error_description ?? 'failed'); return { handled: true, detail: 'ride payment failure noted' }; }
-      if (type !== 'payment.captured' && type !== 'order.paid') return { handled: false, detail: `ignored ${type}` };
-      if (entity.status !== 'captured' || entity.currency !== 'INR' || !Number.isSafeInteger(entity.amount) || entity.amount <= 0) return { handled: false, detail: 'invalid captured payment' };
-      if (entity.amount !== ltOrder.data()!.amountPaise) return { handled: false, detail: 'amount mismatch' };
-      const r = await lt.recordRidePayment({ rideId: String(ltOrder.data()!.rideId), paymentId: entity.id, orderId: entity.order_id, amountPaise: entity.amount, method: entity.method ?? 'online', source: 'webhook' });
-      return { handled: true, detail: r.recorded ? 'ride payment recorded' : 'duplicate' };
-    }
     // A dues payment is applied to the ledger debits it was created for (see applyDuesPayment), never as a generic top-up.
     const duePayment = await db.doc(`due_payments/${entity.order_id}`).get();
     if (duePayment.exists) {

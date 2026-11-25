@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { saveRule, setRuleStatus, type Adjustment, type ServiceRule } from "../services/serviceRulesService";
 import { BRAND_LABELS, serviceLabel, useTariff, type FareWorkspaceScope } from "../services/tariffService";
 import { Button } from "./ui";
+import PincodePicker from "./PincodePicker";
+import { usePincodeScope } from "../hooks/usePincodeScope";
 import { CardBody, Problems, SaveBar, SettingCard } from "./RateTable";
 
 // Price changes: one row per rule. Every row names the place, the SERVICE the change is for (One Way, Round Trip, Airport, Hourly
@@ -30,7 +32,7 @@ const pkgKey = (p?: string[]) => (p?.length ? [...p].sort().join(",") : "");
 const standing = (r: ServiceRule) => r.kind === "pricing" && r.status === "Enabled" && r.schedule.mode === "Always" && (r.scope.side ?? "Pickup or drop") === "Pickup or drop";
 let seq = 0;
 
-export default function PriceChangeRules({ rules, fareScope, canEdit, loaded, loadError, stateName, stateOptions, citiesOf, areasOf, onToast }: {
+export default function PriceChangeRules({ rules, fareScope, canEdit, loaded, loadError, stateName, stateOptions, citiesOf, onToast }: {
   /** Every rule of this brand (any service) plus the shared All-brands ones; removed ones may be included. */
   rules: ServiceRule[];
   fareScope: FareWorkspaceScope;
@@ -40,7 +42,6 @@ export default function PriceChangeRules({ rules, fareScope, canEdit, loaded, lo
   stateName: (code: string) => string;
   stateOptions: { value: string; label: string }[];
   citiesOf: (state: string) => string[];
-  areasOf: (state: string, city: string) => string[];
   onToast: (text: string) => void;
 }) {
   const { tariff } = useTariff();
@@ -50,6 +51,8 @@ export default function PriceChangeRules({ rules, fareScope, canEdit, loaded, lo
   const [removed, setRemoved] = useState<Set<string>>(new Set());
   const [added, setAdded] = useState<NewRow[]>([]);
   const [pick, setPick] = useState<Place>({ state: "", city: "", area: "" });
+  // Pincodes of the chosen city, all ticked until some are unticked: all = the whole city, fewer = one row per pincode.
+  const pins = usePincodeScope(pick.state, pick.city);
   const [services, setServices] = useState<string[]>([fareScope.service]);
   const [pickPkgs, setPickPkgs] = useState<string[]>([]);
   const [cust, setCust] = useState("");
@@ -110,14 +113,15 @@ export default function PriceChangeRules({ rules, fareScope, canEdit, loaded, lo
 
   // ── Add form ──
   const cities = pick.state ? citiesOf(pick.state) : [];
-  const areas = pick.city ? areasOf(pick.state, pick.city) : [];
   const serviceChoices = common ? [ALL, ...SERVICES] : SERVICES;
-  const addProblem = !services.length ? "Choose at least one service." : badPct(cust) || badPct(part) ? "A price change must be between −99% and +99%." : adjOf(cust).mode === "Normal" && adjOf(part).mode === "Normal" ? "Enter a change for the customer fare or the partner pay." : "";
+  const addProblem = !pins.canAdd ? "Tick at least one pincode, or choose the whole state." : !services.length ? "Choose at least one service." : badPct(cust) || badPct(part) ? "A price change must be between −99% and +99%." : adjOf(cust).mode === "Normal" && adjOf(part).mode === "Normal" ? "Enter a change for the customer fare or the partner pay." : "";
   const addRow = () => {
     if (addProblem) return setMessage({ ok: false, text: addProblem });
     setMessage(null);
-    const p = { ...pick, area: pick.city ? pick.area : "" };
-    for (const s of services) setAdded((list) => [...list, { key: `n${seq++}`, place: p, service: s, packages: s === "Round Trip" ? pickPkgs : [], cust, part }]);
+    for (const area of pins.areas) {
+      const p = { state: pick.state, city: pick.city, area };
+      for (const s of services) setAdded((list) => [...list, { key: `n${seq++}`, place: p, service: s, packages: s === "Round Trip" ? pickPkgs : [], cust, part }]);
+    }
     setCust(""); setPart(""); setPickPkgs([]);
   };
 
@@ -190,12 +194,9 @@ export default function PriceChangeRules({ rules, fareScope, canEdit, loaded, lo
                 {cities.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </label>
-            <label className="fm-mini"><span>Area / zone</span>
-              <select className="ds-select" value={pick.area} disabled={!pick.city} onChange={(e) => setPick({ ...pick, area: e.target.value })}>
-                <option value="">Whole city</option>
-                {areas.map((a) => <option key={a} value={a}>{a}</option>)}
-              </select>
-            </label>
+            <div className="fm-mini"><span>Pincodes</span>
+              <div className="relative"><PincodePicker list={pins.list} selected={pins.pins} onChange={pins.setPins} cityChosen={!!pick.city} /></div>
+            </div>
             <label className="fm-mini"><span>Customer fare %</span><input className="ds-input text-right" inputMode="decimal" value={cust} placeholder="0" onChange={(e) => setCust(e.target.value)} aria-label="Customer fare change" /></label>
             <label className="fm-mini"><span>Partner pay %</span><input className="ds-input text-right" inputMode="decimal" value={part} placeholder="0" onChange={(e) => setPart(e.target.value)} aria-label="Partner pay change" /></label>
           </div>
@@ -217,7 +218,7 @@ export default function PriceChangeRules({ rules, fareScope, canEdit, loaded, lo
               <span className="text-[12px] text-muted">{pickPkgs.length ? pickPkgs.map(pkgName).join(", ") : "Every package of the Round Trip."}</span>
             </div>
           )}
-          <div className="mt-3"><Button icon="plus" onClick={addRow}>Add price change</Button></div>
+          <div className="mt-3"><Button icon="plus" onClick={addRow}>{pins.areas.length > 1 ? `Add ${pins.areas.length} price changes per service` : "Add price change"}</Button></div>
         </CardBody>
       )}
 
