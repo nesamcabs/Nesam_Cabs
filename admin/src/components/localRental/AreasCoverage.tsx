@@ -11,7 +11,8 @@ import PincodePicker from "../PincodePicker";
 import type { VehicleCol } from "../RateTable";
 import { Button, Icon } from "../ui";
 import MappedLocationsMap from "./MappedLocationsMap";
-import { Footer, Hint, Panel, Pill, type Tone } from "./ui";
+import { Footer, Hint, LoadFailure, Panel, Pill, type Tone } from "./ui";
+import type { FeedStatus } from "../../hooks/useLocationsFeed";
 
 type Avail = "Available" | "Limited" | "Paused";
 type Draft = { avail?: "" | Avail; cats?: string[] | null };
@@ -23,8 +24,9 @@ const norm = (s?: string) => (s ?? "").trim().toLowerCase();
  * a rate, or matching a PIN, does not open bookings there. A zone's mapped areas are its Locations records (by parent or by the zone's
  * PINs); "Link areas" adds PINs to the zone with the existing zone-PIN save (Locations master).
  */
-export default function AreasCoverage({ brand, service, fareService, rules, rulesLoaded, docs, sel, onSel, index, locations, vehicles, canEdit, canEditLocations, onToast, onEditRates, onManageLocations, scopeText }: {
-  brand: string; service: GeoService; fareService: string; rules: ServiceRule[]; rulesLoaded: boolean; docs: Map<string, GeoFareDoc> | null;
+export default function AreasCoverage({ brand, service, fareService, rules, rulesLoaded, rulesError, onRetryRules, docs, feed, locationsStatus, sel, onSel, index, locations, vehicles, canEdit, canEditLocations, onToast, onEditRates, onManageLocations, scopeText }: {
+  brand: string; service: GeoService; fareService: string; rules: ServiceRule[]; rulesLoaded: boolean; rulesError: string | null; onRetryRules: () => void;
+  docs: Map<string, GeoFareDoc> | null; feed: FeedStatus; locationsStatus: FeedStatus;
   sel: LocSel; onSel: (s: LocSel) => void; index: Indexed[]; locations: MasterLocation[]; vehicles: VehicleCol[]; canEdit: boolean; canEditLocations: boolean;
   onToast: (t: string) => void; onEditRates: (areaIds: string[]) => void; onManageLocations: () => void; scopeText: (target: string) => string;
 }) {
@@ -67,7 +69,7 @@ export default function AreasCoverage({ brand, service, fareService, rules, rule
   };
   const key = (p: Place) => `${p.state}|${p.city}|${p.area}|${p.zoneId ?? ""}`;
   const rateSource = (a: MasterLocation): { tone: Tone; text: string } => {
-    if (!docs) return { tone: "off", text: "—" };
+    if (!docs) return feed.error ? { tone: "bad", text: "Rates unavailable" } : { tone: "off", text: "Loading…" };
     const has = (k: string) => [geoDocId(brand, service, k), ...(brand !== "common" ? [geoDocId("common", service, k)] : [])].some((id) => Object.keys(docs.get(id)?.classes ?? {}).length > 0);
     const z = zoneOfArea(a, index);
     if (has(`a_${a.id}`)) return { tone: "ok", text: "Area override" };
@@ -151,7 +153,10 @@ export default function AreasCoverage({ brand, service, fareService, rules, rule
             <span className="font-semibold text-slate-700">Mapped areas <strong className="ml-1 text-slate-900">{sel.district && (zone || !zones.length) ? rows.length : "—"}</strong></span>
             {zone && <span className="text-slate-600">Zone PINs <strong className="text-slate-900">{pinsOfLocation(zone).length || "none"}</strong></span>}
           </div>
-          {!sel.district || (zones.length > 0 && !zone) ? (
+          {rulesError ? <LoadFailure what="Booking rules (coverage)" failure={{ denied: /permission/i.test(rulesError), error: rulesError }} onRetry={onRetryRules} />
+          : locationsStatus.error ? <LoadFailure what="Locations" failure={locationsStatus} onRetry={locationsStatus.onRetry} />
+          : locationsStatus.loading || !rulesLoaded ? <p className="text-[13px] text-slate-500" role="status">Loading coverage…</p>
+          : !sel.district || (zones.length > 0 && !zone) ? (
             <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
               <Icon name="map-pin" size={26} className="mx-auto text-slate-500" />
               <p className="mt-2 text-[15px] font-bold text-slate-900">{sel.district ? "Select a zone to manage its mapped areas" : "Choose a state and district above"}</p>
@@ -233,7 +238,7 @@ export default function AreasCoverage({ brand, service, fareService, rules, rule
       <PinMatches index={index} onSel={onSel} />
       {canEdit && (
         <Footer scopeText={scopeText(zone ? zone.name : sel.district ? `${sel.district} district` : "Select zone")} reason={reason} onReason={setReason} onSave={save} saveLabel="Save coverage"
-          busy={busy} disabled={!ops.length || problems.length > 0 || !rulesLoaded} message={message ?? (problems.length ? { ok: false, text: problems[0]! } : null)} />
+          busy={busy} disabled={!ops.length || problems.length > 0 || !rulesLoaded || !!rulesError || !!locationsStatus.error} message={message ?? (problems.length ? { ok: false, text: problems[0]! } : null)} />
       )}
     </div>
   );

@@ -139,11 +139,11 @@ export function describeDataError(error: unknown): string {
 export function subscribeToCollection<T>(
   collectionName: string,
   callback: (data: T[]) => void,
-  onError?: (message: string) => void,
+  onError?: (message: string, code?: string) => void,
 ) {
   const fail = (err: unknown) => {
-    console.warn(`Firestore listener error on ${collectionName}:`, err);
-    if (onError) onError(describeDataError(err));
+    console.warn(`Firestore listener error on ${collectionName}:`, (err as { code?: string })?.code ?? "unknown");
+    if (onError) onError(describeDataError(err), (err as { code?: string })?.code);
     else callback([]);
   };
   if (redactedBookings && collectionName === COLLECTIONS.BOOKINGS) {
@@ -271,7 +271,7 @@ export const subscribeServices = (cb: (data: TravelService[]) => void, onError?:
 export const subscribeTourPackages = (cb: (data: TourPackage[]) => void, onError?: (message: string) => void) =>
   subscribeToCollection<TourPackage>(COLLECTIONS.TOUR_PACKAGES, cb, onError);
 
-export const subscribeLocations = (cb: (data: MasterLocation[]) => void, onError?: (message: string) => void) =>
+export const subscribeLocations = (cb: (data: MasterLocation[]) => void, onError?: (message: string, code?: string) => void) =>
   subscribeToCollection<MasterLocation>(COLLECTIONS.LOCATIONS, cb, onError);
 
 export const subscribeFareRules = (cb: (data: FareRule[]) => void, onError?: (message: string) => void) =>

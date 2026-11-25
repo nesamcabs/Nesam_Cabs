@@ -10,6 +10,7 @@ import {
 import { CardBody, SettingCard, type VehicleCol } from "./RateTable";
 import type { MasterLocation } from "../types";
 import LocationScopeSelector from "./location/LocationScopeSelector";
+import type { FeedStatus } from "../hooks/useLocationsFeed";
 import { EMPTY_SEL, indexLocations, rulePlaceLabel, rulePlacesOf, selOfRulePlace, type LocSel } from "../domain/locationHierarchy";
 
 // Date-based, special and inherited rules, all inside the page (no side drawer): a filterable list, and the add / edit / switch on-off /
@@ -34,7 +35,7 @@ const adjOf = (v: string): Adjustment => {
 const badPct = (v: string) => v.trim() !== "" && !(Number.isFinite(Number(v)) && Math.abs(Number(v)) < 100);
 const dateText = (iso?: string) => (iso ? refDateTime(new Date(iso)) : "");
 
-export default function DateRules({ rules, allRules, isOwn, fareScope, vehicles, canEdit, loaded, loadError, locations, onManageLocations, onToast }: {
+export default function DateRules({ rules, allRules, isOwn, fareScope, vehicles, canEdit, loaded, loadError, locations, locationsStatus, onRetry, onManageLocations, onToast }: {
   /** The rules to list: with dates, pickup-only / drop-only, switched off, a second rule for a place, or inherited. */
   rules: ServiceRule[];
   /** Every rule in scope, used to spot two rules that would clash. */
@@ -47,6 +48,8 @@ export default function DateRules({ rules, allRules, isOwn, fareScope, vehicles,
   loadError: string | null;
   locations: MasterLocation[];
   onManageLocations?: () => void;
+  locationsStatus?: FeedStatus;
+  onRetry?: () => void;
   onToast: (text: string) => void;
 }) {
   const [now, setNow] = useState(Date.now);
@@ -113,11 +116,11 @@ export default function DateRules({ rules, allRules, isOwn, fareScope, vehicles,
       {adding && (
         <CardBody>
           <RuleForm key={`new-${adding}`} kind={adding} fareScope={fareScope} vehicles={vehicles} allRules={allRules} placeText={placeText}
-            locations={locations} onManageLocations={onManageLocations} onCancel={() => setAdding(null)} onDone={done} />
+            locations={locations} locationsStatus={locationsStatus} onManageLocations={onManageLocations} onCancel={() => setAdding(null)} onDone={done} />
         </CardBody>
       )}
 
-      {loadError ? <CardBody><p className="ds-error" role="alert">Saved rules could not be loaded: {loadError}. Reload to try again.</p></CardBody>
+      {loadError ? <CardBody><p className="ds-error" role="alert">Saved rules could not be loaded: {loadError} {onRetry && <button type="button" className="fm-linkbtn" onClick={onRetry}>Retry</button>}</p></CardBody>
         : !loaded ? <CardBody><p className="fm-sub" role="status">Loading saved rules…</p></CardBody>
         : (
           <>
@@ -181,7 +184,7 @@ export default function DateRules({ rules, allRules, isOwn, fareScope, vehicles,
                             <tr className="fm-expand">
                               <td colSpan={7}>
                                 {isOpen === "edit" ? <RuleForm kind={r.kind} rule={r} fareScope={fareScope} vehicles={vehicles} allRules={allRules} placeText={placeText}
-                                  locations={locations} onManageLocations={onManageLocations} onCancel={() => setOpen(null)} onDone={done} />
+                                  locations={locations} locationsStatus={locationsStatus} onManageLocations={onManageLocations} onCancel={() => setOpen(null)} onDone={done} />
                                   : isOpen === "details" ? <Details rule={r} own={isOwn(r)} placeText={placeText} phase={phase(r)} onClose={() => setOpen(null)} />
                                   : <StatusPanel rule={r} to={isOpen === "remove" ? "Removed" : isOpen === "on" ? "Enabled" : "Disabled"} onCancel={() => setOpen(null)} onDone={done} />}
                               </td>
@@ -256,9 +259,9 @@ function StatusPanel({ rule, to, onCancel, onDone }: { rule: ServiceRule; to: "E
 }
 
 // ── Add or edit one rule ──────────────────────────────────────────────────────────────────────────────────────────
-function RuleForm({ kind, rule, fareScope, vehicles, allRules, placeText, locations, onManageLocations, onCancel, onDone }: {
+function RuleForm({ kind, rule, fareScope, vehicles, allRules, placeText, locations, locationsStatus, onManageLocations, onCancel, onDone }: {
   kind: RuleKind; rule?: ServiceRule; fareScope: FareWorkspaceScope; vehicles: VehicleCol[]; allRules: ServiceRule[]; placeText: (p: Place) => string;
-  locations: MasterLocation[]; onManageLocations?: () => void;
+  locations: MasterLocation[]; locationsStatus?: FeedStatus; onManageLocations?: () => void;
   onCancel: () => void; onDone: (text: string) => void;
 }) {
   const [scope, setScope] = useState<ServiceRule["scope"]>(rule?.scope ?? { state: "", city: "", area: "", side: "Pickup or drop" });
@@ -389,7 +392,7 @@ function RuleForm({ kind, rule, fareScope, vehicles, allRules, placeText, locati
           <h4>2 · Where</h4>
           <div className="fm-form__two">
             <div className="fm-form__span">
-              <LocationScopeSelector variant="row" label="Rule location" value={sel} onChange={(next) => { setSel(next); setMoved(true); }} locations={locations} depth="area"
+              <LocationScopeSelector variant="row" label="Rule location" value={sel} onChange={(next) => { setSel(next); setMoved(true); }} locations={locations} status={locationsStatus} depth="area"
                 pinSearch={rule ? "locate" : "multi"} broad={{ state: "All locations", district: "Whole state", zone: "All zones", area: "All mapped areas" }} onManageLocations={onManageLocations} />
               {rule && !moved && <p className="fm-hint mt-1">Saved place: {placeText(rule.scope)}. It stays exactly as saved unless you change the location above.</p>}
             </div>

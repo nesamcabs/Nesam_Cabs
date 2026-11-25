@@ -7,6 +7,7 @@ import { parentOf } from "../domain/placeZones";
 import { isPincode } from "../domain/pincodes";
 import type { MasterLocation } from "../types";
 import LocationScopeSelector from "./location/LocationScopeSelector";
+import type { FeedStatus } from "../hooks/useLocationsFeed";
 import { EMPTY_SEL, indexLocations, pinsOfLocation, rulePlaceLabel, rulePlacesOf, type LocSel } from "../domain/locationHierarchy";
 import { CardBody, Problems, RateTable, SaveBar, SettingCard, type RateColumn, type RateRow, type VehicleCol } from "./RateTable";
 
@@ -57,7 +58,7 @@ export function specialRules(rules: ServiceRule[], isOwn: (r: ServiceRule) => bo
   return live.filter((r) => !inTable.has(r.id) && !(r.kind === "pricing" && standing(r)));
 }
 
-export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, canEdit, loaded, loadError, locations, focus, onManageLocations, onToast }: {
+export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, canEdit, loaded, loadError, locations, locationsStatus, onRetry, focus, onManageLocations, onToast }: {
   /** Every rule for this brand & service, including shared (All brands) rules it inherits; removed rules may be included. */
   rules: ServiceRule[];
   /** A rule saved for this brand & service (the others are inherited). */
@@ -72,6 +73,8 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
   /** Local & Rental → Areas & coverage: only the rows inside this selection (the same records, not a copy). */
   focus?: (p: Place) => boolean;
   onManageLocations?: () => void;
+  locationsStatus?: FeedStatus;
+  onRetry?: () => void;
   onToast: (text: string) => void;
 }) {
   const live = useMemo(() => rules.filter((r) => r.status !== "Removed" && r.kind !== "limit"), [rules]);
@@ -282,12 +285,12 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
           : null}>
         {canEdit && (
           <CardBody>
-            <LocationScopeSelector variant="row" label="Place to add" value={pick} onChange={setPick} locations={locations} depth="area" pinSearch="multi"
+            <LocationScopeSelector variant="row" label="Place to add" value={pick} onChange={setPick} locations={locations} status={locationsStatus} depth="area" pinSearch="multi"
               broad={{ state: "Choose a state", district: "Whole state", zone: "All zones", area: "All mapped areas" }} onManageLocations={onManageLocations}
               action={<Button icon="plus" onClick={addPlace} disabled={!canAdd}>{toAdd.length < 2 ? "Add location" : `Add ${toAdd.length} locations`}</Button>} />
           </CardBody>
         )}
-        {loadError ? <CardBody><p className="ds-error" role="alert">Saved rules could not be loaded: {loadError}. Reload to try again.</p></CardBody>
+        {loadError ? <CardBody><p className="ds-error" role="alert">Saved rules could not be loaded: {loadError} {onRetry && <button type="button" className="fm-linkbtn" onClick={onRetry}>Retry</button>}</p></CardBody>
           : !loaded ? <CardBody><p className="fm-sub" role="status">Loading saved rules…</p></CardBody>
           : <RateTable label={`Booking rules for ${where}`} disabled={!canEdit || busy} columns={columns} groups={[{ title: "", rows }]} cornerWidth={210} minWidth={500 + vehicles.length * 92} />}
         <Problems items={problems} />

@@ -3,7 +3,8 @@ import type { Indexed, LocSel } from "../../domain/locationHierarchy";
 import { saveGeoFares, type AirportEntry, type GeoFareDoc } from "../../services/geoFareService";
 import { Button } from "../ui";
 import { airportDocId, airportsOf } from "./LocalFareRates";
-import { Hint, Panel, Pill } from "./ui";
+import { Hint, LoadFailure, Panel, Pill } from "./ui";
+import type { FeedStatus } from "../../hooks/useLocationsFeed";
 
 /**
  * Local route charges.
@@ -13,8 +14,8 @@ import { Hint, Panel, Pill } from "./ui";
  *   is that record (never matched by an airport name in an address), outside GST and peak, and passed to the partner who pays it.
  *   Local Pickup & Drop only; Hourly Rental and the separate Airport Taxi service are not changed.
  */
-export default function LocalRouteCharges({ brand, docs, sel, index, canEdit, onToast }: {
-  brand: string; docs: Map<string, GeoFareDoc> | null; sel: LocSel; index: Indexed[]; canEdit: boolean; onToast: (t: string) => void;
+export default function LocalRouteCharges({ brand, docs, feed, locationsStatus, sel, index, canEdit, onToast }: {
+  brand: string; docs: Map<string, GeoFareDoc> | null; feed: FeedStatus; locationsStatus: FeedStatus; sel: LocSel; index: Indexed[]; canEdit: boolean; onToast: (t: string) => void;
 }) {
   const airports = useMemo(() => (sel.district ? airportsOf(index, sel) : []), [index, sel]);
   const [airportId, setAirportId] = useState("");
@@ -38,7 +39,8 @@ export default function LocalRouteCharges({ brand, docs, sel, index, canEdit, on
   const dirty = on !== !!saved || (on && (fee !== String(saved?.customerFee ?? "") || (pickup ? (drop ? "both" : "pickup") : "drop") !== saved?.appliesTo));
   const problem = !airportId ? "Choose an airport." : on && !(Number(fee) > 0) ? "Enter the entry fee." : on && !pickup && !drop ? "Choose pickup, drop or both." : reason.trim().length < 5 ? "Enter a reason (at least 5 characters)." : "";
   const save = async () => {
-    if (!canEdit || busy || !dirty) return;
+    // The saved entry must have loaded: a failed read never lets an empty form replace a saved fee.
+    if (!docs || !canEdit || busy || !dirty) return;
     if (problem) return setMessage({ ok: false, text: problem });
     setBusy(true); setMessage(null);
     try {
@@ -72,7 +74,12 @@ export default function LocalRouteCharges({ brand, docs, sel, index, canEdit, on
             <strong className="text-[14px] text-slate-900">Airport entry</strong>
             <label className="flex items-center gap-2 text-[13px]"><input type="checkbox" checked={on} disabled={!canEdit || !airportId} onChange={(e) => { setOn(e.target.checked); setMessage(null); }} /> Charge an entry fee</label>
           </div>
-          {!sel.district ? <Hint>Choose a district above to see its airports.</Hint> : !airports.length ? <Hint>No Airport location is saved for {sel.district}. Add the airport in Locations to set its entry fee.</Hint> : (
+          {!sel.district ? <Hint>Choose a district above to see its airports.</Hint>
+            : locationsStatus.loading ? <Hint>Loading locations…</Hint>
+            : locationsStatus.error ? <LoadFailure what="Locations" failure={locationsStatus} onRetry={locationsStatus.onRetry} />
+            : feed.error ? <LoadFailure what="Saved airport entry fees" failure={feed} onRetry={feed.onRetry} />
+            : !docs ? <Hint>Loading saved fees…</Hint>
+            : !airports.length ? <Hint>No Airport location is saved for {sel.district}. Add the airport in Locations to set its entry fee.</Hint> : (
             <div className="grid gap-3 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] sm:items-end">
               <label className="flex flex-col gap-1"><span className="text-[12px] font-semibold text-slate-700">Airport</span>
                 <select className="ds-select" value={airportId} onChange={(e) => setAirportId(e.target.value)} aria-label="Airport">
@@ -93,7 +100,7 @@ export default function LocalRouteCharges({ brand, docs, sel, index, canEdit, on
           {airportId && canEdit && (dirty || message) && (
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <input className="ds-input min-w-[200px] flex-1" placeholder="Reason for change" value={reason} maxLength={300} onChange={(e) => setReason(e.target.value)} aria-label="Reason for airport entry change" />
-              <Button size="sm" variant="primary" loading={busy} disabled={!dirty} onClick={() => void save()}>Save airport entry</Button>
+              <Button size="sm" variant="primary" loading={busy} disabled={!dirty || !docs} onClick={() => void save()}>Save airport entry</Button>
             </div>
           )}
           {message && <p className={`mt-2 text-[12.5px] font-semibold ${message.ok ? "text-emerald-700" : "text-red-700"}`} role="alert">{message.text}</p>}

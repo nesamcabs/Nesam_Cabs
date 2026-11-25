@@ -1,8 +1,9 @@
+import { useLocationsFeed } from "../../hooks/useLocationsFeed";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { serviceLabel } from "../../services/tariffService";
 import { isCampaignCoupon } from "../../domain/couponWorkspace";
 import type { MasterLocation, VehicleCategory } from "../../types";
-import { subscribeCoupons, subscribeLocations, subscribeVehicleCategories } from "../../services/adminFirestoreService";
+import { subscribeCoupons, subscribeVehicleCategories } from "../../services/adminFirestoreService";
 import {
   AUDIENCES, COUPON_SERVICES, checkCoupon, couponState, draftOf, emptyCouponDraft, generateCode, isEnabled, istAt, istInput, saveCoupon,
   setCouponActive, validateDraft, type Coupon, type CouponCheck, type CouponDraft, type CouponState,
@@ -23,13 +24,14 @@ const stamp = (v: string) => (Number.isFinite(istAt(v)) ? `${refDate(new Date(is
 export default function CouponsPanel({ canEdit, canSeeUsage, includeLegacy = false }: { canEdit: boolean; canSeeUsage: boolean; includeLegacy?: boolean }) {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [categories, setCategories] = useState<VehicleCategory[]>([]);
-  const [locations, setLocations] = useState<MasterLocation[]>([]);
+  // Pickup / drop cities come from the Locations master; a failed read is shown with Retry, never as an empty city list.
+  const { locations, status: locationsStatus } = useLocationsFeed();
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
   const [sheet, setSheet] = useState<{ kind: "new" | "history" } | { kind: "edit" | "test" | "state"; c: Coupon } | null>(null);
   const { toast, show } = useToast(6000);
   useEffect(() => {
-    const u = [subscribeCoupons((r) => setCoupons(r as Coupon[])), subscribeVehicleCategories(setCategories), subscribeLocations(setLocations)];
+    const u = [subscribeCoupons((r) => setCoupons(r as Coupon[])), subscribeVehicleCategories(setCategories)];
     return () => u.forEach((x) => x());
   }, []);
   const cats = useMemo(() => bookableCategories(categories).sort((a, b) => (a.displayOrder ?? 99) - (b.displayOrder ?? 99)), [categories]);
@@ -91,6 +93,7 @@ export default function CouponsPanel({ canEdit, canSeeUsage, includeLegacy = fal
       </DataTable>
       {!list.length && <EmptyState title={coupons.length ? "No matching records" : "No coupons created yet"} hint={coupons.length ? undefined : "Create a coupon to offer a NESAM-funded discount."} />}
 
+      {locationsStatus.error && <div className="ds-error mb-3" role="alert">Locations could not be loaded, so pickup and drop cities are unavailable: {locationsStatus.error} <button type="button" className="fm-linkbtn" onClick={locationsStatus.onRetry}>Retry</button></div>}
       {canEdit && sheet?.kind === "new" && <CouponSheet coupons={coupons} cats={cats} cities={cities} onClose={() => setSheet(null)} onDone={done} />}
       {canEdit && sheet?.kind === "edit" && <CouponSheet editing={sheet.c} coupons={coupons} cats={cats} cities={cities} onClose={() => setSheet(null)} onDone={done} />}
       {canEdit && sheet?.kind === "state" && <StateSheet c={sheet.c} onClose={() => setSheet(null)} onDone={done} />}

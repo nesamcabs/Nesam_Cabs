@@ -36,10 +36,18 @@ export interface GeoFareDoc {
 export const geoDocId = (brand: string, service: GeoService, key: string) => `${brand || "common"}__${service}__${key}`;
 
 /** The brand's own documents and the shared (all brands) ones of one service, live. */
-export function subscribeGeoFares(brand: string, service: GeoService, cb: (rows: Map<string, GeoFareDoc>) => void, onError: (m: string) => void) {
+/** Firestore error code of a failed read ('permission-denied', 'unavailable', …), for telling a refusal apart from other failures. */
+export type ReadFailure = { code: string; message: string };
+const failureOf = (e: { code?: string; message?: string }): ReadFailure => ({ code: e.code ?? "unknown", message: e.message ?? "The read failed." });
+
+/**
+ * The brand's own documents and the shared (all brands) ones of one service, live. The shared documents are read together with the
+ * brand's because a brand inherits them; both are covered by the same admin read rule (firestore.rules → geo_fares).
+ */
+export function subscribeGeoFares(brand: string, service: GeoService, cb: (rows: Map<string, GeoFareDoc>) => void, onError: (f: ReadFailure) => void) {
   const brands = brand && brand !== "common" ? [brand, "common"] : ["common"];
   return onSnapshot(query(collection(db, "geo_fares"), where("service", "==", service), where("brand", "in", brands)),
-    (s) => cb(new Map(s.docs.map((d) => [d.id, { ...(d.data() as Omit<GeoFareDoc, "id">), id: d.id }]))), (e) => onError(e.message));
+    (s) => cb(new Map(s.docs.map((d) => [d.id, { ...(d.data() as Omit<GeoFareDoc, "id">), id: d.id }]))), (e) => onError(failureOf(e)));
 }
 
 export interface GeoScopeInput { level: string; state: string; district: string; zoneId?: string; locationId?: string }
@@ -74,9 +82,9 @@ export interface PeakRule {
   version?: number;
   updatedByName?: string;
 }
-export function subscribePeakRules(service: GeoService, cb: (rows: PeakRule[]) => void, onError: (m: string) => void) {
+export function subscribePeakRules(service: GeoService, cb: (rows: PeakRule[]) => void, onError: (f: ReadFailure) => void) {
   return onSnapshot(query(collection(db, "peak_rules"), where("service", "==", service)),
-    (s) => cb(s.docs.map((d) => ({ ...(d.data() as Omit<PeakRule, "id">), id: d.id })).filter((r) => r.status !== "Removed")), (e) => onError(e.message));
+    (s) => cb(s.docs.map((d) => ({ ...(d.data() as Omit<PeakRule, "id">), id: d.id })).filter((r) => r.status !== "Removed")), (e) => onError(failureOf(e)));
 }
 export interface SavePeakRuleInput {
   id?: string; expectedVersion?: number; remove?: boolean; brand: string; service: GeoService; scope?: GeoScopeInput; name?: string; enabled?: boolean;

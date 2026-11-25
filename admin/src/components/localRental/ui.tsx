@@ -94,4 +94,18 @@ export function Footer({ scopeText, reason, onReason, onSave, saveLabel, busy, d
   );
 }
 
+/** A failed read: what failed and why, with Retry. Never shown as an empty result; saving stays off until the read succeeds. */
+export function LoadFailure({ what, failure, onRetry }: { what: string; failure: { denied: boolean; error: string | null }; onRetry: () => void }) {
+  return (
+    <div className="flex flex-wrap items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-[13.5px] text-red-900" role="alert">
+      <Icon name="circle-alert" size={18} className="mt-[1px] shrink-0" />
+      <div className="min-w-0 flex-1">
+        <strong className="block">{what} could not be loaded.</strong>
+        <span>{failure.denied ? "Access was denied by the database rules for this account. Nothing is shown or saved until they can be read." : failure.error ?? "The read failed."}</span>
+      </div>
+      <Button size="sm" onClick={onRetry}>Retry</Button>
+    </div>
+  );
+}
+
 export const cellInput = "ds-input h-[34px] w-full min-w-[78px] text-right tabular-nums";

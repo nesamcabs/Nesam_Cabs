@@ -6,7 +6,8 @@ import { LOCAL_FIELDS, geoDocId, saveGeoFares, type FieldPatch, type GeoFareDoc,
 import { CLASS_LABEL, type TariffClass } from "../../services/tariffService";
 import type { VehicleCol } from "../RateTable";
 import { Problems } from "../RateTable";
-import { cellInput, Footer, Hint, Panel, Pill, Seg } from "./ui";
+import { cellInput, Footer, Hint, LoadFailure, Panel, Pill, Seg } from "./ui";
+import type { FeedStatus } from "../../hooks/useLocationsFeed";
 import { fareTarget } from "./fareTarget";
 
 const LABEL: Record<LocalField, string> = { minimumFare: "Minimum fare ₹", baseFare: "Base fare ₹", includedKm: "Included km", extraKmRate: "Extra ₹/km", freeWaitingMin: "Free wait min", waitingPerMin: "Waiting ₹/min" };
@@ -17,9 +18,11 @@ const NAME: Record<LocalField, string> = { minimumFare: "minimum fare", baseFare
  * district default, a zone override or an area override. An empty box inherits (shown in grey with its source); clearing a value saved
  * here removes the override; a typed 0 is a real value. Saved through saveGeoFares (server-validated, audited, version-checked).
  */
-export default function LocalFareRates({ brand, scopeText, docs, sel, index, bulkIds, vehicles, canEdit, onToast, onDirty, children }: {
+export default function LocalFareRates({ brand, scopeText, docs, feed, sel, index, bulkIds, vehicles, canEdit, onToast, onDirty, children }: {
   brand: string; scopeText: (target: string) => string; docs: Map<string, GeoFareDoc> | null; sel: LocSel; index: Indexed[]; bulkIds: string[];
   vehicles: VehicleCol[]; canEdit: boolean; onToast: (t: string) => void; onDirty: (dirty: boolean) => void; children?: React.ReactNode;
+  /** Load state of `docs`: a failed read shows the failure with Retry and keeps Save off (typed values are kept). */
+  feed: FeedStatus;
 }) {
   const [level, setLevel] = useState<EditLevel>("district");
   const [party, setParty] = useState<Party>("customer");
@@ -63,7 +66,7 @@ export default function LocalFareRates({ brand, scopeText, docs, sel, index, bul
   }
 
   const save = async () => {
-    if (!canEdit || busy || !target.ready || !dirtyKeys.length || problems.length) return;
+    if (!(docs) || !canEdit || busy || !target.ready || !dirtyKeys.length || problems.length) return;
     if (reason.trim().length < 5) return setMessage({ ok: false, text: "Enter a reason for this change (at least 5 characters)." });
     setBusy(true); setMessage(null);
     try {
@@ -85,7 +88,7 @@ export default function LocalFareRates({ brand, scopeText, docs, sel, index, bul
           {level === "area" && bulkIds.length > 1 && <Pill tone="mixed">Bulk edit · {bulkIds.length} areas</Pill>}
         </div>
         <div className="mb-3"><Seg label="Party" variant="outline" value={party} onChange={setParty} options={[{ id: "customer", label: "Customer fare" }, { id: "partner", label: "Partner payout" }]} /></div>
-        {!docs ? <p className="text-[13px] text-slate-500" role="status">Loading saved rates…</p>
+        {!docs ? (feed.error ? <LoadFailure what="Saved location rates" failure={feed} onRetry={feed.onRetry} /> : <p className="text-[13px] text-slate-500" role="status">Loading saved rates…</p>)
           : !target.ready ? <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-[13.5px] text-slate-600">{target.needs}</div>
           : (
             <div className="overflow-x-auto">
@@ -127,7 +130,7 @@ export default function LocalFareRates({ brand, scopeText, docs, sel, index, bul
       {children}
       {canEdit && (
         <Footer scopeText={scopeText(target.ready ? target.label : "Choose a place")} reason={reason} onReason={setReason} onSave={save} saveLabel="Save fare rules" busy={busy}
-          disabled={!target.ready || !dirtyKeys.length || problems.length > 0} message={message} />
+          disabled={!(docs) || !target.ready || !dirtyKeys.length || problems.length > 0} message={message} />
       )}
     </div>
   );

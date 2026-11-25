@@ -7,8 +7,7 @@ import {
   type OptionRule, type PayOptionId, type PaymentChoices,
 } from "../domain/paymentChoices";
 import { useCan, useCanDo } from "./AccessContext";
-import type { MasterLocation } from "../types";
-import { subscribeLocations } from "../services/adminFirestoreService";
+import { useLocationsFeed } from "../hooks/useLocationsFeed";
 import LocationScopeSelector from "./location/LocationScopeSelector";
 import { EMPTY_SEL, indexLocations, rulePlacesOf, type LocSel } from "../domain/locationHierarchy";
 import { Notice, inputCls, primaryBtn, secondaryBtn } from "./FormKit";
@@ -54,8 +53,8 @@ function Switch({ on, onChange, disabled, label }: { on: boolean; onChange: (v: 
  * entries stay exactly as saved.
  */
 function DistrictPicker({ list, onChange, disabled }: { id: string; list: string[]; onChange: (next: string[]) => void; disabled?: boolean }) {
-  const [locations, setLocations] = useState<MasterLocation[]>([]);
-  useEffect(() => subscribeLocations(setLocations, () => setLocations([])), []);
+  // A failed read is shown (with Retry), never as an empty list.
+  const { locations, status } = useLocationsFeed();
   const index = useMemo(() => indexLocations(locations), [locations]);
   const [sel, setSel] = useState<LocSel>(EMPTY_SEL);
   const name = sel.district ? rulePlacesOf({ ...sel, zoneId: "", pins: [] }, index)[0]?.city ?? "" : "";
@@ -81,7 +80,7 @@ function DistrictPicker({ list, onChange, disabled }: { id: string; list: string
         <>
           <div className="flex flex-wrap items-end gap-2">
             <div className="min-w-0 flex-1">
-              <LocationScopeSelector variant="row" label="Payment option district" value={sel} onChange={setSel} locations={locations} depth="district" pinSearch="locate"
+              <LocationScopeSelector variant="row" label="Payment option district" value={sel} onChange={setSel} locations={locations} status={status} depth="district" pinSearch="locate"
                 broad={{ state: "Select a state" }} />
             </div>
             {cities.length > 0 && (

@@ -14,7 +14,8 @@ import LocalFareRates from "./LocalFareRates";
 import LocalRouteCharges from "./LocalRouteCharges";
 import PeakHours from "./PeakHours";
 import RentalFareRates from "./RentalFareRates";
-import { Collapsible, Hint, Seg } from "./ui";
+import { Collapsible, Hint, LoadFailure, Seg } from "./ui";
+import type { FeedStatus } from "../../hooks/useLocationsFeed";
 
 type WsTab = "rates" | "coverage" | "peak";
 
@@ -24,8 +25,9 @@ type WsTab = "rates" | "coverage" | "peak";
  *   Fare rates (district default / zone / area overrides) · Areas & coverage (the Places & cabs records) · Peak hours.
  * Everything shown is read from saved data and saved through the server; nothing here is sample data.
  */
-export default function LocalRentalWorkspace({ brand, service, vehicles, locations, rules, rulesLoaded, canEdit, canEditLocations, onToast, onManageLocations, onDirty, extras, standardPackages }: {
-  brand: string; service: GeoService; vehicles: VehicleCol[]; locations: MasterLocation[]; rules: ServiceRule[]; rulesLoaded: boolean;
+export default function LocalRentalWorkspace({ brand, service, vehicles, locations, locationsStatus, rules, rulesLoaded, rulesError, onRetryRules, canEdit, canEditLocations, onToast, onManageLocations, onDirty, extras, standardPackages }: {
+  brand: string; service: GeoService; vehicles: VehicleCol[]; locations: MasterLocation[]; locationsStatus: FeedStatus; rules: ServiceRule[]; rulesLoaded: boolean;
+  rulesError: string | null; onRetryRules: () => void;
   canEdit: boolean; canEditLocations: boolean; onToast: (t: string) => void; onManageLocations: () => void; onDirty: (dirty: boolean) => void;
   /** The existing shared settings shown in the collapsible sections (night allowance, GST link, display price, adjustments). */
   extras: { taxes: ReactNode; display: ReactNode };
@@ -35,17 +37,29 @@ export default function LocalRentalWorkspace({ brand, service, vehicles, locatio
   const [tab, setTab] = useState<WsTab>("rates");
   const [sel, setSel] = useState<LocSel>(EMPTY_SEL);
   const [bulkIds, setBulkIds] = useState<string[]>([]);
+  // Location rates (geo_fares) and peak rules: loading → ready | failed (denied or other), never a failure shown as "nothing saved".
+  // A different brand or service is a different read: the old listener is closed, its late answers are ignored (`live`), and
+  // nothing from the previous brand / service is shown meanwhile.
   const [docs, setDocs] = useState<Map<string, GeoFareDoc> | null>(null);
-  const [docsError, setDocsError] = useState<string | null>(null);
+  const [docsFail, setDocsFail] = useState<{ denied: boolean; error: string | null } | null>(null);
+  const [docsAttempt, setDocsAttempt] = useState(0);
   const [peak, setPeak] = useState<PeakRule[] | null>(null);
-  const [peakError, setPeakError] = useState<string | null>(null);
-  const { tariff } = useTariff();
-  // A different brand or service is a different set of rates: clear first, so the previous one's values never show under the new one.
+  const [peakFail, setPeakFail] = useState<{ denied: boolean; error: string | null } | null>(null);
+  const [peakAttempt, setPeakAttempt] = useState(0);
+  const { tariff, error: tariffError, retry: retryTariff } = useTariff();
   useEffect(() => {
-    setDocs(null); setDocsError(null);
-    return subscribeGeoFares(brand, service, (m) => { setDocs(m); setDocsError(null); }, setDocsError);
-  }, [brand, service]);
-  useEffect(() => { setPeak(null); setPeakError(null); return subscribePeakRules(service, (r) => { setPeak(r); setPeakError(null); }, setPeakError); }, [service]);
+    let live = true;
+    setDocs(null); setDocsFail(null);
+    const unsub = subscribeGeoFares(brand, service, (m) => { if (live) { setDocs(m); setDocsFail(null); } }, (f) => { if (live) { setDocs(null); setDocsFail({ denied: f.code === "permission-denied", error: f.message }); } });
+    return () => { live = false; unsub(); };
+  }, [brand, service, docsAttempt]);
+  useEffect(() => {
+    let live = true;
+    setPeak(null); setPeakFail(null);
+    const unsub = subscribePeakRules(service, (r) => { if (live) { setPeak(r); setPeakFail(null); } }, (f) => { if (live) { setPeak(null); setPeakFail({ denied: f.code === "permission-denied", error: f.message }); } });
+    return () => { live = false; unsub(); };
+  }, [service, peakAttempt]);
+  const docsFeed: FeedStatus = { loading: !docs && !docsFail, error: docsFail?.error ?? null, denied: !!docsFail?.denied, onRetry: () => setDocsAttempt((n) => n + 1) };
   useEffect(() => { setBulkIds([]); }, [sel.state, sel.district, brand, service]);
 
   const index = useMemo(() => indexLocations(locations, districtOfPinLoaded), [locations, sel.state]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -67,10 +81,10 @@ export default function LocalRentalWorkspace({ brand, service, vehicles, locatio
   const hasLegacy = !!legacyPlace && !!tariff?.localPickupDrop?.[legacyPlace.id];
 
   const onEditRates = (ids: string[]) => { setBulkIds(ids); setTab("rates"); };
-  const common = { brand, scopeText, docs, sel, index, bulkIds, vehicles, canEdit, onToast, onDirty };
+  const common = { brand, scopeText, docs, feed: docsFeed, sel, index, bulkIds, vehicles, canEdit, onToast, onDirty };
   const shared = (
     <>
-      {service === "local" && <LocalRouteCharges brand={brand} docs={docs} sel={sel} index={index} canEdit={canEdit} onToast={onToast} />}
+      {service === "local" && <LocalRouteCharges brand={brand} docs={docs} feed={docsFeed} locationsStatus={locationsStatus} sel={sel} index={index} canEdit={canEdit} onToast={onToast} />}
       {legacyPlace && (
         <Collapsible title={`Earlier per-km fares · ${legacyPlace.name}${hasLegacy ? "" : " (none saved)"}`} icon="route">
           <Hint>Saved before location-based rates. They still price trips inside {legacyPlace.name} until the location rates above are complete for both the customer and the partner.</Hint>
@@ -93,19 +107,19 @@ export default function LocalRentalWorkspace({ brand, service, vehicles, locatio
         <Button icon="map-pin" className="!border-[#b91c1c] !text-[#b91c1c]" onClick={onManageLocations}>Manage locations</Button>
       </div>
       <Seg label="Local and rental pricing" value={tab} onChange={setTab} options={[{ id: "rates", label: "Fare rates" }, { id: "coverage", label: "Areas & coverage" }, { id: "peak", label: "Peak hours" }]} />
-      <LocationScopeSelector breadcrumb value={sel} onChange={setSel} locations={locations} depth="area" pinSearch="locate" onManageLocations={onManageLocations}
+      <LocationScopeSelector breadcrumb value={sel} onChange={setSel} locations={locations} status={locationsStatus} depth="area" pinSearch="locate" onManageLocations={onManageLocations}
         broad={{ state: "All locations", district: tab === "peak" ? "Whole state" : undefined, zone: tab === "coverage" ? undefined : "All zones", area: "All mapped areas" }} label="Pricing location" />
-      {docsError && <p className="ds-error" role="alert">Saved location rates could not be loaded: {docsError}. Check your pricing access and reload.</p>}
+      {tab === "rates" && service === "rental" && tariffError && <LoadFailure what="Standard rental packages" failure={{ denied: /permission/i.test(tariffError), error: tariffError }} onRetry={retryTariff} />}
 
       {tab === "rates" && (service === "local"
         ? <LocalFareRates {...common}>{shared}</LocalFareRates>
         : <RentalFareRates {...common}>{shared}</RentalFareRates>)}
       {tab === "coverage" && (
-        <AreasCoverage brand={brand} service={service} fareService={fareService} rules={rules} rulesLoaded={rulesLoaded} docs={docs} sel={sel} onSel={setSel} index={index} locations={locations}
+        <AreasCoverage brand={brand} service={service} fareService={fareService} rules={rules} rulesLoaded={rulesLoaded} rulesError={rulesError} onRetryRules={onRetryRules} docs={docs} feed={docsFeed} locationsStatus={locationsStatus} sel={sel} onSel={setSel} index={index} locations={locations}
           vehicles={vehicles} canEdit={canEdit} canEditLocations={canEditLocations} onToast={onToast} onEditRates={onEditRates} onManageLocations={onManageLocations} scopeText={scopeText} />
       )}
       {tab === "peak" && (
-        <PeakHours brand={brand} service={service} serviceText={serviceText} sel={sel} rules={peak} rulesError={peakError} canEdit={canEdit} onToast={onToast}
+        <PeakHours brand={brand} service={service} serviceText={serviceText} sel={sel} rules={peak} rulesFail={peakFail} onRetryRules={() => setPeakAttempt((n) => n + 1)} canEdit={canEdit} onToast={onToast}
           scopeText={scopeText} placeLabel={placeLabel} labelOfKey={labelOfKey} />
       )}
     </div>

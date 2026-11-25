@@ -3,7 +3,7 @@ import { geoScopeOf, scopeKeyOf, type LocSel } from "../../domain/locationHierar
 import { DAY_SHORT, WEEK, daysText, minutesOf, overlapsWith, slotsText } from "../../domain/peakSchedule";
 import { savePeakRule, type GeoService, type PeakRule } from "../../services/geoFareService";
 import { Button, Icon } from "../ui";
-import { Footer, Hint, Panel, Pill } from "./ui";
+import { Footer, Hint, LoadFailure, Panel, Pill } from "./ui";
 
 type Form = { id?: string; version?: number; name: string; enabled: boolean; days: number[]; slots: { start: string; end: string }[]; from: string; until: string; type: "percent" | "fixed"; value: string; cap: string; priority: string };
 const blank = (): Form => ({ name: "", enabled: false, days: [], slots: [{ start: "", end: "" }], from: "", until: "", type: "percent", value: "", cap: "", priority: "" });
@@ -14,8 +14,8 @@ const blank = (): Form => ({ name: "", enabled: false, days: [], slots: [{ start
  * IST), between optional dates, as a percentage or fixed extra with an optional cap. Quotes match it on the scheduled pickup time.
  * New rules start switched off; nothing is enabled automatically. Overlaps of the same place and priority are refused.
  */
-export default function PeakHours({ brand, service, serviceText, sel, rules, rulesError, canEdit, onToast, scopeText, placeLabel, labelOfKey }: {
-  brand: string; service: GeoService; serviceText: string; sel: LocSel; rules: PeakRule[] | null; rulesError: string | null; canEdit: boolean;
+export default function PeakHours({ brand, service, serviceText, sel, rules, rulesFail, onRetryRules, canEdit, onToast, scopeText, placeLabel, labelOfKey }: {
+  brand: string; service: GeoService; serviceText: string; sel: LocSel; rules: PeakRule[] | null; rulesFail: { denied: boolean; error: string | null } | null; onRetryRules: () => void; canEdit: boolean;
   onToast: (t: string) => void; scopeText: (target: string) => string; placeLabel: string; labelOfKey: (key: string, saved?: string) => string;
 }) {
   const brandId = brand === "common" ? "" : brand;
@@ -51,6 +51,7 @@ export default function PeakHours({ brand, service, serviceText, sel, rules, rul
   const draft = { id: f.id, brand: brandId, service, scopeKey: key, enabled: f.enabled, days: f.days, slots: f.slots, from: f.from, until: f.until, priority: Number(f.priority), name: f.name };
   const validate = () => {
     if (problem) return setChecked(problem);
+    if (rules === null) return setChecked("The saved peak rules have not loaded, so overlaps cannot be checked yet.");
     const clash = overlapsWith(draft, mine);
     setChecked(clash.length ? `Overlaps “${clash.map((c) => c.name).join("”, “")}” at the same place and priority.` : "ok");
   };
@@ -58,6 +59,8 @@ export default function PeakHours({ brand, service, serviceText, sel, rules, rul
   const save = async () => {
     if (!canEdit || busy) return;
     if (problem) return setMessage({ ok: false, text: problem });
+    // The overlap check needs the saved rules: never save blind after a failed read.
+    if (rules === null) return setMessage({ ok: false, text: "The saved peak rules have not loaded, so overlaps cannot be checked. Retry loading them first." });
     const clash = overlapsWith(draft, mine);
     if (clash.length) return setMessage({ ok: false, text: `Overlaps “${clash.map((c) => c.name).join("”, “")}”. Change the days, times, dates or priority.` });
     if (reason.trim().length < 5) return setMessage({ ok: false, text: "Enter a reason for this change (at least 5 characters)." });
@@ -160,7 +163,7 @@ export default function PeakHours({ brand, service, serviceText, sel, rules, rul
       </Panel>
 
       <Panel title="Saved rules">
-        {rulesError ? <p className="text-[13px] text-red-700" role="alert">Saved peak rules could not be loaded: {rulesError}</p>
+        {rulesFail ? <LoadFailure what="Saved peak rules" failure={rulesFail} onRetry={onRetryRules} />
           : rules === null ? <p className="text-[13px] text-slate-500" role="status">Loading saved rules…</p>
           : (
             <div className="overflow-x-auto rounded-lg border border-slate-200">
@@ -196,7 +199,7 @@ export default function PeakHours({ brand, service, serviceText, sel, rules, rul
       </Panel>
       {canEdit && (
         <Footer scopeText={scopeText(placeLabel)} reason={reason} onReason={setReason} onSave={save} saveLabel={f.id ? "Save changes" : "Save peak rule"} busy={busy}
-          disabled={!f.name.trim()} message={message} />
+          disabled={!f.name.trim() || rules === null} message={message} />
       )}
     </div>
   );

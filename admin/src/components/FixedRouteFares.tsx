@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FareRule, MasterLocation, VehicleCategory } from "../types";
-import { subscribeFareRules, subscribeLocations, subscribeVehicleCategories } from "../services/adminFirestoreService";
+import { subscribeFareRules, subscribeVehicleCategories } from "../services/adminFirestoreService";
+import { useLocationsFeed } from "../hooks/useLocationsFeed";
 import { saveFixedRouteFare } from "../services/bookingOpsService";
 import { saveLocation, deriveLocationCode, type LocationForm } from "../services/locationService";
 import { auth } from "../services/firebase";
@@ -36,7 +37,9 @@ export default function FixedRouteFares({ onToast, scope = { brand: "common", se
   const owns = (r: FareRule) => (r.brand ?? "") === brand && (!r.fareService || r.fareService === scope.service);
 
   const [rules, setRules] = useState<FareRule[] | null>(null);
-  const [locations, setLocations] = useState<MasterLocation[]>([]);
+  // Locations with their own load state (a failure is shown with Retry, never as "no places").
+  const { locations, status: locationsStatus } = useLocationsFeed();
+  const [attempt, setAttempt] = useState(0);
   const [categories, setCategories] = useState<VehicleCategory[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,9 +47,9 @@ export default function FixedRouteFares({ onToast, scope = { brand: "common", se
     setRules(null);
     setError(null);
     const fail = (m: string) => setError(m);
-    const u = [subscribeFareRules((r) => { setRules(r); setError(null); }, fail), subscribeLocations(setLocations, fail), subscribeVehicleCategories(setCategories, fail)];
+    const u = [subscribeFareRules((r) => { setRules(r); setError(null); }, fail), subscribeVehicleCategories(setCategories, fail)];
     return () => u.forEach((x) => x());
-  }, []);
+  }, [attempt]);
 
   const routes = useMemo(() => (rules ?? []).filter((r) => r.pricingType === "FIXED_ROUTE" && (!r.brand || r.brand === brand) && (!r.fareService || r.fareService === scope.service)), [rules, brand, scope.service]);
   const place = (id?: string, saved?: string) => locations.find((l) => l.id === id)?.name || saved || "Unknown location";
@@ -109,7 +112,7 @@ export default function FixedRouteFares({ onToast, scope = { brand: "common", se
       <div className="fm-mini">
         <span>{side === "origin" ? "Pickup place" : "Drop place"}</span>
         <LocationScopeSelector variant="row" label={side === "origin" ? "Pickup place" : "Drop place"} value={x} onChange={(next) => pickSide(side, next)} locations={locations} depth="area"
-          pinSearch="locate" disabled={busy || adding} broad={{ zone: "All zones" }}
+          pinSearch="locate" disabled={busy || adding} status={locationsStatus} broad={{ zone: "All zones" }}
           action={canEdit && cityMissing ? <Button size="sm" icon="plus" loading={adding} onClick={() => void addCity(side)}>Add {x.district} to Locations</Button> : undefined} />
       </div>
     );
@@ -271,7 +274,7 @@ export default function FixedRouteFares({ onToast, scope = { brand: "common", se
         <SettingCard id="route-add" label="Add a route fare" title={editing ? `Change route fare · ${place(editing.originLocationId, editing.originLocationName)} → ${place(editing.destinationLocationId, editing.destinationLocationName)}` : "Add a route fare"}
           description={`${scopeLabel} · An agreed fare for one route. Routes without one keep the normal pricing. Used for office bookings whose pickup and drop are chosen from Locations.`}
           aside={<OnSwitch checked={f.enabled} onChange={(on) => set({ enabled: on })} label="On for customers" />}
-          footer={<SaveBar reason={reason} onReason={setReason} onSave={save} busy={busy} disabled={!touched || problems.length > 0}
+          footer={<SaveBar reason={reason} onReason={setReason} onSave={save} busy={busy} disabled={!touched || problems.length > 0 || rules === null || !!error || !!locationsStatus.error}
             saveLabel={editing ? "Save changes" : "Save route fare"}
             note={editing ? <>Changing one cab. <button type="button" className="fm-linkbtn" onClick={reset}>Cancel change</button></> : "Type a fare under each cab that should have one. Cabs left empty keep the normal pricing."} message={message} />}>
           <CardBody>
@@ -349,7 +352,7 @@ export default function FixedRouteFares({ onToast, scope = { brand: "common", se
           : canEdit && changed.length > 0
           ? <SaveBar reason={listReason} onReason={setListReason} onSave={saveList} busy={listBusy} message={listMessage} note={`${changed.length} change${changed.length === 1 ? "" : "s"} not saved yet.`} />
           : null}>
-        {error && <CardBody><p className="ds-error" role="alert">Saved route fares could not be loaded: {error}. Reload to try again.</p></CardBody>}
+        {error && <CardBody><p className="ds-error" role="alert">Saved route fares could not be loaded: {error} <button type="button" className="fm-linkbtn" onClick={() => setAttempt((n) => n + 1)}>Retry</button></p></CardBody>}
         {!error && (
           <CardBody>
             <div className="overflow-x-auto">

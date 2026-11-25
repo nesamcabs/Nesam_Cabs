@@ -158,11 +158,12 @@ export function outstationExtraFor(t: Tariff | null | undefined, cls: TariffClas
 }
 
 /** Live tariff document: undefined = loading, null = nothing saved yet. */
-export function useTariff(): { tariff: Tariff | null | undefined; error: string | null } {
+export function useTariff(): { tariff: Tariff | null | undefined; error: string | null; retry: () => void } {
   const [tariff, setTariff] = useState<Tariff | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => subscribeToDocument<Tariff>("business_config/tariff_v2", (t) => { setTariff(t); setError(null); }, setError), []);
-  return { tariff, error };
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => { setError(null); return subscribeToDocument<Tariff>("business_config/tariff_v2", (t) => { setTariff(t); setError(null); }, setError); }, [attempt]);
+  return { tariff, error, retry: () => setAttempt((n) => n + 1) };
 }
 
 export const rentalMinHours = (t: Tariff | null | undefined, cls: TariffClass): number => DEFAULT_RENTAL_MIN_HOURS[cls];

@@ -8,7 +8,8 @@ import { Problems } from "../RateTable";
 import { Modal } from "../Feedback";
 import { Button } from "../ui";
 import RentalPackageBuilder from "../RentalPackageBuilder";
-import { cellInput, Footer, Hint, Panel, Pill, Seg } from "./ui";
+import { cellInput, Footer, Hint, LoadFailure, Panel, Pill, Seg } from "./ui";
+import type { FeedStatus } from "../../hooks/useLocationsFeed";
 import { fareTarget } from "./fareTarget";
 
 const LABEL: Record<RentalField, string> = { customerFare: "Customer fare ₹", partnerPayout: "Partner payout ₹", includedKm: "Included km", extraKmRate: "Extra ₹/km", extraHourRate: "Extra ₹/hour" };
@@ -31,11 +32,14 @@ function standardPackage(t: Tariff | null | undefined, brand: string, cls: Tarif
  * offered only when all five values and the GST treatment resolve. Nothing is generated or guessed: "Fill from hourly rates" uses
  * the per-hour values the admin types, exactly as in the standard fare table.
  */
-export default function RentalFareRates({ brand, scopeText, docs, sel, index, bulkIds, vehicles, canEdit, onToast, onDirty, children }: {
+export default function RentalFareRates({ brand, scopeText, docs, feed, sel, index, bulkIds, vehicles, canEdit, onToast, onDirty, children }: {
   brand: string; scopeText: (target: string) => string; docs: Map<string, GeoFareDoc> | null; sel: LocSel; index: Indexed[]; bulkIds: string[];
   vehicles: VehicleCol[]; canEdit: boolean; onToast: (t: string) => void; onDirty: (dirty: boolean) => void; children?: React.ReactNode;
+  /** Load state of `docs`: a failed read shows the failure with Retry and keeps Save off (typed values are kept). */
+  feed: FeedStatus;
 }) {
-  const { tariff } = useTariff();
+  // The standard packages are the broadest default of every row: until they have loaded nothing can be saved here.
+  const { tariff, error: tariffError } = useTariff();
   const classes = useMemo(() => {
     const seen = new Map<TariffClass, string>();
     for (const v of vehicles) if (!seen.has(v.cls) || v.owner) seen.set(v.cls, v.owner ? v.name : seen.get(v.cls) ?? v.name);
@@ -89,7 +93,7 @@ export default function RentalFareRates({ brand, scopeText, docs, sel, index, bu
   const dirtyCount = Object.keys(drafts).length;
 
   const save = async () => {
-    if (!canEdit || busy || !target.ready || !dirtyCount || problems.length) return;
+    if (!(docs && tariff !== undefined && !tariffError) || !canEdit || busy || !target.ready || !dirtyCount || problems.length) return;
     if (reason.trim().length < 5) return setMessage({ ok: false, text: "Enter a reason for this change (at least 5 characters)." });
     setBusy(true); setMessage(null);
     try {
@@ -133,7 +137,7 @@ export default function RentalFareRates({ brand, scopeText, docs, sel, index, bu
           )}
         </div>
         {classes.length > 0 && cls && <div className="mb-3"><Seg label="Vehicle" variant="outline" value={cls} onChange={(v) => setCls(v)} options={classes.map(([c, n]) => ({ id: c, label: n }))} /></div>}
-        {!docs ? <p className="text-[13px] text-slate-500" role="status">Loading saved packages…</p>
+        {!docs ? (feed.error ? <LoadFailure what="Saved rental packages" failure={feed} onRetry={feed.onRetry} /> : <p className="text-[13px] text-slate-500" role="status">Loading saved packages…</p>)
           : !target.ready ? <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-[13.5px] text-slate-600">{target.needs}</div>
           : !cls ? <Hint>No active vehicle categories. Add one in Vehicle categories.</Hint>
           : (
@@ -187,7 +191,7 @@ export default function RentalFareRates({ brand, scopeText, docs, sel, index, bu
       {children}
       {canEdit && (
         <Footer scopeText={scopeText(target.ready ? target.label : "Choose a place")} reason={reason} onReason={setReason} onSave={save} saveLabel="Save rental rates" busy={busy}
-          disabled={!target.ready || !dirtyCount || problems.length > 0} message={message} />
+          disabled={!(docs && tariff !== undefined && !tariffError) || !target.ready || !dirtyCount || problems.length > 0} message={message} />
       )}
       {builderFor && (
         <Modal title={`Fill packages · ${classes.find(([c]) => c === builderFor)?.[1] ?? CLASS_LABEL[builderFor]}`} onClose={() => setBuilderFor(null)} footer={<Button onClick={() => setBuilderFor(null)}>Close</Button>}>

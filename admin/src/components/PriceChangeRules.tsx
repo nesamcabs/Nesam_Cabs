@@ -4,6 +4,7 @@ import { BRAND_LABELS, serviceLabel, useTariff, type FareWorkspaceScope } from "
 import { Button } from "./ui";
 import type { MasterLocation } from "../types";
 import LocationScopeSelector from "./location/LocationScopeSelector";
+import type { FeedStatus } from "../hooks/useLocationsFeed";
 import { EMPTY_SEL, indexLocations, rulePlaceLabel, rulePlacesOf, type LocSel } from "../domain/locationHierarchy";
 import { CardBody, Problems, SaveBar, SettingCard } from "./RateTable";
 
@@ -33,7 +34,7 @@ const pkgKey = (p?: string[]) => (p?.length ? [...p].sort().join(",") : "");
 const standing = (r: ServiceRule) => r.kind === "pricing" && r.status === "Enabled" && r.schedule.mode === "Always" && (r.scope.side ?? "Pickup or drop") === "Pickup or drop";
 let seq = 0;
 
-export default function PriceChangeRules({ rules, fareScope, canEdit, loaded, loadError, locations, onManageLocations, onToast }: {
+export default function PriceChangeRules({ rules, fareScope, canEdit, loaded, loadError, locations, locationsStatus, onRetry, onManageLocations, onToast }: {
   /** Every rule of this brand (any service) plus the shared All-brands ones; removed ones may be included. */
   rules: ServiceRule[];
   fareScope: FareWorkspaceScope;
@@ -42,6 +43,8 @@ export default function PriceChangeRules({ rules, fareScope, canEdit, loaded, lo
   loadError: string | null;
   locations: MasterLocation[];
   onManageLocations?: () => void;
+  locationsStatus?: FeedStatus;
+  onRetry?: () => void;
   onToast: (text: string) => void;
 }) {
   const { tariff } = useTariff();
@@ -179,7 +182,7 @@ export default function PriceChangeRules({ rules, fareScope, canEdit, loaded, lo
         : null}>
       {canEdit && (
         <CardBody>
-          <LocationScopeSelector variant="row" label="Price change location" value={pick} onChange={setPick} locations={locations} depth="area" pinSearch="multi"
+          <LocationScopeSelector variant="row" label="Price change location" value={pick} onChange={setPick} locations={locations} status={locationsStatus} depth="area" pinSearch="multi"
             broad={{ state: "All locations", district: "Whole state", zone: "All zones", area: "All mapped areas" }} onManageLocations={onManageLocations} />
           <div className="fm-place-picker mt-3">
             <label className="fm-mini"><span>Customer fare %</span><input className="ds-input text-right" inputMode="decimal" value={cust} placeholder="0" onChange={(e) => setCust(e.target.value)} aria-label="Customer fare change" /></label>
@@ -207,7 +210,7 @@ export default function PriceChangeRules({ rules, fareScope, canEdit, loaded, lo
         </CardBody>
       )}
 
-      {loadError ? <CardBody><p className="ds-error" role="alert">Saved rules could not be loaded: {loadError}. Reload to try again.</p></CardBody>
+      {loadError ? <CardBody><p className="ds-error" role="alert">Saved rules could not be loaded: {loadError} {onRetry && <button type="button" className="fm-linkbtn" onClick={onRetry}>Retry</button>}</p></CardBody>
         : !loaded ? <CardBody><p className="fm-sub" role="status">Loading saved rules…</p></CardBody>
         : (
           <CardBody>

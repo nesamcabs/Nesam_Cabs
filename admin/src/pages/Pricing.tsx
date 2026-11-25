@@ -5,7 +5,8 @@ import PaymentOptionsCard from '../components/PaymentOptionsCard';
 import NightAllowanceCard from '../components/NightAllowanceCard';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { MasterLocation, TravelService, VehicleCategory } from "../types";
-import { subscribeLocations, subscribeServices, subscribeVehicleCategories } from "../services/adminFirestoreService";
+import { subscribeServices, subscribeVehicleCategories } from "../services/adminFirestoreService";
+import { useLocationsFeed } from "../hooks/useLocationsFeed";
 import { subscribeServiceRules, type ServiceRule } from "../services/serviceRulesService";
 import { useCan, useCanDo } from "../components/AccessContext";
 import { InlineModals, Modal, Toast, useToast } from "../components/Feedback";
@@ -69,10 +70,11 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
   const [rules, setRules] = useState<ServiceRule[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [locations, setLocations] = useState<MasterLocation[]>([]);
-  const [locationsLoaded, setLocationsLoaded] = useState(false);
-  const [locationError, setLocationError] = useState<string | null>(null);
+  // The Locations master with its own load state: a failed read is shown as a failure (with Retry), never as "nothing saved".
+  const { locations, status: locationsStatus } = useLocationsFeed();
   const [categories, setCategories] = useState<VehicleCategory[]>([]);
+  const [categoriesError, setCategoriesError] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
   const [services, setServices] = useState<TravelService[]>([]);
   const [filter, setFilter] = useState<(typeof STATUS_FILTERS)[number]>(restore?.filter ?? "All");
   // Change history and Fixed route fares open in the page itself. Nothing on this screen opens a side drawer.
@@ -118,9 +120,12 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
     window.scrollTo(0, restore.scrollY);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    const u = [subscribeServiceRules((r) => { setRules(r); setLoaded(true); setLoadError(null); }, (m) => { setLoadError(m); setLoaded(true); }), subscribeLocations((rows) => { setLocations(rows); setLocationsLoaded(true); setLocationError(null); }, (message) => { setLocationError(message); setLocationsLoaded(true); }), subscribeVehicleCategories(setCategories), subscribeServices(setServices)];
+    setLoaded(false); setLoadError(null); setCategoriesError(null);
+    const u = [subscribeServiceRules((r) => { setRules(r); setLoaded(true); setLoadError(null); }, (m) => { setLoadError(m); setLoaded(true); }),
+      subscribeVehicleCategories((c) => { setCategories(c); setCategoriesError(null); }, setCategoriesError), subscribeServices(setServices)];
     return () => u.forEach((x) => x());
-  }, []);
+  }, [reload]);
+  const retryAll = () => { setReload((n) => n + 1); locationsStatus.onRetry(); };
 
   // Every rule for this brand & service (including the shared ones it inherits), and the ones that are not table cells.
   const scopedRules = rules.filter(inFareScope);
@@ -255,7 +260,8 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
   return (
     <div className="ds-page-body fare-reference u27-settings-page u11-settings-page">
       <Toast toast={toast} />
-      {loadError && <div className="ds-error mb-4" role="alert"><Icon name="circle-alert" />Saved settings could not be loaded: {loadError}. Check your pricing access and reload.</div>}
+      {loadError && <div className="ds-error mb-4" role="alert"><Icon name="circle-alert" />Saved settings could not be loaded: {loadError} <button type="button" className="fm-linkbtn" onClick={retryAll}>Retry</button></div>}
+      {categoriesError && <div className="ds-error mb-4" role="alert"><Icon name="circle-alert" />Vehicle categories could not be loaded: {categoriesError} The fare tables need them; nothing can be saved until they load. <button type="button" className="fm-linkbtn" onClick={retryAll}>Retry</button></div>}
       <PageHeader title="Service & Fare Settings" />
 
       <div className="fs-shell">
@@ -278,7 +284,7 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
         };
         return (
           <LocalRentalWorkspace key={pickupDrop ? "local" : "rental"} brand={fareScope.brand} service={pickupDrop ? "local" : "rental"} vehicles={vehicles} locations={locations}
-            rules={rules} rulesLoaded={loaded} canEdit={canEdit} canEditLocations={contentAccess} onToast={show} onManageLocations={() => onNavigate("locations")}
+            rules={rules} rulesLoaded={loaded} rulesError={loadError} locationsStatus={locationsStatus} onRetryRules={retryAll} canEdit={canEdit && !categoriesError} canEditLocations={contentAccess} onToast={show} onManageLocations={() => onNavigate("locations")}
             onDirty={(dirty) => { workspaceDirty.current = dirty; }} extras={extras}
             standardPackages={pickupDrop ? undefined : (
               <FareMatrix scope={fareScope} fuel="petrol"
@@ -329,13 +335,13 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
             </details>
             <div className="space-y-4">
               <BookingRulesGrid rules={scopedRules} isOwn={ownsRule} fareScope={fareScope} vehicles={vehicles}
-                canEdit={canEdit} loaded={loaded} loadError={loadError} locations={locations}
+                canEdit={canEdit && !categoriesError} loaded={loaded} loadError={loadError} locations={locations} locationsStatus={locationsStatus} onRetry={retryAll}
                 onManageLocations={() => onNavigate("locations")} onToast={show} />
               <PriceChangeRules rules={rules.filter((r) => r.kind === "pricing" && (!r.brand || r.brand === scopeBrand))} fareScope={fareScope}
-                canEdit={canEdit} loaded={loaded} loadError={loadError} locations={locations}
+                canEdit={canEdit && !categoriesError} loaded={loaded} loadError={loadError} locations={locations} locationsStatus={locationsStatus} onRetry={retryAll}
                 onManageLocations={() => onNavigate("locations")} onToast={show} />
               <DateRules rules={special} allRules={scopedRules.filter((r) => r.status !== "Removed")} isOwn={ownsRule} fareScope={fareScope} vehicles={vehicles}
-                canEdit={canEdit} loaded={loaded} loadError={loadError} locations={locations}
+                canEdit={canEdit && !categoriesError} loaded={loaded} loadError={loadError} locations={locations} locationsStatus={locationsStatus} onRetry={retryAll}
                 onManageLocations={() => onNavigate("locations")} onToast={show} />
             </div>
           </div>

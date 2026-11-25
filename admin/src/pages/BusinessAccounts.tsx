@@ -6,7 +6,8 @@ import {
   subscribeBusinessPayments, subscribeCredentials, updateBusiness, validateBusiness,
   type BusinessAccount, type BusinessCredential, type BusinessInput, type BusinessPayment, type ContractRate,
 } from "../services/businessService";
-import { subscribeLocations, subscribeServices, subscribeVehicleCategories } from "../services/adminFirestoreService";
+import { subscribeServices, subscribeVehicleCategories } from "../services/adminFirestoreService";
+import { useLocationsFeed } from "../hooks/useLocationsFeed";
 import { useBookings } from "../hooks/useOfficeData";
 import { ErrorBanner, Modal, Toast, useToast } from "../components/Feedback";
 import { Badge, Button, DataTable, EmptyState, PageHeader, Tabs, TableSkeleton, toneForStatus } from "../components/ui";
@@ -353,10 +354,11 @@ function ReceiptForm({ a, existing, onClose, onSaved }: { a: BusinessAccount; ex
 }
 
 function RateForm({ a, onClose, onSaved }: { a: BusinessAccount; onClose: () => void; onSaved: () => void }) {
-  const [locations, setLocations] = useState<MasterLocation[]>([]);
+  // Pickup / drop zones come from the Locations master; a failed read is shown with Retry, never as an empty list.
+  const { locations, status: locationsStatus } = useLocationsFeed();
   const [services, setServices] = useState<TravelService[]>([]);
   const [cats, setCats] = useState<VehicleCategory[]>([]);
-  useEffect(() => { const u = [subscribeLocations(setLocations), subscribeServices(setServices), subscribeVehicleCategories(setCats)]; return () => u.forEach((x) => x()); }, []);
+  useEffect(() => { const u = [subscribeServices(setServices), subscribeVehicleCategories(setCats)]; return () => u.forEach((x) => x()); }, []);
   const zones = Array.from(new Set(locations.filter((l) => l.status === "Active").map((l) => l.city || l.name))).sort();
   const [r, setR] = useState<Omit<ContractRate, "id">>({ pickupZone: "", dropZone: "", service: "One Way", category: "", contractType: "Fixed fare", priceEntered: "Including GST", customerRate: 0, partnerPayout: 0, active: true, peak: false, reason: "" });
   const [busy, setBusy] = useState(false);
@@ -378,6 +380,7 @@ function RateForm({ a, onClose, onSaved }: { a: BusinessAccount; onClose: () => 
     <Modal title="Add B2B contract rate" onClose={onClose} busy={busy} footer={<Button variant="primary" type="submit" form="rate-form" loading={busy}>Save contract rate</Button>}>
       <form id="rate-form" onSubmit={save} className="ds-form-grid" noValidate>
         {error && <div className="ds-error" role="alert" data-span="2">{error}</div>}
+        {locationsStatus.error && <p className="ds-error" role="alert">Locations could not be loaded, so zones are unavailable: {locationsStatus.error} <button type="button" className="fm-linkbtn" onClick={locationsStatus.onRetry}>Retry</button></p>}
         <label className="ds-field"><span>Pickup zone</span><select className="ds-select" value={r.pickupZone} onChange={(e) => set({ pickupZone: e.target.value })}><option value="">Choose zone</option>{zones.map((z) => <option key={z}>{z}</option>)}</select></label>
         <label className="ds-field"><span>Drop zone</span><select className="ds-select" value={r.dropZone} onChange={(e) => set({ dropZone: e.target.value })}><option value="">Choose zone</option>{zones.map((z) => <option key={z}>{z}</option>)}</select></label>
         <label className="ds-field"><span>Service</span><select className="ds-select" value={r.service} onChange={(e) => set({ service: e.target.value })}>{["One Way", "Round Trip", "Airport", "Multicity", "Local Rental", "Local Pickup & Drop", ...services.map((s) => s.name)].filter((v, i, x) => x.indexOf(v) === i).map((s) => <option key={s} value={s}>{serviceLabel(s)}</option>)}</select></label>

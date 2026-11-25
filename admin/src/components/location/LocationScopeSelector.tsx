@@ -7,6 +7,7 @@ import {
 } from "../../domain/locationHierarchy";
 import { districtOfPinLoaded, loadStatePins, pinOffices, type PinOffice } from "../../domain/pincodes";
 import { Icon } from "../ui";
+import type { FeedStatus } from "../../hooks/useLocationsFeed";
 
 /**
  * The shared location selector:  State → District → Service zone → Area / Village, with PIN search and the PIN display.
@@ -35,13 +36,15 @@ export interface SelectorProps {
   /** Card chrome (workspace) or a plain row inside an existing card (rule screens). */
   variant?: "card" | "row";
   className?: string;
+  /** Load state of `locations`: while loading or failed, zones and areas are not presented as "none saved". */
+  status?: FeedStatus;
 }
 
 const fieldCls = "flex min-w-0 flex-col gap-1";
 const labelCls = "text-[12px] font-semibold text-slate-700";
 
 export default function LocationScopeSelector({
-  value, onChange, locations, depth = "area", broad = {}, pinSearch = "locate", breadcrumb = false, action, disabled, label = "Location", onManageLocations, variant = "card", className = "",
+  value, onChange, locations, depth = "area", broad = {}, pinSearch = "locate", breadcrumb = false, action, disabled, label = "Location", onManageLocations, variant = "card", className = "", status,
 }: SelectorProps) {
   // The chosen state's India Post file is loaded so records with only a pincode still land in the right district.
   const [pinsReady, setPinsReady] = useState(0);
@@ -60,6 +63,9 @@ export default function LocationScopeSelector({
   const areas = useMemo(() => (value.district ? areasOf(index, value.state, value.district, value.zoneId, value.locationId) : []), [index, value.state, value.district, value.zoneId, value.locationId]);
   const area = index.find((x) => x.loc.id === value.locationId)?.loc;
   const zone = index.find((x) => x.loc.id === value.zoneId)?.loc;
+  // Zones and areas come from the Locations master: until it has loaded (or when it failed) nothing is "none saved".
+  const ready = !status || (!status.loading && !status.error);
+  const unavailable = status?.loading ? "Loading locations…" : "Locations unavailable";
   const shownPins = value.pins.length ? value.pins : area ? pinsOfLocation(area) : zone ? pinsOfLocation(zone) : [];
   const show = (d: "district" | "zone" | "area") => ({ state: 0, district: 1, zone: 2, area: 3 })[depth] >= ({ district: 1, zone: 2, area: 3 })[d];
   const crumbs = breadcrumbOf(value, index, { state: broad.state ?? "Select a state", zone: broad.zone ?? "Select zone", area: broad.area ?? "Select area" });
@@ -82,22 +88,22 @@ export default function LocationScopeSelector({
       )}
       {show("zone") && (
         <label className={fieldCls}><span className={labelCls}>Service zone</span>
-          <select className="ds-select" value={value.zoneId} disabled={disabled || !value.district || (!zones.length && !value.zoneId)} aria-label={`${label}: service zone`} onChange={(e) => set({ zoneId: e.target.value })}>
-            <option value="">{!value.district ? "Choose a district first" : !zones.length ? "No zones saved" : broad.zone ?? "Select zone"}</option>
+          <select className="ds-select" value={value.zoneId} disabled={disabled || !value.district || !ready || (!zones.length && !value.zoneId)} aria-label={`${label}: service zone`} onChange={(e) => set({ zoneId: e.target.value })}>
+            <option value="">{!value.district ? "Choose a district first" : !ready ? unavailable : !zones.length ? "No zones saved" : broad.zone ?? "Select zone"}</option>
             {zones.map((z) => <option key={z.id} value={z.id}>{z.name}{z.status !== "Active" ? " (inactive)" : ""}</option>)}
           </select>
         </label>
       )}
       {show("area") && (
         <label className={fieldCls}><span className={labelCls}>Area / Village</span>
-          <select className="ds-select" value={value.locationId} disabled={disabled || !value.district || (!areas.length && !value.locationId)} aria-label={`${label}: area or village`} onChange={(e) => set({ locationId: e.target.value })}>
-            <option value="">{!value.district ? "Choose a district first" : !areas.length ? "No mapped areas" : broad.area ?? "Select area"}</option>
+          <select className="ds-select" value={value.locationId} disabled={disabled || !value.district || !ready || (!areas.length && !value.locationId)} aria-label={`${label}: area or village`} onChange={(e) => set({ locationId: e.target.value })}>
+            <option value="">{!value.district ? "Choose a district first" : !ready ? unavailable : !areas.length ? (zone ? "No linked locations" : "No mapped areas") : broad.area ?? "Select area"}</option>
             {areas.map((a) => <option key={a.id} value={a.id}>{a.name}{a.type !== "Area / Locality" ? ` · ${a.type}` : ""}{pinsOfLocation(a)[0] ? ` · ${pinsOfLocation(a)[0]}` : ""}{a.status !== "Active" ? " (inactive)" : ""}</option>)}
           </select>
         </label>
       )}
       {(depth === "zone" || depth === "area") && (
-        <div className={fieldCls}><span className={labelCls}>PIN code</span>
+        <div className={fieldCls}><span className={labelCls}>{value.pins.length ? "Picked PINs" : area ? "PIN code" : zone ? "Zone PINs" : "PIN code"}</span>
           <div className="ds-input flex min-h-[38px] items-center gap-1 overflow-hidden bg-slate-50 text-[13px] text-slate-700" aria-label={`${label}: PIN codes`} title={shownPins.join(", ")}>
             {value.pins.length ? value.pins.map((p) => (
               <span key={p} className="inline-flex shrink-0 items-center gap-1 rounded bg-white px-1.5 py-0.5 text-[12px] font-semibold ring-1 ring-slate-200">
@@ -111,7 +117,27 @@ export default function LocationScopeSelector({
   );
 
   const search = pinSearch ? <PinSearch index={index} mode={pinSearch} disabled={disabled} value={value} onPick={onChange} /> : null;
-  const noData = value.district && depth !== "state" && depth !== "district" && !zones.length && !areas.length;
+  const noData = ready && value.district && depth !== "state" && depth !== "district" && !zones.length && !areas.length;
+  // A zone that lists PINs but has no Locations record linked to it: a genuine configuration gap, not a failed load.
+  const zoneUnlinked = ready && !!zone && depth === "area" && !areas.length && !value.locationId;
+  const notes = (
+    <>
+      {status?.error && (
+        <p className="mt-2 flex flex-wrap items-center gap-2 rounded-md bg-red-50 px-3 py-2 text-[12.5px] font-semibold text-red-800" role="alert">
+          <Icon name="circle-alert" size={14} />{status.denied ? "Locations could not be loaded: access denied by the database rules for this account." : `Locations could not be loaded: ${status.error}`}
+          <button type="button" className="fm-linkbtn" onClick={status.onRetry}>Retry</button>
+        </p>
+      )}
+      {status?.loading && <p className="mt-2 text-[12px] text-slate-500" role="status">Loading locations…</p>}
+      {noData && <EmptyNote onManage={onManageLocations} />}
+      {zoneUnlinked && (
+        <p className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-slate-600">
+          <Icon name="info" size={14} /> {zone!.name} covers {pinsOfLocation(zone!).length ? `PIN ${pinsOfLocation(zone!).join(", ")}` : "no PINs yet"}, but no area, village or city record is linked to it.
+          {onManageLocations && <button type="button" className="fm-linkbtn" onClick={onManageLocations}>Open Locations</button>}
+        </p>
+      )}
+    </>
+  );
 
   if (variant === "row") {
     return (
@@ -121,7 +147,7 @@ export default function LocationScopeSelector({
           {search && <div className="w-full sm:w-[220px]">{search}</div>}
           {action}
         </div>
-        {noData && <EmptyNote onManage={onManageLocations} />}
+        {notes}
       </div>
     );
   }
@@ -138,7 +164,7 @@ export default function LocationScopeSelector({
       </div>
       {selects}
       {action && <div className="mt-3 flex justify-end">{action}</div>}
-      {noData && <EmptyNote onManage={onManageLocations} />}
+      {notes}
     </section>
   );
 }
@@ -178,6 +204,11 @@ function PinSearch({ index, mode, disabled, value, onPick }: { index: Indexed[];
   }, [open]);
   const saved = pin ? locationsWithPin(pin, index) : [];
   const name = (id?: string) => index.find((x) => x.loc.id === id)?.loc.name;
+  // The zone of that district listing the PIN, when exactly one does (never the first of several).
+  const zoneForPin = (state: string, district: string) => {
+    const z = index.filter((x) => x.zone && x.loc.status === "Active" && x.state === state && x.district.toLowerCase() === district.toLowerCase() && x.pins.includes(pin));
+    return z.length === 1 ? z[0]!.loc.id : "";
+  };
   const choose = (s: LocSel | null) => { if (s) { onPick(s); setOpen(false); setQ(""); } };
 
   return (
@@ -207,9 +238,9 @@ function PinSearch({ index, mode, disabled, value, onPick }: { index: Indexed[];
                   <button key={`${o.district}|${o.office}`} type="button" role="option" aria-selected={false} className="block w-full px-3 py-1.5 text-left hover:bg-slate-50"
                     onClick={() => choose(mode === "multi"
                       ? { state: o.state, district: o.district, zoneId: "", locationId: "", pins: value.state === o.state && value.district === o.district ? [...new Set([...value.pins, pin])] : [pin] }
-                      : { state: o.state, district: o.district, zoneId: "", locationId: "", pins: [] })}>
+                      : { state: o.state, district: o.district, zoneId: zoneForPin(o.state, o.district), locationId: "", pins: [] })}>
                     <strong className="text-slate-800">{o.office}</strong>
-                    <small className="block text-slate-500">{o.district} · {stateNameOf(o.state)}{mode === "multi" ? " · add this PIN" : " · selects the district"}</small>
+                    <small className="block text-slate-500">{o.district} · {stateNameOf(o.state)}{mode === "multi" ? " · add this PIN" : zoneForPin(o.state, o.district) ? ` · selects ${name(zoneForPin(o.state, o.district))} zone` : " · selects the district"}</small>
                   </button>
                 ))}
                 {name(value.locationId) && <p className="border-t border-slate-100 px-3 py-1.5 text-[11px] text-slate-500">Current: {name(value.locationId)}</p>}
