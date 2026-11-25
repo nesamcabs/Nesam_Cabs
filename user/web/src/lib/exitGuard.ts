@@ -3,6 +3,7 @@
 // It works with one extra history entry, marked in history.state, that the first press uses up and is then put back.
 import { useEffect } from 'react';
 import { useToasts } from '@/state/Toasts';
+import { searchPageOwnsBack } from '@/components/placeSearch/backEntry';
 
 const WINDOW_MS = 3000;
 const MARK = '__exitGuard';
@@ -21,7 +22,7 @@ export function useExitGuard(enabled: boolean): void {
 
     const onPop = () => {
       // Only the step back onto the page itself is handled; moving forward onto the guard entry is not.
-      if (isGuard()) return;
+      if (isGuard() || searchPageOwnsBack()) return;
       if (Date.now() < armedUntil) {
         // Second press in time: really leave (the guard entry is already behind us, so one more step goes to the previous page).
         window.removeEventListener('popstate', onPop);

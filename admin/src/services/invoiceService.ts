@@ -13,6 +13,13 @@ const GSTIN_RE = /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 const COUNTER_DOC = "invoice_sequence"; // settings/invoice_sequence
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
+/** Today's date in India. */
+const todayIso = () => new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
+/** "26-27" for any date from 1 Apr 2026 to 31 Mar 2027. */
+export function financialYear(isoDate: string): string {
+  const start = Number(isoDate.slice(0, 4)) - (Number(isoDate.slice(5, 7)) >= 4 ? 0 : 1);
+  return `${String(start % 100).padStart(2, "0")}-${String((start + 1) % 100).padStart(2, "0")}`;
+}
 
 /** Company identity from settings/config; null fields mean "not configured". */
 export function companyFromSettings(s: Record<string, unknown>): CompanySnapshot {
@@ -117,7 +124,7 @@ export function buildInvoiceLines(b: Booking): InvoiceLines {
   const taxableExtra = ec?.taxTreatment === 'tariff_gst';
   if (ec && extraNet > 0) {
     const parts = [["Waiting", ec.customer.waitingPaise], ["Hill travel", ec.customer.hillPaise], ["Roof carrier", ec.customer.carrierPaise]] as const;
-    for (const [label, paise] of parts) if (paise > 0) items.push({ description: `${label} — approved extra charge${taxableExtra ? "" : " (not taxable)"}`, quantity: 1, rate: round2(paise / 100), amount: round2(paise / 100) });
+    for (const [label, paise] of parts) if (paise > 0) items.push({ description: `${label} — approved extra charge${taxableExtra ? "" : " (not taxable)"}`, ...(taxableExtra ? { sacCode: PASSENGER_TRANSPORT_SAC } : {}), quantity: 1, rate: round2(paise / 100), amount: round2(paise / 100) });
   }
   // Charges outside the package are never hidden: say which ones are payable separately (approved extras are billed above).
   const extras = (b.fareBreakup?.lines ?? []).filter((l) => l.treatment === "extra" && !(ec && ["waiting", "hill", "carrier", "extraGst"].includes(l.key)));
@@ -182,7 +189,9 @@ export async function createInvoice(params: {
   if (missing.length) throw new InvoiceActionError(`Add ${missing.join(", ")} in Settings → Company before issuing invoices.`);
   const billingError = validateBilling(billing);
   if (billingError) throw new InvoiceActionError(billingError);
-  const year = new Date().getFullYear();
+  // The same series as the server's automatic invoices (functions/src/domain/gstInvoice.ts): one counter per financial
+  // year and a serial number of at most 16 characters (CGST Rule 46(b)).
+  const year = financialYear(todayIso());
   try {
     return await runTransaction(db, async (tx) => {
       const bookingRef = doc(db, COLLECTIONS.BOOKINGS, booking.id);
@@ -197,10 +206,10 @@ export async function createInvoice(params: {
           throw new InvoiceActionError(`Invoice ${prior.data().invoiceNumber} already exists for this trip.`);
         }
       }
-      const last = counter.exists() && counter.data()[String(year)] ? Number(counter.data()[String(year)]) : 0;
+      const last = counter.exists() && counter.data()[year] ? Number(counter.data()[year]) : 0;
       const seq = last + 1;
-      const invoiceNumber = `NES-INV-${year}-${String(seq).padStart(5, "0")}`;
-      const invoiceRef = doc(db, COLLECTIONS.INVOICES, `${year}-${String(seq).padStart(5, "0")}`);
+      const invoiceNumber = `NES/${year}/${String(seq).padStart(6, "0")}`;
+      const invoiceRef = doc(db, COLLECTIONS.INVOICES, invoiceNumber.replace(/\//g, "-"));
       const lines = buildInvoiceLines(b);
       const gstDetails = (b.fareBreakdown as { gstDetails?: { supplierState?: string; placeOfSupply?: string } } | undefined)?.gstDetails;
       if (gstDetails?.supplierState && gstDetails.supplierState !== stateOfGstin(company.gstin)) throw new InvoiceActionError('Supplier GSTIN state differs from the booked GST registration. Review the booking before invoicing.');
@@ -213,8 +222,7 @@ export async function createInvoice(params: {
           if (!/^\d{6,8}$/.test(extra.sac)) throw new InvoiceActionError("Review the approved service SAC before issuing this invoice.");
           lines.items = lines.items.map(item => item.sacCode ? { ...item, sacCode: extra.sac } : item);
         }
-      const today = new Date();
-      const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+      const iso = todayIso();
       const paid = isBookingPaid(b);
       const customer: CustomerSnapshot = {
         name: billing.name.trim() || b.customerName || b.customer || "Customer",
@@ -261,7 +269,7 @@ export async function createInvoice(params: {
         if (extra.taxSplit) Object.assign(invoice, splitGst(lines.totalTax, extra.taxSplit));
       }
       tx.set(invoiceRef, { ...invoice, id: invoiceRef.id });
-      tx.set(counterRef, { [String(year)]: seq, updatedAt: serverTimestamp() }, { merge: true });
+      tx.set(counterRef, { [year]: seq, updatedAt: serverTimestamp() }, { merge: true });
       tx.update(bookingRef, { invoiceId: invoiceRef.id, invoiceNumber, updatedAt: serverTimestamp() });
       return { id: invoiceRef.id, invoiceNumber };
     });

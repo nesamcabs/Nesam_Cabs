@@ -51,6 +51,7 @@ export { submitMulticityEnquiry, acceptEnquiryQuote, getCustomerEnquiries, price
 export { convertMulticityEnquiry } from './multicityConversion';
 export { submitSupportRequest, updateSupportRequest, requestAccountDeletion } from './support';
 export { chatWithBot } from './groqChat';
+export { generateGstDocuments, onBookingGstDocuments } from './gstDocuments';
 export { searchGooglePlaces, reverseGoogleGeocode, getGoogleRoute } from './googleMaps';
 export { ltSaveZone, ltSetZoneStatus, ltSaveFare, ltActivateFare, ltSimulateFare, ltSetDriverEligibility } from './localTaxi/adminFns';
 export { ltCheckServiceability, ltGetQuotes, ltCreateRide, ltCancellationQuote, ltCancelRide, ltAdminCancelRide, ltAssignRide, ltGetRide, ltRateRide } from './localTaxi/rideFns';

@@ -1,32 +1,26 @@
-// An inline pickup / drop field: type and the suggestions open right below the input (live search,
-// saved + recent places, popular cities) with a small crosshair button that detects the current location.
-// No separate page or dialog is needed to enter a place; "Choose on map" is the only optional extra step.
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+// A pickup / drop field with a small crosshair button that detects the current location.
+// On phones, tapping it opens the full-screen search page (the keyboard then never covers the field or
+// the suggestions). On wider screens you type in place and the same suggestions open under the field.
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal, flushSync } from 'react-dom';
 import type { GeoPlace, LatLng, LocationItem } from '@core/types';
-import { reverseGeocode, searchPlaces } from '@core/services/geoService';
+import { reverseGeocode } from '@core/services/geoService';
 import { isValidLatLng } from '@core/utils/geo';
-import { isOnline } from '@core/utils/network';
 import { Spinner } from './ui';
 import { Icon } from './Icon';
-import { PinDialog, type PickerConfig } from './LocationPicker';
-import { useDeviceLocation } from '@/lib/hooks';
+import type { PickerConfig } from './LocationPicker';
+import { PinDialog } from './PinDialog';
+import { PlaceIcon } from './placeSearch/PlaceIcon';
+import { PlaceSearchPage } from './placeSearch/PlaceSearchPage';
+import { SuggestionList, type Shortcut } from './placeSearch/SuggestionList';
+import { usePlaceSuggestions } from './placeSearch/usePlaceSuggestions';
+import type { TreeRow } from './placeSearch/model';
+import { useDeviceLocation, useMediaQuery } from '@/lib/hooks';
 import { LOCATION_HELP } from '@/lib/schedule';
 
-const TYPE_ICON: Record<string, string> = { home: 'home', work: 'briefcase', airport: 'plane', recent: 'clock', current: 'navigation' };
+/** Phones (and short touch screens, such as a phone held sideways) search on a separate page. */
+const PAGE_QUERY = '(max-width: 899.98px), (pointer: coarse) and (max-height: 599.98px)';
 
-interface Option {
-  key: string;
-  kind: 'place' | 'map';
-  place?: GeoPlace | LocationItem;
-  icon: string;
-  title: string;
-  subtitle?: string;
-}
-interface Section {
-  head?: string;
-  options: Option[];
-}
 interface Pos {
   top: number;
   left: number;
@@ -55,7 +49,8 @@ export interface PlaceFieldProps {
   anchorSelector?: string;
 }
 
-const MAX_H = 380;
+const MAX_H = 440;
+const MIN_W = 360;
 
 export function PlaceField({ value, config, saved, recent, onSelect, placeholder, inputClassName = '', inputId, inputRef, ariaLabelledBy, ariaDescribedBy, invalid, showLocate, anchorSelector = '[data-pf-anchor]' }: PlaceFieldProps) {
   const uid = useId();
@@ -63,6 +58,8 @@ export function PlaceField({ value, config, saved, recent, onSelect, placeholder
   const rootRef = useRef<HTMLDivElement>(null);
   const inputEl = useRef<HTMLInputElement | null>(null);
   const popRef = useRef<HTMLDivElement>(null);
+  const onPage = useMediaQuery(PAGE_QUERY);
+  const [page, setPage] = useState<{ notice: string } | null>(null);
   const [open, setOpen] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [text, setText] = useState('');
@@ -72,65 +69,37 @@ export function PlaceField({ value, config, saved, recent, onSelect, placeholder
   const [mapMode, setMapMode] = useState(false);
   const [locTried, setLocTried] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [results, setResults] = useState<{ q: string; list: GeoPlace[]; error: string }>({ q: '', list: [], error: '' });
   const { error: locError, permission, locating, locate } = useDeviceLocation(false);
 
+  const dropdown = open && !onPage;
   const query = dirty ? text : '';
   const q = query.trim();
-  const searching = open && q.length >= 3 && results.q !== q;
-  const near: LatLng | null = config.near ?? null;
   const canLocate = showLocate ?? config.allowCurrent ?? false;
-
-  // ── Live search (debounced, superseded requests aborted) ────────────────
-  useEffect(() => {
-    if (!open || q.length < 3) return undefined;
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => {
-      searchPlaces(q, near, controller.signal)
-        .then((raw) => {
-          if (controller.signal.aborted) return;
-          const r = config.resultFilter ? raw.filter(config.resultFilter) : raw;
-          const own = config.resultFilter ? config.popular.some((p) => `${p.name} ${p.address}`.toLowerCase().includes(q.toLowerCase())) : false;
-          setResults({ q, list: r, error: r.length || own ? '' : config.emptyText ?? 'No places found. Try a landmark, area or city name.' });
-        })
-        .catch(() => !controller.signal.aborted && setResults({ q, list: [], error: isOnline() ? 'Search is temporarily unavailable. Please try again.' : 'You’re offline — search needs a connection.' }));
-    }, 300);
-    return () => {
-      window.clearTimeout(timer);
-      controller.abort();
-    };
-  }, [open, q, near?.lat, near?.lng]); // eslint-disable-line react-hooks/exhaustive-deps -- coordinates, not object identity
-
-  // ── Suggestion list ─────────────────────────────────────────────────────
-  const lower = q.toLowerCase();
-  const sections: Section[] = useMemo(() => {
-    const out: Section[] = [];
-    const placeOption = (p: GeoPlace | LocationItem, icon: string, withAddress = true): Option => ({
-      key: `${icon}-${p.id}`,
-      kind: 'place',
-      place: p,
-      icon,
-      title: p.name,
-      subtitle: withAddress && p.address !== p.name ? p.address : undefined,
-    });
-    if (q.length >= 3) {
-      const found = results.q === q ? results.list : [];
-      const ownMatches = config.resultFilter ? config.popular.filter((p) => `${p.name} ${p.address}`.toLowerCase().includes(lower)) : [];
-      const list = config.resultFilter ? [...ownMatches, ...found.filter((p) => !config.popular.some((c) => c.name.toLowerCase() === p.name.toLowerCase()))] : found;
-      if (list.length) out.push({ head: 'Search results', options: list.map((p) => placeOption(p, p.type === 'airport' ? 'plane' : 'map-pin')) });
-    } else {
-      const quiet = !q && !config.resultFilter;
-      if (quiet && saved.length) out.push({ head: 'Saved addresses', options: saved.map((p) => placeOption(p, TYPE_ICON[p.type] ?? 'star')) });
-      if (quiet && recent.length) out.push({ head: 'Recent', options: recent.map((p) => placeOption(p, 'clock')) });
-      const pop = q ? config.popular.filter((p) => `${p.name} ${p.address}`.toLowerCase().includes(lower)) : config.popular;
-      if (pop.length) out.push({ head: config.popularLabel ?? 'Popular locations', options: pop.map((p) => placeOption(p, p.type === 'airport' ? 'plane' : 'map-pin')) });
-    }
-    if (config.pinMode) out.push({ options: [{ key: 'map', kind: 'map', icon: 'map-pin', title: 'Choose on map', subtitle: 'Drop a pin on the exact spot' }] });
-    return out;
-  }, [q, lower, results, saved, recent, config.popular, config.popularLabel, config.resultFilter, config.pinMode]);
-  const flat = useMemo(() => sections.flatMap((s) => s.options), [sections]);
+  const model = usePlaceSuggestions({ config, query, saved, recent, enabled: dropdown });
 
   useEffect(() => setActive(-1), [q, open]);
+
+  // ── The search page ─────────────────────────────────────────────────────
+  const openPage = useCallback((notice = '') => {
+    // Rendered during the tap itself, so the phone raises the keyboard for the page's search box.
+    flushSync(() => setPage((p) => p ?? { notice }));
+  }, []);
+  const closePage = useCallback(() => {
+    setPage(null);
+    window.requestAnimationFrame(() => inputEl.current?.focus({ preventScroll: true }));
+  }, []);
+
+  // The whole field box opens the page, not only the line of text inside it.
+  useEffect(() => {
+    if (!onPage) return undefined;
+    const box = rootRef.current?.closest(anchorSelector);
+    if (!box) return undefined;
+    const tap = (e: Event) => {
+      if (!(e.target as Element).closest('button, a, input, label, select')) openPage();
+    };
+    box.addEventListener('click', tap);
+    return () => box.removeEventListener('click', tap);
+  }, [onPage, anchorSelector, openPage]);
 
   // ── Popup placement: fixed under the field, flips above when there is no room ──
   const place = useCallback(() => {
@@ -138,15 +107,18 @@ export function PlaceField({ value, config, saved, recent, onSelect, placeholder
     if (!root) return;
     const box = (root.closest(anchorSelector) ?? root).getBoundingClientRect();
     const vh = window.visualViewport?.height ?? window.innerHeight;
+    const vw = document.documentElement.clientWidth;
     const below = vh - box.bottom - 10;
     const above = box.top - 10;
-    const flip = below < 220 && above > below;
+    const flip = below < 260 && above > below;
     const room = Math.max(140, Math.min(MAX_H, flip ? above : below));
-    setPos({ top: flip ? box.top - 6 : box.bottom + 6, left: box.left, width: box.width, maxHeight: room, above: flip });
+    const width = Math.min(Math.max(box.width, MIN_W), vw - 16);
+    const left = Math.max(8, Math.min(box.left, vw - width - 8));
+    setPos({ top: flip ? box.top - 6 : box.bottom + 6, left, width, maxHeight: room, above: flip });
   }, [anchorSelector]);
 
   useLayoutEffect(() => {
-    if (!open) return undefined;
+    if (!dropdown) return undefined;
     place();
     const on = () => place();
     window.addEventListener('resize', on);
@@ -157,7 +129,7 @@ export function PlaceField({ value, config, saved, recent, onSelect, placeholder
       window.removeEventListener('scroll', on, true);
       window.visualViewport?.removeEventListener('resize', on);
     };
-  }, [open, place, sections.length]);
+  }, [dropdown, place, model.rows.length]);
 
   const close = useCallback(() => {
     setOpen(false);
@@ -189,8 +161,11 @@ export function PlaceField({ value, config, saved, recent, onSelect, placeholder
     const picked = p as GeoPlace;
     const why = config.check?.(picked) ?? '';
     if (why) {
-      setReject(why);
-      setOpen(true);
+      if (onPage) openPage(why);
+      else {
+        setReject(why);
+        setOpen(true);
+      }
       return;
     }
     setReject('');
@@ -199,48 +174,64 @@ export function PlaceField({ value, config, saved, recent, onSelect, placeholder
     onSelect(picked);
   };
 
-  const pickOption = (o: Option) => {
-    if (o.kind === 'map') {
-      setOpen(false);
-      setMapMode(true);
-      return;
-    }
-    if (o.place) choose(o.place);
+  const pickRow = (row: TreeRow) => {
+    if (row.node.place) choose(row.node.place);
+    else model.toggle(row);
   };
 
   const detectCurrent = async () => {
     setReject('');
     setLocTried(true);
     setBusy(true);
+    const failed = (why: string) => {
+      if (onPage) openPage(why);
+      else setOpen(true);
+    };
     try {
-      const pos = await locate();
-      if (!pos) {
-        setOpen(true);
+      const at = await locate();
+      if (!at) {
+        failed('We couldn’t get your current location. Allow location access, or search for the place instead.');
         return;
       }
-      const found = await reverseGeocode(pos);
+      const found = await reverseGeocode(at);
       choose({ ...found, type: 'current' });
     } catch {
-      setReject('We couldn’t read your address. Please search for it instead.');
-      setOpen(true);
+      const why = 'We couldn’t read your address. Please search for it instead.';
+      if (!onPage) setReject(why);
+      failed(why);
     } finally {
       setBusy(false);
     }
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (onPage) {
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        openPage();
+      }
+      return;
+    }
+    const n = model.rows.length;
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       if (!open) setOpen(true);
-      else setActive((i) => (flat.length ? (i + 1) % flat.length : -1));
+      else setActive((i) => (n ? (i + 1) % n : -1));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setActive((i) => (flat.length ? (i <= 0 ? flat.length - 1 : i - 1) : -1));
+      setActive((i) => (n ? (i <= 0 ? n - 1 : i - 1) : -1));
+    } else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && open && active >= 0) {
+      // Opens or closes the highlighted state, district or city.
+      const row = model.rows[active];
+      if (row?.expandable && row.open !== (e.key === 'ArrowRight')) {
+        e.preventDefault();
+        model.toggle(row);
+      }
     } else if (e.key === 'Enter') {
       if (!open) return;
       e.preventDefault();
-      const target = flat[active] ?? (q.length >= 1 ? flat.find((o) => o.kind === 'place') : undefined);
-      if (target) pickOption(target);
+      const target = model.rows[active] ?? (q ? model.rows.find((r) => r.node.place) : undefined);
+      if (target) pickRow(target);
     } else if (e.key === 'Escape') {
       if (open) {
         e.preventDefault();
@@ -254,65 +245,50 @@ export function PlaceField({ value, config, saved, recent, onSelect, placeholder
   };
 
   const locNote = locError ? LOCATION_HELP[locError.kind] : permission === 'denied' || permission === 'blocked' ? LOCATION_HELP.blocked : '';
-  const shown = open && dirty ? text : value?.name ?? '';
-  const statusLine = searching ? 'Searching…' : results.q === q && q.length >= 3 && results.error && !flat.some((o) => o.kind === 'place') ? results.error : '';
+  const shown = dropdown && dirty ? text : value?.name ?? '';
+  const shortcuts: Shortcut[] = config.pinMode
+    ? [{ id: 'map', title: 'Choose on map', subtitle: 'Drop a pin on the exact spot', onClick: () => { setOpen(false); setMapMode(true); } }]
+    : [];
 
-  let index = -1;
   const popup =
-    open && pos
+    dropdown && pos
       ? createPortal(
           <div
             ref={popRef}
             id={listId}
             role="listbox"
-            className={`pf-pop ${pos.above ? 'pf-pop--above' : ''}`}
+            className={`pf-pop ps-pop ${pos.above ? 'pf-pop--above' : ''}`}
             style={{ left: pos.left, width: pos.width, maxHeight: pos.maxHeight, ...(pos.above ? { bottom: window.innerHeight - pos.top } : { top: pos.top }) }}
             onMouseDown={(e) => e.preventDefault()}
           >
-            {reject ? (
-              <p className="pf-note pf-note--error" role="alert">
-                <Icon name="warning" size={16} /> {reject}
-              </p>
-            ) : null}
-            {locTried && locNote && !busy && !locating ? (
-              <p className="pf-note" role="status">
-                <Icon name="info" size={16} /> {locNote}
-              </p>
-            ) : null}
-            {sections.map((s, si) => (
-              <div key={s.head ?? `s${si}`} className="pf-sec">
-                {s.head ? <p className="pf-head">{s.head}</p> : null}
-                {s.options.map((o) => {
-                  index += 1;
-                  const i = index;
-                  return (
-                    <div
-                      key={o.key}
-                      data-i={i}
-                      role="option"
-                      aria-selected={i === active}
-                      className={`pf-opt ${o.kind === 'map' ? 'pf-opt--map' : ''} ${i === active ? 'is-active' : ''}`}
-                      onMouseEnter={() => setActive(i)}
-                      onClick={() => pickOption(o)}
-                    >
-                      <span className="pf-opt__icon">
-                        <Icon name={o.icon} size={17} />
-                      </span>
-                      <span className="pf-opt__text">
-                        <strong>{o.title}</strong>
-                        {o.subtitle ? <small>{o.subtitle}</small> : null}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-            {statusLine ? (
-              <p className="pf-note pf-note--status" aria-live="polite">
-                {searching ? <Spinner /> : null} {statusLine}
-              </p>
-            ) : !flat.some((o) => o.kind === 'place') && q.length < 3 ? (
-              <p className="pf-note pf-note--status">{q ? 'Keep typing to search every place.' : 'Type at least 3 letters to search for a place.'}</p>
+            <SuggestionList
+              model={model}
+              query={query}
+              active={active}
+              idPrefix={`${uid}-opt`}
+              shortcuts={q ? [] : shortcuts}
+              selectedId={value?.id}
+              onActive={setActive}
+              onPick={pickRow}
+              notices={
+                <>
+                  {reject ? (
+                    <p className="ps-note ps-note--error" role="alert">
+                      <Icon name="warning" size={16} /> {reject}
+                    </p>
+                  ) : null}
+                  {locTried && locNote && !busy && !locating ? (
+                    <p className="ps-note" role="status">
+                      <Icon name="info" size={16} /> {locNote}
+                    </p>
+                  ) : null}
+                </>
+              }
+            />
+            {q && config.pinMode && !model.searching ? (
+              <button type="button" className="ps-footmap" onClick={shortcuts[0]!.onClick}>
+                <PlaceIcon kind="map" size={18} /> Can’t find it? Choose on map
+              </button>
             ) : null}
           </div>,
           document.body,
@@ -320,7 +296,7 @@ export function PlaceField({ value, config, saved, recent, onSelect, placeholder
       : null;
 
   return (
-    <div ref={rootRef} className={`pf ${open ? 'is-open' : ''}`}>
+    <div ref={rootRef} className={`pf ${dropdown ? 'is-open' : ''} ${onPage ? 'is-page' : ''}`}>
       <input
         ref={(el) => {
           inputEl.current = el;
@@ -329,27 +305,35 @@ export function PlaceField({ value, config, saved, recent, onSelect, placeholder
         id={inputId}
         type="text"
         role="combobox"
-        aria-expanded={open}
-        aria-controls={listId}
+        aria-expanded={onPage ? !!page : open}
+        aria-haspopup={onPage ? 'dialog' : 'listbox'}
+        aria-controls={dropdown ? listId : undefined}
         aria-autocomplete="list"
-        aria-activedescendant={undefined}
+        aria-activedescendant={dropdown && active >= 0 ? `${uid}-opt-${active}` : undefined}
         aria-labelledby={ariaLabelledBy}
         aria-describedby={ariaDescribedBy}
         aria-invalid={invalid || undefined}
         className={`pf__input ${inputClassName}`}
         value={shown}
+        readOnly={onPage}
         placeholder={config.placeholder ?? placeholder ?? 'City, area or landmark'}
         autoComplete="off"
         autoCorrect="off"
         spellCheck={false}
         enterKeyHint="search"
         title={value ? [value.name, value.address !== value.name ? value.address : ''].filter(Boolean).join(', ') : undefined}
+        onClick={() => {
+          if (onPage) openPage();
+          else setOpen(true);
+        }}
         onFocus={(e) => {
+          if (onPage) return;
           setOpen(true);
           setReject('');
           e.currentTarget.select();
         }}
         onChange={(e) => {
+          if (onPage) return;
           setDirty(true);
           setText(e.target.value);
           setReject('');
@@ -365,7 +349,7 @@ export function PlaceField({ value, config, saved, recent, onSelect, placeholder
           }, 120);
         }}
       />
-      {open && dirty && text ? (
+      {dropdown && dirty && text ? (
         <button type="button" className="pf__btn pf__btn--clear" aria-label="Clear" onMouseDown={(e) => e.preventDefault()} onClick={() => { setText(''); setDirty(true); inputEl.current?.focus(); }}>
           <Icon name="close" size={15} />
         </button>
@@ -384,6 +368,7 @@ export function PlaceField({ value, config, saved, recent, onSelect, placeholder
         </button>
       ) : null}
       {popup}
+      {page ? <PlaceSearchPage config={{ ...config, placeholder: config.placeholder ?? placeholder }} value={value} notice={page.notice} saved={saved} recent={recent} onSelect={onSelect} onClose={closePage} /> : null}
       {mapMode ? (
         <PinDialog
           title={config.title}

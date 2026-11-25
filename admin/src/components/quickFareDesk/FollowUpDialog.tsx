@@ -19,6 +19,9 @@ import {
 } from "../../domain/quickFareDesk";
 import { callerBadgeText, useCallerLookup } from "../../hooks/useCallerLookup";
 import type { Customer } from "../../types";
+import CustomerSuggestions from "../booking/CustomerSuggestions";
+import { useRankedCustomers } from "../../hooks/useRankedCustomers";
+import type { CustomerSuggestion } from "../../domain/customerSuggestions";
 
 export interface FollowUpSubmit {
   customerId: string | null;
@@ -51,6 +54,17 @@ export default function FollowUpDialog({ summary, customers, onSave, onClose }: 
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const lookup = useCallerLookup(mobile, customers);
+  const [suggest, setSuggest] = useState<"" | "mobile" | "name">("");
+  const ranked = useRankedCustomers(customers);
+  const pick = ({ customer, digits }: CustomerSuggestion) => {
+    setName(customer.name || "");
+    nameAuto.current = true;
+    setSuggest("");
+    // A follow-up stores the number to call: a masked one has to be typed.
+    setMobile(digits);
+    if (!digits) nameAuto.current = false;
+    setError(digits ? null : `Type the full mobile number for ${customer.name || "this customer"} (${customer.phoneMasked ?? "hidden"}).`);
+  };
   const norm = normalizeIndianMobile(mobile);
 
   // A name filled from a customer record belongs to that number: another number clears it (or fills the new match).
@@ -104,17 +118,19 @@ export default function FollowUpDialog({ summary, customers, onSave, onClose }: 
             <div className="flex items-center h-10 bg-white border border-slate-200 rounded-xl overflow-hidden focus-within:border-[#991B1B]">
               <span className="px-2.5 text-xs font-semibold text-slate-500 bg-slate-50 h-full flex items-center border-r border-slate-200" aria-hidden="true">+91</span>
               <input id="fuMobileInput" data-autofocus type="tel" inputMode="tel" autoComplete="off" placeholder="10-digit mobile" value={mobile}
-                onChange={(e) => { setMobile(mobileInputValue(e.target.value)); setError(null); }}
+                onChange={(e) => { setMobile(mobileInputValue(e.target.value)); setSuggest("mobile"); setError(null); }}
+                onFocus={() => setSuggest(lookup.state === "found" ? "" : "mobile")} onClick={() => setSuggest(lookup.state === "found" ? "" : "mobile")} onBlur={() => setSuggest("")}
                 aria-invalid={!!error && !norm.ok} aria-describedby={error ? "fuError" : undefined}
-                className="w-full h-full px-2.5 text-sm font-medium text-slate-800 focus:outline-none" />
+                className="w-full h-full px-2.5 text-sm font-medium text-slate-800 !border-0 !outline-none !shadow-none" />
             </div>
           </div>
           <div>
             <label htmlFor="fuNameInput" className={LABEL}>Caller Name</label>
-            <input id="fuNameInput" placeholder="e.g., Ramesh" maxLength={80} autoComplete="off" value={name} onChange={(e) => { setName(e.target.value); nameAuto.current = false; }}
+            <input id="fuNameInput" placeholder="e.g., Ramesh" maxLength={80} autoComplete="off" value={name} onChange={(e) => { setName(e.target.value); nameAuto.current = false; setSuggest(foundId ? "" : "name"); }} onBlur={() => setSuggest("")}
               className="w-full h-10 px-3 text-sm font-medium text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]" />
           </div>
         </div>
+        {suggest && <CustomerSuggestions ranked={ranked} query={suggest === "mobile" ? mobile : name} onPick={pick} />}
         {badge && <p className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/70 px-3 py-1.5 rounded-lg">{badge}</p>}
         {lookup.state === "error" && <p className="text-[11px] text-slate-400">Customer lookup is unavailable right now ({lookup.message}).</p>}
 

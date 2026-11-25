@@ -15,6 +15,7 @@ import { db } from './admin';
 import { auditInTx } from './audit';
 import { summarizePayments } from './domain/bookingFlow';
 import { derivedPaymentFields, txnsRef } from './bookingPayments';
+import { syncGstSafely } from './gstDocuments';
 import { formatDateTime12 } from './domain/time';
 import { inr, notify } from './notify';
 
@@ -97,6 +98,7 @@ export async function recordGatewayReceipt(r: GatewayReceipt): Promise<{ recorde
     });
     return { recorded: true, status: summary.status, balanceDue: summary.balanceDue, confirm };
   });
+  if (out.recorded) await syncGstSafely(r.bookingId);
   if (out.confirm?.customerId) {
     const c = out.confirm;
     // Never fails the payment; one notification per booking (dedupeKey), even if the webhook and the checkout callback both arrive.
@@ -201,6 +203,21 @@ export async function handleRazorpayEvent(event: any): Promise<{ handled: boolea
   const type = String(event?.event ?? '');
   const entity = event?.payload?.payment?.entity as ProviderPayment & { notes?: Record<string, string>; error_description?: string } | undefined;
   if (!entity?.id || !entity.order_id) return { handled: false, detail: 'no payment entity' };
+  // A paid payment link: the booking named in its notes must hold the link we created, for exactly this amount.
+  if (type === 'payment_link.paid') {
+    const link = event?.payload?.payment_link?.entity as { id?: string; notes?: Record<string, string> } | undefined;
+    const bookingId = String(link?.notes?.bookingId ?? '');
+    const linkId = String(link?.id ?? '');
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(bookingId) || !/^[A-Za-z0-9_-]{1,128}$/.test(linkId)) return { handled: false, detail: 'unknown payment link' };
+    const record = await db.doc(`bookings/${bookingId}/payment_links/${linkId}`).get();
+    if (!record.exists) return { handled: false, detail: 'unknown payment link' };
+    if (entity.status !== 'captured' || entity.currency !== 'INR' || entity.amount !== record.data()!.amountPaise) return { handled: false, detail: 'invalid captured payment' };
+    const r = await recordGatewayReceipt({ bookingId, paymentId: entity.id, orderId: entity.order_id, amountPaise: entity.amount, method: entity.method ?? 'online', source: 'webhook' });
+    await record.ref.set({ status: 'paid', paymentId: entity.id, paidAt: FieldValue.serverTimestamp() }, { merge: true });
+    await db.doc(`bookings/${bookingId}`).set({ paymentLink: { status: 'paid' } }, { merge: true });
+    await (await import('./reconcile')).reconcileBooking(bookingId);
+    return { handled: true, detail: r.recorded ? 'recorded' : 'duplicate' };
+  }
   // The booking is found through the order we created, never trusted from the payload notes alone.
   const orders = await db.collectionGroup('gateway_orders').where('orderId', '==', entity.order_id).limit(1).get();
   if (orders.empty) {
@@ -295,6 +312,9 @@ export const createBookingPaymentLink = onCall({ secrets: [RAZORPAY_KEY_ID, RAZO
   }
   const amountPaise = paiseOf(requestedAmount);
 
+  const balance = derivedPaymentFields(b, (await txnsRef(bookingId).get()).docs.map((d) => d.data())).summary.balanceDue;
+  if (requestedAmount > balance + 0.005) throw new HttpsError('failed-precondition', balance > 0 ? `The amount is more than the balance due (₹${balance.toLocaleString('en-IN')}).` : 'This booking is already fully paid.');
+
   let keyId = '';
   let keySecret = '';
   try {
@@ -309,11 +329,16 @@ export const createBookingPaymentLink = onCall({ secrets: [RAZORPAY_KEY_ID, RAZO
   const now = Date.now();
   let paymentLinkId = `plink_${bookingId.slice(0, 8)}_${now}`;
   let shortUrl = `https://rzp.io/i/${paymentLinkId}`;
+  const testRun = process.env.FUNCTIONS_EMULATOR === 'true' || process.env.NODE_ENV === 'test';
+  // Never hand out a made-up address: without real keys there is no payment link.
+  if (!isConfigured && !testRun) throw new HttpsError('failed-precondition', 'Razorpay is not set up on the server, so a payment link cannot be made.');
 
   if (isConfigured) {
     try {
       const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
-      const contactRaw = (await import('./bookingBuild')).indianPhone(b.phone || b.customerPhone || '');
+      // The raw number lives in booking_contacts; the booking itself only holds a masked one.
+      const contact = await (await import('./contacts')).loadContact(bookingId, b);
+      const contactRaw = (await import('./bookingBuild')).indianPhone(contact.phone || b.customerPhone || '');
       const link = await (razorpay as any).paymentLink.create({
         amount: amountPaise,
         currency: 'INR',
@@ -322,7 +347,7 @@ export const createBookingPaymentLink = onCall({ secrets: [RAZORPAY_KEY_ID, RAZO
         customer: {
           name: (await import('./shared')).text(b.customer || b.customerName || 'Customer', 80),
           contact: contactRaw || undefined,
-          email: b.email || b.customerEmail || undefined,
+          email: contact.email || b.email || undefined,
         },
         notify: { sms: true, whatsapp: true },
         reference_id: `pl_${bookingId}_${now}`.slice(0, 40),
@@ -332,7 +357,7 @@ export const createBookingPaymentLink = onCall({ secrets: [RAZORPAY_KEY_ID, RAZO
       shortUrl = link.short_url || shortUrl;
     } catch (err: any) {
       console.error('[createBookingPaymentLink] Razorpay API failed', err?.message || err);
-      if (process.env.FUNCTIONS_EMULATOR === 'true' || process.env.NODE_ENV === 'test') {
+      if (testRun) {
         paymentLinkId = `plink_test_${now}`;
         shortUrl = `https://rzp.io/i/${paymentLinkId}`;
       } else {

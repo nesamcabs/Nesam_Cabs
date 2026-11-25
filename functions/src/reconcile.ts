@@ -18,6 +18,7 @@ import { reconcileBookingMoney } from './bookingPayments';
 import { syncBookingFinance, syncPayoutLedger, recomputeWallet } from './ledger';
 import { syncRating } from './ratings';
 import { syncSettlementDue } from './settlement';
+import { syncGstDocuments } from './gstDocuments';
 import { requireAdmin } from './shared';
 
 const ID = /^[A-Za-z0-9_-]{1,128}$/;
@@ -30,6 +31,8 @@ export async function reconcileBooking(bookingId: string): Promise<void> {
   if (actor) await recomputeWallet(actor.type, actor.id);
   await syncSettlementDue(bookingId);
   await syncRating(bookingId);
+  // Last: the invoice and receipts are built from the money state settled above.
+  await syncGstDocuments(bookingId);
 }
 
 export async function reconcilePayout(requestId: string): Promise<void> {

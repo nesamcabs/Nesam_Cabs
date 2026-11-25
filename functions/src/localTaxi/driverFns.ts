@@ -13,6 +13,7 @@ import { haversineMeters, pointInGeometry } from './geo';
 import { COL, boundaryOfDoc, cleanId, str } from './model';
 import { advanceDispatch, assignRide, boundaryFor, driverApproved, ltNotify, rejectOffer, releaseDriverTx, rideEventTx, rideRef } from './dispatch';
 import { transitionProblem } from './states';
+import { syncRideGstSafely } from '../gstDocuments';
 
 const OTP_MAX_ATTEMPTS = 5;
 const OTP_LOCK_MS = 10 * 60000;
@@ -253,6 +254,7 @@ export const ltDriverAdvance = onCall(async (request) => {
   const n = notifyCustomer as { id: string; title: string; body: string } | null;
   if (n) await ltNotify(n.id, 'customer', n.title, n.body, rideId);
   if (reDispatch) await advanceDispatch(rideId).catch(() => null);
+  await syncRideGstSafely(rideId); // does nothing until the ride is completed
   const w = wrongOtp as { remaining: number; locked: boolean } | null;
   if (w) throw new HttpsError('permission-denied', w.locked ? 'Too many wrong codes. Wait 10 minutes or ask the customer to check the code.' : `That ride code is not correct. ${w.remaining} attempt${w.remaining === 1 ? '' : 's'} left.`, { reason: 'wrong_otp', remaining: w.remaining, locked: w.locked });
   return result;

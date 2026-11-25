@@ -428,3 +428,25 @@ export const saveCustomerProfile = onCall({ timeoutSeconds: 30 }, async (request
   });
   return { id: customerId, created: false };
 });
+
+/**
+ * Keeps a phone booking's caller as a customer, so the next booking finds them. Does nothing when the number already
+ * belongs to a customer. The booking itself is not changed: the directory attributes it by the mobile number.
+ */
+export async function ensureCustomerRecord(admin: { uid: string; name: string }, name: string, phone: string): Promise<void> {
+  const key = parseIndianMobile(phone);
+  if (!key || name.trim().length < 2) return;
+  const legacy = await db.collection('customers').where('phone', 'in', phoneVariants(key)).limit(1).get();
+  if (!legacy.empty) return;
+  const id = db.collection('customers').doc().id;
+  const index = db.doc(`customer_phone_index/${key}`);
+  await db.runTransaction(async (tx) => {
+    if ((await tx.get(index)).exists) return;
+    tx.create(db.doc(`customers/${id}`), {
+      name: name.trim().slice(0, 80), phone: formatCustomerPhone(key), status: 'Active', isVip: false, isCorporate: false, role: 'customer', source: 'admin',
+      createdBy: admin.uid, createdByName: admin.name, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(),
+    });
+    tx.set(index, { customerId: id, createdAt: FieldValue.serverTimestamp() });
+    auditInTx(tx, { action: 'customer_created', entity: 'customer', entityId: id, performedBy: admin.uid, performedByName: admin.name, role: 'admin', next: { name: name.trim(), phoneMasked: maskCustomerPhone(key), from: 'booking' } });
+  });
+}

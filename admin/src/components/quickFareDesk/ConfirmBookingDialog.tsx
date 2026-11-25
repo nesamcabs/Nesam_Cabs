@@ -25,6 +25,10 @@ import { copyText } from "../../services/customerDirectoryService";
 import { tripPickupAt, tripToForm, type QuickTrip } from "../booking/QuickFare";
 import { callerBadgeText, useCallerLookup } from "../../hooks/useCallerLookup";
 import type { Customer } from "../../types";
+import CustomerSuggestions from "../booking/CustomerSuggestions";
+import PaymentLinkPanel from "./PaymentLinkPanel";
+import { useRankedCustomers } from "../../hooks/useRankedCustomers";
+import type { CustomerSuggestion } from "../../domain/customerSuggestions";
 
 export interface BookTarget {
   trip: QuickTrip;
@@ -79,13 +83,29 @@ export default function ConfirmBookingDialog({ target, customers, onBooked, onFu
   const requestId = useRef(newRequestId());
   const mobileRef = useRef<HTMLInputElement>(null);
 
+  const [suggest, setSuggest] = useState<"" | "mobile" | "name">("");
+  /** A saved customer whose number this account only sees masked. */
+  const [onFile, setOnFile] = useState<{ id: string; masked: string } | null>(null);
+  const [picked, setPicked] = useState<{ id: string; digits: string } | null>(null);
+  const ranked = useRankedCustomers(customers);
+  const pick = ({ customer, digits }: CustomerSuggestion) => {
+    setName(customer.name || "");
+    nameAuto.current = true;
+    setUseSaved(false);
+    setMobile(digits);
+    setOnFile(digits ? null : { id: customer.id, masked: customer.phoneMasked ?? "" });
+    setPicked({ id: customer.id, digits });
+    setSuggest("");
+    setError(null);
+  };
+
   const lookup = useCallerLookup(mobile, customers, !useSaved);
   const norm = normalizeIndianMobile(mobile);
-  const foundId = lookup.state === "found" ? lookup.id : "";
+  const foundId = picked && norm.ok && norm.digits === picked.digits ? picked.id : lookup.state === "found" ? lookup.id : "";
   const foundName = lookup.state === "found" ? lookup.customer?.name ?? "" : "";
   useEffect(() => {
     if (foundName && (!name.trim() || nameAuto.current)) { setName(foundName); nameAuto.current = true; }
-    else if (!foundId && nameAuto.current) { setName(""); nameAuto.current = false; }
+    else if (!foundId && !onFile && nameAuto.current) { setName(""); nameAuto.current = false; }
   }, [foundId, foundName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -105,7 +125,7 @@ export default function ConfirmBookingDialog({ target, customers, onBooked, onFu
 
   const confirm = async () => {
     if (busy) return;
-    const phone = useSaved ? enquiry?.phone ?? "" : norm.ok ? norm.e164 : "";
+    const phone = useSaved ? enquiry?.phone ?? "" : onFile ? onFile.masked : norm.ok ? norm.e164 : "";
     if (!phone) return setError(norm.ok ? "Enter the customer's mobile number." : norm.reason);
     if (name.trim().length < 2) return setError("Enter the customer name.");
     if (!offered(plan)) return setError("Choose a payment mode that is available for this trip.");
@@ -116,7 +136,7 @@ export default function ConfirmBookingDialog({ target, customers, onBooked, onFu
       const form = tripToForm(trip, line.categoryId, {
         ...emptyManualBooking(),
         channel: s.source,
-        customerId: useSaved ? enquiry?.customerId ?? "" : foundId,
+        customerId: useSaved ? enquiry?.customerId ?? "" : onFile ? onFile.id : foundId,
         customerName: name.trim(),
         customerPhone: phone,
         whatsappSame: true,
@@ -150,7 +170,7 @@ export default function ConfirmBookingDialog({ target, customers, onBooked, onFu
     setBusy(false);
   };
 
-  const shownPhone = useSaved ? maskPhone(enquiry?.phone) : norm.ok ? maskPhone(norm.e164) : "";
+  const shownPhone = useSaved ? maskPhone(enquiry?.phone) : onFile ? onFile.masked : norm.ok ? maskPhone(norm.e164) : "";
   const copyConfirmation = async () => {
     if (!done) return;
     const ok = await copyText(bookingConfirmationText({
@@ -163,7 +183,7 @@ export default function ConfirmBookingDialog({ target, customers, onBooked, onFu
 
   const subtitle = `${brandName} • ${date} at ${time}`;
   if (done) {
-    const payText = plan === "later" ? "Pay Later to Driver" : done.link ? `Razorpay link created (${formatINR(done.link.amount)})` : `Payment link not created: ${done.linkError}`;
+    const payText = done.link ? `Payment link created (${formatINR(done.link.amount)})` : plan === "later" ? "Pay Later to Driver" : "Payment link not created yet";
     return (
       <DeskDialog title="Confirm Booking (Fare Approved)" subtitle={subtitle} icon={<CircleCheck className="w-4 h-4" />} tone="emerald" size="lg" onClose={onClose}>
         <div className="p-6 text-center space-y-4" role="status">
@@ -174,12 +194,10 @@ export default function ConfirmBookingDialog({ target, customers, onBooked, onFu
             <p className="text-xs text-slate-500 mt-1">{name.trim()} • {s.route} • {line.vehicle} [{deskExtrasLabel(s)}] ({formatINR(done.fare)}) — {payText}</p>
             <p className="text-[11px] text-slate-400 mt-1">Status: Pending — approve and publish it in Bookings to assign a cab.</p>
           </div>
-          {done.link && (
-            <div className="flex items-center justify-center gap-2 text-xs">
-              <a href={done.link.url} target="_blank" rel="noreferrer" className="font-semibold text-[#2563EB] hover:underline inline-flex items-center gap-1 break-all">{done.link.url}<ExternalLink className="w-3 h-3 shrink-0" aria-hidden="true" /></a>
-            </div>
-          )}
-          {done.link && <p className="text-[11px] text-slate-400">Razorpay was asked to notify the customer; delivery is not confirmed here. Share the link if needed.</p>}
+          <PaymentLinkPanel bookingId={done.id} bookingCode={done.bookingId} brandName={brandName} fare={done.fare} suggested={payNow || done.fare}
+            digits={done.digits} link={done.link} problem={done.linkError}
+            unavailable={options.data && !options.data.online ? "Online payment is off or Razorpay is not set up, so a payment link cannot be made. Turn it on in Payments → Online payments." : null}
+            onLink={(link) => setDone((d) => (d ? { ...d, link, linkError: null } : d))} />
           {done.warning && <p role="alert" className="text-[11px] font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">{done.warning}</p>}
           <div className="flex flex-col sm:flex-row gap-2.5 justify-center pt-1">
             <button type="button" onClick={copyConfirmation} className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 flex items-center justify-center gap-1.5">
@@ -234,20 +252,28 @@ export default function ConfirmBookingDialog({ target, customers, onBooked, onFu
                   <button type="button" disabled={busy} onClick={() => { setUseSaved(false); window.setTimeout(() => mobileRef.current?.focus(), 0); }}
                     className="text-[11px] font-semibold text-[#991B1B] hover:underline shrink-0">Change</button>
                 </div>
+              ) : onFile ? (
+                <div className="w-full h-full px-2.5 flex items-center justify-between gap-2 min-w-0">
+                  <span id="cbMobileInput" className="text-sm font-medium text-slate-800 truncate">{onFile.masked.replace(/^\+91 /, "")} <span className="text-[10px] font-medium text-slate-400">on file</span></span>
+                  <button type="button" disabled={busy} onClick={() => { setOnFile(null); setName(""); window.setTimeout(() => mobileRef.current?.focus(), 0); }} className="text-[11px] font-semibold text-[#991B1B] hover:underline shrink-0">Change</button>
+                </div>
               ) : (
                 <input ref={mobileRef} id="cbMobileInput" data-autofocus type="tel" inputMode="tel" autoComplete="off" placeholder="10-digit mobile" value={mobile} disabled={busy}
-                  onChange={(e) => { setMobile(mobileInputValue(e.target.value)); setError(null); }}
-                  className="w-full h-full px-2.5 text-sm font-medium text-slate-800 focus:outline-none" />
+                  onChange={(e) => { setMobile(mobileInputValue(e.target.value)); setSuggest("mobile"); setError(null); }}
+                  onFocus={() => setSuggest(lookup.state === "found" ? "" : "mobile")} onClick={() => setSuggest(lookup.state === "found" ? "" : "mobile")} onBlur={() => setSuggest("")}
+                  className="w-full h-full px-2.5 text-sm font-medium text-slate-800 !border-0 !outline-none !shadow-none" />
               )}
             </div>
           </div>
           <div>
             <label htmlFor="cbNameInput" className={LABEL}>Customer Name *</label>
             <input id="cbNameInput" data-autofocus={useSaved || undefined} placeholder="Enter customer name" maxLength={80} autoComplete="off" value={name} disabled={busy}
-              onChange={(e) => { setName(e.target.value); nameAuto.current = false; setError(null); }}
+              onChange={(e) => { setName(e.target.value); nameAuto.current = false; setSuggest(foundId || onFile ? "" : "name"); setError(null); }}
+              onBlur={() => setSuggest("")}
               className="w-full h-10 px-3 text-sm font-medium text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#991B1B]" />
           </div>
         </div>
+        {suggest && !useSaved && !onFile && <CustomerSuggestions ranked={ranked} query={suggest === "mobile" ? mobile : name} onPick={pick} />}
         {!useSaved && callerBadgeText(lookup) && <p className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/70 px-3 py-1.5 rounded-lg">{callerBadgeText(lookup)}</p>}
 
         <div className="space-y-2">

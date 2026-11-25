@@ -13,6 +13,7 @@ import { auditInTx } from '../audit';
 import { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, configured, safeEq } from '../payments';
 import { COL, cleanId } from './model';
 import { rideEventTx, rideRef } from './dispatch';
+import { syncRideGstSafely } from '../gstDocuments';
 
 /** What the customer owes on a ride right now, in paise (0 when nothing is due). */
 export function amountDuePaise(ride: DocumentData): number {
@@ -49,7 +50,7 @@ export interface RidePaymentReceipt { rideId: string; paymentId: string; orderId
 /** Records a CAPTURED payment for a ride. Idempotent: the payment document id is the provider payment id. */
 export async function recordRidePayment(r: RidePaymentReceipt): Promise<{ recorded: boolean }> {
   const payId = `rzp_${r.paymentId.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 60)}`;
-  return db.runTransaction(async (tx) => {
+  const out = await db.runTransaction(async (tx) => {
     const [rs, ps, os] = await Promise.all([tx.get(rideRef(r.rideId)), tx.get(db.doc(`${COL.payments}/${payId}`)), tx.get(db.doc(`${COL.paymentOrders}/${r.orderId}`))]);
     const ride = rs.data();
     if (!ride) throw new HttpsError('not-found', 'Ride not found.');
@@ -66,6 +67,8 @@ export async function recordRidePayment(r: RidePaymentReceipt): Promise<{ record
     auditInTx(tx, { action: 'lt_payment_recorded', entity: 'lt_payment', entityId: payId, performedBy: 'razorpay', role: 'system', bookingId: r.rideId, next: { amountPaise: r.amountPaise, source: r.source } });
     return { recorded: true };
   });
+  if (out.recorded) await syncRideGstSafely(r.rideId);
+  return out;
 }
 
 export async function recordRidePaymentFailure(orderId: string, paymentId: string, reason: string) {

@@ -6,7 +6,8 @@ import { deleteSavedPlace, savePlace } from '@core/services/userService';
 import { describeError } from '@core/utils/retry';
 import { Button, Dialog, EmptyState, Notice, PageHead, Segmented, TextField } from '@/components/ui';
 import { Icon } from '@/components/Icon';
-import { PlaceSuggestions } from '@/components/PlaceSuggestions';
+import { PlaceField } from '@/components/PlaceField';
+import { QUICK_CITIES } from '@/pages/book/content';
 import { useDeviceLocation } from '@/lib/hooks';
 import { useAuth } from '@/state/Auth';
 import { useSeo } from '@/lib/seo';
@@ -18,7 +19,6 @@ function AddPlaceDialog({ onClose }: { onClose: () => void }) {
   const { profile, savedPlaces } = useCustomerData();
   const { position } = useDeviceLocation(false);
   const [kind, setKind] = useState<Kind>('favorite');
-  const [query, setQuery] = useState('');
   const [picked, setPicked] = useState<GeoPlace | null>(null);
   const [label, setLabel] = useState('');
   const [busy, setBusy] = useState(false);
@@ -80,16 +80,20 @@ function AddPlaceDialog({ onClose }: { onClose: () => void }) {
             </button>
           </div>
         ) : (
-          <>
-            <div className="search search--field">
-              <Icon name="search" size={18} />
-              <label className="sr-only" htmlFor="place-q">
-                Search address, street or landmark
-              </label>
-              <input id="place-q" data-autofocus type="search" placeholder="Search address, street or landmark" value={query} onChange={(e) => setQuery(e.target.value)} autoComplete="off" />
-            </div>
-            <PlaceSuggestions query={query} near={position} saved={[]} recent={[]} onSelect={setPicked} />
-          </>
+          <div className="search search--field" data-pf-anchor>
+            <Icon name="search" size={18} />
+            <label className="sr-only" htmlFor="place-q">
+              Search address, street or landmark
+            </label>
+            <PlaceField
+              inputId="place-q"
+              value={null}
+              config={{ title: 'Search a place to save', placeholder: 'Search address, street or landmark', allowCurrent: true, popular: QUICK_CITIES, popularLabel: 'Popular cities', near: position, pinMode: 'pickup' }}
+              saved={[]}
+              recent={[]}
+              onSelect={setPicked}
+            />
+          </div>
         )}
         {kind === 'favorite' && picked ? <TextField label="Label (optional)" value={label} onChange={(e) => setLabel(e.target.value.slice(0, 40))} placeholder="e.g. Hospital, College, Mom’s house" /> : null}
         {error ? <Notice tone="error">{error}</Notice> : null}

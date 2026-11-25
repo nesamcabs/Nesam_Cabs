@@ -48,6 +48,7 @@ export const CALLABLES: Readonly<Record<string, CallableLike>> = Object.freeze({
   verifyRazorpayPayment,
   createBookingPaymentLink: fns.createBookingPaymentLink,
   reconcile,
+  generateGstDocuments: fns.generateGstDocuments,
   // trips
   getCustomerContact: fns.getCustomerContact,
   getCustomerDirectory: fns.getCustomerDirectory,
@@ -189,7 +190,7 @@ export const RECONCILES_BOOKING = new Set([
   'createBooking', 'createAdminBooking', 'overrideBookingFare', 'approveBooking', 'rejectBooking', 'cancelBooking', 'updateRefund',
   'assignDriver', 'recordPayment', 'voidPayment', 'advanceTrip', 'overrideReachedPickup', 'officeCloseTrip', 'verifyBoarding', 'awardMarketplaceBid', 'rejectMarketplaceBid', 'postBookingToMarketplace',
   'assignIndependentDriver', 'assignVendor', 'vendorAssignDriver', 'claimMarketplaceDuty', 'submitMarketplaceBid', 'withdrawMarketplaceBid', 'finalizeVehicleVerification',
-  'requestDutyCancellation', 'acknowledgeAssignment', 'reviewExtraUsage', 'takeLocalOrder', 'releaseLocalOrder',
+  'requestDutyCancellation', 'acknowledgeAssignment', 'reviewExtraUsage', 'takeLocalOrder', 'releaseLocalOrder', 'verifyRazorpayPayment', 'refundGatewayPayment',
 ]);
 export const RECONCILES_PAYOUT = new Set(['requestPartnerPayout']);
 

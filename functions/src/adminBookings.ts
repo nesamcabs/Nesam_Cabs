@@ -38,6 +38,7 @@ import { canSeePayouts } from './staffReads';
 import { storePricingInTx } from './pricingPrivate';
 import { mailNewBooking } from './commerce';
 import { assertServiceSupported, resolveAndValidateBrand } from './brandContext';
+import { ensureCustomerRecord } from './customerDirectory';
 import { hillRatesConfigured } from './domain/scopedExtraCharges';
 
 const MAX_FARE = 1000000;
@@ -426,7 +427,11 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
   });
   await pushAfterCommit(pushes);
   // An office booking that was actually written (not a quote preview or a repeated request): confirm it to the customer by email.
-  if (result && typeof result === 'object' && 'id' in result && 'otp' in result) await mailNewBooking(String(result.id), false);
+  if (result && typeof result === 'object' && 'id' in result && 'otp' in result) {
+    // A new caller is kept as a customer, so the next booking finds them. A problem here never undoes the booking.
+    if (!input.customerId) await ensureCustomerRecord(admin, name, phone).catch((err) => console.warn('customer record not saved', err));
+    await mailNewBooking(String(result.id), false);
+  }
   return result;
 });
 

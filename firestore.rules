@@ -1149,6 +1149,24 @@ service cloud.firestore {
       allow read: if canReadFinance() || (isSignedIn() && resource.data.customerId == uid());
       allow write: if can('finance');
     }
+    // Receipt vouchers, payment receipts, refund vouchers and the "needs attention" list — written only by the server
+    // (functions/src/gstDocuments.ts).
+    match /gst_receipts/{receiptId} {
+      allow read: if canReadFinance() || (isSignedIn() && resource.data.customerId == uid());
+      allow write: if false;
+    }
+    match /gst_review/{key} {
+      allow read: if canReadFinance();
+      allow write: if false;
+    }
+    // The authorised signatory's name and signature image printed on downloaded bills. Not in /settings, which every
+    // signed-in user can read.
+    match /gst_private/signature {
+      allow read: if canReadFinance();
+      allow write: if can('finance')
+                   && request.resource.data.get('name', '') is string && request.resource.data.get('name', '').size() <= 80
+                   && request.resource.data.get('image', '') is string && request.resource.data.get('image', '').size() <= 300000;
+    }
 
     // ── Admin-managed collections ───────────────────────────────────────────
     // Partner requests (duty cancellation, bank change, document renewal) — written only by

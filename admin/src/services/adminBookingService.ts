@@ -214,7 +214,8 @@ export function pickupTimeError(pickupAt: string, now = Date.now()): string | nu
 export function validateManualBooking(f: ManualBookingForm, now = Date.now()): Partial<Record<ManualBookingField, string>> {
   const e: Partial<Record<ManualBookingField, string>> = {};
   if (f.customerName.trim().length < 2) e.customerName = "Enter the customer name.";
-  if (!normalizePhone(f.customerPhone) && !(f.customerId && f.customerPhone.includes("*"))) {
+  // A saved customer whose number this account sees masked is booked on the number held by the server.
+  if (!normalizePhone(f.customerPhone) && !(f.customerId && /[*•]/.test(f.customerPhone))) {
     e.customerPhone = "Enter a valid 10-digit Indian mobile number.";
   }
   const wa = whatsappError(f);

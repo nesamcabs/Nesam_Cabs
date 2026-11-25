@@ -21,6 +21,10 @@ import {
   tripPickupAt, tripEndAt, useQuickData, validateTrip, type CategoryEstimate, type QuickTrip,
 } from "../components/booking/QuickFare";
 import { rupee } from "../domain/officeStage";
+import FareSummaryCard from "../components/booking/FareSummaryCard";
+import CustomerSuggestions from "../components/booking/CustomerSuggestions";
+import { useRankedCustomers } from "../hooks/useRankedCustomers";
+import type { CustomerSuggestion } from "../domain/customerSuggestions";
 import { cabCategoryBadge, cabDisplayName } from "../domain/categoryLabel";
 import { formatClock12, isoDateIST } from "../utils/time";
 import { copyText } from "../utils/clipboard";
@@ -259,7 +263,19 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
   const [saveEnquiryOpen, setSaveEnquiryOpen] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const [copyLinkFeedback, setCopyLinkFeedback] = useState<string | null>(null);
-  const [mobileSuggestionsLabel] = useState("Customers");
+  const [nameSuggestionsOpen, setNameSuggestionsOpen] = useState(false);
+  const rankedCustomers = useRankedCustomers(customers);
+  /** Fills the form from a saved customer. A masked number stays on file: the server books on the saved one. */
+  const pickCustomer = ({ customer, digits }: CustomerSuggestion) => {
+    setMatchedCustomer(customer);
+    setCustomerId(customer.id);
+    setCustomerName(customer.name);
+    setCustomerEmail(customer.email || "");
+    setCustomerMobile(digits);
+    setPhoneOnFile(digits ? "" : customer.phoneMasked ?? "");
+    setMobileSuggestionsOpen(false);
+    setNameSuggestionsOpen(false);
+  };
 
   const requestId = useRef(newRequestId());
   const canOverride = useCan("finance");
@@ -306,7 +322,8 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
   useEffect(() => {
     const digits = customerMobile.replace(/\D/g, "").slice(-10);
     if (digits.length === 10) {
-      const found = customers.find((c) => (c.phone || "").replace(/\D/g, "").slice(-10) === digits);
+      const sameNumber = customers.filter((c) => (c.phone || "").replace(/\D/g, "").slice(-10) === digits);
+      const found = sameNumber.find((c) => c.id === customerId) ?? sameNumber[0];
       if (found) {
         setMatchedCustomer(found);
         setCustomerId(found.id);
@@ -369,7 +386,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
     return {
       slabName: q.service || tripType,
       total: q.quote.total,
-      breakdown: q.breakup?.lines.map((l) => ({ label: l.label, amount: l.amount ?? 0 })) || [],
+      breakdown: q.breakup?.lines ?? [],
     };
   }, [liveQuote, tripType]);
   /** Customer-facing cab name (Vehicle categories › Display Text), the same as Quick Fare shows; the category id is unchanged. */
@@ -1016,14 +1033,17 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                         autoComplete="off"
                         value={phoneOnFile || customerMobile}
                         placeholder="Enter 10-digit mobile"
-                        onFocus={() => !phoneOnFile && setMobileSuggestionsOpen(true)}
+                        onFocus={() => !phoneOnFile && setMobileSuggestionsOpen(!matchedCustomer)}
+                        onClick={() => !phoneOnFile && setMobileSuggestionsOpen(!matchedCustomer)}
+                        onBlur={() => setMobileSuggestionsOpen(false)}
+                        onKeyDown={(e) => e.key === "Escape" && setMobileSuggestionsOpen(false)}
                         onChange={(e) => {
                           if (phoneOnFile) return;
                           const clean = e.target.value.replace(/\D/g, "").slice(0, 10);
                           setCustomerMobile(clean);
                           setMobileSuggestionsOpen(clean.length < 10);
                         }}
-                        className="w-full h-full px-3 text-sm font-medium text-slate-800 placeholder:text-slate-400 placeholder:font-normal bg-transparent focus:outline-none"
+                        className="w-full h-full px-3 text-sm font-medium text-slate-800 placeholder:text-slate-400 placeholder:font-normal bg-transparent !border-0 !outline-none !shadow-none"
                       />
                       {(customerMobile || phoneOnFile) && (
                         <button
@@ -1045,55 +1065,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                       )}
                     </div>
 
-                    {/* Auto-Suggest Dropdown */}
-                    {mobileSuggestionsOpen && !phoneOnFile && (
-                      <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden fade-slide-in">
-                        <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
-                          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                            {customerMobile ? "Matching customers" : mobileSuggestionsLabel}
-                          </span>
-                          <span className="text-[10px] text-slate-400">Click to auto-fill</span>
-                        </div>
-                        <div className="divide-y divide-slate-100 max-h-44 overflow-y-auto">
-                          {customers
-                            .filter((c) => !customerMobile || (c.phone || "").includes(customerMobile) || c.name.toLowerCase().includes(customerMobile.toLowerCase()))
-                            .slice(0, 5)
-                            .map((cust) => {
-                              const initials = cust.name ? cust.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase() : "CU";
-                              return (
-                                <button
-                                  key={cust.id}
-                                  type="button"
-                                  onClick={() => {
-                                    setMatchedCustomer(cust);
-                                    setCustomerId(cust.id);
-                                    setCustomerName(cust.name);
-                                    setCustomerMobile(cust.phone.replace(/\D/g, "").slice(-10));
-                                    setCustomerEmail(cust.email || "");
-                                    setMobileSuggestionsOpen(false);
-                                  }}
-                                  className="w-full px-3 py-2.5 flex items-center justify-between hover:bg-slate-50 transition-colors text-left"
-                                >
-                                  <div className="flex items-center gap-2.5 min-w-0">
-                                    <span className="w-7 h-7 rounded-full bg-crimson-50 text-[#9F1212] text-[11px] font-semibold flex items-center justify-center shrink-0">
-                                      {initials}
-                                    </span>
-                                    <div className="min-w-0">
-                                      <p className="text-xs font-semibold text-slate-800 truncate">{cust.name}</p>
-                                      <p className="text-[11px] text-slate-500">+91 {cust.phone}</p>
-                                    </div>
-                                  </div>
-                                  {typeof (cust as { tripsCompleted?: unknown }).tripsCompleted === "number" && (
-                                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 shrink-0">
-                                      {(cust as { tripsCompleted?: number }).tripsCompleted} trips
-                                    </span>
-                                  )}
-                                </button>
-                              );
-                            })}
-                        </div>
-                      </div>
-                    )}
+                    {mobileSuggestionsOpen && !phoneOnFile && <CustomerSuggestions floating ranked={rankedCustomers} query={customerMobile} onPick={pickCustomer} />}
                   </div>
 
                   {/* Customer Name */}
@@ -1104,9 +1076,13 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                       autoComplete="off"
                       placeholder="Customer name"
                       value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
+                      onChange={(e) => { setCustomerName(e.target.value); setNameSuggestionsOpen(!customerId); }}
+                      onFocus={() => setNameSuggestionsOpen(!customerId && !customerMobile)}
+                      onBlur={() => setNameSuggestionsOpen(false)}
+                      onKeyDown={(e) => e.key === "Escape" && setNameSuggestionsOpen(false)}
                       className="w-full h-11 pl-10 pr-3.5 text-sm font-medium text-slate-800 placeholder:text-slate-400 placeholder:font-normal bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#9F1212] focus:ring-2 focus:ring-[#9F1212]/15 transition-all"
                     />
+                    {nameSuggestionsOpen && <CustomerSuggestions floating ranked={rankedCustomers} query={customerName} onPick={pickCustomer} />}
                   </div>
                 </div>
 
@@ -1259,7 +1235,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                       inputId="pickupInput"
                       inputClassName="pr-10"
                       label="Pickup location"
-                      placeholder={tripType === "Airport" ? "Enter airport terminal or pickup address" : "Enter pickup city, airport, or address"}
+                      placeholder=""
                       text={pickupText}
                       value={pickupPoint}
                       saved={allLocations}
@@ -1306,7 +1282,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                               <PlaceField
                                 variant="desk"
                                 label={tripType === "Round Trip" ? `Itinerary stop ${idx + 1}` : `Via-stop ${idx + 1}`}
-                                placeholder={tripType === "Round Trip" ? "e.g., Kodaikanal or Dindigul" : "e.g., Tiruvannamalai"}
+                                placeholder=""
                                 text={stopVal}
                                 value={stopPoints[idx] ?? null}
                                 saved={allLocations}
@@ -1373,7 +1349,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                         inputId="dropInput"
                         inputClassName="pr-10"
                         label={tripType === "Multicity" ? "Final drop location" : "Drop location"}
-                        placeholder={tripType === "Multicity" ? "e.g., Trichy (Final Drop)" : tripType === "Airport" ? "Enter destination hotel, city, or airport" : "Enter drop destination (e.g., Madurai)"}
+                        placeholder=""
                         text={dropText}
                         value={dropPoint}
                         saved={allLocations}
@@ -1770,28 +1746,11 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
 
               <div className="grid grid-cols-1 gap-4 @min-[1080px]:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] items-start">
                 {/* Fare breakdown from the server quote */}
-                <div className="p-4 rounded-xl bg-white border border-slate-200 space-y-2 min-w-0">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Fare Breakdown</span>
-                    {routeText && <span className="text-[11px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{routeText}</span>}
-                  </div>
+                <div className="min-w-0">
                   {currentCalc ? (
-                    <>
-                      <div className="space-y-1.5 text-xs text-slate-600 pt-1">
-                        {currentCalc.breakdown.map((r, i) => (
-                          <div key={i} className="flex items-center justify-between gap-3">
-                            <span className="min-w-0">{r.label}</span>
-                            <span className="font-semibold text-slate-800 shrink-0">{rupee(r.amount)}</span>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-3 text-[11px] text-slate-500">
-                        <span>{vehicleName}{fuel === "cng" ? " • CNG" : ""} • excludes toll, parking &amp; permit (actuals)</span>
-                        <span className="text-sm font-bold text-[#991B1B] shrink-0">{rupee(currentCalc.total)}</span>
-                      </div>
-                    </>
+                    <FareSummaryCard lines={currentCalc.breakdown} total={currentCalc.total} cab={`${vehicleName}${fuel === "cng" ? " • CNG" : ""}`} route={routeText} />
                   ) : (
-                    <p role="status" className="text-xs text-slate-500 py-2">Choose a cab with a fare to see its breakdown.</p>
+                    <p role="status" className="rounded-2xl border border-dashed border-slate-300 bg-white p-4 text-xs text-slate-500">Choose a cab with a fare to see its breakdown.</p>
                   )}
                 </div>
 

@@ -15,6 +15,9 @@ import {
   voidInvoice,
   type BillingDetails,
 } from "../services/invoiceService";
+import { downloadGstPdf, downloadGstZip, type Signature } from "../services/gstPdf";
+import { ActionError, callFunction } from "../services/callables";
+import { StageBar } from "../components/ui/ListKit";
 import { auth, db } from "../services/firebase";
 import { ConfirmDialog, ErrorBanner, Modal, Toast, useToast } from "../components/Feedback";
 import { useCan } from "../components/AccessContext";
@@ -59,6 +62,11 @@ interface Draft extends BillingDetails {
   updatedAt?: unknown;
 }
 
+/** A server-held reason why a bill has not been issued (gst_review). */
+interface Held { id: string; bookingId: string; bookingDocumentId: string; customer: string; status: string; amount: number; reason: string }
+type View = "invoices" | "receipts" | "held";
+interface Generated { checked: number; invoices: number; receipts: number; review: number; failed: number; done: boolean; phase: string; after: string }
+
 /** Payment words used in the reference list. */
 const paymentWord = (p: string) => (p === "Paid" ? "Paid" : p === "Partially Paid" ? "Part paid" : "Due");
 
@@ -81,8 +89,27 @@ export default function Invoices() {
   const [voidReason, setVoidReason] = useState("");
   const [voiding, setVoiding] = useState(false);
   const [voidError, setVoidError] = useState<string | null>(null);
+  const [view, setView] = useState<View>("invoices");
+  const [month, setMonth] = useState("");
+  const [receipts, setReceipts] = useState<Invoice[]>([]);
+  const [held, setHeld] = useState<Held[]>([]);
+  const [signature, setSignature] = useState<Signature | null>(null);
+  const [showSignature, setShowSignature] = useState(false);
+  const [serverError, setServerError] = useState(false);
+  const [working, setWorking] = useState<{ job: "zip" | "generate"; note: string } | null>(null);
   const canFinance = useCan("finance");
-  const { toast, show } = useToast();
+  const { toast, show } = useToast(9000);
+
+  useEffect(() => {
+    const denied = () => setServerError(true);
+    setServerError(false);
+    const unsubs = [
+      onSnapshot(collection(db, "gst_receipts"), (s) => setReceipts(s.docs.map((d) => ({ ...(d.data() as Invoice), id: d.id }))), denied),
+      onSnapshot(collection(db, "gst_review"), (s) => setHeld(s.docs.map((d) => ({ ...(d.data() as Held), id: d.id }))), denied),
+      onSnapshot(doc(db, "gst_private", "signature"), (s) => setSignature(s.exists() ? (s.data() as Signature) : null), () => setSignature(null)),
+    ];
+    return () => unsubs.forEach((u) => u());
+  }, [retryKey]);
 
   useEffect(() => {
     setLoading(true);
@@ -120,11 +147,61 @@ export default function Invoices() {
       return { key: d.id, number: "Draft", date: "", billTo: d.name || b?.customer || "—", booking: b?.bookingId || d.bookingId, document: "Draft", payment: b && (b.payment === "Paid" || b.paymentStatus === "Paid") ? "Paid" : "Due", total: lines?.grandTotal ?? 0, balance: lines?.grandTotal ?? 0, draft: d };
     });
     return [...draftRows, ...issued]
+      .filter((r) => !month || r.date.startsWith(month))
       .filter((r) => docStatus === "All" || r.document === docStatus)
       .filter((r) => payStatus === "All" || r.payment === payStatus)
       .filter((r) => !q || [r.number, r.booking, r.billTo].some((v) => v.toLowerCase().includes(q)))
       .sort((a, b) => (a.document === "Draft" ? -1 : b.document === "Draft" ? 1 : (invoiceTime(b.inv!) - invoiceTime(a.inv!)) || b.number.localeCompare(a.number)));
-  }, [invoices, drafts, bookings, docStatus, payStatus, search, paymentByInvoice]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [invoices, drafts, bookings, docStatus, payStatus, search, month, paymentByInvoice]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const receiptRows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return receipts
+      .filter((r) => !month || r.invoiceDate.startsWith(month))
+      .filter((r) => !q || [r.invoiceNumber, r.bookingId, r.customerSnapshot?.name ?? "", r.documentType ?? ""].some((v) => v.toLowerCase().includes(q)))
+      .sort((a, b) => b.invoiceDate.localeCompare(a.invoiceDate) || b.invoiceNumber.localeCompare(a.invoiceNumber));
+  }, [receipts, search, month]);
+  /** An issued invoice with the payment position as it stands today. */
+  const asOfNow = (inv: Invoice): Invoice => (paymentOf(inv) === "Paid" ? { ...inv, paidAmount: inv.grandTotal, balanceAmount: 0 } : inv);
+  // "Download all" takes exactly what the list shows (month, search and status filters), issued documents only.
+  const downloadable = view === "receipts" ? receiptRows.filter((r) => r.invoiceStatus === "Issued") : rows.filter((r) => r.document === "Issued").map((r) => asOfNow(r.inv!));
+  const pdf = (inv: Invoice) => {
+    try { downloadGstPdf(inv, signature); } catch { show("The PDF could not be created.", "error"); }
+  };
+  const downloadAll = async () => {
+    if (working || !downloadable.length) return;
+    setWorking({ job: "zip", note: `Preparing 0 of ${downloadable.length}…` });
+    try {
+      await downloadGstZip(`GST-${view === "receipts" ? "receipts" : "invoices"}-${month || "all"}`, downloadable, signature, (n) => setWorking({ job: "zip", note: `Preparing ${n} of ${downloadable.length}…` }));
+      show(`${downloadable.length} PDF${downloadable.length === 1 ? "" : "s"} and a register (CSV) downloaded.`);
+    } catch {
+      show("The download could not be prepared. Try one month at a time.", "error");
+    } finally {
+      setWorking(null);
+    }
+  };
+  const generate = async () => {
+    if (working) return;
+    if (!window.confirm("Generate every missing GST bill and receipt, including trips older than 30 days? They are dated today and cannot be deleted, only voided.")) return;
+    const total = { checked: 0, invoices: 0, receipts: 0, review: 0, failed: 0 };
+    let cursor = { phase: "bookings", after: "" };
+    setWorking({ job: "generate", note: "Checking trips…" });
+    try {
+      for (let round = 0; round < 500; round++) {
+        const r = await callFunction<typeof cursor, Generated>("generateGstDocuments", cursor);
+        for (const k of Object.keys(total) as (keyof typeof total)[]) total[k] += r[k];
+        setWorking({ job: "generate", note: `Checked ${total.checked} · ${total.invoices} bills · ${total.receipts} receipts.` });
+        if (r.done) break;
+        cursor = { phase: r.phase, after: r.after };
+      }
+      show(`${total.invoices} bills and ${total.receipts} receipts issued from ${total.checked} records.${total.review ? ` ${total.review} need attention.` : ""}${total.failed ? ` ${total.failed} failed; run it again.` : ""}`, total.failed ? "error" : "success");
+      if (total.review) setView("held");
+    } catch (e) {
+      show(`${e instanceof ActionError ? e.message : "Bills could not be generated."}${total.invoices ? ` ${total.invoices} bills were issued before it stopped.` : ""}`, "error");
+    } finally {
+      setWorking(null);
+    }
+  };
 
   const confirmVoid = async () => {
     if (!voidTarget || voiding) return;
@@ -154,27 +231,55 @@ export default function Invoices() {
       <Toast toast={toast} />
       {loadError && <ErrorBanner message={loadError} onRetry={() => setRetryKey((k) => k + 1)} />}
       {missingCompany.length > 0 && <p className="ds-note mb-3">Invoices cannot be issued until Settings → Company has {missingCompany.join(", ")}.</p>}
-      <PageHeader title="Invoices" actions={canFinance ? <><Button variant="primary" icon="plus" onClick={() => setCreate("new")}>Create invoice</Button><Button icon="settings-2" onClick={() => setShowPolicy(true)}>Tax automation</Button></> : undefined} />
-      <div className="ds-filterbar">
+      {serverError && <p className="ds-note mb-3">Receipts and the attention list could not be read. Deploy the latest Firestore rules, then reload.</p>}
+      <PageHeader title="Invoices" actions={<>
+        {view !== "held" && <Button icon="download" onClick={() => void downloadAll()} loading={working?.job === "zip"} disabled={!!working || !downloadable.length}>Download all ({downloadable.length})</Button>}
+        {canFinance && <><Button icon="rotate-ccw" onClick={() => void generate()} loading={working?.job === "generate"} disabled={!!working}>Generate pending bills</Button><Button variant="primary" icon="plus" onClick={() => setCreate("new")}>Create invoice</Button><Button icon="settings-2" onClick={() => setShowPolicy(true)}>Tax automation</Button><Button icon="file-check-2" onClick={() => setShowSignature(true)}>Signature</Button></>}
+      </>} />
+      <p className="ds-note mb-3">GST bills are issued automatically when a trip completes, and receipts when a payment is recorded, once the company details and Tax automation are approved. Anything that cannot be confirmed is listed under Needs attention.</p>
+      {working && <p className="ds-note mb-3" role="status">{working.note} Keep this page open.</p>}
+      <StageBar label="GST documents" tabs={[{ id: "invoices" as View, label: `Invoices (${invoices.length})` }, { id: "receipts" as View, label: `Receipts & vouchers (${receipts.length})` }, { id: "held" as View, label: `Needs attention (${held.length})` }]} value={view} onChange={setView} />
+      {view !== "held" && <div className="ds-filterbar">
         <div className="ds-search" style={{ flex: "1 1 280px" }}><Icon name="search" /><input className="ds-input" type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Invoice, booking or customer" aria-label="Search invoices" /></div>
-        <label className="ds-field"><span>Document status</span><select className="ds-select" value={docStatus} onChange={(e) => setDocStatus(e.target.value)}>{["All", "Draft", "Issued", "Voided"].map((x) => <option key={x}>{x}</option>)}</select></label>
-        <label className="ds-field"><span>Payment status</span><select className="ds-select" value={payStatus} onChange={(e) => setPayStatus(e.target.value)}>{["All", "Paid", "Part paid", "Due"].map((x) => <option key={x}>{x}</option>)}</select></label>
-      </div>
-      {loading ? <p className="text-[12px] text-muted">Loading invoices…</p> : rows.length === 0 ? (
+        <label className="ds-field"><span>Month</span><input className="ds-input" type="month" value={month} onChange={(e) => setMonth(e.target.value)} /></label>
+        {view === "invoices" && <><label className="ds-field"><span>Document status</span><select className="ds-select" value={docStatus} onChange={(e) => setDocStatus(e.target.value)}>{["All", "Draft", "Issued", "Voided"].map((x) => <option key={x}>{x}</option>)}</select></label>
+        <label className="ds-field"><span>Payment status</span><select className="ds-select" value={payStatus} onChange={(e) => setPayStatus(e.target.value)}>{["All", "Paid", "Part paid", "Due"].map((x) => <option key={x}>{x}</option>)}</select></label></>}
+      </div>}
+      {view === "receipts" && (receiptRows.length === 0 ? <div className="ds-panel"><EmptyState title="No receipts in this view" hint="A receipt is issued for each recorded payment and completed refund." /></div> : (
+        <DataTable label="Receipts and vouchers" minWidth={900} hasActions>
+          <thead><tr><th>NUMBER / DATE</th><th>RECEIVED FROM / BOOKING</th><th>TYPE</th><th className="ds-num">AMOUNT / GST</th><th className="ds-actions">ACTION</th></tr></thead>
+          <tbody>{receiptRows.map((r) => (
+            <tr key={r.id} className={r.invoiceStatus === "Cancelled" ? "opacity-60" : undefined}>
+              <td><strong>{r.invoiceNumber}</strong><small>{r.invoiceDate}</small></td>
+              <td><strong>{r.customerSnapshot?.name}</strong><small>{r.bookingId}</small></td>
+              <td><Badge tone={r.invoiceStatus === "Cancelled" ? "neutral" : r.documentType === "Refund voucher" ? "amber" : "blue"}>{r.invoiceStatus === "Cancelled" ? "Voided" : r.documentType}</Badge></td>
+              <td className="ds-num"><strong>{formatCurrency(r.grandTotal)}</strong><small>GST {formatCurrency(r.totalTax)}</small></td>
+              <td className="ds-actions"><div><Button size="sm" icon="download" onClick={() => pdf(r)}>Download PDF</Button></div></td>
+            </tr>
+          ))}</tbody>
+        </DataTable>
+      ))}
+      {view === "held" && (held.length === 0 ? <div className="ds-panel"><EmptyState title="Nothing needs attention" hint="Every trip and payment that could be billed has its document." /></div> : (
+        <DataTable label="Bills needing attention" minWidth={900}>
+          <thead><tr><th>BOOKING</th><th>CUSTOMER</th><th className="ds-num">AMOUNT</th><th>WHY NO DOCUMENT YET</th></tr></thead>
+          <tbody>{held.map((h) => <tr key={h.id}><td><strong>{h.bookingId}</strong><small>{h.status}</small></td><td>{h.customer || "—"}</td><td className="ds-num">{formatCurrency(h.amount)}</td><td>{h.reason}</td></tr>)}</tbody>
+        </DataTable>
+      ))}
+      {view === "invoices" && (loading ? <p className="text-[12px] text-muted">Loading invoices…</p> : rows.length === 0 ? (
         <div className="ds-panel"><EmptyState title="No invoices in this view" hint="Create an invoice from a completed trip or change the filters." /></div>
       ) : (
-        <DataTable label="Invoices" minWidth={980} fixed hasActions>
-          <colgroup><col style={{ width: 190 }} /><col style={{ width: 220 }} /><col style={{ width: 120 }} /><col style={{ width: 120 }} /><col style={{ width: 160 }} /><col style={{ width: 190 }} /></colgroup>
+        <DataTable label="Invoices" minWidth={1030} fixed hasActions>
+          <colgroup><col style={{ width: 180 }} /><col style={{ width: 200 }} /><col style={{ width: 110 }} /><col style={{ width: 110 }} /><col style={{ width: 150 }} /><col style={{ width: 280 }} /></colgroup>
           <thead><tr><th>INVOICE / DATE</th><th>BILL TO / BOOKING</th><th>DOCUMENT</th><th>PAYMENT</th><th className="ds-num">TOTAL / BALANCE</th><th className="ds-actions">ACTION</th></tr></thead>
           <tbody>{rows.map((r) => (
             <tr key={r.key} className={r.document === "Voided" ? "opacity-60" : undefined}>
               <td><strong>{r.number}</strong><small>{r.date || "Not issued"}</small></td>
               <td><strong>{r.billTo}</strong><small>{r.booking}</small></td>
-              <td><Badge tone={r.document === "Issued" ? "blue" : r.document === "Draft" ? "amber" : "neutral"}>{r.document}</Badge></td>
+              <td><Badge tone={r.document === "Issued" ? "blue" : r.document === "Draft" ? "amber" : "neutral"}>{r.document}</Badge>{r.inv?.documentType === "Debit note" && <small>Debit note</small>}</td>
               <td><Badge tone={r.payment === "Paid" ? "green" : r.payment === "Part paid" ? "amber" : "red"}>{r.payment}</Badge></td>
               <td className="ds-num"><strong>{formatCurrency(r.total)}</strong><small>Balance {formatCurrency(r.balance)}</small></td>
               <td className="ds-actions"><div>
-                {r.inv && <Button size="sm" onClick={() => setSelectedInvoice(r.inv!)}>View / Print</Button>}
+                {r.inv && <><Button size="sm" icon="download" onClick={() => pdf(asOfNow(r.inv!))}>Download PDF</Button><Button size="sm" onClick={() => setSelectedInvoice(r.inv!)}>View</Button></>}
                 {r.draft && canFinance && <Button size="sm" variant="primary" onClick={() => setCreate(r.draft!)}>Continue draft</Button>}
                 {r.inv && r.document === "Issued" && canFinance && <MenuButton iconOnly label={`More for ${r.number}`} items={[{ label: "Void invoice", icon: "ban", danger: true, onSelect: () => { setVoidReason(""); setVoidError(null); setVoidTarget(r.inv!); } }]} />}
                 {r.draft && canFinance && <MenuButton iconOnly label="More for draft" items={[{ label: "Discard draft", icon: "trash-2", danger: true, onSelect: () => deleteDoc(doc(db, "invoice_drafts", r.draft!.id)).then(() => show("Draft discarded.")) }]} />}
@@ -182,8 +287,9 @@ export default function Invoices() {
             </tr>
           ))}</tbody>
         </DataTable>
-      )}
+      ))}
 
+      {showSignature && <SignatureDialog saved={signature} onClose={() => setShowSignature(false)} onSaved={() => { setShowSignature(false); show("Signature saved. It prints on every PDF downloaded from now on."); }} />}
       {create && (
         <CreateInvoiceModal
           bookings={bookings}
@@ -214,7 +320,7 @@ export default function Invoices() {
           onCancel={() => setVoidTarget(null)}
         />
       )}
-      {selectedInvoice && <InvoicePreview invoice={selectedInvoice} payment={paymentOf(selectedInvoice)} onClose={() => setSelectedInvoice(null)} />}
+      {selectedInvoice && <InvoicePreview invoice={selectedInvoice} payment={paymentOf(selectedInvoice)} onDownload={() => pdf(asOfNow(selectedInvoice))} onClose={() => setSelectedInvoice(null)} />}
     </div>
   );
 }
@@ -394,7 +500,42 @@ export function TaxPolicyDialog({ policy, onClose, onSaved }: { policy: TaxPolic
   );
 }
 
-function InvoicePreview({ invoice: inv, payment, onClose }: { invoice: Invoice; payment: string; onClose: () => void }) {
+/** Signatory name and signature image printed on every downloaded bill (CGST Rule 46(q)). */
+function SignatureDialog({ saved, onClose, onSaved }: { saved: Signature | null; onClose: () => void; onSaved: () => void }) {
+  const [name, setName] = useState(saved?.name ?? "");
+  const [image, setImage] = useState(saved?.image ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const pick = (file: File | undefined) => {
+    if (!file) return;
+    if (!["image/png", "image/jpeg"].includes(file.type) || file.size > 200_000) return setError("Choose a PNG or JPG image under 200 KB.");
+    const reader = new FileReader();
+    reader.onload = () => { setImage(String(reader.result)); setError(null); };
+    reader.readAsDataURL(file);
+  };
+  const save = async () => {
+    setBusy(true);
+    try {
+      await setDoc(doc(db, "gst_private", "signature"), { name: name.trim().slice(0, 80), image, updatedAt: serverTimestamp(), updatedBy: auth.currentUser?.uid ?? "" });
+      onSaved();
+    } catch {
+      setError("The signature was not saved. Deploy the latest Firestore rules and check your finance access.");
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal title="Authorised signatory" onClose={onClose} busy={busy} footer={<Button variant="primary" loading={busy} onClick={() => void save()}>Save signature</Button>}>
+      <div className="grid gap-4">
+        {error && <div className="ds-error" role="alert"><Icon name="circle-alert" />{error}</div>}
+        <label className="ds-field"><span>Signatory name</span><input className="ds-input" maxLength={80} value={name} onChange={(e) => setName(e.target.value)} /></label>
+        <label className="ds-field"><span>Signature image · PNG or JPG</span><input type="file" accept="image/png,image/jpeg" onChange={(e) => pick(e.target.files?.[0])} /></label>
+        {image && <div className="flex items-center gap-3"><img src={image} alt="Saved signature" style={{ maxHeight: 70, maxWidth: 220 }} /><Button size="sm" onClick={() => setImage("")}>Remove image</Button></div>}
+      </div>
+    </Modal>
+  );
+}
+
+function InvoicePreview({ invoice: inv, payment, onDownload, onClose }: { invoice: Invoice; payment: string; onDownload: () => void; onClose: () => void }) {
   const ratePct = ((inv.gstRate > 1 ? inv.gstRate / 100 : (Number.isFinite(inv.gstRate) ? inv.gstRate : 0.05)) * 100) / 2;
   const tolls = (inv.items || []).filter((i) => !i.sacCode).reduce((s, i) => s + (i.amount || 0), 0);
   const paid = payment === "Paid";
@@ -402,10 +543,11 @@ function InvoicePreview({ invoice: inv, payment, onClose }: { invoice: Invoice; 
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-white rounded-2xl max-w-3xl w-full shadow-2xl overflow-hidden my-6" role="dialog" aria-modal="true" aria-label={`Invoice ${inv.invoiceNumber}`}>
         <div className="no-print px-6 py-4 border-b border-line flex items-center justify-between bg-surface-2">
-          <span className="text-[14px] font-bold text-ink">Tax Invoice {inv.invoiceNumber}</span>
+          <span className="text-[14px] font-bold text-ink">{inv.documentType || "Tax invoice"} {inv.invoiceNumber}</span>
           <div className="flex items-center gap-2">
+            <Button size="sm" variant="primary" icon="download" onClick={onDownload}>Download PDF</Button>
             <button onClick={() => window.print()} className="px-3 py-1.5 bg-gray-900 text-white rounded-lg text-[12px] font-semibold hover:bg-gray-800 cursor-pointer">
-              Print / Save as PDF
+              Print
             </button>
             <button onClick={onClose} aria-label="Close" className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-sm">✕</button>
           </div>
@@ -427,10 +569,12 @@ function InvoicePreview({ invoice: inv, payment, onClose }: { invoice: Invoice; 
               <div className="text-[11px] font-bold text-gray-900 mt-1">GSTIN: {inv.companySnapshot?.gstin}</div>
             </div>
             <div className="text-right shrink-0">
-              <div className="text-[18px] font-black text-gray-900 tracking-wider">TAX INVOICE</div>
+              <div className="text-[18px] font-black text-gray-900 tracking-wider">{(inv.documentType || "Tax invoice").toUpperCase()}</div>
               <div className="text-[13px] font-mono font-bold text-brand mt-2">{inv.invoiceNumber}</div>
               <div className="text-[11px] text-gray-600 mt-0.5">Date: {inv.invoiceDate}</div>
               <div className="text-[11px] text-gray-600">Booking: {inv.bookingId}</div>
+              {inv.placeOfSupply && <div className="text-[11px] text-gray-600">Place of supply: {inv.placeOfSupply} · Reverse charge: No</div>}
+              {inv.originalInvoiceNumber && <div className="text-[11px] text-gray-600">Against: {inv.originalInvoiceNumber}</div>}
               <div className="mt-2">
                 <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold border ${paid ? "bg-green-100 text-green-800 border-green-200" : "bg-amber-100 text-amber-800 border-amber-200"}`}>
                   {paid ? "PAID" : "PAYMENT PENDING"}
@@ -496,7 +640,7 @@ function InvoicePreview({ invoice: inv, payment, onClose }: { invoice: Invoice; 
                 <div className="flex justify-between text-gray-600"><span>CGST ({ratePct}%):</span><span className="font-semibold text-gray-900">{formatCurrency(inv.cgst)}</span></div>
                 <div className="flex justify-between text-gray-600"><span>{inv.taxSplit === 'CGST + UTGST' || (inv.utgst ?? 0) > 0 ? 'UTGST' : 'SGST'} ({ratePct}%):</span><span className="font-semibold text-gray-900">{formatCurrency(inv.taxSplit === 'CGST + UTGST' || (inv.utgst ?? 0) > 0 ? inv.utgst! : inv.sgst)}</span></div>
               </>}
-              {tolls > 0 && <div className="flex justify-between text-gray-600"><span>Tolls (non-taxable):</span><span className="font-semibold text-gray-900">{formatCurrency(tolls)}</span></div>}
+              {tolls > 0 && <div className="flex justify-between text-gray-600"><span>Tolls / non-taxable:</span><span className="font-semibold text-gray-900">{formatCurrency(tolls)}</span></div>}
               <div className="flex justify-between text-gray-900 font-bold border-t pt-2 text-sm"><span>Grand Total:</span><span className="text-brand">{formatCurrency(inv.grandTotal)}</span></div>
               <div className="flex justify-between text-gray-600 pt-1"><span>Paid:</span><span className="font-semibold">{formatCurrency(paid ? inv.grandTotal : 0)}</span></div>
               <div className="flex justify-between text-gray-600"><span>Balance due:</span><span className="font-semibold">{formatCurrency(paid ? 0 : inv.grandTotal)}</span></div>

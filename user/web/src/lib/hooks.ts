@@ -5,7 +5,11 @@ import { getCurrentPosition, getLocationPermission, watchPosition, LocationError
 
 /** True while the viewport is at least `px` wide. */
 export function useMinWidth(px: number): boolean {
-  const query = `(min-width: ${px}px)`;
+  return useMediaQuery(`(min-width: ${px}px)`);
+}
+
+/** True while the CSS media query matches. */
+export function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(() => (typeof window === 'undefined' ? true : window.matchMedia(query).matches));
   useEffect(() => {
     const mq = window.matchMedia(query);
@@ -142,7 +146,7 @@ export function useVisualViewportHeight(): void {
     // The tallest the visible area has been at this width: the keyboard is up when it is now clearly shorter than that.
     let tallest = Math.max(window.innerHeight, vv?.height ?? 0);
     let width = window.innerWidth;
-    const FIELD = 'input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]):not([type=range]):not([type=file]), textarea, select, [contenteditable="true"]';
+    const FIELD = 'input:not([readonly]):not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]):not([type=range]):not([type=file]), textarea, select, [contenteditable="true"]';
     const typing = () => !!document.activeElement?.matches?.(FIELD);
     const apply = () => {
       const h = vv?.height ?? window.innerHeight;
@@ -162,7 +166,7 @@ export function useVisualViewportHeight(): void {
       window.clearTimeout(timer);
       // Wait for the keyboard to finish opening, then bring the field into view.
       timer = window.setTimeout(() => {
-        if (document.activeElement !== el || window.innerWidth >= 900) return;
+        if (document.activeElement !== el || window.innerWidth >= 900 || el.closest('[data-no-reveal]')) return;
         const inPanel = !!el.closest('[role="dialog"], dialog, .dialog, .drawer__panel, .sheet');
         el.scrollIntoView({ block: inPanel ? 'center' : 'start', inline: 'nearest', behavior: 'smooth' });
       }, 320);
