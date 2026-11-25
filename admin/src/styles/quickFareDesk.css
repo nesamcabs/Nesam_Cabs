@@ -54,7 +54,8 @@
   .dk-stop .dk-place__input { height: 36px; padding: 0 12px; border: 1px dashed #cbd5e1; border-radius: 8px; background: #f8fafc; font-size: 12px; line-height: 34px; font-weight: 500; color: #1e293b; transition: background-color .15s, border-color .15s; }
   .dk-stop .dk-place__input:focus { background: #fff; border-color: #991b1b; }
 }
-.qfd-root .dk-place__input:focus-visible { outline: none; }
+/* The box around the field (the desk's route card, New Booking's location boxes) draws the focus ring. */
+.qfd-root .dk-place__input:focus-visible, [data-place-field] .dk-place__input:focus-visible { outline: none; }
 .dk-place__spin { position: absolute; right: 84px; top: 50%; margin-top: -7px; color: #94a3b8; }
 .dk-place__list { position: absolute; left: 8px; right: 8px; top: calc(100% + 4px); z-index: 60; max-height: min(300px, 46vh); overflow-y: auto; margin: 0; padding: 6px; list-style: none; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 14px 30px rgb(15 23 42 / .16); }
 .dk-place__group { display: block; padding: 7px 8px 3px; font-size: 10px; font-weight: 700; letter-spacing: .9px; text-transform: uppercase; color: #94a3b8; }

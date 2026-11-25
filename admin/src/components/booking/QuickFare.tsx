@@ -253,7 +253,7 @@ const placeFromResult = (r: PlaceResult): PickedPoint => ({ lat: r.lat, lng: r.l
  * Pickup / drop search: saved locations plus address suggestions from the map search. Only a
  * chosen suggestion sets the point (address + coordinates); typed text alone never prices a trip.
  */
-export function PlaceField({ label, placeholder, text, value, saved, near, airport, onChange, variant, pin: pinKind, onRemove, onPin, pinned }: {
+export function PlaceField({ label, placeholder, text, value, saved, near, airport, onChange, variant, pin: pinKind, onRemove, onPin, pinned, inputId, inputClassName }: {
   label: string;
   placeholder: string;
   text: string;
@@ -270,6 +270,9 @@ export function PlaceField({ label, placeholder, text, value, saved, near, airpo
   /** Opens the pin check for this place: a small location button inside the box. */
   onPin?: () => void;
   pinned?: boolean;
+  /** "desk" only: the input's own id (for an outside label) and extra classes. */
+  inputId?: string;
+  inputClassName?: string;
 }) {
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -382,8 +385,8 @@ export function PlaceField({ label, placeholder, text, value, saved, near, airpo
     return (
       <div className="dk-place">
         <input
-          id={`${id}-input`}
-          className="dk-place__input"
+          id={inputId ?? `${id}-input`}
+          className={inputClassName ? `dk-place__input ${inputClassName}` : "dk-place__input"}
           role="combobox"
           aria-label={label}
           aria-expanded={shown}

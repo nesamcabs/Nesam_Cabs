@@ -24,7 +24,6 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: "dashboard", label: "Dashboard", icon: "layout-dashboard" },
       { id: "bookings", label: "Bookings", icon: "calendar-check-2" },
       { id: "trips", label: "Trips", icon: "route" },
-      { id: "local-taxi", label: "Local Taxi", icon: "map-pinned" },
       { id: "local-duties", label: "Local Duties", icon: "route" },
       { id: "marketplace", label: "Open Marketplace", icon: "radio-tower" },
       { id: "vendor-bids", label: "Vendor Bids", icon: "badge-indian-rupee" },

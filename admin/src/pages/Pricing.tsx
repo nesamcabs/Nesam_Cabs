@@ -28,8 +28,9 @@ import { directoryCities, directoryZones } from "../domain/placeDirectory";
 import DisplayMarkupCard from "../components/DisplayMarkupCard";
 import TimeBasedRoundTripCard from "../components/TimeBasedRoundTripCard";
 import { refDateTime } from "../domain/officeStage";
+import LocalTaxi from "./LocalTaxi";
 
-type Tab = "Brand & service fares" | "Booking availability" | "Cab types" | "Pricing rules" | "GST calculation" | "Platform fee" | "Payment options";
+type Tab = "Brand & service fares" | "Booking availability" | "Cab types" | "Pricing rules" | "GST calculation" | "Platform fee" | "Payment options" | "Local Taxi";
 type Sel = { state: string; city: string; area: string };
 const locationKey = (value: string) => value.trim().toLocaleLowerCase();
 const stateKey = (value: string) => {
@@ -186,6 +187,7 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
     { title: "All brands & services", items: [
       { key: "platformFee", label: "Platform fee", hint: "A common fee on bookings, by service", icon: "wallet", on: !inlineKind && tab === "Platform fee", go: () => changeTab("Platform fee") },
       { key: "paymentOptions", label: "Payment options", hint: "Pay later, pay part now, pay in full: show, hide, dates and districts", icon: "indian-rupee", on: !inlineKind && tab === "Payment options", go: () => changeTab("Payment options") },
+      { key: "localTaxi", label: "Local Taxi", hint: "Service zones, fares, drivers and rides", icon: "map-pinned", on: !inlineKind && tab === "Local Taxi", go: () => changeTab("Local Taxi") },
     ] },
     { title: "Vehicles", items: [
       { key: "categories", label: "Vehicle categories", hint: "Names, seats, photos and CNG", icon: "car", on: !inlineKind && tab === "Cab types" && cabSection === "Vehicle categories", go: () => { setCabSection("Vehicle categories"); changeTab("Cab types"); } },
@@ -221,8 +223,8 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
     return { id: v.key, name: v.label, cls: v.cls, owner: owner.categoryId === v.key, ownerName: owner.name };
   });
 
-  // The platform fee and the night allowance are common settings for every brand, so the brand / service picker is not shown for them.
-  const showScope = inlineKind !== "history" && !(tab === "Cab types" && cabSection === "Vehicle categories" && !inlineKind) && !((tab === "Platform fee" || tab === "Payment options") && !inlineKind);
+  // The platform fee, payment options and Local Taxi are not set per brand or service, so the brand / service picker is not shown for them.
+  const showScope = inlineKind !== "history" && !(tab === "Cab types" && cabSection === "Vehicle categories" && !inlineKind) && !((tab === "Platform fee" || tab === "Payment options" || tab === "Local Taxi") && !inlineKind);
   // Where a setting applies (brand, service, fuel, vehicle) is chosen in the side menu; the page itself only repeats the rule in one line.
   const scopeFields = showScope ? (
     <>
@@ -313,6 +315,7 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
       </div>}
       {tab === "Platform fee" && <PlatformFeeCard />}
       {tab === "Payment options" && <PaymentOptionsCard />}
+      {tab === "Local Taxi" && <LocalTaxi />}
       {tab === "GST calculation" && <div>
         <FareGstSettings key={fareScope.brand + ":" + fareScope.service} scope={fareScope} onDirtyChange={value => { gstDirty.current = value; }} onBusyChange={value => { gstBusy.current = value; }} />
       </div>}

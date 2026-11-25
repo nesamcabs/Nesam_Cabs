@@ -12,6 +12,8 @@ import { useCan, useStaffFlag } from "../components/AccessContext";
 import { Toast, useToast } from "../components/Feedback";
 import { type PickedPoint } from "../components/MapLocationPicker";
 import MapPickerDialog from "../components/quickFareDesk/MapPickerDialog";
+import { PlaceField } from "../components/booking/QuickFare";
+import "../styles/quickFareDesk.css";
 import { pickedForBooking, pinNeedsAddress } from "../domain/bookingPoints";
 import { Icon } from "../components/ui";
 import {
@@ -181,6 +183,8 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
   const [pickupPoint, setPickupPoint] = useState<PickedPoint | null>(() => draft?.trip?.pickup ?? null);
   const [dropPoint, setDropPoint] = useState<PickedPoint | null>(() => draft?.trip?.drop ?? null);
   const [viaStops, setViaStops] = useState<string[]>(() => (draft?.trip?.stops ?? []).map((s) => s.text || s.point?.name || ""));
+  /** The suggestion picked for each via stop, in the same order as `viaStops`. */
+  const [stopPoints, setStopPoints] = useState<(PickedPoint | null)[]>(() => (draft?.trip?.stops ?? []).map((s) => s.point ?? null));
   const [flightNumber, setFlightNumber] = useState("");
   const [rentalHours, setRentalHours] = useState(() => draft?.trip?.rentalHours ?? 4);
   const [rentalModalOpen, setRentalModalOpen] = useState(false);
@@ -281,16 +285,18 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Resolve points from text if points are empty
+  // Text carried in with a draft or enquiry is matched to a saved location. Typed text is left alone: matching it here
+  // would pick a place mid-word and close the suggestions.
+  const [prefill] = useState(() => ({ pickup: pickupText, drop: dropText }));
   useEffect(() => {
-    if (!pickupPoint && pickupText) {
+    if (!pickupPoint && pickupText && pickupText === prefill.pickup) {
       const p = placeFor(pickupText, allLocations);
       if (p) setPickupPoint(p);
     }
   }, [pickupText, pickupPoint, allLocations]);
 
   useEffect(() => {
-    if (!dropPoint && dropText && tripType !== "Rental") {
+    if (!dropPoint && dropText && dropText === prefill.drop && tripType !== "Rental") {
       const d = placeFor(dropText, allLocations);
       if (d) setDropPoint(d);
     }
@@ -341,13 +347,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
       pickup: pickupPoint,
       drop: effectiveDropPoint,
       stops: (tripType === "Round Trip" || tripType === "Multicity")
-        ? viaStops.map((text) => {
-            const coord = placeFor(text, allLocations);
-            return {
-              text,
-              point: coord,
-            };
-          })
+        ? viaStops.map((text, i) => ({ text, point: stopPoints[i] ?? placeFor(text, allLocations) }))
         : [],
       date: pickupDate,
       time: pickupTime,
@@ -358,7 +358,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
       fuel,
       waitingMin: String(waitingHours * 60),
     };
-  }, [tripType, pickupText, dropText, pickupPoint, dropPoint, viaStops, pickupDate, pickupTime, roundTripDays, rentalHours, roofCarrier, pets, fuel, waitingHours, allLocations]);
+  }, [tripType, pickupText, dropText, pickupPoint, dropPoint, viaStops, stopPoints, pickupDate, pickupTime, roundTripDays, rentalHours, roofCarrier, pets, fuel, waitingHours, allLocations]);
 
   // The selected cab and its server quote (every price comes from the booking server; nothing is priced locally).
   const selectedEstimate = useMemo(() => estimates?.find((e) => e.category.id === selectedVehicleId) ?? null, [estimates, selectedVehicleId]);
@@ -674,8 +674,8 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
       pickup: pickupPoint,
       drop: tripType === "Rental" && pickupPoint ? disposalFor(pickupPoint) : dropPoint,
       stops: (tripType === "Round Trip" || tripType === "Multicity")
-        ? viaStops.map((t) => {
-            return placeFor(t, allLocations) ?? ({ lat: 0, lng: 0, name: t, address: t, type: "other", confirmed: false } as PickedPoint);
+        ? viaStops.map((t, i) => {
+            return stopPoints[i] ?? placeFor(t, allLocations) ?? ({ lat: 0, lng: 0, name: t, address: t, type: "other", confirmed: false } as PickedPoint);
           }).filter((p) => p.confirmed)
         : [],
       pickupAddress: pickupAddress.trim(),
@@ -823,6 +823,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
     setPickupPoint(null);
     setDropPoint(null);
     setViaStops([]);
+    setStopPoints([]);
     setTripType("One Way");
     setRoundTripDays(1);
     setRentalHours(4);
@@ -1238,7 +1239,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                 {/* Stacked Compact Location Inputs */}
                 <div className="flex-1 space-y-2.5 relative">
                   {/* Pickup Location Box */}
-                  <div className="h-[58px] px-3.5 py-2 rounded-xl border border-slate-200 bg-white focus-within:border-[#9F1212] focus-within:ring-2 focus-within:ring-[#9F1212]/15 transition-all flex flex-col justify-center relative">
+                  <div data-place-field className="h-[58px] px-3.5 py-2 rounded-xl border border-slate-200 bg-white focus-within:border-[#9F1212] focus-within:ring-2 focus-within:ring-[#9F1212]/15 transition-all flex flex-col justify-center relative">
                     <div className="flex items-center justify-between">
                       <label htmlFor="pickupInput" className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 leading-none mb-1 cursor-pointer">
                         Pickup Location
@@ -1253,27 +1254,29 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                         <span>Map</span>
                       </button>
                     </div>
-                    <input
-                      id="pickupInput"
-                      type="text"
-                      list="nb-locations"
-                      autoComplete="off"
-                      value={pickupText}
-                      onChange={(e) => {
-                        setPickupText(e.target.value);
-                        setPickupPoint(null);
+                    <PlaceField
+                      variant="desk"
+                      inputId="pickupInput"
+                      inputClassName="pr-10"
+                      label="Pickup location"
+                      placeholder={tripType === "Airport" ? "Enter airport terminal or pickup address" : "Enter pickup city, airport, or address"}
+                      text={pickupText}
+                      value={pickupPoint}
+                      saved={allLocations}
+                      near={null}
+                      onChange={(text, point) => {
+                        setPickupText(text);
+                        setPickupPoint(point);
                         setPinError((x) => ({ ...x, pickup: undefined }));
                         setEstimates(null);
                       }}
-                      placeholder={tripType === "Airport" ? "Enter airport terminal or pickup address" : "Enter pickup city, airport, or address"}
-                      className="w-full text-sm font-medium text-slate-800 placeholder:text-slate-400 placeholder:font-normal bg-transparent focus:outline-none text-left pr-10"
                     />
                   </div>
                   {pinError.pickup && <p role="alert" className="-mt-1 px-1 text-[11px] font-medium text-red-700">{pinError.pickup}</p>}
 
                   {/* Conditional: Multicity & Round Trip Stops Container */}
                   {(tripType === "Round Trip" || tripType === "Multicity") && (
-                    <div className="space-y-2 fade-slide-in">
+                    <div className="space-y-2">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <button
                           type="button"
@@ -1295,30 +1298,31 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
 
                       <div className="space-y-2">
                         {viaStops.map((stopVal, idx) => (
-                          <div key={idx} className="flex items-center gap-2 fade-slide-in">
-                            <div className="flex-1 h-[50px] px-3.5 py-1.5 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 focus-within:border-[#9F1212] focus-within:bg-white transition-all flex flex-col justify-center">
+                          <div key={idx} className="flex items-center gap-2">
+                            <div data-place-field className="relative flex-1 min-w-0 h-[50px] px-3.5 py-1.5 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 focus-within:border-[#9F1212] focus-within:bg-white transition-all flex flex-col justify-center">
                               <label className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 leading-none mb-0.5">
                                 {tripType === "Round Trip" ? `Itinerary Stop ${idx + 1}` : `Via-Stop ${idx + 1} (Drop & Halt Point)`}
                               </label>
-                              <input
-                                type="text"
-                                list="nb-locations"
-                                autoComplete="off"
-                                value={stopVal}
-                                onChange={(e) => {
-                                  const updated = [...viaStops];
-                                  updated[idx] = e.target.value;
-                                  setViaStops(updated);
+                              <PlaceField
+                                variant="desk"
+                                label={tripType === "Round Trip" ? `Itinerary stop ${idx + 1}` : `Via-stop ${idx + 1}`}
+                                placeholder={tripType === "Round Trip" ? "e.g., Kodaikanal or Dindigul" : "e.g., Tiruvannamalai"}
+                                text={stopVal}
+                                value={stopPoints[idx] ?? null}
+                                saved={allLocations}
+                                near={pickupPoint}
+                                onChange={(text, point) => {
+                                  setViaStops(viaStops.map((s, i) => (i === idx ? text : s)));
+                                  setStopPoints(viaStops.map((_, i) => (i === idx ? point : stopPoints[i] ?? null)));
                                   setEstimates(null);
                                 }}
-                                placeholder={tripType === "Round Trip" ? "e.g., Kodaikanal or Dindigul" : "e.g., Tiruvannamalai"}
-                                className="w-full text-xs font-medium text-slate-800 placeholder:text-slate-400 bg-transparent focus:outline-none"
                               />
                             </div>
                             <button
                               type="button"
                               onClick={() => {
                                 setViaStops(viaStops.filter((_, i) => i !== idx));
+                                setStopPoints(stopPoints.filter((_, i) => i !== idx));
                                 setEstimates(null);
                               }}
                               className="w-9 h-9 rounded-xl border border-slate-200 text-slate-400 hover:text-[#9F1212] hover:border-crimson-200 flex items-center justify-center shrink-0"
@@ -1349,7 +1353,7 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
 
                   {/* Drop Location Box (hidden for Rental) */}
                   {tripType !== "Rental" && (
-                    <div className="h-[58px] px-3.5 py-2 rounded-xl border border-slate-200 bg-white focus-within:border-[#9F1212] focus-within:ring-2 focus-within:ring-[#9F1212]/15 transition-all flex flex-col justify-center relative">
+                    <div data-place-field className="h-[58px] px-3.5 py-2 rounded-xl border border-slate-200 bg-white focus-within:border-[#9F1212] focus-within:ring-2 focus-within:ring-[#9F1212]/15 transition-all flex flex-col justify-center relative">
                       <div className="flex items-center justify-between">
                         <label htmlFor="dropInput" className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 leading-none mb-1 cursor-pointer">
                           {tripType === "Multicity" ? "Final Drop Location" : "Drop Location"}
@@ -1364,20 +1368,22 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                           <span>Map</span>
                         </button>
                       </div>
-                      <input
-                        id="dropInput"
-                        type="text"
-                        list="nb-locations"
-                        autoComplete="off"
-                        value={dropText}
-                        onChange={(e) => {
-                          setDropText(e.target.value);
-                          setDropPoint(null);
+                      <PlaceField
+                        variant="desk"
+                        inputId="dropInput"
+                        inputClassName="pr-10"
+                        label={tripType === "Multicity" ? "Final drop location" : "Drop location"}
+                        placeholder={tripType === "Multicity" ? "e.g., Trichy (Final Drop)" : tripType === "Airport" ? "Enter destination hotel, city, or airport" : "Enter drop destination (e.g., Madurai)"}
+                        text={dropText}
+                        value={dropPoint}
+                        saved={allLocations}
+                        near={pickupPoint}
+                        onChange={(text, point) => {
+                          setDropText(text);
+                          setDropPoint(point);
                           setPinError((x) => ({ ...x, drop: undefined }));
                           setEstimates(null);
                         }}
-                        placeholder={tripType === "Multicity" ? "e.g., Trichy (Final Drop)" : tripType === "Airport" ? "Enter destination hotel, city, or airport" : "Enter drop destination (e.g., Madurai)"}
-                        className="w-full text-sm font-medium text-slate-800 placeholder:text-slate-400 placeholder:font-normal bg-transparent focus:outline-none text-left pr-10"
                       />
                     </div>
                   )}
@@ -1404,10 +1410,6 @@ export default function NewBooking({ draft, onCreated, onCancel, onEnquirySaved 
                   )}
                 </div>
               </div>
-
-              <datalist id="nb-locations">
-                {allLocations.map((l) => <option key={l.id} value={l.name} />)}
-              </datalist>
 
               {/* 4. Conditional: Rental Duration Trigger Card */}
               {tripType === "Rental" && (

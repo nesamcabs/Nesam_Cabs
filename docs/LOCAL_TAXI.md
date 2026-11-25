@@ -9,7 +9,7 @@ security rules; React admin, People Taxi site, driver web app). It does not repl
 |---|---|
 | Customer (People Taxi) | `Local Taxi` tab → `/local-taxi`: pick pickup/drop (search, current location, map pin), live service-area check, fare per vehicle type with breakdown and a locked-fare countdown, pay by cash (if the zone allows) or online (only if the payment keys exist), book, then `/local-taxi/ride/:id`: live status, driver, ride code, driver position, cancel (fee shown first), receipt, online payment, rating. |
 | Driver (driver web) | `Local Taxi` item: go online (needs enabled zone + fresh GPS inside the zone), one offer at a time with a countdown, accept/decline, on the way, arrived, ride code, start, complete, collect cash, give the ride back, rider no-show. |
-| Admin | `Operations → Local Taxi`: zone map editor (draw, undo, overlap view, draft/active/off), vehicle types and dispatch settings per zone, versioned fares with a simulator, driver eligibility (zones + vehicle types), live rides (manual assign, cancel with reason, timeline), change history for zones and fares. |
+| Admin | `Service & Fare Settings → Local Taxi`: zone map editor (draw, undo, overlap view, draft/active/off), vehicle types and dispatch settings per zone, versioned fares with a simulator, driver eligibility (zones + vehicle types), live rides (manual assign, cancel with reason, timeline), change history for zones and fares. |
 
 ## Zones and the boundary
 
@@ -57,7 +57,7 @@ Payment status is separate from ride status. Cash: the driver confirms the exact
 
 - Backend: `functions/src/localTaxi/{geo,fare,states,model,adminFns,rideFns,driverFns,dispatch,payFns,sweep}.ts`; registered in `functions/src/index.ts` and `registry.ts` (`ltCheckServiceability` is public); webhook branch in `functions/src/payments.ts`.
 - Rules: `firestore.rules` (section "Local Taxi"; clients can read what they own and never write); indexes in `firestore.indexes.json`.
-- Admin: `admin/src/pages/LocalTaxi.tsx`, `admin/src/services/localTaxiService.ts`, nav entry `local-taxi` (permission `pricing`).
+- Admin: `admin/src/pages/LocalTaxi.tsx`, `admin/src/services/localTaxiService.ts`, shown as the `Local Taxi` section of `admin/src/pages/Pricing.tsx` (permission `pricing`).
 - Customer: `people_taxi/src/pages/localTaxi/*`, `styles/localtaxi.css`, routes in `App.tsx`, entry from the `Local Taxi` tab in `BookingForm.tsx`.
 - Driver: `driver/web/src/screens/LocalTaxiScreen.tsx`, `styles/localTaxi.css`, nav item in `components/nx/Shell.tsx`.
 - Tests: `functions/test/localTaxi.test.js` (25 unit tests: geometry, fare engine, state machine) and `functions/test/localTaxi.e2e.test.js` (15 emulator tests).
@@ -72,11 +72,11 @@ Payment status is separate from ride status. Cash: the driver confirms the exact
 2. `firebase deploy --only functions` (adds 21 callables and the `ltDispatchSweep` schedule).
 3. Deploy the admin, People Taxi and driver web apps.
 4. Environment: `GOOGLE_MAPS_SERVER_API_KEY` (optional; OSRM fallback), `ROUTING_URL`, and the existing Razorpay secrets `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` for online payment. For emulator or staging tests only: `LT_ALLOW_SAMPLE_FARES=true`.
-5. In Admin → Local Taxi: create zone → draw the verified boundary → enable vehicle types → save a fare (version) → make it live → activate the zone → enable drivers (zones + vehicle types).
+5. In Admin → Service & Fare Settings → Local Taxi: create zone → draw the verified boundary → enable vehicle types → save a fare (version) → make it live → activate the zone → enable drivers (zones + vehicle types).
 
 ## Setting up Erode from the current fare settings
 
-Admin → Local Taxi has helpers so the zone and fares start from what you already run:
+Admin → Service & Fare Settings → Local Taxi has helpers so the zone and fares start from what you already run:
 
 - **Quick start (Service zones tab, shown while there are no zones):** creates the `erode` zone as a **draft** with the outline from OpenStreetMap, and one **draft** fare per active vehicle type copied from the saved **Local Pickup & Drop** fare for Erode (Pricing → Local fares). It stops with a clear message if Erode has no saved Local fare. Nothing goes live: you then press **Make live** on each fare and **Activate** on the zone.
 - **Load outline from OpenStreetMap (zone editor):** fills the map with the smallest matching OpenStreetMap area. For "Erode" OpenStreetMap only has the district (about 103 × 120 km) and the taluk (about 23 × 18 km), not the city limits; the taluk is used and the admin is warned it is bigger than a city. It is community data, not a survey record: trim it to the city limits, or draw your own, before activating.

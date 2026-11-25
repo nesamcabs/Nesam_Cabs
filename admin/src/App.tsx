@@ -21,7 +21,6 @@ import Invoices from "./pages/Invoices";
 import Services from "./pages/Services";
 import TourPackages from "./pages/TourPackages";
 import Locations from "./pages/Locations";
-import LocalTaxi from "./pages/LocalTaxi";
 import LocalDuties from "./pages/LocalDuties";
 import Pricing, { CATEGORIES_VIEW, type PricingView } from "./pages/Pricing";
 import Support from "./pages/Support";
@@ -98,7 +97,6 @@ const pageMeta: Record<string, { title: string; breadcrumb: string[] }> = {
   packages: { title: "Tour Packages", breadcrumb: ["Office", ""] },
   locations: { title: "Locations", breadcrumb: ["Office", ""] },
   pricing: { title: "Pricing & Fare Management", breadcrumb: ["Office", "Pricing & Fare"] },
-  "local-taxi": { title: "Local Taxi", breadcrumb: ["Operations", "Local Taxi"] },
   "local-duties": { title: "Local Duties", breadcrumb: ["Operations", "Local Duties"] },
   "fare-rules": { title: "Service & Fare Settings", breadcrumb: ["Office", "Service & Fare Settings"] },
   "extra-charges": { title: "Service & Fare Settings", breadcrumb: ["Office", "Service & Fare Settings", "Extra charges"] },
@@ -375,8 +373,6 @@ function AdminShell({ session }: { session: AdminSession }) {
             onRestored={() => { pricingView.current = null; }}
           />
         );
-      case "local-taxi":
-        return <LocalTaxi />;
       case "local-duties":
         return <LocalDuties />;
       case "offers":
