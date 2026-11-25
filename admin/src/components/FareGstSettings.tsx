@@ -3,6 +3,8 @@ import { GST_STATES } from '../domain/gstStates';
 import { BRAND_LABELS, serviceLabel, useTariff, type FareGstRule, type FareWorkspaceScope } from '../services/tariffService';
 import { saveTariffSection } from '../services/bookingOpsService';
 import { Button } from './ui';
+import LocationScopeSelector from './location/LocationScopeSelector';
+import { EMPTY_SEL } from '../domain/locationHierarchy';
 import { useCan, useCanDo } from './AccessContext';
 
 const empty = (): FareGstRule => ({ supplierState: '', rate: 0.05, mode: 'included', classification: 'passenger', reference: '' });
@@ -62,7 +64,9 @@ export default function FareGstSettings({ scope, onDirtyChange, onBusyChange }: 
     <h2 className="text-[17px] font-bold">GST calculation</h2>
     <p className="text-[12px] text-muted mb-3">{scope.brand === 'common' ? 'All brands (shared)' : BRAND_LABELS[scope.brand]} → {serviceLabel(scope.service)} · every vehicle. A brand's own setting wins over the shared one; a pickup-state setting wins over the default.</p>
     <fieldset disabled={busy || !canEdit || tariff === undefined || !!loadError}>
-      <label className="ds-field"><span>Pickup state</span>{stateSelect(state, changeState, 'All pickup states — default')}</label>
+      {/* The shared location selector at State depth: GST rules are set per pickup state only (no district, zone or area). */}
+      <LocationScopeSelector variant="row" label="GST pickup state" depth="state" pinSearch={false} locations={[]} value={{ ...EMPTY_SEL, state }}
+        onChange={(next) => changeState(next.state)} broad={{ state: 'All pickup states — default' }} />
       <p className="text-[12px] text-muted my-2">{own ? 'Editing the saved setting for this selection.' : inherited ? 'Showing the shared setting. Saving creates one for this selection.' : `Nothing saved yet: fares are treated as including ${Math.round((tariff?.gstRate ?? 0.05) * 10000) / 100}% GST until you save.`}</p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <label className="ds-field"><span>Supplier GST registration state *</span>{stateSelect(rule.supplierState, supplierState => edit({ supplierState }), 'Choose registration state')}</label>

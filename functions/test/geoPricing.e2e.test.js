@@ -137,6 +137,21 @@ test('airport entry: only a booked Airport record with a saved fee, once; a name
   assert.equal((await call(admin, 'saveGeoFares', { brand: 'common', service: 'local', targets: [THENI], data: { airportEntry: { customerFee: 60, appliesTo: 'drop' } }, expected: {}, reason: 'Wrong target' })).ok, false);
 });
 
+test('the admin Test quote uses the booking pricing: same total as the customer quote for the same place, vehicle, km and pickup time', async () => {
+  const zone = { level: 'zone', state: '33', district: 'Theni', zoneId: 'geo-zone' };
+  assert.equal((await call(viewer, 'testLocalQuote', { brand: 'nesam', service: 'local', scope: zone, categoryId: 'geo-sedan', km: 12, pickupAt: when })).ok, false, 'needs pricing access');
+  const t = ok(await call(admin, 'testLocalQuote', { brand: 'nesam', service: 'local', scope: zone, categoryId: 'geo-sedan', km: 12, pickupAt: when }));
+  const q = await quoteFor('nesam');
+  assert.equal(t.ok, true, JSON.stringify(t));
+  assert.equal(t.model, 'local_pickup_drop');
+  assert.equal(t.total, q.fare.total, 'test quote and customer quote agree (incl. the peak rule at this pickup time)');
+  assert.ok(t.lines.some((l) => l.key === 'peakCharge'));
+  assert.ok(t.lines.some((l) => l.key === 'toll' && l.amount === null), 'tolls stay at actuals');
+  const none = ok(await call(admin, 'testLocalQuote', { brand: 'nesam', service: 'local', scope: { level: 'district', state: '33', district: 'Madurai' }, categoryId: 'geo-sedan', km: 12, pickupAt: when }));
+  assert.equal(none.ok, false, 'no rates for Madurai: says what is missing, never borrows Theni');
+  assert.ok(none.missing.length > 0);
+});
+
 test('Local and Rental have no fuel split: a CNG choice left on the office form is ignored, not refused', async () => {
   const local = ok(await call(admin, 'createAdminBooking', { ...localTrip(), brand: 'nesam', requestId: rid('geoc'), quoteOnly: true, categoryId: 'geo-sedan', fuelType: 'cng', pickupPoint: pickup, dropPoint: drop }));
   assert.equal(local.pricing.model, 'local_pickup_drop');

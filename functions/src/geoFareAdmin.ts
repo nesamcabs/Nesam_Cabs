@@ -39,7 +39,7 @@ const SERVICE_LABEL: Record<GeoService, string> = { local: 'Local Pickup & Drop'
  * A scope from the admin page, checked against the real location data: a listed district (India Post or saved on a Locations
  * record) of a real state; an existing Service Zone record; an existing non-zone Locations record. Labels are rebuilt here.
  */
-async function scopeOf(v: unknown, allowed: GeoLevel[]): Promise<GeoScope & { locationType?: string }> {
+export async function scopeOf(v: unknown, allowed: GeoLevel[]): Promise<GeoScope & { locationType?: string }> {
   const s = obj(v, 'The location');
   const level = s.level as GeoLevel;
   if (!allowed.includes(level)) throw bad('Choose where this applies.');

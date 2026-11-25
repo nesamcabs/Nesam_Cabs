@@ -39,6 +39,7 @@ export const CALLABLES: Readonly<Record<string, CallableLike>> = Object.freeze({
   saveTariffSection: fns.saveTariffSection,
   saveGeoFares: fns.saveGeoFares,
   savePeakRule: fns.savePeakRule,
+  testLocalQuote: fns.testLocalQuote,
   saveFixedRouteFare: fns.saveFixedRouteFare,
   saveServiceRule: fns.saveServiceRule,
   setServiceRuleStatus: fns.setServiceRuleStatus,

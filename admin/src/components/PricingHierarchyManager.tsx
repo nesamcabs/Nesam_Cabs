@@ -1,21 +1,23 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import type { MasterLocation } from "../../types";
-import { EMPTY_SEL, breadcrumbOf, indexLocations, stateNameOf, type LocSel } from "../../domain/locationHierarchy";
-import { districtOfPinLoaded } from "../../domain/pincodes";
-import { subscribeGeoFares, subscribePeakRules, type GeoFareDoc, type GeoService, type PeakRule } from "../../services/geoFareService";
-import type { ServiceRule } from "../../services/serviceRulesService";
-import { BRAND_LABELS, useTariff } from "../../services/tariffService";
-import type { VehicleCol } from "../RateTable";
-import LocationScopeSelector from "../location/LocationScopeSelector";
-import { PickupDropMatrix } from "../LocalFares";
-import { Button } from "../ui";
-import AreasCoverage from "./AreasCoverage";
-import LocalFareRates from "./LocalFareRates";
-import LocalRouteCharges from "./LocalRouteCharges";
-import PeakHours from "./PeakHours";
-import RentalFareRates from "./RentalFareRates";
-import { Collapsible, Hint, LoadFailure, Seg } from "./ui";
-import type { FeedStatus } from "../../hooks/useLocationsFeed";
+import type { MasterLocation } from "../types";
+import { EMPTY_SEL, breadcrumbOf, indexLocations, stateNameOf, type LocSel } from "../domain/locationHierarchy";
+import { districtOfPinLoaded } from "../domain/pincodes";
+import { subscribeGeoFares, subscribePeakRules, type GeoFareDoc, type GeoService, type PeakRule } from "../services/geoFareService";
+import type { ServiceRule } from "../services/serviceRulesService";
+import { BRAND_LABELS, useTariff } from "../services/tariffService";
+import type { VehicleCol } from "./RateTable";
+import LocationScopeSelector from "./location/LocationScopeSelector";
+import { PickupDropMatrix } from "./LocalFares";
+import { Button } from "./ui";
+import AreasCoverage from "./localRental/AreasCoverage";
+import LocalFareRates from "./localRental/LocalFareRates";
+import LocalRouteCharges from "./localRental/LocalRouteCharges";
+import PeakHours from "./localRental/PeakHours";
+import RentalFareRates from "./localRental/RentalFareRates";
+import { Collapsible, Hint, LoadFailure, Seg } from "./localRental/ui";
+import TestQuote from "./localRental/TestQuote";
+import { daysText, slotsText } from "../domain/peakSchedule";
+import type { FeedStatus } from "../hooks/useLocationsFeed";
 
 type WsTab = "rates" | "coverage" | "peak";
 
@@ -25,7 +27,7 @@ type WsTab = "rates" | "coverage" | "peak";
  *   Fare rates (district default / zone / area overrides) · Areas & coverage (the Places & cabs records) · Peak hours.
  * Everything shown is read from saved data and saved through the server; nothing here is sample data.
  */
-export default function LocalRentalWorkspace({ brand, service, vehicles, locations, locationsStatus, rules, rulesLoaded, rulesError, onRetryRules, canEdit, canEditLocations, onToast, onManageLocations, onDirty, extras, standardPackages }: {
+export default function PricingHierarchyManager({ brand, service, vehicles, locations, locationsStatus, rules, rulesLoaded, rulesError, onRetryRules, canEdit, canEditLocations, onToast, onManageLocations, onDirty, extras, standardPackages }: {
   brand: string; service: GeoService; vehicles: VehicleCol[]; locations: MasterLocation[]; locationsStatus: FeedStatus; rules: ServiceRule[]; rulesLoaded: boolean;
   rulesError: string | null; onRetryRules: () => void;
   canEdit: boolean; canEditLocations: boolean; onToast: (t: string) => void; onManageLocations: () => void; onDirty: (dirty: boolean) => void;
@@ -82,8 +84,33 @@ export default function LocalRentalWorkspace({ brand, service, vehicles, locatio
 
   const onEditRates = (ids: string[]) => { setBulkIds(ids); setTab("rates"); };
   const common = { brand, scopeText, docs, feed: docsFeed, sel, index, bulkIds, vehicles, canEdit, onToast, onDirty };
+  // Scheduled peak pricing at a glance, under the fares (the rules themselves are edited in the Peak hours tab).
+  const activePeak = (peak ?? []).filter((r) => r.enabled && (brand === "common" ? !r.brand : !r.brand || r.brand === brand));
+  const peakSummary = (
+    <Collapsible title={`Scheduled peak-hour pricing (IST) · ${peakFail ? "unavailable" : peak === null ? "loading…" : activePeak.length ? `${activePeak.length} rule${activePeak.length === 1 ? "" : "s"} on` : "not configured"}`} icon="clock-alert">
+      {peakFail ? <LoadFailure what="Saved peak rules" failure={peakFail} onRetry={() => setPeakAttempt((n) => n + 1)} />
+        : peak === null ? <Hint>Loading saved peak rules…</Hint>
+        : !activePeak.length ? <Hint>No peak rule is switched on for {serviceText}. Nothing is added to fares.</Hint>
+        : (
+          <ul className="divide-y divide-slate-100 text-[13.5px]">
+            {activePeak.map((r) => (
+              <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <span><strong className="text-slate-900">{r.name}</strong> <span className="text-slate-500">· {daysText(r.days)} · {slotsText(r.slots)} · {labelOfKey(r.scopeKey, r.scope?.label)}</span></span>
+                <span className="font-semibold text-slate-800">{r.type === "percent" ? `+${r.value}%` : `+₹${r.value}`}{r.cap !== undefined ? ` (max ₹${r.cap})` : ""}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Hint>Matched on the scheduled pickup time; one rule per quote; worked out on the ride fare only (never tolls, parking, airport entry or tax).</Hint>
+        <Button size="sm" onClick={() => setTab("peak")}>Open Peak hours</Button>
+      </div>
+    </Collapsible>
+  );
   const shared = (
     <>
+      <TestQuote brand={brand} service={service} sel={sel} vehicles={vehicles} />
+      {peakSummary}
       {service === "local" && <LocalRouteCharges brand={brand} docs={docs} feed={docsFeed} locationsStatus={locationsStatus} sel={sel} index={index} canEdit={canEdit} onToast={onToast} />}
       {legacyPlace && (
         <Collapsible title={`Earlier per-km fares · ${legacyPlace.name}${hasLegacy ? "" : " (none saved)"}`} icon="route">

@@ -78,7 +78,8 @@ export function Footer({ scopeText, reason, onReason, onSave, saveLabel, busy, d
   message: { ok: boolean; text: string } | null; note?: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+    // Sticky: the reason and Save stay in view while the tables scroll.
+    <div className="sticky bottom-0 z-20 rounded-xl border border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-4px_12px_rgba(15,23,42,0.06)] backdrop-blur">
       <div className="flex flex-wrap items-center gap-3">
         <strong className="min-w-0 truncate text-[14px] text-slate-900" title={scopeText}>{scopeText}</strong>
         <span className="hidden h-6 w-px bg-slate-300 md:block" />

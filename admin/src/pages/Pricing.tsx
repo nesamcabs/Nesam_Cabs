@@ -13,7 +13,7 @@ import { InlineModals, Modal, Toast, useToast } from "../components/Feedback";
 import { Button, DataTable, EmptyState, Icon, PageHeader } from "../components/ui";
 import type { IconName } from "../components/ui/Icon";
 import FixedRouteFares from "../components/FixedRouteFares";
-import LocalRentalWorkspace from "../components/localRental/LocalRentalWorkspace";
+import PricingHierarchyManager from "../components/PricingHierarchyManager";
 import "./pricingReference.css";
 import VehicleCategoriesPage from "./VehicleCategories";
 import FareMatrix from "../components/FareMatrix";
@@ -283,7 +283,7 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
           display: <><DisplayMarkupCard scope={fareScope} />{fareAdjustmentCard}</>,
         };
         return (
-          <LocalRentalWorkspace key={pickupDrop ? "local" : "rental"} brand={fareScope.brand} service={pickupDrop ? "local" : "rental"} vehicles={vehicles} locations={locations}
+          <PricingHierarchyManager key={pickupDrop ? "local" : "rental"} brand={fareScope.brand} service={pickupDrop ? "local" : "rental"} vehicles={vehicles} locations={locations}
             rules={rules} rulesLoaded={loaded} rulesError={loadError} locationsStatus={locationsStatus} onRetryRules={retryAll} canEdit={canEdit && !categoriesError} canEditLocations={contentAccess} onToast={show} onManageLocations={() => onNavigate("locations")}
             onDirty={(dirty) => { workspaceDirty.current = dirty; }} extras={extras}
             standardPackages={pickupDrop ? undefined : (

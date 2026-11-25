@@ -91,3 +91,10 @@ export interface SavePeakRuleInput {
   days?: number[]; slots?: { start: string; end: string }[]; from?: string; until?: string; type?: "percent" | "fixed"; value?: number; cap?: number | null; priority?: number; reason: string;
 }
 export const savePeakRule = (input: SavePeakRuleInput) => callFunction<SavePeakRuleInput, { id: string; version: number }>("savePeakRule", input);
+
+export interface TestQuoteInput { brand: string; service: GeoService; scope: GeoScopeInput; categoryId: string; km?: number; hours?: number; pickupAt: string }
+export type TestQuoteResult =
+  | { ok: true; availability: "Available" | "Limited" | "Paused"; model: string; total: number; lines: { key: string; label: string; amount: number | null; treatment: string; detail: string }[]; partnerPayout: number | null; peak: { name: string; amount: number } | null; sources: Record<string, string> | null; keys: string[] }
+  | { ok: false; availability: "Available" | "Limited" | "Paused"; missing: string[] };
+/** Prices a sample trip with the server's own booking pricing (nothing is saved, no booking is made). */
+export const testLocalQuote = (input: TestQuoteInput) => callFunction<TestQuoteInput, TestQuoteResult>("testLocalQuote", input);
