@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { rankRules, saveRule, setRuleStatus, type RuleKind, type ServiceRule } from "../services/serviceRulesService";
 import { BRAND_LABELS, serviceLabel, type FareWorkspaceScope } from "../services/tariffService";
-import { Button } from "./ui";
+import { Button, Icon } from "./ui";
+import PincodePicker from "./PincodePicker";
+import { Modal } from "./Feedback";
 import { parentOf } from "../domain/placeZones";
+import { isPincode, pincodesOf, type PincodeList } from "../domain/pincodes";
 import { CardBody, Problems, RateTable, SaveBar, SettingCard, type RateColumn, type RateRow, type VehicleCol } from "./RateTable";
 
 // Booking rules on one page: one row per place, and across the top whether bookings are open and which cabs customers see.
@@ -48,7 +51,7 @@ export function specialRules(rules: ServiceRule[], isOwn: (r: ServiceRule) => bo
   return live.filter((r) => !inTable.has(r.id) && !(r.kind === "pricing" && standing(r)));
 }
 
-export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, canEdit, loaded, loadError, stateName, stateOptions, citiesOf, areasOf, onToast }: {
+export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, canEdit, loaded, loadError, stateName, stateOptions, citiesOf, onToast }: {
   /** Every rule for this brand & service, including shared (All brands) rules it inherits; removed rules may be included. */
   rules: ServiceRule[];
   /** A rule saved for this brand & service (the others are inherited). */
@@ -61,7 +64,6 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
   stateName: (code: string) => string;
   stateOptions: { value: string; label: string }[];
   citiesOf: (state: string) => string[];
-  areasOf: (state: string, city: string) => string[];
   onToast: (text: string) => void;
 }) {
   const live = useMemo(() => rules.filter((r) => r.status !== "Removed" && r.kind !== "limit"), [rules]);
@@ -69,11 +71,27 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [added, setAdded] = useState<Place[]>([]);
   const [pick, setPick] = useState<Place>({ state: "", city: "", area: "" });
+  // The pincodes of the chosen city / district (undefined while loading, null when it has no list) and which of them are ticked.
+  const [pinList, setPinList] = useState<PincodeList | null | undefined>(null);
+  const [pickPins, setPickPins] = useState<string[]>([]);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  // The place whose deletion is being confirmed (only places with saved rules need it).
+  const [removing, setRemoving] = useState<Place | null>(null);
+  const [removeReason, setRemoveReason] = useState("");
+  const [removeError, setRemoveError] = useState<string | null>(null);
   // A different brand or service is a different table.
   useEffect(() => { setDrafts({}); setAdded([]); setMessage(null); }, [fareScope.brand, fareScope.service]);
+  // Choosing a city lists its pincodes, all ticked: leaving them all ticked covers the whole city.
+  useEffect(() => {
+    setPickPins([]);
+    if (!pick.state || !pick.city) { setPinList(null); return undefined; }
+    let current = true;
+    setPinList(undefined);
+    void pincodesOf(pick.state, pick.city).then((found) => { if (current) { setPinList(found); setPickPins(found ? found.pins.map((p) => p.pin) : []); } });
+    return () => { current = false; };
+  }, [pick.state, pick.city]);
 
   // ── Places: everywhere, every place that has a rule, and places added here (in state → city → area order) ──────────
   const places = useMemo(() => {
@@ -84,7 +102,7 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
     return [...all.values()].sort((a, b) => (a.state || "").localeCompare(b.state || "") || (a.city || "").localeCompare(b.city || "") || (a.area || "").localeCompare(b.area || ""));
   }, [live, added]);
   const label = (p: Place) => p.area ? `${p.area}, ${p.city}` : p.city ? p.city : p.state ? stateName(p.state) : "All locations";
-  const level = (p: Place) => p.area ? "Area" : p.city ? "City" : p.state ? "State" : "Everywhere";
+  const level = (p: Place) => p.area ? (isPincode(p.area) ? "Pincode" : "Area") : p.city ? "City" : p.state ? "State" : "Everywhere";
 
   // ── What applies at each place, worked out like the booking server ─────────────────────────────────────────────────
   const ownRule = (p: Place, kind: RuleKind) => rankRules(live.filter((r) => isOwn(r) && standing(r) && r.kind === kind && samePlace(r, p)))[0];
@@ -164,6 +182,38 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
     }
   };
 
+  // ── Deleting a place: its own standing booking and cab rules are removed (history is kept) ─────────────────────────
+  const rulesOfPlace = (p: Place) => live.filter((r) => isOwn(r) && standing(r) && TABLE_KINDS.includes(r.kind) && samePlace(r, p));
+  const forget = (p: Place) => {
+    setAdded((list) => list.filter((x) => keyOf(x) !== keyOf(p)));
+    setDrafts((all) => Object.fromEntries(Object.entries(all).filter(([k]) => k !== keyOf(p))));
+    setMessage(null);
+  };
+  const askDelete = (p: Place) => {
+    if (!rulesOfPlace(p).length) return forget(p); // added here and never saved
+    setRemoveReason("");
+    setRemoveError(null);
+    setRemoving(p);
+  };
+  const confirmDelete = async () => {
+    if (!removing || busy || !canEdit) return;
+    if (removeReason.trim().length < 5) return setRemoveError("Add a short reason (at least 5 characters).");
+    setBusy(true);
+    setRemoveError(null);
+    try {
+      for (const rule of rulesOfPlace(removing)) await setRuleStatus(rule, "Removed", removeReason.trim());
+      const name = label(removing);
+      const stays = live.some((r) => standing(r) && !isOwn(r) && TABLE_KINDS.includes(r.kind) && samePlace(r, removing));
+      forget(removing);
+      setRemoving(null);
+      onToast(stays ? `${name}: your rules were deleted. The row stays because of a shared rule; delete that under All brands.` : `${name} deleted. It now follows the wider place.`);
+    } catch (err) {
+      setRemoveError(err instanceof Error ? err.message : "Not deleted. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   // ── The table ──────────────────────────────────────────────────────────────────────────────────────────────────
   const columns: RateColumn[] = [
     { key: "avail", name: "Status", group: "Booking", width: 172 },
@@ -177,6 +227,13 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
     const sharedOnly = !v.ownA && !v.ownC && live.some((r) => standing(r) && !isOwn(r) && samePlace(r, p));
     return {
       key: keyOf(p), label: label(p), unit: sharedOnly ? `${level(p)} · shared` : level(p),
+      // "All locations" is the base row and cannot be deleted.
+      action: canEdit && (p.state || p.city || p.area) ? (
+        <button type="button" className="fm-linkbtn fm-linkbtn--danger flex-none self-center" disabled={sharedOnly} onClick={() => askDelete(p)}
+          aria-label={`Delete ${label(p)}`} title={sharedOnly ? "This is a shared rule: delete it under All brands, or the brand that owns it." : `Delete ${label(p)}`}>
+          <Icon name="trash-2" size={14} />
+        </button>
+      ) : undefined,
       cell: (col: string) => {
         if (col === "avail") return {
           value: v.avail, inherited: v.avail === "",
@@ -209,11 +266,16 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
   const brandName = fareScope.brand === "common" ? "All brands (shared)" : BRAND_LABELS[fareScope.brand];
   const where = `${brandName} → ${serviceLabel(fareScope.service)}`;
   const cityChoices = pick.state ? citiesOf(pick.state) : [];
-  const areaChoices = pick.city ? areasOf(pick.state, pick.city) : [];
+  const totalPins = pinList?.pins.length ?? 0;
+  // Every pincode ticked (or a city with no list) = the whole city, one setting that covers everything inside it.
+  // Fewer ticked = one setting per ticked pincode, and nothing else in the city is touched.
+  const wholeCity = !pick.city || !pinList || pickPins.length === totalPins;
+  const canAdd = !!pick.state && (!pick.city || (pinList !== undefined && (!pinList || pickPins.length > 0)));
   const addPlace = () => {
-    if (!pick.state && !pick.city) return;
-    const p = { ...pick, area: pick.city ? (areaChoices.find((a) => norm(a) === norm(pick.area)) ?? pick.area.trim()) : "" };
-    setAdded((list) => list.some((x) => keyOf(x) === keyOf(p)) ? list : [...list, p]);
+    if (!canAdd) return;
+    const places: Place[] = wholeCity ? [{ state: pick.state, city: pick.city, area: "" }]
+      : (pinList?.pins ?? []).filter((p) => pickPins.includes(p.pin)).map((p) => ({ state: pick.state, city: pick.city, area: p.pin }));
+    setAdded((list) => [...list, ...places.filter((p) => !list.some((x) => keyOf(x) === keyOf(p)))]);
     setPick({ state: pick.state, city: "", area: "" });
   };
 
@@ -241,14 +303,13 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
                   {cityChoices.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </label>
-              <label className="fm-mini"><span>Area / zone</span>
-                {/* A list for every city, plus free typing for an area that is not listed yet. Empty = the whole city. */}
-                <input className="ds-select" list="rules-area-choices" value={pick.area} disabled={!pick.city} placeholder="Whole city (or pick / type an area)" autoComplete="off"
-                  title="Everything inside the city / district is switched together: choosing a city covers all its areas; choosing an area covers only that area."
-                  onChange={(e) => setPick({ ...pick, area: e.target.value })} />
-                <datalist id="rules-area-choices">{areaChoices.map((a) => <option key={a} value={a} />)}</datalist>
-              </label>
-              <Button icon="plus" onClick={addPlace} disabled={!pick.state}>Add place</Button>
+              <div className="fm-mini"><span>Pincodes</span>
+                {/* All ticked = the whole city / district; fewer = only those pincodes. */}
+                <div className="relative">
+                  <PincodePicker list={pinList} selected={pickPins} onChange={setPickPins} cityChosen={!!pick.city} />
+                </div>
+              </div>
+              <Button icon="plus" onClick={addPlace} disabled={!canAdd}>{wholeCity || pickPins.length < 2 ? "Add place" : `Add ${pickPins.length} places`}</Button>
             </div>
           </CardBody>
         )}
@@ -257,6 +318,14 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
           : <RateTable label={`Booking rules for ${where}`} disabled={!canEdit || busy} columns={columns} groups={[{ title: "", rows }]} cornerWidth={210} minWidth={500 + vehicles.length * 92} />}
         <Problems items={problems} />
       </SettingCard>
+      {removing && (
+        <Modal title={`Delete ${label(removing)}?`} onClose={() => !busy && setRemoving(null)} busy={busy} centered
+          footer={<><Button onClick={() => setRemoving(null)} disabled={busy}>Cancel</Button><Button variant="danger" loading={busy} disabled={removeReason.trim().length < 5} onClick={() => void confirmDelete()}>Delete place</Button></>}>
+          <p className="text-[12px] text-muted mb-2">Its booking status and cab settings for {where} are removed, and it follows the wider place again. Price changes and date-based rules for this place are not touched.</p>
+          <label className="ds-field"><span>Reason for deleting</span><input className="ds-input" value={removeReason} maxLength={300} onChange={(e) => setRemoveReason(e.target.value)} /></label>
+          {removeError && <div className="ds-error mt-2" role="alert">{removeError}</div>}
+        </Modal>
+      )}
     </div>
   );
 }

@@ -7,6 +7,7 @@
  * city corporation's official zones are known; any other area is added under Locations.
  */
 import { ZONES_BY_CITY, zonesOf } from "./placeZones";
+import { DISTRICTS_BY_STATE } from "./pincodeDistricts";
 
 export const CITIES_BY_STATE: Record<string, string[]> = {
   // Tamil Nadu: every district headquarters, plus the towns riders book from most.
@@ -71,9 +72,14 @@ export const CITIES_BY_STATE: Record<string, string[]> = {
 
 export { ZONES_BY_CITY };
 
-/** The built-in cities of one state (its GST code), or of every listed state when none is chosen. */
+/**
+ * The built-in cities of one state (its GST code), or of every listed state when none is chosen: the towns riders book from most,
+ * plus every district of the state as India Post lists it (each has its pincodes, see pincodes.ts).
+ */
 export function directoryCities(stateCode: string): string[] {
-  return stateCode ? CITIES_BY_STATE[stateCode] ?? [] : Object.values(CITIES_BY_STATE).flat();
+  return stateCode
+    ? [...(CITIES_BY_STATE[stateCode] ?? []), ...(DISTRICTS_BY_STATE[stateCode] ?? [])]
+    : [...Object.values(CITIES_BY_STATE).flat(), ...Object.values(DISTRICTS_BY_STATE).flat()];
 }
 
 /** The built-in zones of one city (matched by name, ignoring case). */

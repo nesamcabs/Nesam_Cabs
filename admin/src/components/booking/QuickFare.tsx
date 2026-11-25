@@ -193,8 +193,10 @@ export function validateTrip(t: QuickTrip): string | null {
 
 /** One quote per bookable category, in parallel. Each category that cannot be priced carries its error. */
 export async function estimateAll(t: QuickTrip, categories: VehicleCategory[], channel?: "nesam" | "people_taxi" | "onewaycarrentals"): Promise<CategoryEstimate[]> {
+  // On CNG only the cab types with CNG turned on are priced and listed; the others are left out, not shown as "unavailable".
+  const offered = t.fuel === "cng" ? categories.filter((c) => c.cngEnabled === true) : categories;
   return Promise.all(
-    categories.map(async (category) => {
+    offered.map(async (category) => {
       try {
         const quote = await quoteAdminBooking({ ...tripToForm(t, category.id), ...(channel ? { channel } : {}) }, newRequestId(), { businessAccountId:t.businessId });
         return { category, quote, error: null };

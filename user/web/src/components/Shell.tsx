@@ -46,7 +46,7 @@ const NAV: readonly { to: string; label: string; short: string; icon: string; ar
 const TOP_NAV: typeof NAV = [NAV[0]!, NAV[1]!, { to: '/offers', label: 'Offers', short: 'Offers', icon: 'offers', art: 'offers' }, NAV[2]!];
 
 /** Active booking flow pages where the phone bottom tab bar steps aside for the sticky FlowBar. */
-const FLOW = [/^\/book\/(ride|confirm|done\/[^/]+)$/, /^\/ride\//, /^\/local-taxi\/ride\//, /^\/trips\/[^/]+$/];
+const FLOW = [/^\/book\/(ride|confirm|done\/[^/]+)$/, /^\/ride\//, /^\/trips\/[^/]+$/];
 const IMMERSIVE = [/^\/ride\//, /^\/local-rentals(\/|$)/, /^\/trips\/[^/]+$/];
 
 /** Phone bottom bar, left to right: Local Pickup & Drop · Hourly Rental · Outstation (the middle one) · Multicity · Airport Taxi.
@@ -65,10 +65,8 @@ function BottomNav() {
   const [params] = useSearchParams();
   const { draft } = useBooking();
   const onHome = location.pathname === '/book' || location.pathname === '/';
-  // Local Taxi has its own pages (/local-taxi…): it is the city Pickup & Drop, so that tab stays lit there.
-  const onLocal = /^\/local-taxi(\/|$)/.test(location.pathname);
   const onRentals = /^\/local-rentals(\/|$)/.test(location.pathname);
-  const current: ServiceId | null = onLocal ? 'pickup' : onRentals ? (params.get('mode') === 'hourly' ? 'rental' : 'pickup') : onHome ? (parseService(params.get('service')) ?? (location.pathname === '/' ? 'pickup' : serviceOfTrip(draft.tripType, draft.multicity))) : null;
+  const current: ServiceId | null = onRentals ? (params.get('mode') === 'hourly' ? 'rental' : 'pickup') : onHome ? (parseService(params.get('service')) ?? (location.pathname === '/' ? 'pickup' : serviceOfTrip(draft.tripType, draft.multicity))) : null;
 
   return (
     <nav className="tabbar" aria-label="Services">
@@ -436,7 +434,7 @@ export function Shell() {
   useEffect(() => setMenuOpen(false), [location.pathname]);
   const isFlow = FLOW.some((re) => re.test(location.pathname));
   const isImmersive = IMMERSIVE.some((re) => re.test(location.pathname));
-  const isLocalPage = /^\/local-(rentals|taxi)\/?$/.test(location.pathname);
+  const isLocalPage = /^\/local-rentals\/?$/.test(location.pathname);
   const isLanding = location.pathname === '/' || location.pathname === '/book' || isLocalPage;
   // The header is always on screen, on phones and tablets too (it takes its own space above the page).
 

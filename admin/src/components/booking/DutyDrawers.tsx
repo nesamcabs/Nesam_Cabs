@@ -50,8 +50,6 @@ type TermKey = (typeof TERM_ITEMS)[number][0];
 const TERM_CHOICES = ["Included", "At actuals", "Not applicable"];
 
 interface StoredTerms {
-  customerExtraKm?: number;
-  partnerExtraKm?: number;
   items?: Partial<Record<TermKey, string>>;
   receiptRequired?: boolean;
 }
@@ -78,10 +76,9 @@ export function PublishDutyDrawer({ booking, market, edit, canSetPayout, onClose
   const [mode, setMode] = useState<"fixed" | "bid">(edit && market?.mode === "bid_review" ? "bid" : "fixed");
   const [amount, setAmount] = useState(start ? String(Math.round(start)) : "");
   const [maximum, setMaximum] = useState(market?.ceiling ? String(market.ceiling) : start ? String(Math.ceil(start * 1.2)) : "");
-  const [closes, setCloses] = useState(pickup ? localInput(new Date(Math.max(Date.now(), pickup.getTime() - 3 * 3600000))) : "");
+  // Bidding closes 2 hours before the trip's pickup time unless the admin picks another time (never in the past).
+  const [closes, setCloses] = useState(pickup ? localInput(new Date(Math.max(Date.now(), pickup.getTime() - 2 * 3600000))) : "");
   const [note, setNote] = useState("");
-  const [custKm, setCustKm] = useState(String(stored.customerExtraKm ?? (booking.pricing?.extraKmRatePaise ? booking.pricing.extraKmRatePaise / 100 : "")));
-  const [partKm, setPartKm] = useState(String(stored.partnerExtraKm ?? ""));
   const [items, setItems] = useState<Record<TermKey, string>>(() => Object.fromEntries(TERM_ITEMS.map(([k]) => [k, stored.items?.[k] ?? (k === "driverBata" ? "Included" : "At actuals")])) as Record<TermKey, string>);
   const [receipt, setReceipt] = useState(stored.receiptRequired !== false);
   const [busy, setBusy] = useState(false);
@@ -95,7 +92,6 @@ export function PublishDutyDrawer({ booking, market, edit, canSetPayout, onClose
     if (!(startNum > 0) || startNum > 1000000) return setError("Enter a valid vendor payout.");
     if (mode === "bid" && !(Number(maximum) >= startNum)) return setError("Maximum payout must be at least the starting payout.");
     if (edit && note.trim().length < 5) return setError("Record the reason for changing a published payout.");
-    if (!(Number(custKm) > 0) || !(Number(partKm) > 0)) return setError("Enter separate positive customer and partner extra-km rates.");
     const closeAt = fromLocalInput(closes);
     const cutoffMinutes = mode === "bid" && closeAt && pickup ? Math.max(0, Math.round((pickup.getTime() - closeAt.getTime()) / 60000)) : undefined;
     // Without finance access the payout comes from the tariff.
@@ -107,7 +103,8 @@ export function PublishDutyDrawer({ booking, market, edit, canSetPayout, onClose
         mode: mode === "bid" ? "bid_review" : "accept_offer",
         ...(mode === "bid" ? { escalation: { enabled: true, ceiling: Number(maximum), stepPercent: 5, intervalMinutes: 60 } } : {}),
         ...(cutoffMinutes !== undefined ? { cutoffMinutes } : {}),
-        terms: { customerExtraKm: Number(custKm), partnerExtraKm: Number(partKm), items, receiptRequired: receipt },
+        // The extra-km rates are not asked for: the server takes them from the booking's saved tariff (Service & Fare Settings).
+        terms: { items, receiptRequired: receipt },
         note: note.trim(),
       });
       onDone(edit ? "Duty published / payout updated. Matching authorised bids allocate automatically." : `Duty published at ${rupee(r.offeredPayout)}. ${r.partnersNotified} partner${r.partnersNotified === 1 ? "" : "s"} notified.`);
@@ -171,13 +168,6 @@ export function PublishDutyDrawer({ booking, market, edit, canSetPayout, onClose
             <input className="ds-input" maxLength={300} value={note} onChange={(e) => setNote(e.target.value)} />
           </label>
         ) : null}
-        <details className="ds-disclosure" open>
-          <summary>Agreed expense &amp; extra-km terms</summary>
-          <div className="ds-form-grid">
-            <label className="ds-field"><span>Customer extra km · ₹ / km</span><input className="ds-input" type="number" min={1} value={custKm} onChange={(e) => setCustKm(e.target.value)} /></label>
-            <label className="ds-field"><span>Partner extra km · ₹ / km</span><input className="ds-input" type="number" min={1} value={partKm} onChange={(e) => setPartKm(e.target.value)} /></label>
-          </div>
-        </details>
         <details className="ds-disclosure" open>
           <summary>Included / Extra terms</summary>
           <div className="ds-form-grid">

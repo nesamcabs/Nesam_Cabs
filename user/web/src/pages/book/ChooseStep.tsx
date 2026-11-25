@@ -60,6 +60,13 @@ export function ChooseStep() {
     if (next) update({ categoryId: next.id, fuelType: '' });
   }, [categoryId, q.hidden, q.unavailable, visible, update]);
 
+  // CNG is offered only on a cab with a CNG fare. A CNG choice carried over from another trip or cab would have no switch
+  // left to turn it off (and the server refuses it), so it is cleared.
+  const staleCng = draft.fuelType === 'cng' && !!q.entries.get(categoryId)?.ok && !q.entries.get(categoryId)?.cng;
+  useEffect(() => {
+    if (staleCng) update({ fuelType: '' });
+  }, [staleCng, update]);
+
   if (!pickup || !drop) return null;
 
   const tooFar = !!route && route.distanceKm > TOO_FAR_KM;

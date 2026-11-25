@@ -193,3 +193,43 @@ test('a city / district rule covers every area inside it; an area rule covers on
   assert.equal(run([krishnagiri], hosur), 'Paused');
   assert.equal(run([krishnagiri, open], hosur), 'Available');
 });
+
+// ── Pincode scopes (admin "Places & cabs" → Pincodes) ───────────────────────────────────────────────────────────────────
+const place = (address, extra = {}) => ({ id: 'p', name: address.split(',')[0], address, lat: 10, lng: 77, ...extra });
+const theniOnly = place('Genguvarpatti, Tamil Nadu 625203, India');          // a Theni pincode; the address never says "Theni"
+const dindigul = place('Natham, Dindigul, Tamil Nadu 624401, India');
+const chennaiPin = place('T Nagar, Chennai, Tamil Nadu 600017, India');
+const when = (rules, from, to = chennaiPin) => evaluateRules(rules, from, to, at, 'Outstation One Way');
+
+test('a pincode rule applies to that pincode only, with no city named in the address', () => {
+  const r = rule({ scope: { state: '33', city: 'Theni', area: '625203', side: 'Pickup or drop' } });
+  assert.equal(when([r], theniOnly).availability, 'Paused');
+  // another Theni pincode, and another district, are untouched
+  assert.equal(when([r], place('Periyakulam, Tamil Nadu 625601, India')).availability, 'Available');
+  assert.equal(when([r], dindigul).availability, 'Available');
+  // the pincode may also arrive as the place's own field
+  assert.equal(when([r], place('Somewhere', { pincode: '625203' })).availability, 'Paused');
+  // a longer number that merely contains the digits is not a pincode
+  assert.equal(when([r], place('Plot 9625203, Chennai')).availability, 'Available');
+});
+
+test('a whole-district rule covers every pincode inside it, even when the address does not name the district', () => {
+  const r = rule({ scope: { state: '33', city: 'Theni', area: '', side: 'Pickup or drop' } });
+  assert.equal(when([r], theniOnly).availability, 'Paused');              // 625203 is in Theni
+  assert.equal(when([r], place('Periyakulam, Tamil Nadu 625601, India')).availability, 'Paused');
+  assert.equal(when([r], dindigul).availability, 'Available');            // 624401 is Dindigul
+  assert.equal(when([r], chennaiPin).availability, 'Available');
+});
+
+test('a pincode rule beats the district rule for its own pincode', () => {
+  const district = rule({ id: 'district', availability: 'Paused', scope: { state: '33', city: 'Theni', area: '', side: 'Pickup or drop' } });
+  const one = rule({ id: 'one', availability: 'Available', scope: { state: '33', city: 'Theni', area: '625203', side: 'Pickup or drop' } });
+  assert.equal(when([district, one], theniOnly).availability, 'Available');
+  assert.equal(when([district, one], place('Periyakulam, Tamil Nadu 625601, India')).availability, 'Paused');
+});
+
+test('a town listed under a district keeps its own pincodes', () => {
+  const hosur = rule({ scope: { state: '33', city: 'Hosur', area: '', side: 'Pickup or drop' } });
+  assert.equal(when([hosur], place('Bagalur Road, Tamil Nadu 635109, India')).availability, 'Paused');   // a Hosur post office
+  assert.equal(when([hosur], place('Krishnagiri Town, Tamil Nadu 635001, India')).availability, 'Available');
+});

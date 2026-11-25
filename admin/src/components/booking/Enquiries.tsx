@@ -37,13 +37,12 @@ export function quoteText(e: Enquiry): string {
   ].filter(Boolean).join("\n");
 }
 
-export default function Enquiries({ stageCounts, onStage, onBack, onNewBooking, onConvert }: {
+export default function Enquiries({ stageCounts, onStage, onBack, onQuickFare }: {
   stageCounts: Record<OfficeStage, number>;
   onStage: (s: OfficeStage) => void;
   onBack: () => void;
-  onNewBooking: () => void;
-  /** Opens the New booking flow prefilled from the quote. */
-  onConvert?: (e: Enquiry) => void;
+  onQuickFare: () => void;
+  /** Opens the Quick Fare desk (the quote's "Convert to booking" goes there too). */
 }) {
   const [rows, setRows] = useState<Enquiry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +70,7 @@ export default function Enquiries({ stageCounts, onStage, onBack, onNewBooking, 
         <QuoteDetails
           e={open}
           onBack={() => setOpenId(null)}
-          onConvert={() => (onConvert ? onConvert(open) : onNewBooking())}
+          onConvert={onQuickFare}
           onCopy={async () => {
             try {
               await navigator.clipboard.writeText(quoteText(open));
@@ -100,7 +99,7 @@ export default function Enquiries({ stageCounts, onStage, onBack, onNewBooking, 
       <Toast toast={toast} />
       <PageHeader
         title="Enquiries & follow-ups"
-        actions={<Button variant="primary" icon="calculator" onClick={onNewBooking}>Quick fare</Button>}
+        actions={<Button variant="primary" icon="calculator" onClick={onQuickFare}>Quick fare</Button>}
       />
       <StageBar
         label="Booking status"

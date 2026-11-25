@@ -74,6 +74,14 @@ export function ChooseRideScreen() {
     if (next) update({ categoryId: next.id, fuelType: '' });
   }, [categoryId, hiddenIds, offered, update]);
 
+  // CNG is offered only on a cab with a CNG fare. A CNG choice carried over from another trip or cab would have no switch
+  // left to turn it off (and the server refuses it), so it is cleared.
+  const chosenQuote = serverQuote.status === 'ready' ? serverQuote.data?.quotes.find((x) => x.categoryId === categoryId) : undefined;
+  const staleCng = draft.fuelType === 'cng' && !!chosenQuote?.ok && !chosenQuote.cng;
+  useEffect(() => {
+    if (staleCng) update({ fuelType: '' });
+  }, [staleCng, update]);
+
   const goHome = () => navigation.navigate('Tabs', { screen: 'Book' });
 
   if (!pickup || !drop) {

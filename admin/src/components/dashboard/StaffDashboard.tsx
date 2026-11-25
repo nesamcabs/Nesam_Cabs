@@ -64,7 +64,7 @@ export default function StaffDashboard({ access, badges, onNavigate, workspace }
   access: AdminAccess;
   badges?: NavBadges;
   onNavigate: (page: string, tab?: string) => void;
-  onNewBooking?: () => void;
+  onQuickFare?: () => void;
   /** Booking / dispatch board (or the full overview) when the person can open bookings. */
   workspace: ReactNode;
 }) {

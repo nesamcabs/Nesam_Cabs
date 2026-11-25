@@ -8,7 +8,7 @@ import { RENTAL_HOURS, type BrandFareOverride, type FareWorkspaceScope, type Tar
 
 export const NUM_KEYS = [
   "customerRate", "partnerRate", "customerBase", "partnerBase", "minKm", "minKmPerDay", "customerBata", "partnerBata",
-  "cngCustomerRate", "cngPartnerRate", "cngCustomerBata", "cngPartnerBata", "cngExtraKmRate", "cngMinKmPerDay",
+  "cngCustomerBase", "cngPartnerBase", "cngMinKm", "cngCustomerRate", "cngPartnerRate", "cngCustomerBata", "cngPartnerBata", "cngExtraKmRate", "cngMinKmPerDay",
   "extraKmRate", "waitingPerHour", "hillCharge", "carrierCharge", "partnerWaitingPerHour", "partnerHillCharge", "partnerCarrierCharge", "petCharge", "partnerPetCharge",
 ] as const satisfies readonly (keyof BrandFareOverride)[];
 export type NumKey = (typeof NUM_KEYS)[number];

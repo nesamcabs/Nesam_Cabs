@@ -43,7 +43,6 @@ import { loadSoundConfig, playAlert, repeatIntervalMs } from "../utils/notificat
 import { stepFollowUpReminders, type ReminderEntry } from "../utils/followUpReminders";
 import { useCanDo, useStaffFlag } from "../components/AccessContext";
 import { copyText } from "../services/customerDirectoryService";
-import type { NewBookingDraft } from "./NewBooking";
 import type { PickedPoint } from "../components/MapLocationPicker";
 import { SERVICE_KEY, TAB_TRIP, activeTrip, deskTabOf, lineOfEstimate, pricingOf, quickTripOfRecord, quoteKeyOf, routeOf, snapshotOf, vehicleLabelsOf } from "../components/quickFareDesk/deskTrip";
 import TripForm from "../components/quickFareDesk/TripForm";
@@ -56,7 +55,8 @@ import { LostDialog, RentalDialog, RevealDialog } from "../components/quickFareD
 import MapPickerDialog from "../components/quickFareDesk/MapPickerDialog";
 
 interface QuickFareProps {
-  onNewBooking?: (draft: NewBookingDraft) => void;
+  /** The signed-in account may create bookings (Bookings → Create); without it the Book buttons are hidden. */
+  canBook?: boolean;
   onEnquirySaved?: () => void;
   onNavigate?: (page: string, tab?: string) => void;
   /** Kept for the App route contract. */
@@ -89,7 +89,7 @@ function deskProblem(t: QuickTrip): string | null {
   return validateTrip(t);
 }
 
-export default function QuickFare({ onNewBooking }: QuickFareProps) {
+export default function QuickFare({ canBook = false }: QuickFareProps) {
   const data = useQuickData();
   const customers = useCustomers();
   const customerRows = customers.rows ?? [];
@@ -101,7 +101,6 @@ export default function QuickFare({ onNewBooking }: QuickFareProps) {
   const canViewCustomers = useCanDo("Customers", "view");
   const canTemporarilyReveal = useStaffFlag("privacy", "temporaryReveal");
   const canReveal = canViewCustomers && canTemporarilyReveal;
-  const canBook = !!onNewBooking;
 
   // ── The enquiry being quoted ──
   const [brand, setBrand] = useState<DeskBrand>("nesam");
@@ -220,6 +219,7 @@ export default function QuickFare({ onNewBooking }: QuickFareProps) {
         unpriced: lines.length || (cng && reasons.length > 1) ? unpriced : [],
         roadKm: road?.roadKm ? Math.round(road.roadKm) : null, roadMinutes: road?.roadMinutes ? Math.round(road.roadMinutes) : null,
         unavailable: lines.length ? null
+          : cng && !reasons.length ? "No vehicle category offers CNG. Turn on CNG in Vehicle categories, or switch to Diesel."
           : cng ? `No vehicle could be priced on CNG. ${reasons.length === 1 ? reasons[0].replace(/([^.])$/, "$1.") : "Each vehicle's reason is below."} Switch to Diesel for the standard rate.`
           : `The fare settings could not price this trip${priced[0]?.error ? ` (${priced[0].error})` : ""}. You can enter a draft quote.`,
         draftAllowed: !cng,
@@ -348,8 +348,8 @@ export default function QuickFare({ onNewBooking }: QuickFareProps) {
       showToast("Draft quote loaded into the calculator. Book from the server fare once it shows.");
       return;
     }
-    // Saved on another screen: the office's existing conversion (New booking with this enquiry).
-    onNewBooking?.({ enquiry: e, categoryId: e.categoryId || "", channel: source });
+    // Saved without a Quick Fare quote (nothing to book on): the trip is entered and priced here first.
+    showToast("This enquiry has no saved Quick Fare quote. Enter its trip above, get the fare, then book it.");
   };
 
   const onBooked = async (res: BookedResult): Promise<string | null> => {
@@ -428,13 +428,7 @@ export default function QuickFare({ onNewBooking }: QuickFareProps) {
       )}
 
       {bookTarget && (
-        <ConfirmBookingDialog target={bookTarget} customers={customerRows} onBooked={onBooked} onClose={() => setBookTarget(null)}
-          onFullForm={onNewBooking ? () => {
-            const t = bookTarget;
-            setBookTarget(null);
-            const enquiry = t.enquiry ? desk.byId(t.enquiry.id) ?? undefined : undefined;
-            onNewBooking({ trip: t.trip, categoryId: t.line.categoryId, estimates: t.estimates ?? undefined, channel: t.snapshot.source, ...(enquiry ? { enquiry } : {}) });
-          } : undefined} />
+        <ConfirmBookingDialog target={bookTarget} customers={customerRows} onBooked={onBooked} onClose={() => setBookTarget(null)} />
       )}
 
       {revealTarget && (

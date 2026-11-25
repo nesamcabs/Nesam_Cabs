@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { saveTariffSection } from "../services/bookingOpsService";
 import { ActionError } from "../services/callables";
-import { BRAND_LABELS, useTariff, type FareWorkspaceScope } from "../services/tariffService";
+import { BRANDS, BRAND_LABELS, useTariff, type FareWorkspaceScope } from "../services/tariffService";
 import { useCan, useCanDo } from "./AccessContext";
 import { CardBody, SaveBar, SettingCard } from "./RateTable";
 
@@ -19,12 +19,15 @@ export default function DisplayMarkupCard({ scope }: { scope: FareWorkspaceScope
   const [value, setValue] = useState("");
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [allBrands, setAllBrands] = useState(true);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   useEffect(() => { setValue(saved ? String(saved) : ""); setReason(""); setMessage(null); }, [saved, scope.brand, scope.service]);
 
   const pct = value.trim() === "" ? null : Number(value);
   const invalid = pct !== null && (!Number.isFinite(pct) || pct <= 0 || pct > 300);
   const changed = (pct ?? 0) !== (saved ?? 0);
+  /** Brands with their own percentage for this service: a new shared one replaces it unless unticked. */
+  const ownBrands = scope.brand === "common" ? BRANDS.filter((b) => tariff?.displayMarkup?.[b.id]?.[scope.service]) : [];
   const example = pct && !invalid ? Math.round(1000 * (1 + pct / 100)) : null;
   const where = `${scope.brand === "common" ? "All brands" : BRAND_LABELS[scope.brand]} → ${scope.service}`;
 
@@ -34,7 +37,10 @@ export default function DisplayMarkupCard({ scope }: { scope: FareWorkspaceScope
     setBusy(true);
     setMessage(null);
     try {
-      await saveTariffSection({ section: "displayMarkup", expectedVersion: tariff?.version ?? 0, reason: reason.trim(), brand: scope.brand, service: scope.service, data: { percent: pct } });
+      let { version } = await saveTariffSection({ section: "displayMarkup", expectedVersion: tariff?.version ?? 0, reason: reason.trim(), brand: scope.brand, service: scope.service, data: { percent: pct } });
+      if (pct && allBrands) {
+        for (const b of ownBrands) ({ version } = await saveTariffSection({ section: "displayMarkup", expectedVersion: version, reason: reason.trim(), brand: b.id, service: scope.service, data: { percent: null } }));
+      }
       setReason("");
       setMessage({ ok: true, text: pct ? `Saved: ${pct}% for ${where}.` : `Removed for ${where}.` });
     } catch (err) {
@@ -59,6 +65,9 @@ export default function DisplayMarkupCard({ scope }: { scope: FareWorkspaceScope
             {inherited && !value.trim() ? <small className="fm-hint">Shared: {inherited}%</small> : null}
           </label>
         </fieldset>
+        {pct && changed && ownBrands.length > 0 ? (
+          <label className="ds-check mt-2"><input type="checkbox" checked={allBrands} disabled={busy} onChange={(e) => setAllBrands(e.target.checked)} />Also apply to {ownBrands.map((b) => b.name).join(", ")} (replaces the brand's own percentage)</label>
+        ) : null}
         {invalid ? <p className="ds-error mt-2" role="alert">Enter a percentage above 0 and up to 300, or leave it blank for none.</p> : null}
       </CardBody>
     </SettingCard>

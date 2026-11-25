@@ -1,5 +1,5 @@
 import { lazy, useEffect, useRef, type ReactNode } from 'react';
-import { Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { CustomerDataProvider } from '@core/context/CustomerData';
 import { Shell } from '@/components/Shell';
 import { EmptyState, LinkButton, PageLoader } from '@/components/ui';
@@ -25,9 +25,7 @@ if (typeof window !== 'undefined' && isHomePath(window.location.pathname)) void 
 const DonePage = lazy(() => import('@/pages/book/DonePage'));
 const RidePage = page(() => import('@/pages/ride/RidePage'), 'RidePage');
 const TripsPage = page(() => import('@/pages/TripsPage'), 'TripsPage');
-const LocalTaxiPage = page(() => import('@/pages/localTaxi/LocalTaxiPage'), 'LocalTaxiPage');
 const LocalRentalsPage = page(() => import('@/pages/localRentals/LocalRentalsPage'), 'LocalRentalsPage');
-const LocalTaxiRidePage = page(() => import('@/pages/localTaxi/LocalTaxiRidePage'), 'LocalTaxiRidePage');
 const NotificationsPage = page(() => import('@/pages/NotificationsPage'), 'NotificationsPage');
 const AccountPage = page(() => import('@/pages/AccountPage'), 'AccountPage');
 const EditProfilePage = page(() => import('@/pages/EditProfilePage'), 'EditProfilePage');
@@ -130,9 +128,8 @@ export function AppRoutes() {
         <Route path="/book/confirm" element={<BookPage step="review" />} />
         <Route path="/book/done/:id" element={<DonePage />} />
         <Route path="/ride/:id" element={<RidePage />} />
-        <Route path="/local-taxi" element={<LocalTaxiPage />} />
+        <Route path="/local-taxi/*" element={<Navigate to="/local-rentals?mode=pickup" replace />} />
         <Route path="/local-rentals" element={<LocalRentalsPage />} />
-        <Route path="/local-taxi/ride/:id" element={<LocalTaxiRidePage />} />
         <Route path="/trips" element={<TripsPage />} />
         <Route path="/trips/:id" element={<RidePage />} />
         <Route path="/notifications" element={<NotificationsPage />} />

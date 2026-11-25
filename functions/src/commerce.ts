@@ -210,6 +210,8 @@ export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (requ
       usedCoupon = coupons!.docs.find(d => normalizeCode(d.data().code || '') === couponCode);
     }
     const pricedRaw = priceBooking({ ...priceInput, discount });
+    // Some trips have no CNG rate (time-based round-trip packages, for example): never sell them as CNG at the standard rate.
+    if (fuel && pricedRaw.pricing.fuelType !== 'cng') throw new HttpsError('failed-precondition', 'CNG is not available for this trip on this vehicle.');
     const priced = { ...pricedRaw, pricing: adjustPartner(pricedRaw.pricing, rules) };
     // Morning Return has a strict 9:00 AM cutoff and an automatic upgrade: the customer accepts both on their own, and the server insists.
     if (priced.pricing.timeBased?.kind === 'morning' && input.morningCutoffAccepted !== true) {

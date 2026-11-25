@@ -10,7 +10,6 @@ import { AssignDriverModal, AssignVendorModal, CancelBookingModal, RejectDialog 
 import { AcceptedByCell, AssignmentCell, BookingExpand, CustomerCell, DateCell, FareCell, PayoutCell, RouteCell, TripTypeCell, VehicleCell } from "../components/booking/OfficeCells";
 import { AssignOnBehalfDrawer, PublishDutyDrawer, PublishedDutyDrawer } from "../components/booking/DutyDrawers";
 import Enquiries from "../components/booking/Enquiries";
-import { type Enquiry } from "../services/enquiryService";
 import { paymentOf } from "../domain/bookingFlow";
 import {
   OFFICE_STAGES, TRIP_TABS, displayTripType, agreedPayoutOf, assignmentDeadline, bookingTabOf, customerGroups, fareOf, matchesTripType, officeStageOf, officeStatusLabel, refDate, refTime, tripTabOf, type OfficeStage, type TripTab,
@@ -68,12 +67,11 @@ type Sheet =
   | { kind: "publish" | "edit-payout" | "published" | "assign" | "reject" | "cancel" | "vendor" | "driver" | "contact"; b: Booking }
   | null;
 
-export default function Bookings({ onSelectBooking, initialTab, onNewBooking, onConvertEnquiry }: {
+export default function Bookings({ onSelectBooking, initialTab, onQuickFare }: {
   onSelectBooking: (id: string) => void;
   initialTab?: string;
   /** Opens the New booking page (Quick fare → estimate → customer → review). */
-  onNewBooking: () => void;
-  onConvertEnquiry: (e: Enquiry) => void;
+  onQuickFare: () => void;
 }) {
   const [stage, setStage] = useState<OfficeStage>((OFFICE_STAGES as readonly string[]).includes(initialTab ?? "") ? (initialTab as OfficeStage) : "New bookings");
   const [view, setView] = useState<"list" | "enquiries">(initialTab === "Enquiries" ? "enquiries" : "list");
@@ -184,8 +182,7 @@ export default function Bookings({ onSelectBooking, initialTab, onNewBooking, on
           stageCounts={counts}
           onStage={(s) => { setStage(s); setView("list"); }}
           onBack={() => setView("list")}
-          onNewBooking={onNewBooking}
-          onConvert={onConvertEnquiry}
+          onQuickFare={onQuickFare}
         />
       </div>
     );

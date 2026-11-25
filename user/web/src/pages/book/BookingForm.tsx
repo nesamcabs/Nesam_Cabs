@@ -240,10 +240,10 @@ export function BookingForm({
       return;
     }
     if (e.form) return;
-    // Local Taxi has its own live flow (zone check, fares, instant booking).
+    // City pickup & drop is priced per city, on its own page.
     if (service === 'local') {
       update({ tripType: 'One Way', multicity: false });
-      navigate('/local-taxi');
+      navigate('/local-rentals?mode=pickup');
       return;
     }
     // A normal search is never a Multicity tour (that flag is set only by the Multicity form).

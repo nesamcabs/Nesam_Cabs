@@ -35,7 +35,7 @@ export interface BookCustomerDraft { id: string; name: string; email: string; ph
 
 export default function Customers({ onNavigate, onBookCustomer }: {
   onNavigate?: (page: string, tab?: string) => void;
-  /** Opens the real new-booking flow with this customer selected (absent when the signed-in user cannot create bookings). */
+  /** Opens the Quick Fare desk to book for a customer (absent when the signed-in user cannot create bookings). */
   onBookCustomer?: (c: BookCustomerDraft) => void;
 }) {
   const access = useAccess();

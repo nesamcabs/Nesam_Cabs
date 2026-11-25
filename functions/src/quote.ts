@@ -23,7 +23,7 @@ import { buildTariffFareBreakup, FareBreakup, withExtraChargeLines } from './dom
 import { hillRatesConfigured, scopedAddOnRates, scopedExtraChargesSnapshot, scopedHillRates } from './domain/scopedExtraCharges';
 import { AdminDiscountInput, CATEGORY_GST_RATE, FareAdjustmentInput, isOutstation, serviceName } from './domain/pricing';
 import {
-  FixedRouteFare, completeAirportRates, defaultRentalHours, quoteAirport, PricingSnapshot, QuoteResult, TARIFF_CLASSES, TariffClass, TariffConfig, TariffError, cityDropFare, classRates, istDate, localFareIdFor, matchFixedRoute, paise,
+  FixedRouteFare, completeAirportCngRates, completeAirportRates, defaultRentalHours, quoteAirport, PricingSnapshot, QuoteResult, TARIFF_CLASSES, TariffClass, TariffConfig, TariffError, cityDropFare, classRates, istDate, localFareIdFor, matchFixedRoute, paise,
   parseFixedRouteFare, parseTariffConfig, gstOn, quoteFixedRoute, quoteLocalPickupDrop, quoteOneWay, quoteRentalPackage, quoteRoundTrip, quoteRoundTripMini, quoteRoundTripOvernightCombo, r2, withinCityZone, scopedTariffForBrand,
   calendarDays, finalizeFare, multicityRatesFor, quoteMulticity, displayMarkupPercent, quoteRoundTripTimeBased, timeBasedContext,
 } from './domain/tariff';
@@ -256,7 +256,8 @@ export interface PriceInput {
   fixedRoutes?: FixedRouteFare[];
   serviceId?: string;
   businessContract?: import('./domain/business').BusinessContract | null;
-  /** 'cng' prices a One Way / Round Trip on the class's CNG rate card. Ignored where no CNG card applies. */
+  /** 'cng' prices a One Way, Round Trip, Airport Taxi or Multicity trip on the class's CNG rate card. A result that is not
+   * marked pricing.fuelType 'cng' was not priced on it. */
   fuel?: 'cng';
   /** Brand scope applied to price this booking. */
   brand?: string;
@@ -364,7 +365,8 @@ function priceMulticityTour(i: PriceInput): PriceResult {
   if (!tariff) throw new HttpsError('failed-precondition', 'Multicity fares are not available yet.');
   if (!cls) throw new HttpsError('failed-precondition', `${i.category.name} is not mapped to a tariff class yet. An admin must set its vehicle class.`);
   const brand = i.brand || 'nesam';
-  const rates = multicityRatesFor(tariff, brand, cls);
+  const rates = multicityRatesFor(tariff, brand, cls, i.fuel);
+  if (!rates && i.fuel === 'cng') throw new HttpsError('failed-precondition', 'CNG is not available for this vehicle.', { code: 'cng-unavailable' });
   if (!rates) throw new HttpsError('failed-precondition', 'Multicity fares are not available for this vehicle yet.');
   const pickupMs = i.pickupAt.getTime();
   const endMs = i.tripEndAt ? i.tripEndAt.getTime() : pickupMs;
@@ -372,7 +374,7 @@ function priceMulticityTour(i: PriceInput): PriceResult {
   if (days === null) throw new HttpsError('failed-precondition', 'The tour end must be on or after pickup and within the supported tour duration.');
   const tax = fareGstForScope({ tariff, brand, service: 'Multicity', boardingState: i.boardingState, recipientState: i.recipientState, recipientAddressState: i.recipientAddressState });
   const q = quoteMulticity({ rates, totalKm: i.route.distanceKm, days, gstRate: tax ? tax.rate : tariff.gstRate, gstIncluded: tax?.mode === 'included' });
-  const amounts = multicityBookingAmounts(q, { tariffVersion: tariff.version, tariffClass: cls, brand, pickupMs, endMs, durationMin: Math.round(i.route.durationMin), gst: tax });
+  const amounts = multicityBookingAmounts(q, { tariffVersion: tariff.version, tariffClass: cls, brand, pickupMs, endMs, durationMin: Math.round(i.route.durationMin), gst: tax, fuel: i.fuel });
   const discount = Math.max(0, i.discount ?? 0);
   let fare = amounts.fare;
   if (i.adjustment || discount > 0) {
@@ -462,7 +464,9 @@ function priceBookingCore(i: PriceInput): PriceResult {
   // class (Common or brand). Until then the trip keeps the vehicle-category fare below.
   const airportRates = cfg && klass && i.tripType === 'Airport Taxi' ? completeAirportRates(cfg, klass) : null;
   if (cfg && klass && airportRates) {
-    const q = withDiscounts((discount) => quoteAirport({ config: cfg, tariffClass: klass, tripType: 'One Way', rates: airportRates, discount, ...timing, ...adjust }));
+    const rates = i.fuel === 'cng' ? completeAirportCngRates(cfg, klass) : airportRates;
+    if (!rates) throw new HttpsError('failed-precondition', 'CNG is not available for this vehicle.', { code: 'cng-unavailable' });
+    const q = withDiscounts((discount) => quoteAirport({ config: cfg, tariffClass: klass, tripType: 'One Way', rates, discount, fuel: i.fuel, ...timing, ...adjust }));
     return { fare: q.fare, pricing: { ...q.pricing, brand: i.brand, brandScoped: !!(i.brand && i.tariff?.brandOverrides?.[i.brand]) }, service, outstation, breakup: buildTariffFareBreakup(q.fare, false, q.pricing), usesCommissionPolicy: false };
   }
 
@@ -761,7 +765,7 @@ export const quoteBooking = onCall({ timeoutSeconds: 60, cors: PUBLIC_CALLABLE_O
         const priced = first.priced;
         // The same trip on the CNG rate card, when this class has one and the fare came from the per-km tariff.
         let cng: { fare: typeof priced.fare; breakup: typeof priced.breakup; extraKmRate: number; strikeTotal?: number } | null = null;
-        if (c.cngEnabled === true && (priced.pricing.model === 'one_way_standard' || priced.pricing.model === 'round_trip_calendar') && !input.fuelType) {
+        if (c.cngEnabled === true && (priced.pricing.model === 'one_way_standard' || priced.pricing.model === 'round_trip_calendar' || priced.pricing.model === 'airport_transfer') && !input.fuelType) {
           try {
             const alt = priceBooking({ ...base, discount, fuel: 'cng' });
             cng = { fare: alt.fare, breakup: alt.breakup, extraKmRate: (alt.pricing.gstInclusiveBase?.extraKmRatePaise ?? alt.pricing.extraKmRatePaise) / 100, ...struck(alt.fare.total) };

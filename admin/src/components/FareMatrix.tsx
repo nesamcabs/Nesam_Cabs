@@ -21,6 +21,7 @@ import { Modal, Toast, useToast } from "./Feedback";
 import { CardBody, Problems, RateTable, SaveBar, SettingCard, SharedLegend, vehicleColumns, type VehicleCol } from "./RateTable";
 import { NUM_KEYS, OLD_RULE_KEYS, PKG_FIELDS, emptyForm, formOf, type Form, type NumKey, type PkgField } from "./fareForm";
 import RentalPackageBuilder from "./RentalPackageBuilder";
+import { brandSyncFor } from "../services/fareBrandSync";
 
 // One table for a Brand → Service: the fields run down the side, the vehicles run across the top. Each vehicle is still saved as its own
 // business_config/tariff_v2.brandOverrides[brand][service][class]; a blank box inherits, a typed value is this scope's own price.
@@ -47,12 +48,24 @@ function rowsOf(t: Tariff | null | undefined, scope: FareWorkspaceScope, card: M
   const d = (key: NumKey, label: string, unit: string, baseValue: number | undefined, need?: Need): Def => ({ key, label, unit, base: baseValue, need });
 
   let customer: Def[] = [], partner: Def[] = [];
-  if (showCng) {
+  if (showCng && service === "Airport Taxi") {
+    // The km included in the base fare is the standard one unless CNG sets its own.
+    const includedKm = resolveRate(t, scope.brand, service, cls, "minKm", undefined).value;
+    customer = [
+      d("cngCustomerBase", "CNG base fare", "₹", undefined, "positive"),
+      d("cngMinKm", "CNG km included in base fare", "km", includedKm),
+      d("cngExtraKmRate", "CNG extra km price", "₹/km", undefined, "positive"),
+    ];
+    partner = [
+      d("cngPartnerBase", "CNG partner base payout", "₹", undefined, "positive"),
+      d("cngPartnerRate", "CNG partner pay per extra km", "₹/km", undefined, "any"),
+    ];
+  } else if (showCng) {
     customer = [
       d("cngCustomerRate", "CNG price per km", "₹/km", base?.cng?.customerRate, "positive"),
       d("cngCustomerBata", "CNG driver allowance", allowance, base?.cng?.customerBata, "any"),
       d("cngExtraKmRate", "CNG extra km price", "₹/km", base?.cng?.extraKmRate),
-      ...(service === "Round Trip" ? [d("cngMinKmPerDay", "CNG minimum km per day", "km/day", base?.cng?.minKmPerDay)] : []),
+      ...(perDay ? [d("cngMinKmPerDay", "CNG minimum km per day", "km/day", base?.cng?.minKmPerDay)] : []),
     ];
     partner = [
       d("cngPartnerRate", "CNG partner pay per km", "₹/km", base?.cng?.partnerRate, "positive"),
@@ -99,6 +112,14 @@ function rowsOf(t: Tariff | null | undefined, scope: FareWorkspaceScope, card: M
   return rows;
 }
 
+/** The CNG table's columns: categories with CNG on. A class whose editing category has CNG off is edited under one that has it on. */
+function cngColumns(vehicles: VehicleCol[]): VehicleCol[] {
+  const on = vehicles.filter((v) => v.cng);
+  const owners = new Map<TariffClass, VehicleCol>();
+  for (const v of on) if (v.owner || !owners.has(v.cls)) owners.set(v.cls, v);
+  return on.map((v) => { const o = owners.get(v.cls)!; return { ...v, owner: o.id === v.id, ownerName: o.name }; });
+}
+
 export default function FareMatrix({ scope, cards, vehicles, fuel = "petrol", onDirtyChange, onBusyChange }: {
   scope: FareWorkspaceScope;
   /** Every active vehicle category, one column each (categories sharing a rate class mirror the one that edits it). */
@@ -117,7 +138,7 @@ export default function FareMatrix({ scope, cards, vehicles, fuel = "petrol", on
 
   const brand = scope.brand;
   const service = scope.service;
-  const showCng = fuel === "cng" && (service === "One Way" || service === "Round Trip");
+  const showCng = fuel === "cng" && service !== "Local Rental";
 
   const [forms, setForms] = useState<Record<string, Form>>({});
   const baseline = useRef<Record<string, string>>({});
@@ -129,6 +150,8 @@ export default function FareMatrix({ scope, cards, vehicles, fuel = "petrol", on
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [saveError, setSaveError] = useState<string | null>(null);
+  // A shared (All brands) price replaces the brands' own price in the same box, unless this is unticked.
+  const [allBrands, setAllBrands] = useState(true);
   // Hourly rental: which package value the table shows (fare, payout, km, …), and the vehicle whose packages are being generated.
   const [pkgField, setPkgField] = useState<PkgField>("customerFare");
   const [builderFor, setBuilderFor] = useState<TariffClass | null>(null);
@@ -210,6 +233,10 @@ export default function FareMatrix({ scope, cards, vehicles, fuel = "petrol", on
   const offeredHours = (cls: TariffClass) => RENTAL_HOURS.filter((h) => pkgOffered(cls, h));
 
   // ── The table ───────────────────────────────────────────────────────────────────────────────────────────────────
+  const cngOnly = showCng && cards.some((c) => c.categoryId);
+  const cngVehicles = cngOnly ? cngColumns(vehicles ?? []) : vehicles;
+  const shownCards = !cngOnly ? cards : cards.filter((c) => c.cng).map((c) => ({ ...c, name: cngVehicles?.find((v) => v.cls === c.cls && v.owner)?.name ?? c.name }));
+  const noCngVehicle = cngOnly && shownCards.length === 0;
   const rowsByCard = new Map(cards.map((c) => [c.cls, rowsOf(t, scope, c, showCng)]));
   const baseRows = rowsByCard.get(cards[0]?.cls as TariffClass) ?? [];
   const resolved = (cls: TariffClass, def: Def) => resolveRate(t, brand, service, cls, def.key, def.base);
@@ -235,17 +262,16 @@ export default function FareMatrix({ scope, cards, vehicles, fuel = "petrol", on
     const money = rows.filter((r) => r.group !== "extras").map((r) => r.def);
     const missing = money.filter((def) => def.need && !meets(c.cls, def)).map((def) => def.label);
     if (showCng) {
-      const started = money.some((def) => def.key.startsWith("cng") && effective(c.cls, def) !== undefined);
+      const started = money.some((def) => def.need && def.key.startsWith("cng") && effective(c.cls, def) !== undefined);
       if (!started) return { tone: "off", short: "Not offered", text: "CNG is not offered. Fill the CNG rates to offer it, or leave them blank." };
       if (missing.length) return { tone: "warn", short: "Incomplete", text: `CNG is not offered until these are filled: ${missing.join(", ")}.` };
-      if (!c.cng) return { tone: "warn", short: "CNG is off", text: "CNG rates are ready, but this vehicle does not offer CNG. Turn on CNG available for it in Vehicle categories." };
       return { tone: "ok", short: "Ready", text: "Customers can choose CNG or Diesel / Petrol." };
     }
     if (missing.length) return { tone: "warn", short: "Incomplete", text: `Customers are not quoted these fares until these are filled: ${missing.join(", ")}.` };
     return { tone: "ok", short: "Ready", text: "Ready." };
   };
   const statuses = new Map(cards.map((c) => [c.cls, statusOf(c)]));
-  const problems = cards.flatMap((c) => {
+  const problems = shownCards.flatMap((c) => {
     const s = statuses.get(c.cls)!;
     const out = s.tone === "ok" ? [] : [`${c.name}: ${s.text}`];
     const rows = rowsByCard.get(c.cls) ?? [];
@@ -287,13 +313,21 @@ export default function FareMatrix({ scope, cards, vehicles, fuel = "petrol", on
         const clearOverride = NUM_KEYS.every((k) => data[k] === null) && packages === 0;
         const saved = await saveTariffSection({ section: "brandOverride", brand, service, class: c.cls, expectedVersion: version, reason: reason.trim(), clearOverride, data });
         version = saved.version;
-        openedVersion.current = saved.version;
+        // Before the baseline moves: if a brand save fails the vehicle stays unsaved here, and saving again finishes the brands.
+        if (brand === "common" && allBrands) {
+          for (const sync of brandSyncFor(t, service, c.cls, JSON.parse(baseline.current[c.cls]!) as Form, form)) {
+            const next = await saveTariffSection({ section: "brandOverride", brand: sync.brand, service, class: c.cls, expectedVersion: version, reason: reason.trim(), data: sync.data });
+            version = next.version;
+          }
+        }
+        openedVersion.current = version;
         baseline.current[c.cls] = JSON.stringify(form);
         done.push(c.name);
       }
       setConfirmOpen(false);
       setReason("");
-      showToast(`Saved for ${where}. Bookings already made keep their price.`);
+      setAllBrands(true);
+      showToast(`Saved for ${where}${brand === "common" && allBrands ? " and applied to every brand" : ""}. Bookings already made keep their price.`);
     } catch (err) {
       const raw = err instanceof ActionError ? err.message.replace(/\s*\[\d{3}\]\s*$/, "") : "";
       const why = /changed by someone else/i.test(raw) ? "Someone else saved this fare. Reload the page, check the prices and save again." : raw || "Not saved. Please try again.";
@@ -304,6 +338,9 @@ export default function FareMatrix({ scope, cards, vehicles, fuel = "petrol", on
     }
   };
 
+  // The brands whose own prices the pending shared change would replace (shown before saving).
+  const replaced = brand !== "common" ? [] : changed.flatMap((c) =>
+    brandSyncFor(t, service, c.cls, JSON.parse(baseline.current[c.cls]!) as Form, forms[c.cls]!).map((x) => ({ ...x, vehicle: c.name })));
   const brandName = brand === "common" ? "All brands (shared)" : BRAND_LABELS[brand];
   const where = `${brandName} → ${serviceLabel(service)}${showCng ? " (CNG)" : ""}`;
 
@@ -336,7 +373,9 @@ export default function FareMatrix({ scope, cards, vehicles, fuel = "petrol", on
         title={<span className="flex flex-wrap items-center gap-2">{where}{isDirty ? <Badge tone="amber">Unsaved: {changed.map((c) => c.name).join(", ")}</Badge> : null}</span>}
         description={isRental
           ? "Each hour is one package. A package is offered once all five values are set (fare, payout, km, extra km, extra hour). Leave a box empty to use the shared price shown in grey."
-          : "Type a price to set it for this brand. Leave a box empty to use the shared price shown in grey."}
+          : brand === "common"
+            ? "A price you change here is applied to every brand. To give one brand a different price, choose that brand above."
+            : "A price you type here is for this brand only. Leave a box empty to use the shared price shown in grey."}
         footer={canEdit ? <SaveBar note={<SharedLegend />} onSave={() => { setSaveError(null); setConfirmOpen(true); }} busy={busy} disabled={!isDirty || busy || !!loadError || invalid} /> : <div className="fm-foot"><SharedLegend /></div>}>
         {isRental && (
           <CardBody className="fm-body--inline">
@@ -356,12 +395,12 @@ export default function FareMatrix({ scope, cards, vehicles, fuel = "petrol", on
             )}
           </CardBody>
         )}
-        <RateTable label={`Fares for ${where}`} disabled={!canEdit || busy || !!loadError}
+        {noCngVehicle ? <p className="fm-note" role="status">No vehicle has CNG turned on, so there are no CNG rates to set. Turn on CNG for a vehicle in Vehicle categories and it appears here.</p> : <RateTable label={`Fares for ${where}`} disabled={!canEdit || busy || !!loadError}
           columns={(() => {
             const statusOf = (cls: TariffClass) => { const s = statuses.get(cls); return s ? { tone: s.tone, text: s.short, title: s.text } : undefined; };
-            return vehicles?.length
-              ? vehicleColumns(vehicles, (cls) => cards.some((c) => c.cls === cls), statusOf)
-              : cards.map((c) => ({ key: c.cls, name: c.name, status: statusOf(c.cls) }));
+            return cngVehicles?.length
+              ? vehicleColumns(cngVehicles, (cls) => shownCards.some((c) => c.cls === cls), statusOf)
+              : shownCards.map((c) => ({ key: c.cls, name: c.name, status: statusOf(c.cls) }));
           })()}
           groups={[...(isRental ? [pkgGroup] : []), ...groups.map((g) => ({
             title: showCng && g !== "extras" ? `CNG · ${GROUP_TITLE[g]}` : GROUP_TITLE[g],
@@ -383,10 +422,10 @@ export default function FareMatrix({ scope, cards, vehicles, fuel = "petrol", on
                 };
               },
             })),
-          }))]} />
+          }))]} />}
         {invalid && <p className="ds-error m-3" role="alert">Enter numbers of 0 or more only.</p>}
         <Problems items={problems} />
-        {showCng && <p className="fm-note">Extra charges are the same for CNG and Diesel / Petrol. Set them with Fuel → Diesel / Petrol.</p>}
+        {showCng && !noCngVehicle && <p className="fm-note">Extra charges are the same for CNG and Diesel / Petrol. Set them with Fuel → Diesel / Petrol.</p>}
       </SettingCard>
 
 
@@ -414,6 +453,16 @@ export default function FareMatrix({ scope, cards, vehicles, fuel = "petrol", on
           footer={<><Button onClick={() => setConfirmOpen(false)} disabled={busy}>Cancel</Button><Button variant="primary" loading={busy} disabled={reason.trim().length < 5} onClick={executeSave}>Save</Button></>}>
           <p className="text-[13px] text-ink mb-1"><strong>{where}</strong></p>
           <p className="text-[12px] text-muted mb-2">Changed vehicles: {changed.map((c) => c.name).join(", ")}</p>
+          {brand === "common" && (
+            <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <label className="ds-check"><input type="checkbox" checked={allBrands} disabled={busy} onChange={(e) => setAllBrands(e.target.checked)} />Apply the changed prices to all brands</label>
+              <p className="mt-1 text-[12px] text-muted">{replaced.length === 0
+                ? "No brand has its own price in the boxes you changed, so every brand uses the new shared price."
+                : allBrands
+                  ? `These brand prices are replaced by the shared price: ${replaced.map((x) => `${x.name} · ${x.vehicle} (${x.count})`).join(", ")}.`
+                  : `These brands keep their own price: ${[...new Set(replaced.map((x) => x.name))].join(", ")}.`}</p>
+            </div>
+          )}
           <label className="ds-field"><span>Reason for change</span><input className="ds-input" value={reason} maxLength={300} onChange={(e) => setReason(e.target.value)} /></label>
           {saveError && <div className="ds-error mt-2" role="alert"><Icon name="circle-alert" /> {saveError}</div>}
         </Modal>

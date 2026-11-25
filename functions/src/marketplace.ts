@@ -125,18 +125,22 @@ function escalationOf(v: any, start: number, fare: number) {
 /**
  * Agreed expense & extra-km terms published with a duty (Master Admin "Publish duty"). Frozen on
  * the offer and the booking when published; a partner accepts the duty on these terms.
+ * The extra-km rates are never typed here: they are the ones Service & Fare Settings put in the booking's saved tariff
+ * (pricing.extraKmRatePaise for the customer, pricing.partner.ratePaise for the partner). A rate sent by an older client is
+ * checked and kept; a booking with no saved rate simply has none on its terms.
  */
 const TERM_KEYS = ['driverBata', 'toll', 'parking', 'stateTax', 'nightAllowance'] as const;
 const TERM_VALUES = ['Included', 'At actuals', 'Not applicable'];
-export function dutyTermsOf(v: any): DocumentData | null {
+export function dutyTermsOf(v: any, booking?: DocumentData | null): DocumentData | null {
   if (!v || typeof v !== 'object') return null;
-  const customerExtraKm = money(v.customerExtraKm);
-  const partnerExtraKm = money(v.partnerExtraKm);
-  if (!(customerExtraKm > 0) || !(partnerExtraKm > 0)) throw new HttpsError('invalid-argument', 'Enter separate positive customer and partner extra-km rates.');
-  if (customerExtraKm > 1000 || partnerExtraKm > 1000) throw new HttpsError('invalid-argument', 'Extra-km rates look too high. Check the ₹ / km values.');
+  const saved = (paise: unknown) => (typeof paise === 'number' && Number.isFinite(paise) && paise > 0 ? Math.round(paise) / 100 : 0);
+  const sent = (n: unknown) => money(n);
+  if (sent(v.customerExtraKm) > 1000 || sent(v.partnerExtraKm) > 1000) throw new HttpsError('invalid-argument', 'Extra-km rates look too high. Check the ₹ / km values.');
+  const customerExtraKm = sent(v.customerExtraKm) > 0 ? sent(v.customerExtraKm) : saved(booking?.pricing?.extraKmRatePaise);
+  const partnerExtraKm = sent(v.partnerExtraKm) > 0 ? sent(v.partnerExtraKm) : saved(booking?.pricing?.partner?.ratePaise);
   const items: Record<string, string> = {};
   for (const k of TERM_KEYS) items[k] = TERM_VALUES.includes(v.items?.[k]) ? v.items[k] : 'At actuals';
-  return { customerExtraKm, partnerExtraKm, items, receiptRequired: v.receiptRequired !== false };
+  return { ...(customerExtraKm > 0 ? { customerExtraKm } : {}), ...(partnerExtraKm > 0 ? { partnerExtraKm } : {}), items, receiptRequired: v.receiptRequired !== false };
 }
 
 // ── Publish to the marketplace ────────────────────────────────────────────
@@ -196,7 +200,6 @@ export const postBookingToMarketplace = onCall({ timeoutSeconds: 120 }, async (r
   const mode = request.data?.mode === 'bid_review' ? 'bid_review' : 'accept_offer';
   const esc = request.data?.escalation && typeof request.data.escalation === 'object' ? request.data.escalation : null;
   const cutoffMinutes = typeof request.data?.cutoffMinutes === 'number' && request.data.cutoffMinutes >= 0 && request.data.cutoffMinutes <= 10080 ? Math.round(request.data.cutoffMinutes) : 0;
-  const terms = dutyTermsOf(request.data?.terms);
   const note = text(request.data?.note, 300);
   const byCode = await db.collection('bookings').where('bookingId', '==', value).get();
   if (byCode.size > 1) throw new HttpsError('failed-precondition', 'Duplicate booking code. Use the document ID.');
@@ -216,7 +219,9 @@ export const postBookingToMarketplace = onCall({ timeoutSeconds: 120 }, async (r
     if (b.fareVerified !== true) throw new HttpsError('failed-precondition', 'Verify the fare first (Booking Details → Verify / set fare).');
     const categoryDoc = text(b.vehicleCategoryId) ? await tx.get(db.doc(`vehicle_categories/${text(b.vehicleCategoryId)}`)) : null;
     const category = categoryDoc?.exists ? mapCategory(categoryDoc.id, categoryDoc.data()!) : null;
-    const payout = resolvePayout(withPrivatePricing(b, privatePricing), policy, manual, admin, 'offer');
+    const priced = withPrivatePricing(b, privatePricing);
+    const payout = resolvePayout(priced, policy, manual, admin, 'offer');
+    const terms = dutyTermsOf(request.data?.terms, priced);
     const stamp = FieldValue.serverTimestamp();
     const pickupAt = pickupInstant(b);
     const offer = {

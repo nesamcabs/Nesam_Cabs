@@ -91,7 +91,9 @@ export interface AirportRates { customerBase: number; partnerBase: number }
  * Airport transfer rates of one class, resolved Common → brand. The base fare covers the first `includedKm`; every KM beyond
  * is charged at `extraKmRate` (customer) and paid at `partnerExtraKmRate` (partner). Any rate missing = not configured.
  */
-export interface AirportClassRates { customerBase?: number; partnerBase?: number; includedKm?: number; extraKmRate?: number; partnerExtraKmRate?: number; waitingPerHour?: number }
+export interface AirportClassRates { customerBase?: number; partnerBase?: number; includedKm?: number; extraKmRate?: number; partnerExtraKmRate?: number; waitingPerHour?: number; cng?: AirportCngRates }
+/** The airport CNG rate card of one class. Included KM unset = the standard included KM; waiting is the same on both fuels. */
+export type AirportCngRates = Pick<AirportClassRates, 'customerBase' | 'partnerBase' | 'includedKm' | 'extraKmRate' | 'partnerExtraKmRate'>;
 /** Local Pickup & Drop fare of one vehicle class in one city: max(road km, minKm) × rate. */
 export interface LocalFareEntry { minKm: number; customerRate: number; partnerRate: number; extraKmRate: number; waitingPerHour: number; enabled: boolean }
 /** Keyed by the canonical City record id in `locations`; `cityName` is a display copy only. */
@@ -136,7 +138,11 @@ export interface BrandFareOverride {
   customerBata?: number;
   partnerBata?: number;
   extraKmRate?: number;
-  /** CNG rate card (One Way and Round Trip): a brand can set its own, anything not set inherits Common. */
+  /** CNG rate card (One Way, Round Trip, Airport Taxi and Multicity): a brand can set its own, anything not set inherits Common. */
+  /** Airport Taxi CNG: base fare, partner base payout and the KM the base fare includes (cngPartnerRate / cngExtraKmRate are per extra KM). */
+  cngCustomerBase?: number;
+  cngPartnerBase?: number;
+  cngMinKm?: number;
   cngCustomerRate?: number;
   cngCustomerBata?: number;
   cngPartnerRate?: number;
@@ -387,7 +393,7 @@ function parseBrandOverrides(raw: unknown): TariffConfig['brandOverrides'] {
         if (isNum(rates.customerBata)) r.customerBata = rates.customerBata;
         if (isNum(rates.partnerBata)) r.partnerBata = rates.partnerBata;
         if (isNum(rates.extraKmRate)) r.extraKmRate = rates.extraKmRate;
-        for (const key of ['cngCustomerRate', 'cngCustomerBata', 'cngPartnerRate', 'cngPartnerBata', 'cngExtraKmRate', 'cngMinKmPerDay'] as const) if (isNum(rates[key])) r[key] = rates[key];
+        for (const key of ['cngCustomerBase', 'cngPartnerBase', 'cngMinKm', 'cngCustomerRate', 'cngCustomerBata', 'cngPartnerRate', 'cngPartnerBata', 'cngExtraKmRate', 'cngMinKmPerDay'] as const) if (isNum(rates[key])) r[key] = rates[key];
         if (isNum(rates.waitingPerHour)) r.waitingPerHour = rates.waitingPerHour;
         if (isNum(rates.hillCharge)) r.hillCharge = rates.hillCharge;
         if (isNum(rates.carrierCharge)) r.carrierCharge = rates.carrierCharge;
@@ -508,7 +514,15 @@ export function scopedTariffForBrand(
       }
     } else if (serviceKey === 'Airport Taxi') {
       const inherited = airportRatesFor(base, cls);
+      const cng: AirportCngRates = {
+        customerBase: pick(ov, 'cngCustomerBase', inherited.cng?.customerBase),
+        partnerBase: pick(ov, 'cngPartnerBase', inherited.cng?.partnerBase),
+        includedKm: pick(ov, 'cngMinKm', inherited.cng?.includedKm),
+        extraKmRate: pick(ov, 'cngExtraKmRate', inherited.cng?.extraKmRate),
+        partnerExtraKmRate: pick(ov, 'cngPartnerRate', inherited.cng?.partnerExtraKmRate),
+      };
       next.airportClasses![cls] = {
+        ...(Object.values(cng).some((v) => v !== undefined) ? { cng } : {}),
         customerBase: pick(ov, 'customerBase', inherited.customerBase),
         partnerBase: pick(ov, 'partnerBase', inherited.partnerBase),
         includedKm: pick(ov, 'minKm', inherited.includedKm),
@@ -549,10 +563,19 @@ export function airportRatesFor(cfg: TariffConfig, cls: TariffClass): AirportCla
 }
 
 /** The airport rates of a class when every one needed to quote is configured; null otherwise. */
-export function completeAirportRates(cfg: TariffConfig, cls: TariffClass): Required<Omit<AirportClassRates, 'waitingPerHour'>> & { waitingPerHour?: number } | null {
+export function completeAirportRates(cfg: TariffConfig, cls: TariffClass): Required<Omit<AirportClassRates, 'waitingPerHour' | 'cng'>> & { waitingPerHour?: number } | null {
   const r = airportRatesFor(cfg, cls);
   if (!isPos(r.customerBase) || !isPos(r.partnerBase) || !isPos(r.includedKm) || !isPos(r.extraKmRate) || !isNum(r.partnerExtraKmRate)) return null;
   return { customerBase: r.customerBase, partnerBase: r.partnerBase, includedKm: r.includedKm, extraKmRate: r.extraKmRate, partnerExtraKmRate: r.partnerExtraKmRate, ...(isNum(r.waitingPerHour) ? { waitingPerHour: r.waitingPerHour } : {}) };
+}
+
+/** The airport CNG rates of a class when its whole CNG card is configured; null otherwise (never a Diesel price in its place). */
+export function completeAirportCngRates(cfg: TariffConfig, cls: TariffClass): ReturnType<typeof completeAirportRates> {
+  const r = airportRatesFor(cfg, cls);
+  const c = r.cng;
+  const includedKm = c?.includedKm ?? r.includedKm;
+  if (!c || !isPos(c.customerBase) || !isPos(c.partnerBase) || !isPos(includedKm) || !isPos(c.extraKmRate) || !isNum(c.partnerExtraKmRate)) return null;
+  return { customerBase: c.customerBase, partnerBase: c.partnerBase, includedKm, extraKmRate: c.extraKmRate, partnerExtraKmRate: c.partnerExtraKmRate, ...(isNum(r.waitingPerHour) ? { waitingPerHour: r.waitingPerHour } : {}) };
 }
 
 /** Parses business_config/tariff_v2. Anything malformed is dropped (treated as not configured). */
@@ -1227,6 +1250,7 @@ export function quoteAirport(i: QuoteInput & { rates: NonNullable<ReturnType<typ
       schema: 2, source: 'tariff_v2', model: 'airport_transfer', tariffVersion: i.config.version, tariffClass: i.tariffClass, gstRate: i.config.gstRate,
       // Extra KM at trip end are counted beyond the larger of the quoted route and the included KM.
       quotedKm: km, includedKm: Math.max(km, r.includedKm), extraKmRatePaise: extraRatePaise, customerRatePaise: 0, customerBataPaise: 0,
+      ...(i.fuel === 'cng' ? { fuelType: 'cng' as const } : {}),
       ...(r.waitingPerHour !== undefined ? { waitingPerHourPaise: paise(r.waitingPerHour) } : {}),
       days: 1, minKmPerDay: r.includedKm, packagePaise, discount: fare.discount, adminAdjustment: 0,
       adjustmentPercent: i.adjustmentPercent ?? 0, adjustmentDirection: i.adjustmentDirection ?? 'increase',
@@ -1586,8 +1610,10 @@ export interface MulticityRates { customerRate: number; partnerRate: number; cus
 /**
  * Multicity rates of a class: the Round Trip rate card (a multi-day tour is billed the same way), then the Common Multicity
  * settings, then the brand's own. null when any rate is still missing after inheriting.
+ * With fuel 'cng' the same layers are read from the CNG card: its prices are never filled in from Diesel; only the daily
+ * minimum KM falls back to the standard one.
  */
-export function multicityRatesFor(cfg: TariffConfig, brand: string | undefined, cls: TariffClass): MulticityRates | null {
+export function multicityRatesFor(cfg: TariffConfig, brand: string | undefined, cls: TariffClass, fuel?: 'cng'): MulticityRates | null {
   const rt = classRates(cfg.roundTrip.classes, cls);
   const rtx = outstationExtraFor(cfg, cls, 'Round Trip');
   const r: Partial<MulticityRates> = { ...rt, extraKmRate: rtx?.extraKmRate, waitingPerHour: Number.isFinite(rtx?.waitingPerHour) ? rtx?.waitingPerHour : undefined };
@@ -1595,6 +1621,15 @@ export function multicityRatesFor(cfg: TariffConfig, brand: string | undefined, 
   for (const ov of layers) {
     if (!ov) continue;
     for (const key of ['customerRate', 'partnerRate', 'customerBata', 'partnerBata', 'minKmPerDay', 'extraKmRate', 'waitingPerHour'] as const) if (isNum(ov[key])) r[key] = ov[key];
+  }
+  if (fuel === 'cng') {
+    const c: Partial<CngRates> = { ...rt?.cng };
+    const keys = [['cngCustomerRate', 'customerRate'], ['cngPartnerRate', 'partnerRate'], ['cngCustomerBata', 'customerBata'], ['cngPartnerBata', 'partnerBata'], ['cngExtraKmRate', 'extraKmRate'], ['cngMinKmPerDay', 'minKmPerDay']] as const;
+    for (const ov of layers) for (const [from, to] of keys) if (ov && isNum(ov[from])) c[to] = ov[from];
+    const minKm = isPos(c.minKmPerDay) ? c.minKmPerDay : r.minKmPerDay;
+    const perExtraKm = c.extraKmRate ?? c.customerRate;
+    if (!isPos(c.customerRate) || !isNum(c.partnerRate) || !isNum(c.customerBata) || !isNum(c.partnerBata) || !isPos(minKm) || !isPos(perExtraKm)) return null;
+    return { customerRate: c.customerRate, partnerRate: c.partnerRate, customerBata: c.customerBata, partnerBata: c.partnerBata, minKmPerDay: minKm, extraKmRate: perExtraKm, ...(isNum(r.waitingPerHour) ? { waitingPerHour: r.waitingPerHour } : {}) };
   }
   const extraKmRate = r.extraKmRate ?? r.customerRate;
   if (!isPos(r.customerRate) || !isNum(r.partnerRate) || !isNum(r.customerBata) || !isNum(r.partnerBata) || !isPos(r.minKmPerDay) || !isPos(extraKmRate)) return null;

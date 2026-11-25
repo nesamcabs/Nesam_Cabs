@@ -15,6 +15,8 @@ import { GeoPlace, TripType } from './domain/types';
 import { requirePermission, text, requireAction } from './shared';
 import { parseFareScope } from './fareScope';
 import { childNames, isInside, parentOf } from './domain/placeZones';
+import { PINCODES_BY_CITY } from './domain/pincodeCities';
+import { placePincode } from './domain/hillStations';
 
 type Adjustment = { mode: 'Normal' | 'Increase' | 'Decrease'; percent: number };
 type Side = 'Pickup or drop' | 'Pickup only' | 'Drop only';
@@ -80,15 +82,48 @@ const stateText = (s: unknown) => { const v = typeof s === 'string' ? s.trim() :
 
 type PlaceExtras = { address?: string; city?: string; area?: string; state?: string };
 
+/** A rule's area that is a pincode (six digits) rather than an area name. */
+const PIN_AREA = /^[1-9]\d{5}$/;
+
+// The pincodes inside each city / district (generated from the India Post directory), as city name -> state code -> pincodes.
+let cityPins: Map<string, Map<string, Set<string>>> | null = null;
+function pinsOfCity(city: unknown, state: unknown): Set<string> | null {
+  if (!cityPins) {
+    cityPins = new Map();
+    for (const [key, pins] of Object.entries(PINCODES_BY_CITY)) {
+      const cut = key.indexOf('|');
+      const byState = cityPins.get(key.slice(cut + 1)) ?? new Map<string, Set<string>>();
+      byState.set(key.slice(0, cut), new Set(pins.split(' ')));
+      cityPins.set(key.slice(cut + 1), byState);
+    }
+  }
+  const byState = cityPins.get(norm(city));
+  if (!byState) return null;
+  const code = typeof state === 'string' ? state.trim() : '';
+  if (/^\d{2}$/.test(code)) return byState.get(code) ?? null;
+  // A state written as a name (or none): the city's pincodes in every state that has a city of that name.
+  const wanted = stateText(state);
+  const named = wanted ? [...byState].filter(([c]) => stateText(c) === wanted) : [...byState];
+  return named.length ? new Set(named.flatMap(([, set]) => [...set])) : null;
+}
+
 function placeMatches(rule: ServiceRule, p: GeoPlace): boolean {
   const x = p as GeoPlace & PlaceExtras;
   const hay = `${norm(p.name)} ${norm(x.address)} ${norm(x.city)} ${norm(x.area)} ${norm(x.state)}`;
   const { city, area, state } = rule.scope ?? {};
+  const pin = placePincode({ name: p.name, address: x.address, pincode: p.pincode });
+  if (PIN_AREA.test(norm(area))) {
+    // A pincode is unique across the country, so it needs no city or state in the address: the place just has to carry it.
+    const wanted = norm(area);
+    if (pin !== wanted && ![...`${hay} ${p.pincode ?? ''}`.matchAll(/(?<![\d-])([1-9]\d{5})(?![\d-])/g)].some((m) => m[1] === wanted)) return false;
+    return true;
+  }
   if (norm(area) && !hay.includes(norm(area))) return false;
   if (norm(city)) {
     // A city / district rule covers every area listed inside it (Erode covers Gobichettipalayam), and an area that is
-    // known to sit inside the rule's city needs no mention of the city in the address.
-    const inside = norm(area) ? isInside(city, area) : childNames(city).some((z) => hay.includes(z));
+    // known to sit inside the rule's city needs no mention of the city in the address. A pincode that belongs to the
+    // city / district covers an address that does not name it ("Periyakulam, Tamil Nadu 625601" is in Theni).
+    const inside = norm(area) ? isInside(city, area) : childNames(city).some((z) => hay.includes(z)) || (!!pin && !!pinsOfCity(city, state)?.has(pin));
     if (!hay.includes(norm(city)) && !inside) return false;
   }
   const ruleState = stateText(state);

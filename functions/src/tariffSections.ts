@@ -530,8 +530,9 @@ function applyBrandOverride(
     delete override.partnerBata;
   }
 
-  // CNG rate card (One Way and Round Trip): each field saved on its own; null removes it.
+  // CNG rate card (One Way, Round Trip, Airport Taxi and Multicity): each field saved on its own; null removes it.
   for (const [key, label, positive] of [
+    ['cngCustomerBase', 'CNG customer base fare', true], ['cngPartnerBase', 'CNG partner base payout', true], ['cngMinKm', 'CNG included kilometres', true],
     ['cngCustomerRate', 'CNG customer rate', true], ['cngPartnerRate', 'CNG partner rate', true],
     ['cngCustomerBata', 'CNG customer allowance', false], ['cngPartnerBata', 'CNG partner allowance', false],
     ['cngExtraKmRate', 'CNG extra kilometre rate', true], ['cngMinKmPerDay', 'CNG minimum kilometres per day', true],

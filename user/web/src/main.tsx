@@ -15,7 +15,6 @@ import './styles/forms.css';
 import './styles/mobile.css';
 import './styles/bookform.css';
 import './styles/compact.css';
-import './styles/localtaxi.css';
 import './styles/theme.css';
 import './styles/brand.css';
 import './styles/bottom-nav.css';
@@ -47,7 +46,6 @@ prefetchWhenIdle([
   () => import('@/pages/book/DonePage'),
   () => import('@/pages/ride/RidePage'),
   () => import('@/pages/TripsPage'),
-  () => import('@/pages/localTaxi/LocalTaxiPage'),
   () => import('@/pages/localRentals/LocalRentalsPage'),
   () => import('@/pages/AccountPage'),
 ]);

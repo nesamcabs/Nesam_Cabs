@@ -24,7 +24,7 @@ import { canAccessPage } from "../../config/permissions";
 export default function OfficeDashboard({ onNavigate, onSelectBooking }: {
   onNavigate: (page: string, tab?: string) => void;
   onSelectBooking: (id: string) => void;
-  onNewBooking?: () => void;
+  onQuickFare?: () => void;
 }) {
   const data = useOfficeData();
   const now = useNow(30000);

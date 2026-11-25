@@ -56,13 +56,11 @@ const errText = (e: unknown, fallback: string) => (e instanceof Error && e.messa
  * changed fare). Advance and full payment are offered only when the trip's payment rules allow them and Razorpay is
  * configured; the link is the one the server created. Nothing here invents an ID, a payment or a delivery.
  */
-export default function ConfirmBookingDialog({ target, customers, onBooked, onFullForm, onClose }: {
+export default function ConfirmBookingDialog({ target, customers, onBooked, onClose }: {
   target: BookTarget;
   customers: Customer[];
   /** After the booking exists: mark the follow-up converted. Resolves to a problem to show, or null. */
   onBooked: (r: BookedResult) => Promise<string | null>;
-  /** The New booking form with this trip and vehicle (flight, passenger, discount, terms). */
-  onFullForm?: () => void;
   onClose: () => void;
 }) {
   const { trip, snapshot: s, line, enquiry } = target;
@@ -295,12 +293,6 @@ export default function ConfirmBookingDialog({ target, customers, onBooked, onFu
           {busy ? <LoaderCircle className="w-4 h-4 animate-spin" aria-hidden="true" /> : <CircleCheck className="w-4 h-4" aria-hidden="true" />}
           <span>{busy ? "Creating Booking…" : plan === "later" ? "Confirm Booking (Pay Later)" : `Confirm & Create Razorpay Link (${formatINR(payNow)})`}</span>
         </button>
-        {onFullForm && (
-          <p className="text-center text-[11px] text-slate-500">
-            Need a flight number, another passenger or a discount?{" "}
-            <button type="button" disabled={busy} onClick={onFullForm} className="font-semibold text-[#991B1B] hover:underline">Open the full booking form</button>
-          </p>
-        )}
       </div>
     </DeskDialog>
   );

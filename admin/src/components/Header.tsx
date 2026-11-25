@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
-import { AlarmClock, Bell, Calculator, CalendarPlus, ChevronDown, ClipboardClock, ListFilter, Lock, LogOut, Menu, Plus, Search, Settings2, ShieldCheck, UserRound, Volume2, VolumeX } from "lucide-react";
+import { AlarmClock, Bell, Calculator, CalendarPlus, ChevronDown, ClipboardClock, ListFilter, Lock, LogOut, Menu, Search, Settings2, ShieldCheck, UserRound, Volume2, VolumeX } from "lucide-react";
 import { countAwaitingAssignment, countNewBookings } from "../hooks/useNavBadges";
 import { CATEGORY_LABEL, TONE_CLASSES, categoryOf, ctaLabelOf, toneOf } from "../services/notificationModel";
 import { useNotifications } from "./NotificationHost";
@@ -18,7 +18,6 @@ interface HeaderProps {
   onNavigate: (page: string) => void;
   /** Opens a page or, with a booking id, that booking's details. */
   onOpen: (page: string, bookingId?: string) => void;
-  onCreateBooking?: () => void;
   /** Opens the Quick fare page. */
   onQuickFare?: () => void;
   onOpenMenu: () => void;
@@ -37,11 +36,11 @@ const ICON = "w-[19px] h-[19px] shrink-0";
  * Width tiers, measured on the header's own content width (a container query), so the collapsed / expanded sidebar
  * and the phone drawer are all accounted for. Every tier keeps every control, in the same order:
  *   Alerts · New / Pending / Reminders / Sound · Command / Dispatch Desk · All Sources · (space) · Search records… ·
- *   Quick Fare · New Booking · | · Lock · Logout · Security · Profile
- *   XS  < 740px    phones    rows: menu · alerts · status | desk · source | search · Quick Fare · New Booking · utilities
+ *   Quick Fare · | · Lock · Logout · Security · Profile
+ *   XS  < 740px    phones    rows: menu · alerts · status | desk · source | search · Quick Fare · utilities
  *                            (under 520px the utilities take a fourth row, right-aligned)
  *   S   740–1339   tablets, laptops with the sidebar open   2 rows: alerts … source | search … profile
- *   M   1340–1539  one row; short desk names, 176px search, Quick Fare and New Booking labelled
+ *   M   1340–1539  one row; short desk names, 176px search, Quick Fare labelled
  *   L   ≥ 1540     one row; every label, 220px search with the shortcut hint (profile name from 1680)
  * Controls are 40px tall (36px only on the narrowest phones, under 330px).
  */
@@ -99,9 +98,9 @@ function StatusCount({ icon: Icon, label, value, loading, error, iconClass, desc
 /**
  * The one admin header, rendered by the app shell for every page (the same controls, order and size on each route):
  * Alerts · New / Pending / Reminders / Sound · Command / Dispatch Desk · All Sources · Search records · Quick Fare ·
- * New Booking · Lock · Sign out · Security · Profile. Wide screens keep one row; narrower ones wrap in the same order.
+ * Lock · Sign out · Security · Profile. Wide screens keep one row; narrower ones wrap in the same order.
  */
-export default function Header({ title, onNavigate, onOpen, onCreateBooking, onQuickFare, onOpenMenu, userName, userEmail, userRole, onSignOut }: HeaderProps) {
+export default function Header({ title, onNavigate, onOpen, onQuickFare, onOpenMenu, userName, userEmail, userRole, onSignOut }: HeaderProps) {
   const [sheet, setSheet] = useState<Sheet>(null);
   const [locked, setLocked] = useState(false);
   const access = useAccess();
@@ -240,15 +239,6 @@ export default function Header({ title, onNavigate, onOpen, onCreateBooking, onQ
               className={`${CRIMSON} ${SQUARE} @min-[740px]:w-auto @min-[740px]:px-4 @min-[1340px]:px-3.5 @min-[1540px]:px-4`}>
               <Calculator className={ICON} strokeWidth={STROKE} aria-hidden="true" />
               <span className="whitespace-nowrap hidden @min-[740px]:inline">Quick Fare</span>
-            </button>
-          )}
-
-          {/* 7 · New Booking */}
-          {onCreateBooking && (
-            <button type="button" onClick={onCreateBooking} aria-label="New Booking" title="New Booking"
-              className={`${CRIMSON} ${SQUARE} @min-[740px]:w-auto @min-[740px]:px-4`}>
-              <Plus className={ICON} strokeWidth={2.1} aria-hidden="true" />
-              <span className="whitespace-nowrap hidden @min-[740px]:inline">New Booking</span>
             </button>
           )}
 

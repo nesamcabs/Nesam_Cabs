@@ -86,7 +86,7 @@ const categoryColors: Record<string, string> = {
 interface DashboardProps {
   onNavigate: (page: string, tab?: string) => void;
   onSelectBooking: (id: string) => void;
-  onNewBooking: () => void;
+  onQuickFare: () => void;
   badges?: NavBadges;
 }
 
@@ -102,9 +102,9 @@ export default function Dashboard(props: DashboardProps) {
   const workspace = hasCommandDesk(access) ? (
     <MasterDashboard {...props} />
   ) : access.permissions.includes("operations") ? (
-    <OfficeDashboard onNavigate={props.onNavigate} onSelectBooking={props.onSelectBooking} onNewBooking={props.onNewBooking} />
+    <OfficeDashboard onNavigate={props.onNavigate} onSelectBooking={props.onSelectBooking} onQuickFare={props.onQuickFare} />
   ) : null;
-  return <StaffDashboard access={access} badges={props.badges} onNavigate={props.onNavigate} onNewBooking={props.onNewBooking} workspace={workspace} />;
+  return <StaffDashboard access={access} badges={props.badges} onNavigate={props.onNavigate} onQuickFare={props.onQuickFare} workspace={workspace} />;
 }
 
 type DashboardView = "command" | "trips" | "analytics" | "dispatch";
@@ -114,7 +114,7 @@ type CommandView = "command" | "trips" | "analytics";
 function MasterDashboard({
   onNavigate,
   onSelectBooking,
-  onNewBooking,
+  onQuickFare,
 }: DashboardProps) {
   // The desk and booking source are chosen in the app header (on every page) and kept while navigating.
   const { desk, request: deskRequest, source: sourceScope } = useDesk();
@@ -1023,7 +1023,7 @@ function MasterDashboard({
           <OfficeDashboard
             onNavigate={onNavigate}
             onSelectBooking={onSelectBooking}
-            onNewBooking={onNewBooking}
+            onQuickFare={onQuickFare}
           />
           <OperationsSection
             bookings={liveBookings}

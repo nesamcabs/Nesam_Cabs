@@ -17,7 +17,7 @@ export interface RateColumn {
 }
 
 /** One active vehicle category and the rate class it is priced as (Vehicle categories → "Priced as"). */
-export interface VehicleCol { id: string; name: string; cls: TariffClass; owner: boolean; ownerName: string }
+export interface VehicleCol { id: string; name: string; cls: TariffClass; owner: boolean; ownerName: string; /** CNG is turned on for this category (Vehicle categories). */ cng?: boolean }
 
 /**
  * The columns of a fare table: one per vehicle category, in display order. The category that edits a rate class is keyed by the
@@ -56,6 +56,8 @@ export interface RateRow {
   key: string; label: string; unit?: string; required?: boolean; cell: (column: string) => RateCell;
   /** A setting that is the same for every vehicle (a package's name, hours ...): one control spanning all the vehicle columns. */
   shared?: ReactNode;
+  /** A control beside the row name, in the column that stays visible when the table scrolls sideways. */
+  action?: ReactNode;
 }
 export interface RateGroup { title: string; rows: RateRow[]; /** Stable key when titles can repeat or change while typing. */ id?: string }
 
@@ -108,6 +110,7 @@ export function RateTable({ label, columns, groups, disabled, corner = "", corne
                       <span className="fm-field__row">
                         <span className="fm-field__label">{r.label}{r.required ? <b className="fm-req" title="Required">*</b> : null}</span>
                         {r.unit ? <span className="fm-field__unit">{r.unit}</span> : null}
+                        {r.action}
                       </span>
                     </th>
                     {r.shared !== undefined ? <td colSpan={columns.length} className="fm-sharedcell">{r.shared}</td> : columns.map((c) => {

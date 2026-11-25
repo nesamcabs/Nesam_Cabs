@@ -47,20 +47,17 @@ import SecurityEvents from "./pages/SecurityEvents";
 import LegalDocuments from "./pages/LegalDocuments";
 import LegalGate from "./components/LegalGate";
 import B2BIntegrations from "./pages/B2BIntegrations";
-import NewBooking, { type NewBookingDraft } from "./pages/NewBooking";
 import QuickFare from "./pages/QuickFare";
-import { emptyTrip } from "./components/booking/QuickFare";
 import BusinessAccounts from "./pages/BusinessAccounts";
 import VendorDrivers from "./pages/VendorDrivers";
 import Verification from "./pages/Verification";
 import Accounts from "./pages/Accounts";
 import FullFinal from "./pages/FullFinal";
-import type { Enquiry } from "./services/enquiryService";
 import { AccessProvider } from "./components/AccessContext";
 import { endStaffSession, logActivity, startStaffSession } from "./services/staffSessionService";
 import { NotificationProvider } from "./components/NotificationHost";
 import { Toast, useToast } from "./components/Feedback";
-import { canAccessPage, canExportFrom, landingPage, needsRedactedBookings } from "./config/permissions";
+import { canAccessPage, canDo, canExportFrom, landingPage, needsRedactedBookings } from "./config/permissions";
 import { setRedactedBookingReads, setRedactedCustomerReads } from "./services/adminFirestoreService";
 import { setExportGuard } from "./utils/exportData";
 import { useNavBadges } from "./hooks/useNavBadges";
@@ -74,7 +71,6 @@ import { PermissionDenied } from "./components/ui";
 const pageMeta: Record<string, { title: string; breadcrumb: string[] }> = {
   dashboard: { title: "Dashboard", breadcrumb: ["Operations"] },
   bookings: { title: "All Bookings", breadcrumb: ["Operations", "Bookings"] },
-  "new-booking": { title: "Bookings", breadcrumb: ["Operations", "Bookings"] },
   "quick-fare": { title: "Quick fare", breadcrumb: ["Operations", "Quick fare"] },
   business: { title: "Business accounts", breadcrumb: ["People & Fleet", ""] },
   "vendor-drivers": { title: "Vendor Drivers", breadcrumb: ["People & Fleet", ""] },
@@ -134,10 +130,10 @@ function AdminShell({ session }: { session: AdminSession }) {
   );
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const badges = useNavBadges(session.access);
-  const [draft, setDraft] = useState<NewBookingDraft | null>(null);
   const [bookingsTab, setBookingsTab] = useState<string | undefined>(undefined);
   const { toast, show: showToast } = useToast(9000);
-  const canCreateBooking = canAccessPage(session.access, "new-booking");
+  // Creating a booking needs the Bookings → Create right; Quick Fare hides its Book buttons without it.
+  const canCreateBooking = canDo(session.access, "Bookings", "create");
   const canQuickFare = canAccessPage(session.access, "quick-fare");
   // Dashboard desk and booking source: chosen in the header on any page, kept while navigating.
   const [desk, setDesk] = useState<DeskId>(() => loadDeskPrefs().desk);
@@ -146,13 +142,6 @@ function AdminShell({ session }: { session: AdminSession }) {
   useEffect(() => saveDeskPrefs({ desk, source }), [desk, source]);
 
   const currentPage = selectedBookingId ? "booking-detail" : activePage;
-  const openNewBooking = (d: NewBookingDraft | null = null) => {
-    if (!canLeaveFareWorkspace()) return;
-    setDraft(d);
-    setSelectedBookingId(null);
-    setActivePage("new-booking");
-    setMobileNavOpen(false);
-  };
   const baseMeta = pageMeta[currentPage] || pageMeta["dashboard"];
   // The top bar names the page the way the sidebar does; detail screens keep their own title.
   const navLabel = NAV_GROUPS.flatMap((g) => g.items).find((i) => i.id === currentPage)?.label;
@@ -223,7 +212,7 @@ function AdminShell({ session }: { session: AdminSession }) {
     <Dashboard
       onNavigate={navigate}
       onSelectBooking={(id) => setSelectedBookingId(id)}
-      onNewBooking={() => openNewBooking()}
+      onQuickFare={() => navigate("quick-fare")}
       badges={badges}
     />
   );
@@ -256,33 +245,19 @@ function AdminShell({ session }: { session: AdminSession }) {
             key={bookingsTab ?? "default"}
             initialTab={bookingsTab}
             onSelectBooking={(id) => setSelectedBookingId(id)}
-            onNewBooking={() => openNewBooking()}
-            onConvertEnquiry={(e: Enquiry) => openNewBooking({ trip: undefined as never, categoryId: e.categoryId || "", estimates: undefined as never, enquiry: e })}
+            onQuickFare={() => navigate("quick-fare")}
           />
         );
       case "quick-fare":
         return (
           <QuickFare
-            onNewBooking={canCreateBooking ? (d) => openNewBooking(d) : undefined}
+            canBook={canCreateBooking}
             onNavigate={(page, tab) => navigate(page, tab)}
             onSelectBooking={(id) => {
               setActivePage("bookings");
               setSelectedBookingId(id);
             }}
             onEnquirySaved={() => showToast("Enquiry saved. The fare and terms are retained.")}
-          />
-        );
-      case "new-booking":
-        return (
-          <NewBooking
-            key={draft?.enquiry?.id ?? draft?.categoryId ?? "new"}
-            draft={draft}
-            onCancel={() => navigate("bookings")}
-            onEnquirySaved={() => { showToast("Enquiry saved. The fare and terms are retained."); navigate("bookings", "Enquiries"); }}
-            onCreated={(b) => {
-              showToast(`Booking ${b.bookingId} created and waiting for approval.`);
-              openTarget("booking-detail", b.id);
-            }}
           />
         );
       case "marketplace":
@@ -295,11 +270,11 @@ function AdminShell({ session }: { session: AdminSession }) {
         return (
           <Customers
             onNavigate={navigate}
-            onBookCustomer={canCreateBooking ? (c) => openNewBooking({ trip: emptyTrip(), categoryId: "", customer: { id: c.id, name: c.name, email: c.email, phoneMasked: c.phoneMasked, preferredCab: c.preferredCab, preferredDriver: c.preferredDriver } }) : undefined}
+            onBookCustomer={canCreateBooking ? () => navigate("quick-fare") : undefined}
           />
         );
       case "business":
-        return <BusinessAccounts onQuote={(businessId) => openNewBooking({ trip: { ...emptyTrip(), businessId }, categoryId: "" })} />;
+        return <BusinessAccounts onQuote={() => navigate("quick-fare")} />;
       case "vendor-drivers":
         return <VendorDrivers onOpenBooking={(id) => openTarget("booking-detail", id)} onNavigate={navigate} />;
       case "verification":
@@ -431,7 +406,6 @@ function AdminShell({ session }: { session: AdminSession }) {
           breadcrumb={meta.breadcrumb}
           onNavigate={navigate}
           onOpen={openTarget}
-          onCreateBooking={canCreateBooking ? () => openNewBooking() : undefined}
           onQuickFare={canQuickFare ? () => navigate("quick-fare") : undefined}
           onOpenMenu={() => setMobileNavOpen(true)}
           userName={session.user.displayName}

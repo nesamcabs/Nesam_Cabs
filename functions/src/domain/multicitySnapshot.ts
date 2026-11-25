@@ -14,7 +14,7 @@ export function multicityFingerprint(e: Record<string, any>): string {
 }
 
 export function multicityBookingAmounts(q: MulticityQuote, meta: {
-  tariffVersion: number; tariffClass: PricingSnapshot['tariffClass']; brand: string; pickupMs: number; endMs: number; durationMin: number; gst: GstSnapshot | null;
+  tariffVersion: number; tariffClass: PricingSnapshot['tariffClass']; brand: string; pickupMs: number; endMs: number; durationMin: number; gst: GstSnapshot | null; fuel?: 'cng';
 }): { pricing: PricingSnapshot; fare: FareBreakdown } {
   const net = (value: number) => q.gstIncluded ? taxableFromInclusivePaise(value, q.gstRate) : value;
   const distanceFare = net(q.distancePaise) / 100;
@@ -32,6 +32,7 @@ export function multicityBookingAmounts(q: MulticityQuote, meta: {
     schema: 2, source: 'tariff_v2', model: 'round_trip_calendar', tariffVersion: meta.tariffVersion,
     tariffClass: meta.tariffClass, brand: meta.brand, gstRate: q.gstRate, gstInFare: q.gstIncluded,
     ...(meta.gst ? { gst: meta.gst } : {}),
+    ...(meta.fuel === 'cng' ? { fuelType: 'cng' as const } : {}),
     quotedKm: q.totalKm, includedKm: q.billableKm, extraKmRatePaise: net(paise(q.rates.extraKmRate)),
     customerRatePaise: net(paise(q.rates.customerRate)), customerBataPaise: net(paise(q.rates.customerBata)),
     days: q.days, minKmPerDay: q.rates.minKmPerDay, packagePaise: q.taxablePaise,
