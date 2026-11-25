@@ -21,7 +21,8 @@ export interface ServiceRule {
   name: string;
   status: RuleStatus;
   priority: number;
-  scope: { state: string; city: string; area: string; side: Side };
+  /** `zoneId` / `zoneName`: a Service Zone of the district in `city` (matched by the zone's pincodes on the server). */
+  scope: { state: string; city: string; area: string; side: Side; zoneId?: string; zoneName?: string };
   service: string;
   schedule: { mode: "Always" | "Range"; from?: string; to?: string };
   availability?: "Available" | "Limited" | "Paused";

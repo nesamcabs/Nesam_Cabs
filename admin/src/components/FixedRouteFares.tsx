@@ -4,8 +4,8 @@ import { subscribeFareRules, subscribeLocations, subscribeVehicleCategories } fr
 import { saveFixedRouteFare } from "../services/bookingOpsService";
 import { saveLocation, deriveLocationCode, type LocationForm } from "../services/locationService";
 import { auth } from "../services/firebase";
-import { CITIES_BY_STATE } from "../domain/placeDirectory";
-import { GST_STATES } from "../domain/gstStates";
+import LocationScopeSelector from "./location/LocationScopeSelector";
+import { EMPTY_SEL, indexLocations, selOfLocation, stateNameOf, type LocSel } from "../domain/locationHierarchy";
 import { ActionError } from "../services/callables";
 import { BRAND_LABELS, inr, type FareWorkspaceScope } from "../services/tariffService";
 import { useCan, useCanDo } from "./AccessContext";
@@ -67,29 +67,34 @@ export default function FixedRouteFares({ onToast, scope = { brand: "common", se
     .sort((a, b) => (a.displayOrder || 99) - (b.displayOrder || 99))
     .map((c) => ({ key: c.id, name: c.name })), [categories, editing]);
 
-  // Built-in cities that are not in Locations yet: choosing one adds it to Locations as an active City, then selects it.
-  const builtIn = useMemo(() => {
-    const have = new Set(locations.filter((l) => l.type === "City").map((l) => (l.name || l.city).trim().toLowerCase()));
-    const out: { key: string; name: string; state: string }[] = [];
-    for (const [code, names] of Object.entries(CITIES_BY_STATE)) {
-      const state = GST_STATES.find(([c]) => c === code)?.[1] ?? code;
-      for (const name of names) if (!have.has(name.toLowerCase())) out.push({ key: `new:${name}`, name, state });
-    }
-    return out;
-  }, [locations]);
+  // Pickup and drop are chosen independently with the shared location selector. A route fare is matched on the exact Locations
+  // record (as before): the endpoint is the chosen area / city / village, or a chosen service zone record. Broad scopes are not endpoints.
+  const index = useMemo(() => indexLocations(locations), [locations]);
+  const [sels, setSels] = useState<{ origin: LocSel; dest: LocSel }>({ origin: EMPTY_SEL, dest: EMPTY_SEL });
+  const endpointOf = (x: LocSel) => x.locationId || x.zoneId;
+  useEffect(() => {
+    // An edit, copy, reverse or reset sets the ids: show them in the selectors (never the other way round).
+    setSels((cur) => ({
+      origin: endpointOf(cur.origin) === f.origin ? cur.origin : f.origin ? selOfLocation(f.origin, index) ?? EMPTY_SEL : EMPTY_SEL,
+      dest: endpointOf(cur.dest) === f.dest ? cur.dest : f.dest ? selOfLocation(f.dest, index) ?? EMPTY_SEL : EMPTY_SEL,
+    }));
+  }, [f.origin, f.dest, index]);
+  const pickSide = (side: "origin" | "dest", next: LocSel) => { setSels((cur) => ({ ...cur, [side]: next })); set({ [side]: endpointOf(next) } as Partial<Form>); };
+  // Add location: a district chosen with no saved City record of that name can be added to Locations as an active City (the
+  // existing "add from the built-in list" operation), then becomes the endpoint.
   const [adding, setAdding] = useState(false);
-  const pickPlace = async (side: "origin" | "dest", value: string) => {
-    if (!value.startsWith("new:")) return set({ [side]: value } as Partial<Form>);
-    const entry = builtIn.find((b) => b.key === value);
-    if (!entry || adding) return;
+  const addCity = async (side: "origin" | "dest") => {
+    const x = sels[side];
+    if (!x.state || !x.district || adding) return;
     setAdding(true);
     const form: LocationForm = {
-      name: entry.name, code: deriveLocationCode(entry.name), type: "City", state: entry.state, district: "", city: entry.name, area: "", pincode: "", address: "",
+      name: x.district, code: deriveLocationCode(x.district), type: "City", state: stateNameOf(x.state), district: x.district, city: x.district, area: "", pincode: "", address: "",
       parentLocationId: "", lat: "", lng: "", placeId: "", pickupEnabled: true, dropEnabled: true, onlineBookingEnabled: true, adminBookingEnabled: true,
       serviceIds: [], status: "Active", displayOrder: locations.length + 1,
     };
     try {
       const saved = await saveLocation(form, null, locations, auth.currentUser?.uid || "");
+      setSels((cur) => ({ ...cur, [side]: { ...x, locationId: saved.id } }));
       set({ [side]: saved.id } as Partial<Form>);
     } catch (err) {
       setMessage({ ok: false, text: err instanceof Error ? err.message : "The city could not be added to Locations." });
@@ -97,13 +102,18 @@ export default function FixedRouteFares({ onToast, scope = { brand: "common", se
       setAdding(false);
     }
   };
-  const pickLocations = locations.filter((l) => l.status === "Active" || l.id === f.origin || l.id === f.dest);
-  const placeOptions = (
-    <>
-      {pickLocations.length > 0 && <optgroup label="In Locations">{pickLocations.map((l) => <option key={l.id} value={l.id}>{l.name}{l.city && l.city !== l.name ? ` (${l.city})` : ""}</option>)}</optgroup>}
-      {canEdit && builtIn.length > 0 && <optgroup label="Add city from the built-in list">{builtIn.map((b) => <option key={b.key} value={b.key}>{b.name} · {b.state}</option>)}</optgroup>}
-    </>
-  );
+  const endpoint = (side: "origin" | "dest") => {
+    const x = sels[side];
+    const cityMissing = x.district && !endpointOf(x) && !index.some((i) => i.loc.type === "City" && i.state === x.state && i.loc.name.trim().toLowerCase() === x.district.toLowerCase());
+    return (
+      <div className="fm-mini">
+        <span>{side === "origin" ? "Pickup place" : "Drop place"}</span>
+        <LocationScopeSelector variant="row" label={side === "origin" ? "Pickup place" : "Drop place"} value={x} onChange={(next) => pickSide(side, next)} locations={locations} depth="area"
+          pinSearch="locate" disabled={busy || adding} broad={{ zone: "All zones" }}
+          action={canEdit && cityMissing ? <Button size="sm" icon="plus" loading={adding} onClick={() => void addCity(side)}>Add {x.district} to Locations</Button> : undefined} />
+      </div>
+    );
+  };
 
   const used = columns.filter((c) => (fares[c.key]?.fare ?? "").trim() !== "" || (fares[c.key]?.payout ?? "").trim() !== "");
   const touched = !!(f.origin || f.dest || used.length);
@@ -266,16 +276,9 @@ export default function FixedRouteFares({ onToast, scope = { brand: "common", se
             note={editing ? <>Changing one cab. <button type="button" className="fm-linkbtn" onClick={reset}>Cancel change</button></> : "Type a fare under each cab that should have one. Cabs left empty keep the normal pricing."} message={message} />}>
           <CardBody>
             <div className="fm-mini-grid">
-              <label className="fm-mini"><span>Pickup place</span>
-                <select className="ds-select" value={f.origin} onChange={(e) => void pickPlace("origin", e.target.value)} disabled={busy || adding}>
-                  <option value="">{adding ? "Adding city…" : "Choose pickup"}</option>{placeOptions}
-                </select>
-              </label>
-              <label className="fm-mini"><span>Drop place</span>
-                <select className="ds-select" value={f.dest} onChange={(e) => void pickPlace("dest", e.target.value)} disabled={busy || adding}>
-                  <option value="">{adding ? "Adding city…" : "Choose drop"}</option>{placeOptions}
-                </select>
-              </label>
+            </div>
+            <div className="grid gap-3">{endpoint("origin")}{endpoint("dest")}</div>
+            <div className="fm-mini-grid mt-3">
               <label className="fm-mini"><span>Direction</span>
                 <select className="ds-select" value={f.direction} onChange={(e) => set({ direction: e.target.value })}>
                   <option value="one">This direction only</option>

@@ -78,6 +78,10 @@ export interface FareBreakdown {
   platformFee?: number;
   /** Hill Station Allowance / Charge included in the taxable amount (before GST); absent when there is none. */
   hillCharge?: number;
+  /** Scheduled peak-hour charge included in the taxable amount (before GST); absent when none applied (see domain/peakCharge.ts). */
+  peakCharge?: number;
+  /** Local airport entry fee: a pass-through outside the taxable amount, included in the total; absent when none. */
+  airportEntry?: number;
   driverAllowance: number;
   minimumFareAdjustment: number;
   /** Pre-GST difference from an admin-authorised fare override (see bookings.fareOverride). */

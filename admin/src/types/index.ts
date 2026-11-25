@@ -671,6 +671,8 @@ export interface TourPackage {
 export type LocationType =
   | "City"
   | "Area / Locality"
+  /** A business service zone inside a district (its pincodes say which areas it covers); never an administrative district. */
+  | "Service Zone"
   | "Airport"
   | "Railway Station"
   | "Bus Stand"

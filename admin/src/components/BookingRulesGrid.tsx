@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { rankRules, saveRule, setRuleStatus, type RuleKind, type ServiceRule } from "../services/serviceRulesService";
 import { BRAND_LABELS, serviceLabel, type FareWorkspaceScope } from "../services/tariffService";
 import { Button, Icon } from "./ui";
-import PincodePicker from "./PincodePicker";
 import { Modal } from "./Feedback";
 import { parentOf } from "../domain/placeZones";
 import { isPincode } from "../domain/pincodes";
-import { usePincodeScope } from "../hooks/usePincodeScope";
+import type { MasterLocation } from "../types";
+import LocationScopeSelector from "./location/LocationScopeSelector";
+import { EMPTY_SEL, indexLocations, pinsOfLocation, rulePlaceLabel, rulePlacesOf, type LocSel } from "../domain/locationHierarchy";
 import { CardBody, Problems, RateTable, SaveBar, SettingCard, type RateColumn, type RateRow, type VehicleCol } from "./RateTable";
 
 // Booking rules on one page: one row per place, and across the top whether bookings are open and which cabs customers see.
@@ -15,21 +16,25 @@ import { CardBody, Problems, RateTable, SaveBar, SettingCard, type RateColumn, t
 // A row that is not set here follows the wider place above it. Rules with dates, pickup-only / drop-only rules and switched-off
 // rules are not table cells; they stay in the list under the table.
 
-export interface Place { state: string; city: string; area: string }
+/** A booking-rule place: state code, city / district name, area name or pincode, and optionally a Service Zone of the district. */
+export interface Place { state: string; city: string; area: string; zoneId?: string; zoneName?: string }
 type Avail = "Available" | "Limited" | "Paused";
 type Draft = { avail?: "" | Avail; cats?: string[] | null };
 
 const AVAIL: Avail[] = ["Available", "Limited", "Paused"];
-const keyOf = (p: Place) => `${p.state}|${p.city}|${p.area}`;
+const keyOf = (p: Place) => `${p.state}|${p.city}|${p.area}${p.zoneId ? `|z:${p.zoneId}` : ""}`;
+export const placeOf = (s: ServiceRule["scope"]): Place => ({ state: s.state, city: s.city, area: s.area, ...(s.zoneId ? { zoneId: s.zoneId, zoneName: s.zoneName } : {}) });
 const norm = (s?: string) => (s ?? "").trim().toLowerCase();
-const samePlace = (r: ServiceRule, p: Place) => norm(r.scope.state) === norm(p.state) && norm(r.scope.city) === norm(p.city) && norm(r.scope.area) === norm(p.area);
+export const samePlace = (r: ServiceRule, p: Place) => norm(r.scope.state) === norm(p.state) && norm(r.scope.city) === norm(p.city) && norm(r.scope.area) === norm(p.area) && (r.scope.zoneId ?? "") === (p.zoneId ?? "");
 /** The rule's place is this place or a wider one (the state, the city, everywhere). */
-const covers = (r: ServiceRule, p: Place) => (!r.scope.state || norm(r.scope.state) === norm(p.state))
+export const covers = (r: ServiceRule, p: Place, zonePins: (id: string) => string[] = () => []) => (!r.scope.state || norm(r.scope.state) === norm(p.state))
+  // A Service Zone rule covers the zone row itself and the pincode rows listed in the zone (the server matches by those pincodes).
+  && (!r.scope.zoneId || p.zoneId === r.scope.zoneId || (isPincode(p.area) && zonePins(r.scope.zoneId).includes(p.area)))
   // A district's rule also covers a town listed inside it that is shown as its own place (Krishnagiri → Hosur).
   && (!r.scope.city || norm(r.scope.city) === norm(p.city) || (!r.scope.area && parentOf(p.city) === norm(r.scope.city)))
   && (!r.scope.area || norm(r.scope.area) === norm(p.area));
 /** A standing rule the table can show and edit: on, no dates, for pickup or drop. */
-const standing = (r: ServiceRule) => r.status === "Enabled" && r.schedule.mode === "Always" && (r.scope.side ?? "Pickup or drop") === "Pickup or drop";
+export const standing = (r: ServiceRule) => r.status === "Enabled" && r.schedule.mode === "Always" && (r.scope.side ?? "Pickup or drop") === "Pickup or drop";
 const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.some((y) => norm(y) === norm(x)));
 
 /** The two kinds this table edits; price changes have their own table (PriceChangeRules). */
@@ -45,14 +50,14 @@ export function specialRules(rules: ServiceRule[], isOwn: (r: ServiceRule) => bo
   const groups = new Map<string, ServiceRule[]>();
   for (const r of live) {
     if (!TABLE_KINDS.includes(r.kind) || !isOwn(r) || !standing(r)) continue;
-    const key = `${r.kind}|${keyOf(r.scope)}`;
+    const key = `${r.kind}|${keyOf(placeOf(r.scope))}`;
     groups.set(key, [...(groups.get(key) ?? []), r]);
   }
   for (const list of groups.values()) inTable.add(rankRules(list)[0]!.id);
   return live.filter((r) => !inTable.has(r.id) && !(r.kind === "pricing" && standing(r)));
 }
 
-export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, canEdit, loaded, loadError, stateName, stateOptions, citiesOf, onToast }: {
+export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, canEdit, loaded, loadError, locations, focus, onManageLocations, onToast }: {
   /** Every rule for this brand & service, including shared (All brands) rules it inherits; removed rules may be included. */
   rules: ServiceRule[];
   /** A rule saved for this brand & service (the others are inherited). */
@@ -62,18 +67,20 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
   canEdit: boolean;
   loaded: boolean;
   loadError: string | null;
-  stateName: (code: string) => string;
-  stateOptions: { value: string; label: string }[];
-  citiesOf: (state: string) => string[];
+  /** The Locations master, for the shared location selector and zone pincodes. */
+  locations: MasterLocation[];
+  /** Local & Rental → Areas & coverage: only the rows inside this selection (the same records, not a copy). */
+  focus?: (p: Place) => boolean;
+  onManageLocations?: () => void;
   onToast: (text: string) => void;
 }) {
   const live = useMemo(() => rules.filter((r) => r.status !== "Removed" && r.kind !== "limit"), [rules]);
   const catNames = vehicles.map((v) => v.name);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [added, setAdded] = useState<Place[]>([]);
-  const [pick, setPick] = useState<Place>({ state: "", city: "", area: "" });
-  // The pincodes of the chosen city / district, all ticked until some are unticked (see usePincodeScope).
-  const scope = usePincodeScope(pick.state, pick.city);
+  const [pick, setPick] = useState<LocSel>(EMPTY_SEL);
+  const index = useMemo(() => indexLocations(locations), [locations]);
+  const zonePins = (id: string) => { const z = locations.find((l) => l.id === id); return z ? pinsOfLocation(z) : []; };
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -87,20 +94,20 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
   const places = useMemo(() => {
     const all = new Map<string, Place>([["||", { state: "", city: "", area: "" }]]);
     // Only standing booking / cab rules make a row; date-based and special rules are listed in their own section, price changes in theirs.
-    for (const r of live) if (standing(r) && TABLE_KINDS.includes(r.kind)) { const p = { state: r.scope.state, city: r.scope.city, area: r.scope.area }; all.set(keyOf(p), p); }
+    for (const r of live) if (standing(r) && TABLE_KINDS.includes(r.kind)) { const p = placeOf(r.scope); all.set(keyOf(p), p); }
     for (const p of added) all.set(keyOf(p), p);
-    return [...all.values()].sort((a, b) => (a.state || "").localeCompare(b.state || "") || (a.city || "").localeCompare(b.city || "") || (a.area || "").localeCompare(b.area || ""));
-  }, [live, added]);
-  const label = (p: Place) => p.area ? `${p.area}, ${p.city}` : p.city ? p.city : p.state ? stateName(p.state) : "All locations";
-  const level = (p: Place) => p.area ? (isPincode(p.area) ? "Pincode" : "Area") : p.city ? "City" : p.state ? "State" : "Everywhere";
+    return [...all.values()].filter((p) => !focus || focus(p)).sort((a, b) => (a.state || "").localeCompare(b.state || "") || (a.city || "").localeCompare(b.city || "") || (a.area || "").localeCompare(b.area || ""));
+  }, [live, added, focus]);
+  const label = (p: Place) => rulePlaceLabel(p);
+  const level = (p: Place) => p.area ? (isPincode(p.area) ? "Pincode" : "Area") : p.zoneId ? "Service zone" : p.city ? "District / city" : p.state ? "State" : "Everywhere";
 
   // ── What applies at each place, worked out like the booking server ─────────────────────────────────────────────────
   const ownRule = (p: Place, kind: RuleKind) => rankRules(live.filter((r) => isOwn(r) && standing(r) && r.kind === kind && samePlace(r, p)))[0];
-  const wider = (p: Place, kind: RuleKind, skip?: ServiceRule) => rankRules(live.filter((r) => standing(r) && r.kind === kind && r.id !== skip?.id && covers(r, p)))[0];
+  const wider = (p: Place, kind: RuleKind, skip?: ServiceRule) => rankRules(live.filter((r) => standing(r) && r.kind === kind && r.id !== skip?.id && covers(r, p, zonePins)))[0];
   /** Where an inherited value comes from, in words: "the All brands rule for Dindigul", "the wider rule for Tamil Nadu". */
   const fromText = (r?: ServiceRule) => {
     if (!r) return "the default";
-    const at = label({ state: r.scope.state, city: r.scope.city, area: r.scope.area });
+    const at = label(placeOf(r.scope));
     if (isOwn(r)) return `the rule for ${at}`;
     return r.brand ? `an older ${BRAND_LABELS[r.brand as keyof typeof BRAND_LABELS] ?? r.brand} rule for all services (${at})` : `the All brands rule for ${at}`;
   };
@@ -255,13 +262,13 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
 
   const brandName = fareScope.brand === "common" ? "All brands (shared)" : BRAND_LABELS[fareScope.brand];
   const where = `${brandName} → ${serviceLabel(fareScope.service)}`;
-  const cityChoices = pick.state ? citiesOf(pick.state) : [];
-  const canAdd = !!pick.state && scope.canAdd;
+  // Add location: the place(s) the shared selector stands for (several picked PINs = one row each, as before).
+  const toAdd: Place[] = pick.state ? rulePlacesOf(pick, index) : [];
+  const canAdd = toAdd.length > 0;
   const addPlace = () => {
     if (!canAdd) return;
-    const places: Place[] = scope.areas.map((area) => ({ state: pick.state, city: pick.city, area }));
-    setAdded((list) => [...list, ...places.filter((p) => !list.some((x) => keyOf(x) === keyOf(p)))]);
-    setPick({ state: pick.state, city: "", area: "" });
+    setAdded((list) => [...list, ...toAdd.filter((p) => !list.some((x) => keyOf(x) === keyOf(p)))]);
+    setPick({ ...EMPTY_SEL, state: pick.state });
   };
 
   return (
@@ -275,27 +282,9 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
           : null}>
         {canEdit && (
           <CardBody>
-            <div className="fm-place-picker">
-              <label className="fm-mini"><span>State</span>
-                <select className="ds-select" value={pick.state} onChange={(e) => setPick({ state: e.target.value, city: "", area: "" })}>
-                  <option value="">Choose a state</option>
-                  {stateOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
-              </label>
-              <label className="fm-mini"><span>City</span>
-                <select className="ds-select" value={pick.city} disabled={!pick.state} onChange={(e) => setPick({ ...pick, city: e.target.value, area: "" })}>
-                  <option value="">Whole state</option>
-                  {cityChoices.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </label>
-              <div className="fm-mini"><span>Pincodes</span>
-                {/* All ticked = the whole city / district; fewer = only those pincodes. */}
-                <div className="relative">
-                  <PincodePicker list={scope.list} selected={scope.pins} onChange={scope.setPins} cityChosen={!!pick.city} />
-                </div>
-              </div>
-              <Button icon="plus" onClick={addPlace} disabled={!canAdd}>{scope.areas.length < 2 ? "Add place" : `Add ${scope.areas.length} places`}</Button>
-            </div>
+            <LocationScopeSelector variant="row" label="Place to add" value={pick} onChange={setPick} locations={locations} depth="area" pinSearch="multi"
+              broad={{ state: "Choose a state", district: "Whole state", zone: "All zones", area: "All mapped areas" }} onManageLocations={onManageLocations}
+              action={<Button icon="plus" onClick={addPlace} disabled={!canAdd}>{toAdd.length < 2 ? "Add location" : `Add ${toAdd.length} locations`}</Button>} />
           </CardBody>
         )}
         {loadError ? <CardBody><p className="ds-error" role="alert">Saved rules could not be loaded: {loadError}. Reload to try again.</p></CardBody>

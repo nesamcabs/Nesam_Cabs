@@ -1,6 +1,10 @@
 import { bookingAddOnsOf, withBookingAddOns, type BookingAddOns } from './domain/bookingAddOns';
 import { withNightAllowance, type NightAllowanceConfig } from './domain/nightAllowance';
 import { withHillCharge } from './domain/hillCharge';
+import { withAirportEntry, withPeakCharge, type AirportEntrySnapshot, type PeakChargeSnapshot } from './domain/peakCharge';
+import { airportEntryFor, resolveLocal, resolveRental } from './domain/geoFares';
+import { peakAmountPaise, selectPeakRule, windowStart } from './domain/peakRules';
+import { geoContextFor, type GeoContext } from './geoPricing';
 import { detectHillStations, distinctHillStations, hillChargeForRates, placePincode, validPincode, type HillMatch } from './domain/hillStations';
 import { withTripPincodes } from './placePincode';
 import { cityByPincode, zoneByPincode, type PinCity } from './domain/pincodeLookup';
@@ -24,7 +28,7 @@ import { buildTariffFareBreakup, FareBreakup, withExtraChargeLines } from './dom
 import { hillRatesConfigured, scopedAddOnRates, scopedExtraChargesSnapshot, scopedHillRates } from './domain/scopedExtraCharges';
 import { AdminDiscountInput, CATEGORY_GST_RATE, FareAdjustmentInput, isOutstation, serviceName } from './domain/pricing';
 import {
-  FixedRouteFare, completeAirportCngRates, completeAirportRates, defaultRentalHours, quoteAirport, PricingSnapshot, QuoteResult, TARIFF_CLASSES, TariffClass, TariffConfig, TariffError, cityDropFare, classRates, istDate, localFareIdFor, matchFixedRoute, paise,
+  FixedRouteFare, completeAirportCngRates, completeAirportRates, defaultRentalHours, quoteAirport, quoteLocalGeoFare, PricingSnapshot, QuoteResult, TARIFF_CLASSES, TariffClass, TariffConfig, TariffError, cityDropFare, classRates, istDate, localFareIdFor, matchFixedRoute, paise,
   parseFixedRouteFare, parseTariffConfig, gstOn, quoteFixedRoute, quoteLocalPickupDrop, quoteOneWay, quoteRentalPackage, quoteRoundTrip, quoteRoundTripMini, quoteRoundTripOvernightCombo, r2, withinCityZone, scopedTariffForBrand,
   calendarDays, finalizeFare, multicityRatesFor, quoteMulticity, displayMarkupPercent, quoteRoundTripTimeBased, timeBasedContext,
 } from './domain/tariff';
@@ -274,6 +278,11 @@ export interface PriceInput {
   localCityId?: string | null;
   /** The pickup's zone in that City (see zoneIdOf): its own Pickup & Drop rates win for a class that has them enabled. */
   localZoneId?: string | null;
+  /**
+   * Local Pickup & Drop / Hourly Rental: where the pickup is and the location-scoped rates and peak rules that cover it
+   * (geoPricing.ts). Absent = only the existing city / package fares apply.
+   */
+  geo?: GeoContext | null;
   /** Local Rental only: the package the customer chose, in hours. */
   rentalHours?: number | null;
   /** Enabled fixed route fares and the booked service. Only places with canonical location ids (never a map pin) can match one. */
@@ -338,7 +347,8 @@ export function addOnRatesOf(i: Pick<PriceInput, 'tariff' | 'brand' | 'tripType'
 
 export function priceBooking(i: PriceInput): PriceResult {
   const matches = hillStationsOfTrip(i);
-  const night = withNightAllowance(priceBookingWithoutAddOns(matches.length ? { ...i, hillTrip: true } : i), i.pickupAt, i.nightAllowance, tariffClassOf(i.category));
+  const base = priceBookingWithoutAddOns(matches.length ? { ...i, hillTrip: true } : i);
+  const night = withNightAllowance(withPeakCharge(base, peakChargeOf(i, base)), i.pickupAt, i.nightAllowance, tariffClassOf(i.category));
   // Hill Station Allowance / Charge: its own line, from the "Hill station" rows of the fare table for this brand, service and vehicle
   // (see domain/hillStations.ts).
   const slab = i.multicity ? 'multicity' : i.tripType === 'Round Trip' ? 'roundTrip' : 'oneWay';
@@ -347,8 +357,37 @@ export function priceBooking(i: PriceInput): PriceResult {
   const priced = withHillCharge(night, charge);
   const add = addOnRatesOf(i);
   const withAddOns = withBookingAddOns(priced, i.addOns, { carrierCharge: add.carrier }, add.pet, add.partnerPet);
-  const result = withPlatformFee(withAddOns, i.platformFee, i.multicity);
+  const result = withAirportEntry(withPlatformFee(withAddOns, i.platformFee, i.multicity), airportEntryOf(i, base));
   return matches.length ? { ...result, hill: { stations: distinctHillStations(matches), matches, charged: !!charge } } : result;
+}
+
+/**
+ * The scheduled peak charge of a Local Pickup & Drop or Hourly Rental quote: the one rule for this brand, service, pickup place and
+ * scheduled pickup time (IST), on the eligible ride fare only. Two rules still tied after brand, place and priority refuse the quote.
+ */
+function peakChargeOf(i: PriceInput, r: PriceResult): PeakChargeSnapshot | null {
+  const service = r.pricing.model === 'rental_package' ? 'rental' : r.pricing.model === 'local_pickup_drop' ? 'local' : null;
+  if (!service || !i.geo || i.geo.service !== service) return null;
+  const pick = selectPeakRule(i.geo.peakRules, { brand: i.brand || '', service, keys: i.geo.peakKeys, pickupMs: i.pickupAt.getTime() });
+  if (pick.ambiguous) throw new HttpsError('failed-precondition', 'Two scheduled peak rules of the same priority apply to this pickup. An admin must resolve the overlap before this trip can be quoted.', { code: 'peak-ambiguous' });
+  const rule = pick.rule;
+  if (!rule) return null;
+  const eligiblePaise = r.pricing.packagePaise;
+  const amountPaise = peakAmountPaise(rule, eligiblePaise);
+  if (!(amountPaise > 0)) return null;
+  const windowStartDate = windowStart(rule, i.pickupAt.getTime()) ?? istDate(i.pickupAt.getTime());
+  return {
+    ruleId: rule.id, ruleVersion: rule.version ?? 0, name: rule.name ?? '', type: rule.type, value: rule.value, ...(rule.cap !== undefined ? { cap: rule.cap } : {}),
+    windowStart: windowStartDate, amount: r2(amountPaise / 100), eligible: r2(eligiblePaise / 100), label: 'Peak-hour charge',
+  };
+}
+
+/** The saved airport entry of a Local Pickup & Drop trip whose pickup or drop is a chosen Airport record (never matched by name). */
+function airportEntryOf(i: PriceInput, r: PriceResult): AirportEntrySnapshot | null {
+  if (r.pricing.model !== 'local_pickup_drop' || !i.geo || i.geo.service !== 'local') return null;
+  const hit = airportEntryFor(i.geo.docs, i.brand || '', i.geo.pickup.airportIds, i.geo.drop?.airportIds ?? []);
+  if (!hit || !(hit.customerFee > 0)) return null;
+  return { locationId: hit.locationId, side: hit.side, amount: hit.customerFee, partnerAmount: hit.partnerFee, source: hit.docId, sourceVersion: hit.version, label: 'Airport entry' };
 }
 
 function priceBookingWithoutAddOns(i: PriceInput): PriceResult {
@@ -363,6 +402,7 @@ function priceBookingWithoutAddOns(i: PriceInput): PriceResult {
   // GST rule is saved for the service, which always wins. Without this a package entered as ₹1,500 + GST was charged ₹1,500.
   const rentalMode = (() => {
     if (!tax || !isDefaultFareGst(tax) || raw.pricing.model !== 'rental_package' || !i.tariff) return undefined;
+    if (raw.pricing.geoFare?.rentalGstMode) return raw.pricing.geoFare.rentalGstMode;
     const klass = tariffClassOf(i.category), hours = raw.pricing.rentalHours;
     if (!klass || hours == null) return undefined;
     return scopedTariffForBrand(i.tariff, i.brand, i.tripType, klass).rentalPackages?.[klass]?.packages?.[String(hours)]?.gstMode;
@@ -462,7 +502,30 @@ function priceBookingCore(i: PriceInput): PriceResult {
   // enabled flag), so they do not wait for the confirmed-tariff switch. Anything not explicitly enabled
   // and valid is never priced here: a rental with no usable package is refused, a local trip falls through.
   // With no package chosen, the shortest package this vehicle may book is quoted (and shown) so the saved packages always apply.
-  const rentalHours = i.tripType === 'Local Rental' ? i.rentalHours ?? (effectiveTariff && klass ? defaultRentalHours(effectiveTariff, klass) : null) : null;
+  // Location-scoped rental packages (geo_fares): area → zone → district, brand before shared, then the existing package as the
+  // broadest default. Only a complete package is quoted; another package is never substituted for the one chosen.
+  const geoRental = i.tripType === 'Local Rental' && i.geo?.service === 'rental' && klass ? i.geo : null;
+  const rentalOf = (hours: number) => resolveRental(geoRental!.docs, geoRental!.chain, klass!, hours, effectiveTariff?.rentalPackages?.[klass!]?.packages?.[String(hours)]);
+  const geoDefaultHours = geoRental && i.rentalHours == null ? ([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].find((h) => rentalOf(h).complete) ?? null) : null;
+  const rentalHours = i.tripType === 'Local Rental' ? i.rentalHours ?? geoDefaultHours ?? (effectiveTariff && klass ? defaultRentalHours(effectiveTariff, klass) : null) : null;
+  if (geoRental && rentalHours != null && effectiveTariff && klass) {
+    const hit = rentalOf(rentalHours);
+    if (hit.scoped) {
+      if (!hit.complete || !hit.pkg) throw new HttpsError('failed-precondition', `The ${rentalHours}-hour rental package is not complete for this area and vehicle (missing: ${hit.missing.join(', ')}).`, { code: 'rate-missing' });
+      const pkg = hit.pkg, tariff = effectiveTariff;
+      const config = { ...tariff, rentalPackages: { ...(tariff.rentalPackages ?? {}), [klass]: { ...(tariff.rentalPackages?.[klass] ?? {}), packages: { ...(tariff.rentalPackages?.[klass]?.packages ?? {}), [String(rentalHours)]: pkg } } } };
+      try {
+        const q = withDiscounts((discount) => quoteRentalPackage({ config, tariffClass: klass, tripType: 'One Way', hours: rentalHours, discount, ...timing, ...adjust }));
+        const sources: Record<string, string> = Object.fromEntries(Object.entries(hit.values).map(([f, r]) => [f, r!.source]));
+        if (hit.gstMode) sources.gstMode = hit.gstMode.source;
+        const pricing = { ...q.pricing, brand: i.brand, brandScoped: !!(i.brand && i.tariff?.brandOverrides?.[i.brand]), geoFare: { service: 'rental' as const, keys: geoRental.keys, versions: hit.versions, sources, rentalGstMode: pkg.gstMode } };
+        return { fare: q.fare, pricing, service, outstation, breakup: buildTariffFareBreakup(q.fare, false, pricing), usesCommissionPolicy: false };
+      } catch (e) {
+        if (e instanceof TariffError) throw new HttpsError('failed-precondition', e.message, { code: e.code });
+        throw e;
+      }
+    }
+  }
   if (i.tripType === 'Local Rental' && rentalHours != null) {
     const tariff = effectiveTariff, hours = rentalHours;
     if (!tariff || !klass) throw new HttpsError('failed-precondition', 'Rental packages are not configured for this vehicle.');
@@ -477,6 +540,16 @@ function priceBookingCore(i: PriceInput): PriceResult {
   // A One Way trip inside one City (within the outstation threshold) takes that City's fare, even when one end is the
   // city's airport: the rider chose Pickup & Drop, and Airport Taxi is priced as its own service (tripType 'Airport Taxi').
   // The pickup zone's own rates for this class when enabled, else the City's.
+  // Location-scoped Local Pickup & Drop rates (geo_fares): both ends in one district, within the local distance, every value saved
+  // (inherited area → zone → district). A partly configured place keeps the existing city / One Way pricing below.
+  if (effectiveTariff && klass && i.tripType === 'One Way' && !outstation && i.geo?.service === 'local' && i.geo.localEligible) {
+    const hit = resolveLocal(i.geo.docs, i.geo.chain, klass);
+    if (hit.complete) {
+      const tariff = effectiveTariff, keys = i.geo.keys;
+      const q = withDiscounts((discount) => quoteLocalGeoFare({ config: tariff, tariffClass: klass, tripType: 'One Way', customer: hit.customer, partner: hit.partner, keys, versions: hit.versions, discount, ...timing, ...adjust }));
+      return { fare: q.fare, pricing: { ...q.pricing, brand: i.brand, brandScoped: !!(i.brand && i.tariff?.brandOverrides?.[i.brand]) }, service, outstation, breakup: buildTariffFareBreakup(q.fare, false, q.pricing), usesCommissionPolicy: false };
+    }
+  }
   const localId = effectiveTariff && klass ? localFareIdFor(effectiveTariff, i.localCityId, i.localZoneId, klass) : null;
   if (effectiveTariff && klass && localId && i.tripType === 'One Way' && !outstation) {
     const tariff = effectiveTariff, cityId = localId;
@@ -645,15 +718,16 @@ export async function trustedCustomerPlace(place: GeoPlace, requestedId: unknown
 }
 
 /** Fixed route fares and the shared City a customer trip may use (the same inputs the office booking passes). */
-export async function customerFareContext(tripType: TripType, pickup: GeoPlace, drop: GeoPlace, distanceKm: number): Promise<{ fixedRoutes: FixedRouteFare[]; localCityId: string | null; localZoneId: string | null }> {
+export async function customerFareContext(tripType: TripType, pickup: GeoPlace, drop: GeoPlace, distanceKm: number, brand = ''): Promise<{ fixedRoutes: FixedRouteFare[]; localCityId: string | null; localZoneId: string | null; geo: GeoContext | null }> {
   const masters = pickup.id !== 'pin' && drop.id !== 'pin';
-  const [fixedRoutes, localCityId] = await Promise.all([
+  const [fixedRoutes, localCityId, geo] = await Promise.all([
     tripType === 'One Way' && masters ? loadFixedRoutes() : Promise.resolve([]),
     // Any place can be in a City (a master location, a Google search result or a map pin): see cityIdOf.
     tripType === 'One Way' && !isOutstation(distanceKm) ? sharedCityId(pickup, drop) : Promise.resolve(null),
+    geoContextFor(tripType, pickup, drop, distanceKm, brand),
   ]);
   const localZoneId = localCityId ? await zoneIdOf(pickup, localCityId) : null;
-  return { fixedRoutes, localCityId, localZoneId };
+  return { fixedRoutes, localCityId, localZoneId, geo };
 }
 
 /**
@@ -726,7 +800,7 @@ export const quoteBooking = onCall({ timeoutSeconds: 60, cors: PUBLIC_CALLABLE_O
   const route = await routeLookup;
   // A Multicity tour is billed on the whole itinerary, even when it ends where it began.
   const pricingRoute = multicity ? route : await roundTripPricingRoute(route, tripType, pickup, drop, stops.length);
-  const [{ fixedRoutes, localCityId, localZoneId }, customer] = await Promise.all([customerFareContext(tripType, pickup, drop, route.distanceKm), customerRead]);
+  const [{ fixedRoutes, localCityId, localZoneId, geo }, customer] = await Promise.all([customerFareContext(tripType, pickup, drop, route.distanceKm, brand), customerRead]);
   if (customer?.exists && !approved(customer.data()!.status)) throw new HttpsError('permission-denied', 'Your account is not active.');
   // A coupon is only checked for an existing customer account.
   const customerId = customer?.exists ? uid : null;
@@ -756,7 +830,7 @@ export const quoteBooking = onCall({ timeoutSeconds: 60, cors: PUBLIC_CALLABLE_O
     .map(({ d, c }) => {
       const category = { ...c, tariffClass: d.data().tariffClass, dutyClass: d.data().dutyClass };
       const matched = matchAuthoritativeService(onlineMasters, { tripType, categoryId: c.id, distanceKm: route.distanceKm, pickupType: pickup.type, dropType: drop.type, context: 'customer' });
-      const base = { addOns: bookingAddOnsOf(input.addOns), boardingState, recipientState, recipientAddressState: recipientAddressState(customer?.data()), category, route: pricingRoute, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, rentalHours: tripType === 'Local Rental' ? rentalHoursOf(input.rentalHours) : null, brand, fixedRoutes, localCityId, localZoneId, serviceId: matched?.id ?? '', multicity, platformFee, nightAllowance, tripDays, customerChannel: true, stops, timePackage: typeof input.timePackage === 'string' ? input.timePackage : undefined };
+      const base = { addOns: bookingAddOnsOf(input.addOns), boardingState, recipientState, recipientAddressState: recipientAddressState(customer?.data()), category, route: pricingRoute, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, rentalHours: tripType === 'Local Rental' ? rentalHoursOf(input.rentalHours) : null, brand, fixedRoutes, localCityId, localZoneId, geo, serviceId: matched?.id ?? '', multicity, platformFee, nightAllowance, tripDays, customerChannel: true, stops, timePackage: typeof input.timePackage === 'string' ? input.timePackage : undefined };
       try {
         assertCatalogAvailable(onlineMasters,tripType,category.id);
         assertBookable(rules, category.name);

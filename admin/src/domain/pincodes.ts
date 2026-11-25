@@ -49,3 +49,40 @@ export const kmText = (km: number | null | undefined): string => (km === null ||
 export function pincodeGroups(pins: readonly PincodeEntry[]): { top: PincodeEntry[]; rest: PincodeEntry[] } {
   return { top: pins.filter((p) => p.tier < 2), rest: pins.filter((p) => p.tier === 2) };
 }
+
+// ── PIN search for the shared location selector (domain/locationHierarchy.ts) ───────────────────────────────────────────────
+import { DISTRICTS_BY_STATE } from "./pincodeDistricts";
+import { statesForPin } from "./locationHierarchy";
+
+/** One India Post office carrying a pincode. A pincode can serve several offices / villages, so a search returns every one. */
+export interface PinOffice { pin: string; office: string; state: string; district: string }
+const loaded = new Map<string, StateFile>();
+
+/** Loads a state's pincode file (once); afterwards districtOfPinLoaded can answer for that state without waiting. */
+export async function loadStatePins(state: string): Promise<boolean> {
+  if (loaded.has(state)) return true;
+  const file = await load(state);
+  if (file) loaded.set(state, file);
+  return !!file;
+}
+
+/** The district of a pincode in a state whose file is already loaded; '' when unknown or not loaded. */
+export function districtOfPinLoaded(state: string, pin: string): string {
+  const file = loaded.get(state);
+  if (!file) return "";
+  return (DISTRICTS_BY_STATE[state] ?? []).find((d) => file.cities[d]?.some((e) => e[0] === pin)) ?? "";
+}
+
+/** Every post office with this pincode (India Post), with its state and district. */
+export async function pinOffices(pin: string): Promise<PinOffice[]> {
+  if (!/^[1-9]\d{5}$/.test(pin)) return [];
+  const out: PinOffice[] = [];
+  for (const state of statesForPin(pin)) {
+    if (!(await loadStatePins(state))) continue;
+    const file = loaded.get(state)!;
+    for (const district of DISTRICTS_BY_STATE[state] ?? []) {
+      for (const [p, office] of file.cities[district] ?? []) if (p === pin) out.push({ pin, office, state, district });
+    }
+  }
+  return out;
+}

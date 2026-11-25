@@ -867,6 +867,15 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow write: if false;
     }
+    // Location-scoped Local / Rental rates and scheduled peak rules: written only by saveGeoFares / savePeakRule (validated, audited).
+    match /geo_fares/{fareId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /peak_rules/{ruleId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
     // Invoice drafts saved while billing / tax details are checked; issuing assigns the number.
     match /invoice_drafts/{draftId} {
       allow read: if canReadFinance();

@@ -1,3 +1,4 @@
+import { geoContextFor } from './geoPricing';
 import { bookingAddOnsOf } from './domain/bookingAddOns';
 import { fareBoardingState, recipientAddressState, recipientGstState } from './fareGstContext';
 import { fareServiceKey } from './fareScope';
@@ -197,6 +198,9 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
   // Master-location places carry canonical ids, so a local trip inside one city can use that city's Local Pickup & Drop fare.
   const localCityId = tripType === 'One Way' && !isOutstation(route.distanceKm) ? await sharedCityId(pickup, drop) : null;
   const localZoneId = localCityId ? await zoneIdOf(pickup, localCityId) : null;
+  // Location-scoped Local / Rental rates and scheduled peak rules for this brand (the same context every booking source loads).
+  const geoBrand = resolveAndValidateBrand({ brand: text(input.bookingSource || input.source || input.brand || input.channel || '') }, request, true);
+  const geo = await geoContextFor(tripType, pickup, drop, route.distanceKm, geoBrand);
   const rentalHours = tripType === 'Local Rental' ? rentalHoursOf(input.rentalHours) : null;
 
   const result = await db.runTransaction(async (tx) => {
@@ -279,7 +283,7 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
 
     const boardingState = await fareBoardingState(tariff, pickup);
     const recipientState = recipientGstState(business?.data() ?? customer?.data());
-    const priceInput = { addOns: bookingAddOnsOf(input.addOns ?? input.tripExtras), fuel, boardingState, recipientState, recipientAddressState: recipientAddressState(business?.data() ?? customer?.data()), category, route, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, adminDiscount: discountIn, localCityId, localZoneId, rentalHours, fixedRoutes, serviceId, businessContract:contract, brand: bookingChannel, platformFee, nightAllowance, tripDays, timePackage, stops, multicity };
+    const priceInput = { addOns: bookingAddOnsOf(input.addOns ?? input.tripExtras), fuel, boardingState, recipientState, recipientAddressState: recipientAddressState(business?.data() ?? customer?.data()), category, route, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, adminDiscount: discountIn, localCityId, localZoneId, geo, rentalHours, fixedRoutes, serviceId, businessContract:contract, brand: bookingChannel, platformFee, nightAllowance, tripDays, timePackage, stops, multicity };
     // Coupon: the same server checks as customer checkout (validity, usage limits, minimum fare,
     // category / service, audience) against the fare before discount; then the booking is priced with it.
     let couponDiscount = 0;

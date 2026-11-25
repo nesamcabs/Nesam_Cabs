@@ -8,9 +8,9 @@ import {
   type Adjustment, type RuleKind, type ServiceRule, type Side,
 } from "../services/serviceRulesService";
 import { CardBody, SettingCard, type VehicleCol } from "./RateTable";
-import PincodePicker from "./PincodePicker";
-import { usePincodeScope } from "../hooks/usePincodeScope";
-import { kmText } from "../domain/pincodes";
+import type { MasterLocation } from "../types";
+import LocationScopeSelector from "./location/LocationScopeSelector";
+import { EMPTY_SEL, indexLocations, rulePlaceLabel, rulePlacesOf, selOfRulePlace, type LocSel } from "../domain/locationHierarchy";
 
 // Date-based, special and inherited rules, all inside the page (no side drawer): a filterable list, and the add / edit / switch on-off /
 // remove / details panels open right under the row they belong to. Every rule is an ordinary service_rules document that the booking
@@ -34,7 +34,7 @@ const adjOf = (v: string): Adjustment => {
 const badPct = (v: string) => v.trim() !== "" && !(Number.isFinite(Number(v)) && Math.abs(Number(v)) < 100);
 const dateText = (iso?: string) => (iso ? refDateTime(new Date(iso)) : "");
 
-export default function DateRules({ rules, allRules, isOwn, fareScope, vehicles, canEdit, loaded, loadError, stateName, stateOptions, citiesOf, onToast }: {
+export default function DateRules({ rules, allRules, isOwn, fareScope, vehicles, canEdit, loaded, loadError, locations, onManageLocations, onToast }: {
   /** The rules to list: with dates, pickup-only / drop-only, switched off, a second rule for a place, or inherited. */
   rules: ServiceRule[];
   /** Every rule in scope, used to spot two rules that would clash. */
@@ -45,9 +45,8 @@ export default function DateRules({ rules, allRules, isOwn, fareScope, vehicles,
   canEdit: boolean;
   loaded: boolean;
   loadError: string | null;
-  stateName: (code: string) => string;
-  stateOptions: { value: string; label: string }[];
-  citiesOf: (state: string) => string[];
+  locations: MasterLocation[];
+  onManageLocations?: () => void;
   onToast: (text: string) => void;
 }) {
   const [now, setNow] = useState(Date.now);
@@ -60,7 +59,7 @@ export default function DateRules({ rules, allRules, isOwn, fareScope, vehicles,
 
   const brandName = fareScope.brand === "common" ? "All brands (shared)" : BRAND_LABELS[fareScope.brand];
   const where = `${brandName} → ${serviceLabel(fareScope.service)}`;
-  const placeText = (p: Place) => (p.area ? `${p.area}, ${p.city}` : p.city ? p.city : p.state ? stateName(p.state) : "All locations");
+  const placeText = (p: Place) => rulePlaceLabel(p);
   const phase = (r: ServiceRule): Phase => phaseOf(r, now);
   const inFilter = (r: ServiceRule) => {
     const p = phase(r);
@@ -114,7 +113,7 @@ export default function DateRules({ rules, allRules, isOwn, fareScope, vehicles,
       {adding && (
         <CardBody>
           <RuleForm key={`new-${adding}`} kind={adding} fareScope={fareScope} vehicles={vehicles} allRules={allRules} placeText={placeText}
-            stateOptions={stateOptions} citiesOf={citiesOf} onCancel={() => setAdding(null)} onDone={done} />
+            locations={locations} onManageLocations={onManageLocations} onCancel={() => setAdding(null)} onDone={done} />
         </CardBody>
       )}
 
@@ -182,7 +181,7 @@ export default function DateRules({ rules, allRules, isOwn, fareScope, vehicles,
                             <tr className="fm-expand">
                               <td colSpan={7}>
                                 {isOpen === "edit" ? <RuleForm kind={r.kind} rule={r} fareScope={fareScope} vehicles={vehicles} allRules={allRules} placeText={placeText}
-                                  stateOptions={stateOptions} citiesOf={citiesOf} onCancel={() => setOpen(null)} onDone={done} />
+                                  locations={locations} onManageLocations={onManageLocations} onCancel={() => setOpen(null)} onDone={done} />
                                   : isOpen === "details" ? <Details rule={r} own={isOwn(r)} placeText={placeText} phase={phase(r)} onClose={() => setOpen(null)} />
                                   : <StatusPanel rule={r} to={isOpen === "remove" ? "Removed" : isOpen === "on" ? "Enabled" : "Disabled"} onCancel={() => setOpen(null)} onDone={done} />}
                               </td>
@@ -257,9 +256,9 @@ function StatusPanel({ rule, to, onCancel, onDone }: { rule: ServiceRule; to: "E
 }
 
 // ── Add or edit one rule ──────────────────────────────────────────────────────────────────────────────────────────
-function RuleForm({ kind, rule, fareScope, vehicles, allRules, placeText, stateOptions, citiesOf, onCancel, onDone }: {
+function RuleForm({ kind, rule, fareScope, vehicles, allRules, placeText, locations, onManageLocations, onCancel, onDone }: {
   kind: RuleKind; rule?: ServiceRule; fareScope: FareWorkspaceScope; vehicles: VehicleCol[]; allRules: ServiceRule[]; placeText: (p: Place) => string;
-  stateOptions: { value: string; label: string }[]; citiesOf: (state: string) => string[];
+  locations: MasterLocation[]; onManageLocations?: () => void;
   onCancel: () => void; onDone: (text: string) => void;
 }) {
   const [scope, setScope] = useState<ServiceRule["scope"]>(rule?.scope ?? { state: "", city: "", area: "", side: "Pickup or drop" });
@@ -279,17 +278,20 @@ function RuleForm({ kind, rule, fareScope, vehicles, allRules, placeText, stateO
   const submitting = useRef(false);
 
   const priorityN = Number(priority);
-  const cities = scope.state ? citiesOf(scope.state) : [];
-  // A new rule can cover several pincodes at once (one rule each, same dates); an existing rule keeps one place.
-  const pins = usePincodeScope(scope.state, scope.city);
+  // The shared location selector. A saved rule keeps its exact saved place until the selector is changed (no silent broadening);
+  // a new rule can cover several picked PINs at once (one rule each, same dates), as before.
+  const index = useMemo(() => indexLocations(locations), [locations]);
+  const [sel, setSel] = useState<LocSel>(() => (rule ? selOfRulePlace(rule.scope, indexLocations(locations)) : EMPTY_SEL));
+  const [moved, setMoved] = useState(false);
+  const places = rule && !moved ? [rule.scope] : rulePlacesOf(sel, index);
   const what = kind === "categories" ? "cabs shown" : kind === "availability" ? "booking" : "price change";
-  const nameFor = (sc: ServiceRule["scope"]) => `${sc.area ? `${sc.area}, ${sc.city}` : sc.city || (sc.state ? "State" : "All locations")} ${what}`;
-  const targets: ServiceRule["scope"][] = rule ? [scope] : pins.areas.map((area) => ({ ...scope, area }));
+  const nameFor = (sc: ServiceRule["scope"]) => `${rulePlaceLabel(sc)} ${what}`;
+  const targets: ServiceRule["scope"][] = places.map((p) => ({ state: p.state, city: p.city, area: p.area, ...(p.zoneId ? { zoneId: p.zoneId, zoneName: p.zoneName } : {}), side: scope.side ?? "Pickup or drop" }));
   const autoName = nameFor(targets[0] ?? scope);
   const service = rule ? rule.service : fareScope.service;
   const draft: Omit<ServiceRule, "id"> = {
     brand: rule?.brand ?? (fareScope.brand === "common" ? "" : fareScope.brand), fareService: rule ? rule.fareService ?? "" : fareScope.service,
-    kind, name: name.trim() || autoName, status: rule?.status === "Disabled" ? "Disabled" : "Enabled", priority: priorityN, scope, service,
+    kind, name: name.trim() || autoName, status: rule?.status === "Disabled" ? "Disabled" : "Enabled", priority: priorityN, scope: targets[0] ?? scope, service,
     schedule: mode === "Always" ? { mode } : { mode, ...(from ? { from: istInputToIso(from) } : {}), ...(to ? { to: istInputToIso(to) } : {}) },
     ...(kind === "availability" ? { availability } : {}), ...(kind === "categories" ? { categories: cats } : {}),
     ...(kind === "pricing" ? { customer: adjOf(cust), partner: adjOf(part), ...(rule?.packages?.length ? { packages: rule.packages } : {}) } : {}), reason: reason.trim(),
@@ -298,12 +300,13 @@ function RuleForm({ kind, rule, fareScope, vehicles, allRules, placeText, stateO
   // Same type, place, service and priority with overlapping dates would be ambiguous: the server refuses it, so say so here first.
   const conflictOf = (sc: ServiceRule["scope"]) => allRules.find((r) => r.id !== rule?.id && r.kind === kind && r.status === "Enabled" && r.priority === priorityN
     && (r.brand ?? "") === (draft.brand ?? "") && (r.fareService ?? "") === (draft.fareService ?? "")
-    && norm(r.scope.state) === norm(sc.state) && norm(r.scope.city) === norm(sc.city) && norm(r.scope.area) === norm(sc.area) && norm(r.service) === norm(service)
+    && norm(r.scope.state) === norm(sc.state) && norm(r.scope.city) === norm(sc.city) && norm(r.scope.area) === norm(sc.area) && (r.scope.zoneId ?? "") === (sc.zoneId ?? "") && norm(r.service) === norm(service)
     && (r.schedule.mode === "Always" || mode === "Always" || !((r.schedule.to ? Date.parse(r.schedule.to) : Infinity) <= (from ? Date.parse(istInputToIso(from)) : -Infinity) || (to ? Date.parse(istInputToIso(to)) : Infinity) <= (r.schedule.from ? Date.parse(r.schedule.from) : -Infinity))));
 
   const conflict = targets.map(conflictOf).find(Boolean);
   const problem = (() => {
-    if (!rule && !pins.canAdd) return "Tick at least one pincode, or choose the whole state.";
+    if (!targets.length) return "Choose where the rule applies.";
+    if (rule && targets.length !== 1) return "A saved rule covers one place. Pick one PIN or place, or add the others as new rules.";
     if (!Number.isInteger(priorityN) || priorityN < 1 || priorityN > 100) return "Priority must be a whole number from 1 to 100.";
     if (kind === "categories" && !cats.length) return "Keep at least one cab on. To stop bookings, use Open / pause → Paused.";
     if (kind === "pricing" && (badPct(cust) || badPct(part))) return "A price change must be between −99% and +99%.";
@@ -324,7 +327,7 @@ function RuleForm({ kind, rule, fareScope, vehicles, allRules, placeText, stateO
     setError(null);
     try {
       if (rule) await saveRule(draft, rule.id, rule);
-      else for (const sc of targets) await saveRule({ ...draft, scope: sc, name: name.trim() ? (targets.length > 1 ? `${name.trim()} · ${sc.area || sc.city}` : name.trim()) : nameFor(sc) }, undefined, undefined);
+      else for (const sc of targets) await saveRule({ ...draft, scope: sc, name: name.trim() ? (targets.length > 1 ? `${name.trim()} · ${sc.area || sc.zoneName || sc.city}` : name.trim()) : nameFor(sc) }, undefined, undefined);
       onDone(rule || targets.length < 2 ? `${draft.name} saved.` : `${targets.length} rules saved (${draft.name} …).`);
     }
     catch (err) { setError(err instanceof Error ? err.message : "The rule was not saved. Check your permissions and try again."); setBusy(false); submitting.current = false; }
@@ -337,7 +340,7 @@ function RuleForm({ kind, rule, fareScope, vehicles, allRules, placeText, stateO
   const whenText = mode === "Always" ? "at all times" : `for pickups ${from ? `from ${dateText(istInputToIso(from))}` : "from now"}${to ? ` until ${dateText(istInputToIso(to))}` : " with no end date"} (India time)`;
   const sideText = scope.side === "Pickup only" ? "starting in" : scope.side === "Drop only" ? "ending in" : "starting or ending in";
   // Unsaved changes: anything different from how the form opened. Leaving the browser tab with unsaved changes asks first.
-  const snapshot = JSON.stringify({ scope, pins: pins.pins, name, priority, mode, from, to, availability, cats, cust, part, reason });
+  const snapshot = JSON.stringify({ scope, sel, name, priority, mode, from, to, availability, cats, cust, part, reason });
   const opened = useRef(snapshot);
   const dirty = snapshot !== opened.current;
   useEffect(() => {
@@ -385,37 +388,11 @@ function RuleForm({ kind, rule, fareScope, vehicles, allRules, placeText, stateO
         <section className="fm-form__block">
           <h4>2 · Where</h4>
           <div className="fm-form__two">
-            <label className="fm-mini"><span>State</span>
-              <select className="ds-select" value={scope.state} onChange={(e) => setScope({ ...scope, state: e.target.value, city: "", area: "" })}>
-                <option value="">All locations</option>
-                {stateOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </label>
-            <label className="fm-mini"><span>City</span>
-              <select className="ds-select" value={scope.city} disabled={!scope.state} onChange={(e) => setScope({ ...scope, city: e.target.value, area: "" })}>
-                <option value="">Whole state</option>
-                {scope.city && !cities.includes(scope.city) ? <option value={scope.city}>{scope.city}</option> : null}
-                {cities.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </label>
-            {rule ? (
-              <label className="fm-mini"><span>Pincode</span>
-                <select className="ds-select" value={scope.area} disabled={!scope.city} onChange={(e) => setScope({ ...scope, area: e.target.value })}>
-                  <option value="">Whole city</option>
-                  {scope.area && !pins.list?.pins.some((p) => p.pin === scope.area) ? <option value={scope.area}>{scope.area}</option> : null}
-                  {pins.list && pins.list.pins.some((p) => p.tier < 2) && pins.list.pins.some((p) => p.tier === 2) ? (
-                    <>
-                      <optgroup label={`${pins.list.city} & nearby`}>{pins.list.pins.filter((p) => p.tier < 2).map((p) => <option key={p.pin} value={p.pin}>{p.pin} · {p.name}{kmText(p.km) && p.km ? ` · ${kmText(p.km)}` : ""}</option>)}</optgroup>
-                      <optgroup label={`Other pincodes in ${pins.list.city}`}>{pins.list.pins.filter((p) => p.tier === 2).map((p) => <option key={p.pin} value={p.pin}>{p.pin} · {p.name}{kmText(p.km) ? ` · ${kmText(p.km)}` : ""}</option>)}</optgroup>
-                    </>
-                  ) : (pins.list?.pins ?? []).map((p) => <option key={p.pin} value={p.pin}>{p.pin} · {p.name}</option>)}
-                </select>
-              </label>
-            ) : (
-              <div className="fm-mini"><span>Pincodes</span>
-                <div className="relative"><PincodePicker list={pins.list} selected={pins.pins} onChange={pins.setPins} cityChosen={!!scope.city} /></div>
-              </div>
-            )}
+            <div className="fm-form__span">
+              <LocationScopeSelector variant="row" label="Rule location" value={sel} onChange={(next) => { setSel(next); setMoved(true); }} locations={locations} depth="area"
+                pinSearch={rule ? "locate" : "multi"} broad={{ state: "All locations", district: "Whole state", zone: "All zones", area: "All mapped areas" }} onManageLocations={onManageLocations} />
+              {rule && !moved && <p className="fm-hint mt-1">Saved place: {placeText(rule.scope)}. It stays exactly as saved unless you change the location above.</p>}
+            </div>
             <label className="fm-mini"><span>Applies to trips</span>
               <select className="ds-select" value={scope.side ?? "Pickup or drop"} onChange={(e) => setScope({ ...scope, side: e.target.value as Side })}>
                 {SIDES.map((s) => <option key={s} value={s}>{s === "Pickup or drop" ? "Start or end here" : s === "Pickup only" ? "Start here only" : "End here only"}</option>)}
@@ -450,7 +427,7 @@ function RuleForm({ kind, rule, fareScope, vehicles, allRules, placeText, stateO
 
       <div className="fm-result" role="status">
         <Icon name="eye" size={15} />
-        <span><strong>What will happen:</strong> {valueText} for trips {sideText} {placeText(scope)}, {whenText}.</span>
+        <span><strong>What will happen:</strong> {valueText} for trips {sideText} {targets.length > 1 ? `${targets.length} places` : placeText(targets[0] ?? scope)}, {whenText}.</span>
       </div>
 
       <div className="fm-form__row">

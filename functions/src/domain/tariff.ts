@@ -2,6 +2,8 @@ import { withBookedAddOnFare } from './bookingAddOns';
 import { withNightAllowanceFare, type NightAllowanceCharge } from './nightAllowance';
 import { withPlatformFeeFare, type PlatformFeeCharge } from './platformFee';
 import { withHillChargeFare } from './hillCharge';
+import { withAirportEntryFare, withPeakChargeFare } from './peakCharge';
+import { localRideFarePaise, type SourceMap, type LocalField } from './geoFares';
 import { HillStationConfig, parseHillStationConfig } from './hillStations';
 import { gstComponents, withFareGst, validGstRule, type FareGstPolicies, type GstSnapshot } from './gst';
 // Confirmed customer tariffs and normal partner rates (Tariff & Operations v2.0, 09 Oct 2026).
@@ -686,6 +688,15 @@ export interface PricingSnapshot {
   platformFee?: PlatformFeeCharge;
   /** Hill Station Allowance / Charge billed on this booking as its own line (see domain/hillCharge.ts). */
   hillStation?: import('./hillCharge').HillChargeSnapshot;
+  /** Scheduled peak-hour charge billed on this booking (see domain/peakRules.ts / peakCharge.ts); kept as booked. */
+  peakCharge?: import('./peakCharge').PeakChargeSnapshot;
+  /** Local airport entry fee billed on this booking (pass-through); kept as booked. */
+  airportEntry?: import('./peakCharge').AirportEntrySnapshot;
+  /**
+   * Location-scoped Local / Rental rates that priced this booking (collection geo_fares): the scope keys of the pickup, and the
+   * documents (with their versions) each value came from. Later setting changes never reprice the booking.
+   */
+  geoFare?: { service: 'local' | 'rental'; keys: string[]; versions: Record<string, number>; sources: Record<string, string>; freeWaitingMin?: number; waitingPerMinPaise?: number; partnerWaitingPerMinPaise?: number; minimumFarePaise?: number; basePaise?: number; rentalGstMode?: 'included' | 'excluded' };
   gst?: GstSnapshot;
   /** True when the configured fare already contained GST (GST was extracted from it, not added on top). */
   gstInFare?: boolean;
@@ -1227,6 +1238,43 @@ export function quoteLocalPickupDrop(i: QuoteInput & { cityId: string }): QuoteR
 }
 
 /**
+ * Local Pickup & Drop on location-scoped rates (domain/geoFares.ts): the approved base + included km + minimum fare model.
+ *   rideFare = max(minimumFare, baseFare + max(0, billableKm − includedKm) × extraKmRate + waitingCharge)
+ * The quote has no waiting minutes; the free minutes and the per-minute rate are recorded and billed at actuals. Kilometres driven
+ * beyond the larger of the quoted and the included km are billed at the extra-km rate when the trip ends. The partner payout is
+ * worked out the same way from the partner's own saved values, never as a share of the customer fare.
+ */
+export function quoteLocalGeoFare(i: QuoteInput & { customer: SourceMap<LocalField>; partner: SourceMap<LocalField>; keys: string[]; versions: Record<string, number> }): QuoteResult {
+  const c = localRideFarePaise(i.customer, i.routeKm);
+  const p = localRideFarePaise(i.partner, i.routeKm);
+  const extraRatePaise = paise(i.customer.extraKmRate!.value);
+  const base = toBreakdown({
+    packagePaise: c.totalPaise, distancePaise: c.extraPaise, bataPaise: 0, floorPaise: c.minimumTopUpPaise, discount: i.discount ?? 0, adminAdjustment: 0,
+    adjustmentPercent: i.adjustmentPercent ?? 0, adjustmentDirection: i.adjustmentDirection ?? 'increase', gstRate: i.config.gstRate,
+    km: c.km, durationMin: i.durationMin, ratePaise: extraRatePaise,
+  });
+  const fare: FareBreakdown = { ...base, baseFare: r2(c.basePaise / 100), distanceFare: r2(base.distanceFare - c.basePaise / 100) };
+  const sources: Record<string, string> = {};
+  for (const [party, m] of [['customer', i.customer], ['partner', i.partner]] as const) for (const [f, r] of Object.entries(m)) if (r) sources[`${party}.${f}`] = r.source;
+  const includedKm = i.customer.includedKm!.value;
+  return {
+    fare,
+    pricing: {
+      schema: 2, source: 'tariff_v2', model: 'local_pickup_drop', tariffVersion: i.config.version, tariffClass: i.tariffClass, gstRate: i.config.gstRate,
+      quotedKm: c.km, includedKm: Math.max(c.km, includedKm), extraKmRatePaise: extraRatePaise, customerRatePaise: 0, customerBataPaise: 0,
+      waitingPerHourPaise: Math.round(i.customer.waitingPerMin!.value * 6000), days: 1, minKmPerDay: includedKm, packagePaise: c.totalPaise, discount: fare.discount, adminAdjustment: 0,
+      adjustmentPercent: i.adjustmentPercent ?? 0, adjustmentDirection: i.adjustmentDirection ?? 'increase',
+      partner: { mode: 'NORMAL_RATE', ratePaise: paise(i.partner.extraKmRate!.value), bataPaise: 0, minKm: i.partner.includedKm!.value, days: 1, basePaise: p.totalPaise },
+      geoFare: {
+        service: 'local', keys: i.keys, versions: i.versions, sources, freeWaitingMin: i.customer.freeWaitingMin!.value, waitingPerMinPaise: paise(i.customer.waitingPerMin!.value),
+        partnerWaitingPerMinPaise: paise(i.partner.waitingPerMin!.value), minimumFarePaise: paise(i.customer.minimumFare!.value), basePaise: c.basePaise,
+      },
+      pickupDate: istDate(i.pickupMs), endDate: null, gates: [...GATES_LOCAL, 'Waiting is billed at actuals after the free minutes; tolls are billed at actuals'],
+    },
+  };
+}
+
+/**
  * Airport transfer: the base fare covers the first included KM; each KM of the quoted route beyond it is charged at the
  * extra-KM rate. The partner is paid the base payout plus the partner rate for the same extra KM. Kilometres driven beyond
  * the quoted route are billed at trip end at the same rates; waiting is billed at actuals.
@@ -1486,7 +1534,7 @@ export function finalizeFare(i: FinalInput): FinalResult {
   // The night allowance and pet travel payouts work the same way as the hill payout.
   const hillPartner = (i.pricing.partner?.hillPaise ?? 0) + (i.pricing.partner?.nightPaise ?? 0) + (i.pricing.partner?.petPaise ?? 0);
   const partnerPaise = result.partnerPaise !== null && result.timeBased && hillPartner > 0 ? result.partnerPaise + hillPartner : result.partnerPaise;
-  return { ...result, partnerPaise, fare: withPlatformFeeFare(withNightAllowanceFare(withHillChargeFare(withBookedAddOnFare(result.fare, i.pricing.bookingAddOns), i.pricing.hillStation), i.pricing.nightAllowance), i.pricing.platformFee) };
+  return { ...result, partnerPaise, fare: withAirportEntryFare(withPlatformFeeFare(withNightAllowanceFare(withPeakChargeFare(withHillChargeFare(withBookedAddOnFare(result.fare, i.pricing.bookingAddOns), i.pricing.hillStation), i.pricing.peakCharge), i.pricing.nightAllowance), i.pricing.platformFee), i.pricing.airportEntry) };
 }
 
 function finalizeFareWithoutAddOns(i: FinalInput): FinalResult {

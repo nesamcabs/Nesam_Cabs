@@ -12,7 +12,7 @@ import { InlineModals, Modal, Toast, useToast } from "../components/Feedback";
 import { Button, DataTable, EmptyState, Icon, PageHeader } from "../components/ui";
 import type { IconName } from "../components/ui/Icon";
 import FixedRouteFares from "../components/FixedRouteFares";
-import LocalFares from "../components/LocalFares";
+import LocalRentalWorkspace from "../components/localRental/LocalRentalWorkspace";
 import "./pricingReference.css";
 import VehicleCategoriesPage from "./VehicleCategories";
 import FareMatrix from "../components/FareMatrix";
@@ -23,38 +23,13 @@ import type { VehicleCol } from "../components/RateTable";
 import { ALL_BRAND_KEYS, categoryOffersBrand, categoryStatusForBrand } from "../services/categoryService";
 import { registerFareWorkspaceGuard } from "../services/fareWorkspaceGuard";
 import { BRANDS, BRAND_LABELS, BRAND_SUPPORTED_SERVICES, CLASS_LABEL, TARIFF_CLASSES, WORKSPACE_SERVICES, PICKUP_DROP, serviceLabel, tariffClassOfCategory, type FareWorkspaceScope, type TariffClass } from "../services/tariffService";
-import { GST_STATES } from "../domain/gstStates";
-import { directoryCities } from "../domain/placeDirectory";
 import DisplayMarkupCard from "../components/DisplayMarkupCard";
 import TimeBasedRoundTripCard from "../components/TimeBasedRoundTripCard";
 import { refDateTime } from "../domain/officeStage";
 
 type Tab = "Brand & service fares" | "Booking availability" | "Cab types" | "Pricing rules" | "GST calculation" | "Platform fee" | "Payment options";
 type Sel = { state: string; city: string; area: string };
-const locationKey = (value: string) => value.trim().toLocaleLowerCase();
-const stateKey = (value: string) => {
-  const key = locationKey(value);
-  return GST_STATES.find(([code, name]) => code === key || locationKey(name) === key)?.[0] ?? key;
-};
-const locationOptions = (values: string[]) => [...new Map(values.map(value => value.trim()).filter(Boolean).map(value => [locationKey(value), value])).values()].sort((a, b) => a.localeCompare(b));
 
-/** Admin scope includes inactive places too, so their availability can be configured. */
-function pricingLocations(locations: MasterLocation[]) {
-  const byId = new Map(locations.map(location => [location.id, location]));
-  return locations.map(location => {
-    let state = location.state?.trim() || "";
-    let city = location.city?.trim() || (location.type === "City" ? location.name.trim() : "");
-    const seen = new Set([location.id]);
-    let parent = byId.get(location.parentLocationId || "");
-    while (parent && !seen.has(parent.id)) {
-      seen.add(parent.id);
-      state ||= parent.state?.trim() || "";
-      city ||= parent.city?.trim() || (parent.type === "City" ? parent.name.trim() : "");
-      parent = byId.get(parent.parentLocationId || "");
-    }
-    return { state, city, area: location.area?.trim() || (location.type !== "City" ? location.name.trim() : "") };
-  });
-}
 const STATUS_FILTERS = ["All", "Active", "Scheduled", "Ended", "Disabled", "Removed"] as const;
 
 /** Tamil helper line under an English heading (reference bilingual headings). */
@@ -147,15 +122,10 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
     return () => u.forEach((x) => x());
   }, []);
 
-  const stateName = (code: string) => GST_STATES.find(([c]) => c === code)?.[1] ?? code;
-  const locationRows = useMemo(() => pricingLocations(locations), [locations]);
-  const otherStates = locationOptions(locationRows.map(location => location.state).filter(state => state && !GST_STATES.some(([code]) => code === stateKey(state))));
   // Every rule for this brand & service (including the shared ones it inherits), and the ones that are not table cells.
   const scopedRules = rules.filter(inFareScope);
   const special = specialRules(scopedRules, ownsRule);
   const jump = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-  const stateOptions = [...GST_STATES.map(([c, n]) => ({ value: c, label: n })), ...otherStates.map((st) => ({ value: st, label: st }))];
-  const citiesOf = (state: string) => locationOptions([...directoryCities(stateKey(state)), ...locationRows.filter((l) => stateKey(l.state) === stateKey(state)).map((l) => l.city)]);
   const savedView = (): PricingView => ({ tab, sel, filter, scrollY: window.scrollY, fareScope, cabSection, pickupDrop });
   const selectPickupDrop = () => {
     if (workspaceBusy.current) return;
@@ -280,6 +250,8 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
   const scopedGroup = navGroups[0];
   const otherGroups = navGroups.slice(1);
 
+  // The common fare adjustment has one editor; it is shown under the fares of every service, including Local & Rental.
+  const fareAdjustmentCard = <FareAdjustmentCard />;
   return (
     <div className="ds-page-body fare-reference u27-settings-page u11-settings-page">
       <Toast toast={toast} />
@@ -298,8 +270,24 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
         </aside>
         <div className="fs-main">
       {!inlineKind && <>
-      {tab === "Brand & service fares" && pickupDrop && <LocalFares only="Pickup & Drop" initialTab="Pickup & Drop" initialCity={sel.city} onToast={show} vehicles={vehicles} />}
-      {tab === "Brand & service fares" && !pickupDrop && <div className="space-y-4">
+      {tab === "Brand & service fares" && (pickupDrop || fareScope.service === "Local Rental") && (() => {
+        // Local Pickup & Drop and Hourly Rental: location-based rates, coverage and scheduled peak pricing. No Diesel / CNG choice.
+        const extras = {
+          taxes: <><NightAllowanceCard /><div className="flex flex-wrap items-center gap-2 text-[13px] text-slate-600">GST follows the saved GST settings of this brand and service.<Button size="sm" onClick={() => changeTab("GST calculation")}>Open GST &amp; tax</Button></div></>,
+          display: <><DisplayMarkupCard scope={fareScope} />{fareAdjustmentCard}</>,
+        };
+        return (
+          <LocalRentalWorkspace key={pickupDrop ? "local" : "rental"} brand={fareScope.brand} service={pickupDrop ? "local" : "rental"} vehicles={vehicles} locations={locations}
+            rules={rules} rulesLoaded={loaded} canEdit={canEdit} canEditLocations={contentAccess} onToast={show} onManageLocations={() => onNavigate("locations")}
+            onDirty={(dirty) => { workspaceDirty.current = dirty; }} extras={extras}
+            standardPackages={pickupDrop ? undefined : (
+              <FareMatrix scope={fareScope} fuel="petrol"
+                vehicles={vehicles} cards={vehicleCards.map((card) => ({ cls: card.cls, name: card.name, categoryId: activeCats.length ? card.categoryId : undefined, cng: card.cng }))}
+                onDirtyChange={dirty => { workspaceDirty.current = dirty; }} onBusyChange={busy => { workspaceBusy.current = busy; }} />
+            )} />
+        );
+      })()}
+      {tab === "Brand & service fares" && !pickupDrop && fareScope.service !== "Local Rental" && <div className="space-y-4">
         {/* One table for every service: rates down the side, vehicles across the top (Hourly Rental: one row per package). */}
         <FareMatrix scope={fareScope} fuel={fuelApplies ? fareFuel : "petrol"}
           vehicles={vehicles} cards={vehicleCards.map((card) => ({ cls: card.cls, name: card.name, categoryId: activeCats.length ? card.categoryId : undefined, cng: card.cng }))}
@@ -308,7 +296,7 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
         {fareScope.service === "Round Trip" ? <TimeBasedRoundTripCard vehicles={vehicles} /> : null}
         <NightAllowanceCard />
         <DisplayMarkupCard scope={fareScope} />
-        <FareAdjustmentCard />
+        {fareAdjustmentCard}
       </div>}
       {tab === "Platform fee" && <PlatformFeeCard />}
       {tab === "Payment options" && <PaymentOptionsCard />}
@@ -341,14 +329,14 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
             </details>
             <div className="space-y-4">
               <BookingRulesGrid rules={scopedRules} isOwn={ownsRule} fareScope={fareScope} vehicles={vehicles}
-                canEdit={canEdit} loaded={loaded} loadError={loadError} stateName={stateName}
-                stateOptions={stateOptions} citiesOf={citiesOf} onToast={show} />
+                canEdit={canEdit} loaded={loaded} loadError={loadError} locations={locations}
+                onManageLocations={() => onNavigate("locations")} onToast={show} />
               <PriceChangeRules rules={rules.filter((r) => r.kind === "pricing" && (!r.brand || r.brand === scopeBrand))} fareScope={fareScope}
-                canEdit={canEdit} loaded={loaded} loadError={loadError} stateName={stateName}
-                stateOptions={stateOptions} citiesOf={citiesOf} onToast={show} />
+                canEdit={canEdit} loaded={loaded} loadError={loadError} locations={locations}
+                onManageLocations={() => onNavigate("locations")} onToast={show} />
               <DateRules rules={special} allRules={scopedRules.filter((r) => r.status !== "Removed")} isOwn={ownsRule} fareScope={fareScope} vehicles={vehicles}
-                canEdit={canEdit} loaded={loaded} loadError={loadError} stateName={stateName}
-                stateOptions={stateOptions} citiesOf={citiesOf} onToast={show} />
+                canEdit={canEdit} loaded={loaded} loadError={loadError} locations={locations}
+                onManageLocations={() => onNavigate("locations")} onToast={show} />
             </div>
           </div>
         )

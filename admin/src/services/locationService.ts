@@ -19,7 +19,7 @@ import { GST_STATES } from "../domain/gstStates";
 
 export class LocationActionError extends Error {}
 
-export const LOCATION_TYPES: LocationType[] = ["City", "Area / Locality", "Airport", "Railway Station", "Bus Stand", "Landmark", "Tourist Place", "Other"];
+export const LOCATION_TYPES: LocationType[] = ["City", "Area / Locality", "Service Zone", "Airport", "Railway Station", "Bus Stand", "Landmark", "Tourist Place", "Other"];
 
 export interface LocationForm {
   name: string;

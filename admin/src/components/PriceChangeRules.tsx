@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { saveRule, setRuleStatus, type Adjustment, type ServiceRule } from "../services/serviceRulesService";
 import { BRAND_LABELS, serviceLabel, useTariff, type FareWorkspaceScope } from "../services/tariffService";
 import { Button } from "./ui";
-import PincodePicker from "./PincodePicker";
-import { usePincodeScope } from "../hooks/usePincodeScope";
+import type { MasterLocation } from "../types";
+import LocationScopeSelector from "./location/LocationScopeSelector";
+import { EMPTY_SEL, indexLocations, rulePlaceLabel, rulePlacesOf, type LocSel } from "../domain/locationHierarchy";
 import { CardBody, Problems, SaveBar, SettingCard } from "./RateTable";
 
 // Price changes: one row per rule. Every row names the place, the SERVICE the change is for (One Way, Round Trip, Airport, Hourly
@@ -12,7 +13,7 @@ import { CardBody, Problems, SaveBar, SettingCard } from "./RateTable";
 // then the most specific place, then a rule for the service over an all-services one, then a rule for named packages over an
 // all-packages one. Rules with dates or pickup-only / drop-only stay in the special-rules list.
 
-type Place = { state: string; city: string; area: string };
+type Place = { state: string; city: string; area: string; zoneId?: string; zoneName?: string };
 type Edit = { cust?: string; part?: string; packages?: string[] };
 type NewRow = { key: string; place: Place; service: string; packages: string[]; cust: string; part: string };
 
@@ -26,22 +27,21 @@ const adjOf = (v: string): Adjustment => {
   return n === 0 ? { mode: "Normal", percent: 0 } : { mode: n > 0 ? "Increase" : "Decrease", percent: Math.abs(n) };
 };
 const badPct = (v: string) => v.trim() !== "" && !(Number.isFinite(Number(v)) && Math.abs(Number(v)) < 100);
-const keyOf = (p: Place) => `${p.state}|${p.city}|${p.area}`;
+const keyOf = (p: Place) => `${p.state}|${p.city}|${p.area}${p.zoneId ? `|z:${p.zoneId}` : ""}`;
 const pkgKey = (p?: string[]) => (p?.length ? [...p].sort().join(",") : "");
 /** A standing price change this table can show and edit: on, no dates, for pickup or drop. */
 const standing = (r: ServiceRule) => r.kind === "pricing" && r.status === "Enabled" && r.schedule.mode === "Always" && (r.scope.side ?? "Pickup or drop") === "Pickup or drop";
 let seq = 0;
 
-export default function PriceChangeRules({ rules, fareScope, canEdit, loaded, loadError, stateName, stateOptions, citiesOf, onToast }: {
+export default function PriceChangeRules({ rules, fareScope, canEdit, loaded, loadError, locations, onManageLocations, onToast }: {
   /** Every rule of this brand (any service) plus the shared All-brands ones; removed ones may be included. */
   rules: ServiceRule[];
   fareScope: FareWorkspaceScope;
   canEdit: boolean;
   loaded: boolean;
   loadError: string | null;
-  stateName: (code: string) => string;
-  stateOptions: { value: string; label: string }[];
-  citiesOf: (state: string) => string[];
+  locations: MasterLocation[];
+  onManageLocations?: () => void;
   onToast: (text: string) => void;
 }) {
   const { tariff } = useTariff();
@@ -50,9 +50,8 @@ export default function PriceChangeRules({ rules, fareScope, canEdit, loaded, lo
   const [edits, setEdits] = useState<Record<string, Edit>>({});
   const [removed, setRemoved] = useState<Set<string>>(new Set());
   const [added, setAdded] = useState<NewRow[]>([]);
-  const [pick, setPick] = useState<Place>({ state: "", city: "", area: "" });
-  // Pincodes of the chosen city, all ticked until some are unticked: all = the whole city, fewer = one row per pincode.
-  const pins = usePincodeScope(pick.state, pick.city);
+  const [pick, setPick] = useState<LocSel>(EMPTY_SEL);
+  const index = useMemo(() => indexLocations(locations), [locations]);
   const [services, setServices] = useState<string[]>([fareScope.service]);
   const [pickPkgs, setPickPkgs] = useState<string[]>([]);
   const [cust, setCust] = useState("");
@@ -77,8 +76,8 @@ export default function PriceChangeRules({ rules, fareScope, canEdit, loaded, lo
 
   const own = (r: ServiceRule) => (r.brand ?? "") === brandId;
   const live = useMemo(() => rules.filter((r) => standing(r) && (!r.brand || r.brand === brandId)), [rules, brandId]);
-  const place = (r: ServiceRule): Place => ({ state: r.scope.state, city: r.scope.city, area: r.scope.area });
-  const where = (p: Place) => (p.area ? `${p.area}, ${p.city}` : p.city ? p.city : p.state ? stateName(p.state) : "All locations");
+  const place = (r: ServiceRule): Place => ({ state: r.scope.state, city: r.scope.city, area: r.scope.area, ...(r.scope.zoneId ? { zoneId: r.scope.zoneId, zoneName: r.scope.zoneName } : {}) });
+  const where = (p: Place) => rulePlaceLabel(p);
   const serviceText = (s: string) => (s === ALL ? "All services" : serviceLabel(s));
   const rows = useMemo(() => [...live].sort((a, b) => (a.scope.state || "").localeCompare(b.scope.state || "") || (a.scope.city || "").localeCompare(b.scope.city || "") || (a.scope.area || "").localeCompare(b.scope.area || "") || (a.fareService ?? "").localeCompare(b.fareService ?? "")), [live]);
 
@@ -112,14 +111,13 @@ export default function PriceChangeRules({ rules, fareScope, canEdit, loaded, lo
   const pending = ops.length > 0;
 
   // ── Add form ──
-  const cities = pick.state ? citiesOf(pick.state) : [];
+  const toAdd: Place[] = rulePlacesOf(pick, index);
   const serviceChoices = common ? [ALL, ...SERVICES] : SERVICES;
-  const addProblem = !pins.canAdd ? "Tick at least one pincode, or choose the whole state." : !services.length ? "Choose at least one service." : badPct(cust) || badPct(part) ? "A price change must be between −99% and +99%." : adjOf(cust).mode === "Normal" && adjOf(part).mode === "Normal" ? "Enter a change for the customer fare or the partner pay." : "";
+  const addProblem = !toAdd.length ? "Choose where the price change applies." : !services.length ? "Choose at least one service." : badPct(cust) || badPct(part) ? "A price change must be between −99% and +99%." : adjOf(cust).mode === "Normal" && adjOf(part).mode === "Normal" ? "Enter a change for the customer fare or the partner pay." : "";
   const addRow = () => {
     if (addProblem) return setMessage({ ok: false, text: addProblem });
     setMessage(null);
-    for (const area of pins.areas) {
-      const p = { state: pick.state, city: pick.city, area };
+    for (const p of toAdd) {
       for (const s of services) setAdded((list) => [...list, { key: `n${seq++}`, place: p, service: s, packages: s === "Round Trip" ? pickPkgs : [], cust, part }]);
     }
     setCust(""); setPart(""); setPickPkgs([]);
@@ -181,22 +179,9 @@ export default function PriceChangeRules({ rules, fareScope, canEdit, loaded, lo
         : null}>
       {canEdit && (
         <CardBody>
-          <div className="fm-place-picker">
-            <label className="fm-mini"><span>State</span>
-              <select className="ds-select" value={pick.state} onChange={(e) => setPick({ state: e.target.value, city: "", area: "" })}>
-                <option value="">All locations</option>
-                {stateOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </label>
-            <label className="fm-mini"><span>City</span>
-              <select className="ds-select" value={pick.city} disabled={!pick.state} onChange={(e) => setPick({ ...pick, city: e.target.value, area: "" })}>
-                <option value="">Whole state</option>
-                {cities.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </label>
-            <div className="fm-mini"><span>Pincodes</span>
-              <div className="relative"><PincodePicker list={pins.list} selected={pins.pins} onChange={pins.setPins} cityChosen={!!pick.city} /></div>
-            </div>
+          <LocationScopeSelector variant="row" label="Price change location" value={pick} onChange={setPick} locations={locations} depth="area" pinSearch="multi"
+            broad={{ state: "All locations", district: "Whole state", zone: "All zones", area: "All mapped areas" }} onManageLocations={onManageLocations} />
+          <div className="fm-place-picker mt-3">
             <label className="fm-mini"><span>Customer fare %</span><input className="ds-input text-right" inputMode="decimal" value={cust} placeholder="0" onChange={(e) => setCust(e.target.value)} aria-label="Customer fare change" /></label>
             <label className="fm-mini"><span>Partner pay %</span><input className="ds-input text-right" inputMode="decimal" value={part} placeholder="0" onChange={(e) => setPart(e.target.value)} aria-label="Partner pay change" /></label>
           </div>
@@ -218,7 +203,7 @@ export default function PriceChangeRules({ rules, fareScope, canEdit, loaded, lo
               <span className="text-[12px] text-muted">{pickPkgs.length ? pickPkgs.map(pkgName).join(", ") : "Every package of the Round Trip."}</span>
             </div>
           )}
-          <div className="mt-3"><Button icon="plus" onClick={addRow}>{pins.areas.length > 1 ? `Add ${pins.areas.length} price changes per service` : "Add price change"}</Button></div>
+          <div className="mt-3"><Button icon="plus" onClick={addRow}>{toAdd.length > 1 ? `Add ${toAdd.length} price changes per service` : "Add price change"}</Button></div>
         </CardBody>
       )}
 

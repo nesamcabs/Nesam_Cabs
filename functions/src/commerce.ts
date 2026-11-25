@@ -108,7 +108,7 @@ export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (requ
   const pricingRoute = multicity ? route : await roundTripPricingRoute(route, tripType, pickup, drop, stops.length);
   assertServiceSupported(bookingBrand, multicity ? 'Multicity' : tripType);
   // Fixed route and Local Pickup & Drop fares, matched on master-location ids exactly as the quote was.
-  const { fixedRoutes, localCityId, localZoneId } = await customerFareContext(tripType, pickup, drop, route.distanceKm);
+  const { fixedRoutes, localCityId, localZoneId, geo } = await customerFareContext(tripType, pickup, drop, route.distanceKm, bookingBrand);
   // A round trip is billed by Indian calendar date, so the customer states when it ends.
   // Time-based round trip: the customer states the trip DAYS and picks a package; the return time follows from them (see domain/timeBased.ts).
   const tripDays = tripType === 'Round Trip' && !multicity ? tripDaysOf(input.tripDays) : null;
@@ -178,7 +178,7 @@ export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (requ
     const recipientState = recipientGstState(customer.data());
     const fuel = input.fuelType === 'cng' ? ('cng' as const) : undefined;
     if (fuel && category.cngEnabled !== true) throw new HttpsError('failed-precondition', 'CNG is not offered on this vehicle.');
-    const priceInput = { addOns: bookingAddOnsOf(input.addOns ?? input.tripExtras), fuel, boardingState, recipientState, recipientAddressState: recipientAddressState(customer.data()), category, route: pricingRoute, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, rentalHours: tripType === 'Local Rental' ? rentalHoursOf(input.rentalHours) : null, brand: bookingBrand, fixedRoutes, localCityId, localZoneId, serviceId, multicity, platformFee, nightAllowance, tripDays, customerChannel: true, stops, timePackage: typeof input.timePackage === 'string' ? input.timePackage : undefined };
+    const priceInput = { addOns: bookingAddOnsOf(input.addOns ?? input.tripExtras), fuel, boardingState, recipientState, recipientAddressState: recipientAddressState(customer.data()), category, route: pricingRoute, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, rentalHours: tripType === 'Local Rental' ? rentalHoursOf(input.rentalHours) : null, brand: bookingBrand, fixedRoutes, localCityId, localZoneId, geo, serviceId, multicity, platformFee, nightAllowance, tripDays, customerChannel: true, stops, timePackage: typeof input.timePackage === 'string' ? input.timePackage : undefined };
     let beforeDiscount = priceBooking(priceInput);
     // A Round Trip price change may be limited to some time-based packages: once the package is known, price it with exactly its rules.
     if (serviceRules.some((r) => r.packages?.length) && beforeDiscount.pricing.timeBased) {

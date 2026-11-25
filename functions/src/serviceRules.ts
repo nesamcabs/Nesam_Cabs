@@ -17,6 +17,7 @@ import { parseFareScope } from './fareScope';
 import { childNames, isInside, parentOf } from './domain/placeZones';
 import { STATE_NAMES, pinsOfCity } from './domain/pincodeLookup';
 import { placePincode } from './domain/hillStations';
+import { isZoneRecord } from './geoPricing';
 
 type Adjustment = { mode: 'Normal' | 'Increase' | 'Decrease'; percent: number };
 type Side = 'Pickup or drop' | 'Pickup only' | 'Drop only';
@@ -30,7 +31,11 @@ export interface ServiceRule {
   kind: RuleKind;
   status: string;
   priority: number;
-  scope: { state?: string; city?: string; area?: string; side?: Side };
+  /**
+   * `zoneId` / `zoneName`: a Service Zone (Locations record) inside the district in `city`. Matched by the zone's pincodes, which
+   * loadServiceRules attaches as `zonePins` (never stored on the rule).
+   */
+  scope: { state?: string; city?: string; area?: string; side?: Side; zoneId?: string; zoneName?: string; zonePins?: string[] };
   service?: string;
   schedule?: { mode?: 'Always' | 'Range'; from?: string; to?: string };
   availability?: 'Available' | 'Limited' | 'Paused';
@@ -64,7 +69,19 @@ export interface RuleOutcome {
 export async function loadServiceRules(tx?: Transaction): Promise<ServiceRule[]> {
   const q = db.collection('service_rules').where('status', '==', 'Enabled');
   const snap = tx ? await tx.get(q) : await q.get();
-  return snap.docs.map((d) => ({ ...(d.data() as Omit<ServiceRule, 'id'>), id: d.id }));
+  const rules = snap.docs.map((d) => ({ ...(d.data() as Omit<ServiceRule, 'id'>), id: d.id }));
+  // A zone rule matches by the zone's current pincodes (edited in Locations / Local & Rental pricing).
+  const zoneIds = [...new Set(rules.map((r) => r.scope?.zoneId).filter((z): z is string => typeof z === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(z)))];
+  if (zoneIds.length) {
+    const zones = await db.getAll(...zoneIds.map((z) => db.doc(`locations/${z}`)));
+    const pins = new Map(zones.map((z) => {
+      const l = z.data() ?? {};
+      const list = [...(Array.isArray(l.pincodes) ? l.pincodes : []), l.pincode].filter((x): x is string => typeof x === 'string' && PIN_AREA.test(x.trim())).map((x) => x.trim());
+      return [z.id, z.exists && l.status !== 'Inactive' ? [...new Set(list)] : []] as const;
+    }));
+    for (const r of rules) if (r.scope?.zoneId) r.scope = { ...r.scope, zonePins: pins.get(r.scope.zoneId) ?? [] };
+  }
+  return rules;
 }
 
 const norm = (s: unknown) => (typeof s === 'string' ? s.trim().toLowerCase() : '');
@@ -81,6 +98,13 @@ function placeMatches(rule: ServiceRule, p: GeoPlace): boolean {
   const hay = `${norm(p.name)} ${norm(x.address)} ${norm(x.city)} ${norm(x.area)} ${norm(x.state)}`;
   const { city, area, state } = rule.scope ?? {};
   const pin = placePincode({ name: p.name, address: x.address, pincode: p.pincode });
+  if (rule.scope?.zoneId) {
+    // A Service Zone covers exactly its pincodes (and the zone record itself when it was chosen as the place). No pincodes = nothing.
+    if (p.id === rule.scope.zoneId) return true;
+    if (!pin || !(rule.scope.zonePins ?? []).includes(pin)) return false;
+    if (norm(area)) return isInside(city, area) || hay.includes(norm(area));
+    return true;
+  }
   if (PIN_AREA.test(norm(area))) {
     // A pincode is unique across the country, so it needs no city or state in the address: the place just has to carry it.
     const wanted = norm(area);
@@ -134,7 +158,7 @@ export function ruleServiceText(pickup: GeoPlace, drop: GeoPlace, distanceKm: nu
 
 /** Most specific location wins (area, city, state, everywhere), then a service-specific rule, then the higher priority. */
 // A "city" that is really an area inside a district (Hosur inside Krishnagiri) ranks between the two, so its own rule beats the district's.
-const specificity = (r: ServiceRule) => (norm(r.scope?.area) ? 3 : norm(r.scope?.city) ? (parentOf(r.scope?.city) ? 2.5 : 2) : norm(r.scope?.state) ? 1 : 0);
+const specificity = (r: ServiceRule) => (norm(r.scope?.area) ? 3 : r.scope?.zoneId ? 2.7 : norm(r.scope?.city) ? (parentOf(r.scope?.city) ? 2.5 : 2) : norm(r.scope?.state) ? 1 : 0);
 const serviceSpecific = (r: ServiceRule) => (norm(r.service) && norm(r.service) !== 'all' ? 1 : 0);
 /** A rule written for one fare service beats one written for every service, at the same place. */
 const fareServiceSpecific = (r: ServiceRule) => (r.fareService ? 1 : 0);
@@ -218,7 +242,7 @@ const SIDES: readonly Side[] = ['Pickup or drop', 'Pickup only', 'Drop only'];
 const MODES = ['Normal', 'Increase', 'Decrease'] as const;
 const MAX_RUPEES = 10_000_000;
 
-type StoredRule = Omit<ServiceRule, 'id' | 'status' | 'version'> & { name: string; reason: string; service: string; schedule: { mode: 'Always' | 'Range'; from?: string; to?: string }; scope: { state: string; city: string; area: string; side: Side } };
+type StoredRule = Omit<ServiceRule, 'id' | 'status' | 'version'> & { name: string; reason: string; service: string; schedule: { mode: 'Always' | 'Range'; from?: string; to?: string }; scope: { state: string; city: string; area: string; side: Side; zoneId?: string; zoneName?: string } };
 
 const adjText = (a?: Adjustment) => (!a || a.mode === 'Normal' ? 'normal' : `${a.mode === 'Increase' ? '+' : '−'}${a.percent}%`);
 function summarize(r: Partial<StoredRule> | undefined | null): string {
@@ -228,7 +252,7 @@ function summarize(r: Partial<StoredRule> | undefined | null): string {
   if (r.kind === 'pricing') return `Customer ${adjText(r.customer)} · Partner ${adjText(r.partner)}${r.fareService ? ` · ${r.fareService}` : ' · all services'}${r.packages?.length ? ` · ${r.packages.join(', ')}` : ''}`;
   return r.limit ? `${r.limit.target} ₹${r.limit.min}–₹${r.limit.max}` : '';
 }
-const whereText = (s: Partial<StoredRule['scope']> | undefined) => [s?.area, s?.city, s?.state && (STATE_NAMES[s.state] ?? s.state)].filter(Boolean).join(', ') || 'All locations';
+const whereText = (s: Partial<StoredRule['scope']> | undefined) => [s?.area, s?.zoneName ? `${s.zoneName} (zone)` : '', s?.city, s?.state && (STATE_NAMES[s.state] ?? s.state)].filter(Boolean).join(', ') || 'All locations';
 
 function adjustmentOf(v: any, label: string): Adjustment {
   const mode = MODES.find((m) => m === v?.mode) ?? 'Normal';
@@ -254,7 +278,9 @@ export function parseRule(v: any, categoryNames: Set<string>): StoredRule {
   const scope = {
     state: text(v.scope?.state, 40), city: text(v.scope?.city, 80), area: text(v.scope?.area, 80),
     side: SIDES.find((s) => s === v.scope?.side) ?? 'Pickup or drop',
+    ...(text(v.scope?.zoneId, 128) ? { zoneId: text(v.scope?.zoneId, 128), zoneName: text(v.scope?.zoneName, 120) } : {}),
   };
+  if (scope.zoneId && (!/^[A-Za-z0-9_-]{1,128}$/.test(scope.zoneId) || !scope.city || scope.area)) throw new HttpsError('invalid-argument', 'A service zone setting needs its district and no separate area.');
   if (scope.area && !scope.city) throw new HttpsError('invalid-argument', 'Choose the city for an area-specific setting.');
   const priority = v.priority;
   if (!Number.isInteger(priority) || priority < 1 || priority > 100) throw new HttpsError('invalid-argument', 'Priority must be a whole number from 1 to 100.');
@@ -330,7 +356,7 @@ async function assertNoConflict(tx: Transaction, id: string, next: Pick<StoredRu
     const r = d.data() as Partial<StoredRule>;
     if ((r.brand ?? '') !== (next.brand ?? '') || (r.fareService ?? '') !== (next.fareService ?? '')) return false;
     if (r.kind !== next.kind || r.priority !== next.priority) return false;
-    if (norm(r.scope?.state) !== norm(next.scope.state) || norm(r.scope?.city) !== norm(next.scope.city) || norm(r.scope?.area) !== norm(next.scope.area)) return false;
+    if (norm(r.scope?.state) !== norm(next.scope.state) || norm(r.scope?.city) !== norm(next.scope.city) || norm(r.scope?.area) !== norm(next.scope.area) || (r.scope?.zoneId ?? '') !== (next.scope.zoneId ?? '')) return false;
     if (norm(r.service) !== norm(next.service)) return false;
     // Price changes for different packages of the same place do not overlap.
     if (packagesKey(r.packages) !== packagesKey(next.packages)) return false;
@@ -352,6 +378,12 @@ export const saveServiceRule = onCall(async (request) => {
   const categories = await db.collection('vehicle_categories').where('status', '==', 'Active').get();
   const next = parseRule(input.rule, new Set(categories.docs.map((d) => norm(d.data().name))));
   next.reason = reason;
+  if (next.scope.zoneId) {
+    const z = await db.doc(`locations/${next.scope.zoneId}`).get();
+    const l = z.data();
+    if (!z.exists || !l || !isZoneRecord(l)) throw new HttpsError('invalid-argument', 'That service zone no longer exists. Reload and choose again.');
+    next.scope.zoneName = String(l.name ?? '');
+  }
 
   return db.runTransaction(async (tx) => {
     const ref = id ? db.doc(`service_rules/${id}`) : db.collection('service_rules').doc();
