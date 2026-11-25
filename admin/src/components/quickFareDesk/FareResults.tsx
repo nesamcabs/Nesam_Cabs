@@ -46,7 +46,7 @@ const ADDONS = [
 ] as const;
 
 /** CNG / Diesel and the Pet Friendly / Luggage Carrier toggles. Every price comes from the server. */
-function FuelBar({ extras, disabled, onFuel, onAddOn }: { extras: FareExtras; disabled: boolean; onFuel: (f: "cng" | null) => void; onAddOn: (k: "pets" | "carrier") => void }) {
+function FuelBar({ extras, disabled, onFuel, onAddOn, fuelApplies }: { extras: FareExtras; disabled: boolean; onFuel: (f: "cng" | null) => void; onAddOn: (k: "pets" | "carrier") => void; fuelApplies: boolean }) {
   const cng = extras.fuel === "cng";
   // Same segmented control as New Booking: pale-grey track, white selected pill; slate for Diesel, green for CNG.
   const fuelBtn = (on: boolean, tone: "cng" | "diesel") =>
@@ -55,7 +55,7 @@ function FuelBar({ extras, disabled, onFuel, onAddOn }: { extras: FareExtras; di
     }`;
   return (
     <div className="px-5 py-3 bg-slate-50/80 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-2.5">
-      <div className="flex items-center gap-2">
+      {fuelApplies ? <div className="flex items-center gap-2">
         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1" aria-hidden="true">
           <Fuel className="w-4 h-4 text-slate-400" strokeWidth={2} /><span>Fuel</span>
         </span>
@@ -71,7 +71,7 @@ function FuelBar({ extras, disabled, onFuel, onAddOn }: { extras: FareExtras; di
             <span>Diesel</span>
           </button>
         </div>
-      </div>
+      </div> : <span />}
       <div className="flex items-center gap-2 flex-wrap">
         {ADDONS.map(({ key, label, Icon }) => {
           const on = extras.addOns[key];
@@ -157,12 +157,14 @@ function ManualQuote({ categories, onUse }: { categories: VehicleCategory[]; onU
   );
 }
 
-export default function FareResults({ view, extras, categories, canBook, onFuel, onAddOn, onFollowUp, onBook, onCopy, onManual }: {
+export default function FareResults({ view, extras, categories, canBook, onFuel, onAddOn, onFollowUp, onBook, onCopy, onManual, fuelApplies = true }: {
   view: FareView;
   extras: FareExtras;
   categories: VehicleCategory[];
   canBook: boolean;
   onFuel: (fuel: "cng" | null) => void;
+  /** Local Pickup & Drop and Hourly Rental have no fuel split: the Diesel / CNG choice is not shown for them. */
+  fuelApplies?: boolean;
   onAddOn: (key: "pets" | "carrier") => void;
   onFollowUp: (line: DeskQuoteLine) => void;
   onBook: (line: DeskQuoteLine) => void;
@@ -213,7 +215,7 @@ export default function FareResults({ view, extras, categories, canBook, onFuel,
         )}
       </div>
 
-      <FuelBar extras={extras} disabled={view.busy} onFuel={onFuel} onAddOn={onAddOn} />
+      <FuelBar extras={extras} disabled={view.busy} onFuel={onFuel} onAddOn={onAddOn} fuelApplies={fuelApplies} />
 
       {view.busy && !showResults && (
         <div className="flex-1 p-8 sm:p-12 flex flex-col items-center justify-center text-center" role="status">

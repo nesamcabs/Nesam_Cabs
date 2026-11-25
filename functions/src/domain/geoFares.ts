@@ -6,6 +6,7 @@
 // A brand's own value beats a shared one, exactly like the rest of the fare settings. A saved 0 is a value; a missing field is
 // unconfigured and is never read as 0. Removing a field (null in a save) restores inheritance.
 import type { RentalPackage, TariffClass } from './tariff';
+import type { ExtraChargesSnapshot } from './extraCharges';
 
 export type GeoService = 'local' | 'rental';
 export const GEO_SERVICES: GeoService[] = ['local', 'rental'];
@@ -184,4 +185,19 @@ export function airportEntryFor(docs: Map<string, GeoFareDoc>, brand: string, pi
     }
   }
   return null;
+}
+
+/**
+ * The waiting rates a Local Pickup & Drop booking on location rates is billed with when the trip ends: the location's own free
+ * minutes and per-minute rates (customer and partner), with the existing rounding interval, rounding scope and tax treatment of
+ * extra charges (and the category's hill / roof-carrier rates) unchanged. Waiting is never added to the quote itself.
+ */
+export function withLocalWaiting(base: ExtraChargesSnapshot | undefined, g: { freeWaitingMin?: number; waitingPerMinPaise?: number; partnerWaitingPerMinPaise?: number }, tariffVersion: number, categoryId: string): ExtraChargesSnapshot | undefined {
+  if (g.waitingPerMinPaise === undefined || g.freeWaitingMin === undefined) return base;
+  const b: ExtraChargesSnapshot = base ?? { schema: 1, version: 0, tariffVersion, categoryId, freeWaitingMinutes: null, waitingRoundingMinutes: null, roundingScope: null, taxTreatment: null, customer: {}, partner: {} };
+  return {
+    ...b, freeWaitingMinutes: g.freeWaitingMin,
+    customer: { ...b.customer, waitingPerHourPaise: g.waitingPerMinPaise * 60 },
+    partner: { ...(b.partner ?? {}), ...(g.partnerWaitingPerMinPaise !== undefined ? { waitingPerHourPaise: g.partnerWaitingPerMinPaise * 60 } : {}) },
+  };
 }

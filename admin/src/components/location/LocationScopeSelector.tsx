@@ -65,7 +65,7 @@ export default function LocationScopeSelector({
   const crumbs = breadcrumbOf(value, index, { state: broad.state ?? "Select a state", zone: broad.zone ?? "Select zone", area: broad.area ?? "Select area" });
 
   const selects = (
-    <div className={`grid gap-3 ${depth === "state" ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-5"}`}>
+    <div className={`grid gap-3 ${{ state: "grid-cols-1", district: "grid-cols-1 sm:grid-cols-2", zone: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4", area: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-5" }[depth]}`}>
       <label className={fieldCls}><span className={labelCls}>State</span>
         <select className="ds-select" value={value.state} disabled={disabled} aria-label={`${label}: state`} onChange={(e) => set({ state: e.target.value })}>
           <option value="">{broad.state ?? "Select a state"}</option>
@@ -96,7 +96,7 @@ export default function LocationScopeSelector({
           </select>
         </label>
       )}
-      {depth !== "state" && (
+      {(depth === "zone" || depth === "area") && (
         <div className={fieldCls}><span className={labelCls}>PIN code</span>
           <div className="ds-input flex min-h-[38px] items-center gap-1 overflow-hidden bg-slate-50 text-[13px] text-slate-700" aria-label={`${label}: PIN codes`} title={shownPins.join(", ")}>
             {value.pins.length ? value.pins.map((p) => (
@@ -117,7 +117,7 @@ export default function LocationScopeSelector({
     return (
       <div className={`grid gap-2 ${className}`}>
         <div className="flex flex-wrap items-end gap-3">
-          <div className="min-w-0 flex-1">{selects}</div>
+          <div className="min-w-[min(100%,360px)] flex-1">{selects}</div>
           {search && <div className="w-full sm:w-[220px]">{search}</div>}
           {action}
         </div>

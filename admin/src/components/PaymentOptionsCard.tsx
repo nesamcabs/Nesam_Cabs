@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getPaymentChoiceSettings, getPaymentGatewayStatus, savePaymentChoiceSettings, type GatewayStatus } from "../services/bookingOpsService";
 import { ActionError } from "../services/callables";
-import { CITIES_BY_STATE, directoryCities } from "../domain/placeDirectory";
+import { CITIES_BY_STATE } from "../domain/placeDirectory";
 import {
   MAX_DISTRICTS, MAX_PART_PERCENT, MIN_PART_PERCENT, PAY_OPTION_IDS, advanceAmount, defaultChoices, validateChoices,
   type OptionRule, type PayOptionId, type PaymentChoices,
 } from "../domain/paymentChoices";
 import { useCan, useCanDo } from "./AccessContext";
+import type { MasterLocation } from "../types";
+import { subscribeLocations } from "../services/adminFirestoreService";
+import LocationScopeSelector from "./location/LocationScopeSelector";
+import { EMPTY_SEL, indexLocations, rulePlacesOf, type LocSel } from "../domain/locationHierarchy";
 import { Notice, inputCls, primaryBtn, secondaryBtn } from "./FormKit";
 
 /**
@@ -20,7 +24,6 @@ type Form = Omit<PaymentChoices, "version">;
 const inr = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 const SAMPLE_TOTAL = 6082;
 const TN_DISTRICTS = CITIES_BY_STATE["33"].slice(0, 38);
-const ALL_PLACES = [...new Set(directoryCities(""))].sort((a, b) => a.localeCompare(b));
 const sameForm = (a: Form, b: Form) => JSON.stringify(a) === JSON.stringify(b);
 
 const COPY: Record<PayOptionId, { title: (pct: number) => string; sub: (pct: number) => string }> = {
@@ -45,16 +48,24 @@ function Switch({ on, onChange, disabled, label }: { on: boolean; onChange: (v: 
   );
 }
 
-/** Chips of the chosen districts and a box to add more (any city typed in is accepted; built-in cities and districts are suggested). */
-function DistrictPicker({ id, list, onChange, disabled }: { id: string; list: string[]; onChange: (next: string[]) => void; disabled?: boolean }) {
-  const [text, setText] = useState("");
-  const has = (n: string) => list.some((x) => x.toLowerCase() === n.toLowerCase());
+/**
+ * Chips of the chosen districts, and the shared location selector to add more: a district of the State → District list, or a saved
+ * City of the Locations master (the server matches the pickup by these names, so the towns inside a district count too). Saved
+ * entries stay exactly as saved.
+ */
+function DistrictPicker({ list, onChange, disabled }: { id: string; list: string[]; onChange: (next: string[]) => void; disabled?: boolean }) {
+  const [locations, setLocations] = useState<MasterLocation[]>([]);
+  useEffect(() => subscribeLocations(setLocations, () => setLocations([])), []);
+  const index = useMemo(() => indexLocations(locations), [locations]);
+  const [sel, setSel] = useState<LocSel>(EMPTY_SEL);
+  const name = sel.district ? rulePlacesOf({ ...sel, zoneId: "", pins: [] }, index)[0]?.city ?? "" : "";
   const add = (names: string[]) => {
     const next = [...list];
     for (const n of names.map((x) => x.trim()).filter(Boolean)) if (!next.some((x) => x.toLowerCase() === n.toLowerCase()) && next.length < MAX_DISTRICTS) next.push(n);
     onChange(next);
-    setText("");
+    setSel({ ...EMPTY_SEL, state: sel.state });
   };
+  const cities = index.filter((x) => x.loc.type === "City" && x.state === sel.state && x.district.toLowerCase() === sel.district.toLowerCase());
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-1.5" aria-live="polite">
@@ -67,14 +78,27 @@ function DistrictPicker({ id, list, onChange, disabled }: { id: string; list: st
         {!list.length && <span className="text-[12px] text-muted">No district chosen yet.</span>}
       </div>
       {!disabled && (
-        <div className="flex flex-wrap items-center gap-2">
-          <input list={`${id}-places`} value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (text.trim()) add([text]); } }}
-            placeholder="Type a district or city" aria-label="Add a district or city" className={`${inputCls} max-w-[260px]`} />
-          <datalist id={`${id}-places`}>{ALL_PLACES.filter((p) => !has(p)).map((p) => <option key={p} value={p} />)}</datalist>
-          <button type="button" className={secondaryBtn} disabled={!text.trim()} onClick={() => add([text])}>Add</button>
-          <button type="button" className={secondaryBtn} onClick={() => add(TN_DISTRICTS)} title="Adds all 38 Tamil Nadu districts">All Tamil Nadu districts</button>
-          {list.length > 0 && <button type="button" className="text-[12px] font-semibold text-brand cursor-pointer" onClick={() => onChange([])}>Clear</button>}
-        </div>
+        <>
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="min-w-0 flex-1">
+              <LocationScopeSelector variant="row" label="Payment option district" value={sel} onChange={setSel} locations={locations} depth="district" pinSearch="locate"
+                broad={{ state: "Select a state" }} />
+            </div>
+            {cities.length > 0 && (
+              <label className="flex flex-col gap-1"><span className="text-[12px] font-semibold text-slate-700">City (optional)</span>
+                <select className="ds-select" value={sel.locationId} aria-label="Payment option city" onChange={(e) => setSel({ ...sel, locationId: e.target.value })}>
+                  <option value="">Whole district</option>
+                  {cities.map((c) => <option key={c.loc.id} value={c.loc.id}>{c.loc.name}</option>)}
+                </select>
+              </label>
+            )}
+            <button type="button" className={secondaryBtn} disabled={!name || list.some((x) => x.toLowerCase() === name.toLowerCase())} onClick={() => add([name])}>{name ? `Add ${name}` : "Add district"}</button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className={secondaryBtn} onClick={() => add(TN_DISTRICTS)} title="Adds all 38 Tamil Nadu districts">All Tamil Nadu districts</button>
+            {list.length > 0 && <button type="button" className="text-[12px] font-semibold text-brand cursor-pointer" onClick={() => onChange([])}>Clear</button>}
+          </div>
+        </>
       )}
     </div>
   );

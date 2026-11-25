@@ -87,6 +87,10 @@ export interface FareBreakdown {
   nightCharge: number;
   /** Platform fee included in the taxable amount (before GST); absent when there is none. */
   platformFee?: number;
+  /** Scheduled peak-hour charge (taxable). */
+  peakCharge?: number;
+  /** Local airport entry fee: a pass-through outside the taxable amount, included in the total. */
+  airportEntry?: number;
   /** Hill Station Allowance / Charge included in the taxable amount (before GST). */
   hillCharge?: number;
   driverAllowance: number;

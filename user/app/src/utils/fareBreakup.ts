@@ -32,6 +32,8 @@ export function linesFromBreakdown(fare: FareBreakdown): FareLine[] {
   add('petAddon', 'Pet travel', fare.addOns?.petCharge ?? 0);
   add('discount', 'Discount', -fare.discount);
   add('platformFee', 'Platform fee', fare.platformFee ?? 0);
+  add('peakCharge', 'Peak-hour charge', fare.peakCharge ?? 0);
   lines.push({ key: 'gst', label: 'GST', amount: fare.gst, treatment: 'included', detail: '' });
+  add('airportEntry', 'Airport entry', fare.airportEntry ?? 0);
   return lines;
 }

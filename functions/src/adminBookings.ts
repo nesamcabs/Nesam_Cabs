@@ -242,8 +242,11 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
     const category = configured.find((c) => c.id === input.categoryId);
     if (!category) throw new HttpsError('failed-precondition', 'This vehicle category is not bookable (it is inactive or has no name).');
     // CNG is priced from the class's CNG rate card, only on vehicles that offer it (the same rule as customer bookings).
-    const fuel = input.fuelType === 'cng' ? ('cng' as const) : undefined;
-    if (fuel && category.cngEnabled !== true) throw new HttpsError('failed-precondition', 'CNG is not offered on this vehicle.');
+    // Hourly Rental has no fuel split: a CNG choice left on the form is ignored, never a reason to refuse the trip.
+    let fuel = input.fuelType === 'cng' && tripType !== 'Local Rental' ? ('cng' as const) : undefined;
+    // A vehicle without CNG is refused for CNG, unless the trip turns out to be Local Pickup & Drop (no fuel split; checked after pricing).
+    const cngNotOffered = !!fuel && category.cngEnabled !== true;
+    if (cngNotOffered) fuel = undefined;
     let service = serviceName(pickup, drop, route.distanceKm, tripType), serviceId = '';
     const allServices: ServiceMasterDoc[] = servicesSnap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
     if (serviceSnap) {
@@ -318,7 +321,10 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
         priceInput.adjustment = adjustment;
       }
     }
-    const pricedRaw = priceBooking({ ...priceInput, ...(couponDiscount ? { discount: couponDiscount } : {}) });
+    let pricedRaw = priceBooking({ ...priceInput, ...(couponDiscount ? { discount: couponDiscount } : {}) });
+    // Local Pickup & Drop has no fuel split either: priced without the fuel choice (the same fare) and not marked CNG.
+    if (fuel && pricedRaw.pricing.model === 'local_pickup_drop') { fuel = undefined; priceInput.fuel = undefined; pricedRaw = priceBooking({ ...priceInput, ...(couponDiscount ? { discount: couponDiscount } : {}) }); }
+    if (cngNotOffered && pricedRaw.pricing.model !== 'local_pickup_drop') throw new HttpsError('failed-precondition', 'CNG is not offered on this vehicle.');
     // Some trips have no CNG rate (time-based round-trip packages, for example): never sell them as CNG at the standard rate.
     if (fuel && pricedRaw.pricing.fuelType !== 'cng') throw new HttpsError('failed-precondition', 'CNG is not available for this trip on this vehicle.');
     const priced = { ...pricedRaw, pricing: adjustPartner(pricedRaw.pricing, rules) };

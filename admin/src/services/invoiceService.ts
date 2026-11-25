@@ -81,7 +81,9 @@ export function buildInvoiceLines(b: Booking): InvoiceLines {
   const addons = fb.addOns && typeof fb.addOns === "object" ? fb.addOns as Record<string, unknown> : {};
   const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
   const gst = round2(bookingGst(b));
-  const taxable = round2(fare - gst);
+  // A Local airport entry fee is a pass-through inside the fare total but outside the taxable value (like tolls).
+  const airportEntry = round2(num(fb.airportEntry));
+  const taxable = round2(fare - gst - airportEntry);
   const discount = round2(num(fb.discount) || Number(b.discount || 0));
   const subtotal = round2(taxable + discount);
   const trip = `${b.service || "Taxi service"} — ${b.pickup || "Pickup"} to ${b.drop || "Drop"}`;
@@ -98,6 +100,7 @@ export function buildInvoiceLines(b: Booking): InvoiceLines {
     // A global % adjustment can be negative; an agreed adjustment is the override's difference.
     [b.globalAdjustmentApplied?.name || "Fare adjustment", b.globalAdjustmentApplied?.amount],
     ["Agreed fare adjustment", fb.adminAdjustment],
+    ["Peak-hour charge", fb.peakCharge],
   ];
   const detailed = components.filter(([, v]) => num(v) !== 0);
   const detailedSum = round2(detailed.reduce((s, [, v]) => s + num(v), 0));

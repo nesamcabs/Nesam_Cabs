@@ -104,10 +104,12 @@ test('scheduled peak: overlaps are refused, the charge applies on the scheduled 
   const day = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(parts.weekday);
   const min = Number(parts.hour) * 60 + Number(parts.minute);
   const hhmm = (m) => `${String(Math.floor(((m + 1440) % 1440) / 60)).padStart(2, '0')}:${String(((m + 1440) % 1440) % 60).padStart(2, '0')}`;
-  const rule = { brand: 'common', service: 'local', scope: THENI, name: 'Test peak', enabled: true, days: [day], slots: [{ start: hhmm(min - 60), end: hhmm(min + 60) }], type: 'percent', value: 10, cap: 25, priority: 3, reason: 'Peak test rule' };
+  // A window that starts before midnight belongs to the evening it starts on (the previous weekday).
+  const startDay = min - 60 < 0 ? (day + 6) % 7 : day;
+  const rule = { brand: 'common', service: 'local', scope: THENI, name: 'Test peak', enabled: true, days: [startDay], slots: [{ start: hhmm(min - 60), end: hhmm(min + 60) }], type: 'percent', value: 10, cap: 25, priority: 3, reason: 'Peak test rule' };
   const before = await quoteFor('nesam');
   ok(await call(admin, 'savePeakRule', rule));
-  const clash = await call(admin, 'savePeakRule', { ...rule, name: 'Clash', slots: [{ start: hhmm(min), end: hhmm(min + 90) }] });
+  const clash = await call(admin, 'savePeakRule', { ...rule, name: 'Clash', days: [day], slots: [{ start: hhmm(min), end: hhmm(min + 90) }] });
   assert.equal(clash.ok, false);
   assert.match(clash.message, /Overlaps/);
   const q = await quoteFor('nesam');
@@ -135,6 +137,17 @@ test('airport entry: only a booked Airport record with a saved fee, once; a name
   assert.equal((await call(admin, 'saveGeoFares', { brand: 'common', service: 'local', targets: [THENI], data: { airportEntry: { customerFee: 60, appliesTo: 'drop' } }, expected: {}, reason: 'Wrong target' })).ok, false);
 });
 
+test('Local and Rental have no fuel split: a CNG choice left on the office form is ignored, not refused', async () => {
+  const local = ok(await call(admin, 'createAdminBooking', { ...localTrip(), brand: 'nesam', requestId: rid('geoc'), quoteOnly: true, categoryId: 'geo-sedan', fuelType: 'cng', pickupPoint: pickup, dropPoint: drop }));
+  assert.equal(local.pricing.model, 'local_pickup_drop');
+  assert.equal(local.fuelType, undefined);
+  assert.equal(local.pricing.extraCharges.freeWaitingMinutes, 5, 'trip-end waiting uses the location free minutes');
+  const rentalDrop = { ...pickup, name: 'Theni Market', lat: 10.0124, lng: 77.4788 };
+  const rental = ok(await call(admin, 'createAdminBooking', { tripType: 'Local Rental', rentalHours: 2, scheduledAt: when, pickup, drop: rentalDrop, brand: 'nesam', requestId: rid('geocr'), quoteOnly: true, categoryId: 'geo-sedan', fuelType: 'cng', pickupPoint: pickup, dropPoint: rentalDrop }));
+  assert.equal(rental.pricing.model, 'rental_package');
+  assert.equal(rental.fuelType, undefined);
+});
+
 test('other services are unchanged: an 80 km One Way is still priced on the One Way rate card', async () => {
   await new Promise((r) => routing.close(r));
   routing = await H.startRoutingStub(8765, 80, 90);
@@ -142,4 +155,8 @@ test('other services are unchanged: an 80 km One Way is still priced on the One 
   assert.equal(q.ok, true, JSON.stringify(q));
   assert.notEqual(q.model, 'local_pickup_drop');
   assert.equal(q.fare.peakCharge, undefined);
+  const far = { ...drop, name: 'Madurai', address: 'Madurai, Tamil Nadu 625001', lat: 9.92, lng: 78.12 };
+  const cng = await call(admin, 'createAdminBooking', { ...localTrip({ drop: far }), brand: 'nesam', requestId: rid('geocng'), quoteOnly: true, categoryId: 'geo-sedan', fuelType: 'cng', pickupPoint: pickup, dropPoint: far });
+  assert.equal(cng.ok, false, 'a vehicle without CNG is still refused for CNG on other services');
+  assert.match(cng.message, /CNG is not offered/);
 });

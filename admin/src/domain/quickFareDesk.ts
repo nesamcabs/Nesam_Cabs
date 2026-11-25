@@ -341,9 +341,12 @@ export function rateNoteOf(p: PricingLike | null | undefined, fuel: "CNG" | "Die
       return rate ? `${rate}/km (${fuel})${bata ? ` + ${bata} Bata` : ""}` : `(${fuel})`;
     case "round_trip_calendar":
       return rate ? `${rate}/km (${fuel})${bata ? ` + ${bata}/day Bata` : ""}` : `(${fuel})`;
+    // Local Pickup & Drop and Hourly Rental have no fuel split: no Diesel / CNG label.
     case "rental_package":
     case "rental_time":
-      return km ? `Includes ${km} km (${fuel})${extra ? ` • ${extra}/km extra` : ""}` : `(${fuel})`;
+      return km ? `Includes ${km} km${extra ? ` • ${extra}/km extra` : ""}` : "";
+    case "local_pickup_drop":
+      return km ? `${km} km incl.${extra ? ` • ${extra}/km extra` : ""}` : extra ? `${extra}/km extra` : "";
     default:
       if (km) return `${km} km incl. (${fuel})${bata ? ` + ${bata} Bata` : ""}`;
       return rate ? `${rate}/km (${fuel})${bata ? ` + ${bata} Bata` : ""}` : `(${fuel})`;

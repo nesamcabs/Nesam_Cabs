@@ -396,6 +396,7 @@ export default function QuickFare({ canBook = false }: QuickFareProps) {
             onTab={pickTab} onPickPoint={pickPoint} onSwap={swap} onPin={setPinFor} onRental={() => setRentalOpen(true)} onClear={clear} onSubmit={getFare} />
           <FareResults view={fareView} extras={extras} categories={data.categories} canBook={canBook}
             onFuel={(f) => set({ fuel: f ?? undefined })}
+            fuelApplies={trip.tripType !== "Local Rental" && !(quote?.estimates?.some((e) => e.quote) && quote.estimates.every((e) => !e.quote || ["local_pickup_drop", "rental_package"].includes(String((e.quote as { pricing?: { model?: string } }).pricing?.model))))}
             onAddOn={(k) => set(k === "pets" ? { pets: !trip.pets } : { carrier: !trip.carrier })}
             onFollowUp={(line) => quote && !stale && setFuTarget({ line, quote })}
             onBook={(line) => {

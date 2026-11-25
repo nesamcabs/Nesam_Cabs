@@ -139,7 +139,12 @@ export const reviewExtraUsage = onCall(async (request) => {
     const prepaid = ratesAfterPrepaidAddOns(snapshot, carrierPrepaid);
     const billingSnapshot = hillPrepaid ? { ...prepaid, customer: { ...prepaid.customer, hillPaise: 0 } } : prepaid;
     const billingPartner = hillPrepaid && snapshot.partner ? { ...snapshot.partner, hillPaise: 0 } : snapshot.partner;
-    const calc = computeExtraCharges(billingSnapshot, billingPartner, usage, gstRate, pricing?.waitingPerHourPaise);
+    const customerCalc = computeExtraCharges(billingSnapshot, billingPartner, usage, gstRate, pricing?.waitingPerHourPaise);
+    // Local Pickup & Drop on location rates: the partner's waiting starts after the partner's own free minutes.
+    const partnerFree = (whole.pricing as { geoFare?: { partnerFreeWaitingMin?: number } } | undefined)?.geoFare?.partnerFreeWaitingMin;
+    const partnerCalc = partnerFree !== undefined && partnerFree !== billingSnapshot.freeWaitingMinutes
+      ? computeExtraCharges({ ...billingSnapshot, freeWaitingMinutes: partnerFree }, billingPartner, usage, gstRate) : customerCalc;
+    const calc = { ...customerCalc, partner: partnerCalc.partner, blocked: [...new Set([...customerCalc.blocked, ...partnerCalc.blocked])] };
     if (calc.blocked.length || !calc.customer || !calc.partner || calc.customerGstPaise === null || calc.customerTotalPaise === null) {
       throw new HttpsError('failed-precondition', `These extra charges cannot be posted yet: ${calc.blocked.join(' ')}`, { code: 'extra-posting-blocked', reasons: calc.blocked });
     }

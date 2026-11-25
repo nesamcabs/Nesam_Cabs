@@ -170,3 +170,40 @@ test('a Service Zone booking rule matches by the zone pincodes and beats the dis
   const outside = evaluateRules(rules, { ...place('Periyakulam', '625601'), state: 'Tamil Nadu' }, { ...place('Periyakulam', '625601'), state: 'Tamil Nadu' }, at, 'Local');
   assert.equal(outside.availability, 'Available');
 });
+
+const X = require('../lib/domain/extraCharges');
+const GI = require('../lib/domain/gstInvoice');
+const PC = require('../lib/domain/paymentChoices');
+
+test('Local waiting at trip end uses the location free minutes and per-minute rates, with the existing rounding and tax rules', () => {
+  const full = [doc('common', 'local', THENI, { sedan: { customer: party({ freeWaitingMin: 5, waitingPerMin: 2 }), partner: party({ freeWaitingMin: 10, waitingPerMin: 1.5 }) } })];
+  const q = local(ctx('local', full), 10);
+  const ec = q.pricing.extraCharges;
+  assert.equal(ec.freeWaitingMinutes, 5);
+  assert.equal(ec.customer.waitingPerHourPaise, 12000, '₹2/min');
+  assert.equal(ec.partner.waitingPerHourPaise, 9000, '₹1.50/min');
+  assert.equal(q.pricing.geoFare.partnerFreeWaitingMin, 10);
+  // Rounding and tax treatment are existing business rules: with none configured the posting is blocked, never guessed.
+  const usage = { stops: [{ stopId: 'a', waitedMinutes: 17 }], hill: false, carrier: false };
+  assert.ok(X.computeExtraCharges(ec, ec.partner, usage, 0.05).blocked.length > 0);
+  const ruled = { ...ec, waitingRoundingMinutes: 1, roundingScope: 'combined', taxTreatment: 'tariff_gst' };
+  const c = X.computeExtraCharges(ruled, ec.partner, usage, 0.05);
+  assert.equal(c.customer.waitingPaise, 12 * 200, '17 − 5 free = 12 min × ₹2');
+  const p = X.computeExtraCharges({ ...ruled, freeWaitingMinutes: 10 }, ec.partner, usage, 0.05);
+  assert.equal(p.partner.waitingPaise, 7 * 150, 'partner: 17 − 10 free = 7 min × ₹1.50');
+});
+
+test('invoices: airport entry is a non-taxable reimbursement line and peak is a fare line; totals are unchanged', () => {
+  const fb = { baseFare: 150, distanceFare: 108, minimumFareAdjustment: 0, peakCharge: 25.8, taxableAmount: 283.8, gst: 14.19, gstRate: 0.05, airportEntry: 60, total: 357.99, discount: 0 };
+  const lines = GI.buildInvoiceLines({ fare: 357.99, fareBreakdown: fb, service: 'Local', pickup: 'Theni', drop: 'Airstrip' }, '996412', 'CGST + SGST');
+  assert.equal(lines.taxableAmount, 283.8, 'the airport entry is not taxed');
+  assert.ok(lines.items.some((i) => /Airport entry \(reimbursement, not taxable\)/.test(i.description) && i.amount === 60));
+  assert.ok(lines.items.some((i) => /^Peak-hour charge/.test(i.description) && i.amount === 25.8));
+  assert.equal(lines.grandTotal, 357.99);
+});
+
+test('payment-option districts also match by the pickup pincode (India Post spelling differs from the address)', () => {
+  assert.equal(PC.placeInDistrict({ name: 'Periyakulam', address: 'Periyakulam, Tamil Nadu 625601', state: 'Tamil Nadu' }, 'Theni'), true);
+  assert.equal(PC.placeInDistrict({ name: 'Madurai', address: 'Madurai, Tamil Nadu 625001', state: 'Tamil Nadu' }, 'Theni'), false);
+  assert.equal(PC.placeInDistrict({ name: 'Theni Bus Stand', address: 'Theni' }, 'Theni'), true, 'the name match still works');
+});

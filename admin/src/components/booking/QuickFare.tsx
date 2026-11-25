@@ -215,8 +215,10 @@ export function breakupLines(q: FareQuote): { label: string; amount: number }[] 
   if (base) lines.push({ label: "Base fare", amount: base });
   if (f.driverAllowance) lines.push({ label: "Driver allowance", amount: f.driverAllowance });
   if (f.nightCharge) lines.push({ label: "Night charge", amount: f.nightCharge });
+  if (f.peakCharge) lines.push({ label: "Peak-hour charge", amount: f.peakCharge });
   if (f.globalAdjustment?.amount) lines.push({ label: f.globalAdjustment.name || "Fare adjustment", amount: f.globalAdjustment.direction === "decrease" ? -f.globalAdjustment.amount : f.globalAdjustment.amount });
   if (f.discount) lines.push({ label: "Discount", amount: -f.discount });
+  if (f.airportEntry) lines.push({ label: "Airport entry", amount: f.airportEntry });
   return lines;
 }
 

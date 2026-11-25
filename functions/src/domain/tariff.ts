@@ -696,7 +696,7 @@ export interface PricingSnapshot {
    * Location-scoped Local / Rental rates that priced this booking (collection geo_fares): the scope keys of the pickup, and the
    * documents (with their versions) each value came from. Later setting changes never reprice the booking.
    */
-  geoFare?: { service: 'local' | 'rental'; keys: string[]; versions: Record<string, number>; sources: Record<string, string>; freeWaitingMin?: number; waitingPerMinPaise?: number; partnerWaitingPerMinPaise?: number; minimumFarePaise?: number; basePaise?: number; rentalGstMode?: 'included' | 'excluded' };
+  geoFare?: { service: 'local' | 'rental'; keys: string[]; versions: Record<string, number>; sources: Record<string, string>; freeWaitingMin?: number; waitingPerMinPaise?: number; partnerWaitingPerMinPaise?: number; partnerFreeWaitingMin?: number; minimumFarePaise?: number; basePaise?: number; rentalGstMode?: 'included' | 'excluded' };
   gst?: GstSnapshot;
   /** True when the configured fare already contained GST (GST was extracted from it, not added on top). */
   gstInFare?: boolean;
@@ -1267,7 +1267,7 @@ export function quoteLocalGeoFare(i: QuoteInput & { customer: SourceMap<LocalFie
       partner: { mode: 'NORMAL_RATE', ratePaise: paise(i.partner.extraKmRate!.value), bataPaise: 0, minKm: i.partner.includedKm!.value, days: 1, basePaise: p.totalPaise },
       geoFare: {
         service: 'local', keys: i.keys, versions: i.versions, sources, freeWaitingMin: i.customer.freeWaitingMin!.value, waitingPerMinPaise: paise(i.customer.waitingPerMin!.value),
-        partnerWaitingPerMinPaise: paise(i.partner.waitingPerMin!.value), minimumFarePaise: paise(i.customer.minimumFare!.value), basePaise: c.basePaise,
+        partnerWaitingPerMinPaise: paise(i.partner.waitingPerMin!.value), partnerFreeWaitingMin: i.partner.freeWaitingMin!.value, minimumFarePaise: paise(i.customer.minimumFare!.value), basePaise: c.basePaise,
       },
       pickupDate: istDate(i.pickupMs), endDate: null, gates: [...GATES_LOCAL, 'Waiting is billed at actuals after the free minutes; tolls are billed at actuals'],
     },

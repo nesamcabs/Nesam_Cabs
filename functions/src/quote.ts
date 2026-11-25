@@ -2,7 +2,7 @@ import { bookingAddOnsOf, withBookingAddOns, type BookingAddOns } from './domain
 import { withNightAllowance, type NightAllowanceConfig } from './domain/nightAllowance';
 import { withHillCharge } from './domain/hillCharge';
 import { withAirportEntry, withPeakCharge, type AirportEntrySnapshot, type PeakChargeSnapshot } from './domain/peakCharge';
-import { airportEntryFor, resolveLocal, resolveRental } from './domain/geoFares';
+import { airportEntryFor, resolveLocal, resolveRental, withLocalWaiting } from './domain/geoFares';
 import { peakAmountPaise, selectPeakRule, windowStart } from './domain/peakRules';
 import { geoContextFor, type GeoContext } from './geoPricing';
 import { detectHillStations, distinctHillStations, hillChargeForRates, placePincode, validPincode, type HillMatch } from './domain/hillStations';
@@ -414,7 +414,9 @@ function priceBookingWithoutAddOns(i: PriceInput): PriceResult {
     const outstation = ['rental_package', 'local_pickup_drop', 'airport_transfer'].includes(r.pricing.model) ? false : r.outstation;
     r.breakup = buildTariffFareBreakup(r.fare, outstation, r.pricing);
   }
-  const extra = scopedExtraChargesSnapshot(i.tariff, i.brand, i.tripType, tariffClassOf(i.category), i.category.id);
+  const categoryExtra = scopedExtraChargesSnapshot(i.tariff, i.brand, i.tripType, tariffClassOf(i.category), i.category.id);
+  // Local Pickup & Drop on location rates: waiting is billed with the location's own free minutes and per-minute rates.
+  const extra = r.pricing.model === 'local_pickup_drop' && r.pricing.geoFare ? withLocalWaiting(categoryExtra, r.pricing.geoFare, r.pricing.tariffVersion, i.category.id) : categoryExtra;
   return extra ? { ...r, pricing: { ...r.pricing, extraCharges: extra }, breakup: withExtraChargeLines(r.breakup, extra) } : r;
 }
 

@@ -8,6 +8,10 @@ export interface BookingFareBreakdown {
   distanceFare: number;
   timeFare: number;
   nightCharge: number;
+  /** Scheduled peak-hour charge (taxable), Local Pickup & Drop / Hourly Rental. */
+  peakCharge?: number;
+  /** Local airport entry fee: a pass-through outside the taxable amount, included in the total. */
+  airportEntry?: number;
   driverAllowance: number;
   minimumFareAdjustment: number;
   subtotal: number;

@@ -137,7 +137,9 @@ export function buildInvoiceLines(b: Doc, sac: string, split: GstSnapshot['split
   const fb = (b.fareBreakdown ?? {}) as Doc;
   const addons = (fb.addOns && typeof fb.addOns === 'object' ? fb.addOns : {}) as Doc;
   const gst = round2(num(fb.gst));
-  const taxable = round2(fare - gst);
+  // A Local airport entry fee is a pass-through inside the fare total but outside the taxable value (like tolls).
+  const airportEntry = round2(num(fb.airportEntry));
+  const taxable = round2(fare - gst - airportEntry);
   const discount = round2(num(fb.discount) || Number(b.discount || 0));
   const subtotal = round2(taxable + discount);
   const trip = `${b.service || 'Taxi service'} — ${b.pickup || 'Pickup'} to ${b.drop || 'Drop'}`;
@@ -145,6 +147,7 @@ export function buildInvoiceLines(b: Doc, sac: string, split: GstSnapshot['split
     ['Base fare', fb.baseFare], ['Roof carrier', addons.carrierCharge], ['Pet travel', addons.petCharge], ['Distance charge', fb.distanceFare],
     ['Time charge', fb.timeFare], ['Night charge', fb.nightCharge], ['Driver allowance', fb.driverAllowance], ['Minimum fare adjustment', fb.minimumFareAdjustment],
     [b.globalAdjustmentApplied?.name || 'Fare adjustment', b.globalAdjustmentApplied?.amount], ['Agreed fare adjustment', fb.adminAdjustment],
+    ['Peak-hour charge', fb.peakCharge],
   ];
   const detailed = components.filter(([, v]) => num(v) !== 0);
   const detailedSum = round2(detailed.reduce((s, [, v]) => s + num(v), 0));
@@ -153,6 +156,7 @@ export function buildInvoiceLines(b: Doc, sac: string, split: GstSnapshot['split
     : [{ description: trip, sacCode: sac, quantity: 1, rate: subtotal, amount: subtotal }];
   const tolls = round2(Number(b.tollCharges || 0) > 0 ? Number(b.tollCharges) : 0);
   if (tolls > 0) items.push({ description: 'Toll charges (reimbursement, not taxable)', quantity: 1, rate: tolls, amount: tolls });
+  if (airportEntry > 0) items.push({ description: 'Airport entry (reimbursement, not taxable)', quantity: 1, rate: airportEntry, amount: airportEntry });
   const ec = b.extraCharges?.status === 'approved' ? b.extraCharges : null;
   const extraNet = ec ? round2(ec.customer.subtotalPaise / 100) : 0;
   const extraGst = ec ? round2(ec.customer.gstPaise / 100) : 0;

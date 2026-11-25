@@ -3,6 +3,8 @@
 // which dates. This file is pure (no database), so the same rules answer the checkout screen (getPaymentOptions) and are checked again by
 // the booking server (createBooking) — a hidden option can never be booked by calling the server directly.
 import { childNames } from './placeZones';
+import { placePincode } from './hillStations';
+import { pinsOfCity } from './pincodeLookup';
 
 export type PayOptionId = 'later' | 'part' | 'full';
 export const PAY_OPTION_IDS: readonly PayOptionId[] = ['later', 'part', 'full'];
@@ -82,7 +84,10 @@ export function placeInDistrict(place: PlaceLike, district: string): boolean {
   const d = norm(district);
   if (!d) return false;
   const hay = norm(`${place.name ?? ''} ${place.address ?? ''} ${place.city ?? ''} ${place.area ?? ''} ${place.district ?? ''}`);
-  return hay.includes(d) || childNames(d).some((town) => hay.includes(town));
+  if (hay.includes(d) || childNames(d).some((town) => hay.includes(town))) return true;
+  // The pickup's pincode inside the district (India Post), as booking rules match: "Periyakulam 625601" is in Theni.
+  const pin = placePincode({ name: place.name, address: place.address });
+  return !!pin && !!pinsOfCity(district, place.state || undefined)?.has(pin);
 }
 
 export interface ChoiceContext {

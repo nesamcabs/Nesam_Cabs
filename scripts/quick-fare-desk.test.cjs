@@ -562,7 +562,9 @@ describe('Quick Fare Desk - fare facts come from the server quote', () => {
   test('rate note uses the configured (GST-inclusive when set so) rate and names the fuel', () => {
     assert.equal(D.rateNoteOf({ model: 'one_way_standard', customerRatePaise: 1400, customerBataPaise: 40000 }, 'Diesel'), '₹14/km (Diesel) + ₹400 Bata');
     assert.equal(D.rateNoteOf({ model: 'one_way_standard', customerRatePaise: 1333, gstInclusiveBase: { customerRatePaise: 1400 }, customerBataPaise: 40000 }, 'CNG'), '₹14/km (CNG) + ₹400 Bata');
-    assert.equal(D.rateNoteOf({ model: 'rental_package', includedKm: 40, extraKmRatePaise: 1500 }, 'Diesel'), 'Includes 40 km (Diesel) • ₹15/km extra');
+    // Hourly Rental and Local Pickup & Drop have no fuel split: no Diesel / CNG label.
+    assert.equal(D.rateNoteOf({ model: 'rental_package', includedKm: 40, extraKmRatePaise: 1500 }, 'Diesel'), 'Includes 40 km • ₹15/km extra');
+    assert.equal(D.rateNoteOf({ model: 'local_pickup_drop', includedKm: 4, extraKmRatePaise: 1800 }, 'CNG'), '4 km incl. • ₹18/km extra');
     assert.equal(D.rateNoteOf(null, 'Diesel'), '');
   });
 
