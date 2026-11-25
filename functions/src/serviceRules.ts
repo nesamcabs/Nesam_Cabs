@@ -15,7 +15,7 @@ import { GeoPlace, TripType } from './domain/types';
 import { requirePermission, text, requireAction } from './shared';
 import { parseFareScope } from './fareScope';
 import { childNames, isInside, parentOf } from './domain/placeZones';
-import { PINCODES_BY_CITY } from './domain/pincodeCities';
+import { STATE_NAMES, pinsOfCity } from './domain/pincodeLookup';
 import { placePincode } from './domain/hillStations';
 
 type Adjustment = { mode: 'Normal' | 'Increase' | 'Decrease'; percent: number };
@@ -69,43 +69,12 @@ export async function loadServiceRules(tx?: Transaction): Promise<ServiceRule[]>
 
 const norm = (s: unknown) => (typeof s === 'string' ? s.trim().toLowerCase() : '');
 
-/** GST state codes, as stored in a rule's state scope by the admin page. */
-const STATE_NAMES: Record<string, string> = {
-  '01': 'Jammu and Kashmir', '02': 'Himachal Pradesh', '03': 'Punjab', '04': 'Chandigarh', '05': 'Uttarakhand', '06': 'Haryana', '07': 'Delhi',
-  '08': 'Rajasthan', '09': 'Uttar Pradesh', '10': 'Bihar', '11': 'Sikkim', '12': 'Arunachal Pradesh', '13': 'Nagaland', '14': 'Manipur',
-  '15': 'Mizoram', '16': 'Tripura', '17': 'Meghalaya', '18': 'Assam', '19': 'West Bengal', '20': 'Jharkhand', '21': 'Odisha', '22': 'Chhattisgarh',
-  '23': 'Madhya Pradesh', '24': 'Gujarat', '26': 'Dadra and Nagar Haveli and Daman and Diu', '27': 'Maharashtra', '29': 'Karnataka', '30': 'Goa',
-  '31': 'Lakshadweep', '32': 'Kerala', '33': 'Tamil Nadu', '34': 'Puducherry', '35': 'Andaman and Nicobar Islands', '36': 'Telangana',
-  '37': 'Andhra Pradesh', '38': 'Ladakh',
-};
 const stateText = (s: unknown) => { const v = typeof s === 'string' ? s.trim() : ''; return norm(STATE_NAMES[v] ?? v); };
 
 type PlaceExtras = { address?: string; city?: string; area?: string; state?: string };
 
 /** A rule's area that is a pincode (six digits) rather than an area name. */
 const PIN_AREA = /^[1-9]\d{5}$/;
-
-// The pincodes inside each city / district (generated from the India Post directory), as city name -> state code -> pincodes.
-let cityPins: Map<string, Map<string, Set<string>>> | null = null;
-function pinsOfCity(city: unknown, state: unknown): Set<string> | null {
-  if (!cityPins) {
-    cityPins = new Map();
-    for (const [key, pins] of Object.entries(PINCODES_BY_CITY)) {
-      const cut = key.indexOf('|');
-      const byState = cityPins.get(key.slice(cut + 1)) ?? new Map<string, Set<string>>();
-      byState.set(key.slice(0, cut), new Set(pins.split(' ')));
-      cityPins.set(key.slice(cut + 1), byState);
-    }
-  }
-  const byState = cityPins.get(norm(city));
-  if (!byState) return null;
-  const code = typeof state === 'string' ? state.trim() : '';
-  if (/^\d{2}$/.test(code)) return byState.get(code) ?? null;
-  // A state written as a name (or none): the city's pincodes in every state that has a city of that name.
-  const wanted = stateText(state);
-  const named = wanted ? [...byState].filter(([c]) => stateText(c) === wanted) : [...byState];
-  return named.length ? new Set(named.flatMap(([, set]) => [...set])) : null;
-}
 
 function placeMatches(rule: ServiceRule, p: GeoPlace): boolean {
   const x = p as GeoPlace & PlaceExtras;

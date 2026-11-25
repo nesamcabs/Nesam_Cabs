@@ -1,11 +1,12 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Icon from "./ui/Icon";
-import type { PincodeList } from "../domain/pincodes";
+import { kmText, pincodeGroups, type PincodeEntry, type PincodeList } from "../domain/pincodes";
 
 /**
  * Pick which pincodes of a city / district a setting covers. Every pincode starts ticked: all of them means the whole city
  * (one setting that covers everything inside it); fewer means only those pincodes, one setting each.
+ * The city's own pincodes and the nearest ones are listed first, marked and with their distance; the rest of the district follows.
  * The list is drawn on the page body so a card that hides its overflow cannot cut it off.
  */
 export default function PincodePicker({ list, selected, onChange, disabled, cityChosen, label = "Pincodes" }: {
@@ -27,6 +28,11 @@ export default function PincodePicker({ list, selected, onChange, disabled, city
   const chosen = useMemo(() => new Set(selected), [selected]);
   const text = q.trim().toLowerCase();
   const shown = useMemo(() => pins.filter((p) => !text || p.pin.includes(text) || p.name.toLowerCase().includes(text)), [pins, text]);
+  const groups = useMemo(() => pincodeGroups(shown), [shown]);
+  const all = useMemo(() => pincodeGroups(pins), [pins]);
+  // Two headed groups only when the city has pincodes of its own / nearby AND others; otherwise one plain list.
+  const grouped = all.top.length > 0 && all.rest.length > 0;
+  const city = list?.city ?? "the city";
   const usable = cityChosen && !disabled && !!list && pins.length > 0;
   const visible = open && usable;
 
@@ -46,8 +52,8 @@ export default function PincodePicker({ list, selected, onChange, disabled, city
       if (!r) return;
       const below = window.innerHeight - r.bottom - 12, above = r.top - 12;
       const up = below < 260 && above > below;
-      const height = Math.max(220, Math.min(380, up ? above : below));
-      setAt({ left: Math.min(r.left, Math.max(8, window.innerWidth - 328)), top: up ? Math.max(8, r.top - 6 - height) : r.bottom + 6, width: Math.max(r.width, 320), height });
+      const height = Math.max(220, Math.min(420, up ? above : below));
+      setAt({ left: Math.min(r.left, Math.max(8, window.innerWidth - 348)), top: up ? Math.max(8, r.top - 6 - height) : r.bottom + 6, width: Math.max(r.width, 340), height });
     };
     place();
     window.addEventListener("scroll", place, true);
@@ -64,8 +70,30 @@ export default function PincodePicker({ list, selected, onChange, disabled, city
   }, [visible]);
 
   const toggle = (pin: string) => onChange(chosen.has(pin) ? selected.filter((p) => p !== pin) : [...selected, pin]);
-  const shownPins = shown.map((p) => p.pin);
-  const allShownOn = shownPins.length > 0 && shownPins.every((p) => chosen.has(p));
+  const allOn = (rows: readonly PincodeEntry[]) => rows.length > 0 && rows.every((p) => chosen.has(p.pin));
+  const toggleMany = (rows: readonly PincodeEntry[]) => {
+    const pinsOf = rows.map((p) => p.pin);
+    onChange(allOn(rows) ? selected.filter((p) => !pinsOf.includes(p)) : [...new Set([...selected, ...pinsOf])]);
+  };
+  const nearbyOnly = all.top.length > 0 && !(selected.length === all.top.length && allOn(all.top));
+
+  const row = (p: PincodeEntry) => (
+    <li key={p.pin} className={p.tier < 2 && grouped ? "bg-emerald-50/60" : ""}>
+      <label className="flex cursor-pointer items-center gap-2.5 px-3 py-1.5 text-[13px] hover:bg-slate-50">
+        <input type="checkbox" checked={chosen.has(p.pin)} onChange={() => toggle(p.pin)} />
+        <span className="font-semibold tabular-nums text-slate-800">{p.pin}</span>
+        <span className="min-w-0 flex-1 truncate text-slate-500">{p.name}</span>
+        {p.tier === 0 && grouped && <span className="shrink-0 rounded-full bg-emerald-100 px-1.5 py-px text-[10px] font-bold uppercase tracking-wide text-emerald-800">City</span>}
+        {kmText(p.km) && <span className="shrink-0 text-[11px] tabular-nums text-slate-400">{p.tier === 0 && p.km === 0 ? "centre" : kmText(p.km)}</span>}
+      </label>
+    </li>
+  );
+  const head = (title: string, count: number, rows: readonly PincodeEntry[], tone: "near" | "rest") => (
+    <li role="presentation" className={`flex items-center justify-between gap-2 border-y px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide ${tone === "near" ? "border-emerald-200 bg-emerald-100 text-emerald-900" : "border-slate-200 bg-slate-100 text-slate-600"}`}>
+      <span className="truncate">{title} · {count}</span>
+      <button type="button" className="fm-linkbtn !text-[11px] normal-case" onClick={() => toggleMany(rows)}>{allOn(rows) ? "Clear" : "Select"}</button>
+    </li>
+  );
 
   return (
     <>
@@ -83,23 +111,20 @@ export default function PincodePicker({ list, selected, onChange, disabled, city
             <div className="mt-2 flex items-center justify-between gap-2 text-[12px]">
               <span className="text-slate-600" aria-live="polite">{selected.length} of {pins.length} selected</span>
               <span className="flex gap-3">
-                <button type="button" className="fm-linkbtn" onClick={() => onChange(allShownOn ? selected.filter((p) => !shownPins.includes(p)) : [...new Set([...selected, ...shownPins])])}>
-                  {text ? (allShownOn ? "Clear shown" : "Select shown") : allShownOn ? "Clear all" : "Select all"}
-                </button>
+                {grouped && nearbyOnly && <button type="button" className="fm-linkbtn" onClick={() => onChange(all.top.map((p) => p.pin))}>{city} &amp; nearby only</button>}
+                <button type="button" className="fm-linkbtn" onClick={() => toggleMany(shown)}>{text ? (allOn(shown) ? "Clear shown" : "Select shown") : allOn(pins) ? "Clear all" : "Select all"}</button>
               </span>
             </div>
             {list?.parent && <p className="mt-2 rounded-md bg-slate-50 px-2 py-1.5 text-[11.5px] leading-snug text-slate-600">Only post offices named after this town, inside {list.parent}. For every pincode of {list.parent}, choose {list.parent} as the city.</p>}
           </div>
-          <ul className="min-h-0 flex-1 overflow-y-auto py-1" role="group" aria-label="Pincodes">
-            {shown.length === 0 ? <li className="px-3 py-2 text-[13px] text-slate-500">No pincode matches.</li> : shown.map((p) => (
-              <li key={p.pin}>
-                <label className="flex cursor-pointer items-center gap-2.5 px-3 py-1.5 text-[13px] hover:bg-slate-50">
-                  <input type="checkbox" checked={chosen.has(p.pin)} onChange={() => toggle(p.pin)} />
-                  <span className="font-semibold tabular-nums text-slate-800">{p.pin}</span>
-                  <span className="truncate text-slate-500">{p.name}</span>
-                </label>
-              </li>
-            ))}
+          <ul className="min-h-0 flex-1 overflow-y-auto pb-1" role="group" aria-label="Pincodes">
+            {shown.length === 0 ? <li className="px-3 py-2 text-[13px] text-slate-500">No pincode matches.</li>
+              : grouped ? (
+                <>
+                  {groups.top.length > 0 && <>{head(`${city} & nearby`, groups.top.length, groups.top, "near")}{groups.top.map(row)}</>}
+                  {groups.rest.length > 0 && <>{head(`Other pincodes in ${city}`, groups.rest.length, groups.rest, "rest")}{groups.rest.map(row)}</>}
+                </>
+              ) : shown.map(row)}
           </ul>
         </div>, document.body)}
     </>

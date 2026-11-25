@@ -13,6 +13,7 @@ import {
 } from "../services/tariffService";
 import { useCan } from "./AccessContext";
 import { Modal } from "./Feedback";
+import ZonePincodes from "./ZonePincodes";
 import { Badge, Button, DataTable, EmptyState, Icon, toneForStatus } from "./ui";
 import { StageBar } from "./ui/ListKit";
 import { CardBody, Problems, RateTable, SaveBar, SettingCard, vehicleColumns, type VehicleCol } from "./RateTable";
@@ -118,20 +119,21 @@ export default function LocalFares({ initialTab = "Rental packages", initialCity
     const found = zones.find((z) => lc(z.name || z.area) === lc(pendingZone));
     if (found) { setZoneId(found.id); setPendingZone(""); }
   }, [zones, pendingZone]);
-  const addZone = async (name: string) => {
+  const addZone = async (name: string, pincodes?: string[]) => {
     if (!city || !name || adding) return;
     setAddError("");
     setAdding(true);
     const form: LocationForm = {
       name, code: deriveLocationCode(`${cityName} ${name}`), type: "Area / Locality", state: city.state, district: city.district ?? "", city: city.city || cityName, area: name, pincode: "", address: "",
       parentLocationId: city.id, lat: "", lng: "", placeId: "", pickupEnabled: true, dropEnabled: true, onlineBookingEnabled: true, adminBookingEnabled: true,
-      serviceIds: [], status: "Active", displayOrder: locations.length + 1,
+      serviceIds: [], status: "Active", displayOrder: locations.length + 1, ...(pincodes?.length ? { pincodes, pincode: [...pincodes].sort()[0] } : {}),
     };
     try {
       await saveLocation(form, null, locations, auth.currentUser?.uid || "");
       setPendingZone(name);
     } catch (err) {
       setAddError(err instanceof Error ? err.message : "The zone could not be added to Locations.");
+      throw err;
     } finally {
       setAdding(false);
     }
@@ -227,13 +229,19 @@ export default function LocalFares({ initialTab = "Rental packages", initialCity
                 {builtInZones.length > 0 && (
                   <label className="fm-inline-field">
                     <span>Add a zone</span>
-                    <select className="ds-select" value="" disabled={adding} onChange={(e) => void addZone(e.target.value)}>
+                    <select className="ds-select" value="" disabled={adding} onChange={(e) => void addZone(e.target.value).catch(() => undefined)}>
                       <option value="">{adding ? "Adding..." : "Choose a zone"}</option>
                       {builtInZones.map((z) => <option key={z} value={z}>{z}</option>)}
                     </select>
                   </label>
                 )}
-                {!zones.length && !builtInZones.length ? <span className="fm-hint">No zones for {cityName} yet. Add areas of this city in Locations to price them separately.</span> : null}
+                {!zones.length && !builtInZones.length ? <span className="fm-hint">No zones for {cityName} yet. Add one below with its pincodes, or add areas of this city in Locations.</span> : null}
+              </CardBody>
+            )}
+            {city && (
+              <CardBody>
+                <ZonePincodes key={zone?.id ?? city.id} city={city} zone={zone} zones={zones} canEdit={canEdit} busy={adding} onToast={onToast}
+                  onCreate={(name, pins) => addZone(name, pins)} />
               </CardBody>
             )}
           </SettingCard>

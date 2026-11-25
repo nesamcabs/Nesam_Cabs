@@ -10,6 +10,7 @@ import {
 import { CardBody, SettingCard, type VehicleCol } from "./RateTable";
 import PincodePicker from "./PincodePicker";
 import { usePincodeScope } from "../hooks/usePincodeScope";
+import { kmText } from "../domain/pincodes";
 
 // Date-based, special and inherited rules, all inside the page (no side drawer): a filterable list, and the add / edit / switch on-off /
 // remove / details panels open right under the row they belong to. Every rule is an ordinary service_rules document that the booking
@@ -402,7 +403,12 @@ function RuleForm({ kind, rule, fareScope, vehicles, allRules, placeText, stateO
                 <select className="ds-select" value={scope.area} disabled={!scope.city} onChange={(e) => setScope({ ...scope, area: e.target.value })}>
                   <option value="">Whole city</option>
                   {scope.area && !pins.list?.pins.some((p) => p.pin === scope.area) ? <option value={scope.area}>{scope.area}</option> : null}
-                  {(pins.list?.pins ?? []).map((p) => <option key={p.pin} value={p.pin}>{p.pin} · {p.name}</option>)}
+                  {pins.list && pins.list.pins.some((p) => p.tier < 2) && pins.list.pins.some((p) => p.tier === 2) ? (
+                    <>
+                      <optgroup label={`${pins.list.city} & nearby`}>{pins.list.pins.filter((p) => p.tier < 2).map((p) => <option key={p.pin} value={p.pin}>{p.pin} · {p.name}{kmText(p.km) && p.km ? ` · ${kmText(p.km)}` : ""}</option>)}</optgroup>
+                      <optgroup label={`Other pincodes in ${pins.list.city}`}>{pins.list.pins.filter((p) => p.tier === 2).map((p) => <option key={p.pin} value={p.pin}>{p.pin} · {p.name}{kmText(p.km) ? ` · ${kmText(p.km)}` : ""}</option>)}</optgroup>
+                    </>
+                  ) : (pins.list?.pins ?? []).map((p) => <option key={p.pin} value={p.pin}>{p.pin} · {p.name}</option>)}
                 </select>
               </label>
             ) : (

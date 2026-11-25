@@ -5,9 +5,10 @@ import { pincodesOf, type PincodeList } from "../domain/pincodes";
  * The pincode choice of a "where" picker. Choosing a city loads its pincodes, all ticked:
  *   - all ticked (or a city with no pincode list) = the whole city: one place, `area: ""`;
  *   - fewer ticked = only those pincodes: one place each, `area: "<pincode>"`.
+ * `start: "none"` begins with nothing ticked (a zone is a few pincodes, not the district).
  * `areas` is what to create: [""] for the whole city, else the ticked pincodes in list order.
  */
-export function usePincodeScope(state: string, city: string) {
+export function usePincodeScope(state: string, city: string, start: "all" | "none" = "all") {
   // undefined while loading, null when there is no list (no city chosen, or no pincode data for it).
   const [list, setList] = useState<PincodeList | null | undefined>(null);
   const [pins, setPins] = useState<string[]>([]);
@@ -16,7 +17,7 @@ export function usePincodeScope(state: string, city: string) {
     if (!state || !city) { setList(null); return undefined; }
     let current = true;
     setList(undefined);
-    void pincodesOf(state, city).then((found) => { if (current) { setList(found); setPins(found ? found.pins.map((p) => p.pin) : []); } });
+    void pincodesOf(state, city).then((found) => { if (current) { setList(found); setPins(found && start === "all" ? found.pins.map((p) => p.pin) : []); } });
     return () => { current = false; };
   }, [state, city]);
 

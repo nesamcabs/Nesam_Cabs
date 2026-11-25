@@ -1,8 +1,9 @@
 import { bookingAddOnsOf, withBookingAddOns, type BookingAddOns } from './domain/bookingAddOns';
 import { withNightAllowance, type NightAllowanceConfig } from './domain/nightAllowance';
 import { withHillCharge } from './domain/hillCharge';
-import { detectHillStations, distinctHillStations, hillChargeForRates, validPincode, type HillMatch } from './domain/hillStations';
+import { detectHillStations, distinctHillStations, hillChargeForRates, placePincode, validPincode, type HillMatch } from './domain/hillStations';
 import { withTripPincodes } from './placePincode';
+import { cityByPincode, zoneByPincode, type PinCity } from './domain/pincodeLookup';
 import { loadNightAllowance } from './nightAllowanceConfig';
 import { withPlatformFee, type PlatformFeeConfig } from './domain/platformFee';
 import { loadPlatformFee } from './platformFeeConfig';
@@ -64,12 +65,18 @@ export function tariffClassOf(category: { tariffClass?: unknown; dutyClass?: unk
 }
 
 /** An active City record from the location master, with its centre point (when saved). */
-interface CityRecord { id: string; names: string[]; state: string; lat: number | null; lng: number | null }
+interface CityRecord { id: string; names: string[]; state: string; lat: number | null; lng: number | null; /** name / city / state as saved (any case), and pincodes saved on the record: see cityByPincode */ raw: PinCity }
 
 // The active Cities change rarely; one read serves every quote on this instance for a few minutes.
 const CITY_TTL_MS = 5 * 60 * 1000;
 let cityCache: { at: number; cities: CityRecord[] } | null = null;
 const norm = (v: unknown) => (typeof v === 'string' ? v : '').toLowerCase().replace(/[0-9]/g, ' ').replace(/[^a-z\s]/g, ' ').replace(/\s+/g, ' ').trim();
+
+/** The six-digit pincodes saved on a location record: its `pincodes` list, and the single `pincode` the Locations form has. */
+function pincodesOfRecord(l: Record<string, unknown>): string[] {
+  const list = Array.isArray(l.pincodes) ? l.pincodes : [];
+  return [...new Set([...list, l.pincode].map((x) => (typeof x === 'string' ? x.trim() : '')).filter((x) => /^[1-9]\d{5}$/.test(x)))];
+}
 
 async function activeCities(): Promise<CityRecord[]> {
   if (cityCache && Date.now() - cityCache.at < CITY_TTL_MS) return cityCache.cities;
@@ -77,7 +84,10 @@ async function activeCities(): Promise<CityRecord[]> {
   const cities = snap.docs.map((d) => {
     const l = d.data();
     const names = [...new Set([norm(l.name), norm(l.city), norm(l.normalizedName)].filter(Boolean))];
-    return { id: d.id, names, state: norm(l.state), lat: Number.isFinite(l.lat) ? l.lat as number : null, lng: Number.isFinite(l.lng) ? l.lng as number : null };
+    return {
+      id: d.id, names, state: norm(l.state), lat: Number.isFinite(l.lat) ? l.lat as number : null, lng: Number.isFinite(l.lng) ? l.lng as number : null,
+      raw: { id: d.id, names: [...new Set([l.name, l.city].filter((x): x is string => typeof x === 'string' && x.trim() !== '').map((x) => x.trim()))], state: typeof l.state === 'string' ? l.state : '', pincodes: pincodesOfRecord(l) },
+    };
   });
   cityCache = { at: Date.now(), cities };
   return cities;
@@ -136,11 +146,21 @@ async function cityIdOf(place: GeoPlace): Promise<string | null> {
       if (same.length === 1) return same[0]!.id;
     }
   }
-  return cityByPlace(place);
+  return (await cityByPlacePincode(place)) ?? cityByPlace(place);
+}
+
+/**
+ * The City a place's pincode belongs to (pincode saved on a City record, else India Post's district / town list), or null.
+ * A pincode is the one thing every address carries, so it is tried before the name-in-address and distance guesses.
+ */
+async function cityByPlacePincode(place: GeoPlace): Promise<string | null> {
+  const pin = placePincode(place as GeoPlace & { name?: string; address?: string });
+  if (!pin) return null;
+  return cityByPincode(pin, (await activeCities()).map((c) => c.raw));
 }
 
 /** An active zone ("Area / Locality") of the location master and the City it belongs to. */
-interface ZoneRecord { id: string; names: string[]; parentId: string; cityNames: string[]; state: string }
+interface ZoneRecord { id: string; names: string[]; parentId: string; cityNames: string[]; state: string; pincodes: string[] }
 let zoneCache: { at: number; zones: ZoneRecord[] } | null = null;
 
 async function activeZones(): Promise<ZoneRecord[]> {
@@ -150,7 +170,7 @@ async function activeZones(): Promise<ZoneRecord[]> {
     const l = d.data();
     return {
       id: d.id, names: [...new Set([norm(l.name), norm(l.area), norm(l.normalizedName)].filter(Boolean))],
-      parentId: typeof l.parentLocationId === 'string' ? l.parentLocationId : '', cityNames: [norm(l.city)].filter(Boolean), state: norm(l.state),
+      parentId: typeof l.parentLocationId === 'string' ? l.parentLocationId : '', cityNames: [norm(l.city)].filter(Boolean), state: norm(l.state), pincodes: pincodesOfRecord(l),
     };
   });
   zoneCache = { at: Date.now(), zones };
@@ -177,6 +197,10 @@ export async function zoneIdOf(place: GeoPlace, cityId: string): Promise<string 
       id = l.parentLocationId;
     }
   }
+  // A zone that lists the pickup's pincode wins over a zone found by name.
+  const pin = placePincode(place as GeoPlace & { name?: string; address?: string });
+  const byPin = pin ? zoneByPincode(pin, mine) : null;
+  if (byPin) return byPin;
   const parts = new Set([String((place as GeoPlace & { name?: string }).name ?? ''), ...String(place.address ?? '').split(',')].map(norm).filter(Boolean));
   const named = mine.filter((z) => z.names.some((n) => parts.has(n)));
   return named.length === 1 ? named[0]!.id : null;

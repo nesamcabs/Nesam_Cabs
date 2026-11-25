@@ -30,6 +30,8 @@ export interface LocationForm {
   city: string;
   area: string;
   pincode: string;
+  /** Pincodes a zone / area covers (Pricing -> Pickup & Drop). Leave undefined to keep what is saved. */
+  pincodes?: string[];
   address: string;
   parentLocationId: string;
   lat: string;
@@ -113,6 +115,8 @@ function payload(f: LocationForm, locations: MasterLocation[]) {
     city: f.city.trim(),
     area: f.area.trim(),
     pincode: f.pincode.trim(),
+    // Only when the form carries them, so editing a zone in Locations never wipes the pincodes set in Pickup & Drop.
+    ...(f.pincodes ? { pincodes: [...new Set(f.pincodes)].sort() } : {}),
     address: f.address.trim(),
     parentLocationId: parent ? parent.id : "",
     parentLocationName: parent ? parent.name : "",
@@ -205,6 +209,16 @@ export async function saveLocation(f: LocationForm, existing: MasterLocation | n
     return { id: existing.id, renamed: await propagateRename(existing.id, data.name) };
   } catch (err) {
     throw new LocationActionError(`The location was saved, but linked fare rules still show the old name (${describeDataError(err)}). Save again to retry.`);
+  }
+}
+
+/** Sets the pincodes a zone covers. The booking server prices a pickup in one of them with this zone's Pickup & Drop rates. */
+export async function setZonePincodes(zone: MasterLocation, pincodes: string[]) {
+  const pins = [...new Set(pincodes)].sort();
+  try {
+    await updateDoc(doc(db, COLLECTIONS.LOCATIONS, zone.id), { pincodes: pins, pincode: pins[0] ?? "", updatedAt: serverTimestamp() });
+  } catch (err) {
+    throw new LocationActionError(describeDataError(err));
   }
 }
 

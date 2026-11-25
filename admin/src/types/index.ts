@@ -689,6 +689,8 @@ export interface MasterLocation {
   city: string;
   area?: string;
   pincode?: string;
+  /** A zone / area defined by pincodes (Pricing → Pickup & Drop): the booking server places a pickup in it by its pincode. */
+  pincodes?: string[];
   address?: string;
   parentLocationId?: string;
   parentLocationName?: string;

@@ -18,8 +18,12 @@ Rules this follows:
   * A town that is not a district (Hosur, Ooty) gets the pincodes of the post offices named after it. Nothing is guessed: a town
     with no post office of that name is reported and left out, and the picker then says so.
 Run it again whenever India Post publishes a new directory.
+
+Each pincode in a city's list is [pincode, name, km, tier]: tier 0 = a post office named after the city itself, tier 1 = nearest
+to it (within NEAR_KM, at most NEAR_MAX), tier 2 = the rest of the district; km is the distance from the city's own pincode(s)
+(null when India Post has no coordinates). The admin picker shows tiers 0-1 on top and tier 2 below.
 """
-import collections, csv, json, os, re, sys, urllib.request
+import collections, csv, json, math, os, re, statistics, sys, urllib.request
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 SOURCE = "https://raw.githubusercontent.com/dropdevrahul/pincodes-india/main/pincode.csv"
@@ -58,6 +62,24 @@ TOWN_OFFICES = {
     "29|Hosapete": ["Hosapete", "Hospet"], "32|Kochi": ["Kochi", "Cochin"], "35|Havelock Island": ["Havelock"], "37|Amaravati": ["Amaravathi"],
     "08|Mount Abu": ["Abu"], "02|Dharamshala": ["Dharamsala"],
 }
+
+
+NEAR_KM = 15   # a pincode this close to the city's own pincode(s) counts as "nearby"
+NEAR_MAX = 12  # ... but only the nearest few, so the top group stays short
+
+
+def hav(a, b):
+    la1, lo1, la2, lo2 = map(math.radians, (a[0], a[1], b[0], b[1]))
+    h = math.sin((la2 - la1) / 2) ** 2 + math.cos(la1) * math.cos(la2) * math.sin((lo2 - lo1) / 2) ** 2
+    return 6371 * 2 * math.asin(math.sqrt(h))
+
+
+def coord(r):
+    try:
+        la, lo = float(r["Latitude"]), float(r["Longitude"])
+    except (TypeError, ValueError):
+        return None
+    return (la, lo) if 6 <= la <= 38 and 68 <= lo <= 98 else None
 
 
 def clean(office):
@@ -107,7 +129,8 @@ def main():
 
     # 2. A name for each pincode: its head office, else a sub office, else the first branch office, inside its home district.
     name_of, offices = {}, collections.defaultdict(list)  # offices: pin -> [clean office names] (any district), for town matching
-    best = {}
+    best, r_type = {}, {}
+    home_offices, pin_pts = collections.defaultdict(list), collections.defaultdict(list)
     for r in rows:
         pin = r["Pincode"].strip()
         if pin not in home:
@@ -117,10 +140,40 @@ def main():
         k = (r["StateName"].strip(), r["District"].strip().upper())
         if k != home[pin]:
             continue
+        home_offices[pin].append(nm.lower())
+        r_type[(pin, nm.lower())] = r_type.get((pin, nm.lower()), r["OfficeType"].strip()) if r_type.get((pin, nm.lower())) == "HO" else r["OfficeType"].strip()
+        if coord(r):
+            pin_pts[pin].append(coord(r))
         pr = {"HO": 0, "PO": 1}.get(r["OfficeType"].strip(), 2)
         if pin not in best or (pr, len(nm), nm) < best[pin][:3]:
             best[pin] = (pr, len(nm), nm)
     name_of = {p: title(b[2]) if b[2].isupper() else b[2] for p, b in best.items()}
+
+    # One point per pincode: the median of its post offices. A point far from the rest of its district is a data error: dropped.
+    xy = {p: (statistics.median(a for a, _ in pts), statistics.median(b for _, b in pts)) for p, pts in pin_pts.items()}
+    by_dist_pts = collections.defaultdict(list)
+    for p, pt in xy.items():
+        by_dist_pts[home[p]].append(pt)
+    for p in list(xy):
+        pts = by_dist_pts[home[p]]
+        mid = (statistics.median(a for a, _ in pts), statistics.median(b for _, b in pts))
+        if hav(mid, xy[p]) > 150:
+            del xy[p]
+
+    def describe(pins, core):
+        """[pincode, name, km, tier] for each pin: the city's own pincodes, then the nearest, then the rest by distance."""
+        # The reference is the city's head office when it has one (the lowest pincode if several: a big city's own pincodes are spread out), else the middle of its own pincodes.
+        heads = [p for p in core if any(r_type.get((p, o)) == "HO" for o in home_offices[p])]
+        located = sorted(h for h in heads if h in xy)
+        pts = [xy[located[0]]] if located else [xy[p] for p in core if p in xy]
+        ref = (statistics.median(a for a, _ in pts), statistics.median(b for _, b in pts)) if pts else None
+        km = {p: round(hav(ref, xy[p]), 1) for p in pins if ref and p in xy}
+        near = sorted((p for p in pins if p not in core and p in km and km[p] <= NEAR_KM), key=lambda p: (km[p], p))[:NEAR_MAX]
+        tier = {p: 0 if p in core else 1 if p in near else 2 for p in pins}
+        if not core:
+            tier = {p: 2 for p in pins}
+        order = sorted(pins, key=lambda p: (tier[p], km.get(p, 1e9), p))
+        return [[p, name_of[p], km.get(p), tier[p]] for p in order]
 
     by_district = collections.defaultdict(lambda: collections.defaultdict(list))  # code -> district(dir name) -> [pins]
     for pin, (st, dist) in home.items():
@@ -135,6 +188,13 @@ def main():
         for d, pins in by_district[code].items():
             table[dist_label[d]] = sorted(pins)
         out_districts[code] = sorted(table)
+        label_ds = {v: k for k, v in dist_label.items()}
+        core_of = {}
+        def named_core(pins, prefixes):
+            hit = {p for p in pins if any(o == x or o.startswith(x + " ") for o in home_offices[p] for x in prefixes)}
+            return hit or {p for p in pins if any(r_type[(p, o)] == "HO" for o in home_offices[p] if (p, o) in r_type)}
+        for label, d in label_ds.items():
+            core_of[label] = named_core(table[label], [label.lower(), d.lower()])
         # Admin cities that are not districts: the union of districts (Mumbai), else the towns' post offices.
         for city in mine.get(code, []):
             if city in table:
@@ -142,6 +202,7 @@ def main():
             union = CITY_DISTRICTS.get((code, city))
             if union:
                 table[city] = sorted(p for d in union for p in by_district[code].get(d, []))
+                core_of[city] = named_core(table[city], [city.lower()])
                 continue
             prefixes = [x.lower() for x in TOWN_OFFICES.get(f"{code}|{city}", [city])]
             # The post offices named after the town, in this state. A village of the same name in another district is a branch
@@ -162,9 +223,10 @@ def main():
             hit = sorted({r["Pincode"].strip() for r in rows if r["StateName"].strip() == GST[code] and named(clean(r["OfficeName"]))
                           and r["Pincode"].strip() in home and home[r["Pincode"].strip()] == (GST[code], parent)})
             table[city] = hit
+            core_of[city] = set(hit)
             towns.setdefault(code, {})[city] = dist_label[parent]
             report.append(f"{code} {city}: {len(hit)} pincodes from post offices named {prefixes}, in {dist_label[parent]}")
-        out_pins[code] = {"cities": {c: [[p, name_of[p]] for p in pins] for c, pins in sorted(table.items())}, "towns": towns.get(code, {})}
+        out_pins[code] = {"cities": {c: describe(pins, core_of.get(c, set())) for c, pins in sorted(table.items())}, "towns": towns.get(code, {})}
 
     # 3. Write.
     pdir = os.path.join(ROOT, "admin/src/domain/pincodes")
@@ -182,7 +244,7 @@ def main():
     cities = {}
     for code, data in out_pins.items():
         for city, pins in data["cities"].items():
-            cities[f"{code}|{city.lower()}"] = " ".join(p for p, _ in pins)
+            cities[f"{code}|{city.lower()}"] = " ".join(sorted(e[0] for e in pins))
     with open(os.path.join(ROOT, "functions/src/domain/pincodeCities.ts"), "w", encoding="utf-8") as f:
         f.write("// GENERATED by tools/build-pincodes.py from the India Post pincode directory. Do not edit by hand.\n")
         f.write("// Key: `${GST state code}|${city or district, lower case}`. Value: the six-digit pincodes inside it, space separated.\n")
