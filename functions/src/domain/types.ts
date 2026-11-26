@@ -74,6 +74,10 @@ export interface FareBreakdown {
   distanceFare: number;
   timeFare: number;
   nightCharge: number;
+  /** District local fares: the scheduled peak-hour charge, and the pass-through route toll / airport entry (before GST); absent when there is none. */
+  peakCharge?: number;
+  routeToll?: number;
+  airportEntry?: number;
   /** Platform fee included in the taxable amount (before GST); absent when there is none. */
   platformFee?: number;
   /** Hill Station Allowance / Charge included in the taxable amount (before GST); absent when there is none. */

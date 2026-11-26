@@ -10,6 +10,12 @@ Writes:
   admin/src/domain/pincodes/<GST state code>.json   { "cities": { "Theni": [["625203","Name"], ...] }, "towns": { "Hosur": "Krishnagiri" } }
   admin/src/domain/pincodeDistricts.ts              the district names of each state (so the City list can offer all of them)
   functions/src/domain/pincodeCities.ts             city -> pincodes, what the booking server uses to place an address
+  admin/src/domain/areas/<GST state code>.json      every post office (village / area) of each district for the local fare page:
+                                                    { "areas": { "Theni": [["625531","Allinagaram","<Tamil name or ''>"], ...] },
+                                                      "zones": { "Theni": [["Theni", ["625531", ...]], ...] } }
+  Tamil names come from tools/data/osm-tamil-places.json (OpenStreetMap contributors, ODbL): an area gets one only when a place
+  of the same name lies within TAMIL_KM of the post office. Suggested zones come from placeZones.ts: each pincode of the
+  district joins the nearest of the listed towns; the office confirms them before they are used.
 
 Rules this follows:
   * Every pincode belongs to ONE district: the one with most of its post offices (a pincode sometimes spans a boundary; 1,100 of
@@ -90,6 +96,112 @@ def clean(office):
 
 def title(s):
     return re.sub(r"\b([a-z])([a-z']*)", lambda m: m.group(1).upper() + m.group(2), s.lower()).replace(" And ", " and ")
+
+
+TAMIL_KM = 12
+# Spellings the zone list and India Post disagree on.
+ZONE_SPELLING = {"andipatti": "aundipatti"}
+# Names of city corporation zones that say nothing about a place.
+VAGUE_ZONES = {"central", "east", "north", "south", "west"}
+
+
+def slug(name):
+    """The same comparison key as areaSlug() in functions/src/domain/localPricing.ts."""
+    s = re.sub(r"\(.*?\)", " ", name.lower())
+    s = re.sub(r"[^a-z]+", "", s)
+    return re.sub(r"patty$", "patti", s)
+
+
+def tamil_places():
+    path = os.path.join(ROOT, "tools/data/osm-tamil-places.json")
+    out = collections.defaultdict(list)
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            for names, ta, la, lo in json.load(f)["places"]:
+                for n in names:
+                    if slug(n):
+                        out[slug(n)].append((ta, (la, lo)))
+    return out
+
+
+def zone_names():
+    """city (lower case) -> the zone / town names listed for it (placeZones.ts)."""
+    src = open(os.path.join(ROOT, "admin/src/domain/placeZones.ts"), encoding="utf-8").read()
+    body = src[src.index("ZONES_BY_CITY"):]
+    body = body[:body.index("\n};")]
+    return {m.group(1): re.findall(r'"([^"]+)"', m.group(2)) for m in re.finditer(r'^\s+"?([a-z][a-z .]*?)"?:\s*\[(.*?)\]', body, re.M | re.S)}
+
+
+def write_areas(rows, home, by_district, labels, xy):
+    """Every post office of every district, with a Tamil name where one is certain, and the suggested zones."""
+    tamil, zones_of = tamil_places(), zone_names()
+    offices = collections.defaultdict(dict)  # pin -> {slug: [name, type, point]}
+    for r in rows:
+        pin = r["Pincode"].strip()
+        if pin not in home:
+            continue
+        name = clean(r["OfficeName"])
+        name = title(name) if name.isupper() else name
+        key = slug(name)
+        if not key:
+            continue
+        kind, point = r["OfficeType"].strip(), coord(r)
+        held = offices[pin].get(key)
+        rank = {"HO": 0, "PO": 1}.get(kind, 2)
+        if held is None or rank < held[1]:
+            offices[pin][key] = [name, rank, point or (held[2] if held else None)]
+        elif held[2] is None:
+            held[2] = point
+    adir = os.path.join(ROOT, "admin/src/domain/areas")
+    os.makedirs(adir, exist_ok=True)
+    for f in os.listdir(adir):
+        if f.endswith(".json"):
+            os.remove(os.path.join(adir, f))
+    totals = collections.Counter()
+    for code in sorted(by_district):
+        areas, zones = {}, {}
+        for d, pins in sorted(by_district[code].items(), key=lambda kv: labels[code][kv[0]]):
+            district = labels[code][d]
+            entries = []
+            for pin in pins:
+                for key, (name, _, point) in offices[pin].items():
+                    ta = ""
+                    at = point or xy.get(pin)
+                    # A post office point far from its own pincode is a data error: the pincode's point is used.
+                    if point and pin in xy and hav(point, xy[pin]) > 40:
+                        at = xy[pin]
+                    if code == "33" and at:
+                        near = sorted((hav(at, p), t) for t, p in tamil.get(key, []))
+                        if near and near[0][0] <= TAMIL_KM:
+                            ta = near[0][1]
+                    entries.append([pin, name, ta])
+                    totals["areas"] += 1
+                    totals["tamil"] += bool(ta)
+            areas[district] = sorted(entries, key=lambda e: (e[1].lower(), e[0]))
+            # Suggested zones: the district town and its listed towns; every pincode joins the nearest.
+            listed = [z for z in zones_of.get(district.lower(), []) if z.lower() not in VAGUE_ZONES]
+            if not listed:
+                continue
+            anchors, used = [], set()
+            for z in [district] + [z for z in listed if z.lower() != district.lower()]:
+                want = ZONE_SPELLING.get(slug(z), slug(z))
+                found = sorted((offices[p][want][1], p) for p in pins if want in offices[p] and p in xy and p not in used)
+                if found:
+                    anchors.append((z, found[0][1]))
+                    used.add(found[0][1])
+            if len(anchors) < 2:
+                continue
+            members = collections.defaultdict(list)
+            for p in sorted(pins):
+                own = next((z for z, a in anchors if a == p), None)
+                if own is None:
+                    own = min(anchors, key=lambda za: hav(xy[p], xy[za[1]]))[0] if p in xy else anchors[0][0]
+                members[own].append(p)
+            zones[district] = [[z, members[z]] for z, _ in anchors if members[z]]
+            totals["zoned districts"] += 1
+        with open(os.path.join(adir, f"{code}.json"), "w", encoding="utf-8", newline="\n") as f:
+            json.dump({"areas": areas, "zones": zones}, f, ensure_ascii=False, separators=(",", ":"))
+    print(f"{totals['areas']} areas ({totals['tamil']} with a Tamil name), suggested zones for {totals['zoned districts']} districts")
 
 
 def load(path):
@@ -180,10 +292,11 @@ def main():
         by_district[CODE_OF[st]][dist].append(pin)
 
     mine = app_cities()
-    out_pins, out_districts, unresolved, report, towns = {}, {}, [], [], {}
+    out_pins, out_districts, unresolved, report, towns, labels = {}, {}, [], [], {}, {}
     for code in sorted(by_district):
         names = DISTRICT_NAME.get(code, {})
         dist_label = {d: names.get(d, title(d)) for d in by_district[code]}
+        labels[code] = dist_label
         table = {}  # display city -> [pins]
         for d, pins in by_district[code].items():
             table[dist_label[d]] = sorted(pins)
@@ -250,6 +363,7 @@ def main():
         f.write("// Key: `${GST state code}|${city or district, lower case}`. Value: the six-digit pincodes inside it, space separated.\n")
         f.write("export const PINCODES_BY_CITY: Record<string, string> = " + json.dumps(cities, ensure_ascii=False, indent=0) + ";\n")
 
+    write_areas(rows, home, by_district, labels, xy)
     print(f"{len(home)} pincodes, {sum(len(v) for v in out_districts.values())} districts, {len(cities)} city keys")
     print("\n".join(report))
     print("UNRESOLVED (no post office carries this name; the picker lists no pincodes for them):")

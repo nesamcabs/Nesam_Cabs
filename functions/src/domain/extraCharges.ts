@@ -88,7 +88,11 @@ export function parseExtraCharges(d: unknown): ExtraChargesConfig | undefined {
 }
 
 const paiseOf = (rupees: number) => Math.round(rupees * 100);
-export interface ExtraChargeSidePaise { waitingPerHourPaise?: number; hillPaise?: number; carrierPaise?: number }
+export interface ExtraChargeSidePaise {
+  waitingPerHourPaise?: number; hillPaise?: number; carrierPaise?: number;
+  /** This side's own free waiting per stop (district local fares let the partner's differ); absent = the booking's. */
+  freeWaitingMinutes?: number;
+}
 const sidePaise = (s: ExtraChargeSide): ExtraChargeSidePaise => ({
   ...(s.waitingPerHour !== undefined ? { waitingPerHourPaise: paiseOf(s.waitingPerHour) } : {}),
   ...(s.hill !== undefined ? { hillPaise: paiseOf(s.hill) } : {}),
@@ -227,6 +231,8 @@ const perHour = (minutes: number, ratePaise: number) => Math.round((minutes * ra
  */
 export function computeExtraCharges(
   snapshot: ExtraChargesSnapshot, partner: ExtraChargeSidePaise | undefined, usage: ExtraUsage, gstRate: number, legacyCustomerWaitingPerHourPaise?: number,
+  /** Waiting already covered by a minimum fare (district local fares), taken off each side's waiting amount. */
+  waitingCredit?: { customerPaise: number; partnerPaise: number },
 ): ExtraComputation {
   const blocked: string[] = [];
   const need = (cond: boolean, reason: string) => { if (!cond && !blocked.includes(reason)) blocked.push(reason); };
@@ -248,10 +254,14 @@ export function computeExtraCharges(
     if (!rates) { need(who === 'customer', 'The partner rates for this booking are not available.'); return null; }
     let waitingPaise = 0;
     const waitRate = who === 'customer' ? rates.waitingPerHourPaise ?? legacyCustomerWaitingPerHourPaise : rates.waitingPerHourPaise;
-    if (waiting && waiting.chargeableMinutes > 0) {
+    const own = rates.freeWaitingMinutes !== undefined && usage.stops !== null
+      ? waitingMinutes({ ...snapshot, freeWaitingMinutes: rates.freeWaitingMinutes }, usage.stops)
+      : waiting;
+    if (own && own.chargeableMinutes > 0) {
       need(waitRate !== undefined, `The ${who} waiting rate is not configured for this booking.`);
-      if (waitRate !== undefined && waiting.billedMinutes !== null) waitingPaise = perHour(waiting.billedMinutes, waitRate);
+      if (waitRate !== undefined && own.billedMinutes !== null) waitingPaise = perHour(own.billedMinutes, waitRate);
     }
+    waitingPaise = Math.max(0, waitingPaise - (waitingCredit ? (who === 'customer' ? waitingCredit.customerPaise : waitingCredit.partnerPaise) : 0));
     const perTrip = (used: boolean | null, rate: number | undefined, label: string) => {
       if (!used) return 0;
       need(rate !== undefined, `The ${who} ${label} rate is not configured for this booking.`);

@@ -29,6 +29,7 @@ import { loadCommissionPolicy } from './commission';
 import { createContactInTx, maskPhone } from './contacts';
 import { withTripPincodes } from './placePincode';
 import { addOnRatesOf, loadFixedRoutes, loadTariffConfig, priceBooking, rentalHoursOf, sharedCityId, tariffClassOf, timePackageFields, tripDaysOf, zoneIdOf } from './quote';
+import { loadLocalContext } from './localFares';
 import { notifyInTx, pushAfterCommit, NotifyInput, inr } from './notify';
 import { nextBookingCode } from './bookingSequence';
 import { businessContract, availableBusinessCredit } from './domain/business';
@@ -279,7 +280,9 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
 
     const boardingState = await fareBoardingState(tariff, pickup);
     const recipientState = recipientGstState(business?.data() ?? customer?.data());
-    const priceInput = { addOns: bookingAddOnsOf(input.addOns ?? input.tripExtras), fuel, boardingState, recipientState, recipientAddressState: recipientAddressState(business?.data() ?? customer?.data()), category, route, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, adminDiscount: discountIn, localCityId, localZoneId, rentalHours, fixedRoutes, serviceId, businessContract:contract, brand: bookingChannel, platformFee, nightAllowance, tripDays, timePackage, stops, multicity };
+    // District local fares of the pickup, exactly as a customer booking reads them.
+    const localFare = tripType === 'Airport Taxi' ? null : await loadLocalContext({ brand: bookingChannel, tripType, pickup, drop, distanceKm: route.distanceKm });
+    const priceInput = { addOns: bookingAddOnsOf(input.addOns ?? input.tripExtras), fuel, boardingState, recipientState, recipientAddressState: recipientAddressState(business?.data() ?? customer?.data()), category, route, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, adminDiscount: discountIn, localCityId, localZoneId, localFare, rentalHours, fixedRoutes, serviceId, businessContract:contract, brand: bookingChannel, platformFee, nightAllowance, tripDays, timePackage, stops, multicity };
     // Coupon: the same server checks as customer checkout (validity, usage limits, minimum fare,
     // category / service, audience) against the fare before discount; then the booking is priced with it.
     let couponDiscount = 0;
@@ -298,7 +301,7 @@ export const createAdminBooking = onCall({ timeoutSeconds: 60 }, async (request)
         isFirstBooking: prior.length === 0, customerUses: prior.filter((b) => normalizeCode(b.couponCode || '') === couponCode).length,
         pickupAt: when, completedTrips: prior.filter((b) => b.status === 'Completed').length,
         pickupText: `${pickup.name} ${pickup.address ?? ''}`, dropText: `${drop.name} ${drop.address ?? ''}`,
-        fixedRoute: before.pricing.model === 'city_drop_package' || before.pricing.model === 'fixed_route', peakAdjusted: adjustment?.direction === 'increase',
+        fixedRoute: before.pricing.model === 'city_drop_package' || before.pricing.model === 'fixed_route', peakAdjusted: adjustment?.direction === 'increase' || (before.pricing.localFare?.peakPaise ?? 0) > 0,
       });
       if (!checked.ok) throw new HttpsError('failed-precondition', checked.message);
       couponDiscount = checked.coupon.discount;

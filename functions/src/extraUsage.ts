@@ -28,6 +28,8 @@ import { withApprovedExtraLines, type FareBreakup } from './domain/fareBreakup';
 import { loadPrivatePricing, privatePricingRef, withPrivatePricing } from './pricingPrivate';
 import type { AdminAccess } from './permissions';
 import { requireAction, requireAdmin, requirePermission, text } from './shared';
+import { localWaitingCredit } from './domain/localCharges';
+import type { PricingSnapshot } from './domain/tariff';
 
 const bad = (m: string, details?: unknown) => new HttpsError('invalid-argument', m, details);
 const bookingIdOf = (v: unknown): string => {
@@ -139,7 +141,8 @@ export const reviewExtraUsage = onCall(async (request) => {
     const prepaid = ratesAfterPrepaidAddOns(snapshot, carrierPrepaid);
     const billingSnapshot = hillPrepaid ? { ...prepaid, customer: { ...prepaid.customer, hillPaise: 0 } } : prepaid;
     const billingPartner = hillPrepaid && snapshot.partner ? { ...snapshot.partner, hillPaise: 0 } : snapshot.partner;
-    const calc = computeExtraCharges(billingSnapshot, billingPartner, usage, gstRate, pricing?.waitingPerHourPaise);
+    const waitingCredit = localWaitingCredit(whole.pricing as PricingSnapshot | undefined, Number(b.totalKm) || 0);
+    const calc = computeExtraCharges(billingSnapshot, billingPartner, usage, gstRate, pricing?.waitingPerHourPaise, waitingCredit);
     if (calc.blocked.length || !calc.customer || !calc.partner || calc.customerGstPaise === null || calc.customerTotalPaise === null) {
       throw new HttpsError('failed-precondition', `These extra charges cannot be posted yet: ${calc.blocked.join(' ')}`, { code: 'extra-posting-blocked', reasons: calc.blocked });
     }

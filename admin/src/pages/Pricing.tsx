@@ -13,6 +13,7 @@ import { Button, DataTable, EmptyState, Icon, PageHeader } from "../components/u
 import type { IconName } from "../components/ui/Icon";
 import FixedRouteFares from "../components/FixedRouteFares";
 import LocalFares from "../components/LocalFares";
+import LocalPricingManager, { type LocalMode } from "../components/localFares/LocalPricingManager";
 import "./pricingReference.css";
 import VehicleCategoriesPage from "./VehicleCategories";
 import FareMatrix from "../components/FareMatrix";
@@ -86,6 +87,13 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
   const gstDirty = useRef(false), gstBusy = useRef(false);
   const workspaceDirty = useRef(false);
   const workspaceBusy = useRef(false);
+  // The local page and the older rate card folded under it each have their own unsaved edits.
+  const localDirty = useRef(false), olderDirty = useRef(false), localBusy = useRef(false), olderBusy = useRef(false);
+  const noteLocal = () => { workspaceDirty.current = localDirty.current || olderDirty.current; workspaceBusy.current = localBusy.current || olderBusy.current; };
+  const localHandlers = useRef({
+    dirty: (v: boolean) => { localDirty.current = v; noteLocal(); }, busy: (v: boolean) => { localBusy.current = v; noteLocal(); },
+    olderDirty: (v: boolean) => { olderDirty.current = v; noteLocal(); }, olderBusy: (v: boolean) => { olderBusy.current = v; noteLocal(); },
+  }).current;
   useEffect(() => registerFareWorkspaceGuard(() => !workspaceBusy.current && !gstBusy.current && (!(workspaceDirty.current || gstDirty.current) || window.confirm("Discard your unsaved fare changes before leaving?"))), []);
   const [tab, setTab] = useState<Tab>(restore?.tab ?? "Brand & service fares");
   const [now, setNow] = useState(Date.now);
@@ -101,7 +109,7 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
   const [services, setServices] = useState<TravelService[]>([]);
   const [filter, setFilter] = useState<(typeof STATUS_FILTERS)[number]>(restore?.filter ?? "All");
   // Change history and Fixed route fares open in the page itself. Nothing on this screen opens a side drawer.
-  const [sheet, setSheet] = useState<{ kind: "history" | "fixed" } | null>(null);
+  const [sheet, setSheet] = useState<{ kind: "history" | "fixed" | "older" } | null>(null);
   const inlineKind = sheet ? sheet.kind : null;
   const pricingAccess = useCan("pricing");
   const settingsEdit = useCanDo("Settings", "edit");
@@ -118,7 +126,26 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
     if ((workspaceDirty.current || gstDirty.current) && !window.confirm("Discard the unsaved rates in " + scopeLabel + "?")) return;
     setFareScope(next);
   };
+  // Hourly Rental and Pickup & Drop are one page: moving between them keeps what is typed there.
+  const onLocalPage = tab === "Brand & service fares" && (pickupDrop || fareScope.service === "Local Rental");
+  // The older rate card belongs to those two services: choosing another one closes it.
+  useEffect(() => { if (sheet?.kind === "older" && !onLocalPage) setSheet(null); }, [sheet, onLocalPage]);
+  const selectLocalMode = (mode: LocalMode) => {
+    if (workspaceBusy.current || gstBusy.current) return;
+    const drop = mode === "pickup_drop";
+    if (onLocalPage && !inlineKind) {
+      if (drop === pickupDrop) return;
+      if (olderDirty.current && !window.confirm("Discard the unsaved changes in the older rate card?")) return;
+    } else if ((workspaceDirty.current || gstDirty.current) && !window.confirm("Discard the unsaved rates in " + scopeLabel + "?")) return;
+    if (inlineKind) setSheet(null);
+    olderDirty.current = false;
+    noteLocal();
+    setPickupDrop(drop);
+    setTab("Brand & service fares");
+    setFareScope({ ...fareScope, service: drop ? "One Way" : "Local Rental" });
+  };
   const changeTab = (next: Tab) => {
+    if (inlineKind === "older" && olderDirty.current && !window.confirm("Discard your unsaved fare changes before switching settings?")) return;
     if (inlineKind) setSheet(null); // leaving an in-page tool view goes back to the page the menu item points at
     if (next === tab || workspaceBusy.current || gstBusy.current) return;
     if ((workspaceDirty.current || gstDirty.current) && !window.confirm("Discard your unsaved fare changes before switching settings?")) return;
@@ -157,13 +184,17 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
   const stateOptions = [...GST_STATES.map(([c, n]) => ({ value: c, label: n })), ...otherStates.map((st) => ({ value: st, label: st }))];
   const citiesOf = (state: string) => locationOptions([...directoryCities(stateKey(state)), ...locationRows.filter((l) => stateKey(l.state) === stateKey(state)).map((l) => l.city)]);
   const savedView = (): PricingView => ({ tab, sel, filter, scrollY: window.scrollY, fareScope, cabSection, pickupDrop });
-  const selectPickupDrop = () => {
-    if (workspaceBusy.current) return;
-    if (!pickupDrop && workspaceDirty.current && !window.confirm("Discard the unsaved rates in " + scopeLabel + "?")) return;
-    if (inlineKind) setSheet(null);
-    setPickupDrop(true);
-    setTab("Brand & service fares");
-    if (fareScope.service !== "One Way") setFareScope({ ...fareScope, service: "One Way" });
+  const selectService = (value: string) => {
+    if (value === PICKUP_DROP) return selectLocalMode("pickup_drop");
+    const s = availableServices.find((x) => x === value);
+    if (!s) return;
+    if (s === "Local Rental") return selectLocalMode("hourly_rental");
+    if (!pickupDrop) return changeScope({ ...fareScope, service: s });
+    // Leaving Pickup & Drop (which shares the One Way key): ask once, then show the chosen service.
+    if (workspaceBusy.current || gstBusy.current) return;
+    if ((workspaceDirty.current || gstDirty.current) && !window.confirm("Discard your unsaved fare changes before switching service?")) return;
+    setPickupDrop(false);
+    setFareScope({ ...fareScope, service: s });
   };
   // ── The page: a side menu of tasks, one compact "where does this apply" bar, then the work itself ──────────────────
   const isRuleTab = tab === "Booking availability" || tab === "Cab types" || tab === "Pricing rules";
@@ -175,6 +206,12 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
     { title: "For this brand & service", items: [
       { key: "base", label: "Fares", hint: "Customer price, partner pay, CNG and extra charges", icon: "calculator", on: !inlineKind && tab === "Brand & service fares", go: () => changeTab("Brand & service fares") },
       { key: "tax", label: "GST & tax", hint: "How GST is worked out and shown", icon: "files", on: !inlineKind && tab === "GST calculation", go: () => changeTab("GST calculation") },
+      // Hourly Rental and Pickup & Drop: the rate card used before district fares. It still prices what has no district rate.
+      ...(onLocalPage ? [{ key: "older", label: "Older fares", hint: "Used only where a district rate is empty; roof carrier and pet charges of rentals", icon: "history" as IconName, on: inlineKind === "older", go: () => {
+        if (inlineKind === "older" || workspaceBusy.current) return;
+        if (workspaceDirty.current && !window.confirm("Discard your unsaved fare changes before opening the older fares?")) return;
+        setSheet({ kind: "older" });
+      } }] : []),
       { key: "fixed", label: "Fixed route fares", hint: "An agreed fare for one route", icon: "route", on: inlineKind === "fixed", go: () => setSheet({ kind: "fixed" }), disabledReason: fixedOff },
       { key: "rules", label: "Booking rules", hint: "Availability, cabs and pricing rules", icon: "toggle-right", on: !inlineKind && isRuleSection, go: () => {
         setCabSection("Customer cab rules");
@@ -190,7 +227,10 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
       { key: "categories", label: "Vehicle categories", hint: "Names, seats, photos and CNG", icon: "car", on: !inlineKind && tab === "Cab types" && cabSection === "Vehicle categories", go: () => { setCabSection("Vehicle categories"); changeTab("Cab types"); } },
     ] },
     { title: "History", items: [
-      { key: "history", label: "Change history", hint: "Who changed which rule, and when", icon: "history", on: inlineKind === "history", go: () => setSheet({ kind: "history" }) },
+      { key: "history", label: "Change history", hint: "Who changed which rule, and when", icon: "history", on: inlineKind === "history", go: () => {
+        if (workspaceBusy.current || (onLocalPage && workspaceDirty.current && !window.confirm("Discard your unsaved fare changes before opening the history?"))) return;
+        setSheet({ kind: "history" });
+      } },
     ] },
   ];
   // The Vehicle list shows the active vehicle categories. Each is priced as one rate class (Sedan, SUV 6+1, SUV 7+1, Innova,
@@ -220,6 +260,16 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
     return { id: v.key, name: v.label, cls: v.cls, owner: owner.categoryId === v.key, ownerName: owner.name, cng: v.cng };
   });
 
+  // One row per rate class on the local page: the categories priced with it are named under its name.
+  const localVehicles = vehicleCards.map((card) => {
+    const category = activeCats.find((c) => c.id === card.categoryId);
+    const others = vehicleChoices.filter((v) => v.cls === card.cls && v.label !== card.name).map((v) => v.label);
+    const seats = Number(category?.seatingCapacity) || 0;
+    return { cls: card.cls, name: card.name, subtitle: others.length ? `Also ${others.join(", ")}` : category?.description?.trim() || (seats ? `${seats} seats` : "") };
+  });
+
+  const matrixCards = vehicleCards.map((card) => ({ cls: card.cls, name: card.name, categoryId: activeCats.length ? card.categoryId : undefined, cng: card.cng }));
+
   // The platform fee and payment options are not set per brand or service, so the brand / service picker is not shown for them.
   const showScope = inlineKind !== "history" && !(tab === "Cab types" && cabSection === "Vehicle categories" && !inlineKind) && !((tab === "Platform fee" || tab === "Payment options") && !inlineKind);
   // Where a setting applies (brand, service, fuel, vehicle) is chosen in the side menu; the page itself only repeats the rule in one line.
@@ -243,13 +293,7 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
       </label>
       <label className="fs-nav__field">
         <span>Service</span>
-        <select className="ds-select" value={pickupDrop ? PICKUP_DROP : fareScope.service} onChange={(e) => {
-          if (e.target.value === PICKUP_DROP) return selectPickupDrop();
-          const s = availableServices.find((x) => x === e.target.value);
-          if (!s) return;
-          setPickupDrop(false);
-          changeScope({ ...fareScope, service: s });
-        }}>
+        <select className="ds-select" value={pickupDrop ? PICKUP_DROP : fareScope.service} onChange={(e) => selectService(e.target.value)}>
           {availableServices.flatMap((service) => (service === "Local Rental" ? [service, PICKUP_DROP] : [service])).map((service) => <option key={service} value={service}>{serviceLabel(service)}</option>)}
         </select>
       </label>
@@ -298,17 +342,22 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
         </aside>
         <div className="fs-main">
       {!inlineKind && <>
-      {tab === "Brand & service fares" && pickupDrop && <LocalFares only="Pickup & Drop" initialTab="Pickup & Drop" initialCity={sel.city} onToast={show} vehicles={vehicles} />}
-      {tab === "Brand & service fares" && !pickupDrop && <div className="space-y-4">
-        {/* One table for every service: rates down the side, vehicles across the top (Hourly Rental: one row per package). */}
-        <FareMatrix scope={fareScope} fuel={fuelApplies ? fareFuel : "petrol"}
-          vehicles={vehicles} cards={vehicleCards.map((card) => ({ cls: card.cls, name: card.name, categoryId: activeCats.length ? card.categoryId : undefined, cng: card.cng }))}
-          onDirtyChange={dirty => { workspaceDirty.current = dirty; }} onBusyChange={busy => { workspaceBusy.current = busy; }} />
-        {/* Then the settings that sit on top of these rates, in the order a fare is built: packages, how extras are billed, pet charge, display price. */}
-        {fareScope.service === "Round Trip" ? <TimeBasedRoundTripCard vehicles={vehicles} /> : null}
-        <NightAllowanceCard />
-        <DisplayMarkupCard scope={fareScope} />
-        <FareAdjustmentCard />
+      {tab === "Brand & service fares" && <div className="space-y-4">
+        {onLocalPage ? (
+          // Hourly Rental and Pickup & Drop: district fares with zone and area overrides (components/localFares).
+          <LocalPricingManager brand={fareScope.brand} mode={pickupDrop ? "pickup_drop" : "hourly_rental"} vehicles={localVehicles}
+            onModeChange={selectLocalMode} onDirtyChange={localHandlers.dirty} onBusyChange={localHandlers.busy} />
+        ) : <>
+          {/* One table for every service: rates down the side, vehicles across the top. */}
+          <FareMatrix scope={fareScope} fuel={fuelApplies ? fareFuel : "petrol"}
+            vehicles={vehicles} cards={matrixCards}
+            onDirtyChange={dirty => { workspaceDirty.current = dirty; }} onBusyChange={busy => { workspaceBusy.current = busy; }} />
+          {/* Then the settings that sit on top of these rates, in the order a fare is built: packages, how extras are billed, pet charge, display price. */}
+          {fareScope.service === "Round Trip" ? <TimeBasedRoundTripCard vehicles={vehicles} /> : null}
+          <NightAllowanceCard />
+          <DisplayMarkupCard scope={fareScope} />
+          <FareAdjustmentCard />
+        </>}
       </div>}
       {tab === "Platform fee" && <PlatformFeeCard />}
       {tab === "Payment options" && <PaymentOptionsCard />}
@@ -354,6 +403,9 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
         )
       )}
       </>}
+      {sheet?.kind === "older" && (pickupDrop
+        ? <LocalFares only="Pickup & Drop" initialTab="Pickup & Drop" initialCity={sel.city} onToast={show} vehicles={vehicles} />
+        : <FareMatrix scope={fareScope} fuel="petrol" vehicles={vehicles} cards={matrixCards} onDirtyChange={localHandlers.olderDirty} onBusyChange={localHandlers.olderBusy} />)}
       {sheet?.kind === "fixed" && <FixedRouteFares key={fareScope.brand + ":" + fareScope.service} scope={fareScope} onToast={show} />}
       {sheet?.kind === "history" && (
         <InlineModals value={true}>

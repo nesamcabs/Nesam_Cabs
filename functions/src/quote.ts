@@ -26,9 +26,12 @@ import { AdminDiscountInput, CATEGORY_GST_RATE, FareAdjustmentInput, isOutstatio
 import {
   FixedRouteFare, completeAirportCngRates, completeAirportRates, defaultRentalHours, quoteAirport, PricingSnapshot, QuoteResult, TARIFF_CLASSES, TariffClass, TariffConfig, TariffError, cityDropFare, classRates, istDate, localFareIdFor, matchFixedRoute, paise,
   parseFixedRouteFare, parseTariffConfig, gstOn, quoteFixedRoute, quoteLocalPickupDrop, quoteOneWay, quoteRentalPackage, quoteRoundTrip, quoteRoundTripMini, quoteRoundTripOvernightCombo, r2, withinCityZone, scopedTariffForBrand,
-  calendarDays, finalizeFare, multicityRatesFor, quoteMulticity, displayMarkupPercent, quoteRoundTripTimeBased, timeBasedContext,
+  calendarDays, finalizeFare, multicityRatesFor, quoteMulticity, displayMarkupPercent, quoteRoundTripTimeBased, timeBasedContext, quoteDistrictRide, quoteDistrictRental,
 } from './domain/tariff';
-import { gstComponents } from './domain/gst';
+import { gstComponents, type GstSnapshot } from './domain/gst';
+import { loadLocalContext, type LocalFareContext } from './localFares';
+import { withLocalPassThrough, localWaitingCharges, type LocalSnapshot } from './domain/localCharges';
+import { quoteLocalRide, quoteRentalRow, rentalHoursFor, resolveCoverage, resolveRow, resolveRule, type LocalClass, type LocalRule, type RentalRow, type Resolved } from './domain/localPricing';
 import { multicityBookingAmounts } from './domain/multicitySnapshot';
 import { FareBreakdown, GeoPlace, RideCategory, RouteInfo, TripType } from './domain/types';
 import { requirePermission, text, requireAction } from './shared';
@@ -274,6 +277,8 @@ export interface PriceInput {
   localCityId?: string | null;
   /** The pickup's zone in that City (see zoneIdOf): its own Pickup & Drop rates win for a class that has them enabled. */
   localZoneId?: string | null;
+  /** District local fares of the pickup (see loadLocalContext). Where a district rate exists it prices Hourly Rental and Pickup & Drop. */
+  localFare?: LocalFareContext | null;
   /** Local Rental only: the package the customer chose, in hours. */
   rentalHours?: number | null;
   /** Enabled fixed route fares and the booked service. Only places with canonical location ids (never a map pin) can match one. */
@@ -337,8 +342,9 @@ export function addOnRatesOf(i: Pick<PriceInput, 'tariff' | 'brand' | 'tripType'
 }
 
 export function priceBooking(i: PriceInput): PriceResult {
+  assertDistrictCoverage(i);
   const matches = hillStationsOfTrip(i);
-  const night = withNightAllowance(priceBookingWithoutAddOns(matches.length ? { ...i, hillTrip: true } : i), i.pickupAt, i.nightAllowance, tariffClassOf(i.category));
+  const night = withNightAllowance(withLocalPassThrough(priceBookingWithoutAddOns(matches.length ? { ...i, hillTrip: true } : i)), i.pickupAt, i.nightAllowance, tariffClassOf(i.category));
   // Hill Station Allowance / Charge: its own line, from the "Hill station" rows of the fare table for this brand, service and vehicle
   // (see domain/hillStations.ts).
   const slab = i.multicity ? 'multicity' : i.tripType === 'Round Trip' ? 'roundTrip' : 'oneWay';
@@ -351,7 +357,120 @@ export function priceBooking(i: PriceInput): PriceResult {
   return matches.length ? { ...result, hill: { stations: distinctHillStations(matches), matches, charged: !!charge } } : result;
 }
 
+// ── District local fares ────────────────────────────────────────────────────
+
+/** A district can switch local or outstation service off for pickups inside it (Airport Taxi is not affected). */
+function assertDistrictCoverage(i: PriceInput): void {
+  const ctx = i.localFare;
+  if (!ctx || i.tripType === 'Airport Taxi') return;
+  const coverage = resolveCoverage(ctx.fares, ctx.brand);
+  const local = !i.multicity && (i.tripType === 'Local Rental' || (i.tripType === 'One Way' && !isOutstation(i.route.distanceKm)));
+  if (local ? !coverage.local : !coverage.outstation) {
+    throw new HttpsError('failed-precondition', `${local ? 'Local' : 'Outstation'} trips are not available from ${ctx.district} right now.`, { code: 'not-available' });
+  }
+}
+
+type DistrictPlan =
+  | { kind: 'ride'; cls: LocalClass; rule: Resolved<LocalRule>; partner: Resolved<LocalRule> }
+  | { kind: 'rental'; cls: LocalClass; hours: number; row: Resolved<RentalRow> };
+
+/**
+ * Whether a district rate prices this trip. null = no district rate applies and the trip keeps its other pricing. A business
+ * contract or a fixed route fare always wins.
+ */
+function districtPlanOf(i: PriceInput): DistrictPlan | null {
+  const ctx = i.localFare, cls = tariffClassOf(i.category);
+  if (!ctx || !cls || i.multicity || i.businessContract) return null;
+  const target = { pin: ctx.pin, zoneId: ctx.zoneId, areaNames: ctx.areaNames };
+  if (i.tripType === 'Local Rental') {
+    const offered = rentalHoursFor(ctx.fares, ctx.brand, cls, target);
+    if (!offered.length) return null;
+    const hours = i.rentalHours ?? offered[0]!;
+    const row = resolveRow(ctx.fares, ctx.brand, cls, hours, target);
+    if (!row) throw new HttpsError('failed-precondition', `The ${hours}-hour rental package is not configured for this vehicle in ${ctx.district}.`, { code: 'rate-missing' });
+    return { kind: 'rental', cls, hours, row };
+  }
+  if (i.tripType !== 'One Way' || !ctx.sameDistrict || isOutstation(i.route.distanceKm) || fixedRouteOf(i)) return null;
+  const rule = resolveRule(ctx.fares, ctx.brand, 'customer', cls, target), partner = resolveRule(ctx.fares, ctx.brand, 'partner', cls, target);
+  return rule && partner ? { kind: 'ride', cls, rule, partner } : null;
+}
+
+/** The enabled fixed route fare of exactly this trip (a map pin never matches one). */
+function fixedRouteOf(i: PriceInput) {
+  const hasId = (id: string) => !!id && id !== 'pin';
+  return i.tripType === 'One Way' && i.fixedRoutes?.length && hasId(i.pickup.id) && hasId(i.drop.id)
+    ? matchFixedRoute(i.fixedRoutes, { originId: i.pickup.id, destinationId: i.drop.id, categoryId: i.category.id, serviceId: i.serviceId ?? '', brand: i.brand, fareService: fareServiceKey(i.tripType), date: istDate(i.pickupAt.getTime()) })
+    : null;
+}
+
+/** A coupon or an admin discount, applied the same way on every confirmed-tariff path. */
+function withDiscounts(i: PriceInput, run: (discount: number) => QuoteResult): QuoteResult {
+  let q = run(i.discount ?? 0);
+  if (i.adminDiscount) {
+    const v = Math.max(0, i.adminDiscount.value);
+    const requested = i.adminDiscount.type === 'percentage' ? Math.round((q.fare.subtotal * Math.min(100, v)) / 100) : Math.round(v);
+    q = run(requested);
+    if (q.fare.discount > 0) q.fare.discountDetail = { type: i.adminDiscount.type, value: v, amount: q.fare.discount, source: 'admin', reason: i.adminDiscount.reason ?? '' };
+  }
+  return q;
+}
+
+function priceDistrictTrip(i: PriceInput, plan: DistrictPlan): PriceResult {
+  const ctx = i.localFare!, s = ctx.settings;
+  // This page's GST rate and mode price district fares; a saved GST rule still says who supplies and how the tax is split.
+  const saved = fareGstFor(i);
+  const tax: GstSnapshot = {
+    ...(saved ?? { classification: plan.kind === 'rental' ? 'rental' as const : 'passenger' as const, supplierState: '', boardingState: '', placeOfSupply: '', split: 'Pending verification' as const }),
+    rate: s.gst.percent / 100, mode: s.gst.mode,
+  };
+  const input = gstPricingInput(i, tax, plan.cls);
+  const rate = plan.kind === 'ride' ? plan.rule : plan.row;
+  const snapshot: LocalSnapshot = {
+    schema: 1, kind: plan.kind, district: ctx.district, districtKey: ctx.key, source: rate.scope, shared: rate.brand === 'common', version: ctx.version,
+    peakPaise: 0, nightPaise: 0, nightPercent: 0, ownNight: false, tollPaise: 0, airportPaise: 0, tollSource: s.additional.tollSource,
+    tollsAtActuals: s.additional.tollsAtActuals, parkingAtActuals: s.additional.parkingAtActuals,
+  };
+  const common = {
+    tariffVersion: i.tariff?.version ?? 0, gstRate: 0, tariffClass: plan.cls, pickupMs: i.pickupAt.getTime(),
+    adjustmentPercent: i.adjustment?.percent ?? 0, adjustmentDirection: i.adjustment?.direction,
+  };
+  let q: QuoteResult;
+  if (plan.kind === 'ride') {
+    const ride = quoteLocalRide({
+      rule: plan.rule.value, settings: s, km: i.route.distanceKm, pickupMs: common.pickupMs,
+      airportTrip: i.pickup.type === 'airport' || i.drop.type === 'airport', toll: ctx.toll,
+    });
+    const local: LocalSnapshot = {
+      ...snapshot, rule: plan.rule.value, peakPaise: paise(ride.peak), ...(ride.peakRule && ride.peak > 0 ? { peakLabel: ride.peakRule.label } : {}),
+      nightPaise: paise(ride.night), nightPercent: s.night.percent, ownNight: s.night.percent > 0, tollPaise: paise(ride.toll), airportPaise: paise(ride.airport),
+    };
+    q = withDiscounts(input, (discount) => quoteDistrictRide({ ...common, discount, durationMin: i.route.durationMin, local, rule: plan.rule.value, partnerRule: plan.partner.value, ride }));
+  } else {
+    const { peakRule, peak } = quoteRentalRow({ row: plan.row.value, settings: s, pickupMs: common.pickupMs });
+    const local: LocalSnapshot = { ...snapshot, hours: plan.hours, peakPaise: paise(peak), ...(peakRule && peak > 0 ? { peakLabel: peakRule.label } : {}) };
+    q = withDiscounts(input, (discount) => quoteDistrictRental({ ...common, discount, durationMin: plan.hours * 60, local, row: plan.row.value, hours: plan.hours, peak }));
+  }
+  const brandScoped = rate.brand !== 'common';
+  const raw: PriceResult = {
+    fare: q.fare, pricing: { ...q.pricing, brand: i.brand, brandScoped }, service: serviceName(i.pickup, i.drop, i.route.distanceKm, i.tripType),
+    outstation: false, breakup: buildTariffFareBreakup(q.fare, false, q.pricing), usesCommissionPolicy: false,
+  };
+  const r = applyFareGst(raw, tax);
+  r.breakup = buildTariffFareBreakup(r.fare, false, r.pricing);
+  const base = scopedExtraChargesSnapshot(i.tariff, i.brand, i.tripType, plan.cls, i.category.id);
+  // Pickup & Drop waiting is billed at the district rate; a rental keeps the extra-charge rates of the fare table.
+  const extra = plan.kind === 'ride'
+    ? localWaitingCharges(base, { tariffVersion: common.tariffVersion, categoryId: i.category.id, rule: plan.rule.value, partnerRule: plan.partner.value, gstIncluded: tax.mode === 'included', gstRate: tax.rate })
+    : base;
+  if (!extra) return r;
+  // The waiting line already states the district's per-minute rate.
+  const shown = plan.kind === 'ride' ? { ...extra, customer: { ...extra.customer, waitingPerHourPaise: undefined } } : extra;
+  return { ...r, pricing: { ...r.pricing, extraCharges: extra }, breakup: withExtraChargeLines(r.breakup, shown) };
+}
+
 function priceBookingWithoutAddOns(i: PriceInput): PriceResult {
+  const district = districtPlanOf(i);
+  if (district) return priceDistrictTrip(i, district);
   if (i.multicity) {
     const tour = priceMulticityTour(i);
     const extras = scopedExtraChargesSnapshot(i.tariff, i.brand, 'Multicity', tariffClassOf(i.category), i.category.id);
@@ -425,17 +544,6 @@ function priceBookingCore(i: PriceInput): PriceResult {
   // city or zone fare, city-drop zone, or complete Airport Taxi fares) use the admin One Way / Round Trip rate card.
   const useTariff = !!cfg && !!klass && (i.tripType === 'Round Trip' || i.tripType === 'One Way' || i.tripType === 'Airport Taxi');
 
-  // A coupon or an admin discount, applied the same way on every confirmed-tariff path.
-  const withDiscounts = (run: (discount: number) => QuoteResult): QuoteResult => {
-    let q = run(i.discount ?? 0);
-    if (i.adminDiscount) {
-      const v = Math.max(0, i.adminDiscount.value);
-      const requested = i.adminDiscount.type === 'percentage' ? Math.round((q.fare.subtotal * Math.min(100, v)) / 100) : Math.round(v);
-      q = run(requested);
-      if (q.fare.discount > 0) q.fare.discountDetail = { type: i.adminDiscount.type, value: v, amount: q.fare.discount, source: 'admin', reason: i.adminDiscount.reason ?? '' };
-    }
-    return q;
-  };
   const adjust = { adjustmentPercent: i.adjustment?.percent ?? 0, adjustmentDirection: i.adjustment?.direction };
   const timing = { routeKm: i.route.distanceKm, durationMin: i.route.durationMin, pickupMs: i.pickupAt.getTime(), endMs: null };
 
@@ -447,7 +555,7 @@ function priceBookingCore(i: PriceInput): PriceResult {
     : null;
   if (fixed) {
     const tariff = effectiveTariff;
-    const q = withDiscounts((discount) => quoteFixedRoute({
+    const q = withDiscounts(i, (discount) => quoteFixedRoute({
       rule: fixed.rule, reversed: fixed.reversed, gstRate: tariff?.gstRate ?? CATEGORY_GST_RATE, tariffVersion: tariff?.version ?? 0, tariffClass: klass,
       routeKm: i.route.distanceKm*(i.businessContract&&i.tripType==='Round Trip'?2:1), durationMin: i.route.durationMin, pickupMs: i.pickupAt.getTime(), discount, adjustmentPercent: i.adjustment?.percent ?? 0, adjustmentDirection: i.adjustment?.direction,
     }));
@@ -467,7 +575,7 @@ function priceBookingCore(i: PriceInput): PriceResult {
     const tariff = effectiveTariff, hours = rentalHours;
     if (!tariff || !klass) throw new HttpsError('failed-precondition', 'Rental packages are not configured for this vehicle.');
     try {
-      const q = withDiscounts((discount) => quoteRentalPackage({ config: tariff, tariffClass: klass, tripType: 'One Way', hours, discount, ...timing, ...adjust }));
+      const q = withDiscounts(i, (discount) => quoteRentalPackage({ config: tariff, tariffClass: klass, tripType: 'One Way', hours, discount, ...timing, ...adjust }));
       return { fare: q.fare, pricing: { ...q.pricing, brand: i.brand, brandScoped: !!(i.brand && i.tariff?.brandOverrides?.[i.brand]) }, service, outstation, breakup: buildTariffFareBreakup(q.fare, false, q.pricing), usesCommissionPolicy: false };
     } catch (e) {
       if (e instanceof TariffError) throw new HttpsError('failed-precondition', e.message, { code: e.code });
@@ -480,7 +588,7 @@ function priceBookingCore(i: PriceInput): PriceResult {
   const localId = effectiveTariff && klass ? localFareIdFor(effectiveTariff, i.localCityId, i.localZoneId, klass) : null;
   if (effectiveTariff && klass && localId && i.tripType === 'One Way' && !outstation) {
     const tariff = effectiveTariff, cityId = localId;
-    const q = withDiscounts((discount) => quoteLocalPickupDrop({ config: tariff, tariffClass: klass, tripType: 'One Way', cityId, discount, ...timing, ...adjust }));
+    const q = withDiscounts(i, (discount) => quoteLocalPickupDrop({ config: tariff, tariffClass: klass, tripType: 'One Way', cityId, discount, ...timing, ...adjust }));
     return { fare: q.fare, pricing: { ...q.pricing, brand: i.brand, brandScoped: !!(i.brand && i.tariff?.brandOverrides?.[i.brand]) }, service, outstation, breakup: buildTariffFareBreakup(q.fare, false, q.pricing), usesCommissionPolicy: false };
   }
 
@@ -490,7 +598,7 @@ function priceBookingCore(i: PriceInput): PriceResult {
   if (cfg && klass && airportRates) {
     const rates = i.fuel === 'cng' ? completeAirportCngRates(cfg, klass) : airportRates;
     if (!rates) throw new HttpsError('failed-precondition', 'CNG is not available for this vehicle.', { code: 'cng-unavailable' });
-    const q = withDiscounts((discount) => quoteAirport({ config: cfg, tariffClass: klass, tripType: 'One Way', rates, discount, fuel: i.fuel, ...timing, ...adjust }));
+    const q = withDiscounts(i, (discount) => quoteAirport({ config: cfg, tariffClass: klass, tripType: 'One Way', rates, discount, fuel: i.fuel, ...timing, ...adjust }));
     return { fare: q.fare, pricing: { ...q.pricing, brand: i.brand, brandScoped: !!(i.brand && i.tariff?.brandOverrides?.[i.brand]) }, service, outstation, breakup: buildTariffFareBreakup(q.fare, false, q.pricing), usesCommissionPolicy: false };
   }
 
@@ -552,7 +660,7 @@ function priceBookingCore(i: PriceInput): PriceResult {
         // package the moment it runs past the mini slab's hour/km limits (both return null then).
         return quoteRoundTripMini(roundTripInput) ?? quoteRoundTripOvernightCombo(roundTripInput) ?? quoteRoundTrip(roundTripInput);
       };
-      const q = withDiscounts(run);
+      const q = withDiscounts(i, run);
       return {
         fare: q.fare, pricing: { ...q.pricing, brand: i.brand, brandScoped: !!(i.brand && i.tariff?.brandOverrides?.[i.brand]) }, service, outstation,
         breakup: buildTariffFareBreakup(q.fare, outstation || i.tripType === 'Round Trip', q.pricing),
@@ -644,16 +752,17 @@ export async function trustedCustomerPlace(place: GeoPlace, requestedId: unknown
   return { ...place, id, type: l.type === 'Airport' ? 'airport' : place.type, city: text(l.city, 80), area: text(l.area, 80), state: text(l.state, 80) } as GeoPlace;
 }
 
-/** Fixed route fares and the shared City a customer trip may use (the same inputs the office booking passes). */
-export async function customerFareContext(tripType: TripType, pickup: GeoPlace, drop: GeoPlace, distanceKm: number): Promise<{ fixedRoutes: FixedRouteFare[]; localCityId: string | null; localZoneId: string | null }> {
+/** Fixed route fares, the shared City and the district local fares a customer trip may use (the same inputs the office booking passes). */
+export async function customerFareContext(tripType: TripType, pickup: GeoPlace, drop: GeoPlace, distanceKm: number, brand?: string): Promise<{ fixedRoutes: FixedRouteFare[]; localCityId: string | null; localZoneId: string | null; localFare: LocalFareContext | null }> {
   const masters = pickup.id !== 'pin' && drop.id !== 'pin';
-  const [fixedRoutes, localCityId] = await Promise.all([
+  const [fixedRoutes, localCityId, localFare] = await Promise.all([
     tripType === 'One Way' && masters ? loadFixedRoutes() : Promise.resolve([]),
     // Any place can be in a City (a master location, a Google search result or a map pin): see cityIdOf.
     tripType === 'One Way' && !isOutstation(distanceKm) ? sharedCityId(pickup, drop) : Promise.resolve(null),
+    tripType === 'Airport Taxi' ? Promise.resolve(null) : loadLocalContext({ brand, tripType, pickup, drop, distanceKm }),
   ]);
   const localZoneId = localCityId ? await zoneIdOf(pickup, localCityId) : null;
-  return { fixedRoutes, localCityId, localZoneId };
+  return { fixedRoutes, localCityId, localZoneId, localFare };
 }
 
 /**
@@ -726,7 +835,7 @@ export const quoteBooking = onCall({ timeoutSeconds: 60, cors: PUBLIC_CALLABLE_O
   const route = await routeLookup;
   // A Multicity tour is billed on the whole itinerary, even when it ends where it began.
   const pricingRoute = multicity ? route : await roundTripPricingRoute(route, tripType, pickup, drop, stops.length);
-  const [{ fixedRoutes, localCityId, localZoneId }, customer] = await Promise.all([customerFareContext(tripType, pickup, drop, route.distanceKm), customerRead]);
+  const [{ fixedRoutes, localCityId, localZoneId, localFare }, customer] = await Promise.all([customerFareContext(tripType, pickup, drop, route.distanceKm, brand), customerRead]);
   if (customer?.exists && !approved(customer.data()!.status)) throw new HttpsError('permission-denied', 'Your account is not active.');
   // A coupon is only checked for an existing customer account.
   const customerId = customer?.exists ? uid : null;
@@ -756,7 +865,7 @@ export const quoteBooking = onCall({ timeoutSeconds: 60, cors: PUBLIC_CALLABLE_O
     .map(({ d, c }) => {
       const category = { ...c, tariffClass: d.data().tariffClass, dutyClass: d.data().dutyClass };
       const matched = matchAuthoritativeService(onlineMasters, { tripType, categoryId: c.id, distanceKm: route.distanceKm, pickupType: pickup.type, dropType: drop.type, context: 'customer' });
-      const base = { addOns: bookingAddOnsOf(input.addOns), boardingState, recipientState, recipientAddressState: recipientAddressState(customer?.data()), category, route: pricingRoute, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, rentalHours: tripType === 'Local Rental' ? rentalHoursOf(input.rentalHours) : null, brand, fixedRoutes, localCityId, localZoneId, serviceId: matched?.id ?? '', multicity, platformFee, nightAllowance, tripDays, customerChannel: true, stops, timePackage: typeof input.timePackage === 'string' ? input.timePackage : undefined };
+      const base = { addOns: bookingAddOnsOf(input.addOns), boardingState, recipientState, recipientAddressState: recipientAddressState(customer?.data()), category, route: pricingRoute, tripType, pickup, drop, pickupAt: when, tripEndAt, tariff, adjustment, rentalHours: tripType === 'Local Rental' ? rentalHoursOf(input.rentalHours) : null, brand, fixedRoutes, localCityId, localZoneId, localFare, serviceId: matched?.id ?? '', multicity, platformFee, nightAllowance, tripDays, customerChannel: true, stops, timePackage: typeof input.timePackage === 'string' ? input.timePackage : undefined };
       try {
         assertCatalogAvailable(onlineMasters,tripType,category.id);
         assertBookable(rules, category.name);
@@ -773,7 +882,7 @@ export const quoteBooking = onCall({ timeoutSeconds: 60, cors: PUBLIC_CALLABLE_O
               customerUses: prior.filter((bk) => normalizeCode(bk.couponCode || '') === code).length,
               pickupAt: when, completedTrips: prior.filter((bk) => bk.status === 'Completed').length,
               pickupText: `${pickup.name} ${pickup.address ?? ''}`, dropText: `${drop.name} ${drop.address ?? ''}`,
-              fixedRoute: before.pricing.model === 'city_drop_package' || before.pricing.model === 'fixed_route', peakAdjusted: b.adjustment?.direction === 'increase',
+              fixedRoute: before.pricing.model === 'city_drop_package' || before.pricing.model === 'fixed_route', peakAdjusted: b.adjustment?.direction === 'increase' || (before.pricing.localFare?.peakPaise ?? 0) > 0,
             });
             if (r.ok) { discount = r.coupon.discount; couponMessage = r.coupon.message; } else couponMessage = r.message;
           } else if (code) couponMessage = 'Sign in to apply this code.';

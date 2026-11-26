@@ -144,6 +144,7 @@ export function buildInvoiceLines(b: Doc, sac: string, split: GstSnapshot['split
   const components: [string, unknown][] = [
     ['Base fare', fb.baseFare], ['Roof carrier', addons.carrierCharge], ['Pet travel', addons.petCharge], ['Distance charge', fb.distanceFare],
     ['Time charge', fb.timeFare], ['Night charge', fb.nightCharge], ['Driver allowance', fb.driverAllowance], ['Minimum fare adjustment', fb.minimumFareAdjustment],
+    ['Peak-hour charge', fb.peakCharge], ['Route toll', fb.routeToll], ['Airport entry charge', fb.airportEntry],
     [b.globalAdjustmentApplied?.name || 'Fare adjustment', b.globalAdjustmentApplied?.amount], ['Agreed fare adjustment', fb.adminAdjustment],
   ];
   const detailed = components.filter(([, v]) => num(v) !== 0);

@@ -8,6 +8,7 @@
     "test:sounds": "node --test ../scripts/admin-notification-sound.test.cjs",
     "test:customers": "node --test ../scripts/customer-directory.test.cjs",
     "test:staff": "node --test ../scripts/staff-access.test.cjs",
+    "test:local-fares": "node --test ../scripts/admin-local-fares.test.cjs",
     "dev": "vite --host 0.0.0.0",
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit && vite build --configLoader runner",

@@ -1,6 +1,8 @@
 import { withBookedAddOnFare } from './bookingAddOns';
 import { withNightAllowanceFare, type NightAllowanceCharge } from './nightAllowance';
 import { withPlatformFeeFare, type PlatformFeeCharge } from './platformFee';
+import { withLocalPassThroughFare, type LocalSnapshot } from './localCharges';
+import { rideFare, rideParts, type LocalRule, type RentalRow, type RideQuote } from './localPricing';
 import { withHillChargeFare } from './hillCharge';
 import { HillStationConfig, parseHillStationConfig } from './hillStations';
 import { gstComponents, withFareGst, validGstRule, type FareGstPolicies, type GstSnapshot } from './gst';
@@ -676,9 +678,15 @@ export interface PartnerNormalRate {
   /** Night allowance and pet travel payouts already inside basePaise (kept apart so a time-based final fare adds them back once). */
   nightPaise?: number;
   petPaise?: number;
+  /** District Pickup & Drop: the partner's own rate, which the payout for extra KM and waiting is worked from. */
+  localRule?: LocalRule;
+  /** Route toll and airport entry the partner is paid back, already inside basePaise. */
+  passThroughPaise?: number;
 }
 
 export interface PricingSnapshot {
+  /** Set when the trip was priced from district local fares (Hourly Rental / Pickup & Drop); see domain/localPricing.ts. */
+  localFare?: LocalSnapshot;
   bookingAddOns?: import('./bookingAddOns').BookingAddOnCharges;
   /** Night allowance billed for a pickup between 11 PM and 6 AM (see domain/nightAllowance.ts). */
   nightAllowance?: NightAllowanceCharge;
@@ -1327,6 +1335,68 @@ export function quoteRentalPackage(i: QuoteInput & { hours: number }): QuoteResu
   };
 }
 
+// ── District local fares ────────────────────────────────────────────────────
+
+export interface DistrictQuoteInput {
+  tariffVersion: number; gstRate: number; tariffClass: TariffClass; durationMin: number; pickupMs: number;
+  discount?: number; adjustmentPercent?: number; adjustmentDirection?: 'increase' | 'decrease';
+  /** What the district rates decided for this trip. */
+  local: LocalSnapshot;
+}
+
+const districtPricing = (i: DistrictQuoteInput, discount: number) => ({
+  schema: 2 as const, source: 'tariff_v2' as const, tariffVersion: i.tariffVersion, tariffClass: i.tariffClass, gstRate: i.gstRate,
+  customerRatePaise: 0, customerBataPaise: 0, days: 1, minKmPerDay: 0, discount, adminAdjustment: 0,
+  adjustmentPercent: i.adjustmentPercent ?? 0, adjustmentDirection: i.adjustmentDirection ?? ('increase' as const),
+  pickupDate: istDate(i.pickupMs), endDate: null, localFare: i.local,
+});
+
+/**
+ * District Pickup & Drop: base fare + extra km, never below the minimum fare, plus the peak and night charges (both worked on
+ * that ride fare). Waiting is billed after the trip; the route toll and airport entry are added separately (localCharges.ts).
+ */
+export function quoteDistrictRide(i: DistrictQuoteInput & { rule: LocalRule; partnerRule: LocalRule; ride: RideQuote }): QuoteResult {
+  const q = i.ride;
+  const packagePaise = paise(q.rideFare) + paise(q.peak) + paise(q.night);
+  const base = toBreakdown({
+    packagePaise, distancePaise: paise(q.extraKmCharge), bataPaise: 0, floorPaise: paise(q.minimumTopUp), discount: i.discount ?? 0, adminAdjustment: 0,
+    adjustmentPercent: i.adjustmentPercent ?? 0, adjustmentDirection: i.adjustmentDirection ?? 'increase', gstRate: i.gstRate,
+    km: q.distanceKm, durationMin: i.durationMin, ratePaise: paise(i.rule.extraPerKm),
+  });
+  const fare: FareBreakdown = { ...base, baseFare: q.baseFare, distanceFare: q.extraKmCharge, minimumFareAdjustment: q.minimumTopUp, nightCharge: q.night, ...(q.peak > 0 ? { peakCharge: q.peak } : {}) };
+  return {
+    fare,
+    pricing: {
+      ...districtPricing(i, fare.discount), model: 'local_pickup_drop',
+      quotedKm: q.distanceKm, includedKm: Math.max(q.distanceKm, i.rule.includedKm), extraKmRatePaise: paise(i.rule.extraPerKm),
+      waitingPerHourPaise: paise(i.rule.waitPerMin * 60), packagePaise,
+      partner: { mode: 'NORMAL_RATE', ratePaise: paise(i.partnerRule.extraPerKm), bataPaise: 0, minKm: i.partnerRule.includedKm, days: 1, basePaise: paise(rideFare(i.partnerRule, q.distanceKm)), localRule: i.partnerRule },
+      gates: [],
+    },
+  };
+}
+
+/** District Hourly Rental: the package fare plus any peak charge; extra km at trip end, extra hours billed at actuals. */
+export function quoteDistrictRental(i: DistrictQuoteInput & { row: RentalRow; hours: number; peak: number }): QuoteResult {
+  const packagePaise = paise(i.row.customerFare) + paise(i.peak);
+  const base = toBreakdown({
+    packagePaise, distancePaise: packagePaise, bataPaise: 0, floorPaise: 0, discount: i.discount ?? 0, adminAdjustment: 0,
+    adjustmentPercent: i.adjustmentPercent ?? 0, adjustmentDirection: i.adjustmentDirection ?? 'increase', gstRate: i.gstRate,
+    km: i.row.includedKm, durationMin: i.hours * 60, ratePaise: paise(i.row.extraKmRate),
+  });
+  const fare: FareBreakdown = { ...base, baseFare: i.row.customerFare, distanceFare: 0, ...(i.peak > 0 ? { peakCharge: i.peak } : {}) };
+  return {
+    fare,
+    pricing: {
+      ...districtPricing(i, fare.discount), model: 'rental_package',
+      quotedKm: i.row.includedKm, includedKm: i.row.includedKm, extraKmRatePaise: paise(i.row.extraKmRate), rentalHours: i.hours,
+      extraHourRatePaise: paise(i.row.extraHourRate), packagePaise,
+      partner: { mode: 'NORMAL_RATE', ratePaise: 0, bataPaise: 0, minKm: i.row.includedKm, days: 1, basePaise: paise(i.row.partnerPayout) },
+      gates: ['Extra hours are recorded on the quote and billed at actuals; they are not added to the final fare automatically'],
+    },
+  };
+}
+
 // ── Fixed route fares ───────────────────────────────────────────────────────
 
 /** An agreed fare for one route (and, when allowed, its reverse) saved with the Fixed route fares tool. */
@@ -1486,7 +1556,8 @@ export function finalizeFare(i: FinalInput): FinalResult {
   // The night allowance and pet travel payouts work the same way as the hill payout.
   const hillPartner = (i.pricing.partner?.hillPaise ?? 0) + (i.pricing.partner?.nightPaise ?? 0) + (i.pricing.partner?.petPaise ?? 0);
   const partnerPaise = result.partnerPaise !== null && result.timeBased && hillPartner > 0 ? result.partnerPaise + hillPartner : result.partnerPaise;
-  return { ...result, partnerPaise, fare: withPlatformFeeFare(withNightAllowanceFare(withHillChargeFare(withBookedAddOnFare(result.fare, i.pricing.bookingAddOns), i.pricing.hillStation), i.pricing.nightAllowance), i.pricing.platformFee) };
+  const base = withLocalPassThroughFare(result.fare, i.pricing.localFare);
+  return { ...result, partnerPaise, fare: withPlatformFeeFare(withNightAllowanceFare(withHillChargeFare(withBookedAddOnFare(base, i.pricing.bookingAddOns), i.pricing.hillStation), i.pricing.nightAllowance), i.pricing.platformFee) };
 }
 
 function finalizeFareWithoutAddOns(i: FinalInput): FinalResult {
@@ -1531,8 +1602,12 @@ function finalizeFareWithoutAddOns(i: FinalInput): FinalResult {
   const extraKm = Math.max(0, Math.round((totalKm - includedKm) * 10) / 10);
   const businessTotal=p.model==='business_contract_per_km'&&typeof p.businessCustomerRatePaise==='number'
     ? kmAmountPaise(Math.max(totalKm,p.quotedKm),p.businessCustomerRatePaise):null;
+  const local = p.localFare;
+  const localRule = local?.kind === 'ride' ? local.rule : undefined;
   const extraKmPaise = businessTotal!==null
     ? Math.max(0,(p.businessGstMode==='included'?taxableFromInclusivePaise(businessTotal,p.gstRate):businessTotal)-packagePaise)
+    // A district Pickup & Drop ride is "never below the minimum fare": extra distance first uses up what the minimum already covered.
+    : localRule ? paise(rideFare(localRule, Math.max(totalKm, p.quotedKm))) - paise(rideFare(localRule, p.quotedKm))
     : kmAmountPaise(extraKm, p.extraKmRatePaise);
   const total = packagePaise + extraKmPaise;
   const pre = r2(total / 100);
@@ -1549,6 +1624,12 @@ function finalizeFareWithoutAddOns(i: FinalInput): FinalResult {
   } else if (p.partner && timeFinal) {
     // The package's own payout plus the partner rate for every KM beyond the package's inclusion.
     partnerPaise = timeFinal.partnerPaise + kmAmountPaise(extraKm, p.partner.ratePaise);
+  } else if (p.partner?.localRule && localRule) {
+    const own = p.partner.localRule;
+    const extra = paise(rideFare(own, Math.max(totalKm, p.quotedKm))) - paise(rideFare(own, p.quotedKm));
+    // A partner price change on the booking scaled ratePaise; the extra KM are paid at the same scale.
+    const scale = own.extraPerKm > 0 ? p.partner.ratePaise / paise(own.extraPerKm) : 1;
+    partnerPaise = p.partner.basePaise + Math.round(extra * scale);
   } else if (p.partner && (p.model === 'rental_package' || p.model === 'fixed_route')) {
     // A rental package or fixed route fare pays the partner its agreed payout.
     partnerPaise = p.partner.basePaise;
@@ -1580,6 +1661,21 @@ function finalizeFareWithoutAddOns(i: FinalInput): FinalResult {
     fare.distanceFare = r2(extraKmPaise / 100);
     fare.driverAllowance = 0;
     fare.minimumFareAdjustment = 0;
+  }
+  if (local) {
+    fare.driverAllowance = 0;
+    fare.minimumFareAdjustment = 0;
+    fare.nightCharge = r2(local.nightPaise / 100);
+    if (local.peakPaise > 0) fare.peakCharge = r2(local.peakPaise / 100);
+    if (localRule) {
+      const parts = rideParts(localRule, Math.max(totalKm, p.quotedKm));
+      fare.baseFare = parts.baseFare;
+      fare.distanceFare = parts.extraKmCharge;
+      fare.minimumFareAdjustment = parts.minimumTopUp;
+    } else {
+      fare.baseFare = r2((packagePaise - local.peakPaise - local.nightPaise) / 100);
+      fare.distanceFare = r2(extraKmPaise / 100);
+    }
   }
   if (p.gst) fare.gstDetails = { ...p.gst, ...gstComponents(fare.gst, p.gst.split) };
   return {

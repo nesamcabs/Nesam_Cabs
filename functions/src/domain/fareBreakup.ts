@@ -103,6 +103,7 @@ export function buildTariffFareBreakup(fare: FareBreakdown, outstation: boolean,
   const w = pricing.waitingPerHourPaise;
   const waiting = typeof w !== 'number' ? null : w > 0 ? `${num2(w)} per hour of waiting` : 'No waiting charge';
   const extrasBlock = (rest: FareLine[]): FareLine[] => rest.map((l) => (l.key === 'waiting' && waiting ? { ...l, detail: waiting } : l));
+  if (pricing.localFare) return districtBreakup(base, fare, pricing, pricing.localFare);
   if (pricing.model === 'rental_package') {
     const head: FareLine[] = [{
       key: 'package', label: `${pricing.rentalHours ?? ''}-hour rental package`.trim(), amount: fare.baseFare, treatment: 'included',
@@ -201,6 +202,34 @@ export function buildTariffFareBreakup(fare: FareBreakdown, outstation: boolean,
     ...(pricing.model === 'local_pickup_drop' ? head.filter((l) => l.key !== 'driverAllowance') : head),
     ...extrasBlock(rest).map((l) => (l.key === 'extraKm' ? { ...l, detail: `${num2(pricing.extraKmRatePaise)} per KM beyond the ${pricing.includedKm} KM included` } : l)),
   ];
+  const extras = lines.filter((l) => l.treatment === 'extra');
+  return { schema: 1, lines, packageTotal: fare.total, knownExtras: extras.reduce((s, l) => s + (l.amount ?? 0), 0), hasActualsExtras: extras.some((l) => l.amount === null) };
+}
+
+/** District local fares: each part of the fare on its own line, and what is billed after the trip at the rate saved with it. */
+function districtBreakup(base: FareBreakup, fare: FareBreakdown, pricing: PricingSnapshot, local: NonNullable<PricingSnapshot['localFare']>): FareBreakup {
+  const money = (n: number) => `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+  const line = (key: string, label: string, amount: number, detail: string): FareLine => ({ key, label, amount, treatment: 'included', detail });
+  const rule = local.kind === 'ride' ? local.rule : undefined;
+  const head: FareLine[] = rule
+    ? [
+      line('package', 'Base fare', fare.baseFare, `Includes the first ${rule.includedKm} KM`),
+      ...(fare.distanceFare > 0 ? [line('distance', 'Extra distance', fare.distanceFare, `${Math.max(0, Math.round((pricing.quotedKm - rule.includedKm) * 10) / 10)} KM at ${money(rule.extraPerKm)} per KM`)] : []),
+      ...(fare.minimumFareAdjustment > 0 ? [line('minimum', 'Minimum fare', fare.minimumFareAdjustment, `Brings the ride up to the ${money(rule.minimumFare)} minimum fare`)] : []),
+      ...(fare.nightCharge > 0 ? [line('night', 'Night allowance', fare.nightCharge, `${local.nightPercent}% for a pickup between 10:00 PM and 5:00 AM`)] : []),
+    ]
+    : [line('package', `${pricing.rentalHours ?? ''}-hour rental package`.trim(), fare.baseFare, `${pricing.includedKm} KM included; ${num2(pricing.extraHourRatePaise ?? 0)} per extra hour`)];
+  if ((fare.peakCharge ?? 0) > 0) head.push(line('peak', 'Peak-hour charge', fare.peakCharge!, local.peakLabel ?? 'Scheduled pickup in a peak window'));
+  const actuals = (l: FareLine, billed: boolean, prepaid: string): FareLine =>
+    billed ? { ...l, detail: prepaid || l.detail } : { ...l, treatment: 'included', detail: 'Included in the fare' };
+  const rest = base.lines.filter((l) => !['base', 'distance', 'time', 'night', 'driverAllowance', 'minimum'].includes(l.key)).map((l) => {
+    if (l.key === 'extraKm') return { ...l, detail: rule ? `${money(rule.extraPerKm)} per KM beyond the ${pricing.includedKm} KM quoted` : `${num2(pricing.extraKmRatePaise)} per KM beyond the ${pricing.includedKm} KM included` };
+    if (l.key === 'waiting' && rule) return { ...l, detail: rule.waitPerMin > 0 ? `${money(rule.waitPerMin)} per minute after ${rule.freeWaitMins} free minutes` : 'No waiting charge' };
+    if (l.key === 'toll') return actuals(l, local.tollsAtActuals, local.tollPaise > 0 ? 'The route toll is included above; any other toll is payable at actuals' : '');
+    if (l.key === 'parking') return actuals(l, local.parkingAtActuals, '');
+    return l;
+  });
+  const lines = [...head, ...rest];
   const extras = lines.filter((l) => l.treatment === 'extra');
   return { schema: 1, lines, packageTotal: fare.total, knownExtras: extras.reduce((s, l) => s + (l.amount ?? 0), 0), hasActualsExtras: extras.some((l) => l.amount === null) };
 }

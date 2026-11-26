@@ -44,7 +44,7 @@ export function withFareGst(source: import('./types').FareBreakdown, tax: GstSna
   const round = (n: number) => Math.round(n * 100) / 100;
   const net = (v: number) => included ? Math.sign(v) * inclusiveTaxable(Math.round(Math.abs(v) * 100), tax.rate) / 100 : round(v);
   const fare = { ...source };
-  for (const key of ['baseFare','distanceFare','timeFare','nightCharge','driverAllowance','minimumFareAdjustment','subtotalBeforeAdjustment','subtotal','discount','adminAdjustment','perKmRate','perMinuteRate'] as const) {
+  for (const key of ['baseFare','distanceFare','timeFare','nightCharge','peakCharge','driverAllowance','minimumFareAdjustment','subtotalBeforeAdjustment','subtotal','discount','adminAdjustment','perKmRate','perMinuteRate'] as const) {
     const value = fare[key];
     if (typeof value === 'number') fare[key] = net(value);
   }

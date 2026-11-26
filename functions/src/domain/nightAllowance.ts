@@ -111,6 +111,8 @@ const GST_KEYS = ['gst', 'cgst', 'sgst', 'utgst', 'igst'];
  */
 export function withNightAllowance(result: PriceResult, pickupAt: Date, config: NightAllowanceConfig | null | undefined, vehicleClass?: string | null): PriceResult {
   if (!isNightAllowanceTime(pickupAt)) return result;
+  // A district Pickup & Drop fare with its own night percentage (10 PM - 5 AM) decides the night charge by itself.
+  if (result.pricing.localFare?.ownNight) return result;
   // The older category engine may already charge its own night charge: never charge twice.
   if ((result.fare.nightCharge ?? 0) > 0) return result;
   const configured = nightAllowanceFor(config, vehicleClass);

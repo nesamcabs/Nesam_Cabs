@@ -183,10 +183,12 @@ export function availabilityFields(o: RuleOutcome): Record<string, unknown> {
 }
 
 /** A partner payout rule scales the fixed partner rate the booking was priced with. */
-export function adjustPartner<T extends { partner: { ratePaise: number; bataPaise: number; basePaise: number } | null }>(pricing: T, o: RuleOutcome): T {
+export function adjustPartner<T extends { partner: { ratePaise: number; bataPaise: number; basePaise: number; passThroughPaise?: number } | null }>(pricing: T, o: RuleOutcome): T {
   if (!o.partner || !pricing.partner) return pricing;
   const f = o.partner.direction === 'increase' ? 1 + o.partner.percent / 100 : 1 - o.partner.percent / 100;
-  return { ...pricing, partner: { ...pricing.partner, ratePaise: Math.round(pricing.partner.ratePaise * f), basePaise: Math.round(pricing.partner.basePaise * f) } } as T;
+  // A toll or airport entry the partner is paid back is money spent, not a rate: it is never scaled.
+  const back = pricing.partner.passThroughPaise ?? 0;
+  return { ...pricing, partner: { ...pricing.partner, ratePaise: Math.round(pricing.partner.ratePaise * f), basePaise: Math.round((pricing.partner.basePaise - back) * f) + back } } as T;
 }
 
 /** Partner payout in rupees from a pricing snapshot, or null when the snapshot carries no fixed partner rate. */

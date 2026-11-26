@@ -93,6 +93,9 @@ export function buildInvoiceLines(b: Booking): InvoiceLines {
     ["Distance charge", fb.distanceFare],
     ["Time charge", fb.timeFare],
     ["Night charge", fb.nightCharge],
+    ["Peak-hour charge", fb.peakCharge],
+    ["Route toll", fb.routeToll],
+    ["Airport entry charge", fb.airportEntry],
     ["Driver allowance", fb.driverAllowance],
     ["Minimum fare adjustment", fb.minimumFareAdjustment],
     // A global % adjustment can be negative; an agreed adjustment is the override's difference.

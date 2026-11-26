@@ -23,6 +23,7 @@ import { sendCustomerMessage } from './customerComms';
 import { approved, inIndia, requirePermission, text, requireAction } from './shared';
 import { rentalUsageOf } from './domain/localShift';
 import { pickupWaitFields } from './domain/pickupWaiting';
+import { billableReceipts } from './domain/localPricing';
 import { refreshShiftSummary } from './localShifts';
 
 // Operational limits. All are staff-configurable in settings/operations; these defaults are the
@@ -138,6 +139,11 @@ export function buildTripEnd(b: DocumentData, privatePricing: DocumentData | nul
       }
     }
   }
+  // A district local fare says which receipts are billed on top: a toll the fare already includes is never billed twice.
+  const local = pricing?.localFare;
+  const receiptTotal = local
+    ? billableReceipts(tolls, { tollsAtActuals: local.tollsAtActuals, parkingAtActuals: local.parkingAtActuals, prepaidToll: local.tollPaise / 100, prepaidEntry: local.airportPaise / 100 })
+    : tolls.reduce((s, t) => s + t.amount, 0);
   // An Hourly Rental keeps a record of the time it used against the package, measured from the server's own start stamp.
   // Extra hours are billed by the office at actuals (the tariff never adds them automatically), so nothing is charged here.
   const rentalUsage = rentalUsageOf(b, (b.tripStartedAt as Timestamp | undefined)?.toMillis?.() ?? null, Date.now());
@@ -145,7 +151,7 @@ export function buildTripEnd(b: DocumentData, privatePricing: DocumentData | nul
     status: 'Completed', tripEndedAt: stamp, completedAt: stamp, tripEndedLocation: geo, ...(hasEnd ? { endOdometer: end } : {}),
     ...(rentalUsage ? { rentalUsage } : {}),
     ...(typeof totalKm === 'number' ? { totalKm, ...(discrepancy ? { distanceDiscrepancy: { odometerKm: driven, enteredKm: totalKm, flaggedAt: Timestamp.now() } } : {}) } : {}),
-    ...money, tolls, tollCharges: tolls.reduce((s, t) => s + t.amount, 0),
+    ...money, tolls, tollCharges: receiptTotal,
   };
 }
 

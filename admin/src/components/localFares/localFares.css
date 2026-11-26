@@ -1,0 +1,60 @@
+/* District local fares (Service & Fare Settings → Hourly Rental / Pickup & Drop). The page is laid out by its own width, not
+   the window's: it sits beside the admin side bar and the settings menu. */
+.lf-root { container-type: inline-size; min-width: 0; }
+.lf-root h2, .lf-root h3, .lf-root p, .lf-root dl, .lf-root dd { margin: 0; }
+.lf-root h3.text-sm, .lf-root h2.text-sm { font-size: 14px; }
+.lf-root .text-xs { font-size: 12px; line-height: 1.35; }
+.lf-root .text-\[11px\] { font-size: 11px; line-height: 1.45; }
+.lf-root .text-\[10px\] { font-size: 10px; line-height: 1.4; }
+.lf-root button { cursor: pointer; }
+.lf-root button:disabled { cursor: not-allowed; }
+.lf-root fieldset { border: 0; margin: 0; }
+
+.lf-between { display: flex; flex-direction: column; align-items: stretch; }
+.lf-search { width: 100%; }
+.lf-five { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.lf-main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start; }
+@container (min-width: 520px) { .lf-five { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container (min-width: 700px) {
+  .lf-between { flex-direction: row; align-items: center; justify-content: space-between; }
+  .lf-search { width: 18rem; flex: none; }
+}
+@container (min-width: 760px) { .lf-five { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+@container (min-width: 1040px) { .lf-main { grid-template-columns: minmax(0, 1fr) 340px; } }
+@container (min-width: 1280px) { .lf-main { grid-template-columns: minmax(0, 1fr) 390px; } }
+
+/* Test quote: the day and time box is wider than the one beside it, so its text is never cut. */
+.lf-when { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 10px; align-items: end; }
+.lf-root .lf-when select { padding-left: 8px; padding-right: 2px; }
+
+.lf-label { display: block; font-size: 11px; font-weight: 600; color: #64748b; margin-bottom: 4px; }
+.lf-label--flat { margin-bottom: 0; }
+
+/* Boxes: more specific than the global form rules, so the page keeps its compact sizes. */
+.lf-root input.lf-num, .lf-root input.lf-text, .lf-root select.lf-select {
+  height: 32px; box-sizing: border-box; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #fff; padding: 0 8px; font-size: 12px; font-weight: 700; color: #1e293b;
+}
+.lf-root input.lf-num.h-9 { height: 36px; }
+.lf-root input.lf-text { font-weight: 500; }
+.lf-root input.lf-text.h-9 { height: 36px; }
+.lf-root select.lf-select { font-weight: 600; }
+.lf-root input.lf-num:focus, .lf-root input.lf-text:focus, .lf-root select.lf-select:focus { outline: none; border-color: #991b1b; }
+.lf-root input.lf-num:disabled, .lf-root input.lf-text:disabled, .lf-root select.lf-select:disabled { background-color: #f1f5f9; color: #64748b; -webkit-text-fill-color: #64748b; }
+.lf-root input.lf-num.lf-red:not(:disabled) { color: #991b1b; }
+.lf-root input.lf-num.lf-green:not(:disabled) { color: #047857; }
+.lf-root input.lf-num::-webkit-outer-spin-button, .lf-root input.lf-num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.lf-root input.lf-num { -moz-appearance: textfield; appearance: textfield; }
+.lf-root input.lf-bare { border: 0; background: transparent; padding: 0; font-size: 12px; color: #1e293b; }
+.lf-root input.lf-bare:focus { outline: none; }
+.lf-root select:not(.lf-select) { font-size: 12px; }
+.lf-root input.lf-check { width: 15px; height: 15px; flex: none; accent-color: #991b1b; }
+
+.lf-table th, .lf-table td { padding: 9px 7px; vertical-align: middle; }
+.lf-table th:first-child, .lf-table td:first-child { padding-left: 14px; }
+.lf-table th:last-child, .lf-table td:last-child { padding-right: 14px; }
+.lf-rental thead th { position: sticky; top: 0; z-index: 1; background: #f8fafc; box-shadow: 0 1px 0 #f1f5f9; }
+
+.lf-footer { position: sticky; bottom: 10px; z-index: 20; }
+.lf-footer .lf-between { flex-wrap: wrap; }
+@container (min-width: 700px) { .lf-save { flex: 1 1 30rem; max-width: 40rem; margin-left: auto; } }
+

@@ -20,6 +20,7 @@ export { requestDutyCancellation, submitPartnerRequest, decidePartnerRequest, ac
 export { advanceTrip, verifyBoarding, overrideReachedPickup, officeCloseTrip } from './trips';
 export { saveTariffConfig, quoteBooking } from './quote';
 export { saveTariffSection } from './tariffSections';
+export { saveLocalFares } from './localFares';
 export { saveFixedRouteFare } from './fixedRoutes';
 export { createCaptureSession, getSlotChallenge, submitCapturePhoto, finalizeVehicleVerification } from './vehicleVerification';
 export { reportSecurityEvent, getIntegrityNonce, verifyDeviceIntegrity } from './security';

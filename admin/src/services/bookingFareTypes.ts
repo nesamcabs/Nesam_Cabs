@@ -8,6 +8,10 @@ export interface BookingFareBreakdown {
   distanceFare: number;
   timeFare: number;
   nightCharge: number;
+  /** District local fares: peak-hour charge, route toll and airport entry (before GST); absent when there is none. */
+  peakCharge?: number;
+  routeToll?: number;
+  airportEntry?: number;
   driverAllowance: number;
   minimumFareAdjustment: number;
   subtotal: number;
