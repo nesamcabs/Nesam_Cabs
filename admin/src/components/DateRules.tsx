@@ -8,9 +8,7 @@ import {
   type Adjustment, type RuleKind, type ServiceRule, type Side,
 } from "../services/serviceRulesService";
 import { CardBody, SettingCard, type VehicleCol } from "./RateTable";
-import PincodePicker from "./PincodePicker";
-import { usePincodeScope } from "../hooks/usePincodeScope";
-import { kmText } from "../domain/pincodes";
+import PlacePicker, { choiceOf, useAreaNames, usePlaceScope, type PlaceChoice } from "./PlacePicker";
 
 // Date-based, special and inherited rules, all inside the page (no side drawer): a filterable list, and the add / edit / switch on-off /
 // remove / details panels open right under the row they belong to. Every rule is an ordinary service_rules document that the booking
@@ -60,7 +58,8 @@ export default function DateRules({ rules, allRules, isOwn, fareScope, vehicles,
 
   const brandName = fareScope.brand === "common" ? "All brands (shared)" : BRAND_LABELS[fareScope.brand];
   const where = `${brandName} → ${serviceLabel(fareScope.service)}`;
-  const placeText = (p: Place) => (p.area ? `${p.area}, ${p.city}` : p.city ? p.city : p.state ? stateName(p.state) : "All locations");
+  const areaText = useAreaNames(allRules.map((r) => r.scope.state));
+  const placeText = (p: Place) => (p.area ? `${areaText(p.state, p.city, p.area)}, ${p.city}` : p.city ? p.city : p.state ? stateName(p.state) : "All locations");
   const phase = (r: ServiceRule): Phase => phaseOf(r, now);
   const inFilter = (r: ServiceRule) => {
     const p = phase(r);
@@ -279,17 +278,22 @@ function RuleForm({ kind, rule, fareScope, vehicles, allRules, placeText, stateO
   const submitting = useRef(false);
 
   const priorityN = Number(priority);
-  const cities = scope.state ? citiesOf(scope.state) : [];
-  // A new rule can cover several pincodes at once (one rule each, same dates); an existing rule keeps one place.
-  const pins = usePincodeScope(scope.state, scope.city);
+  // A new rule can cover every pincode of a zone at once (one rule each, same dates); an existing rule keeps one place.
+  const [choice, setChoice] = useState<PlaceChoice>(() => choiceOf(scope));
+  const pins = usePlaceScope(choice);
+  const areaText = useAreaNames([choice.state]);
+  const changeChoice = (next: PlaceChoice) => {
+    setChoice(next);
+    setScope((sc) => ({ ...sc, state: next.state, city: next.city, area: next.areaKey || next.pin }));
+  };
   const what = kind === "categories" ? "cabs shown" : kind === "availability" ? "booking" : "price change";
-  const nameFor = (sc: ServiceRule["scope"]) => `${sc.area ? `${sc.area}, ${sc.city}` : sc.city || (sc.state ? "State" : "All locations")} ${what}`;
-  const targets: ServiceRule["scope"][] = rule ? [scope] : pins.areas.map((area) => ({ ...scope, area }));
+  const nameFor = (sc: ServiceRule["scope"]) => `${sc.area ? `${areaText(sc.state, sc.city, sc.area)}, ${sc.city}` : sc.city || (sc.state ? "State" : "All locations")} ${what}`;
+  const targets: ServiceRule["scope"][] = pins.targets.map((area) => ({ ...scope, area }));
   const autoName = nameFor(targets[0] ?? scope);
   const service = rule ? rule.service : fareScope.service;
   const draft: Omit<ServiceRule, "id"> = {
     brand: rule?.brand ?? (fareScope.brand === "common" ? "" : fareScope.brand), fareService: rule ? rule.fareService ?? "" : fareScope.service,
-    kind, name: name.trim() || autoName, status: rule?.status === "Disabled" ? "Disabled" : "Enabled", priority: priorityN, scope, service,
+    kind, name: name.trim() || autoName, status: rule?.status === "Disabled" ? "Disabled" : "Enabled", priority: priorityN, scope: targets[0] ?? scope, service,
     schedule: mode === "Always" ? { mode } : { mode, ...(from ? { from: istInputToIso(from) } : {}), ...(to ? { to: istInputToIso(to) } : {}) },
     ...(kind === "availability" ? { availability } : {}), ...(kind === "categories" ? { categories: cats } : {}),
     ...(kind === "pricing" ? { customer: adjOf(cust), partner: adjOf(part), ...(rule?.packages?.length ? { packages: rule.packages } : {}) } : {}), reason: reason.trim(),
@@ -303,7 +307,8 @@ function RuleForm({ kind, rule, fareScope, vehicles, allRules, placeText, stateO
 
   const conflict = targets.map(conflictOf).find(Boolean);
   const problem = (() => {
-    if (!rule && !pins.canAdd) return "Tick at least one pincode, or choose the whole state.";
+    if (!pins.canAdd) return "This zone has no pincode. Choose another zone, or All zones.";
+    if (rule && targets.length > 1) return "A saved rule keeps one place: choose an Area / Village or a PIN code of the zone, or All zones.";
     if (!Number.isInteger(priorityN) || priorityN < 1 || priorityN > 100) return "Priority must be a whole number from 1 to 100.";
     if (kind === "categories" && !cats.length) return "Keep at least one cab on. To stop bookings, use Open / pause → Paused.";
     if (kind === "pricing" && (badPct(cust) || badPct(part))) return "A price change must be between −99% and +99%.";
@@ -337,7 +342,7 @@ function RuleForm({ kind, rule, fareScope, vehicles, allRules, placeText, stateO
   const whenText = mode === "Always" ? "at all times" : `for pickups ${from ? `from ${dateText(istInputToIso(from))}` : "from now"}${to ? ` until ${dateText(istInputToIso(to))}` : " with no end date"} (India time)`;
   const sideText = scope.side === "Pickup only" ? "starting in" : scope.side === "Drop only" ? "ending in" : "starting or ending in";
   // Unsaved changes: anything different from how the form opened. Leaving the browser tab with unsaved changes asks first.
-  const snapshot = JSON.stringify({ scope, pins: pins.pins, name, priority, mode, from, to, availability, cats, cust, part, reason });
+  const snapshot = JSON.stringify({ scope, choice, name, priority, mode, from, to, availability, cats, cust, part, reason });
   const opened = useRef(snapshot);
   const dirty = snapshot !== opened.current;
   useEffect(() => {
@@ -382,40 +387,10 @@ function RuleForm({ kind, rule, fareScope, vehicles, allRules, placeText, stateO
           )}
         </section>
 
-        <section className="fm-form__block">
+        <section className="fm-form__block" style={{ gridColumn: "1 / -1" }}>
           <h4>2 · Where</h4>
-          <div className="fm-form__two">
-            <label className="fm-mini"><span>State</span>
-              <select className="ds-select" value={scope.state} onChange={(e) => setScope({ ...scope, state: e.target.value, city: "", area: "" })}>
-                <option value="">All locations</option>
-                {stateOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </label>
-            <label className="fm-mini"><span>City</span>
-              <select className="ds-select" value={scope.city} disabled={!scope.state} onChange={(e) => setScope({ ...scope, city: e.target.value, area: "" })}>
-                <option value="">Whole state</option>
-                {scope.city && !cities.includes(scope.city) ? <option value={scope.city}>{scope.city}</option> : null}
-                {cities.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </label>
-            {rule ? (
-              <label className="fm-mini"><span>Pincode</span>
-                <select className="ds-select" value={scope.area} disabled={!scope.city} onChange={(e) => setScope({ ...scope, area: e.target.value })}>
-                  <option value="">Whole city</option>
-                  {scope.area && !pins.list?.pins.some((p) => p.pin === scope.area) ? <option value={scope.area}>{scope.area}</option> : null}
-                  {pins.list && pins.list.pins.some((p) => p.tier < 2) && pins.list.pins.some((p) => p.tier === 2) ? (
-                    <>
-                      <optgroup label={`${pins.list.city} & nearby`}>{pins.list.pins.filter((p) => p.tier < 2).map((p) => <option key={p.pin} value={p.pin}>{p.pin} · {p.name}{kmText(p.km) && p.km ? ` · ${kmText(p.km)}` : ""}</option>)}</optgroup>
-                      <optgroup label={`Other pincodes in ${pins.list.city}`}>{pins.list.pins.filter((p) => p.tier === 2).map((p) => <option key={p.pin} value={p.pin}>{p.pin} · {p.name}{kmText(p.km) ? ` · ${kmText(p.km)}` : ""}</option>)}</optgroup>
-                    </>
-                  ) : (pins.list?.pins ?? []).map((p) => <option key={p.pin} value={p.pin}>{p.pin} · {p.name}</option>)}
-                </select>
-              </label>
-            ) : (
-              <div className="fm-mini"><span>Pincodes</span>
-                <div className="relative"><PincodePicker list={pins.list} selected={pins.pins} onChange={pins.setPins} cityChosen={!!scope.city} /></div>
-              </div>
-            )}
+          <PlacePicker value={choice} onChange={changeChoice} scope={pins} stateOptions={stateOptions} citiesOf={citiesOf} />
+          <div className="fm-form__two mt-3">
             <label className="fm-mini"><span>Applies to trips</span>
               <select className="ds-select" value={scope.side ?? "Pickup or drop"} onChange={(e) => setScope({ ...scope, side: e.target.value as Side })}>
                 {SIDES.map((s) => <option key={s} value={s}>{s === "Pickup or drop" ? "Start or end here" : s === "Pickup only" ? "Start here only" : "End here only"}</option>)}

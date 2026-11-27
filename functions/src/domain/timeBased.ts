@@ -102,14 +102,21 @@ export const DEFAULT_TIME_BASED: Readonly<TimeBasedSettings> = {
   shortKmLimit: 150, fiveKmLimit: 100, lateNightEndMinutes: 60, fiveHours: 5, eightHours: 8,
 };
 
-/** Per-class fixed amounts in rupees. The Full-Day package is the class's normal Round Trip day, not stored here. */
-export interface TimeBasedClassRates {
+/** One fuel's fixed amounts of a class, in rupees. */
+export interface TimeBasedAmounts {
   fiveFare: number; fiveKm: number; fivePartner: number;
   eightFare: number; eightKm: number; eightPartner: number;
   /** Morning Return — all three together or none (the option is then not offered for the class). */
   morningFare?: number; morningKm?: number; morningPartner?: number;
   /** Amounts of the extra hour slabs for this class, by slab id ('h6'). A slab without amounts here is not offered for the class. */
   extra?: Partial<Record<ExtraSlabId, { fare: number; km: number; partner: number }>>;
+  /** The office's own Full-Day amounts. Each one left out is worked out from the Round Trip day rates. */
+  fullFare?: number; fullKm?: number; fullPartner?: number;
+}
+
+/** Per-class amounts: Diesel / Petrol, and optionally CNG's own set (without it a time-based trip is not offered on CNG). */
+export interface TimeBasedClassRates extends TimeBasedAmounts {
+  cng?: TimeBasedAmounts;
 }
 
 /** The class's Round Trip day rates the Full-Day package is derived from. */
@@ -177,11 +184,12 @@ export function fullDaySlab(r: DayRates): SlabAmounts {
 
 export type SlabTable = Record<'five' | 'eight' | 'full', SlabAmounts> & Partial<Record<ExtraSlabId, SlabAmounts>>;
 
-export function slabsOf(settings: TimeBasedSettings, day: DayRates, t: TimeBasedClassRates): SlabTable {
+export function slabsOf(settings: TimeBasedSettings, day: DayRates, t: TimeBasedAmounts): SlabTable {
+  const auto = fullDaySlab(day);
   const out: SlabTable = {
     five: { farePaise: paiseOf(t.fiveFare), partnerPaise: paiseOf(t.fivePartner), includedKm: t.fiveKm, hours: settings.fiveHours },
     eight: { farePaise: paiseOf(t.eightFare), partnerPaise: paiseOf(t.eightPartner), includedKm: t.eightKm, hours: settings.eightHours },
-    full: fullDaySlab(day),
+    full: { farePaise: t.fullFare ? paiseOf(t.fullFare) : auto.farePaise, partnerPaise: t.fullPartner ? paiseOf(t.fullPartner) : auto.partnerPaise, includedKm: t.fullKm ?? auto.includedKm, hours: null },
   };
   for (const x of settings.extraSlabs ?? []) {
     const id = extraSlabId(x.hours);

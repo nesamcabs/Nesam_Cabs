@@ -278,6 +278,8 @@ export const advanceTrip = onCall({ timeoutSeconds: 60 }, async (request) => {
     if (b.customerId) {
       const c: NotifyInput = {
         recipientType: 'customer', brand: b.brand, recipientId: b.customerId, category: 'trips', severity: 'info', sound: 'general', push: true, sentBy: driver.uid,
+        // "Your driver has arrived" has no setting of its own and keeps its sound.
+        ...(to === 'Trip Started' ? { event: 'trip_started' as const } : to === 'Trip Ended' ? { event: 'trip_completed' as const } : {}),
         title: to === 'Reached Pickup' ? 'Your driver has arrived' : to === 'Trip Started' ? 'Your trip has started' : 'Trip completed',
         message: to === 'Reached Pickup'
           ? `${driver.name} is at your pickup point. Share the 4-digit boarding OTP from your NESAM app to start the trip.`
@@ -470,7 +472,7 @@ export const officeCloseTrip = onCall({ timeoutSeconds: 60 }, async (request) =>
     }
     if (b.customerId) {
       const c: NotifyInput = {
-        recipientType: 'customer', brand: b.brand, recipientId: b.customerId, category: 'trips', severity: 'info', sound: 'general', push: true, sentBy: admin.uid,
+        recipientType: 'customer', brand: b.brand, recipientId: b.customerId, category: 'trips', severity: 'info', sound: 'general', event: 'trip_completed', push: true, sentBy: admin.uid,
         title: 'Trip completed', message: `Thank you for travelling with NESAM (${label}).`, bookingId, bookingCode: label,
       };
       pushes.push({ id: notifyInTx(tx, c), input: c });

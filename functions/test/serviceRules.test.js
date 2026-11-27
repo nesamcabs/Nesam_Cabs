@@ -233,3 +233,14 @@ test('a town listed under a district keeps its own pincodes', () => {
   assert.equal(when([hosur], place('Bagalur Road, Tamil Nadu 635109, India')).availability, 'Paused');   // a Hosur post office
   assert.equal(when([hosur], place('Krishnagiri Town, Tamil Nadu 635001, India')).availability, 'Available');
 });
+
+test('a village rule needs its pincode and its name, and beats the pincode rule', () => {
+  const village = rule({ id: 'village', availability: 'Limited', scope: { state: '33', city: 'Theni', area: '625534~koduvilarpatti' } });
+  const pin = rule({ id: 'pin', priority: 100, scope: { state: '33', city: 'Theni', area: '625534' } });
+  const at625534 = (name) => ({ id: 'p', name, address: `${name}, Tamil Nadu 625534`, lat: 10, lng: 77 });
+  const run = (rules, place) => evaluateRules(rules, place, drop, at, 'Local One Way').availability;
+  assert.equal(run([village], at625534('Koduvilarpatti')), 'Limited');
+  assert.equal(run([village], at625534('Veerapandi')), 'Available');
+  assert.equal(run([village], { id: 'x', name: 'Koduvilarpatti', lat: 10, lng: 77 }), 'Available');
+  assert.equal(run([pin, village], at625534('Koduvilarpatti')), 'Limited');
+});

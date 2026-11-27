@@ -55,7 +55,7 @@ export const approveBooking = onCall({ timeoutSeconds: 120 }, async (request) =>
     auditInTx(tx, { action: 'booking_approved', entity: 'booking', entityId: bookingId, performedBy: admin.uid, performedByName: admin.name, role: 'admin', bookingId, previous: { status: b.status }, next: { status: 'Approved' }, reason: note });
     if (b.customerId) {
       const n: NotifyInput = {
-        recipientType: 'customer', brand: b.brand, recipientId: b.customerId, category: 'approvals', severity: 'success', sound: 'approval', title: 'Booking approved',
+        recipientType: 'customer', brand: b.brand, recipientId: b.customerId, category: 'approvals', severity: 'success', sound: 'approval', event: 'booking_approved', title: 'Booking approved',
         message: `Your booking ${code(b, bookingId)} is approved. We are arranging your vehicle and will share driver details before your pickup.`, bookingId, bookingCode: code(b, bookingId), push: true, sentBy: admin.uid,
       };
       pushes.push({ id: notifyInTx(tx, n), input: n });
@@ -162,11 +162,11 @@ export const cancelBooking = onCall(async (request) => {
     const label = code(b, bookingId);
     for (const [recipientId, recipientType] of [[b.assignedDriverId, 'driver'], [b.assignedVendorId, 'vendor']] as const) {
       if (!recipientId) continue;
-      const n: NotifyInput = { recipientType, recipientId, category: 'trips', severity: 'warning', sound: 'general', title: 'Trip cancelled', message: `Booking ${label} was cancelled by NESAM. ${reason}`, bookingId, bookingCode: label, push: true, sentBy: admin.uid };
+      const n: NotifyInput = { recipientType, recipientId, category: 'trips', severity: 'warning', sound: 'general', event: 'cancelled', title: 'Trip cancelled', message: `Booking ${label} was cancelled by NESAM. ${reason}`, bookingId, bookingCode: label, push: true, sentBy: admin.uid };
       pushes.push({ id: notifyInTx(tx, n), input: n });
     }
     if (b.customerId) {
-      const n: NotifyInput = { recipientType: 'customer', brand: b.brand, recipientId: b.customerId, category: 'bookings', severity: 'warning', sound: 'general', title: 'Booking cancelled', message: `Booking ${label} was cancelled. ${reason}`, bookingId, bookingCode: label, push: true, sentBy: admin.uid };
+      const n: NotifyInput = { recipientType: 'customer', brand: b.brand, recipientId: b.customerId, category: 'bookings', severity: 'warning', sound: 'general', event: 'cancelled', title: 'Booking cancelled', message: `Booking ${label} was cancelled. ${reason}`, bookingId, bookingCode: label, push: true, sentBy: admin.uid };
       pushes.push({ id: notifyInTx(tx, n), input: n });
     }
     return { booking: b, refundAmount: eligible ? wanted : 0, paid };
@@ -270,7 +270,7 @@ export const updateRefund = onCall(async (request) => {
     auditInTx(tx, { action: `refund_${to.toLowerCase()}`, entity: 'refund', entityId: bookingId, performedBy: admin.uid, performedByName: admin.name, role: 'admin', bookingId, previous: { status: r.status, amount: money(r.amount) }, next: { status: to, amount, method: entry.method, reference }, reason: note });
     if (cur.customerId) {
       const n: NotifyInput = {
-        recipientType: 'customer', brand: cur.brand, recipientId: cur.customerId, category: 'payments', severity: to === 'Completed' ? 'success' : to === 'Processing' ? 'info' : 'warning', sound: 'general',
+        recipientType: 'customer', brand: cur.brand, recipientId: cur.customerId, category: 'payments', severity: to === 'Completed' ? 'success' : to === 'Processing' ? 'info' : 'warning', sound: 'general', event: 'payment',
         title: `Refund ${to.toLowerCase()}`, message: `Your refund of ${inr(amount)} for ${code(cur, bookingId)} is ${to.toLowerCase()}.`, bookingId, bookingCode: code(cur, bookingId), push: true, sentBy: admin.uid,
       };
       pushes.push({ id: notifyInTx(tx, n), input: n });
@@ -352,7 +352,7 @@ export const assignDriver = onCall({ timeoutSeconds: 60 }, async (request) => {
       auditInTx(tx, { action: 'driver_removed', entity: 'booking', entityId: bookingId, performedBy: admin.uid, performedByName: admin.name, role: 'admin', bookingId, previous: oldDriver, next: { status: 'Approved' }, reason });
       for (const [rid, rtype] of [[oldDriverId, 'driver'], [oldDriver.vendorId, 'vendor']] as const) {
         if (!rid) continue;
-        const n: NotifyInput = { recipientType: rtype, recipientId: rid, category: 'trips', severity: 'warning', sound: 'general', title: 'Trip removed from you', message: `Booking ${code(b, bookingId)} was reassigned by NESAM. ${reason}`, bookingId, bookingCode: code(b, bookingId), push: true, sentBy: admin.uid };
+        const n: NotifyInput = { recipientType: rtype, recipientId: rid, category: 'trips', severity: 'warning', sound: 'general', event: 'reassigned', title: 'Trip removed from you', message: `Booking ${code(b, bookingId)} was reassigned by NESAM. ${reason}`, bookingId, bookingCode: code(b, bookingId), push: true, sentBy: admin.uid };
         pushes.push({ id: notifyInTx(tx, n), input: n });
       }
       return { action, booking: b, newDriver: null as null | { id: string; name: string } };
@@ -421,7 +421,7 @@ export const assignDriver = onCall({ timeoutSeconds: 60 }, async (request) => {
     tx.create(ref.collection('events').doc(), { type: action === 'assign' ? 'driver_assigned' : 'driver_reassigned', actorId: admin.uid, actorRole: 'admin', driverId: newDriverId, oldDriverId, reason, at: stamp });
     auditInTx(tx, { action: action === 'assign' ? 'driver_assigned' : 'driver_reassigned', entity: 'booking', entityId: bookingId, performedBy: admin.uid, performedByName: admin.name, role: 'admin', bookingId, previous: oldDriverId ? oldDriver : null, next: newDriver, reason });
     const label = code(b, bookingId);
-    const toNew: NotifyInput = { recipientType: vendorId ? 'vendor' : 'driver', recipientId: vendorId || newDriverId, category: 'bookings', severity: 'info', sound: 'new_booking', title: vendorId ? `Trip assigned to ${text(driver.name)}` : 'Trip assigned to you', message: `${text(b.pickup)} → ${text(b.drop)}${when ? ` · ${formatDateTime12(when)}` : ''} (${label})`, bookingId, bookingCode: label, cta: { label: 'Open trip', page: 'trip', bookingId }, push: true, sentBy: admin.uid };
+    const toNew: NotifyInput = { recipientType: vendorId ? 'vendor' : 'driver', recipientId: vendorId || newDriverId, category: 'bookings', severity: 'info', sound: 'new_booking', event: 'new_duty', title: vendorId ? `Trip assigned to ${text(driver.name)}` : 'Trip assigned to you', message: `${text(b.pickup)} → ${text(b.drop)}${when ? ` · ${formatDateTime12(when)}` : ''} (${label})`, bookingId, bookingCode: label, cta: { label: 'Open trip', page: 'trip', bookingId }, push: true, sentBy: admin.uid };
     pushes.push({ id: notifyInTx(tx, toNew), input: toNew });
     if (vendorId) {
       const toDriver: NotifyInput = { ...toNew, recipientType: 'driver', recipientId: newDriverId, title: 'Trip assigned to you' };
@@ -430,7 +430,7 @@ export const assignDriver = onCall({ timeoutSeconds: 60 }, async (request) => {
     // App customers also see it in their inbox (WhatsApp/SMS/email go out after commit).
     if (text(b.customerId)) {
       const toCustomer: NotifyInput = {
-        recipientType: 'customer', brand: b.brand, recipientId: text(b.customerId), category: 'trips', severity: 'success', sound: 'approval',
+        recipientType: 'customer', brand: b.brand, recipientId: text(b.customerId), category: 'trips', severity: 'success', sound: 'approval', event: 'driver_assigned',
         title: action === 'assign' ? 'Driver assigned' : 'Your driver has changed',
         message: `${text(driver.name)}${vehicleNumber ? ` (${vehicleNumber})` : ''} will pick you up${when ? ` at ${formatDateTime12(when)}` : ''}. Share your boarding OTP only at the pickup.`,
         bookingId, bookingCode: label, cta: { label: 'Open trip', page: 'trips', bookingId }, push: true, sentBy: admin.uid,
@@ -439,7 +439,7 @@ export const assignDriver = onCall({ timeoutSeconds: 60 }, async (request) => {
     }
     for (const [rid, rtype] of [[oldDriverId, 'driver'], [oldDriver.vendorId && oldDriver.vendorId !== vendorId ? oldDriver.vendorId : '', 'vendor']] as const) {
       if (!rid || rid === newDriverId) continue;
-      const n: NotifyInput = { recipientType: rtype, recipientId: rid, category: 'trips', severity: 'warning', sound: 'general', title: 'Trip reassigned', message: `Booking ${label} was reassigned to another driver. ${reason}`, bookingId, bookingCode: label, push: true, sentBy: admin.uid };
+      const n: NotifyInput = { recipientType: rtype, recipientId: rid, category: 'trips', severity: 'warning', sound: 'general', event: 'reassigned', title: 'Trip reassigned', message: `Booking ${label} was reassigned to another driver. ${reason}`, bookingId, bookingCode: label, push: true, sentBy: admin.uid };
       pushes.push({ id: notifyInTx(tx, n), input: n });
     }
     return { action, booking: { ...b, assignedDriverName: text(driver.name), assignedVehicleNumber: vehicleNumber }, newDriver };

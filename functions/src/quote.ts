@@ -238,7 +238,7 @@ function keepTimeBased(next: TariffConfig['roundTrip'], before: TariffConfig['ro
     const keep = before.classes[cls]?.timeBased;
     if (classes[cls] && keep && !classes[cls]!.timeBased) classes[cls] = { ...classes[cls]!, timeBased: keep };
   }
-  return { ...next, classes, ...(next.timeBased ?? before.timeBased ? { timeBased: next.timeBased ?? before.timeBased } : {}) };
+  return { ...next, classes, ...(next.timeBased ?? before.timeBased ? { timeBased: next.timeBased ?? before.timeBased } : {}), ...(before.packages ? { packages: before.packages } : {}) };
 }
 
 /** Trip days of a request (1, 2, 3 …), or null when none were asked for. */
@@ -652,7 +652,7 @@ function priceBookingCore(i: PriceInput): PriceResult {
         // Time-based round trip (Customer UX v7): customers choose days, never a return time; an office booking uses it when a package is named.
         if (klass && timeBasedContext(cfg, klass) && (i.customerChannel || i.timePackage)) {
           const days = i.tripDays ?? (i.tripEndAt ? calendarDays(i.pickupAt.getTime(), i.tripEndAt.getTime()) : null) ?? 1;
-          return quoteRoundTripTimeBased({ ...roundTripInput, fuel: undefined, tripDays: days, timePackage: i.timePackage, hill: i.hillTrip === true });
+          return quoteRoundTripTimeBased({ ...roundTripInput, tripDays: days, timePackage: i.timePackage, hill: i.hillTrip === true });
         }
         // Hill stations never use the short same-day / evening mini fares: straight to the standard package.
         if (i.hillTrip) return quoteRoundTrip(roundTripInput);
@@ -898,9 +898,12 @@ export const quoteBooking = onCall({ timeoutSeconds: 60, cors: PUBLIC_CALLABLE_O
         const priced = first.priced;
         // The same trip on the CNG rate card, when this class has one and the fare came from the per-km tariff.
         let cng: { fare: typeof priced.fare; breakup: typeof priced.breakup; extraKmRate: number; strikeTotal?: number } | null = null;
-        if (c.cngEnabled === true && (priced.pricing.model === 'one_way_standard' || priced.pricing.model === 'round_trip_calendar' || priced.pricing.model === 'airport_transfer') && !input.fuelType) {
+        if (c.cngEnabled === true && (priced.pricing.model === 'one_way_standard' || priced.pricing.model === 'round_trip_calendar' || priced.pricing.model === 'airport_transfer' || priced.pricing.model === 'round_trip_time_based') && !input.fuelType) {
           try {
-            const alt = priceBooking({ ...base, discount, fuel: 'cng' });
+            // A time-based round trip compares the same package, with that package's own price rules.
+            const id = priced.pricing.timeBased?.packageId;
+            const same = id ? { timePackage: id, adjustment: (packageRules ? evalRules(id).customer : rules.customer) ?? defaultAdjustment } : {};
+            const alt = priceBooking({ ...base, ...same, discount, fuel: 'cng' });
             cng = { fare: alt.fare, breakup: alt.breakup, extraKmRate: (alt.pricing.gstInclusiveBase?.extraKmRatePaise ?? alt.pricing.extraKmRatePaise) / 100, ...struck(alt.fare.total) };
           } catch { cng = null; }
         }

@@ -96,7 +96,7 @@ export function inScope(r: ServiceRule, sel: { state: string; city: string; area
 /** Booking-server precedence: most specific place, then a service-specific rule, then higher priority. */
 export const rankRules = (list: ServiceRule[]) =>
   [...list].sort((a, b) => {
-    const spec = (r: ServiceRule) => (r.scope.area ? 3 : r.scope.city ? (parentOf(r.scope.city) ? 2.5 : 2) : r.scope.state ? 1 : 0);
+    const spec = (r: ServiceRule) => (r.scope.area.includes("~") ? 3.5 : r.scope.area ? 3 : r.scope.city ? (parentOf(r.scope.city) ? 2.5 : 2) : r.scope.state ? 1 : 0);
     const svc = (r: ServiceRule) => (r.service && r.service.toLowerCase() !== "all" ? 1 : 0);
     const fs = (r: ServiceRule) => (r.fareService ? 1 : 0);
     const pk = (r: ServiceRule) => (r.packages?.length ? 1 : 0);

@@ -19,7 +19,9 @@ export const DEFAULT_RENTAL_MIN_HOURS: Record<TariffClass, number> = { hatchback
 export interface CngRates { customerRate: number; customerBata: number; partnerRate: number; partnerBata: number; extraKmRate?: number; minKmPerDay?: number }
 export interface OneWayRates { customerRate: number; customerBata: number; partnerRate: number; partnerBata: number; cng?: Partial<CngRates> }
 /** Time-based round trip (Customer UX v8): 5-hour / 8-hour / Morning Return amounts of one class, in rupees. */
-export interface TimeBasedClassRates { fiveFare: number; fiveKm: number; fivePartner: number; eightFare: number; eightKm: number; eightPartner: number; morningFare?: number; morningKm?: number; morningPartner?: number; extra?: Record<string, { fare: number; km: number; partner: number }> }
+export interface TimeBasedAmounts { fiveFare: number; fiveKm: number; fivePartner: number; eightFare: number; eightKm: number; eightPartner: number; morningFare?: number; morningKm?: number; morningPartner?: number; extra?: Record<string, { fare: number; km: number; partner: number }>; fullFare?: number; fullKm?: number; fullPartner?: number }
+/** Diesel / Petrol amounts, and optionally CNG's own set. */
+export interface TimeBasedClassRates extends TimeBasedAmounts { cng?: TimeBasedAmounts }
 /** Shared settings; minutes are minutes after IST midnight (1425 = 11:45 PM). */
 /** Names the office gave the round-trip packages (blank = the standard name). */
 export interface PackageNames { five?: string; eight?: string; full?: string; morning?: string; next?: string }
@@ -135,7 +137,7 @@ export interface Tariff {
   version?: number;
   gstRate?: number;
   oneWay?: { minKm?: number; classes?: Partial<Record<TariffClass, Partial<OneWayRates>>> };
-  roundTrip?: { maxDays?: number; timeBased?: TimeBasedSettings; classes?: Partial<Record<TariffClass, Partial<RoundTripRates>>> };
+  roundTrip?: { maxDays?: number; timeBased?: TimeBasedSettings; packages?: Partial<Record<TariffClass, TimeBasedClassRates>>; classes?: Partial<Record<TariffClass, Partial<RoundTripRates>>> };
   cityDrop?: { baseKm?: number; zones?: Zone[] };
   outstationExtras?: Partial<Record<TariffClass, Partial<OutstationExtra>>>;
   oneWayExtras?: Partial<Record<TariffClass, Partial<OutstationExtra>>>;

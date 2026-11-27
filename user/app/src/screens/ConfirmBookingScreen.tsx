@@ -4,6 +4,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { advanceOf, checkoutChoices, getPaymentOptions, type PayChoice, type PayChoiceId } from '../services/paymentService';
 import { PaymentChoiceCards } from '../components/PaymentChoiceCards';
+import { StrikeOffer } from '../components/StrikeOffer';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAvoid } from '../components/KeyboardAvoid';
@@ -277,7 +278,7 @@ export function ConfirmBookingScreen() {
               <Text style={styles.gstNote}>GST included</Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
-              {strikeTotal > 0 ? <Text style={{ fontSize: 14, color: '#66615A', opacity: 0.55, textDecorationLine: 'line-through' }}>{formatINR(strikeTotal)}</Text> : null}
+              <StrikeOffer was={strikeTotal} now={quote.total} />
               <Text style={styles.total}>{formatINR(quote.total)}</Text>
             </View>
           </View>

@@ -22,12 +22,14 @@ export function noticeFromRequest(requestId: string, data: Record<string, unknow
   const title = str(data.title, 140);
   if (!audience || !recipientId || !title) return null;
   const pick = <T extends string>(v: unknown, allowed: T[], fallback: T): T => (allowed.includes(v as T) ? (v as T) : fallback);
+  const severity = pick(data.severity, SEVERITIES, 'info');
   return {
     recipientType: audience,
     recipientId,
     category: pick(data.category, CATEGORIES, 'approvals'),
-    severity: pick(data.severity, SEVERITIES, 'info'),
+    severity,
     sound: 'approval',
+    ...(severity === 'success' ? { event: 'documents_approved' as const } : {}),
     title,
     message: str(data.message, 500),
     push: true,

@@ -192,6 +192,8 @@ export interface TariffConfig {
     miniMaxKm?: number;
     /** Shared settings of the time-based round trip (cutoffs, boundaries). Absent or disabled = calendar pricing. */
     timeBased?: TimeBasedSettings;
+    /** Time-based amounts of a class that has no rate card in `classes`: its Round Trip rates are the All brands ones (brandOverrides.common). */
+    packages?: Partial<Record<TariffClass, TimeBasedClassRates>>;
     classes: Partial<Record<TariffClass, RoundTripRates>>;
   };
   rental: { classes: Partial<Record<TariffClass, RentalRates>> };
@@ -258,7 +260,9 @@ export function parseTimeBasedClassRates(r: unknown): TimeBasedClassRates | unde
       if (isExtraSlabId(id) && e && isPos(e.fare) && isPos(e.km) && isPos(e.partner)) extra[id] = { fare: e.fare as number, km: e.km as number, partner: e.partner as number };
     }
   }
-  return { fiveFare: o.fiveFare, fiveKm: o.fiveKm, fivePartner: o.fivePartner, eightFare: o.eightFare, eightKm: o.eightKm, eightPartner: o.eightPartner, ...morning, ...(Object.keys(extra).length ? { extra } : {}) };
+  const full = Object.fromEntries((['fullFare', 'fullKm', 'fullPartner'] as const).filter((k) => isPos(o[k])).map((k) => [k, o[k] as number]));
+  const cngRates = o.cng ? parseTimeBasedClassRates({ ...(o.cng as object), cng: undefined }) : undefined;
+  return { fiveFare: o.fiveFare, fiveKm: o.fiveKm, fivePartner: o.fivePartner, eightFare: o.eightFare, eightKm: o.eightKm, eightPartner: o.eightPartner, ...morning, ...(Object.keys(extra).length ? { extra } : {}), ...full, ...(cngRates ? { cng: cngRates } : {}) };
 }
 
 export function parseTimeBasedSettings(v: unknown): TimeBasedSettings | undefined {
@@ -309,6 +313,16 @@ function withTimeBasedRates(classes: Partial<Record<TariffClass, RoundTripRates>
     if (base && t) classes[c] = { ...base, timeBased: t };
   }
   return classes;
+}
+
+function parseClassPackages(raw: unknown): Partial<Record<TariffClass, TimeBasedClassRates>> | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const out: Partial<Record<TariffClass, TimeBasedClassRates>> = {};
+  for (const c of TARIFF_CLASSES) {
+    const t = parseTimeBasedClassRates((raw as Record<string, unknown>)[c]);
+    if (t) out[c] = t;
+  }
+  return Object.keys(out).length ? out : undefined;
 }
 
 /** Keeps a class's CNG rate card only when it is complete; a partial card is dropped, never priced at ₹0. */
@@ -502,7 +516,9 @@ export function scopedTariffForBrand(
           if (isNum(merged.customerRate) && isNum(merged.partnerRate) && isNum(merged.customerBata) && isNum(merged.partnerBata)) next.oneWay.classes[cls] = { ...(merged as OneWayRates), ...(cng ? { cng } : {}) };
         } else {
           const minKmPerDay = pick(ov, 'minKmPerDay', (common as RoundTripRates | undefined)?.minKmPerDay);
-          if (isNum(merged.customerRate) && isNum(merged.partnerRate) && isNum(merged.customerBata) && isNum(merged.partnerBata) && isPos(minKmPerDay)) next.roundTrip.classes[cls] = { ...(merged as OneWayRates), ...(cng ? { cng } : {}), minKmPerDay, ...((common as RoundTripRates | undefined)?.timeBased ? { timeBased: (common as RoundTripRates).timeBased } : {}) };
+          // The class's own packages first (its card, else the ones saved without a card), then those it inherits.
+          const timeBased = base.roundTrip.classes[cls]?.timeBased ?? base.roundTrip.packages?.[cls] ?? (common as RoundTripRates | undefined)?.timeBased;
+          if (isNum(merged.customerRate) && isNum(merged.partnerRate) && isNum(merged.customerBata) && isNum(merged.partnerBata) && isPos(minKmPerDay)) next.roundTrip.classes[cls] = { ...(merged as OneWayRates), ...(cng ? { cng } : {}), minKmPerDay, ...(timeBased ? { timeBased } : {}) };
         }
       }
       if (trip === 'One Way' && ov.minKm !== undefined && ov.minKm > 0) next.oneWay.minKm = ov.minKm;
@@ -625,6 +641,7 @@ export function parseTariffConfig(d: Record<string, any> | undefined | null): Ta
       ...(isPos(d.roundTrip?.miniMaxHours) ? { miniMaxHours: d.roundTrip.miniMaxHours } : {}),
       ...(isPos(d.roundTrip?.miniMaxKm) ? { miniMaxKm: d.roundTrip.miniMaxKm } : {}),
       ...(parseTimeBasedSettings(d.roundTrip?.timeBased) ? { timeBased: parseTimeBasedSettings(d.roundTrip?.timeBased) } : {}),
+      ...(parseClassPackages(d.roundTrip?.packages) ? { packages: parseClassPackages(d.roundTrip?.packages) } : {}),
       classes: withTimeBasedRates(withMiniRoundTrip(sanitizeCng(rateMap<RoundTripRates>(d.roundTrip?.classes, ['customerRate', 'customerBata', 'partnerRate', 'partnerBata', 'minKmPerDay'])), d.roundTrip?.classes), d.roundTrip?.classes),
     },
     rental: { classes: rateMap<RentalRates>(d.rental?.classes, ['firstHour', 'laterHour', 'minHours', 'minTimeFare', 'partnerPerHour']) },
@@ -953,12 +970,15 @@ export interface TimeBasedPlan {
 }
 
 /** The settings, class rates and time-based amounts of a class — null when the time-based round trip is off or incomplete for it. */
-export function timeBasedContext(cfg: TariffConfig, cls: TariffClass): { settings: TimeBasedSettings; rates: RoundTripRates; t: TimeBasedClassRates } | null {
+export function timeBasedContext(cfg: TariffConfig, cls: TariffClass, fuel?: 'cng'): { settings: TimeBasedSettings; rates: RoundTripRates; t: TimeBasedClassRates } | null {
   const settings = cfg.roundTrip.timeBased;
   if (!settings?.enabled) return null;
   const rates = classRates(cfg.roundTrip.classes, cls);
   if (!rates?.timeBased) return null;
-  return { settings, rates, t: rates.timeBased };
+  if (fuel !== 'cng') return { settings, rates, t: rates.timeBased };
+  // CNG needs its own package amounts and the class's CNG per-km card; neither is ever replaced by Diesel / Petrol.
+  if (!rates.timeBased.cng || !rates.cng) return null;
+  return { settings, rates: fuelRates(rates, 'cng'), t: rates.timeBased.cng };
 }
 
 const round1 = (n: number): number => Math.round(n * 10) / 10;
@@ -971,8 +991,8 @@ const round1 = (n: number): number => Math.round(n * 10) / 10;
  *   3+     → the multi-day slab (first-day slab + a Full Day for each further day), never fewer days than the customer chose.
  * `hill` removes the 5-hour / 8-hour packages (hill stations go straight to a Full Day or a multi-day slab).
  */
-export function planTimeBasedRoundTrip(i: { config: TariffConfig; tariffClass: TariffClass; pickupMs: number; routeKm: number; durationMin: number; tripDays: number; hill?: boolean }): TimeBasedPlan {
-  const ctx = timeBasedContext(i.config, i.tariffClass);
+export function planTimeBasedRoundTrip(i: { config: TariffConfig; tariffClass: TariffClass; pickupMs: number; routeKm: number; durationMin: number; tripDays: number; hill?: boolean; fuel?: 'cng' }): TimeBasedPlan {
+  const ctx = timeBasedContext(i.config, i.tariffClass, i.fuel);
   if (!ctx) throw new TariffError('rate-missing', 'The time-based round-trip tariff for this vehicle class is not configured.');
   if (!Number.isInteger(i.tripDays) || i.tripDays < 1) throw new TariffError('days-required', 'Choose the number of trip days.');
   if (i.tripDays > i.config.roundTrip.maxDays) throw new TariffError('custom-quote', `Round trips of more than ${i.config.roundTrip.maxDays} days are quoted individually. Please request a custom quote.`);
@@ -1013,17 +1033,20 @@ export function planTimeBasedRoundTrip(i: { config: TariffConfig; tariffClass: T
 
 /** Quote of one time-based round-trip package: the package fare + the estimated KM beyond it at the extra-KM rate. */
 export function quoteRoundTripTimeBased(i: QuoteInput): QuoteResult {
-  const ctx = timeBasedContext(i.config, i.tariffClass);
-  if (!ctx) throw new TariffError('rate-missing', 'The time-based round-trip tariff for this vehicle class is not configured.');
-  if (i.fuel === 'cng') throw new TariffError('cng-unavailable', 'CNG is not available for this package.');
-  const plan = planTimeBasedRoundTrip({ config: i.config, tariffClass: i.tariffClass, pickupMs: i.pickupMs, routeKm: i.routeKm, durationMin: i.durationMin, tripDays: i.tripDays ?? 1, hill: i.hill === true });
+  const ctx = timeBasedContext(i.config, i.tariffClass, i.fuel);
+  if (!ctx) {
+    if (i.fuel === 'cng') throw new TariffError('cng-unavailable', 'CNG is not available for this package.');
+    throw new TariffError('rate-missing', 'The time-based round-trip tariff for this vehicle class is not configured.');
+  }
+  const plan = planTimeBasedRoundTrip({ config: i.config, tariffClass: i.tariffClass, pickupMs: i.pickupMs, routeKm: i.routeKm, durationMin: i.durationMin, tripDays: i.tripDays ?? 1, hill: i.hill === true, fuel: i.fuel });
   const opt = i.timePackage ? plan.options.find((o) => o.id === i.timePackage) : [...plan.options].sort((a, b) => a.farePaise - b.farePaise)[0];
   if (!opt) throw new TariffError('package-unavailable', 'That package is not available for this pickup time and trip. Please choose another package.');
   const { settings: s, rates, t } = ctx;
   const slabs = slabsOf(s, rates, t);
   const estKm = round1(i.routeKm * 2);
   const ratePaise = paise(rates.customerRate);
-  const extra = extraUsage(i.config, i.tariffClass, ratePaise, 'Round Trip');
+  const standardExtra = extraUsage(i.config, i.tariffClass, ratePaise, 'Round Trip');
+  const extra = i.fuel === 'cng' ? { ...standardExtra, extraKmRatePaise: paise(rates.cng?.extraKmRate ?? rates.customerRate) } : standardExtra;
   const extraKm = Math.max(0, round1(estKm - opt.includedKm));
   const extraPaise = kmAmountPaise(extraKm, extra.extraKmRatePaise);
   const packagePaise = opt.farePaise + extraPaise;
@@ -1058,7 +1081,7 @@ export function quoteRoundTripTimeBased(i: QuoteInput): QuoteResult {
     pricing: {
       schema: 2, source: 'tariff_v2', model: 'round_trip_time_based', tariffVersion: i.config.version, tariffClass: i.tariffClass, gstRate: i.config.gstRate,
       quotedKm: estKm, includedKm: Math.max(opt.includedKm, estKm), extraKmRatePaise: extra.extraKmRatePaise, customerRatePaise: extra.extraKmRatePaise, customerBataPaise: 0,
-      ...extra.waiting, days: opt.days, minKmPerDay: 0, packagePaise, discount: fare.discount, adminAdjustment: 0,
+      ...(i.fuel === 'cng' ? { fuelType: 'cng' as const } : {}), ...extra.waiting, days: opt.days, minKmPerDay: 0, packagePaise, discount: fare.discount, adminAdjustment: 0,
       adjustmentPercent: i.adjustmentPercent ?? 0, adjustmentDirection: i.adjustmentDirection ?? 'increase',
       partner: { mode: 'NORMAL_RATE', ratePaise: partnerRatePaise, bataPaise: 0, minKm: opt.includedKm, days: opt.days, basePaise: opt.partnerPaise + kmAmountPaise(extraKm, partnerRatePaise) },
       timeBased: { ...timeBased, dayKm: opt.dayKm }, pickupDate: istDate(i.pickupMs), endDate: istDate(opt.endMs), gates: [],

@@ -299,7 +299,7 @@ export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (requ
     // The customer gets "Booking confirmed" in their own inbox (and as a phone push) the moment they book, on every site — except when they
     // chose to pay online now: then it is sent only once the payment has been recorded (see recordGatewayReceipt), never before.
     const toCustomer: NotifyInput = {
-      recipientType: 'customer', brand: bookingSource, recipientId: uid, category: 'bookings', severity: 'success', sound: 'approval',
+      recipientType: 'customer', brand: bookingSource, recipientId: uid, category: 'bookings', severity: 'success', sound: 'approval', event: 'booking_received',
       title: 'Booking confirmed',
       message: `Your booking ${bookingCode} for ${formatDateTime12(when)} (${pickup.name} → ${drop.name}) is confirmed. Fare ${inr(fare.total)}. We will share the driver details before pickup.`,
       bookingId: requestId, bookingCode, cta: { label: 'View trip', page: 'trips', bookingId: requestId }, push: true, sentBy: uid,

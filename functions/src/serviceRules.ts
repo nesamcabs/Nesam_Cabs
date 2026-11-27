@@ -17,6 +17,7 @@ import { parseFareScope } from './fareScope';
 import { childNames, isInside, parentOf } from './domain/placeZones';
 import { STATE_NAMES, pinsOfCity } from './domain/pincodeLookup';
 import { placePincode } from './domain/hillStations';
+import { areaNamesOf, pinOfArea, slugOfArea } from './domain/localPricing';
 
 type Adjustment = { mode: 'Normal' | 'Increase' | 'Decrease'; percent: number };
 type Side = 'Pickup or drop' | 'Pickup only' | 'Drop only';
@@ -75,17 +76,21 @@ type PlaceExtras = { address?: string; city?: string; area?: string; state?: str
 
 /** A rule's area that is a pincode (six digits) rather than an area name. */
 const PIN_AREA = /^[1-9]\d{5}$/;
+/** A rule's area that is one village of a pincode ("625534~koduvilarpatti"), as district fares store it. */
+const VILLAGE_AREA = /^[1-9]\d{5}~[a-z]{1,60}$/;
 
 function placeMatches(rule: ServiceRule, p: GeoPlace): boolean {
   const x = p as GeoPlace & PlaceExtras;
   const hay = `${norm(p.name)} ${norm(x.address)} ${norm(x.city)} ${norm(x.area)} ${norm(x.state)}`;
   const { city, area, state } = rule.scope ?? {};
   const pin = placePincode({ name: p.name, address: x.address, pincode: p.pincode });
-  if (PIN_AREA.test(norm(area))) {
+  const village = VILLAGE_AREA.test(norm(area));
+  if (village || PIN_AREA.test(norm(area))) {
     // A pincode is unique across the country, so it needs no city or state in the address: the place just has to carry it.
-    const wanted = norm(area);
+    const wanted = pinOfArea(norm(area));
     if (pin !== wanted && ![...`${hay} ${p.pincode ?? ''}`.matchAll(/(?<![\d-])([1-9]\d{5})(?![\d-])/g)].some((m) => m[1] === wanted)) return false;
-    return true;
+    // A village rule also needs the village named in the place or its address.
+    return !village || areaNamesOf([p.name, x.address, x.area], city ?? '').includes(slugOfArea(norm(area)));
   }
   if (norm(area) && !hay.includes(norm(area))) return false;
   if (norm(city)) {
@@ -134,7 +139,7 @@ export function ruleServiceText(pickup: GeoPlace, drop: GeoPlace, distanceKm: nu
 
 /** Most specific location wins (area, city, state, everywhere), then a service-specific rule, then the higher priority. */
 // A "city" that is really an area inside a district (Hosur inside Krishnagiri) ranks between the two, so its own rule beats the district's.
-const specificity = (r: ServiceRule) => (norm(r.scope?.area) ? 3 : norm(r.scope?.city) ? (parentOf(r.scope?.city) ? 2.5 : 2) : norm(r.scope?.state) ? 1 : 0);
+const specificity = (r: ServiceRule) => (VILLAGE_AREA.test(norm(r.scope?.area)) ? 3.5 : norm(r.scope?.area) ? 3 : norm(r.scope?.city) ? (parentOf(r.scope?.city) ? 2.5 : 2) : norm(r.scope?.state) ? 1 : 0);
 const serviceSpecific = (r: ServiceRule) => (norm(r.service) && norm(r.service) !== 'all' ? 1 : 0);
 /** A rule written for one fare service beats one written for every service, at the same place. */
 const fareServiceSpecific = (r: ServiceRule) => (r.fareService ? 1 : 0);
@@ -230,7 +235,7 @@ function summarize(r: Partial<StoredRule> | undefined | null): string {
   if (r.kind === 'pricing') return `Customer ${adjText(r.customer)} · Partner ${adjText(r.partner)}${r.fareService ? ` · ${r.fareService}` : ' · all services'}${r.packages?.length ? ` · ${r.packages.join(', ')}` : ''}`;
   return r.limit ? `${r.limit.target} ₹${r.limit.min}–₹${r.limit.max}` : '';
 }
-const whereText = (s: Partial<StoredRule['scope']> | undefined) => [s?.area, s?.city, s?.state && (STATE_NAMES[s.state] ?? s.state)].filter(Boolean).join(', ') || 'All locations';
+const whereText = (s: Partial<StoredRule['scope']> | undefined) => [s?.area?.replace('~', ' '), s?.city, s?.state && (STATE_NAMES[s.state] ?? s.state)].filter(Boolean).join(', ') || 'All locations';
 
 function adjustmentOf(v: any, label: string): Adjustment {
   const mode = MODES.find((m) => m === v?.mode) ?? 'Normal';

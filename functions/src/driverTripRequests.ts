@@ -64,7 +64,7 @@ export const requestRoundTripDuty = onCall({ timeoutSeconds: 60 }, async (reques
     });
     tx.create(reqRef.collection('events').doc(), { type: 'requested', actorId: uid, actorRole: 'driver', at: stamp });
     const toVendor: NotifyInput = {
-      recipientType: 'vendor', recipientId: vendorId, category: 'approvals', severity: 'info', sound: 'general',
+      recipientType: 'vendor', recipientId: vendorId, category: 'approvals', severity: 'info', sound: 'general', event: 'driver_request',
       title: 'Driver requests a round trip', message: `${text(driver.name)} wants to take ${mine} in ${vehicle.number}.`,
       bookingId, bookingCode: mine, cta: { label: 'Review', page: 'driver-trip-requests' }, push: true, sentBy: uid,
     };
@@ -152,7 +152,7 @@ export const decideDriverTripRequest = onCall({ timeoutSeconds: 60 }, async (req
     tx.create(reqRef.collection('events').doc(), { type: 'approved', actorId: uid, actorRole: 'vendor', at: stamp });
 
     const toDriver: NotifyInput = {
-      recipientType: 'driver', recipientId: driverId, category: 'bookings', severity: 'success', sound: 'new_booking',
+      recipientType: 'driver', recipientId: driverId, category: 'bookings', severity: 'success', sound: 'new_booking', event: 'new_duty',
       title: 'Round trip request approved', message: `${mine} is yours — ${vehicle.number}. Take the vehicle photos before you head to the pickup.`,
       bookingId, bookingCode: mine, cta: { label: 'Open trip', page: 'trip', bookingId }, push: true, sentBy: uid,
     };

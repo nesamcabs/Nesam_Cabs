@@ -85,7 +85,7 @@ export const issuePenalty = onCall(async (request) => {
     });
     auditInTx(tx, { action: 'penalty_issued', entity: 'penalty', entityId: ref.id, performedBy: admin.uid, performedByName: admin.name, role: 'admin', bookingId: booking?.id, next: { party, partyId, amount, category }, reason });
     const n: NotifyInput = {
-      recipientType: party === 'Driver' ? 'driver' : 'vendor', recipientId: partyId, category: 'penalties', severity: 'critical', sound: 'general',
+      recipientType: party === 'Driver' ? 'driver' : 'vendor', recipientId: partyId, category: 'penalties', severity: 'critical', sound: 'general', event: 'penalty',
       title: `Penalty of ${inr(amount)} issued`, message: `${category}${bookingCode ? ` · ${bookingCode}` : ''}: ${reason}`,
       bookingId: booking?.id, bookingCode, cta: { label: 'View penalty', page: 'penalties' }, push: true, sentBy: admin.uid,
     };
@@ -141,7 +141,7 @@ export const transitionPenalty = onCall(async (request) => {
     tx.update(ref, { status: to, history, updatedAt: stamp, updatedBy: admin.uid, ...extra });
     auditInTx(tx, { action: `penalty_${to.toLowerCase()}`, entity: 'penalty', entityId: penaltyId, performedBy: admin.uid, performedByName: admin.name, role: 'admin', bookingId: text(p.bookingDocumentId) || undefined, previous: { status: from }, next: { status: to, amount: p.amount }, reason: note || reference });
     const n: NotifyInput = {
-      recipientType: partnerType, recipientId: partnerId, category: 'penalties', severity: to === 'Waived' ? 'success' : 'info', sound: 'general',
+      recipientType: partnerType, recipientId: partnerId, category: 'penalties', severity: to === 'Waived' ? 'success' : 'info', sound: 'general', event: 'penalty',
       title: `Penalty ${to === 'Pending' ? 'upheld' : to.toLowerCase()}`, message: `${inr(Number(p.amount))} · ${text(p.category)}${note ? ` — ${note}` : ''}`,
       bookingId: text(p.bookingDocumentId) || undefined, bookingCode: text(p.bookingCode), cta: { label: 'View penalty', page: 'penalties' }, push: true, sentBy: admin.uid,
     };

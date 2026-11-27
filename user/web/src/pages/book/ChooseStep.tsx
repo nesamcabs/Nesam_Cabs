@@ -7,6 +7,7 @@ import { breakupFromFare } from '@core/utils/fareBreakup';
 import { formatDate, formatDistance, formatDuration, formatINR, formatTime } from '@core/utils/format';
 import { BackButton, Badge, Button, EmptyState, Notice } from '@/components/ui';
 import { Icon } from '@/components/Icon';
+import { StrikeOffer } from '@/components/StrikeOffer';
 import { useBooking, useBookingQuote } from '@/state/Booking';
 import { useOnline } from '@/lib/hooks';
 import { categoryGroup, categoryName, categoryPhoto, type CategoryGroup } from '@/lib/categories';
@@ -241,7 +242,7 @@ export function ChooseStep() {
                           {p.upgrade ? <small className="pkg__note">Still running after {packageClock(new Date(p.morningCutoffAt ?? p.endAt))}? It upgrades to {p.upgrade.label} (+{formatINR(p.upgrade.increase)}, {p.upgrade.includedKm} km included).</small> : null}
                         </span>
                         <span className="pkg__price">
-                          {p.strikeTotal && p.strikeTotal > p.fare.total ? <s>{formatINR(Math.round((p.fare.taxableAmount * p.strikeTotal) / p.fare.total))}</s> : null}
+                          {p.strikeTotal && p.fare.total > 0 ? <StrikeOffer was={Math.round((p.fare.taxableAmount * p.strikeTotal) / p.fare.total)} now={p.fare.taxableAmount} /> : null}
                           <b>{formatINR(p.fare.taxableAmount)}</b>
                           {p.fare.gst > 0 ? <small>+ {formatINR(p.fare.gst)} GST</small> : null}
                         </span>
@@ -349,7 +350,7 @@ export function ChooseStep() {
                     <div className="cab__price">
                       {fare ? (
                         <>
-                          {strike > 0 ? <s className="cab__strike">{formatINR(strike)}</s> : null}
+                          <StrikeOffer was={strike} now={fare.taxableAmount} />
                           <strong>{formatINR(fare.taxableAmount)}</strong>
                           {fare.gst > 0 ? <small className="cab__tax">+ {formatINR(fare.gst)} GST</small> : null}
                           {fare.discount > 0 ? (

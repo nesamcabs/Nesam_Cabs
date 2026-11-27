@@ -1,0 +1,20 @@
+/* Struck-out price: a slanted red slash over the old amount and a small ticket with the offer beside it. */
+.stk { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; line-height: 1.2; }
+/* Prices are laid out as a column or a wrapping row: the strike always sits on its own line above the fare. */
+.fcab__price > .stk { order: -1; flex-basis: 100%; }
+.cab__price > .stk { order: -1; }
+
+.stk .stk__was { position: relative; color: var(--muted, #697587); font-size: .82rem; font-weight: 700; text-decoration: none; font-variant-numeric: tabular-nums; }
+.stk .stk__was::after { content: ''; position: absolute; left: -3px; right: -3px; top: 50%; height: 2px; border-radius: 2px; background: #e5383b; transform: rotate(-10deg); }
+
+.stk .stk__tag {
+  position: relative; overflow: hidden; display: inline-block; padding: 2px 8px 2px 14px;
+  background: linear-gradient(100deg, #0b8a48, #22b866); color: #fff; font-size: .66rem; font-weight: 900; letter-spacing: .03em; line-height: 1.5;
+  border-radius: 0 6px 6px 0; clip-path: polygon(8px 0, 100% 0, 100% 100%, 8px 100%, 0 50%);
+}
+/* The hole of the price ticket. */
+.stk .stk__tag::before { content: ''; position: absolute; left: 6px; top: 50%; width: 4px; height: 4px; margin-top: -2px; border-radius: 50%; background: #fff; }
+/* A light sweep now and then. */
+.stk .stk__tag::after { content: ''; position: absolute; top: 0; bottom: 0; left: -40%; width: 30%; background: linear-gradient(100deg, transparent, rgb(255 255 255 / .55), transparent); animation: stk-shine 3.2s ease-in-out infinite; }
+@keyframes stk-shine { 0%, 60% { left: -40%; } 90%, 100% { left: 130%; } }
+@media (prefers-reduced-motion: reduce) { .stk .stk__tag::after { display: none; } }

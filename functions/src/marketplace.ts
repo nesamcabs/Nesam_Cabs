@@ -156,7 +156,7 @@ export async function announceToPartners(bookingId: string, b: DocumentData, off
   ]);
   const when = pickupInstant(b);
   const base = {
-    category: 'bookings' as const, severity: 'info' as const, sound: 'new_booking' as const, push: true,
+    category: 'bookings' as const, severity: 'info' as const, sound: 'new_booking' as const, event: 'new_duty' as const, push: true,
     title: 'New trip available',
     message: `${text(b.pickup)} → ${text(b.drop)}${when ? ` · ${formatDateTime12(when)}` : ''} · ${text(b.vehicleCategory)}${b.fuelType === 'cng' ? ' (CNG)' : ''} · payout ${inr(money(offer.offeredPayout))}`,
     bookingId, bookingCode: code(b, bookingId), cta: { label: 'View trip', page: 'marketplace', bookingId },
@@ -321,7 +321,7 @@ export const assignVendor = onCall({ timeoutSeconds: 60 }, async (request) => {
     const label = code(b, bookingId);
     const when = pickupInstant(b);
     const toVendor: NotifyInput = {
-      recipientType: 'vendor', recipientId: vendorId, category: 'bookings', severity: 'info', sound: 'new_booking',
+      recipientType: 'vendor', recipientId: vendorId, category: 'bookings', severity: 'info', sound: 'new_booking', event: 'new_duty',
       title: 'Trip assigned to your fleet', message: `${text(b.pickup)} → ${text(b.drop)}${when ? ` · ${formatDateTime12(when)}` : ''} · ${text(b.vehicleCategory)}${b.fuelType === 'cng' ? ' (CNG)' : ''} · payout ${inr(payout.amount)}. Assign a driver and vehicle.`,
       bookingId, bookingCode: label, cta: { label: 'Open trip', page: 'trip', bookingId }, push: true, sentBy: admin.uid,
     };
@@ -329,7 +329,7 @@ export const assignVendor = onCall({ timeoutSeconds: 60 }, async (request) => {
     // The customer is told what is true: a partner has the booking, driver details are still to come.
     if (text(b.customerId)) {
       const toCustomer: NotifyInput = {
-        recipientType: 'customer', brand: b.brand, recipientId: text(b.customerId), category: 'trips', severity: 'info', sound: 'approval',
+        recipientType: 'customer', brand: b.brand, recipientId: text(b.customerId), category: 'trips', severity: 'info', sound: 'approval', event: 'driver_assigned',
         title: 'Your booking is with a NESAM partner', message: `Booking ${label} is confirmed with a partner. Driver and vehicle details will follow before your pickup.`,
         bookingId, bookingCode: label, cta: { label: 'Open trip', page: 'trips', bookingId }, push: true, sentBy: admin.uid,
       };
@@ -405,7 +405,7 @@ export const awardMarketplaceBid = onCall({ timeoutSeconds: 60 }, async (request
     tx.create(booking.collection('events').doc(), { type: 'bid_awarded', actorId: admin.uid, actorRole: 'admin', bidId, bidderType: bid.bidderType ?? 'vendor', payout, at: stamp });
     auditInTx(tx, { action: 'bid_awarded', entity: 'booking', entityId: tripId, performedBy: admin.uid, performedByName: admin.name, role: 'admin', bookingId: tripId, next: { bidId, payout, bidder: bid.bidderId ?? bid.vendorId } });
     const to: NotifyInput = {
-      recipientType: bid.bidderType === 'driver' ? 'driver' : 'vendor', recipientId: String(bid.bidderId ?? bid.vendorId), category: 'bookings', severity: 'success', sound: 'approval', push: true,
+      recipientType: bid.bidderType === 'driver' ? 'driver' : 'vendor', recipientId: String(bid.bidderId ?? bid.vendorId), category: 'bookings', severity: 'success', sound: 'approval', event: 'bid_selected', push: true,
       title: 'Your bid was accepted', message: `${label2} · ${inr(payout)}`, bookingId: tripId, bookingCode: label2, cta: { label: 'Open trip', page: 'trip', bookingId: tripId }, sentBy: admin.uid,
     };
     pushes.push({ id: notifyInTx(tx, to), input: to });

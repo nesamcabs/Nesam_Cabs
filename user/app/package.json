@@ -60,7 +60,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "jest",
-    "validate": "tsc --noEmit && eslint . && jest"
+    "validate": "tsc --noEmit && eslint . && jest",
+    "dev": "expo start --web"
   },
   "private": true,
   "jest": {

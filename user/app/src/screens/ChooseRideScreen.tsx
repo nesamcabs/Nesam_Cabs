@@ -11,6 +11,7 @@ import { Content, ScrollView } from '../components/layout';
 import { AppHeader, getVehicleImage } from '../components/brand';
 import { Icon } from '../components/Icon';
 import { FareLines } from '../components/FareLines';
+import { StrikeOffer } from '../components/StrikeOffer';
 import { RoundVehiclePackage } from '../components/RoundVehiclePackage';
 import { useBookingDraft } from '../context/BookingDraft';
 import { getRoute } from '../services/geoService';
@@ -274,7 +275,7 @@ export function ChooseRideScreen() {
                   <View style={styles.rate}>
                     <Text style={styles.rateLabel}>{gstText(quote)} included</Text>
                     <View style={{ alignItems: 'flex-end' }}>
-                      {strike > 0 ? <Text style={styles.strike}>{formatINR(strike)}</Text> : null}
+                      {quote ? <StrikeOffer was={strike} now={quote.total} /> : null}
                       <Text style={styles.price}>{quote ? formatINR(quote.total) : '—'}</Text>
                     </View>
                   </View>
@@ -405,7 +406,6 @@ const styles = StyleSheet.create({
   price: { fontFamily: fonts.bold, fontSize: 22, lineHeight: 29, letterSpacing: -0.6, color: colors.ink },
   carFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, minHeight: 45, borderTopWidth: 1, borderTopColor: '#E8E3DC' },
   extra: { fontFamily: fonts.regular, fontSize: 10, color: '#66615A', flexShrink: 1 },
-  strike: { fontFamily: fonts.medium, fontSize: 13, color: '#66615A', opacity: 0.55, textDecorationLine: 'line-through' },
   fuelRow: { flexDirection: 'row', gap: 8 },
   fuelBtn: { flex: 1, minHeight: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 6, borderWidth: 1.5, borderColor: '#E8E3DC', backgroundColor: colors.white },
   fuelBtnDiesel: { borderColor: '#e07b00', backgroundColor: '#fff4e0' },

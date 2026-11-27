@@ -76,14 +76,14 @@ export const vendorAssignDriver = onCall({ timeoutSeconds: 60 }, async (request)
     auditInTx(tx, { action: action === 'assign' ? 'driver_assigned' : 'driver_reassigned', entity: 'booking', entityId: bookingId, performedBy: uid, performedByName: text(vendorSnap.data()!.companyName || vendorSnap.data()!.name), role: 'vendor', bookingId, previous: oldDriver.id ? oldDriver : null, next: newDriver });
     const label = code(b, bookingId);
     const toDriver: NotifyInput = {
-      recipientType: 'driver', recipientId: driverId, category: 'bookings', severity: 'info', sound: 'new_booking', title: 'Trip assigned to you',
+      recipientType: 'driver', recipientId: driverId, category: 'bookings', severity: 'info', sound: 'new_booking', event: 'new_duty', title: 'Trip assigned to you',
       message: `${text(b.pickup)} → ${text(b.drop)}${when ? ` · ${formatDateTime12(when)}` : ''} (${label}) · ${vehicle.number}`,
       bookingId, bookingCode: label, cta: { label: 'Open trip', page: 'trip', bookingId }, push: true, sentBy: uid,
     };
     pushes.push({ id: notifyInTx(tx, toDriver), input: toDriver });
     if (text(b.customerId)) {
       const toCustomer: NotifyInput = {
-        recipientType: 'customer', brand: b.brand, recipientId: text(b.customerId), category: 'trips', severity: 'success', sound: 'approval',
+        recipientType: 'customer', brand: b.brand, recipientId: text(b.customerId), category: 'trips', severity: 'success', sound: 'approval', event: 'driver_assigned',
         title: action === 'assign' ? 'Driver assigned' : 'Your driver has changed',
         message: `${text(driver.name)} (${vehicle.number}) will pick you up${when ? ` at ${formatDateTime12(when)}` : ''}. Share your boarding OTP only at the pickup.`,
         bookingId, bookingCode: label, cta: { label: 'Open trip', page: 'trips', bookingId }, push: true, sentBy: uid,
@@ -91,7 +91,7 @@ export const vendorAssignDriver = onCall({ timeoutSeconds: 60 }, async (request)
       pushes.push({ id: notifyInTx(tx, toCustomer), input: toCustomer });
     }
     if (oldDriver.id && oldDriver.id !== driverId) {
-      const gone: NotifyInput = { recipientType: 'driver', recipientId: oldDriver.id, category: 'trips', severity: 'warning', sound: 'general', title: 'Trip reassigned', message: `Booking ${label} was reassigned to another driver.`, bookingId, bookingCode: label, push: true, sentBy: uid };
+      const gone: NotifyInput = { recipientType: 'driver', recipientId: oldDriver.id, category: 'trips', severity: 'warning', sound: 'general', event: 'reassigned', title: 'Trip reassigned', message: `Booking ${label} was reassigned to another driver.`, bookingId, bookingCode: label, push: true, sentBy: uid };
       pushes.push({ id: notifyInTx(tx, gone), input: gone });
     }
     return { action, booking: { ...b, assignedDriverName: text(driver.name), assignedVehicleNumber: vehicle.number }, driverName: text(driver.name), shifts: [duty?.shiftId, text(b.localShiftId)].filter((x): x is string => !!x) };

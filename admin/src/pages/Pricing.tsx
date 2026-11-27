@@ -353,7 +353,7 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
             vehicles={vehicles} cards={matrixCards}
             onDirtyChange={dirty => { workspaceDirty.current = dirty; }} onBusyChange={busy => { workspaceBusy.current = busy; }} />
           {/* Then the settings that sit on top of these rates, in the order a fare is built: packages, how extras are billed, pet charge, display price. */}
-          {fareScope.service === "Round Trip" ? <TimeBasedRoundTripCard vehicles={vehicles} /> : null}
+          {fareScope.service === "Round Trip" ? <TimeBasedRoundTripCard vehicles={vehicles} fuel={fareFuel} /> : null}
           <NightAllowanceCard />
           <DisplayMarkupCard scope={fareScope} />
           <FareAdjustmentCard />

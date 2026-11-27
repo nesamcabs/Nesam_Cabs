@@ -423,3 +423,46 @@ test('saving names through the admin section stores them and a reload still has 
   // A name over 40 characters is refused, not cut silently.
   assert.throws(() => applyRoundTripTimeBased(base, { enabled: true, settings: { ...settings, names: { five: 'x'.repeat(41) } }, classes: { sedan: sedan.timeBased } }), /at most 40/);
 });
+
+test('packages sit on Round Trip rates saved for All brands, with no older base rate card', () => {
+  const { applyRoundTripTimeBased } = require('../lib/tariffSections');
+  const { timeBased, ...rates } = sedan;
+  const base = T.parseTariffConfig({ version: 1, brandOverrides: { common: { 'Round Trip': { sedan: rates } } } });
+  const settings = { cutoffMinutes: 1425, morningCutoffMinutes: 540, nextDayEightFromMinutes: 900, nextDayFiveFromMinutes: 1320, shortKmLimit: 150, fiveKmLimit: 100, lateNightEndMinutes: 60, fiveHours: 5, eightHours: 8 };
+  const saved = applyRoundTripTimeBased(base, { enabled: true, settings, classes: { sedan: timeBased } });
+  // As stored and read back, for every brand and for none.
+  const read = T.parseTariffConfig(JSON.parse(JSON.stringify(saved)));
+  for (const brand of ['common', 'nesam', undefined]) {
+    assert.equal(T.timeBasedContext(T.scopedTariffForBrand(read, brand, 'Round Trip'), 'sedan').t.eightFare, timeBased.eightFare);
+  }
+  // Round Trip packages never leak into another service's rates.
+  assert.equal(read.roundTrip.classes.sedan, undefined);
+  const cleared = applyRoundTripTimeBased(read, { enabled: false, settings, classes: { sedan: null } });
+  assert.equal(cleared.roundTrip.packages, undefined);
+  assert.throws(() => applyRoundTripTimeBased(base, { enabled: true, settings, classes: { crysta: timeBased } }), /Round Trip rates/);
+});
+
+test('CNG has its own package amounts, and the office can set the Full-Day amounts per fuel', () => {
+  const { applyRoundTripTimeBased } = require('../lib/tariffSections');
+  const { timeBased, ...rates } = sedan;
+  const card = { ...rates, cng: { customerRate: 12, customerBata: 400, partnerRate: 11, partnerBata: 400, extraKmRate: 13 } };
+  const base = T.parseTariffConfig({ version: 1, roundTrip: { classes: { sedan: card } } });
+  const settings = { cutoffMinutes: 1425, morningCutoffMinutes: 540, nextDayEightFromMinutes: 900, nextDayFiveFromMinutes: 1320, shortKmLimit: 150, fiveKmLimit: 100, lateNightEndMinutes: 60, fiveHours: 5, eightHours: 8 };
+  const cng = { fiveFare: 1800, fiveKm: 100, fivePartner: 1600, eightFare: 2400, eightKm: 150, eightPartner: 2200 };
+  const saved = applyRoundTripTimeBased(base, { enabled: true, settings, classes: { sedan: { ...timeBased, fullFare: 5000, cng: { ...cng, fullFare: 4200, fullKm: 260, fullPartner: 3900 } } } });
+  const read = T.parseTariffConfig(JSON.parse(JSON.stringify(saved)));
+  const plan = (fuel) => T.planTimeBasedRoundTrip({ config: read, tariffClass: 'sedan', pickupMs: Date.parse('2026-11-17T06:00:00+05:30'), routeKm: 40, durationMin: 60, tripDays: 1, fuel }).options;
+  const of = (fuel, id) => plan(fuel).find((o) => o.id === id);
+  assert.equal(of(undefined, 'same:full').farePaise, 500000);
+  assert.equal(of(undefined, 'same:eight').farePaise, timeBased.eightFare * 100);
+  assert.equal(of('cng', 'same:eight').farePaise, 240000);
+  assert.equal(of('cng', 'same:full').farePaise, 420000);
+  assert.equal(of('cng', 'same:full').includedKm, 260);
+  const quoted = T.quoteRoundTripTimeBased({ config: read, tariffClass: 'sedan', tripType: 'Round Trip', routeKm: 100, durationMin: 60, pickupMs: Date.parse('2026-11-17T06:00:00+05:30'), endMs: null, tripDays: 1, timePackage: 'same:full', fuel: 'cng' });
+  assert.equal(quoted.pricing.fuelType, 'cng');
+  assert.equal(quoted.pricing.extraKmRatePaise, 1300);
+  // Without CNG amounts the package is refused on CNG, never priced on Diesel / Petrol.
+  const diesel = applyRoundTripTimeBased(base, { enabled: true, settings, classes: { sedan: timeBased } });
+  assert.throws(() => T.quoteRoundTripTimeBased({ config: diesel, tariffClass: 'sedan', tripType: 'Round Trip', routeKm: 40, durationMin: 60, pickupMs: Date.parse('2026-11-17T06:00:00+05:30'), endMs: null, tripDays: 1, fuel: 'cng' }), /CNG is not available/);
+  assert.throws(() => applyRoundTripTimeBased(base, { enabled: true, settings, classes: { sedan: { ...timeBased, fullFare: 100 } } }), /Full-Day fare/);
+});

@@ -113,7 +113,7 @@ function rowsOf(t: Tariff | null | undefined, scope: FareWorkspaceScope, card: M
 }
 
 /** The CNG table's columns: categories with CNG on. A class whose editing category has CNG off is edited under one that has it on. */
-function cngColumns(vehicles: VehicleCol[]): VehicleCol[] {
+export function cngColumns(vehicles: VehicleCol[]): VehicleCol[] {
   const on = vehicles.filter((v) => v.cng);
   const owners = new Map<TariffClass, VehicleCol>();
   for (const v of on) if (v.owner || !owners.has(v.cls)) owners.set(v.cls, v);

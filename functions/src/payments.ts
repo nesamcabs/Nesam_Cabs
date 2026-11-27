@@ -103,7 +103,7 @@ export async function recordGatewayReceipt(r: GatewayReceipt): Promise<{ recorde
     const c = out.confirm;
     // Never fails the payment; one notification per booking (dedupeKey), even if the webhook and the checkout callback both arrive.
     await notify({
-      recipientType: 'customer', ...(c.brand ? { brand: c.brand } : {}), recipientId: c.customerId, category: 'bookings', severity: 'success', sound: 'approval', push: true,
+      recipientType: 'customer', ...(c.brand ? { brand: c.brand } : {}), recipientId: c.customerId, category: 'bookings', severity: 'success', sound: 'approval', event: 'booking_received', push: true,
       title: 'Booking confirmed',
       message: `Your booking ${c.code}${c.when ? ` for ${formatDateTime12(c.when)}` : ''} (${c.pickup} → ${c.drop}) is confirmed and your online payment is received. Fare ${inr(c.fare)}. We will share the driver details before pickup.`,
       bookingId: r.bookingId, bookingCode: c.code, dedupeKey: `booking_confirmed_${r.bookingId}`, cta: { label: 'View trip', page: 'trips', bookingId: r.bookingId },

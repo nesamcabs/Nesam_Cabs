@@ -2,7 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { NotificationRecord } from "../types";
 import { subscribeAdminNotifications, markAdminNotificationRead, markAllAdminNotificationsRead, dismissAdminNotification } from "../services/adminNotificationService";
 import { CATEGORIES, CATEGORY_LABEL, TONE_CLASSES, categoryOf, createdMs, ctaLabelOf, severityOf, soundOf, targetOf, toneOf, type NotificationCategory } from "../services/notificationModel";
-import { playAlert, playTone, setSoundEnabled, soundEnabled, soundState, unlockSound } from "../utils/notificationSound";
+import { playAlert, playTone, setSharedSoundConfig, setSoundEnabled, soundEnabled, soundState, unlockSound } from "../utils/notificationSound";
+import { subscribeNotificationSounds } from "../services/notificationSoundSettings";
 import { formatDateTime12 } from "../utils/time";
 import Button from "./ui/Button";
 import Icon from "./ui/Icon";
@@ -48,6 +49,9 @@ export function NotificationProvider({ onOpen, children }: { onOpen: (page: stri
   const seen = useRef<Set<string> | null>(null);
   const onOpenRef = useRef(onOpen);
   onOpenRef.current = onOpen;
+
+  // The office alert sounds saved for every computer. Until some are saved (or while they cannot be read) this browser keeps its own.
+  useEffect(() => subscribeNotificationSounds((d) => setSharedSoundConfig(d?.office ?? null), () => undefined), []);
 
   // Browsers keep audio locked until the user interacts once.
   useEffect(() => {

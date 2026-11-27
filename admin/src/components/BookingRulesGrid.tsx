@@ -2,11 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { rankRules, saveRule, setRuleStatus, type RuleKind, type ServiceRule } from "../services/serviceRulesService";
 import { BRAND_LABELS, serviceLabel, type FareWorkspaceScope } from "../services/tariffService";
 import { Button, Icon } from "./ui";
-import PincodePicker from "./PincodePicker";
+import PlacePicker, { emptyChoice, isVillage, useAreaNames, usePlaceScope } from "./PlacePicker";
 import { Modal } from "./Feedback";
 import { parentOf } from "../domain/placeZones";
 import { isPincode } from "../domain/pincodes";
-import { usePincodeScope } from "../hooks/usePincodeScope";
 import { CardBody, Problems, RateTable, SaveBar, SettingCard, type RateColumn, type RateRow, type VehicleCol } from "./RateTable";
 
 // Booking rules on one page: one row per place, and across the top whether bookings are open and which cabs customers see.
@@ -23,11 +22,11 @@ const AVAIL: Avail[] = ["Available", "Limited", "Paused"];
 const keyOf = (p: Place) => `${p.state}|${p.city}|${p.area}`;
 const norm = (s?: string) => (s ?? "").trim().toLowerCase();
 const samePlace = (r: ServiceRule, p: Place) => norm(r.scope.state) === norm(p.state) && norm(r.scope.city) === norm(p.city) && norm(r.scope.area) === norm(p.area);
-/** The rule's place is this place or a wider one (the state, the city, everywhere). */
+/** The rule's place is this place or a wider one (the state, the city, everywhere; a pincode covers its villages). */
 const covers = (r: ServiceRule, p: Place) => (!r.scope.state || norm(r.scope.state) === norm(p.state))
   // A district's rule also covers a town listed inside it that is shown as its own place (Krishnagiri → Hosur).
   && (!r.scope.city || norm(r.scope.city) === norm(p.city) || (!r.scope.area && parentOf(p.city) === norm(r.scope.city)))
-  && (!r.scope.area || norm(r.scope.area) === norm(p.area));
+  && (!r.scope.area || norm(r.scope.area) === norm(p.area) || norm(p.area).startsWith(`${norm(r.scope.area)}~`));
 /** A standing rule the table can show and edit: on, no dates, for pickup or drop. */
 const standing = (r: ServiceRule) => r.status === "Enabled" && r.schedule.mode === "Always" && (r.scope.side ?? "Pickup or drop") === "Pickup or drop";
 const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.some((y) => norm(y) === norm(x)));
@@ -71,9 +70,8 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
   const catNames = vehicles.map((v) => v.name);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [added, setAdded] = useState<Place[]>([]);
-  const [pick, setPick] = useState<Place>({ state: "", city: "", area: "" });
-  // The pincodes of the chosen city / district, all ticked until some are unticked (see usePincodeScope).
-  const scope = usePincodeScope(pick.state, pick.city);
+  const [pick, setPick] = useState(emptyChoice);
+  const scope = usePlaceScope(pick);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -91,8 +89,9 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
     for (const p of added) all.set(keyOf(p), p);
     return [...all.values()].sort((a, b) => (a.state || "").localeCompare(b.state || "") || (a.city || "").localeCompare(b.city || "") || (a.area || "").localeCompare(b.area || ""));
   }, [live, added]);
-  const label = (p: Place) => p.area ? `${p.area}, ${p.city}` : p.city ? p.city : p.state ? stateName(p.state) : "All locations";
-  const level = (p: Place) => p.area ? (isPincode(p.area) ? "Pincode" : "Area") : p.city ? "City" : p.state ? "State" : "Everywhere";
+  const areaText = useAreaNames(places.map((p) => p.state));
+  const label = (p: Place) => p.area ? `${areaText(p.state, p.city, p.area)}, ${p.city}` : p.city ? p.city : p.state ? stateName(p.state) : "All locations";
+  const level = (p: Place) => p.area ? (isPincode(p.area) ? "Pincode" : isVillage(p.area) ? "Village" : "Area") : p.city ? "City" : p.state ? "State" : "Everywhere";
 
   // ── What applies at each place, worked out like the booking server ─────────────────────────────────────────────────
   const ownRule = (p: Place, kind: RuleKind) => rankRules(live.filter((r) => isOwn(r) && standing(r) && r.kind === kind && samePlace(r, p)))[0];
@@ -255,13 +254,12 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
 
   const brandName = fareScope.brand === "common" ? "All brands (shared)" : BRAND_LABELS[fareScope.brand];
   const where = `${brandName} → ${serviceLabel(fareScope.service)}`;
-  const cityChoices = pick.state ? citiesOf(pick.state) : [];
   const canAdd = !!pick.state && scope.canAdd;
   const addPlace = () => {
     if (!canAdd) return;
-    const places: Place[] = scope.areas.map((area) => ({ state: pick.state, city: pick.city, area }));
+    const places: Place[] = scope.targets.map((area) => ({ state: pick.state, city: pick.city, area }));
     setAdded((list) => [...list, ...places.filter((p) => !list.some((x) => keyOf(x) === keyOf(p)))]);
-    setPick({ state: pick.state, city: "", area: "" });
+    setPick({ ...emptyChoice, state: pick.state, city: pick.city });
   };
 
   return (
@@ -275,27 +273,8 @@ export default function BookingRulesGrid({ rules, isOwn, fareScope, vehicles, ca
           : null}>
         {canEdit && (
           <CardBody>
-            <div className="fm-place-picker">
-              <label className="fm-mini"><span>State</span>
-                <select className="ds-select" value={pick.state} onChange={(e) => setPick({ state: e.target.value, city: "", area: "" })}>
-                  <option value="">Choose a state</option>
-                  {stateOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
-              </label>
-              <label className="fm-mini"><span>City</span>
-                <select className="ds-select" value={pick.city} disabled={!pick.state} onChange={(e) => setPick({ ...pick, city: e.target.value, area: "" })}>
-                  <option value="">Whole state</option>
-                  {cityChoices.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </label>
-              <div className="fm-mini"><span>Pincodes</span>
-                {/* All ticked = the whole city / district; fewer = only those pincodes. */}
-                <div className="relative">
-                  <PincodePicker list={scope.list} selected={scope.pins} onChange={scope.setPins} cityChosen={!!pick.city} />
-                </div>
-              </div>
-              <Button icon="plus" onClick={addPlace} disabled={!canAdd}>{scope.areas.length < 2 ? "Add place" : `Add ${scope.areas.length} places`}</Button>
-            </div>
+            <PlacePicker value={pick} onChange={setPick} scope={scope} stateOptions={stateOptions} citiesOf={citiesOf} statePlaceholder="Choose a state" />
+            <div className="mt-3"><Button icon="plus" onClick={addPlace} disabled={!canAdd}>{scope.targets.length < 2 ? "Add place" : `Add ${scope.targets.length} places`}</Button></div>
           </CardBody>
         )}
         {loadError ? <CardBody><p className="ds-error" role="alert">Saved rules could not be loaded: {loadError}. Reload to try again.</p></CardBody>

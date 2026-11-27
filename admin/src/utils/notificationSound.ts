@@ -138,7 +138,48 @@ function mergeAlert(kind: AlertKind, saved: unknown): AlertSound {
 
 const CFG_KEY = "nesam_alert_sounds";
 
+/** A stored office setting, each alert merged over its default; null when there is none. */
+export function officeConfigOf(raw: unknown): SoundConfig | null {
+  if (!raw || typeof raw !== "object") return null;
+  return Object.fromEntries(ALERT_KINDS.map((k) => [k, mergeAlert(k, (raw as Record<string, unknown>)[k])])) as SoundConfig;
+}
+
+// The office alert sounds shared by every computer (business_config/notification_sounds, saved from the Notification
+// sounds window). NotificationHost keeps this up to date. While nothing is shared, each browser keeps its own (below).
+let shared: SoundConfig | null = null;
+
+export function setSharedSoundConfig(raw: unknown): void {
+  shared = officeConfigOf(raw);
+}
+
+export function sharedSoundConfig(): SoundConfig | null {
+  return shared;
+}
+
+/** What the alerts play: the shared setting, else this browser's own, else the defaults. */
 export function loadSoundConfig(): SoundConfig {
+  return shared ?? loadLocalSoundConfig();
+}
+
+/** True when this browser has its own saved office sounds (from before they were shared). */
+export function hasLocalSoundConfig(): boolean {
+  try {
+    return localStorage.getItem(CFG_KEY) !== null;
+  } catch {
+    return false;
+  }
+}
+
+export function clearLocalSoundConfig(): void {
+  try {
+    localStorage.removeItem(CFG_KEY);
+  } catch {
+    /* nothing saved, or private mode */
+  }
+}
+
+/** This browser's own office sounds, else the defaults. */
+export function loadLocalSoundConfig(): SoundConfig {
   try {
     const v = JSON.parse(localStorage.getItem(CFG_KEY) || "null") as Record<string, unknown> | null;
     if (!v || typeof v !== "object") return DEFAULT_SOUNDS;

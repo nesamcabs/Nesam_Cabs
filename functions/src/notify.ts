@@ -20,6 +20,8 @@ import { createHash } from 'crypto';
 import { FieldValue, Firestore, Transaction } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
 import { db } from './admin';
+import { resolveSound, type SoundEvent, type SoundOverrides } from './domain/soundEvents';
+import { cachedSoundOverrides, loadSoundOverrides } from './notificationSounds';
 
 export type NotificationCategory = 'bookings' | 'approvals' | 'trips' | 'payments' | 'penalties' | 'general';
 export type NotificationSeverity = 'info' | 'success' | 'warning' | 'critical';
@@ -75,6 +77,11 @@ export interface NotifyInput {
   category: NotificationCategory;
   severity?: NotificationSeverity;
   sound?: NotificationSound;
+  /**
+   * Which event this is (domain/soundEvents.ts). The office can choose the sound of an event for each app in the admin
+   * panel; until it does, `sound` is used. Without an event the sound never changes.
+   */
+  event?: SoundEvent;
   title: string;
   message: string;
   bookingId?: string;
@@ -117,6 +124,12 @@ function addressed(n: NotifyInput): NotifyInput | null {
   return id === n.recipientId ? n : { ...n, recipientId: id };
 }
 
+/** The input with the sound the office chose for its event (else its own sound, as before). */
+function withChosenSound(n: NotifyInput, overrides: SoundOverrides | null): NotifyInput {
+  const sound = resolveSound(n, overrides);
+  return sound === n.sound ? n : { ...n, sound };
+}
+
 function record(n: NotifyInput) {
   return {
     // Extra fields first: they can add to a record but never replace who it is for or what it says.
@@ -153,8 +166,12 @@ function record(n: NotifyInput) {
  */
 export function notifyInTx(tx: Transaction, input: NotifyInput): string {
   if (input.dedupeKey) throw new Error('notifyInTx cannot de-duplicate; use notify().');
-  const n = addressed(input);
-  if (!n) return '';
+  const to = addressed(input);
+  if (!to) return '';
+  // A transaction cannot wait for another read here: the choices read last on this instance are used (refreshed in the
+  // background); the push after commit always reads them fresh.
+  void loadSoundOverrides();
+  const n = withChosenSound(to, cachedSoundOverrides());
   const ref = db.collection(inboxOf(n.recipientType)).doc();
   tx.set(ref, record(n));
   tx.set(db.collection('notification_deliveries').doc(), deliveryRow(ref.id, n, 'in_app', 'sent'));
@@ -163,16 +180,20 @@ export function notifyInTx(tx: Transaction, input: NotifyInput): string {
 
 /** Push for notifications stored with notifyInTx, once the transaction has committed. */
 export async function pushAfterCommit(items: { id: string; input: NotifyInput }[]): Promise<void> {
-  await Promise.all(items.filter((i) => i.id && i.input.push !== false).map((i) => {
+  const due = items.filter((i) => i.id && i.input.push !== false);
+  if (!due.length) return;
+  const overrides = await loadSoundOverrides();
+  await Promise.all(due.map((i) => {
     const n = addressed(i.input);
-    return n ? deliverPush(i.id, n).catch((err) => console.warn('push failed', err)) : undefined;
+    return n ? deliverPush(i.id, withChosenSound(n, overrides)).catch((err) => console.warn('push failed', err)) : undefined;
   }));
 }
 
 /** Outside a transaction. Returns the id, or null when a duplicate was skipped or there is no deliverable recipient. */
 export async function notify(input: NotifyInput, store: Firestore = db): Promise<string | null> {
-  const n = addressed(input);
-  if (!n) return null;
+  const to = addressed(input);
+  if (!to) return null;
+  const n = withChosenSound(to, await loadSoundOverrides());
   const inbox = store.collection(inboxOf(n.recipientType));
   let id: string;
   if (n.dedupeKey) {

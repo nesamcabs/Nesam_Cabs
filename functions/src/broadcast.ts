@@ -52,7 +52,7 @@ export const sendNotification = onCall({ timeoutSeconds: 300 }, async (request) 
   channels.add('in_app');
   // Customers use one login on all three sites: a message goes to every site unless one brand is chosen.
   const brand = brandKey(input.brand) || 'all';
-  const common = { category, severity, sound: 'general' as const, title, message, sentBy: admin.uid, push: channels.has('push'), brand };
+  const common = { category, severity, sound: 'general' as const, event: 'offers' as const, title, message, sentBy: admin.uid, push: channels.has('push'), brand };
 
   if (input.target === 'admin') {
     await notify({ ...common, recipientType: 'admin', recipientId: 'admin', push: false });
