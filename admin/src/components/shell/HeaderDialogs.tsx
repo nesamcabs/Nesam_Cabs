@@ -13,9 +13,13 @@ import {
   subscribeRequests, subscribeStaffPrivacy, type AccessLog, type PrivacyPolicy, type PrivacyRequest, type StaffPrivacy,
 } from "../../services/privacyService";
 import {
-  ALERT_KINDS, ALERT_SECONDS, DEFAULT_SOUNDS, PRESET_TONES, REPEATS, addCustomSound, listCustomSounds, loadSoundConfig, startSoundPreview, saveSoundConfig,
-  type SoundConfig, type SoundPreview,
+  ALERT_KINDS, ALERT_SECONDS, DEFAULT_SOUNDS, PRESET_TONES, REPEATS, addCustomSound, clearLocalSoundConfig, hasLocalSoundConfig, listCustomSounds, loadLocalSoundConfig, loadSoundConfig,
+  officeConfigOf, setSharedSoundConfig, startSoundPreview, type SoundConfig, type SoundPreview,
 } from "../../utils/notificationSound";
+import { playAppTone, stopAppTone } from "../../utils/appTonePreview";
+import { APP_SOUNDS, APP_SOUND_LABEL, SOUND_AUDIENCES, SOUND_EVENTS, type AppSound, type SoundAudience, type SoundEvent } from "../../domain/notificationSoundEvents";
+import { saveNotificationSounds, subscribeNotificationSounds, type AppSoundChoices, type NotificationSoundsDoc, type SoundChangeRow } from "../../services/notificationSoundSettings";
+import { useCan, useCanDo } from "../AccessContext";
 import { useNotifications } from "../NotificationHost";
 import { formatDateTime12 } from "../../utils/time";
 import { revokeStaffSessions } from "../../services/staffSessionService";
@@ -397,12 +401,40 @@ export function LockScreen({ email, onUnlock, onSignOut }: { email: string; onUn
 }
 
 // ── Notification sounds ───────────────────────────────────────────────────
+// Office: the admin panel's own alerts, shared by every computer once saved. Customer / Driver / Vendor: which of the
+// apps' three tones each notification event plays on the phones. One reason, one Save, kept in the change history.
+
+type SoundTab = "office" | SoundAudience;
+type AppDraft = Record<SoundAudience, Partial<Record<SoundEvent, AppSound>>>;
+const SOUND_TABS: { id: SoundTab; label: string }[] = [{ id: "office", label: "Office" }, { id: "customer", label: "Customer" }, { id: "driver", label: "Driver" }, { id: "vendor", label: "Vendor" }];
+const AUDIENCE_NAME: Record<SoundAudience, string> = { customer: "Customer", driver: "Driver", vendor: "Vendor" };
+const sameOffice = (a: SoundConfig, b: SoundConfig) => ALERT_KINDS.every((k) => a[k].tone === b[k].tone && a[k].volume === b[k].volume && a[k].on === b[k].on && a[k].repeat === b[k].repeat);
+/** Each event's sound: the saved choice, else its default. Events the server does not send are left out. */
+const appDraftOf = (saved: AppSoundChoices | undefined): AppDraft => Object.fromEntries(SOUND_AUDIENCES.map((a) => [a, Object.fromEntries(
+  SOUND_EVENTS[a].filter((e) => e.sent).map((e) => [e.key, saved?.[a]?.[e.key] ?? e.defaultSound]),
+)])) as AppDraft;
+const sameRow = (a: AppDraft[SoundAudience], b: AppDraft[SoundAudience]) => Object.keys({ ...a, ...b }).every((k) => a[k as SoundEvent] === b[k as SoundEvent]);
+const changeText = (c: SoundChangeRow) => `${c.audience === "office" ? "Office" : AUDIENCE_NAME[c.audience as SoundAudience] ?? c.audience} · ${c.label}${c.field && c.field !== "sound" ? ` · ${c.field}` : ""}: ${c.from} → ${c.to}`;
 
 export function SoundSettingsDialog({ onClose }: { onClose: () => void }) {
   const { soundOn, setSoundOn } = useNotifications();
+  const canEdit = useCan("engagement") && useCanDo("Communication", "edit");
+  const [tab, setTab] = useState<SoundTab>("office");
+  // undefined while loading; null when nothing has been saved for everyone yet.
+  const [saved, setSaved] = useState<NotificationSoundsDoc | null | undefined>(undefined);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const serverOffice = useMemo(() => officeConfigOf(saved?.office), [saved]);
+  const serverApps = useMemo(() => appDraftOf(saved?.apps), [saved]);
   const [cfg, setCfg] = useState<SoundConfig>(loadSoundConfig);
+  const [officeTouched, setOfficeTouched] = useState(false);
+  const [apps, setApps] = useState<AppDraft>(() => appDraftOf(undefined));
+  const [appsTouched, setAppsTouched] = useState(false);
+  const [localExists, setLocalExists] = useState(hasLocalSoundConfig);
   const [custom, setCustom] = useState<{ id: string; name: string }[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
+  const [okMsg, setOkMsg] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
   const [testing, setTesting] = useState<(typeof ALERT_KINDS)[number] | null>(null);
   const previewRef = useRef<SoundPreview | null>(null);
 
@@ -411,7 +443,13 @@ export function SoundSettingsDialog({ onClose }: { onClose: () => void }) {
     previewRef.current = null;
     playback?.stop();
     setTesting(null);
+    stopAppTone();
   }, []);
+
+  useEffect(() => subscribeNotificationSounds((d) => { setSaved(d); setLoadError(null); }, (m) => { setLoadError(m); setSaved((cur) => (cur === undefined ? null : cur)); }), []);
+  // What is saved fills the window until it is edited here.
+  useEffect(() => { if (saved !== undefined && !officeTouched) setCfg(serverOffice ?? loadLocalSoundConfig()); }, [saved, serverOffice, officeTouched]);
+  useEffect(() => { if (saved !== undefined && !appsTouched) setApps(serverApps); }, [saved, serverApps, appsTouched]);
 
   useEffect(() => {
     let mounted = true;
@@ -423,14 +461,23 @@ export function SoundSettingsDialog({ onClose }: { onClose: () => void }) {
       const playback = previewRef.current;
       previewRef.current = null;
       playback?.stop();
+      stopAppTone();
     };
   }, []);
 
-  useEffect(() => { if (!soundOn) stopPreview(); }, [soundOn, stopPreview]);
+  useEffect(() => { if (!soundOn) { const p = previewRef.current; previewRef.current = null; p?.stop(); setTesting(null); } }, [soundOn]);
 
+  const edited = () => { setMsg(null); setOkMsg(null); };
   const set = (k: (typeof ALERT_KINDS)[number], patch: Partial<SoundConfig[typeof k]>) => {
     stopPreview();
+    edited();
+    setOfficeTouched(true);
     setCfg((current) => ({ ...current, [k]: { ...current[k], ...patch } }));
+  };
+  const setApp = (a: SoundAudience, e: SoundEvent, s: AppSound) => {
+    edited();
+    setAppsTouched(true);
+    setApps((cur) => ({ ...cur, [a]: { ...cur[a], [e]: s } }));
   };
 
   const test = (k: (typeof ALERT_KINDS)[number]) => {
@@ -455,53 +502,198 @@ export function SoundSettingsDialog({ onClose }: { onClose: () => void }) {
       setTesting(null);
     });
   };
+  const testApp = (s: AppSound) => {
+    stopPreview();
+    setMsg(null);
+    void playAppTone(s).catch((err: unknown) => setMsg(err instanceof Error ? err.message : "The tone could not be played."));
+  };
 
-  const close = () => { stopPreview(); onClose(); };
+  // A first shared save, or any change from what is shared, is sent; the office part is never sent just because the window was opened.
+  const officeDirty = officeTouched && (!serverOffice || !sameOffice(cfg, serverOffice));
+  const changedAudiences = SOUND_AUDIENCES.filter((a) => !sameRow(apps[a], serverApps[a]));
+  const appsDirty = appsTouched && changedAudiences.length > 0;
+  const dirty = officeDirty || appsDirty;
+  const local = localExists ? loadLocalSoundConfig() : null;
+  const localDiffers = !!local && (!serverOffice || !sameOffice(local, serverOffice));
+  const usesUpload = ALERT_KINDS.some((k) => cfg[k].tone.startsWith("custom:"));
+
+  const reviewLocal = () => {
+    if (!local) return;
+    stopPreview();
+    edited();
+    setCfg(local);
+    setOfficeTouched(true);
+    setTab("office");
+    setOkMsg("This browser's office sounds are loaded below. Check them, write a reason and Save to share them with every computer.");
+  };
+  const removeLocal = () => {
+    clearLocalSoundConfig();
+    setLocalExists(false);
+    if (!officeTouched) setCfg(serverOffice ?? DEFAULT_SOUNDS);
+  };
+  const resetTab = () => {
+    stopPreview();
+    edited();
+    if (tab === "office") { setCfg(DEFAULT_SOUNDS); setOfficeTouched(true); }
+    else { setApps((cur) => ({ ...cur, [tab]: appDraftOf(undefined)[tab] })); setAppsTouched(true); }
+  };
+
+  const save = async () => {
+    if (!canEdit || busy || !dirty) return;
+    if (reason.trim().length < 5) { setMsg("Write the reason for this change (at least 5 characters)."); return; }
+    stopPreview();
+    setBusy(true);
+    setMsg(null);
+    setOkMsg(null);
+    try {
+      await saveNotificationSounds({
+        expectedVersion: saved?.version ?? 0, reason: reason.trim(),
+        ...(appsDirty ? { apps: Object.fromEntries(changedAudiences.map((a) => [a, apps[a]])) as AppSoundChoices } : {}),
+        ...(officeDirty ? { office: cfg } : {}),
+      });
+      if (officeDirty) {
+        // This computer now follows the shared setting; its own copy is no longer used.
+        setSharedSoundConfig(cfg);
+        clearLocalSoundConfig();
+        setLocalExists(false);
+      }
+      setOfficeTouched(false);
+      setAppsTouched(false);
+      setReason("");
+      setOkMsg(`Saved for everyone.${officeDirty ? " Every computer now plays these office alerts." : ""}${appsDirty ? " Phones get the new tones within about a minute." : ""}`);
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : "The sounds were not saved. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const close = () => {
+    if (dirty && !window.confirm("Close without saving your sound changes?")) return;
+    stopPreview();
+    onClose();
+  };
+  const history = [...(saved?.history ?? [])].reverse().slice(0, 15);
+  const audience = tab === "office" ? null : tab;
 
   return (
-    <Modal title="Notification sounds" onClose={close} wide footNote="Office defaults · 5 preset tones" footer={<><Button onClick={() => { stopPreview(); setCfg(DEFAULT_SOUNDS); setMsg(null); }}>Reset defaults</Button><Button variant="primary" onClick={() => { stopPreview(); saveSoundConfig(cfg); onClose(); }}>Save changes</Button></>}>
-      <div className="flex items-center justify-between gap-3 mb-4">
-        <div><strong className="text-[15px] text-ink">Notification sounds</strong><p className="text-[12px] text-muted">Choose a sound for each alert. Live Test previews current choices before saving.</p></div>
+    <Modal title="Notification sounds" onClose={close} wide footNote={canEdit ? "Saved for everyone · reason required" : "View only"}
+      footer={canEdit ? (
+        <>
+          <Button onClick={resetTab} disabled={busy}>Reset this tab to defaults</Button>
+          <input className="ds-input" style={{ width: 260 }} value={reason} maxLength={300} placeholder="Reason for change" aria-label="Reason for change" onChange={(e) => { setReason(e.target.value); setMsg(null); }} />
+          <Button variant="primary" loading={busy} disabled={!dirty || saved === undefined} onClick={() => void save()}>Save changes</Button>
+        </>
+      ) : <Button onClick={close}>Close</Button>}>
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <div><strong className="text-[15px] text-ink">Notification sounds</strong><p className="text-[12px] text-muted">Office alerts on every computer, and the tone each notification plays on the customer, driver and vendor apps.</p></div>
         <div className="flex items-center gap-3">
-          <span className="text-[12px] font-semibold text-ink">{soundOn ? "Sound on" : "Sound off"}</span>
-          <button type="button" role="switch" aria-checked={soundOn} aria-label={soundOn ? "Turn sound off" : "Turn sound on"} onClick={() => { stopPreview(); setSoundOn(!soundOn); }}
+          <span className="text-[12px] font-semibold text-ink" title="Only on this computer">{soundOn ? "Sound on" : "Sound off"}</span>
+          <button type="button" role="switch" aria-checked={soundOn} aria-label={soundOn ? "Turn sound off on this computer" : "Turn sound on on this computer"} onClick={() => { stopPreview(); setSoundOn(!soundOn); }}
             className="relative inline-flex h-6 w-11 items-center rounded-full transition" style={{ background: soundOn ? "var(--color-brand)" : "#cfd6df" }}>
             <span className="inline-block h-5 w-5 rounded-full bg-white shadow transition" style={{ transform: `translateX(${soundOn ? 22 : 2}px)` }} />
           </button>
         </div>
       </div>
+      <Tabs tabs={SOUND_TABS} value={tab} onChange={(t) => { stopPreview(); setTab(t); }} label="Notification sounds for" className="mb-3" />
+      {loadError && <p className="text-[12px] text-bad mb-3" role="alert">The shared sounds could not be loaded: {loadError}</p>}
+      {!canEdit && <p className="text-[12px] text-muted mb-3">Changing these needs Engagement access with Communication · edit. You can still test the sounds and turn sound off on this computer.</p>}
       {msg && <p className="text-[12px] text-bad mb-3" role="alert">{msg}</p>}
-      <DataTable label="Alert sounds" minWidth={860} fixed hideTools>
-        <thead><tr><th>ALERT / DURATION</th><th>TONE</th><th>VOLUME</th><th>SOUND</th><th>REPEAT</th><th>PREVIEW</th></tr></thead>
-        <tbody>{ALERT_KINDS.map((k) => {
-          const hint = !soundOn || !cfg[k].on ? "Enable sound to test" : cfg[k].volume <= 0 ? "Increase volume to test" : "Test the current tone and volume";
-          return (
-            <tr key={k}>
-              <td><strong>{k}</strong><small>{ALERT_SECONDS[k]} seconds</small></td>
-              <td><select className="ds-select" value={cfg[k].tone} onChange={(e) => set(k, { tone: e.target.value })}>{PRESET_TONES.map((t) => <option key={t}>{t}</option>)}{custom.map((c) => <option key={c.id} value={`custom:${c.id}`}>{c.name}</option>)}</select></td>
-              <td><input type="range" min={0} max={100} value={cfg[k].volume} aria-label={`${k} volume`} onChange={(e) => set(k, { volume: Number(e.target.value) })} /> <small>{cfg[k].volume}%</small></td>
-              <td><label className="ds-check"><input type="checkbox" checked={cfg[k].on} onChange={(e) => set(k, { on: e.target.checked })} />{cfg[k].on ? "On" : "Off"}</label></td>
-              <td><select className="ds-select" value={cfg[k].repeat} onChange={(e) => set(k, { repeat: e.target.value as SoundConfig[typeof k]["repeat"] })}>{REPEATS.map((r) => <option key={r}>{r}</option>)}</select></td>
-              <td>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button type="button" size="sm" icon="play" disabled={!soundOn || !cfg[k].on || cfg[k].volume <= 0 || testing === k} title={hint} aria-label={`Live Test: ${k}`} onClick={() => test(k)}>Live Test</Button>
-                  {testing === k && <Button type="button" size="sm" aria-label={`Stop preview: ${k}`} onClick={stopPreview}>Stop</Button>}
-                </div>
-                <small role="status">{testing === k ? "Testing current tone and volume…" : (!soundOn || !cfg[k].on || cfg[k].volume <= 0) ? hint : ""}</small>
-              </td>
-            </tr>
-          );
-        })}</tbody>
-      </DataTable>
-      <div className="ds-panel ds-panel-pad mt-4 flex flex-wrap items-center justify-between gap-3">
-        <div><strong className="text-[13px] text-ink">Upload own sound</strong><p className="text-[11px] text-muted">MP3 / WAV · up to 2 MB · up to 60 seconds · {custom.length}/5 uploaded</p></div>
-        <label className="ds-btn ds-btn-secondary cursor-pointer"><Icon name="upload" size={14} />Upload sound<input type="file" accept="audio/mpeg,audio/wav" className="sr-only" onChange={async (e) => {
-          const f = e.target.files?.[0];
-          if (!f) return;
-          try { await addCustomSound(f); setCustom(await listCustomSounds()); setMsg(null); } catch (err) { setMsg(err instanceof Error ? err.message : "Upload failed."); }
-        }} /></label>
-      </div>
-      <p className="text-[11px] text-faint mt-3">Alert duration stays fixed: New 5s · Urgent 10s · Unassigned 5s · Follow-up 2s. Live Test plays one bounded preview; repeat choices are saved for real alerts. Urgent plays first; sounds do not overlap. Ownership ends urgent attention; pending assignment reminders continue until driver + cab are confirmed.</p>
+      {okMsg && <p className="text-[12px] text-ok mb-3" role="status">{okMsg}</p>}
+
+      {tab === "office" ? (
+        <>
+          <p className="text-[12px] text-muted mb-3">
+            {saved === undefined ? "Loading the shared office sounds…"
+              : serverOffice ? `Shared by every computer${saved?.updatedByName ? ` · last saved by ${saved.updatedByName}` : ""}${saved?.updatedAt?.toDate ? ` on ${formatDateTime12(saved.updatedAt.toDate())}` : ""}.`
+              : "Not shared yet: each computer uses its own office sounds. Saving here shares them with every computer."}
+          </p>
+          {saved !== undefined && localDiffers && (
+            <div className="ds-panel ds-panel-pad mb-3 flex flex-wrap items-center justify-between gap-3" role="status">
+              <p className="text-[12px] text-ink m-0">{serverOffice
+                ? "This browser also has its own older office sounds that differ from the shared ones. The shared ones are in use."
+                : "This browser has its own saved office sounds (shown below). They are used on this computer only."}</p>
+              <div className="flex gap-2">
+                {canEdit && <Button size="sm" onClick={reviewLocal}>{serverOffice ? "Review browser copy" : "Review & share these"}</Button>}
+                {serverOffice && <Button size="sm" onClick={removeLocal}>Remove browser copy</Button>}
+              </div>
+            </div>
+          )}
+            <DataTable label="Office alert sounds" minWidth={860} fixed hideTools>
+              <thead><tr><th>ALERT / DURATION</th><th>TONE</th><th>VOLUME</th><th>SOUND</th><th>REPEAT</th><th>PREVIEW</th></tr></thead>
+              <tbody>{ALERT_KINDS.map((k) => {
+                const hint = !soundOn || !cfg[k].on ? "Enable sound to test" : cfg[k].volume <= 0 ? "Increase volume to test" : "Test the current tone and volume";
+                return (
+                  <tr key={k}>
+                    <td><strong>{k}</strong><small>{ALERT_SECONDS[k]} seconds</small></td>
+                    <td><select className="ds-select" value={cfg[k].tone} disabled={!canEdit} onChange={(e) => set(k, { tone: e.target.value })}>{PRESET_TONES.map((t) => <option key={t}>{t}</option>)}{custom.map((c) => <option key={c.id} value={`custom:${c.id}`}>{c.name}</option>)}{cfg[k].tone.startsWith("custom:") && !custom.some((c) => `custom:${c.id}` === cfg[k].tone) ? <option value={cfg[k].tone}>Uploaded sound (not on this computer)</option> : null}</select></td>
+                    <td><input type="range" min={0} max={100} value={cfg[k].volume} disabled={!canEdit} aria-label={`${k} volume`} onChange={(e) => set(k, { volume: Number(e.target.value) })} /> <small>{cfg[k].volume}%</small></td>
+                    <td><label className="ds-check"><input type="checkbox" checked={cfg[k].on} disabled={!canEdit} onChange={(e) => set(k, { on: e.target.checked })} />{cfg[k].on ? "On" : "Off"}</label></td>
+                    <td><select className="ds-select" value={cfg[k].repeat} disabled={!canEdit} onChange={(e) => set(k, { repeat: e.target.value as SoundConfig[typeof k]["repeat"] })}>{REPEATS.map((r) => <option key={r}>{r}</option>)}</select></td>
+                    <td>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {/* Previews work without edit access too. */}
+                        <Button type="button" size="sm" icon="play" disabled={!soundOn || !cfg[k].on || cfg[k].volume <= 0 || testing === k} title={hint} aria-label={`Live Test: ${k}`} onClick={() => test(k)}>Live Test</Button>
+                        {testing === k && <Button type="button" size="sm" aria-label={`Stop preview: ${k}`} onClick={stopPreview}>Stop</Button>}
+                      </div>
+                      <small role="status">{testing === k ? "Testing current tone and volume…" : (!soundOn || !cfg[k].on || cfg[k].volume <= 0) ? hint : ""}</small>
+                    </td>
+                  </tr>
+                );
+              })}</tbody>
+            </DataTable>
+          {usesUpload && <p className="text-[11px] text-muted mt-2">An uploaded sound is kept only in the browser it was uploaded in. Other computers play that alert's default tone instead.</p>}
+          {canEdit && (
+            <div className="ds-panel ds-panel-pad mt-4 flex flex-wrap items-center justify-between gap-3">
+              <div><strong className="text-[13px] text-ink">Upload own sound</strong><p className="text-[11px] text-muted">MP3 / WAV · up to 2 MB · up to 60 seconds · {custom.length}/5 uploaded · this browser only</p></div>
+              <label className="ds-btn ds-btn-secondary cursor-pointer"><Icon name="upload" size={14} />Upload sound<input type="file" accept="audio/mpeg,audio/wav" className="sr-only" onChange={async (e) => {
+                const f = e.target.files?.[0];
+                if (!f) return;
+                try { await addCustomSound(f); setCustom(await listCustomSounds()); setMsg(null); } catch (err) { setMsg(err instanceof Error ? err.message : "Upload failed."); }
+              }} /></label>
+            </div>
+          )}
+          <p className="text-[11px] text-faint mt-3">Alert duration stays fixed: New 5s · Urgent 10s · Unassigned 5s · Follow-up 2s. Live Test plays one bounded preview; repeat choices are saved for real alerts. Urgent plays first; sounds do not overlap. Ownership ends urgent attention; pending assignment reminders continue until driver + cab are confirmed. Sound on / off above is only for this computer.</p>
+        </>
+      ) : audience ? (
+        <>
+          <DataTable label={`${AUDIENCE_NAME[audience]} app notification sounds`} minWidth={680} fixed hideTools>
+            <thead><tr><th>EVENT</th><th>SOUND ON THE PHONE</th><th>TEST</th></tr></thead>
+            <tbody>{SOUND_EVENTS[audience].map((e) => {
+              const value = apps[audience][e.key] ?? e.defaultSound;
+              return (
+                <tr key={e.key}>
+                  <td><strong>{e.label}</strong><small>{e.covers}</small></td>
+                  <td>{e.sent ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <select className="ds-select" value={value} disabled={!canEdit} aria-label={`${AUDIENCE_NAME[audience]} · ${e.label} sound`} onChange={(ev) => setApp(audience, e.key, ev.target.value as AppSound)}>
+                        {APP_SOUNDS.map((s) => <option key={s} value={s}>{APP_SOUND_LABEL[s]}{s === e.defaultSound ? " (default)" : ""}</option>)}
+                      </select>
+                      {value !== e.defaultSound ? <Badge tone="amber">Changed</Badge> : null}
+                    </div>
+                  ) : <Badge tone="neutral">Not sent yet</Badge>}</td>
+                  <td><Button type="button" size="sm" icon="play" disabled={!e.sent} aria-label={`Test ${AUDIENCE_NAME[audience]} · ${e.label}`} onClick={() => testApp(value)}>Test</Button></td>
+                </tr>
+              );
+            })}</tbody>
+          </DataTable>
+          <p className="text-[11px] text-faint mt-3">Test plays the tone here in this browser only; nothing is sent to anyone. The {AUDIENCE_NAME[audience].toLowerCase()} app has these three tones built in, so a change reaches phones within about a minute, also when the app is closed. Someone who changed a tone in their phone's notification settings hears their own choice. Notifications not listed here keep their sound.</p>
+        </>
+      ) : null}
+
+      {history.length > 0 && (
+        <details className="mt-4">
+          <summary className="text-[12px] font-semibold text-ink cursor-pointer">Change history ({saved?.history?.length ?? 0})</summary>
+          <ul className="mt-2 space-y-2 text-[12px]">
+            {history.map((h, i) => (
+              <li key={i} className="ds-panel ds-panel-pad">
+                <strong>{h.at?.toDate ? formatDateTime12(h.at.toDate()) : "—"}</strong> · {h.byName || "Staff"} · <span className="text-muted">{h.reason}</span>
+                <ul className="mt-1 text-muted">{(h.changes ?? []).map((c, j) => <li key={j}>{changeText(c)}</li>)}</ul>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
     </Modal>
   );
 }

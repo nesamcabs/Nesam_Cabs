@@ -745,7 +745,7 @@ export const saveTariffSection = onCall(async (request) => {
       next = r.next;
       meta = { section, extraChargesVersion: next.extraCharges?.version ?? 0, was: base.extraCharges?.version ?? 0, categories: r.changed };
     } else if (section === 'displayMarkup') {
-      // Display only: the % shown as a higher struck-out price above a fare. No fare, tax or payout is changed by it.
+      // Display only: the fare is shown as this % off a struck-out price. No fare, tax or payout is changed by it.
       const brand = text(input.brand, 50), service = text(input.service, 50);
       if (!['common', ...SUPPORTED_BRANDS].includes(brand) || !['One Way', 'Round Trip', 'Airport Taxi', 'Local Rental', 'Multicity'].includes(service)) throw bad('Choose a brand and service.');
       const d = obj(input.data, 'The setting');
@@ -754,7 +754,7 @@ export const saveTariffSection = onCall(async (request) => {
       const row = { ...(all[brand] ?? {}) };
       if (pct === null || pct === 0) delete row[service];
       else {
-        if (typeof pct !== 'number' || !Number.isFinite(pct) || pct <= 0 || pct > 300) throw bad('The percentage must be more than 0 and at most 300.');
+        if (typeof pct !== 'number' || !Number.isFinite(pct) || pct <= 0 || pct > 90) throw bad('The percentage must be more than 0 and at most 90.');
         row[service] = Math.round(pct * 100) / 100;
       }
       if (Object.keys(row).length) all[brand] = row; else delete all[brand];

@@ -230,7 +230,7 @@ export default function LocalPricingManager({ brand, mode, vehicles, onModeChang
       if (problem) return fail(problem);
     }
     const strike = strikeValue.trim() === "" ? null : Number(strikeValue);
-    if (strikeDirty && strike !== null && (!Number.isFinite(strike) || strike < 0 || strike > 300)) return fail("The strike-out price must be from 0 to 300%.");
+    if (strikeDirty && strike !== null && (!Number.isFinite(strike) || strike < 0 || strike > 90)) return fail("The strike-out price must be from 0 to 90% off.");
     if (reason.trim().length < 5) return fail("Please enter a short Reason for change (at least 5 characters) before saving fare rules.");
     // A rate for a zone that is only suggested saves the zones with it.
     const saveZones = geoDirty || (faresDirty && Object.keys(mine.zones).some((id) => !geoSaved.value.zones.some((z) => z.id === id)));

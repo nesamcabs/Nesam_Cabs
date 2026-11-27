@@ -200,11 +200,11 @@ export default function SharedSections({ settings, canEdit, areas, onChange, onU
             </select>
           </div>
           {strike && (
-            <label className="flex flex-wrap items-center gap-3" title="Shown crossed out above the real fare in the customer apps. The fare, GST and partner pay do not change.">
+            <label className="flex flex-wrap items-center gap-3" title="The fare is shown as this % off a crossed-out price in the customer apps. The fare, GST and partner pay do not change.">
               <span className="text-slate-600 w-28">Strike-out price</span>
-              <input type="number" inputMode="decimal" min={0} max={300} step="0.5" aria-label="Strike-out price percent" className="lf-num w-16" value={strike.value}
+              <input type="number" inputMode="decimal" min={0} max={90} step="0.5" aria-label="Strike-out price percent off" className="lf-num w-16" value={strike.value}
                 placeholder={strike.inherited ? String(strike.inherited) : "None"} onChange={(e) => strike.onChange(e.target.value)} />
-              <span className="text-slate-500">% higher</span>
+              <span className="text-slate-500">% off</span>
             </label>
           )}
         </fieldset>

@@ -1,6 +1,6 @@
 // The notification events whose sound the office chooses for the customer, driver and vendor apps (header →
 // Notification sounds). An exact copy of the catalogue in functions/src/domain/soundEvents.ts, which decides the
-// sound on the server; scripts/notification-sound-settings.test.cjs fails when the two differ. No imports.
+// sound on the server. Change both together. No imports.
 
 export type AppSound = 'new_booking' | 'approval' | 'general';
 export const APP_SOUNDS: readonly AppSound[] = ['new_booking', 'approval', 'general'];

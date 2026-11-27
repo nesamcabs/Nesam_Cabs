@@ -611,6 +611,18 @@ function parseDisplayMarkup(v: unknown): Record<string, Record<string, number>> 
   return Object.keys(out).length ? out : undefined;
 }
 
+/** The highest "% off" a struck-out price may show. */
+export const MAX_STRIKE_PERCENT = 90;
+
+/**
+ * The struck-out price shown above a fare, chosen so the fare is exactly `percent` below it (15% → ₹1,990 under ₹2,341, "15% OFF").
+ * Null for no strike: no percentage, or one above MAX_STRIKE_PERCENT (older settings allowed up to 300).
+ */
+export function strikeTotalOf(total: number, percent: number): number | null {
+  if (!(total > 0) || !(percent > 0) || percent > MAX_STRIKE_PERCENT) return null;
+  return Math.round(total / (1 - percent / 100));
+}
+
 /** The % shown as a struck-out higher price above a fare: the brand's own setting for the service, else the shared one. 0 = none. */
 export function displayMarkupPercent(cfg: TariffConfig | null, brand: string | undefined, service: string): number {
   return cfg?.displayMarkup?.[brand ?? '']?.[service] ?? cfg?.displayMarkup?.common?.[service] ?? 0;

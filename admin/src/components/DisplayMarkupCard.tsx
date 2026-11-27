@@ -6,7 +6,7 @@ import { useCan, useCanDo } from "./AccessContext";
 import { CardBody, SaveBar, SettingCard } from "./RateTable";
 
 /**
- * Strike-through price: a percentage added on top of the real fare and shown crossed out above it in the customer apps.
+ * Strike-through price: the real fare is shown as this % off a crossed-out price (15% → ₹1,000 under ₹1,176, "15% OFF").
  * It is display only: the fare, GST and partner payout never change. Saved for the selected brand and service.
  */
 export default function DisplayMarkupCard({ scope }: { scope: FareWorkspaceScope }) {
@@ -24,11 +24,11 @@ export default function DisplayMarkupCard({ scope }: { scope: FareWorkspaceScope
   useEffect(() => { setValue(saved ? String(saved) : ""); setReason(""); setMessage(null); }, [saved, scope.brand, scope.service]);
 
   const pct = value.trim() === "" ? null : Number(value);
-  const invalid = pct !== null && (!Number.isFinite(pct) || pct <= 0 || pct > 300);
+  const invalid = pct !== null && (!Number.isFinite(pct) || pct <= 0 || pct > 90);
   const changed = (pct ?? 0) !== (saved ?? 0);
   /** Brands with their own percentage for this service: a new shared one replaces it unless unticked. */
   const ownBrands = scope.brand === "common" ? BRANDS.filter((b) => tariff?.displayMarkup?.[b.id]?.[scope.service]) : [];
-  const example = pct && !invalid ? Math.round(1000 * (1 + pct / 100)) : null;
+  const example = pct && !invalid ? Math.round(1000 / (1 - pct / 100)) : null;
   const where = `${scope.brand === "common" ? "All brands" : BRAND_LABELS[scope.brand]} → ${scope.service}`;
 
   const save = async () => {
@@ -52,14 +52,14 @@ export default function DisplayMarkupCard({ scope }: { scope: FareWorkspaceScope
 
   return (
     <SettingCard title="Strike out price"
-      description={<>Shown crossed out above the real fare in the customer apps. Display only: the fare, GST and partner pay do not change.{example ? <> Example: a ₹1,000 fare shows <s>₹{example.toLocaleString("en-IN")}</s>.</> : null}</>}
+      description={<>Shown crossed out above the real fare in the customer apps. Display only: the fare, GST and partner pay do not change.{example ? <> Example: a ₹1,000 fare shows <s>₹{example.toLocaleString("en-IN")}</s> · {pct}% OFF.</> : null}</>}
       footer={<SaveBar reason={reason} onReason={setReason} onSave={save} busy={busy} disabled={invalid || !changed || !canEdit} message={message} note={`Applies to ${where}.`} />}>
       <CardBody>
         <fieldset disabled={!canEdit || busy} className="min-w-0">
           <label className="fm-inline-field">
-            <span>Increase by</span>
+            <span>Show as % off</span>
             <span className="fm-affix">
-              <input className={`fm-input ${value.trim() ? "is-own" : ""} ${invalid ? "is-bad" : ""}`} type="number" inputMode="decimal" min={0} max={300} step="0.5" value={value} placeholder={inherited ? String(inherited) : "None"} onChange={(e) => setValue(e.target.value)} aria-label="Increase by percent" />
+              <input className={`fm-input ${value.trim() ? "is-own" : ""} ${invalid ? "is-bad" : ""}`} type="number" inputMode="decimal" min={0} max={90} step="0.5" value={value} placeholder={inherited ? String(inherited) : "None"} onChange={(e) => setValue(e.target.value)} aria-label="Percent off shown" />
               <span>%</span>
             </span>
             {inherited && !value.trim() ? <small className="fm-hint">Shared: {inherited}%</small> : null}
@@ -68,7 +68,7 @@ export default function DisplayMarkupCard({ scope }: { scope: FareWorkspaceScope
         {pct && changed && ownBrands.length > 0 ? (
           <label className="ds-check mt-2"><input type="checkbox" checked={allBrands} disabled={busy} onChange={(e) => setAllBrands(e.target.checked)} />Also apply to {ownBrands.map((b) => b.name).join(", ")} (replaces the brand's own percentage)</label>
         ) : null}
-        {invalid ? <p className="ds-error mt-2" role="alert">Enter a percentage above 0 and up to 300, or leave it blank for none.</p> : null}
+        {invalid ? <p className="ds-error mt-2" role="alert">Enter a percentage above 0 and up to 90, or leave it blank for none.</p> : null}
       </CardBody>
     </SettingCard>
   );

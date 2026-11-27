@@ -26,7 +26,7 @@ import { AdminDiscountInput, CATEGORY_GST_RATE, FareAdjustmentInput, isOutstatio
 import {
   FixedRouteFare, completeAirportCngRates, completeAirportRates, defaultRentalHours, quoteAirport, PricingSnapshot, QuoteResult, TARIFF_CLASSES, TariffClass, TariffConfig, TariffError, cityDropFare, classRates, istDate, localFareIdFor, matchFixedRoute, paise,
   parseFixedRouteFare, parseTariffConfig, gstOn, quoteFixedRoute, quoteLocalPickupDrop, quoteOneWay, quoteRentalPackage, quoteRoundTrip, quoteRoundTripMini, quoteRoundTripOvernightCombo, r2, withinCityZone, scopedTariffForBrand,
-  calendarDays, finalizeFare, multicityRatesFor, quoteMulticity, displayMarkupPercent, quoteRoundTripTimeBased, timeBasedContext, quoteDistrictRide, quoteDistrictRental,
+  calendarDays, finalizeFare, multicityRatesFor, quoteMulticity, displayMarkupPercent, quoteRoundTripTimeBased, timeBasedContext, strikeTotalOf, quoteDistrictRide, quoteDistrictRental,
 } from './domain/tariff';
 import { gstComponents, type GstSnapshot } from './domain/gst';
 import { loadLocalContext, type LocalFareContext } from './localFares';
@@ -849,7 +849,8 @@ export const quoteBooking = onCall({ timeoutSeconds: 60, cors: PUBLIC_CALLABLE_O
   const recipientState = recipientGstState(customer?.data());
   // Display only: the % shown as a higher struck-out price above each fare. The fare itself is never changed by it.
   const strikePercent = displayMarkupPercent(tariff, brand, multicity ? 'Multicity' : fareServiceKey(tripType));
-  const struck = (total: number) => (strikePercent > 0 ? { strikeTotal: Math.round(total * (1 + strikePercent / 100)) } : {});
+  // The fare is shown as exactly this % off the struck-out price (the % the office set is the % the customer sees).
+  const struck = (total: number) => { const strikeTotal = strikeTotalOf(total, strikePercent); return strikeTotal ? { strikeTotal } : {}; };
   const evalRules = (pkg?: string) => evaluateRules(serviceRules, pickup, drop, when, multicity ? 'Multicity' : ruleServiceText(pickup, drop, route.distanceKm, tripType), brand, multicity ? 'Multicity' : fareServiceKey(tripType), itinerary, pkg);
   const rules = evalRules();
   const packageRules = serviceRules.some((r) => r.packages?.length);
