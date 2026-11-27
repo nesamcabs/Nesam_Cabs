@@ -289,7 +289,7 @@ function CaptureModal({ session, slot, index, onClose, onDone }: { session: Capt
     setBusy(true);
     try {
       setStatus('Taking photo…');
-      const pic = await camera.current.takePictureAsync({ quality: 0.7, skipProcessing: false, shutterSound: false });
+      const pic = await camera.current.takePictureAsync({ quality: 0.7, skipProcessing: false, shutterSound: false, imageType: 'jpg' });
       const capturedAt = Date.now();
       setStatus('Uploading…');
       await uploadCapture(challenge, session.sessionId, pic.uri);

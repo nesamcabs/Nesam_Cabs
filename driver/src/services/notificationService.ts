@@ -94,6 +94,8 @@ const players: Partial<Record<NotificationSound, AudioPlayer>> = {};
 
 /** Plays one of the three tones while the app is open. Never throws. */
 export function playTone(tone: NotificationSound, times = 1): void {
+  // Browsers refuse sound until the page has been clicked or typed in once; asking earlier only logs an error.
+  if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.userActivation && !navigator.userActivation.hasBeenActive) return;
   try {
     const player = (players[tone] ??= createAudioPlayer(TONE_FILES[tone]));
     for (let i = 0; i < times; i++) {
