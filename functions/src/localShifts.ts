@@ -782,3 +782,70 @@ export async function runLocalShiftSweep(budgetMs = 30000): Promise<{ ending: nu
   }
   return { ending, missed, refreshed };
 }
+
+// Live position of a running duty and duty drivers near a rider
+
+/** A duty driver's position older than this is not shown to riders (the app sends it every 25 s while the duty page is open). */
+const NEARBY_FRESH_MS = 10 * 60000;
+/** How far from the rider's pickup a duty driver counts as nearby. */
+const NEARBY_KM = 10;
+/** The most drivers drawn on a rider's map. */
+const NEARBY_LIMIT = 25;
+/** Running duties are read at most this often per server instance, however many riders are looking. */
+const NEARBY_CACHE_MS = 15000;
+
+/** The driver app's position on a running duty, sent with every refresh of the Local Taxi page. */
+export const localShiftPing = onCall(async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.');
+  const shiftId = docId(request.data?.shiftId, 'duty');
+  const fix = fixOf(request.data?.location);
+  if (!fix) return { ok: false };
+  const ref = db.doc(`${SHIFTS}/${shiftId}`);
+  const s = (await ref.get()).data();
+  if (!s || s.driverId !== uid) throw new HttpsError('not-found', 'This local duty is not assigned to you.');
+  if (s.status !== 'Active') return { ok: false };
+  await ref.update({ lastLocation: { lat: fix.lat, lng: fix.lng, accuracy: fix.accuracy, at: Timestamp.now() } });
+  return { ok: true };
+});
+
+let runningCache: { at: number; duties: DocumentData[] } | null = null;
+async function runningDuties(now: number): Promise<DocumentData[]> {
+  if (runningCache && now - runningCache.at < NEARBY_CACHE_MS) return runningCache.duties;
+  const snap = await db.collection(SHIFTS).where('status', '==', 'Active').limit(1000).get();
+  runningCache = { at: now, duties: snap.docs.map((d) => d.data()) };
+  return runningCache.duties;
+}
+
+/**
+ * For a rider's map (Pickup & Drop and Hourly Rental only): the drivers on local duty for that service near a pickup, with a
+ * position seen in the last few minutes. Only a rounded position (about 100 m) and the kind of vehicle go out, never a name,
+ * number or id, so it is open to signed-out riders too.
+ */
+export const nearbyLocalDrivers = onCall(async (request) => {
+  const lat = request.data?.lat;
+  const lng = request.data?.lng;
+  if (!inIndia(lat, lng)) throw bad('Choose a place in India.');
+  const mode: LocalMode = request.data?.mode === 'rental' ? 'rental' : 'pickup_drop';
+  const at = { lat: lat as number, lng: lng as number };
+  const now = Date.now();
+  const near: { lat: number; lng: number; kind: 'bike' | 'auto' | 'cab'; km: number }[] = [];
+  for (const s of await runningDuties(now)) {
+    if (s.paused || s.endRequestedAt || !servicesOf(s.services).includes(mode)) continue;
+    const end = tsMs(s.endsAt);
+    if (end !== null && end <= now) continue;
+    const p = s.lastLocation;
+    const seen = tsMs(p?.at);
+    if (!isPoint(p) || seen === null || now - seen > NEARBY_FRESH_MS) continue;
+    const km = kmBetween(at, p);
+    if (km > NEARBY_KM) continue;
+    const vClass = text(s.vehicleClass);
+    near.push({ lat: Math.round(p.lat * 1000) / 1000, lng: Math.round(p.lng * 1000) / 1000, kind: vClass === 'bike' ? 'bike' : vClass === 'auto' ? 'auto' : 'cab', km });
+  }
+  near.sort((a, b) => a.km - b.km);
+  return {
+    count: near.length,
+    nearestKm: near.length ? Math.round(near[0]!.km * 10) / 10 : null,
+    drivers: near.slice(0, NEARBY_LIMIT).map((d) => ({ lat: d.lat, lng: d.lng, kind: d.kind })),
+  };
+});

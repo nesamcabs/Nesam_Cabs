@@ -33,7 +33,7 @@ export { approveAdminRequest, rejectAdminRequest, updateAdminAccess, saveStaffRo
 export { awardMarketplaceBid, rejectMarketplaceBid, postBookingToMarketplace, assignIndependentDriver, assignVendor } from './marketplace';
 export { vendorAssignDriver } from './vendorDispatch';
 export { requestRoundTripDuty, decideDriverTripRequest } from './driverTripRequests';
-export { localDutyOptions, createLocalShift, updateLocalShift, endLocalShift, localShiftAction, localShiftBoard, takeLocalOrder, releaseLocalOrder } from './localShifts';
+export { localDutyOptions, createLocalShift, updateLocalShift, endLocalShift, localShiftAction, localShiftBoard, takeLocalOrder, releaseLocalOrder, localShiftPing, nearbyLocalDrivers } from './localShifts';
 export { findPartnerDriver, findPartnerVehicle, requestDriverLink, requestVehicleLink, adminCreatePartnerLink, verifyPartnerLinkOtp, resendPartnerLinkOtp, requestPartnerLinkHelp, cancelPartnerLink, decidePartnerLink } from './partnerLinks';
 export { claimMarketplaceDuty, submitMarketplaceBid, withdrawMarketplaceBid } from './claims';
 export { requestPartnerPayout, rebuildPartnerLedger, onBookingFinanceChange, onPayoutRequestWritten } from './ledger';
