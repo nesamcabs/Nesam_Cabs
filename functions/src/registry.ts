@@ -84,6 +84,8 @@ export const CALLABLES: Readonly<Record<string, CallableLike>> = Object.freeze({
   endLocalShift: fns.endLocalShift,
   localShiftAction: fns.localShiftAction,
   localShiftBoard: fns.localShiftBoard,
+  localShiftPing: fns.localShiftPing,
+  nearbyLocalDrivers: fns.nearbyLocalDrivers,
   takeLocalOrder: fns.takeLocalOrder,
   releaseLocalOrder: fns.releaseLocalOrder,
   findPartnerDriver: fns.findPartnerDriver,
@@ -191,4 +193,4 @@ export const RECONCILES_BOOKING = new Set([
 export const RECONCILES_PAYOUT = new Set(['requestPartnerPayout']);
 
 /** Callables a signed-out visitor may use: read-only fare quotes, support requests, and AI chatbot. */
-export const PUBLIC_CALLABLES: ReadonlySet<string> = new Set(['quoteBooking', 'chatWithBot', 'submitSupportRequest', 'searchGooglePlaces', 'reverseGoogleGeocode', 'getGoogleRoute']);
+export const PUBLIC_CALLABLES: ReadonlySet<string> = new Set(['quoteBooking', 'chatWithBot', 'submitSupportRequest', 'searchGooglePlaces', 'reverseGoogleGeocode', 'getGoogleRoute', 'nearbyLocalDrivers']);
