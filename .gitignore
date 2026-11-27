@@ -76,11 +76,10 @@ release-output/
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 5. Environment & Secret Files
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Named "env" (no extension) — contains Firebase API keys
-admin/env
-user/web/env
-driver/web/env
-vendor/web/env
+# Named "env" (no extension) — contains API keys. Any folder, and download copies like "env (1)".
+**/env
+**/env (*)
+**/env.txt
 
 .env
 .env.local
