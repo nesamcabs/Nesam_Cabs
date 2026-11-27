@@ -8,6 +8,7 @@ import { useWindowWidth } from '../theme/responsive';
 import { Ionicons } from '@expo/vector-icons';
 import { breakpoints, colors, fontFamily, radius, space, type } from '../theme';
 import { initials } from '../utils/format';
+import { PartnerLockup } from './shell/PartnerLockup';
 
 // ── Layout ──────────────────────────────────────────────────────────────────
 
@@ -255,7 +256,9 @@ export function Notice({
 export function FullScreenLoader({ label }: { label?: string }) {
   return (
     <View style={styles.center}>
-      <Image source={require('../../assets/brand/partner-banner.png')} style={{ width: 238, height: 80, marginBottom: space.xl }} resizeMode="contain" accessibilityLabel="NESAM Partner" />
+      <View style={{ width: '100%', alignItems: 'center', paddingHorizontal: space.xl, marginBottom: space.xl }}>
+        <PartnerLockup maxWidth={320} />
+      </View>
       <ActivityIndicator size="large" color={colors.primary} />
       {label ? <Text style={[type.small, { marginTop: space.md }]}>{label}</Text> : null}
     </View>

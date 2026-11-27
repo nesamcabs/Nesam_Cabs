@@ -10,8 +10,17 @@
 //
 // All amounts are rupees; sums are done in paise so nothing drifts.
 
-export const LOCAL_CLASSES = ['hatchback', 'sedan', 'suv', 'suv7', 'innova', 'crysta'] as const;
+export const LOCAL_CLASSES = ['hatchback', 'sedan', 'suv', 'suv7', 'innova', 'crysta', 'auto', 'bike'] as const;
 export type LocalClass = (typeof LOCAL_CLASSES)[number];
+/**
+ * Auto and Bike are local vehicles: priced only from district rates (Pickup & Drop and Hourly Rental), never offered for
+ * outstation, round trip, airport or multicity trips. Recognised by the vehicle category's name; null = a car.
+ */
+export function localOnlyClassOf(name: unknown): 'auto' | 'bike' | null {
+  const n = String(name ?? '').trim().toLowerCase();
+  if (/(^|[^a-z])(bike|scooter|scooty|motor ?cycle|two[- ]?wheeler)s?([^a-z]|$)/.test(n)) return 'bike';
+  return /^(e[- ]?|electric |cng )?auto(?![a-z])|rickshaw/.test(n) ? 'auto' : null;
+}
 export const LOCAL_HOURS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] as const;
 export const LOCAL_BRANDS = ['common', 'nesam', 'people_taxi', 'onewaycarrentals'] as const;
 export type LocalBrand = (typeof LOCAL_BRANDS)[number];

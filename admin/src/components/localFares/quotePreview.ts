@@ -63,8 +63,9 @@ export function testQuote(i: TestInput): TestResult {
     if (i.km > LOCAL_LIMIT_KM) return { ok: false, message: `Over ${LOCAL_LIMIT_KM} km is priced as Outstation, not from this page.` };
     const customer = resolveRule(i.fares, i.brand, "customer", i.cls, target);
     const partner = resolveRule(i.fares, i.brand, "partner", i.cls, target);
-    if (!customer) return { ok: false, message: `No ${i.vehicle} customer fare is set for this area. Bookings use the older fares.` };
-    if (!partner) return { ok: false, message: `Set the ${i.vehicle} partner payout too. Until then bookings use the older fares.` };
+    const noRate = i.cls === "auto" || i.cls === "bike" ? "it is not offered to customers here" : "bookings use the older fares";
+    if (!customer) return { ok: false, message: `No ${i.vehicle} customer fare is set for this area, so ${noRate}.` };
+    if (!partner) return { ok: false, message: `Set the ${i.vehicle} partner payout too. Until then ${noRate}.` };
     const a = s.additional;
     // "Route has toll": the mapped amount of a route from this area, else the fallback amount.
     const mapped = a.corridors.find((c) => c.fromPin === i.pin || c.toPin === i.pin);

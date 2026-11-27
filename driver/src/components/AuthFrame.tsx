@@ -5,7 +5,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from './nx/Text';
 import { KeyboardAvoid } from './KeyboardAvoid';
-import { NxBrand } from './nx/Brand';
+import { NxLogo } from './nx/Brand';
 import { NxIcon, type NxIconName } from './nx/Icon';
 import { useLayout } from './nx/layout';
 import { nx } from '../theme/nx';
@@ -24,11 +24,11 @@ export function AuthFrame({ children, footer }: { children: React.ReactNode; foo
     <View style={styles.formCol}>
       {split ? null : (
         <View style={styles.phoneBrand}>
-          <NxBrand size="large" />
+          <NxLogo />
         </View>
       )}
       {children}
-      {footer ?? <Text style={styles.legal}>{COPYRIGHT_HOLDER} · Made for every mile.</Text>}
+      {footer !== undefined ? footer : <Text style={styles.legal}>© {new Date().getFullYear()} {COPYRIGHT_HOLDER}. All rights reserved.</Text>}
     </View>
   );
   return (
@@ -40,7 +40,7 @@ export function AuthFrame({ children, footer }: { children: React.ReactNode; foo
               <View style={styles.ring} pointerEvents="none" />
               <View style={styles.ringSmall} pointerEvents="none" />
               <View style={styles.brandCard}>
-                <NxBrand size="large" />
+                <NxLogo />
               </View>
               <View style={{ flex: 1, justifyContent: 'center', paddingVertical: 32 }}>
                 <Text style={styles.headline}>Drive with NESAM.</Text>
@@ -65,7 +65,7 @@ export function AuthFrame({ children, footer }: { children: React.ReactNode; foo
               </View>
             </View>
           ) : null}
-          <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.scroll, split && { justifyContent: 'center' }]} keyboardShouldPersistTaps="handled">
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
             {form}
           </ScrollView>
         </View>
@@ -74,10 +74,15 @@ export function AuthFrame({ children, footer }: { children: React.ReactNode; foo
   );
 }
 
-/** White card holding a step of the form. */
+/** White card holding a step of the form, topped by the road from the NESAM emblem. */
 export function AuthCard({ children, eyebrow, title, subtitle }: { children: React.ReactNode; eyebrow?: string; title?: string; subtitle?: React.ReactNode }) {
   return (
     <View style={styles.card}>
+      <View style={styles.road} accessible={false}>
+        {Array.from({ length: 9 }, (_, i) => (
+          <View key={i} style={styles.lane} />
+        ))}
+      </View>
       {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
       {title ? (
         <Text style={styles.title} accessibilityRole="header">
@@ -96,7 +101,7 @@ const styles = StyleSheet.create({
   brandPanel: { backgroundColor: nx.wallet, paddingHorizontal: 44, paddingTop: 40, paddingBottom: 30, overflow: 'hidden' },
   ring: { position: 'absolute', top: -90, right: -120, width: 360, height: 360, borderRadius: 180, borderWidth: 54, borderColor: 'rgba(255,255,255,0.035)' },
   ringSmall: { position: 'absolute', bottom: -70, left: -60, width: 200, height: 200, borderRadius: 100, borderWidth: 30, borderColor: 'rgba(216,32,53,0.16)' },
-  brandCard: { alignSelf: 'flex-start', backgroundColor: nx.white, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 16 },
+  brandCard: { alignSelf: 'stretch', backgroundColor: nx.white, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 16 },
   headline: { fontSize: 38, lineHeight: 46, fontWeight: '700', letterSpacing: -1.4, color: nx.white },
   subline: { fontSize: 14, lineHeight: 23, color: nx.walletMuted, marginTop: 14, maxWidth: 400 },
   feature: { flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
@@ -105,10 +110,13 @@ const styles = StyleSheet.create({
   featureText: { fontSize: 12.5, lineHeight: 19, color: nx.walletMuted, marginTop: 3 },
   panelFoot: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   panelFootText: { fontSize: 10, letterSpacing: 0.3, color: nx.walletMuted },
-  scroll: { flexGrow: 1, paddingHorizontal: 18, paddingTop: 28, paddingBottom: 28 },
+  // Centred on every screen height; taller content simply scrolls.
+  scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 18, paddingVertical: 24 },
   formCol: { width: '100%', maxWidth: 440, alignSelf: 'center' },
-  phoneBrand: { alignItems: 'center', marginBottom: 26, marginTop: 6 },
-  card: { backgroundColor: nx.white, borderWidth: 1, borderColor: nx.line, borderRadius: 18, padding: 24, shadowColor: '#162033', shadowOpacity: 0.05, shadowRadius: 22, shadowOffset: { width: 0, height: 8 }, elevation: 2 },
+  phoneBrand: { marginBottom: 28 },
+  card: { backgroundColor: nx.white, borderWidth: 1, borderColor: nx.line, borderRadius: 18, padding: 24, paddingTop: 34, shadowColor: '#162033', shadowOpacity: 0.05, shadowRadius: 22, shadowOffset: { width: 0, height: 8 }, elevation: 2 },
+  road: { position: 'absolute', top: 0, left: 0, right: 0, height: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-evenly', backgroundColor: '#121212', borderTopLeftRadius: 17, borderTopRightRadius: 17 },
+  lane: { width: 16, height: 2, backgroundColor: nx.red },
   eyebrow: { fontSize: 10, fontWeight: '700', letterSpacing: 1.35, color: nx.muted, textTransform: 'uppercase', marginBottom: 6 },
   title: { fontSize: 23, fontWeight: '700', letterSpacing: -0.7, color: nx.ink },
   subtitle: { fontSize: 13, lineHeight: 21, color: nx.muted, marginTop: 6, marginBottom: 4 },

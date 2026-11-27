@@ -3,17 +3,19 @@
 // Pure functions only: the callers read the documents and enforce the verdict in a
 // transaction, so a client that skips its own checks changes nothing.
 
+import { localOnlyClassOf } from './localPricing';
+
 // ── Vehicle class matrix ────────────────────────────────────────────────────
 
 /** What a booked duty asks for. */
-export type DutyClass = 'sedan' | 'suv6' | 'suv7' | 'innova' | 'crysta';
+export type DutyClass = 'sedan' | 'suv6' | 'suv7' | 'innova' | 'crysta' | 'auto' | 'bike';
 /** What a vehicle is. A vehicle is exactly one class. */
-export type VehicleClass = 'sedan' | 'suv6' | 'suv7' | 'innova6' | 'innova7' | 'crysta6' | 'crysta7';
+export type VehicleClass = 'sedan' | 'suv6' | 'suv7' | 'innova6' | 'innova7' | 'crysta6' | 'crysta7' | 'auto' | 'bike';
 
-export const DUTY_CLASSES: readonly DutyClass[] = ['sedan', 'suv6', 'suv7', 'innova', 'crysta'];
-export const VEHICLE_CLASSES: readonly VehicleClass[] = ['sedan', 'suv6', 'suv7', 'innova6', 'innova7', 'crysta6', 'crysta7'];
+export const DUTY_CLASSES: readonly DutyClass[] = ['sedan', 'suv6', 'suv7', 'innova', 'crysta', 'auto', 'bike'];
+export const VEHICLE_CLASSES: readonly VehicleClass[] = ['sedan', 'suv6', 'suv7', 'innova6', 'innova7', 'crysta6', 'crysta7', 'auto', 'bike'];
 
-/** The confirmed 7 × 5 matrix: which duty classes an attached vehicle class may serve. */
+/** The confirmed 7 × 5 car matrix (which duty classes an attached vehicle class may serve), plus Auto and Bike, each serving only its own. */
 export const CLASS_MATRIX: Readonly<Record<VehicleClass, readonly DutyClass[]>> = {
   sedan: ['sedan'],
   suv6: ['sedan', 'suv6'],
@@ -22,6 +24,8 @@ export const CLASS_MATRIX: Readonly<Record<VehicleClass, readonly DutyClass[]>> 
   innova7: ['sedan', 'suv6', 'suv7', 'innova'],
   crysta6: ['sedan', 'suv6', 'innova', 'crysta'],
   crysta7: ['sedan', 'suv6', 'suv7', 'innova', 'crysta'],
+  auto: ['auto'],
+  bike: ['bike'],
 };
 
 const norm = (v: unknown) => (typeof v === 'string' ? v.trim().toLowerCase() : '');
@@ -39,6 +43,8 @@ export function dutyClassOf(category: { dutyClass?: unknown; name?: unknown; sea
   const name = norm(category.name);
   const seats = Number(category.seats ?? category.seatingCapacity) || 0;
   if (!name && !seats) return null;
+  const localOnly = localOnlyClassOf(name);
+  if (localOnly) return localOnly;
   if (/crysta/.test(name)) return 'crysta';
   if (/innova/.test(name)) return 'innova';
   if (/(suv|xuv|ertiga|marazzo|carens|xl6|scorpio|fortuner|muv|mpv)/.test(name)) return seats >= 7 || /7\s*\+\s*1/.test(name) ? 'suv7' : 'suv6';
@@ -53,6 +59,9 @@ export function dutyClassOf(category: { dutyClass?: unknown; name?: unknown; sea
 export function vehicleClassOf(v: { vehicleClass?: unknown; category?: unknown; make?: unknown; model?: unknown; name?: unknown; seatingCapacity?: unknown; seats?: unknown }): VehicleClass | null {
   const explicit = asVehicleClass(v.vehicleClass);
   if (explicit) return explicit;
+  // Only the category says a vehicle is an Auto or Bike (a car's model name may mention an automatic gearbox).
+  const localOnly = localOnlyClassOf(v.category);
+  if (localOnly) return localOnly;
   const seats = Math.round(Number(v.seatingCapacity ?? v.seats) || 0);
   const text = [v.make, v.model, v.name, v.category].map(norm).join(' ');
   const seven = seats >= 7;

@@ -24,6 +24,9 @@ import type { FareBreakdown, RideCategory } from '../types';
 import { formatDistance, formatINR, formatTime } from '../utils/format';
 import { colors, fonts, space } from '../theme';
 
+/** Auto and Bike: local rides and hourly rental only. The same names the booking server recognises. */
+const isLocalOnly = (name: string): boolean => /(^|[^a-z])(bike|scooter|scooty|motor ?cycle|two[- ]?wheeler)s?([^a-z]|$)/.test(name.trim().toLowerCase()) || /^(e[- ]?|electric |cng )?auto(?![a-z])|rickshaw/.test(name.trim().toLowerCase());
+
 const dayText = (d: Date) => `${d.getDate()} ${d.toLocaleDateString('en-IN', { month: 'short' })}`;
 
 export function ChooseRideScreen() {
@@ -59,7 +62,8 @@ export function ChooseRideScreen() {
 
   // Pre-select a cab when none is chosen yet.
   useEffect(() => {
-    if (!categoryId && categories.length > 0) update({ categoryId: categories[0]!.id });
+    const first = categories.find((c) => !isLocalOnly(c.name));
+    if (!categoryId && first) update({ categoryId: first.id });
   }, [categoryId, categories, update]);
 
   // A cab type the office turned off for this location is not shown at all: no card, no tab.
@@ -67,13 +71,19 @@ export function ChooseRideScreen() {
     () => new Set(serverQuote.status === 'ready' && serverQuote.data ? serverQuote.data.quotes.filter((x) => !x.ok && /is not offered for this location/i.test(x.error ?? '')).map((x) => x.categoryId) : []),
     [serverQuote],
   );
-  const offered = useMemo(() => categories.filter((c) => !hiddenIds.has(c.id)), [categories, hiddenIds]);
+  // Auto / Bike appear only once the server has priced them for this trip (local ride or hourly rental).
+  // Only an hourly rental or a One Way ride inside the local distance can list them, whatever the server answers.
+  const localTrip = !draft.multicity && (tripType === 'Local Rental' || (tripType === 'One Way' && !!route && !isOutstation(route.distanceKm)));
+  const offered = useMemo(
+    () => categories.filter((c) => !hiddenIds.has(c.id) && (!isLocalOnly(c.name) || (localTrip && serverQuote.data?.quotes.some((x) => x.categoryId === c.id && x.ok) === true))),
+    [categories, hiddenIds, serverQuote, localTrip],
+  );
   // If the chosen cab type is now hidden, move to the first one still offered.
   useEffect(() => {
-    if (!categoryId || !hiddenIds.has(categoryId)) return;
+    if (!categoryId || !(hiddenIds.has(categoryId) || (!localTrip && categories.some((c) => c.id === categoryId && isLocalOnly(c.name))))) return;
     const next = offered[0];
     if (next) update({ categoryId: next.id, fuelType: '' });
-  }, [categoryId, hiddenIds, offered, update]);
+  }, [categoryId, hiddenIds, offered, update, localTrip, categories]);
 
   // CNG is offered only on a cab with a CNG fare. A CNG choice carried over from another trip or cab would have no switch
   // left to turn it off (and the server refuses it), so it is cleared.

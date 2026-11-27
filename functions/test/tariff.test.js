@@ -136,14 +136,15 @@ test('a partial rate card is not a price (missing class is left out, never zero)
   assert.throws(() => T.quoteOneWay({ config: c, tariffClass: 'sedan', tripType: 'One Way', routeKm: 200, durationMin: 200, pickupMs: 0 }), /not configured/);
 });
 
-test('vehicle class matrix: 35 cells match the confirmed table', () => {
+test('vehicle class matrix: the 35 confirmed car cells, plus Auto and Bike serving only their own', () => {
   const expect = {
     sedan: ['sedan'], suv6: ['sedan', 'suv6'], suv7: ['sedan', 'suv6', 'suv7'], innova6: ['sedan', 'suv6', 'innova'],
     innova7: ['sedan', 'suv6', 'suv7', 'innova'], crysta6: ['sedan', 'suv6', 'innova', 'crysta'], crysta7: ['sedan', 'suv6', 'suv7', 'innova', 'crysta'],
+    auto: ['auto'], bike: ['bike'],
   };
   let cells = 0;
   for (const v of E.VEHICLE_CLASSES) for (const d of E.DUTY_CLASSES) { cells++; assert.equal(E.classAllows(v, d), expect[v].includes(d), `${v}→${d}`); }
-  assert.equal(cells, 35);
+  assert.equal(cells, 63); // 9 vehicle classes × 7 duty classes
 });
 
 test('seats are checked separately from the category label', () => {

@@ -1,9 +1,9 @@
 // The frame for everything before the workspace (sign-in, sign-up): a dark brand panel beside the form on tablets and
-// desktop browsers, the NESAM PARTNER lockup above the form on phones — the same structure as the NESAM Driver app.
+// desktop browsers, the one-line NESAM PARTNER logo above the form on phones — the same structure as the NESAM Driver app.
 import React from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../kit/Text';
-import { PartnerBanner } from './PartnerBanner';
+import { PartnerLockup } from './PartnerLockup';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { KeyboardAvoid } from '../KeyboardAvoid';
@@ -28,12 +28,7 @@ const FEATURES: { icon: IconName; title: string; text: string }[] = [
   { icon: 'wallet-outline', title: 'Every rupee accounted for', text: 'Earnings, statements, settlements and payouts in one wallet.' },
 ];
 
-/** The NESAM PARTNER banner (assets/brand/partner-banner.png). */
-export function PartnerBrand({ size = 1 }: { size?: number }) {
-  return <PartnerBanner height={Math.round(56 * size)} />;
-}
-
-export function AuthFrame({ children }: { children: React.ReactNode }) {
+export function AuthFrame({ children, footer }: { children: React.ReactNode; footer?: React.ReactNode }) {
   const { width } = useLayout();
   const split = width >= 820;
   return (
@@ -44,9 +39,9 @@ export function AuthFrame({ children }: { children: React.ReactNode }) {
             <View style={[styles.panel, { width: Math.min(520, Math.max(360, width * 0.42)) }]}>
               <View style={styles.ring} pointerEvents="none" />
               <View style={styles.ringSmall} pointerEvents="none" />
-              <View style={styles.brandCard}><PartnerBrand size={1.05} /></View>
+              <View style={styles.brandCard}><PartnerLockup /></View>
               <View style={{ flex: 1, justifyContent: 'center', paddingVertical: 32 }}>
-                <Text style={styles.headline}>Grow your fleet with NESAM.</Text>
+                <Text style={styles.headline}>Your fleet. Our network. One platform.</Text>
                 <Text style={styles.subline}>Accept duties, assign your team and track every settlement — on your phone or on the web.</Text>
                 <View style={{ marginTop: 34, gap: 22 }}>
                   {FEATURES.map((f) => (
@@ -66,11 +61,11 @@ export function AuthFrame({ children }: { children: React.ReactNode }) {
               </View>
             </View>
           ) : null}
-          <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.scroll, split && { justifyContent: 'center' }]} keyboardShouldPersistTaps="always" keyboardDismissMode="none" removeClippedSubviews={false}>
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="always" keyboardDismissMode="none" removeClippedSubviews={false}>
             <View style={styles.formCol}>
-              {split ? null : <View style={styles.phoneBrand}><PartnerBrand size={1.25} /></View>}
+              {split ? null : <View style={styles.phoneBrand}><PartnerLockup /></View>}
               {children}
-              <Text style={styles.legal}>{COPYRIGHT_HOLDER} · Built for every fleet.</Text>
+              {footer !== undefined ? footer : <Text style={styles.legal}>© {new Date().getFullYear()} {COPYRIGHT_HOLDER}. All rights reserved.</Text>}
             </View>
           </ScrollView>
         </View>
@@ -79,10 +74,15 @@ export function AuthFrame({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** White card holding one step of the form. */
+/** White card holding one step of the form, topped by the road from the NESAM emblem. */
 export function AuthCard({ children, eyebrow, title, subtitle }: { children: React.ReactNode; eyebrow?: string; title?: string; subtitle?: React.ReactNode }) {
   return (
     <View style={styles.card}>
+      <View style={styles.road} accessible={false}>
+        {Array.from({ length: 9 }, (_, i) => (
+          <View key={i} style={styles.lane} />
+        ))}
+      </View>
       {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
       {title ? <Text style={styles.title} accessibilityRole="header">{title}</Text> : null}
       {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
   panel: { backgroundColor: AUTH.panel, paddingHorizontal: 44, paddingTop: 40, paddingBottom: 30, overflow: 'hidden' },
   ring: { position: 'absolute', top: -90, right: -120, width: 360, height: 360, borderRadius: 180, borderWidth: 54, borderColor: 'rgba(255,255,255,0.035)' },
   ringSmall: { position: 'absolute', bottom: -70, left: -60, width: 200, height: 200, borderRadius: 100, borderWidth: 30, borderColor: 'rgba(198,40,40,0.18)' },
-  brandCard: { alignSelf: 'flex-start', backgroundColor: colors.white, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 16 },
+  brandCard: { alignSelf: 'stretch', alignItems: 'center', backgroundColor: colors.white, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 16 },
   headline: { fontFamily, fontSize: 38, lineHeight: 46, fontWeight: '700', letterSpacing: -1.4, color: colors.white },
   subline: { fontFamily, fontSize: 14, lineHeight: 23, color: AUTH.panelMuted, marginTop: 14, maxWidth: 400 },
   feature: { flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
@@ -106,10 +106,13 @@ const styles = StyleSheet.create({
   featureText: { fontFamily, fontSize: 12.5, lineHeight: 19, color: AUTH.panelMuted, marginTop: 3 },
   panelFoot: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   panelFootText: { fontFamily, fontSize: 10, letterSpacing: 0.3, color: AUTH.panelMuted },
-  scroll: { flexGrow: 1, paddingHorizontal: 18, paddingTop: 28, paddingBottom: 28 },
+  // Centred on every screen height; taller content simply scrolls.
+  scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 18, paddingVertical: 24 },
   formCol: { width: '100%', maxWidth: 440, alignSelf: 'center' },
-  phoneBrand: { alignItems: 'center', marginBottom: 26, marginTop: 6 },
-  card: { backgroundColor: colors.white, borderWidth: 1, borderColor: AUTH.line, borderRadius: 18, padding: 24, shadowColor: '#171B24', shadowOpacity: 0.05, shadowRadius: 22, shadowOffset: { width: 0, height: 8 }, elevation: 2 },
+  phoneBrand: { alignItems: 'center', marginBottom: 28 },
+  card: { backgroundColor: colors.white, borderWidth: 1, borderColor: AUTH.line, borderRadius: 18, padding: 24, paddingTop: 34, shadowColor: '#171B24', shadowOpacity: 0.05, shadowRadius: 22, shadowOffset: { width: 0, height: 8 }, elevation: 2 },
+  road: { position: 'absolute', top: 0, left: 0, right: 0, height: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-evenly', backgroundColor: '#121212', borderTopLeftRadius: 17, borderTopRightRadius: 17 },
+  lane: { width: 16, height: 2, backgroundColor: colors.primary },
   eyebrow: { fontFamily, fontSize: 10, fontWeight: '700', letterSpacing: 1.35, color: AUTH.muted, textTransform: 'uppercase', marginBottom: 6 },
   title: { fontFamily, fontSize: 23, fontWeight: '700', letterSpacing: -0.7, color: AUTH.ink },
   subtitle: { fontFamily, fontSize: 13, lineHeight: 21, color: AUTH.muted, marginTop: 6, marginBottom: 4 },

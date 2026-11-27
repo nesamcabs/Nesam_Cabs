@@ -1,0 +1,86 @@
+/* The look of Service & Fare Settings → Pickup & Drop / Hourly Rental. Everything is scoped to .lfx so the shared
+   localFares.css (also used by the Booking rules place picker) is left as it is. Layout and behaviour live there. */
+.lfx { --lfx-ink: #151a24; --lfx-ink-2: #232a38; --lfx-red: #b4182d; --lfx-line: #e8eaef; --lfx-soft: #f6f7f9; --lfx-muted: #717a8a; }
+
+/* ── Header: service switch, PIN search, location path, coverage ── */
+.lfx .lfx-hero { border: 1px solid var(--lfx-line); border-radius: 20px; background: #fff; box-shadow: 0 10px 30px -22px rgba(21, 26, 36, .45); }
+.lfx .lfx-hero__top { position: relative; padding: 16px 20px; border-radius: 19px 19px 0 0; background: var(--lfx-ink); color: #fff; }
+.lfx .lfx-hero__top::before { content: ""; position: absolute; left: 20px; right: 20px; bottom: 0; height: 3px; border-radius: 3px 3px 0 0;
+  background: repeating-linear-gradient(90deg, var(--lfx-red) 0 26px, transparent 26px 38px); }
+.lfx .lfx-title { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.lfx .lfx-title__icon { width: 40px; height: 40px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 12px; background: var(--lfx-red); color: #fff; }
+.lfx .lfx-title__text { font-size: 16px; font-weight: 800; letter-spacing: -.2px; color: #fff; line-height: 1.25; }
+.lfx .lfx-title__sub { font-size: 11px; font-weight: 600; color: #aab2c2; line-height: 1.4; }
+.lfx .lfx-hero__tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.lfx .lfx-switch { display: inline-flex; padding: 4px; border-radius: 12px; background: var(--lfx-ink-2); }
+.lfx .lfx-switch button { padding: 7px 14px; border-radius: 9px; font-size: 12px; font-weight: 700; color: #b8c0cf; transition: background-color .15s, color .15s; }
+.lfx .lfx-switch button:hover { color: #fff; }
+.lfx .lfx-switch button[aria-pressed="true"] { background: #fff; color: var(--lfx-red); }
+.lfx .lfx-search { height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-radius: 12px; border: 1px solid #353d4e; background: var(--lfx-ink-2); color: #8b94a6; }
+.lfx .lfx-search:focus-within { border-color: #fff; background: #fff; }
+.lfx .lfx-search input.lf-bare { color: #fff; }
+.lfx .lfx-search:focus-within input.lf-bare { color: #151a24; }
+
+/* The five choices read as one numbered path, state to PIN code. */
+.lfx .lfx-path { counter-reset: lfx-step; padding: 18px 20px 4px; }
+.lfx .lfx-step { counter-increment: lfx-step; min-width: 0; }
+.lfx .lfx-step .lf-label { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; text-transform: uppercase; font-size: 10px; font-weight: 800; letter-spacing: .6px; color: var(--lfx-muted); }
+.lfx .lfx-step .lf-label::before { content: counter(lfx-step); width: 17px; height: 17px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--lfx-ink); color: #fff; font-size: 9.5px; letter-spacing: 0; }
+.lfx .lfx-step .lf-label::after { content: ""; flex: 1; height: 1px; background: var(--lfx-line); }
+.lfx .lfx-coverage { margin: 12px 20px 16px; padding-top: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; border-top: 1px dashed #d9dde5; }
+
+/* ── Rate card ── */
+.lfx .lfx-card { background: #fff; border: 1px solid var(--lfx-line); border-radius: 20px; overflow: hidden; box-shadow: 0 10px 30px -22px rgba(21, 26, 36, .45); }
+.lfx .lfx-tabs { display: flex; flex-wrap: wrap; gap: 22px; padding: 0 20px; border-bottom: 1px solid var(--lfx-line); }
+.lfx .lfx-tabs button { position: relative; padding: 15px 2px 13px; font-size: 12.5px; font-weight: 700; color: var(--lfx-muted); }
+.lfx .lfx-tabs button:hover { color: var(--lfx-ink); }
+.lfx .lfx-tabs button[aria-selected="true"] { color: var(--lfx-ink); }
+.lfx .lfx-tabs button[aria-selected="true"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; border-radius: 3px 3px 0 0; background: var(--lfx-red); }
+
+.lfx .lfx-party { display: inline-flex; margin-left: auto; padding: 4px; gap: 4px; border-radius: 999px; background: var(--lfx-soft); border: 1px solid var(--lfx-line); }
+.lfx .lfx-party button { padding: 6px 16px; border-radius: 999px; font-size: 12px; font-weight: 700; color: var(--lfx-muted); }
+.lfx .lfx-party button[aria-pressed="true"] { background: var(--lfx-ink); color: #fff; }
+.lfx .lfx-party button[data-party="partner"][aria-pressed="true"] { background: #05603f; }
+
+.lfx .lfx-fleet { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
+.lfx .lfx-fleet button { display: inline-flex; flex-direction: column; align-items: center; gap: 5px; min-width: 74px; padding: 9px 10px 8px; border-radius: 14px; border: 1px solid var(--lfx-line); background: #fff; font-size: 11px; font-weight: 800; color: #4b5463; transition: border-color .15s, background-color .15s; }
+.lfx .lfx-fleet button:hover { border-color: #c3c8d2; }
+.lfx .lfx-fleet button[aria-pressed="true"] { background: var(--lfx-ink); border-color: var(--lfx-ink); color: #fff; }
+
+.lfx .lfx-glyph { width: 34px; height: 34px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 11px; background: var(--lfx-soft); color: #4b5463; }
+.lfx .lfx-fleet .lfx-glyph { width: 30px; height: 30px; }
+.lfx .lfx-fleet button[aria-pressed="true"] .lfx-glyph { background: var(--lfx-red); color: #fff; }
+
+.lfx .lfx-tablewrap { border: 1px solid var(--lfx-line); border-radius: 16px; }
+.lfx table.lf-table thead tr { background: var(--lfx-soft); }
+.lfx table.lf-table th { padding-top: 11px; padding-bottom: 11px; font-size: 9.5px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; color: var(--lfx-muted); }
+.lfx .lf-rental thead th { background: var(--lfx-soft); box-shadow: 0 1px 0 var(--lfx-line); }
+.lfx table.lf-table tbody tr { transition: background-color .12s; }
+.lfx table.lf-table tbody tr:hover { background: #fafbfc; }
+.lfx table.lf-table tbody tr.is-selected { background: #fff6f7; }
+.lfx table.lf-table tbody tr.is-selected td:first-child { box-shadow: inset 3px 0 0 var(--lfx-red); }
+.lfx table.lf-table tbody tr.is-selected .lfx-glyph { background: var(--lfx-red); color: #fff; }
+.lfx .lfx-vehicle { display: flex; align-items: center; gap: 10px; }
+.lfx table.lf-table input.lf-num { height: 34px; border-radius: 10px; background-color: var(--lfx-soft); border-color: transparent; text-align: center; font-variant-numeric: tabular-nums; }
+.lfx table.lf-table input.lf-num:hover:not(:disabled) { border-color: #cfd4de; }
+.lfx table.lf-table input.lf-num:focus { background-color: #fff; border-color: var(--lfx-red); box-shadow: 0 0 0 3px rgba(180, 24, 45, .12); }
+.lfx .lfx-hours { display: inline-flex; align-items: center; justify-content: center; min-width: 58px; padding: 6px 8px; border-radius: 9px; background: var(--lfx-soft); font-weight: 800; color: var(--lfx-ink); white-space: nowrap; }
+.lfx table.lf-table tbody tr.is-selected .lfx-hours { background: var(--lfx-ink); color: #fff; }
+
+/* ── Test quote: a printed fare slip ── */
+.lfx .lfx-slip { background: #fff; border: 1px solid var(--lfx-line); border-radius: 20px; box-shadow: 0 10px 30px -22px rgba(21, 26, 36, .45); }
+.lfx .lfx-slip__head { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-radius: 19px 19px 0 0; background: var(--lfx-ink); color: #fff; }
+.lfx .lfx-slip__head h2 { color: #fff; }
+.lfx .lfx-slip__body { padding: 16px 18px 18px; }
+.lfx .lfx-receipt { position: relative; margin-top: 4px; padding: 16px 14px 14px; border-radius: 14px; background: #fffdf7; border: 1px solid #ece6d6; }
+.lfx .lfx-receipt::before { content: ""; position: absolute; left: 12px; right: 12px; top: -1px; border-top: 2px dashed #cfc6ab; }
+.lfx .lfx-total { padding-top: 10px; border-top: 2px dashed #d8d0b8; display: flex; justify-content: space-between; align-items: center; }
+.lfx .lfx-total__amount { font-size: 24px; font-weight: 800; letter-spacing: -.5px; color: var(--lfx-red); font-variant-numeric: tabular-nums; }
+
+/* ── Save bar ── */
+.lfx .lfx-savebar { background: rgba(21, 26, 36, .97); border: 1px solid #2c3445; border-radius: 18px; padding: 12px 18px; box-shadow: 0 18px 40px -18px rgba(21, 26, 36, .7); }
+.lfx .lfx-savebar__title { color: #fff; font-weight: 700; }
+.lfx .lfx-savebar input.lf-text { background-color: var(--lfx-ink-2); border-color: #384155; color: #fff; }
+.lfx .lfx-savebar input.lf-text::placeholder { color: #8b94a6; }
+.lfx .lfx-savebar input.lf-text:focus { border-color: #fff; }
+.lfx .lfx-savebar input.lf-text:disabled { background-color: var(--lfx-ink-2); color: #8b94a6; -webkit-text-fill-color: #8b94a6; }

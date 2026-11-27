@@ -319,3 +319,16 @@ test('a coupon discount and a price change apply to the ride, not to the pass-th
   const up = priceBooking(ride({ adjustment: { id: 'a', name: 'Festival', direction: 'increase', percent: 10 }, localFare: context({ toll: 85 }) }));
   assert.equal(up.fare.taxableAmount, 349);
 });
+
+test('Auto and Bike are local-only vehicles that only their own partners can serve', () => {
+  const E = require('../lib/domain/eligibility');
+  for (const n of ['Auto', 'AUTO (3+1)', 'Auto Rickshaw', 'E-Auto']) assert.equal(L.localOnlyClassOf(n), 'auto', n);
+  for (const n of ['Bike', 'Bike Taxi', 'Scooter', 'Two Wheeler']) assert.equal(L.localOnlyClassOf(n), 'bike', n);
+  for (const n of ['Sedan', 'Swift Dzire Automatic', 'Sedan Auto', 'Innova Crysta', 'SUV']) assert.equal(L.localOnlyClassOf(n), null, n);
+  assert.equal(E.dutyClassOf({ name: 'Auto', seats: 3 }), 'auto');
+  assert.equal(E.vehicleClassOf({ category: 'Bike', seatingCapacity: 1 }), 'bike');
+  assert.equal(E.classAllows('sedan', 'auto'), false);
+  assert.equal(E.classAllows('crysta7', 'bike'), false);
+  assert.equal(E.classAllows('auto', 'sedan'), false);
+  assert.equal(E.classAllows('auto', 'auto'), true);
+});

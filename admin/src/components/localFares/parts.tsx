@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { ChevronDown } from "lucide-react";
+import { Bike, Car, CarFront, CarTaxiFront, ChevronDown } from "lucide-react";
 
 /** A rate box: blank means 0 / not set. What is being typed is kept until the box is left, so "1." can be typed. */
 export function NumberBox({ value, onChange, label, className = "", integer, disabled, placeholder = "0", step, max }: {
@@ -40,6 +40,12 @@ export function Accordion({ open, onToggle, icon, title, badge, children }: { op
       {open && <div className="border-t border-slate-100">{children}</div>}
     </div>
   );
+}
+
+/** The picture beside a vehicle's name. */
+export function VehicleGlyph({ cls }: { cls: string }) {
+  const Glyph = cls === "bike" ? Bike : cls === "auto" ? CarTaxiFront : cls === "hatchback" || cls === "sedan" ? Car : CarFront;
+  return <span className="lfx-glyph" aria-hidden="true"><Glyph className="w-4 h-4" /></span>;
 }
 
 export const rupees = (n: number): string => `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;

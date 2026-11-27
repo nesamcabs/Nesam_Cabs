@@ -1,18 +1,22 @@
-// The NESAM PARTNER banner (docs/images/vendor.png, background removed and optimised into assets/brand/partner-banner.png).
+// The one-line NESAM PARTNER logo for the app header and sidebar (assets/brand/partner-header.webp).
 import React from 'react';
-import { Image } from 'react-native';
+import { Image, View } from 'react-native';
 
-/** Width ÷ height of the cropped banner artwork. */
-export const BANNER_RATIO = 2.974;
+/** Width ÷ height of the artwork. */
+export const BANNER_RATIO = 1200 / 169;
 
-export function PartnerBanner({ height = 48 }: { height?: number }) {
+/** `height` high, scaling down when space is tight. */
+export function PartnerBanner({ height = 29 }: { height?: number }) {
+  const width = Math.round(height * BANNER_RATIO);
   return (
-    <Image
-      source={require('../../../assets/brand/partner-banner.png')}
-      style={{ height, width: Math.round(height * BANNER_RATIO) }}
-      resizeMode="contain"
-      accessibilityRole="image"
-      accessibilityLabel="NESAM Partner"
-    />
+    <View style={{ width, maxWidth: '100%', aspectRatio: BANNER_RATIO, flexShrink: 1 }}>
+      <Image
+        source={require('../../../assets/brand/partner-header.webp')}
+        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+        resizeMode="contain"
+        accessibilityRole="image"
+        accessibilityLabel="NESAM Partner"
+      />
+    </View>
   );
 }

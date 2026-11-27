@@ -41,12 +41,13 @@ export default function TestQuote({ service, district, fares, brand, geo, settin
   };
 
   return (
-    <aside className="lf-aside bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-4" aria-label="Test quote">
-      <div className="flex items-center gap-2">
-        <div className="w-7 h-7 rounded-lg bg-red-50 text-[#991B1B] flex items-center justify-center"><Calculator className="w-4 h-4" /></div>
-        <h2 className="text-sm font-bold text-slate-900">Test quote</h2>
-        {unsaved && <span className="ml-auto px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">Includes unsaved changes</span>}
+    <aside className="lf-aside lfx-slip" aria-label="Test quote">
+      <div className="lfx-slip__head">
+        <Calculator className="w-4 h-4 text-red-300" />
+        <h2 className="text-sm font-bold">Test quote</h2>
+        {unsaved && <span className="ml-auto px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-300 text-slate-900">Includes unsaved changes</span>}
       </div>
+      <div className="lfx-slip__body space-y-4">
 
       <div className="space-y-3 text-xs">
         <label className="block"><span className="lf-label">Pickup area</span>
@@ -106,7 +107,7 @@ export default function TestQuote({ service, district, fares, brand, geo, settin
         <div className="flex justify-between gap-3"><dt className="text-slate-500">Applied rate</dt><dd className="font-bold text-[#991B1B] text-right">{result?.ok ? result.rateLabel : "—"}</dd></div>
       </dl>
 
-      <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-2 text-xs" aria-live="polite">
+      <div className="lfx-receipt space-y-2 text-xs" aria-live="polite">
         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Customer Quote Breakdown</p>
         {!result ? <p className="text-slate-500">Loading areas…</p> : !result.ok ? <p className="font-semibold text-amber-800">{result.message}</p> : (
           <>
@@ -123,12 +124,13 @@ export default function TestQuote({ service, district, fares, brand, geo, settin
               <span>GST ({settings.gst.percent}%{settings.gst.mode === "included" ? ", included" : ""})</span>
               <span className="font-semibold text-slate-900">{settings.gst.mode === "included" ? "" : "+"}{rupees(result.gst)}</span>
             </div>
-            <div className="pt-2 border-t border-slate-200 flex justify-between items-baseline">
+            <div className="lfx-total">
               <span className="font-bold text-slate-900">Estimated Total</span>
-              <span className="text-lg font-extrabold text-[#991B1B]">{rupees(result.total)}</span>
+              <span className="lfx-total__amount">{rupees(result.total)}</span>
             </div>
           </>
         )}
+      </div>
       </div>
     </aside>
   );

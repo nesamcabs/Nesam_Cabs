@@ -1,36 +1,31 @@
 // Welcome → mobile number → OTP (Firebase phone auth, same flow as the Customer app), in the NESAM Driver design.
 import React, { useEffect, useRef, useState } from 'react';
-import { BackHandler, Pressable, StyleSheet, View } from 'react-native';
+import { BackHandler, Linking, Pressable, StyleSheet, View } from 'react-native';
 import { Text, TextInput } from '../../components/nx/Text';
 import type { ConfirmationResult } from 'firebase/auth';
 import { AuthCard, AuthFrame } from '../../components/AuthFrame';
-import { NxIcon, type NxIconName } from '../../components/nx/Icon';
+import { NxIcon } from '../../components/nx/Icon';
 import { NxButton, NxFormError, NxInfo, NxTextButton, isHovered } from '../../components/nx/primitives';
 import { useRecaptchaVerifier } from '../../components/RecaptchaVerifier';
 import { confirmOtpCode, describePhoneAuthError, sendOtpToPhone } from '../../services/authService';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 import { formatPhone, isValidIndianMobile } from '../../utils/format';
 import { nx } from '../../theme/nx';
+import { SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY } from '../../config/constants';
 import { setAuthIntent, type AuthIntent } from './authIntent';
 
 const RESEND_COOLDOWN_S = 30;
 
-function Choice({ icon, title, text, onPress, primary }: { icon: NxIconName; title: string; text: string; onPress: () => void; primary?: boolean }) {
+function Choice({ title, onPress, primary }: { title: string; onPress: () => void; primary?: boolean }) {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${title}. ${text}`}
-      style={(s) => [styles.choice, primary && styles.choicePrimary, isHovered(s) && { borderColor: primary ? nx.redDark : '#D4D7DE' }, s.pressed && { opacity: 0.9 }]}
+      accessibilityLabel={title}
+      style={(s) => [styles.choice, primary && styles.choicePrimary, isHovered(s) && primary && { backgroundColor: nx.redDark }, s.pressed && { opacity: 0.9 }]}
     >
-      <View style={[styles.choiceIcon, primary && { backgroundColor: 'rgba(255,255,255,0.16)' }]}>
-        <NxIcon name={icon} size={20} color={primary ? nx.white : nx.red} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.choiceTitle, primary && { color: nx.white }]}>{title}</Text>
-        <Text style={[styles.choiceText, primary && { color: 'rgba(255,255,255,0.82)' }]}>{text}</Text>
-      </View>
-      <NxIcon name="arrow" size={18} color={primary ? nx.white : nx.muted} />
+      <Text style={[styles.choiceTitle, primary && { color: nx.white }]}>{title}</Text>
+      <NxIcon name="arrow" size={18} color={primary ? nx.white : nx.ink} />
     </Pressable>
   );
 }
@@ -122,14 +117,26 @@ export function AuthScreen() {
 
   if (step === 'welcome') {
     return (
-      <AuthFrame>
-        <AuthCard eyebrow="NESAM Driver Partner" title="Welcome, partner." subtitle="Sign in to see your duties, trips and earnings.">
-          <View style={{ gap: 12, marginTop: 20 }}>
-            <Choice icon="user" title="Login" text="I’m a registered NESAM driver" onPress={() => start('login')} primary />
-            <Choice icon="plus" title="Sign up as a new driver" text="Register your licence and vehicle" onPress={() => start('signup')} />
+      <AuthFrame footer={null}>
+        <AuthCard title="Welcome, Partner">
+          <View style={{ gap: 12, marginTop: 22 }}>
+            <Choice title="Sign In" onPress={() => start('login')} primary />
+            <Choice title="Register as a Driver" onPress={() => start('signup')} />
           </View>
           {!online ? <NxInfo tone="amber">You’re offline. Connect to the internet to sign in.</NxInfo> : null}
-          <Text style={styles.terms}>By continuing you agree to NESAM’s Terms & Conditions and Privacy Policy.</Text>
+          <Pressable onPress={() => void Linking.openURL(`tel:${SUPPORT_PHONE}`)} accessibilityRole="button" accessibilityLabel={`Call partner support on ${SUPPORT_PHONE_DISPLAY}`} style={styles.support}>
+            <NxIcon name="phone" size={15} color={nx.red} />
+            <Text style={styles.supportNumber}>{SUPPORT_PHONE_DISPLAY}</Text>
+          </Pressable>
+          <View style={styles.legalRule} accessible={false}>
+            <View style={styles.legalLine} />
+            <NxIcon name="shield" size={14} color={nx.subtle} />
+            <View style={styles.legalLine} />
+          </View>
+          <Text style={styles.termsLead}>By continuing, you agree to NESAM’s</Text>
+          <Text style={styles.termsDocs}>
+            Terms & Conditions <Text style={styles.termsDot}>•</Text> Privacy Policy
+          </Text>
         </AuthCard>
       </AuthFrame>
     );
@@ -227,12 +234,16 @@ export function AuthScreen() {
 }
 
 const styles = StyleSheet.create({
-  choice: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 74, paddingHorizontal: 16, paddingVertical: 14, borderRadius: 14, borderWidth: 1, borderColor: nx.line, backgroundColor: nx.white },
+  choice: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: 56, paddingHorizontal: 20, borderRadius: 12, borderWidth: 1.5, borderColor: nx.ink, backgroundColor: nx.white },
   choicePrimary: { backgroundColor: nx.tripRed, borderColor: nx.tripRed },
-  choiceIcon: { width: 42, height: 42, borderRadius: 12, backgroundColor: nx.redSoft, alignItems: 'center', justifyContent: 'center' },
-  choiceTitle: { fontSize: 14.5, fontWeight: '700', color: nx.ink },
-  choiceText: { fontSize: 12, color: nx.muted, marginTop: 2 },
-  terms: { fontSize: 11, lineHeight: 17, color: nx.muted, textAlign: 'center', marginTop: 20 },
+  choiceTitle: { fontSize: 15, fontWeight: '700', color: nx.ink },
+  support: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, minHeight: 40, marginTop: 14 },
+  supportNumber: { fontSize: 13, fontWeight: '700', color: nx.ink },
+  legalRule: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10, marginBottom: 10 },
+  legalLine: { flex: 1, height: 1, backgroundColor: nx.line },
+  termsLead: { fontSize: 11, lineHeight: 16, color: nx.muted, textAlign: 'center' },
+  termsDocs: { fontSize: 11.5, lineHeight: 18, fontWeight: '600', letterSpacing: 0.1, color: nx.ink, textAlign: 'center', marginTop: 2 },
+  termsDot: { color: nx.red },
   label: { fontSize: 12, fontWeight: '600', color: nx.ink, marginTop: 20 },
   phoneField: { flexDirection: 'row', alignItems: 'center', minHeight: 54, marginTop: 8, borderWidth: 1, borderColor: nx.fieldLine, borderRadius: 12, backgroundColor: nx.white, paddingHorizontal: 14 },
   prefix: { fontSize: 16, fontWeight: '700', color: nx.red },

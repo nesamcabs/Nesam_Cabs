@@ -8,7 +8,7 @@ import { Icon } from '@/components/Icon';
 import { useBooking } from '@/state/Booking';
 import { ASSURANCE, CORRIDORS, DESTINATIONS, FAQS, FEATURES, IMG, MORE_CORRIDORS, SERVICES, STEPS, type Corridor, type Destination, type Service } from './content';
 import { findRouteBySlug } from '../routes/routesData';
-import { categoryName, categoryPhoto } from '@/lib/categories';
+import { categoryName, categoryPhoto, isLocalOnlyCategory } from '@/lib/categories';
 
 function SectionHead({ eyebrow, title, text, action, id }: { eyebrow: string; title: string; text?: string; action?: React.ReactNode; id?: string }) {
   return (
@@ -194,7 +194,7 @@ const FALLBACK_FLEET = [
 
 export function FleetSection({ onPick }: { onPick: () => void }) {
   const { categories } = useBooking();
-  const live = categories.slice(0, 8);
+  const live = categories.filter((c) => !isLocalOnlyCategory(c)).slice(0, 8);
   return (
     <section className="band band--paper" aria-labelledby="sec-fleet">
       <div className="wrap">

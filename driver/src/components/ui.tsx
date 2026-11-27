@@ -6,7 +6,7 @@ import { SafeAreaView, Edge } from 'react-native-safe-area-context';
 import { KeyboardAvoid } from './KeyboardAvoid';
 import { colors, radius, space, type } from '../theme';
 import { initials } from '../utils/format';
-import { NxBrand } from './nx/Brand';
+import { NxLogo } from './nx/Brand';
 
 // ── Layout ──────────────────────────────────────────────────────────────────
 
@@ -254,7 +254,7 @@ export function Notice({
 export function FullScreenLoader({ label }: { label?: string }) {
   return (
     <View style={styles.center}>
-      <NxBrand size="large" />
+      <NxLogo maxWidth={320} />
       <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: space.xl }} />
       <Text style={[type.small, { marginTop: space.md }]}>{label ?? 'Loading NESAM Driver…'}</Text>
     </View>

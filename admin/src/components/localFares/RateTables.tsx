@@ -1,7 +1,7 @@
 import type { LocalClass, LocalRuleField, Party, RentalRowField, Scope } from "../../domain/localPricing";
 import { LOCAL_HOURS } from "../../domain/localPricing";
 import { clearRow, clearRules, editRow, editRule, readRow, readRule, sourceLabel, unpairedRules, type Cell, type EditContext, type Level } from "./model";
-import { NumberBox } from "./parts";
+import { NumberBox, VehicleGlyph } from "./parts";
 
 export interface LocalVehicle { cls: LocalClass; name: string; subtitle: string }
 
@@ -29,7 +29,7 @@ export function RideTable({ context, vehicles, levels, party, tab, canEdit, sele
   const unpaired = unpairedRules(context, levels, vehicles.map((v) => v.cls));
   return (
     <>
-      <div className="overflow-x-auto border border-slate-200/80 rounded-xl">
+      <div className="overflow-x-auto lfx-tablewrap">
         <table className="w-full text-left border-collapse lf-table">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50/90 text-[10px] font-bold uppercase tracking-wider text-slate-400">
@@ -47,11 +47,16 @@ export function RideTable({ context, vehicles, levels, party, tab, canEdit, sele
               // "Clear" removes both sides typed here, so a vehicle never keeps a half override.
               const shown = cell.own === "none" && other.own !== "none" ? { ...cell, own: other.own } : cell;
               return (
-                <tr key={v.cls} onClick={() => onSelect(v.cls)} className={`cursor-pointer transition-colors ${selected === v.cls ? "bg-red-50/25" : "hover:bg-slate-50/80"}`}>
+                <tr key={v.cls} onClick={() => onSelect(v.cls)} className={`cursor-pointer ${selected === v.cls ? "is-selected" : ""}`}>
                   <td>
-                    <p className="font-bold text-slate-900">{v.name}</p>
-                    <p className="text-[10px] text-slate-400">{v.subtitle}</p>
-                    {unpaired.includes(v.cls) ? <p className="text-[10px] font-semibold text-amber-700">Needs customer fare and payout</p> : null}
+                    <div className="lfx-vehicle">
+                      <VehicleGlyph cls={v.cls} />
+                      <div className="min-w-0">
+                        <p className="font-bold text-slate-900">{v.name}</p>
+                        <p className="text-[10px] text-slate-400">{v.subtitle}</p>
+                        {unpaired.includes(v.cls) ? <p className="text-[10px] font-semibold text-amber-700">Needs customer fare and payout</p> : null}
+                      </div>
+                    </div>
                   </td>
                   <td>{box("minimumFare", "minimum fare", "w-16")}</td>
                   <td>{box("baseFare", "base fare", "w-16")}</td>
@@ -83,7 +88,7 @@ export function RentalTable({ context, levels, vehicle, tab, canEdit, selectedHo
   selectedHours: number; onSelectHours: (h: number) => void; onChange: (next: EditContext["mine"]) => void;
 }) {
   return (
-    <div className="overflow-auto border border-slate-200/80 rounded-xl max-h-[430px]">
+    <div className="overflow-auto lfx-tablewrap max-h-[430px]">
       <table className="w-full text-left border-collapse lf-table lf-rental">
         <thead>
           <tr className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
@@ -98,8 +103,8 @@ export function RentalTable({ context, levels, vehicle, tab, canEdit, selectedHo
                 placeholder={cell.mixed.includes(field) ? "Mixed" : "0"} value={cell.value[field]} onChange={(n) => onChange(editRow(context, vehicle.cls, h, levels, field, n))} />
             );
             return (
-              <tr key={h} onClick={() => onSelectHours(h)} className={`cursor-pointer transition-colors ${selectedHours === h ? "bg-red-50/30" : "hover:bg-slate-50/80"}`}>
-                <td className="font-bold text-slate-900 whitespace-nowrap">{h} {h === 1 ? "hour" : "hours"}</td>
+              <tr key={h} onClick={() => onSelectHours(h)} className={`cursor-pointer ${selectedHours === h ? "is-selected" : ""}`}>
+                <td><span className="lfx-hours">{h} {h === 1 ? "hour" : "hours"}</span></td>
                 <td>{box("customerFare", "customer fare", "w-20")}</td>
                 <td>{box("partnerPayout", "partner payout", "w-20 lf-green")}</td>
                 <td>{box("includedKm", "included km", "w-16")}</td>

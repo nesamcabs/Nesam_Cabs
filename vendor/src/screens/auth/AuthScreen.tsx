@@ -1,7 +1,7 @@
 // Welcome → mobile number → OTP (Firebase phone auth, same flow as the Driver and Customer apps), in the NESAM Driver
 // sign-in design: brand panel on wide screens, choice tiles, +91 field and a single large OTP box.
 import React, { useEffect, useRef, useState } from 'react';
-import { BackHandler, Pressable, StyleSheet, View } from 'react-native';
+import { BackHandler, Linking, Pressable, StyleSheet, View } from 'react-native';
 import { Text, TextInput } from '../../components/kit/Text';
 import { Ionicons } from '@expo/vector-icons';
 import type { ConfirmationResult } from 'firebase/auth';
@@ -12,32 +12,26 @@ import { confirmOtpCode, describePhoneAuthError, sendOtpToPhone } from '../../se
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 import { formatPhone, isValidIndianMobile } from '../../utils/format';
 import { colors, fontFamily } from '../../theme';
+import { SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY } from '../../config/constants';
 import { setAuthIntent, type AuthIntent } from './authIntent';
 
 const RESEND_COOLDOWN_S = 30;
 
-function Choice({ icon, title, text, onPress, primary }: { icon: IconName; title: string; text: string; onPress: () => void; primary?: boolean }) {
+function Choice({ title, onPress, primary }: { title: string; onPress: () => void; primary?: boolean }) {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${title}. ${text}`}
+      accessibilityLabel={title}
       style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
         styles.choice,
         primary && styles.choicePrimary,
-        hovered && { borderColor: primary ? colors.primaryDark : '#D8DFE9' },
         hovered && primary && { backgroundColor: colors.primaryDark },
         pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] },
       ]}
     >
-      <View style={[styles.choiceIcon, primary && { backgroundColor: 'rgba(255,255,255,0.16)' }]}>
-        <Ionicons name={icon} size={20} color={primary ? colors.white : colors.primary} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.choiceTitle, primary && { color: colors.white }]}>{title}</Text>
-        <Text style={[styles.choiceText, primary && { color: 'rgba(255,255,255,0.82)' }]}>{text}</Text>
-      </View>
-      <Ionicons name="arrow-forward" size={18} color={primary ? colors.white : AUTH.muted} />
+      <Text style={[styles.choiceTitle, primary && { color: colors.white }]}>{title}</Text>
+      <Ionicons name="arrow-forward" size={18} color={primary ? colors.white : AUTH.ink} />
     </Pressable>
   );
 }
@@ -141,14 +135,26 @@ export function AuthScreen() {
 
   if (step === 'welcome') {
     return (
-      <AuthFrame>
-        <AuthCard eyebrow="NESAM Fleet Partner" title="Welcome, partner." subtitle="Sign in to manage your duties, drivers, vehicles and earnings.">
-          <View style={{ gap: 12, marginTop: 20 }}>
-            <Choice icon="person-outline" title="Login" text="I’m a registered NESAM fleet partner" onPress={() => start('login')} primary />
-            <Choice icon="add" title="Sign up as a fleet partner" text="Onboard your travel agency or fleet" onPress={() => start('signup')} />
+      <AuthFrame footer={null}>
+        <AuthCard title="Welcome, Partner">
+          <View style={{ gap: 12, marginTop: 22 }}>
+            <Choice title="Sign In" onPress={() => start('login')} primary />
+            <Choice title="Register Your Fleet" onPress={() => start('signup')} />
           </View>
           {!online ? <Notice tone="amber" icon="cloud-offline-outline" title="You’re offline" text="Connect to the internet to sign in." style={{ marginTop: 16 }} /> : null}
-          <Text style={styles.terms}>By continuing you agree to NESAM’s Terms & Conditions and Privacy Policy.</Text>
+          <Pressable onPress={() => void Linking.openURL(`tel:${SUPPORT_PHONE}`)} accessibilityRole="button" accessibilityLabel={`Call partner support on ${SUPPORT_PHONE_DISPLAY}`} style={styles.support}>
+            <Ionicons name="call-outline" size={15} color={colors.primary} />
+            <Text style={styles.supportNumber}>{SUPPORT_PHONE_DISPLAY}</Text>
+          </Pressable>
+          <View style={styles.legalRule} accessible={false}>
+            <View style={styles.legalLine} />
+            <Ionicons name="shield-checkmark-outline" size={14} color={AUTH.muted} />
+            <View style={styles.legalLine} />
+          </View>
+          <Text style={styles.termsLead}>By continuing, you agree to NESAM’s</Text>
+          <Text style={styles.termsDocs}>
+            Terms & Conditions <Text style={styles.termsDot}>•</Text> Privacy Policy
+          </Text>
         </AuthCard>
       </AuthFrame>
     );
@@ -237,12 +243,16 @@ export function AuthScreen() {
 }
 
 const styles = StyleSheet.create({
-  choice: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 74, paddingHorizontal: 16, paddingVertical: 14, borderRadius: 14, borderWidth: 1, borderColor: AUTH.line, backgroundColor: colors.white },
+  choice: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: 56, paddingHorizontal: 20, borderRadius: 12, borderWidth: 1.5, borderColor: AUTH.ink, backgroundColor: colors.white },
   choicePrimary: { backgroundColor: colors.primary, borderColor: colors.primary },
-  choiceIcon: { width: 42, height: 42, borderRadius: 12, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
-  choiceTitle: { fontFamily, fontSize: 14.5, fontWeight: '700', color: AUTH.ink },
-  choiceText: { fontFamily, fontSize: 12, color: AUTH.muted, marginTop: 2 },
-  terms: { fontFamily, fontSize: 11, lineHeight: 17, color: AUTH.muted, textAlign: 'center', marginTop: 20 },
+  choiceTitle: { fontFamily, fontSize: 15, fontWeight: '700', color: AUTH.ink },
+  support: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, minHeight: 40, marginTop: 14 },
+  supportNumber: { fontFamily, fontSize: 13, fontWeight: '700', color: AUTH.ink },
+  legalRule: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10, marginBottom: 10 },
+  legalLine: { flex: 1, height: 1, backgroundColor: AUTH.fieldLine },
+  termsLead: { fontFamily, fontSize: 11, lineHeight: 16, color: AUTH.muted, textAlign: 'center' },
+  termsDocs: { fontFamily, fontSize: 11.5, lineHeight: 18, fontWeight: '600', letterSpacing: 0.1, color: AUTH.ink, textAlign: 'center', marginTop: 2 },
+  termsDot: { color: colors.primary },
   label: { fontFamily, fontSize: 12, fontWeight: '600', color: AUTH.ink, marginTop: 20 },
   phoneField: { flexDirection: 'row', alignItems: 'center', minHeight: 54, marginTop: 8, marginBottom: 4, borderWidth: 1, borderColor: AUTH.fieldLine, borderRadius: 12, backgroundColor: colors.white, paddingHorizontal: 14 },
   fieldFocus: { borderColor: '#C3C8D0', shadowColor: colors.primary, shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 0 } },

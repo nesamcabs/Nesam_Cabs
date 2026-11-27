@@ -11,7 +11,9 @@ import { ActionError } from "../../services/callables";
 import { useCan, useCanDo } from "../AccessContext";
 import { editedLevels, faresProblem, sameData, suggestedZones, tamilNameOf, type EditContext } from "./model";
 import { RentalTable, RideTable, type LocalVehicle } from "./RateTables";
+import "./localFaresPage.css";
 import LocationBar, { type PinOption } from "./LocationBar";
+import { VehicleGlyph } from "./parts";
 import ZoneManager from "./ZoneManager";
 import SharedSections, { type AreaOption } from "./SharedSections";
 import TestQuote from "./TestQuote";
@@ -265,7 +267,7 @@ export default function LocalPricingManager({ brand, mode, vehicles, onModeChang
   const ride = mode === "pickup_drop";
 
   return (
-    <div className="lf-root space-y-4 text-slate-900">
+    <div className="lf-root lfx space-y-4 text-slate-900">
       {loadError && <p className="ds-error" role="alert"><CircleAlert className="w-4 h-4" /> Saved fares could not be loaded: {loadError}. Check your pricing access and reload.</p>}
       {placesError && (
         <p className="ds-error" role="alert"><CircleAlert className="w-4 h-4" /> The area list could not be loaded.
@@ -279,11 +281,11 @@ export default function LocalPricingManager({ brand, mode, vehicles, onModeChang
 
       <LocationBar state={state} district={district} zoneId={shownZone} areaKey={area?.key ?? ""} pin={area?.pin ?? filter} geo={geo} byDistrict={stateData?.areas ?? {}} listed={listed} pins={pinOptions}
         areaLabel={areaLabel} loading={!stateData && !placesError} coverage={resolveCoverage(all, brand)} canEdit={canEdit}
+        rental={!ride} title={{ name: ride ? "Local Pickup & Drop" : "Hourly Rental", sub: `${BRAND_NAME[brand]} · ${district} district` }}
         lead={(
-          <div className="inline-flex self-start p-1 rounded-xl bg-slate-100 border border-slate-200" role="group" aria-label="Local service">
+          <div className="lfx-switch self-start" role="group" aria-label="Local service">
             {([["pickup_drop", "Local Pickup & Drop"], ["hourly_rental", "Hourly Rental (1–15h)"]] as const).map(([id, label]) => (
-              <button key={id} type="button" aria-pressed={mode === id} disabled={busy} onClick={() => onModeChange(id)}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${mode === id ? "bg-white text-[#991B1B] shadow-2xs" : "text-slate-600 hover:text-slate-900"}`}>{label}</button>
+              <button key={id} type="button" aria-pressed={mode === id} disabled={busy} onClick={() => onModeChange(id)}>{label}</button>
             ))}
           </div>
         )}
@@ -305,11 +307,10 @@ export default function LocalPricingManager({ brand, mode, vehicles, onModeChang
 
       <div className="lf-main">
         <div className="space-y-4 min-w-0">
-          <section className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden" aria-label={ride ? "Pickup and Drop rates" : "Hourly rental packages"}>
-            <div className="px-5 pt-3 border-b border-slate-200 bg-slate-50/60 flex items-center gap-1.5 flex-wrap" role="tablist" aria-label="Rate level">
+          <section className="lfx-card" aria-label={ride ? "Pickup and Drop rates" : "Hourly rental packages"}>
+            <div className="lfx-tabs" role="tablist" aria-label="Rate level">
               {tabs.map((t) => (
-                <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
-                  className={`px-4 py-2 rounded-t-xl text-xs font-bold transition-all ${tab === t.id ? "bg-[#991B1B] text-white shadow-2xs" : "text-slate-600 hover:text-slate-900 hover:bg-white/70"}`}>{t.label}</button>
+                <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}>{t.label}</button>
               ))}
             </div>
 
@@ -317,17 +318,15 @@ export default function LocalPricingManager({ brand, mode, vehicles, onModeChang
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h3 className="text-sm font-bold text-slate-900" aria-live="polite">{!loaded && !loadError && !placesError ? <span className="text-slate-400 font-semibold">Loading saved fares…</span> : editing}</h3>
                 {ride ? (
-                  <div className="inline-flex p-1 rounded-xl bg-slate-100 border border-slate-200/80 ml-auto" role="group" aria-label="Fare side">
+                  <div className="lfx-party" role="group" aria-label="Fare side">
                     {([["customer", "Customer fare"], ["partner", "Partner payout"]] as const).map(([id, label]) => (
-                      <button key={id} type="button" aria-pressed={party === id} onClick={() => setParty(id)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${party === id ? "bg-white text-[#991B1B] shadow-2xs" : "text-slate-600 hover:text-slate-900"}`}>{label}</button>
+                      <button key={id} type="button" data-party={id} aria-pressed={party === id} onClick={() => setParty(id)}>{label}</button>
                     ))}
                   </div>
                 ) : (
-                  <div className="flex items-center gap-1.5 flex-wrap ml-auto" role="group" aria-label="Vehicle">
+                  <div className="lfx-fleet" role="group" aria-label="Vehicle">
                     {vehicles.map((v) => (
-                      <button key={v.cls} type="button" aria-pressed={cls === v.cls} onClick={() => setPicked(v.cls)}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${cls === v.cls ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200/70"}`}>{v.name}</button>
+                      <button key={v.cls} type="button" aria-pressed={cls === v.cls} onClick={() => setPicked(v.cls)}><VehicleGlyph cls={v.cls} />{v.name}</button>
                     ))}
                   </div>
                 )}
@@ -363,7 +362,7 @@ export default function LocalPricingManager({ brand, mode, vehicles, onModeChang
           cls={cls} areaKey={testArea} hours={hours} platform={platform.value} night={night.value} unsaved={dirty} onCls={setPicked} onArea={setTestArea} onHours={setHours} />
       </div>
 
-      <footer className="lf-footer bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl px-4 sm:px-5 py-3 shadow-lg">
+      <footer className="lf-footer lfx-savebar">
         {banner && (
           <div role={banner.ok ? "status" : "alert"} className={`mb-2 flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium ${banner.ok ? "bg-slate-900 text-white" : "bg-red-50 text-[#991B1B] border border-red-200"}`}>
             {banner.ok ? <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> : <CircleAlert className="w-4 h-4 shrink-0" />}
@@ -372,13 +371,13 @@ export default function LocalPricingManager({ brand, mode, vehicles, onModeChang
         )}
         <div className="lf-between gap-3">
           <div className="text-xs">
-            <p className="font-bold text-slate-900">{BRAND_NAME[brand]} · {ride ? "Pickup & Drop" : "Hourly Rental"} · {district}</p>
-            {dirty && <p className="text-[11px] font-semibold text-amber-700">Unsaved changes</p>}
+            <p className="lfx-savebar__title">{BRAND_NAME[brand]} · {ride ? "Pickup & Drop" : "Hourly Rental"} · {district}</p>
+            {dirty && <p className="text-[11px] font-semibold text-amber-300">Unsaved changes</p>}
           </div>
           <div className="flex items-center gap-2.5 flex-1 justify-end flex-wrap lf-save">
             <input type="text" maxLength={300} aria-label="Reason for change" value={reason} disabled={!canEdit} onChange={(e) => setReason(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void save(); }} placeholder="Reason for change" className="lf-text flex-1 min-w-44 h-9" />
-            {dirty && <button type="button" onClick={() => { if (window.confirm("Discard all unsaved changes?")) discard(); }} disabled={busy} className="h-9 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-600 shrink-0">Discard</button>}
-            <button type="button" onClick={() => void save()} disabled={!allowed || busy} className="h-9 px-4 rounded-xl bg-[#991B1B] hover:bg-[#7F1D1D] disabled:opacity-60 text-white text-xs font-bold flex items-center gap-1.5 shrink-0 transition-colors">
+            {dirty && <button type="button" onClick={() => { if (window.confirm("Discard all unsaved changes?")) discard(); }} disabled={busy} className="h-9 px-3 rounded-xl border border-slate-600 text-xs font-bold text-slate-200 shrink-0">Discard</button>}
+            <button type="button" onClick={() => void save()} disabled={!allowed || busy} className="h-9 px-5 rounded-xl bg-[#c81e35] hover:bg-[#a9162b] disabled:opacity-60 text-white text-xs font-bold flex items-center gap-1.5 shrink-0 transition-colors">
               <Save className="w-3.5 h-3.5" /><span>{busy ? "Saving…" : "Save fare rules"}</span>
             </button>
           </div>

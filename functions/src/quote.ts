@@ -31,7 +31,7 @@ import {
 import { gstComponents, type GstSnapshot } from './domain/gst';
 import { loadLocalContext, type LocalFareContext } from './localFares';
 import { withLocalPassThrough, localWaitingCharges, type LocalSnapshot } from './domain/localCharges';
-import { quoteLocalRide, quoteRentalRow, rentalHoursFor, resolveCoverage, resolveRow, resolveRule, type LocalClass, type LocalRule, type RentalRow, type Resolved } from './domain/localPricing';
+import { localOnlyClassOf, quoteLocalRide, quoteRentalRow, rentalHoursFor, resolveCoverage, resolveRow, resolveRule, type LocalClass, type LocalRule, type RentalRow, type Resolved } from './domain/localPricing';
 import { multicityBookingAmounts } from './domain/multicitySnapshot';
 import { FareBreakdown, GeoPlace, RideCategory, RouteInfo, TripType } from './domain/types';
 import { requirePermission, text, requireAction } from './shared';
@@ -59,8 +59,10 @@ export async function loadFixedRoutes(tx?: Transaction): Promise<FixedRouteFare[
 export function tariffClassOf(category: { tariffClass?: unknown; dutyClass?: unknown; name?: unknown; seats?: unknown }): TariffClass | null {
   // Every vehicle category is priced from its own rates, found from its name and seats. A `tariffClass` saved on the category record (an
   // older "Priced as" setting) is ignored: it used to force SUV 7+1 and Innova onto the SUV 6+1 rates.
+  // Auto and Bike have no car rate class: they are priced only from district local rates (see districtPlanOf).
+  if (localOnlyClassOf(category.name)) return null;
   const duty: DutyClass | null = dutyClassOf(category);
-  if (!duty) return null;
+  if (!duty || duty === 'auto' || duty === 'bike') return null;
   // A hatchback has its own rates (it used to share the Sedan's): recognised by the category's name.
   if (duty === 'sedan' && /(hatch|wagon\s?r|alto|i10|celerio|kwid|tiago|micro)/i.test(String(category.name ?? ''))) return 'hatchback';
   // Innova has its own class; until an Innova rate is saved it is priced at the SUV rate (see classRates).
@@ -343,6 +345,10 @@ export function addOnRatesOf(i: Pick<PriceInput, 'tariff' | 'brand' | 'tripType'
 
 export function priceBooking(i: PriceInput): PriceResult {
   assertDistrictCoverage(i);
+  // Auto and Bike never fall back to the car rate cards: without a district local rate the trip is refused.
+  if (localOnlyClassOf(i.category.name) && !districtPlanOf(i)) {
+    throw new HttpsError('failed-precondition', `${i.category.name} is available only for local rides and hourly rental, where its fare is set.`, { code: 'not-available' });
+  }
   const matches = hillStationsOfTrip(i);
   const night = withNightAllowance(withLocalPassThrough(priceBookingWithoutAddOns(matches.length ? { ...i, hillTrip: true } : i)), i.pickupAt, i.nightAllowance, tariffClassOf(i.category));
   // Hill Station Allowance / Charge: its own line, from the "Hill station" rows of the fare table for this brand, service and vehicle
@@ -379,7 +385,7 @@ type DistrictPlan =
  * contract or a fixed route fare always wins.
  */
 function districtPlanOf(i: PriceInput): DistrictPlan | null {
-  const ctx = i.localFare, cls = tariffClassOf(i.category);
+  const ctx = i.localFare, cls = localOnlyClassOf(i.category.name) ?? tariffClassOf(i.category);
   if (!ctx || !cls || i.multicity || i.businessContract) return null;
   const target = { pin: ctx.pin, zoneId: ctx.zoneId, areaNames: ctx.areaNames };
   if (i.tripType === 'Local Rental') {
@@ -423,7 +429,7 @@ function priceDistrictTrip(i: PriceInput, plan: DistrictPlan): PriceResult {
     ...(saved ?? { classification: plan.kind === 'rental' ? 'rental' as const : 'passenger' as const, supplierState: '', boardingState: '', placeOfSupply: '', split: 'Pending verification' as const }),
     rate: s.gst.percent / 100, mode: s.gst.mode,
   };
-  const input = gstPricingInput(i, tax, plan.cls);
+  const input = gstPricingInput(i, tax, tariffClassOf(i.category));
   const rate = plan.kind === 'ride' ? plan.rule : plan.row;
   const snapshot: LocalSnapshot = {
     schema: 1, kind: plan.kind, district: ctx.district, districtKey: ctx.key, source: rate.scope, shared: rate.brand === 'common', version: ctx.version,
@@ -431,7 +437,7 @@ function priceDistrictTrip(i: PriceInput, plan: DistrictPlan): PriceResult {
     tollsAtActuals: s.additional.tollsAtActuals, parkingAtActuals: s.additional.parkingAtActuals,
   };
   const common = {
-    tariffVersion: i.tariff?.version ?? 0, gstRate: 0, tariffClass: plan.cls, pickupMs: i.pickupAt.getTime(),
+    tariffVersion: i.tariff?.version ?? 0, gstRate: 0, tariffClass: plan.cls as TariffClass, pickupMs: i.pickupAt.getTime(),
     adjustmentPercent: i.adjustment?.percent ?? 0, adjustmentDirection: i.adjustment?.direction,
   };
   let q: QuoteResult;
@@ -457,7 +463,7 @@ function priceDistrictTrip(i: PriceInput, plan: DistrictPlan): PriceResult {
   };
   const r = applyFareGst(raw, tax);
   r.breakup = buildTariffFareBreakup(r.fare, false, r.pricing);
-  const base = scopedExtraChargesSnapshot(i.tariff, i.brand, i.tripType, plan.cls, i.category.id);
+  const base = scopedExtraChargesSnapshot(i.tariff, i.brand, i.tripType, tariffClassOf(i.category), i.category.id);
   // Pickup & Drop waiting is billed at the district rate; a rental keeps the extra-charge rates of the fare table.
   const extra = plan.kind === 'ride'
     ? localWaitingCharges(base, { tariffVersion: common.tariffVersion, categoryId: i.category.id, rule: plan.rule.value, partnerRule: plan.partner.value, gstIncluded: tax.mode === 'included', gstRate: tax.rate })
@@ -946,6 +952,10 @@ export const quoteBooking = onCall({ timeoutSeconds: 60, cors: PUBLIC_CALLABLE_O
         return { categoryId: c.id, ok: false as const, error: e instanceof HttpsError ? e.message : 'This category cannot be priced right now.', ...(detail ? { code: detail } : {}) };
       }
     });
+  // An Auto or Bike that cannot take this trip is not shown at all. The customer apps list categories themselves and drop the
+  // ones answered with exactly this reason (the same as a cab type turned off in Booking rules), so it is sent, not removed.
+  const localOnly = new Map(categories.docs.filter((d) => localOnlyClassOf(d.data().name)).map((d) => [d.id, String(d.data().name)]));
+  const offered = quotes.map((q) => (!q.ok && localOnly.has(q.categoryId) ? { categoryId: q.categoryId, ok: false as const, error: `${localOnly.get(q.categoryId)} is not offered for this location.`, code: 'not-available' } : q));
   // The whole journey the fare is based on: a round trip drives out through its stops and back (pricing doubles
   // pricingRoute); a one-way or Multicity trip is the itinerary itself. Customer screens show this distance.
   const tripFactor = !multicity && tripType === 'Round Trip' ? 2 : 1;
@@ -958,7 +968,7 @@ export const quoteBooking = onCall({ timeoutSeconds: 60, cors: PUBLIC_CALLABLE_O
     hillStations: (quotes.find((q) => q.ok && 'hill' in q && q.hill) as { hill?: { stations: unknown } } | undefined)?.hill?.stations ?? [],
     /** Limited service here: the office confirms the booking before it is accepted. */
     limitedAvailability: rules.availability === 'Limited',
-    quotes,
+    quotes: offered,
   };
 });
 

@@ -16,6 +16,7 @@ import LocalFares from "../components/LocalFares";
 import LocalPricingManager, { type LocalMode } from "../components/localFares/LocalPricingManager";
 import "./pricingReference.css";
 import VehicleCategoriesPage from "./VehicleCategories";
+import { localOnlyClassOf } from "../domain/localPricing";
 import FareMatrix from "../components/FareMatrix";
 import BookingRulesGrid, { specialRules } from "../components/BookingRulesGrid";
 import DateRules from "../components/DateRules";
@@ -239,8 +240,10 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
   // the categories that brand offers and has switched on; the common view lists those any brand offers.
   const scopeBrands = fareScope.brand === "common" ? ALL_BRAND_KEYS : [fareScope.brand];
   const activeCats = categories.filter((c) => c.status === "Active" && scopeBrands.some((b) => categoryOffersBrand(c, b) && categoryStatusForBrand(c, b) === "Active")).sort((a, b) => (a.displayOrder || 99) - (b.displayOrder || 99));
-  const vehicleChoices: { key: string; label: string; cls: TariffClass; shared: boolean; cng: boolean }[] = activeCats.length
-    ? activeCats.map((c) => ({ key: c.id, label: c.name, cls: tariffClassOfCategory(c), cng: c.cngEnabled === true, shared: activeCats.filter((o) => tariffClassOfCategory(o) === tariffClassOfCategory(c)).length > 1 }))
+  // Auto and Bike are local only: they get rows on Pickup & Drop / Hourly Rental and no column in any other fare table.
+  const carCats = activeCats.filter((c) => !localOnlyClassOf(c.name));
+  const vehicleChoices: { key: string; label: string; cls: TariffClass; shared: boolean; cng: boolean }[] = carCats.length
+    ? carCats.map((c) => ({ key: c.id, label: c.name, cls: tariffClassOfCategory(c), cng: c.cngEnabled === true, shared: carCats.filter((o) => tariffClassOfCategory(o) === tariffClassOfCategory(c)).length > 1 }))
     : TARIFF_CLASSES.map((cls) => ({ key: cls, label: CLASS_LABEL[cls], cls, shared: false, cng: false }));
   // Every active vehicle category (from Firestore, in display order) is one column in every fare table. Prices are saved per
   // rate class, so when several categories are priced as the same class (Hatchback → Sedan rates), one of them edits the rates
@@ -260,13 +263,20 @@ export default function Pricing({ onNavigate, restore, onRestored }: {
     return { id: v.key, name: v.label, cls: v.cls, owner: owner.categoryId === v.key, ownerName: owner.name, cng: v.cng };
   });
 
-  // One row per rate class on the local page: the categories priced with it are named under its name.
-  const localVehicles = vehicleCards.map((card) => {
+  // One row per rate class on the local page: the categories priced with it are named under its name. Rows carry the
+  // names saved in Vehicle categories and follow their Display order, cars and Auto / Bike alike.
+  const carVehicles = vehicleCards.map((card) => {
     const category = activeCats.find((c) => c.id === card.categoryId);
     const others = vehicleChoices.filter((v) => v.cls === card.cls && v.label !== card.name).map((v) => v.label);
     const seats = Number(category?.seatingCapacity) || 0;
-    return { cls: card.cls, name: card.name, subtitle: others.length ? `Also ${others.join(", ")}` : category?.description?.trim() || (seats ? `${seats} seats` : "") };
+    return { categoryId: card.categoryId, cls: card.cls, name: card.name, subtitle: others.length ? `Also ${others.join(", ")}` : category?.description?.trim() || (seats ? `${seats} seats` : "") };
   });
+  const localOnlyVehicles = (["auto", "bike"] as const).flatMap((cls) => {
+    const [first, ...rest] = activeCats.filter((c) => localOnlyClassOf(c.name) === cls);
+    return first ? [{ categoryId: first.id, cls, name: first.name, subtitle: rest.length ? `Also ${rest.map((c) => c.name).join(", ")}` : first.description?.trim() || "Local only" }] : [];
+  });
+  const orderOf = (id: string) => activeCats.findIndex((c) => c.id === id);
+  const localVehicles = [...carVehicles, ...localOnlyVehicles].sort((a, b) => orderOf(a.categoryId) - orderOf(b.categoryId)).map(({ cls, name, subtitle }) => ({ cls, name, subtitle }));
 
   const matrixCards = vehicleCards.map((card) => ({ cls: card.cls, name: card.name, categoryId: activeCats.length ? card.categoryId : undefined, cng: card.cng }));
 

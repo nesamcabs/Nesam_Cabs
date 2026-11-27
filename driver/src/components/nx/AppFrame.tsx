@@ -42,7 +42,7 @@ function Sidebar({ rail, width, route }: { rail: boolean; width: number; route: 
         showsVerticalScrollIndicator={false}
       >
         <View style={rail ? styles.brandRail : [styles.brand, compact && { marginLeft: 4 }]}>
-          <NxBrand iconOnly={rail} height={rail ? 44 : compact ? 44 : 52} />
+          <NxBrand iconOnly={rail} height={rail ? 44 : compact ? 25 : 29} />
         </View>
         {rail ? null : <Text style={styles.caption}>YOUR WORKSPACE</Text>}
         <View style={styles.nav} accessibilityRole="tablist" accessibilityLabel="Main navigation">

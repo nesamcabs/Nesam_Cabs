@@ -10,7 +10,7 @@ import { Icon } from '@/components/Icon';
 import { StrikeOffer } from '@/components/StrikeOffer';
 import { useBooking, useBookingQuote } from '@/state/Booking';
 import { useOnline } from '@/lib/hooks';
-import { categoryGroup, categoryName, categoryPhoto, type CategoryGroup } from '@/lib/categories';
+import { categoryGroup, categoryName, categoryPhoto, isLocalOnlyCategory, localOnlyTrip, type CategoryGroup } from '@/lib/categories';
 import { tripTypeLabel } from '@/lib/services';
 import { CabIcon, FuelPick, type FuelChoice } from '@/components/CabParts';
 import { FareDialog, FlowBar, PromoControl } from './parts';
@@ -41,7 +41,9 @@ export function ChooseStep() {
   const roundVia = draft.multicity ? draft.stops : returnsToPickup ? [...draft.stops, ...(sameAsPickup || !drop ? [] : [drop])] : [];
 
   // A cab type the office turned off for this location is left out completely: no card, no tab.
-  const visible = useMemo(() => categories.filter((c) => !q.hidden.has(c.id)), [categories, q.hidden]);
+  // Auto / Bike appear only once the server has priced them for this trip (local ride or hourly rental).
+  const localTrip = localOnlyTrip({ tripType, multicity: draft.multicity, distanceKm: route?.distanceKm });
+  const visible = useMemo(() => categories.filter((c) => !q.hidden.has(c.id) && (!isLocalOnlyCategory(c) || (localTrip && q.entries.get(c.id)?.ok === true))), [categories, q.hidden, q.entries, localTrip]);
   const groups = useMemo(() => {
     const present = new Set(visible.map(categoryGroup));
     return (['Sedan', 'SUV', 'Innova', 'Van & bus'] as CategoryGroup[]).filter((g) => present.has(g));
@@ -56,10 +58,11 @@ export function ChooseStep() {
 
   // If the chosen cab type is one that is now hidden, move to the first one still offered.
   useEffect(() => {
-    if (!categoryId || !q.hidden.has(categoryId)) return;
+    // (An Auto / Bike chosen earlier is also moved off when this trip cannot list it.)
+    if (!categoryId || !(q.hidden.has(categoryId) || (!localTrip && categories.some((c) => c.id === categoryId && isLocalOnlyCategory(c))))) return;
     const next = visible.find((c) => !q.unavailable.has(c.id)) ?? visible[0];
     if (next) update({ categoryId: next.id, fuelType: '' });
-  }, [categoryId, q.hidden, q.unavailable, visible, update]);
+  }, [categoryId, q.hidden, q.unavailable, visible, update, localTrip, categories]);
 
   // CNG is offered only on a cab with a CNG fare. A CNG choice carried over from another trip or cab would have no switch
   // left to turn it off (and the server refuses it), so it is cleared.

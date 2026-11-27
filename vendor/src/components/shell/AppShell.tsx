@@ -109,7 +109,7 @@ function Topbar({ current, route }: { current: string; route: string }) {
     return (
       <View style={[styles.phoneBar, { paddingTop: insets.top + 12, paddingHorizontal: gutter, minHeight: 64 + insets.top }]}>
         <Pressable style={styles.brandLink} onPress={() => goSection('Bookings')} accessibilityRole="button" accessibilityLabel="NESAM Partner — Bookings">
-          <PartnerBanner height={compact ? 32 : 38} />
+          <PartnerBanner height={compact ? 24 : 29} />
         </Pressable>
         {actions}
       </View>
@@ -146,7 +146,7 @@ function Sidebar({ current, width, rail }: { current: string; width: number; rai
   return (
     <View style={[styles.sidebar, { width, paddingTop: 30 + insets.top, paddingBottom: 22 + insets.bottom, paddingHorizontal: rail ? 12 : compact ? 14 : 20 }]} accessibilityRole="menu" accessibilityLabel="Main navigation">
       <Pressable onPress={() => goSection('Bookings')} accessibilityRole="button" accessibilityLabel="NESAM Partner — Bookings" style={rail ? styles.brandRail : [styles.brand, compact && { marginLeft: 4 }]}>
-        {rail ? <Image source={require('../../../assets/icon.png')} style={styles.brandIcon} accessibilityIgnoresInvertColors /> : <PartnerBanner height={compact ? 40 : 46} />}
+        {rail ? <Image source={require('../../../assets/icon.png')} style={styles.brandIcon} accessibilityIgnoresInvertColors /> : <PartnerBanner height={compact ? 22 : 26} />}
       </Pressable>
       {rail ? null : <Text style={styles.caption}>YOUR WORKSPACE</Text>}
       <View style={styles.nav}>
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   dot: { position: 'absolute', top: 9, right: 10, width: 9, height: 9, borderRadius: 5, backgroundColor: colors.primary, borderWidth: 2, borderColor: colors.white },
   // sidebar
   sidebar: { backgroundColor: colors.white, borderRightWidth: 1, borderRightColor: colors.border },
-  brand: { marginLeft: 2, marginBottom: 34, alignSelf: 'flex-start' },
+  brand: { marginLeft: 2, marginBottom: 34 },
   brandRail: { alignItems: 'center', marginBottom: 34 },
   brandIcon: { width: 44, height: 44, borderRadius: 12 },
   caption: { fontSize: 10, fontWeight: '700', letterSpacing: 1.8, color: '#9599A2', paddingHorizontal: 15, marginBottom: 14 },
