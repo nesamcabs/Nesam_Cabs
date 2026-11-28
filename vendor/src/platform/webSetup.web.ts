@@ -7,9 +7,11 @@
 //   3. Share.share falls back to the clipboard where the browser has no share sheet.
 //   4. Page-level CSS: full-viewport height that survives mobile browser chrome,
 //      no rubber-band scrolling, visible keyboard focus.
+//   5. Focus is released when the page changes, so it is never left inside a screen that is now hidden.
 // (Responsive layout itself lives in theme/responsive.ts and components/layout.tsx.)
 import { Alert, Linking, Share, type AlertButton, type AlertOptions, type ShareContent } from 'react-native';
 import { showDialog } from './domDialog';
+import { navigationRef } from '../navigation/navigationRef';
 
 function installAlert(): void {
   Alert.alert = (title: string, message?: string, buttons?: AlertButton[], options?: AlertOptions): void => {
@@ -98,7 +100,19 @@ function installLayout(): void {
   document.head.appendChild(style);
 }
 
+/**
+ * React Navigation hides the screen being left with aria-hidden. If the button that was pressed still has focus, the
+ * browser blocks that and warns, so focus is dropped as the navigation action is handled (before the screen re-renders).
+ */
+function installNavigationFocus(): void {
+  navigationRef.addListener('__unsafe_action__', () => {
+    const el = typeof document === 'undefined' ? null : (document.activeElement as HTMLElement | null);
+    if (el && el !== document.body) el.blur();
+  });
+}
+
 installAlert();
+installNavigationFocus();
 installLinking();
 installShare();
 if (typeof document !== 'undefined') {

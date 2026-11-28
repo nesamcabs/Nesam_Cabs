@@ -428,11 +428,10 @@ function VendorReviewDrawer({ vendor, onClose }: { vendor: VendorDoc; onClose: (
   const d = vendor.documents;
   const f = vendor.fleet;
   const p = vendor.payoutSummary;
-  // Approval is the verification: business details, bank details, business registration + identity proof, and the fleet's
+  // Approval is the verification: business details, bank details, identity proof, and the fleet's (business proof is optional)
   // RC, insurance, FC, permit and vehicle photo must all be on file (same test as firestore.rules vendorDocsComplete and
   // the duty functions, which refuse partners without them).
   const docGaps = [
-    !d?.businessRegistration?.files?.length && "business registration",
     !d?.identityProof?.files?.length && "identity proof",
     !f?.rcFiles?.length && "vehicle RC",
     !f?.insuranceFiles?.length && "insurance",
@@ -538,13 +537,15 @@ function VendorReviewDrawer({ vendor, onClose }: { vendor: VendorDoc; onClose: (
 
           {d && (
             <Card title="Identity & Business Documents" section="documents" flagged={vendor.review?.flaggedSections}>
-              <Row label={DOC_TYPE_LABEL[d.businessRegistration?.type ?? ""] ?? "Business Registration"} value={d.businessRegistration?.number} />
+              {d.businessRegistration?.files?.length
+                ? <Row label={DOC_TYPE_LABEL[d.businessRegistration.type] ?? "Business Registration"} value={d.businessRegistration.number} />
+                : <Row label="Business proof" value="Not provided (optional)" />}
               <Row
                 label={`${DOC_TYPE_LABEL[d.identityProof?.type ?? ""] ?? "Owner ID"} number`}
                 value={kycState === "ok" && kyc?.identityNumber ? kyc.identityNumber : d.identityProof?.maskedNumber}
               />
               <div className="grid gap-3 mt-3">
-                <FileGroup label={DOC_TYPE_LABEL[d.businessRegistration?.type ?? ""] ?? "Business registration"} files={d.businessRegistration?.files} />
+                {d.businessRegistration?.files?.length ? <FileGroup label={DOC_TYPE_LABEL[d.businessRegistration.type] ?? "Business registration"} files={d.businessRegistration.files} /> : null}
                 <FileGroup label={DOC_TYPE_LABEL[d.identityProof?.type ?? ""] ?? "Identity proof"} files={d.identityProof?.files} />
               </div>
             </Card>

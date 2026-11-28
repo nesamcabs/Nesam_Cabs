@@ -1,3 +1,4 @@
+import { LOCAL_INSTANT_MINUTES, isLocalBooking, releaseLocalBooking } from './marketplace';
 import { bookingAddOnsOf } from './domain/bookingAddOns';
 import { fareBoardingState, recipientAddressState, recipientGstState } from './fareGstContext';
 import { fareServiceKey } from './fareScope';
@@ -269,6 +270,8 @@ export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (requ
       ...(paymentPlan ? { paymentPlan } : {}),
       ...(payOption ? { paymentOption: payOption } : {}),
       date, time, status: 'Pending', tripSubStatus: 'Not Started', source: bookingSource, bookingSource, brand: bookingSource, ...availabilityFields(rules), createdAt: stamp, updatedAt: stamp,
+      // Local Pickup & Drop / Hourly Rental: released to partners automatically (marketplace.ts releaseLocalBooking).
+      ...(isLocalBooking({ tripType, service }) ? { autoReleaseEligible: true } : {}),
     });
     // Raw contact details live in booking_contacts (staff + the customer); partners get the masked number only.
     createContactInTx(tx, requestId, { customerId: uid, name: text(c.name), phone, whatsapp, email });
@@ -305,8 +308,10 @@ export const createBooking = onCall({ timeoutSeconds: 60, ...WARM }, async (requ
       bookingId: requestId, bookingCode, cta: { label: 'View trip', page: 'trips', bookingId: requestId }, push: true, sentBy: uid,
     };
     if (!awaitOnline) pushes.push({ id: notifyInTx(tx, toCustomer), input: toCustomer });
-    return { id: requestId, fare: fare.total, created: true as const };
+    return { id: requestId, fare: fare.total, created: true as const, instant: isLocalBooking({ tripType, service }) && !awaitOnline && rules.availability !== 'Limited' && when.getTime() - Date.now() <= LOCAL_INSTANT_MINUTES * 60000 };
   });
+  // A local trip wanted within 15 minutes is approved and sent to nearby drivers straight away (no office approval).
+  if ('instant' in result && result.instant) await releaseLocalBooking(result.id, 'instant');
   // Both swallow their own failures (a booking is never failed by a notification), so they run side by side.
   await Promise.all([pushAfterCommit(pushes), 'created' in result ? mailNewBooking(result.id) : Promise.resolve()]);
   return { id: result.id, fare: result.fare };

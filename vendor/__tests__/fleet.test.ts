@@ -60,6 +60,10 @@ describe('fleet: a vehicle needs only its registration number', () => {
     const complete = { ...done, fleet: buildFleetDetails([documented]) };
     expect(missingSections(complete)).toEqual([]);
     expect(vendorDocsComplete(complete)).toBe(true);
+    // Business proof (GST etc.) is optional.
+    const noBusinessProof = { ...complete, documents: { ...complete.documents!, businessRegistration: { type: 'GST' as const, number: '', files: [] } } };
+    expect(vendorDocsComplete(noBusinessProof)).toBe(true);
+    expect(missingSections(noBusinessProof)).not.toContain('documents');
     expect(vendorDocsComplete(done)).toBe(false);
   });
 });

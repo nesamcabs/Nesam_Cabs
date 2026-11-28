@@ -11,6 +11,7 @@ import { AcceptedByCell, AssignmentCell, BookingExpand, CustomerCell, DateCell, 
 import { AssignOnBehalfDrawer, PublishDutyDrawer, PublishedDutyDrawer } from "../components/booking/DutyDrawers";
 import Enquiries from "../components/booking/Enquiries";
 import { paymentOf } from "../domain/bookingFlow";
+import { cancelTag, officeCancelReason } from "../domain/cancellation";
 import {
   OFFICE_STAGES, TRIP_TABS, displayTripType, agreedPayoutOf, assignmentDeadline, bookingTabOf, customerGroups, fareOf, matchesTripType, officeStageOf, officeStatusLabel, refDate, refTime, tripTabOf, type OfficeStage, type TripTab,
 } from "../domain/officeStage";
@@ -238,7 +239,13 @@ export default function Bookings({ onSelectBooking, initialTab, onQuickFare }: {
       case "assignment": return <AssignmentCell b={b} data={data} deadlineHours={ops.warningHours} now={now} />;
       case "status": {
         const label = officeStatusLabel(b, data.marketById.get(b.id));
-        return <><Badge tone={toneForStatus(label)}>{label}</Badge>{b.status === "Completed" && <div className="mt-1"><PaymentBadge status={paymentOf(b).status} /></div>}</>;
+        return (
+          <>
+            <Badge tone={toneForStatus(label)}>{label}</Badge>
+            {b.status === "Completed" && <div className="mt-1"><PaymentBadge status={paymentOf(b).status} /></div>}
+            {(b.status === "Cancelled" || b.status === "Rejected") && <CancelNote b={b} />}
+          </>
+        );
       }
     }
   };
@@ -362,6 +369,7 @@ export default function Bookings({ onSelectBooking, initialTab, onQuickFare }: {
                   <Badge tone={toneForStatus(officeStatusLabel(b, data.marketById.get(b.id)))}>{officeStatusLabel(b, data.marketById.get(b.id))}</Badge>
                 </div>
                 <RouteCell b={b} />
+                {(b.status === "Cancelled" || b.status === "Rejected") && <CancelNote b={b} />}
                 <div className="text-body">{b.customer || "Not supplied"} · {b.phone || b.phoneMasked || "Contact not supplied"}</div>
                 <div className="flex flex-wrap items-center gap-2"><TripTypeCell b={b} /></div>
                 <div className="pt-1 flex flex-wrap gap-1.5">{actions(b)}</div>
@@ -400,6 +408,17 @@ export default function Bookings({ onSelectBooking, initialTab, onQuickFare }: {
       {sheet?.kind === "vendor" && <AssignVendorModal booking={sheet.b} vendors={data.vendors} canSetPayout={canFinance} onClose={() => setSheet(null)} onDone={done} />}
       {sheet?.kind === "driver" && <AssignDriverModal booking={sheet.b} drivers={data.drivers} vehicles={data.vehicles} vendors={data.vendors} onClose={() => setSheet(null)} onDone={done} />}
       {sheet?.kind === "contact" && <ContactModal booking={sheet.b} onClose={() => setSheet(null)} onSaved={() => done("Contact details updated.")} />}
+    </div>
+  );
+}
+
+/** Why a booking was cancelled: the short tag, and the full reason under it. */
+function CancelNote({ b }: { b: Booking }) {
+  const reason = officeCancelReason(b);
+  return (
+    <div className="mt-1 text-xs" style={{ whiteSpace: "normal" }}>
+      <div className="font-semibold">{cancelTag(b)}</div>
+      {reason && <div className="text-muted">{reason}</div>}
     </div>
   );
 }

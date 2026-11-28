@@ -212,7 +212,7 @@ export default function DriverKycDesk() {
       if (ok) {
         await notifyDriver(
           d.id,
-          d.status === "Approved" ? "Documents verified" : "You're approved! 🎉",
+          d.status === "Approved" ? "Documents verified" : "Account approved",
           d.status === "Approved"
             ? "Your updated documents have been verified."
             : "Your NESAM driver account is approved. Go online to start accepting trips.",

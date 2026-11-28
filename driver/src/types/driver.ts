@@ -313,9 +313,23 @@ export interface TimePackageInfo {
   upgraded: boolean;
 }
 
+/** How a published duty treats an expense: inside the pay, paid on top by the customer, or not part of the trip. */
+export type TermValue = 'Included' | 'At actuals' | 'Not applicable';
+export interface DutyTerms {
+  driverBata: TermValue;
+  toll: TermValue;
+  parking: TermValue;
+  stateTax: TermValue;
+  nightAllowance: TermValue;
+}
+
 export interface MarketplaceOffer {
+  /** The expense terms the duty was published on (Publish duty); null for a duty published without them. */
+  terms?: DutyTerms | null;
   /** Round Trip: the time-based package sold. */
   timePackage?: TimePackageInfo | null;
+  /** Round Trip: how long it was booked for ("8 Hours", "2 Days"). */
+  duration?: string;
   addOns?: { roofCarrier: boolean; pets: boolean };
   id: string;
   bookingId: string;
@@ -338,6 +352,8 @@ export interface MarketplaceOffer {
   service: string;
   /** 'One Way' | 'Round Trip' | 'Local Rental' | 'Airport Taxi' | 'Multicity'. */
   tripType: string;
+  /** The fuel the customer booked: 'cng', or 'diesel_petrol' for any petrol / diesel car. */
+  fuelType?: string;
 }
 
 export interface DriverEarningsSummary {

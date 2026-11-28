@@ -69,6 +69,9 @@ export type PushRegistration = 'registered' | 'denied' | 'unavailable';
 
 /** Asks permission (once) and stores this device's push token for the signed-in user. */
 export async function registerForPush(uid: string, role: 'driver' | 'vendor' | 'customer'): Promise<PushRegistration> {
+  // The web panel has no web-push set-up (no VAPID key or service worker): it shows notifications in the page instead, and
+  // asking expo-notifications for a token there only fails and logs a warning.
+  if (Platform.OS === 'web') return 'unavailable';
   try {
     await setupNotifications();
     let perm = await Notifications.getPermissionsAsync();
@@ -94,6 +97,8 @@ const players: Partial<Record<NotificationSound, AudioPlayer>> = {};
 
 /** Plays one of the three tones while the app is open. Never throws. */
 export function playTone(tone: NotificationSound, times = 1): void {
+  // Browsers refuse sound until the page has been clicked or typed in once; asking earlier only logs an error.
+  if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.userActivation && !navigator.userActivation.hasBeenActive) return;
   try {
     const player = (players[tone] ??= createAudioPlayer(TONE_FILES[tone]));
     for (let i = 0; i < times; i++) {

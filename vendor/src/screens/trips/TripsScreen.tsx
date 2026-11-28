@@ -6,7 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useVendorData } from '../../context/VendorData';
 import { useInbox } from '../../context/Inbox';
 import { Page } from '../../components/shell/Page';
-import { Btn, Dropdown, Empty, Feedback, Notice, SectionLine, TextLink } from '../../components/kit/core';
+import { Btn, Dropdown, Empty, Feedback, Notice, TextLink } from '../../components/kit/core';
 import { isoDay, marketType, rupees, weekdayText } from '../../components/kit/format';
 import { goSection } from '../../navigation/navigationRef';
 import { DutyDialogs, DutyRow, OPEN_BID, useNow, type DutyAction } from './parts';
@@ -17,6 +17,8 @@ const TYPES = ['All', 'One Way', 'Round Trip', 'Airport', 'Multicity', 'Local Re
 export function TripsScreen() {
   const navigation = useNavigation();
   const d = useVendorData();
+  const [listWidth, setListWidth] = useState(0);
+  const columns = listWidth >= 1260 ? 3 : listWidth >= 720 ? 2 : 1;
   const { unacknowledged } = useInbox();
   const { wide } = useLayout();
   const [type, setType] = useState('All');
@@ -65,24 +67,28 @@ export function TripsScreen() {
         </View>
       ) : null}
 
-      <View style={{ height: 6 }} />
-      {/* Trip type and pickup date share one row (side by side, each taking half on a phone). */}
+      {/* One toolbar: trip type, pickup date and My bids, so the first duty starts near the top. Phones drop the filter icons. */}
       <View style={styles.filters}>
-        <Dropdown label="Trip type" icon="options-outline" value={type} onChange={setType} options={TYPES.map((t) => ({ value: t, label: t === 'All' ? 'All trip types' : t }))} style={wide ? { width: 190 } : { flex: 1, minWidth: 0 }} />
-        <Dropdown label="Pickup date" icon="calendar-outline" value={date} onChange={setDate} options={[{ value: 'All', label: 'All dates' }, ...dates.map((k) => ({ value: k, label: weekdayText(new Date(`${k}T12:00:00+05:30`)) }))]} style={wide ? { width: 190 } : { flex: 1, minWidth: 0 }} />
+        <Dropdown label="Trip type" icon={wide ? 'options-outline' : undefined} value={type} onChange={setType} options={TYPES.map((t) => ({ value: t, label: t === 'All' ? 'All trips' : t }))} style={[styles.filter, wide ? { width: 190 } : { flex: 1, minWidth: 0 }]} />
+        <Dropdown label="Pickup date" icon={wide ? 'calendar-outline' : undefined} value={date} onChange={setDate} options={[{ value: 'All', label: 'All dates' }, ...dates.map((k) => ({ value: k, label: weekdayText(new Date(`${k}T12:00:00+05:30`)) }))]} style={[styles.filter, wide ? { width: 190 } : { flex: 1, minWidth: 0 }]} />
+        {wide ? <View style={{ flex: 1 }} /> : null}
+        <Btn kind="secondary" small title={`My bids${openBids.length ? ` (${openBids.length})` : ''}`} onPress={() => navigation.navigate('MyBids')} style={styles.bids} />
       </View>
-      {filtered ? <View style={{ marginTop: -8, marginBottom: 10, alignItems: 'flex-end' }}><TextLink title="Clear filters" icon="close" onPress={clear} /></View> : null}
+      {filtered ? <View style={{ marginTop: -4, marginBottom: 8, alignItems: 'flex-end' }}><TextLink title="Clear filters" icon="close" onPress={clear} /></View> : null}
 
       {d.errors.market ? <Feedback tone="error" message={d.errors.market} /> : null}
-      <SectionLine title="Available duties"
-        action={<Btn kind="secondary" small icon="document-text-outline" title={`My bids${openBids.length ? ` (${openBids.length})` : ''}`} onPress={() => navigation.navigate('MyBids')} />} />
       {groups.length === 0 ? (
         <Empty icon="map-outline" title={filtered ? 'No duties for this selection' : 'No duties available right now'}
           text={filtered ? 'Choose another trip type or pickup date.' : 'New duties appear here as soon as NESAM publishes them. You will also get a notification.'}
           action={filtered ? <Btn kind="secondary" icon="options-outline" title="Clear filters" onPress={clear} /> : undefined} />
       ) : (
-        <View style={{ gap: 20 }}>
-          {groups.flatMap(([, list]) => list).map((t) => <DutyRow list key={t.id} trip={t} bid={openBids.find((b) => b.tripId === t.id)} onAction={setAction} />)}
+        // Phones show one ticket to a row; wider screens set them side by side, so a ticket never stretches across the page.
+        <View style={styles.list} onLayout={(e) => setListWidth(e.nativeEvent.layout.width)}>
+          {groups.flatMap(([, list]) => list).map((t) => (
+            <View key={t.id} style={{ width: columns > 1 ? Math.floor((listWidth - 14 * (columns - 1)) / columns) : '100%' }}>
+              <DutyRow list trip={t} bid={openBids.find((b) => b.tripId === t.id)} onAction={setAction} />
+            </View>
+          ))}
         </View>
       )}
       <DutyDialogs action={action} setAction={setAction} onAccepted={() => goSection('Bookings', { tab: 'Accepted' })} />
@@ -91,6 +97,9 @@ export function TripsScreen() {
 }
 
 const styles = StyleSheet.create({
-  filters: { flexDirection: 'row', gap: 10, marginBottom: 18 },
+  list: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: 14 },
+  filters: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: -4, marginBottom: 12 },
+  filter: { minHeight: 42, paddingHorizontal: 11 },
+  bids: { minHeight: 42, paddingHorizontal: 12, borderRadius: 12 },
   quick: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 20, marginBottom: 6 },
 });

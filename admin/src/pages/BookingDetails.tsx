@@ -10,6 +10,7 @@ import FareBreakupView from "../components/FareBreakupView";
 import DeliveryLog from "../components/DeliveryLog";
 import { Modal, Toast, useToast } from "../components/Feedback";
 import { BookingSourceBanner } from "../components/booking/BookingBadges";
+import { cancelTag, officeCancelReason } from "../domain/cancellation";
 import { AssignDriverModal, AssignVendorModal, CancelBookingModal, RecordPaymentModal, RefundModal, RejectDialog, VoidPaymentDialog } from "../components/booking/BookingActions";
 import { AssignmentHistory, PaymentsPanel, VehicleVerificationPanel, VerifyCustomerModal, type AssignmentRow, type PaymentRow, type VerificationDoc } from "../components/booking/BookingPanels";
 import { AssignOnBehalfDrawer, PublishDutyDrawer, PublishedDutyDrawer } from "../components/booking/DutyDrawers";
@@ -214,7 +215,7 @@ export default function BookingDetails({ bookingId, onBack, onNavigate }: { book
           </li>
         ))}
         {(booking.status === "Cancelled" || booking.status === "Rejected") && (
-          <li data-bad="true"><span aria-hidden="true"><Icon name="x" size={12} /></span><div><strong>{booking.status}</strong><small>{stamp(booking.cancellation?.at ?? booking.cancelledAt) ?? ""} {booking.cancelReason || booking.rejectionReason || booking.cancellation?.reason || ""}</small></div></li>
+          <li data-bad="true"><span aria-hidden="true"><Icon name="x" size={12} /></span><div><strong>{booking.status} · {cancelTag(booking)}</strong><small>{stamp(booking.cancellation?.at ?? booking.cancelledAt) ?? ""} {officeCancelReason(booking)}</small></div></li>
         )}
       </ol>
     </Card>

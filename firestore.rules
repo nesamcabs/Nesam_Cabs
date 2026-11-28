@@ -384,11 +384,10 @@ service cloud.firestore {
     // already submitted for review (PENDING_APPROVAL) and listing at least one vehicle. Only the
     // owner-writable keys may be present, so approval, review, commission and wallet fields can
     // never be set at sign-up; staff approval still decides whether the account is usable.
-    // Business registration + identity proof, and the fleet's RC, insurance, FC, permit and vehicle photo (the same test
+    // Identity proof, and the fleet's RC, insurance, FC, permit and vehicle photo; business proof is optional (the same test
     // as the Partner app's vendorDocsComplete and functions/src/claims.ts). Approval by NESAM is the verification.
     function vendorDocsComplete(d) {
       return d.get('documents', null) is map
-             && d.documents.get('businessRegistration', {}).get('files', []).size() > 0
              && d.documents.get('identityProof', {}).get('files', []).size() > 0
              && d.get('fleet', null) is map
              && d.fleet.get('rcFiles', []).size() > 0
@@ -1263,13 +1262,12 @@ service cloud.firestore {
     }
     match /capture_sessions/{sessionId} { allow read, write: if false; }
     // Local duty (continuous local orders): planned by the fleet partner, run by its driver, read by both and by staff.
-    // Written only by the local-duty functions (functions/src/localShifts.ts) and the photo check.
+    // Written only by the local-duty functions (functions/src/localShifts.ts) and the photo check: no client, staff included,
+    // may create, change or delete one, so a duty's status, photo check, position and totals are always the server's.
     match /local_shifts/{shiftId} {
       allow read: if isAdmin()
                   || (isSignedIn() && (resource.data.driverId == uid() || resource.data.vendorId == uid()));
-      allow create: if isAdmin() || (isApprovedVendor() && request.resource.data.vendorId == uid()) || (isApprovedDriver() && request.resource.data.driverId == uid());
-      allow update: if isAdmin() || (isApprovedVendor() && resource.data.vendorId == uid()) || (isApprovedDriver() && resource.data.driverId == uid());
-      allow delete: if isAdmin() || (isApprovedVendor() && resource.data.vendorId == uid());
+      allow write: if false;
     }
     match /vehicle_photo_hashes/{hash} { allow read, write: if false; }
     match /integrity_nonces/{nonce} { allow read, write: if false; }

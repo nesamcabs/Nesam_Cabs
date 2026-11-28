@@ -128,15 +128,15 @@ export function AuthScreen() {
             <NxIcon name="phone" size={15} color={nx.red} />
             <Text style={styles.supportNumber}>{SUPPORT_PHONE_DISPLAY}</Text>
           </Pressable>
-          <View style={styles.legalRule} accessible={false}>
-            <View style={styles.legalLine} />
-            <NxIcon name="shield" size={14} color={nx.subtle} />
-            <View style={styles.legalLine} />
+          <View style={styles.agreement}>
+            <View style={styles.agreementIcon}><NxIcon name="shield" size={17} color={nx.red} /></View>
+            <View style={styles.agreementBody}>
+              <Text style={styles.agreementTitle}>Partner agreement</Text>
+              <Text style={styles.agreementText}>
+                By continuing, you accept the NESAM Driver Partner <Text style={styles.agreementDoc}>Terms & Conditions</Text> and acknowledge the <Text style={styles.agreementDoc}>Privacy Policy</Text>.
+              </Text>
+            </View>
           </View>
-          <Text style={styles.termsLead}>By continuing, you agree to NESAM’s</Text>
-          <Text style={styles.termsDocs}>
-            Terms & Conditions <Text style={styles.termsDot}>•</Text> Privacy Policy
-          </Text>
         </AuthCard>
       </AuthFrame>
     );
@@ -239,11 +239,12 @@ const styles = StyleSheet.create({
   choiceTitle: { fontSize: 15, fontWeight: '700', color: nx.ink },
   support: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, minHeight: 40, marginTop: 14 },
   supportNumber: { fontSize: 13, fontWeight: '700', color: nx.ink },
-  legalRule: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10, marginBottom: 10 },
-  legalLine: { flex: 1, height: 1, backgroundColor: nx.line },
-  termsLead: { fontSize: 11, lineHeight: 16, color: nx.muted, textAlign: 'center' },
-  termsDocs: { fontSize: 11.5, lineHeight: 18, fontWeight: '600', letterSpacing: 0.1, color: nx.ink, textAlign: 'center', marginTop: 2 },
-  termsDot: { color: nx.red },
+  agreement: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginTop: 14, paddingVertical: 13, paddingHorizontal: 14, borderRadius: 14, backgroundColor: '#F7F8FA', borderWidth: 1, borderColor: nx.line },
+  agreementIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: nx.redSoft },
+  agreementBody: { flex: 1, minWidth: 0 },
+  agreementTitle: { fontSize: 10, lineHeight: 14, fontWeight: '700', letterSpacing: 1.1, textTransform: 'uppercase', color: nx.red },
+  agreementText: { fontSize: 11.5, lineHeight: 18, color: nx.muted, marginTop: 3 },
+  agreementDoc: { fontWeight: '700', color: nx.ink },
   label: { fontSize: 12, fontWeight: '600', color: nx.ink, marginTop: 20 },
   phoneField: { flexDirection: 'row', alignItems: 'center', minHeight: 54, marginTop: 8, borderWidth: 1, borderColor: nx.fieldLine, borderRadius: 12, backgroundColor: nx.white, paddingHorizontal: 14 },
   prefix: { fontSize: 16, fontWeight: '700', color: nx.red },

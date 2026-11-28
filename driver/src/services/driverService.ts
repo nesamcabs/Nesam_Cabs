@@ -44,7 +44,9 @@ import type {
   TripLocation,
   IdentityDetails,
   LedgerEntry,
+  DutyTerms,
   MarketplaceOffer,
+  TermValue,
   TimePackageInfo,
   PayoutRequest,
   PenaltyStatus,
@@ -61,6 +63,7 @@ import { normalizeAadhaar, normalizePan } from '../validation/kyc';
 import { toDate as toDateTime } from '../utils/time';
 import { tripSubStatusOf } from '../utils/tripFlow';
 import { localModeOf } from '../utils/localDuty';
+import { tripDurationOf } from '../utils/tripDuration';
 import { mapLedgerEntry, mapWallet } from '../utils/ledger';
 import { categoryOf, ctaOf, severityOf, soundOf } from '../utils/notificationModel';
 
@@ -503,8 +506,20 @@ export function mapOffer(id: string, data: DocumentData): MarketplaceOffer & { c
     createdMs: toDate(data.createdAt)?.getTime() ?? 0,
     service: str(data.service),
     tripType: str(data.tripType),
+    fuelType: str(data.fuelType),
     timePackage: timePackageOf(data.timePackage),
+    duration: tripDurationOf(data),
+    terms: termsOf(data.terms),
   };
+}
+
+const TERM_VALUES: TermValue[] = ['Included', 'At actuals', 'Not applicable'];
+/** A duty's published expense terms (functions/src/marketplace.ts dutyTermsOf); an unknown value reads as "At actuals", as the server stores it. */
+function termsOf(raw: unknown): DutyTerms | null {
+  const items = raw && typeof raw === 'object' ? (raw as { items?: Record<string, unknown> }).items : null;
+  if (!items || typeof items !== 'object') return null;
+  const v = (k: string): TermValue => (TERM_VALUES.includes(items[k] as TermValue) ? (items[k] as TermValue) : 'At actuals');
+  return { driverBata: v('driverBata'), toll: v('toll'), parking: v('parking'), stateTax: v('stateTax'), nightAllowance: v('nightAllowance') };
 }
 
 /** The time-based round trip package on a duty or booking (null for any other trip). */

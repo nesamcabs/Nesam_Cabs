@@ -23,6 +23,7 @@ export function Page({
   maxWidth,
   onRefresh,
   refreshing,
+  footer,
 }: {
   title?: string;
   subtitle?: string;
@@ -34,6 +35,8 @@ export function Page({
   maxWidth?: number;
   onRefresh?: () => void;
   refreshing?: boolean;
+  /** The page's main actions, pinned below the scrolling content so they are always in reach. */
+  footer?: React.ReactNode;
 }) {
   const { gutter, wide } = useLayout();
   const route = useRoute();
@@ -57,6 +60,11 @@ export function Page({
           </View>
         </View>
       </ScrollView>
+      {footer ? (
+        <View style={styles.actionBar}>
+          <View style={[styles.inner, { paddingHorizontal: gutter }]}>{footer}</View>
+        </View>
+      ) : null}
     </KeyboardAvoid>
   );
 }
@@ -101,7 +109,8 @@ const styles = StyleSheet.create({
   heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14, marginBottom: 14 },
   h1: { fontFamily, fontSize: 27, fontWeight: '700', letterSpacing: -0.9, color: colors.ink, lineHeight: 34 },
   sub: { fontFamily, fontSize: 12.5, color: colors.muted, marginTop: 3, lineHeight: 19 },
-  footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 28, marginBottom: 4 },
+  actionBar: { backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: colors.border, paddingVertical: 10 },
+  footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 18, marginBottom: 4 },
   footerLeft: { flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 1 },
-  footerText: { fontSize: 10, color: '#989DA6', letterSpacing: 0.2 },
+  footerText: { fontSize: 11, color: '#6F7785', letterSpacing: 0.2 },
 });

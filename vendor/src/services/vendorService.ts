@@ -33,8 +33,10 @@ import type {
   DriverInviteRecord,
   FleetDriver,
   FleetVehicle,
+  DutyTerms,
   LedgerRecord,
   MarketTrip,
+  TermValue,
   VendorBid,
   VendorBooking,
   VendorPayoutRequest,
@@ -44,6 +46,7 @@ import type {
 import { num, str, toDate } from '../utils/format';
 import { normalizePlate } from '../utils/fleet';
 import { withTimeout } from '../utils/retry';
+import { tripDurationOf } from '../utils/tripDuration';
 import { mapLedgerEntry, mapWallet } from '../utils/wallet';
 
 export const MIN_PAYOUT = 500;
@@ -75,13 +78,14 @@ export function mapMarketTrip(id: string, d: DocumentData): MarketTrip {
     id,
     bookingId: str(d.bookingId) || id,
     route: str(d.route) || `${str(pickup.city || pickup.address)} ➔ ${str(drop.city || drop.address)}`,
-    pickup: { address: str(pickup.address) || 'Pickup', city: str(pickup.city), time: str(pickup.time) },
+    pickup: { address: str(pickup.address) || 'Pickup', city: str(pickup.city), time: str(pickup.time), ...(typeof pickup.lat === 'number' && typeof pickup.lng === 'number' ? { lat: pickup.lat, lng: pickup.lng } : {}) },
     drop: { address: str(drop.address) || 'Drop', city: str(drop.city) },
     via: viaOf(d),
     travelDate: str(d.travelDate),
     service: str(d.service),
     tripType: str(d.tripType),
     packageLine: packageLineOf(d.timePackage),
+    duration: tripDurationOf(d),
     vehicleCategory: str(d.vehicleCategory || d.categoryName),
     vehicleCategoryId: str(d.vehicleCategoryId),
     carName: str(d.categoryName),
@@ -99,7 +103,17 @@ export function mapMarketTrip(id: string, d: DocumentData): MarketTrip {
     createdMs: toDate(d.createdAt)?.getTime() ?? 0,
     pickupMs: toDate(d.pickupAt)?.getTime() ?? 0,
     cutoffMs: toDate(d.cutoffAt)?.getTime() ?? 0,
+    terms: termsOf(d.terms),
   };
+}
+
+const TERM_VALUES: TermValue[] = ['Included', 'At actuals', 'Not applicable'];
+/** A duty's published expense terms (functions/src/marketplace.ts dutyTermsOf); an unknown value reads as "At actuals", as the server stores it. */
+function termsOf(raw: unknown): DutyTerms | null {
+  const items = raw && typeof raw === 'object' ? (raw as { items?: Record<string, unknown> }).items : null;
+  if (!items || typeof items !== 'object') return null;
+  const v = (k: string): TermValue => (TERM_VALUES.includes(items[k] as TermValue) ? (items[k] as TermValue) : 'At actuals');
+  return { driverBata: v('driverBata'), toll: v('toll'), parking: v('parking'), stateTax: v('stateTax'), nightAllowance: v('nightAllowance') };
 }
 
 /**

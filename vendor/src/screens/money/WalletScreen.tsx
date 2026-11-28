@@ -137,7 +137,7 @@ export function WalletScreen() {
                   <View style={styles.between}><Small>{p.bookingCode || 'General notice'}</Small><Badge label={p.status === 'Pending' && !p.acknowledged ? 'Acknowledgement required' : p.status} tone={penaltyTone(p.status, p.acknowledged)} /></View>
                   <Text style={styles.penaltyAmount}>{rupees(p.amount)}</Text>
                   <Text style={styles.penaltyReason} numberOfLines={2}>{p.category} · {p.reason}</Text>
-                  <View style={[styles.between, { marginTop: 12 }]}><Small>{dayTime(p.issuedAt)}</Small><TextLink title="View notice" onPress={() => navigation.navigate('Penalty', { id: p.id })} /></View>
+                  <View style={[styles.between, { marginTop: 12 }]}><Small>{dayTime(p.issuedAt)}</Small><Text style={styles.linkText}>View notice</Text></View>
                 </Panel>
               ))}
             </Grid>
@@ -247,6 +247,7 @@ function PayoutSheet({ withdrawable, onClose }: { withdrawable: number; onClose:
 }
 
 const styles = StyleSheet.create({
+  linkText: { fontFamily, fontSize: 12.5, fontWeight: '700', color: colors.primary, lineHeight: 32 },
   actionRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
   depRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   balance: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 16 },

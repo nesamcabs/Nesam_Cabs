@@ -23,7 +23,10 @@ export async function callFunction<Req, Res>(name: string, data: Req, timeout = 
   try {
     return await callBackend<Req, Res>(name, data, timeout);
   } catch (err) {
-    throw new ActionError(describeCallError(err), (err as { details?: unknown }).details);
+    const message = describeCallError(err);
+    // The browser console only shows "400 (Bad Request)": in development the server's reason is printed beside it.
+    if (__DEV__) console.warn(`[server] ${name} refused: ${message}`, (err as { code?: string }).code ?? '', (err as { details?: unknown }).details ?? '');
+    throw new ActionError(message, (err as { details?: unknown }).details);
   }
 }
 

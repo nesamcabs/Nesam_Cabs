@@ -1,18 +1,18 @@
 // Marketplace duty row (the reference's q-duty-row) and the accept / bid dialogs used on Trips, Duty details and My bids.
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Linking, StyleSheet, View } from 'react-native';
 import { Text } from '../../components/kit/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useVendorData } from '../../context/VendorData';
 import { useInbox } from '../../context/Inbox';
 import { Sheet, TextField } from '../../components/ui';
-import { Badge, Btn, Check, Feedback, KV, Notice, RouteTitle, Small } from '../../components/kit/core';
-import { DutyCard } from '../../components/kit/DutyCard';
-import { dayTime, marketFrom, marketPickup, marketTo, marketType, rupees, timeText, numericDate } from '../../components/kit/format';
+import { Btn, Check, Feedback, KV, Notice, RouteTitle, Small } from '../../components/kit/core';
+import { DutyTicket, type TicketAction } from '../../components/kit/DutyTicket';
+import { dayText, dayTime, marketFrom, marketPickup, marketTo, marketType, placeParts, rupees, stateRoute, timeText } from '../../components/kit/format';
 import { flash } from '../../components/kit/flash';
 import { acceptOfferedRate, isEligibleVehicle, submitCounterBid, withdrawBid } from '../../services/vendorService';
-import type { FleetDriver, FleetVehicle, MarketTrip, VendorBid } from '../../types/operations';
+import type { DutyTerms, FleetDriver, FleetVehicle, MarketTrip, TermValue, VendorBid } from '../../types/operations';
 import { colors, fontFamily } from '../../theme';
 
 export const OPEN_BID = 'Pending Review';
@@ -81,10 +81,45 @@ export function fleetWarning(t: MarketTrip, vehicles: FleetVehicle[], drivers: F
 
 export type DutyAction = { kind: 'accept'; trip: MarketTrip } | { kind: 'bid'; trip: MarketTrip } | { kind: 'bid-detail'; bid: VendorBid };
 
+/** "in 45 min", "in 3 hr 20 min", "in 9 hr", "in 2 days". */
+export function untilText(ms: number): string {
+  const m = Math.max(1, Math.round(ms / 60000));
+  if (m < 60) return `in ${m} min`;
+  const h = Math.floor(m / 60), r = m % 60;
+  if (h < 24) return h < 6 && r ? `in ${h} hr ${r} min` : `in ${h} hr`;
+  const d = Math.round(h / 24);
+  return `in ${d} day${d === 1 ? '' : 's'}`;
+}
+
+const TERM_NAMES: [keyof DutyTerms, string][] = [['driverBata', 'Driver Bata'], ['toll', 'Toll'], ['parking', 'Parking'], ['stateTax', 'State Tax']];
+const joinNames = (names: string[]) => (names.length > 1 ? `${names.slice(0, -1).join(', ')} & ${names[names.length - 1]}` : names[0] ?? '');
+
 /**
- * One available duty. In the list (`list`) it is a compact, easy-to-read row with no buttons: pickup time and Duty ID, the route, a
- * one-line summary and the payout; tapping it opens the duty, where it is accepted or bid on. On the duty page the same card is
- * shown with its Accept / Place bid actions underneath.
+ * What a duty's payout covers and what the customer pays on top: from the terms it was published on, or, without them, the
+ * standing rules (an outstation fare carries the driver's bata; toll, parking and state tax are paid by the customer).
+ */
+export function dutyTags(t: MarketTrip): { included: string; extras: string } {
+  const terms = t.terms;
+  if (terms) {
+    const pick = (v: TermValue) => TERM_NAMES.filter(([key]) => terms[key] === v).map(([, name]) => name);
+    const included = pick('Included');
+    const extras = pick('At actuals');
+    return { included: included.length ? `${joinNames(included)} Included` : '', extras: extras.length ? `${joinNames(extras)} Extra` : '' };
+  }
+  const outstation = !/local|rental|airport/i.test(`${t.tripType} ${t.service}`);
+  return { included: outstation ? 'Driver Bata Included' : '', extras: 'Toll, Parking & State Tax Extra' };
+}
+
+/** The pickup on Google Maps: its approximate position when the duty has one, else its name. */
+function openPickup(t: MarketTrip) {
+  const q = t.pickup.lat != null && t.pickup.lng != null ? `${t.pickup.lat},${t.pickup.lng}` : encodeURIComponent(t.pickup.address || marketFrom(t));
+  void Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${q}`);
+}
+
+/**
+ * One available duty, as a ticket: the route with its states and time to pickup, date and trip type, car and fuel, the pickup
+ * point, what the payout covers, then the payout and Accept (a bidding duty: Place bid and Accept with the payout on it).
+ * Tapping the ticket opens the duty.
  */
 export function DutyRow({ trip: t, bid, onAction, list }: { trip: MarketTrip; bid?: VendorBid; onAction: (a: DutyAction) => void; list?: boolean }) {
   const navigation = useNavigation();
@@ -94,59 +129,56 @@ export function DutyRow({ trip: t, bid, onAction, list }: { trip: MarketTrip; bi
   const opensAt = opensToVendorsAt(t, ops.vendorReleaseSeconds, now);
   const accept = canAccept(t) && !opensAt;
   const bidOpen = canBid(t, now) && !opensAt;
-  const extras = [t.addOns?.roofCarrier ? 'Roof carrier' : '', t.addOns?.pets ? 'Pet travel' : ''].filter(Boolean).join(' · ');
-  const open = () => navigation.navigate('Duty', { id: t.id });
-  // The list keeps to what decides whether to open a duty: date and time, place, service, vehicle and payout. The duty page adds distance and extras.
-  // The service type and the car are on separate lines.
-  // The car name the admin gave the category ("Wagon R or Similar"); VendorData falls back to the class ("Hatchback").
-  const car = t.carName || t.vehicleCategory || 'Any vehicle';
-  const km = t.distanceKm ? `${Math.round(t.distanceKm)} km` : '';
-  const carLine = list ? car : [car, extras].filter(Boolean).join('  ·  ');
-  const dateText = pickup ? numericDate(pickup) : t.travelDate || '';
+  const untilMs = pickup ? pickup.getTime() - now : 0;
+  const payout = t.offeredPayout > 0 ? rupees(t.offeredPayout) : 'Your quote';
+  const tags = dutyTags(t);
+  const addOns = [t.addOns?.roofCarrier ? 'Roof carrier' : '', t.addOns?.pets ? 'Pet travel' : ''].filter(Boolean).join(' · ');
   // One line saying where this duty stands for this vendor (nothing when it is simply open).
   const status = opensAt ? `Opens to vendors at ${timeText(new Date(opensAt))}`
     : isBidding(t) && !bidOpen ? 'Bidding closed'
     : '';
 
-  const card = (
-    <DutyCard
-      date={dateText || '—'}
-      time={pickup ? timeText(pickup) : t.pickup.time || '—'}
+  // A bidding duty that can also be taken: Place bid, then Accept carrying the payout. Otherwise the payout has its own box.
+  const actions: TicketAction[] = [];
+  if (bid) actions.push({ label: `My bid ${rupees(bid.vendorCounterRate)}`, icon: 'create-outline', tone: 'bid', onPress: () => onAction({ kind: 'bid-detail', bid }) });
+  else if (bidOpen) actions.push({ label: 'Place bid', icon: 'trending-up', tone: 'bid', onPress: () => onAction({ kind: 'bid', trip: t }) });
+  if (accept) {
+    const pair = actions.length > 0;
+    actions.push({ label: pair ? 'Accept' : 'Accept duty', icon: 'checkmark-done', tone: 'accept', amount: pair ? payout : undefined, onPress: () => onAction({ kind: 'accept', trip: t }) });
+  }
+  const lines = [t.packageLine, t.via?.length ? `Via ${t.via.join(', ')}` : '', addOns].filter(Boolean) as string[];
+
+  return (
+    <DutyTicket
       from={marketFrom(t)}
       to={marketTo(t)}
-      service={t.packageLine ? `${marketType(t)} · ${t.packageLine.split(' · ')[0]}` : marketType(t)}
-      distance={km}
-      vehicle={carLine}
-      payout={t.offeredPayout > 0 ? rupees(t.offeredPayout) : 'Your quote'}
-      payoutLabel={isBidding(t) ? 'Payout' : isFixed(t) ? 'Fixed payout' : 'Vendor payout'}
-      badge={isBidding(t) ? <Badge label="Bidding" tone="blue" /> : isFixed(t) ? <Badge label="Fixed payout" tone="green" /> : undefined}
-      compact
-      fuel={t.fuelType}
-      onPress={list ? open : undefined}
-      accessibilityLabel={`${marketFrom(t)} to ${marketTo(t)}, vendor payout ${rupees(t.offeredPayout)}. Open duty`}
+      region={stateRoute([t.pickup.address, t.pickup.city].filter(Boolean).join(', '), [t.drop.address, t.drop.city].filter(Boolean).join(', '))}
+      eta={untilMs > 0 ? untilText(untilMs) : undefined}
+      time={pickup ? timeText(pickup) : t.pickup.time || '—'}
+      date={pickup ? dayText(pickup) : t.travelDate || '—'}
+      service={marketType(t)}
+      duration={t.duration || undefined}
+      distance={t.distanceKm ? `${Math.round(t.distanceKm).toLocaleString('en-IN')} km` : undefined}
+      // The car name the admin gave the category ("Wagon R or Similar"); VendorData falls back to the class ("Hatchback").
+      vehicle={t.carName || t.vehicleCategory || 'Any vehicle'}
+      fuel={t.fuelType ? (t.fuelType === 'cng' ? 'CNG' : 'Diesel / Petrol') : undefined}
+      point={placeParts(t.pickup.address).join(', ') || marketFrom(t)}
+      pointAction={{ label: 'Map', onPress: () => openPickup(t) }}
+      included={tags.included}
+      extras={tags.extras}
+      payout={payout}
+      payoutLabel="Payout"
+      actions={actions}
+      onPress={list ? () => navigation.navigate('Duty', { id: t.id }) : undefined}
+      accessibilityLabel={`${marketFrom(t)} to ${marketTo(t)}, vendor payout ${payout}. Open duty`}
     >
-      {status || !list || t.via?.length ? (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 10, rowGap: 4 }}>
-          {t.via?.length ? <Text style={styles.status} numberOfLines={2}>Via {t.via.join(', ')}</Text> : null}
-          {list ? null : <Text style={styles.code} numberOfLines={1}>{t.bookingId}</Text>}
+      {lines.length || status ? (
+        <View style={styles.lines}>
+          {lines.map((line) => <Text key={line} style={styles.status} numberOfLines={2}>{line}</Text>)}
           {status ? <Text style={[styles.status, bid ? { color: '#2F5BD3' } : opensAt ? { color: '#946000' } : null]} numberOfLines={1}>{status}</Text> : null}
         </View>
       ) : null}
-    </DutyCard>
-  );
-
-  if (list) return card;
-  return (
-    <View style={{ gap: 10 }}>
-      {card}
-      {accept || bid || bidOpen ? (
-        <View style={styles.actionsRow}>
-          {accept ? <Btn title="Accept duty" icon="checkmark-done" onPress={() => onAction({ kind: 'accept', trip: t })} style={{ flex: 1 }} /> : null}
-          {bid ? <Btn kind="bid" title={`My bid ${rupees(bid.vendorCounterRate)}`} icon="create-outline" onPress={() => onAction({ kind: 'bid-detail', bid })} style={{ flex: 1 }} />
-            : bidOpen ? <Btn kind="bid" title="Place bid" icon="trending-up" onPress={() => onAction({ kind: 'bid', trip: t })} style={{ flex: 1 }} /> : null}
-        </View>
-      ) : null}
-    </View>
+    </DutyTicket>
   );
 }
 
@@ -195,7 +227,7 @@ export function AcceptDialog({ trip, onClose, onDone }: { trip: MarketTrip; onCl
       {fleetWarning(trip, d.vehicles, d.drivers) ? <Notice tone="red" icon="car-outline" title="Check your fleet first" text={`${fleetWarning(trip, d.vehicles, d.drivers)} Missing the assignment deadline leads to a ${rupees(d.ops.missedAssignmentPenalty)} penalty.`} style={{ marginBottom: 10 }} /> : null}
       <Check checked={agree} onChange={setAgree} label="I accept this duty at the payout shown and will confirm a verified driver and vehicle before the deadline." />
       <Feedback tone="error" message={error} />
-      <Btn title="Accept duty" icon="checkmark-done" busy={busy} full onPress={() => void accept()} style={{ marginTop: 8 }} />
+      <Btn kind="accept" title="Accept duty" icon="checkmark-done" busy={busy} full onPress={() => void accept()} style={{ marginTop: 8 }} />
     </Sheet>
   );
 }
@@ -304,8 +336,10 @@ const styles = StyleSheet.create({
   amount: { alignItems: 'flex-start', backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 5, paddingHorizontal: 10 },
   amountLabel: { fontFamily, fontSize: 8, fontWeight: '600', color: 'rgba(255,255,255,0.82)', letterSpacing: 0.8 },
   amountValue: { fontFamily, fontSize: 15, fontWeight: '700', color: colors.white, letterSpacing: -0.2, marginTop: 1 },
-  status: { fontFamily, fontSize: 11, fontWeight: '600', color: '#6B7685', flexShrink: 1 },
+  status: { fontFamily, fontSize: 11.5, fontWeight: '600', color: '#5B6472', flexShrink: 1 },
+  lines: { gap: 3, paddingHorizontal: 4 },
   actionsRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 15, paddingBottom: 15 },
+  actionsRowList: { paddingHorizontal: 0, paddingBottom: 0 },
   extra: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 11, flexWrap: 'wrap' },
   extraText: { fontFamily, fontSize: 11, color: '#6F7785', lineHeight: 18, flexShrink: 1 },
   extraStrong: { color: '#426E91', fontWeight: '500' },

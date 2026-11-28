@@ -1,16 +1,19 @@
 // My bids (reference vBids: All / Open / Allocated / Closed) and Duty details for one available duty.
 import React, { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useVendorData } from '../../context/VendorData';
-import { Page } from '../../components/shell/Page';
+import { DetailGrid, Page } from '../../components/shell/Page';
+import { useLayout, useWindowWidth } from '../../theme/responsive';
 import { Text } from '../../components/kit/Text';
-import { colors, fontFamily } from '../../theme';
-import { Badge, BulletList, Between, Btn, Empty, Grid, H2, KV, Notice, Panel, RouteStack, RouteTitle, Small, Tabs } from '../../components/kit/core';
-import { dayTime, marketFrom, marketPickup, marketTo, marketType, numericDate, rupees, timeText } from '../../components/kit/format';
+import { colors } from '../../theme';
+import { Badge, Between, Btn, Empty, Grid, H2, KV, Notice, Panel, RouteTitle, Small, Tabs } from '../../components/kit/core';
+import { Amount, Road } from '../../components/kit/DutyCard';
+import { dayText, dayTime, marketFrom, marketPickup, marketTo, marketType, rupees, timeText } from '../../components/kit/format';
 import { goSection } from '../../navigation/navigationRef';
 import type { RootStackParamList } from '../../navigation/types';
-import { bidLabel, bidTone, canAccept, canBid, DutyDialogs, isBidding, isFixed, OPEN_BID, opensToVendorsAt, useNow, type DutyAction } from './parts';
+import { bidLabel, bidTone, canAccept, canBid, DutyDialogs, isBidding, isFixed, OPEN_BID, opensToVendorsAt, untilText, useNow, type DutyAction } from './parts';
 import type { MarketTrip } from '../../types/operations';
 
 type BidTab = 'All' | 'Open' | 'Allocated' | 'Closed';
@@ -79,71 +82,182 @@ export function DutyScreen() {
   return <DutyDetail t={t} setAction={setAction} action={action} />;
 }
 
-/** One available duty: how it was published, the Accept / bid actions, then everything about it in a single Duty information panel. */
+/**
+ * One available duty, in the same look as its card on the list: the route on the NESAM road with the payout centred under
+ * it, then the trip's facts in a centred grid and the charges the payout leaves out. Accept / bid stay pinned at the bottom.
+ */
 function DutyDetail({ t, action, setAction }: { t: MarketTrip; action: DutyAction | null; setAction: (a: DutyAction | null) => void }) {
   const d = useVendorData();
   const now = useNow();
+  const { sideBySide } = useLayout();
   const bid = d.bids.find((b) => b.tripId === t.id && b.status === OPEN_BID);
   const pickup = marketPickup(t);
   const opensAt = opensToVendorsAt(t, d.ops.vendorReleaseSeconds, now);
   const accept = canAccept(t) && !opensAt;
   const bidOpen = canBid(t, now) && !opensAt;
   const payout = t.offeredPayout > 0 ? rupees(t.offeredPayout) : 'Your quote';
-  const mode = isBidding(t) ? 'Bidding' : isFixed(t) ? 'Fixed payout' : '';
+  const payLabel = isBidding(t) ? 'Bidding payout' : isFixed(t) ? 'Fixed payout' : 'Vendor payout';
+  const payColor = isBidding(t) ? colors.info : isFixed(t) ? colors.success : colors.muted;
+  const fromName = marketFrom(t);
+  const toName = marketTo(t);
+  // The full address goes under the place name when it says more than the name.
+  const fromAddress = t.pickup.address && t.pickup.address !== fromName ? t.pickup.address : '';
+  const toAddress = t.drop.address && t.drop.address !== toName ? t.drop.address : '';
+  const untilMs = pickup ? pickup.getTime() - now : 0;
+  const urgent = untilMs > 0 && untilMs < 3 * 3600000;
+  const km = t.distanceKm ? `${Math.round(t.distanceKm).toLocaleString('en-IN')} km` : '';
+  const terms = isFixed(t) ? 'Allocated to the first eligible partner who accepts.'
+    : isBidding(t) && bidOpen ? 'Accept the current payout, or submit your quote for NESAM to review.'
+    : '';
+  const included = [t.addOns?.roofCarrier ? 'Roof carrier' : '', t.addOns?.pets ? 'Pet travel' : ''].filter(Boolean).join(', ');
+
+  const actions = accept || bid || bidOpen ? (
+    <View style={[styles.actions, sideBySide && styles.actionsSide]}>
+      {accept ? <Btn kind="accept" title="Accept duty" icon="checkmark-done" onPress={() => setAction({ kind: 'accept', trip: t })} style={{ flex: 1 }} /> : null}
+      {bid ? <Btn kind="bid" title={`My bid ${rupees(bid.vendorCounterRate)}`} icon="create-outline" onPress={() => setAction({ kind: 'bid-detail', bid })} style={{ flex: 1 }} />
+        : bidOpen ? <Btn kind="bid" title="Place bid" icon="trending-up" onPress={() => setAction({ kind: 'bid', trip: t })} style={{ flex: 1 }} /> : null}
+    </View>
+  ) : null;
+
   return (
-    <Page title="Duty details" subtitle={t.bookingId}>
-      {isFixed(t) ? (
-        <Notice tone="green" icon="checkmark-circle-outline" title="Fixed payout" style={{ marginBottom: 14 }}
-          text={`Accept ${rupees(t.offeredPayout)} to take this duty. The first eligible vendor to accept gets it.`} />
-      ) : null}
+    <Page title="Duty details" subtitle={t.bookingId} footer={actions}>
+      {opensAt ? <Notice tone="amber" icon="time-outline" title="Not yet open for acceptance" text={`This duty opens to partners at ${timeText(new Date(opensAt))}.`} style={{ marginBottom: 12 }} /> : null}
+      {isBidding(t) && !bidOpen && !opensAt && !actions ? <Notice tone="neutral" title="Bidding closed" text="This duty is no longer accepting bids." style={{ marginBottom: 12 }} /> : null}
 
-      {opensAt ? <Notice tone="amber" icon="time-outline" title="Not open to vendors yet" text={`Opens to vendors at ${timeText(new Date(opensAt))}.`} style={{ marginBottom: 14 }} /> : null}
-      {accept || bid || bidOpen ? (
-        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
-          {accept ? <Btn title="Accept duty" icon="checkmark-done" onPress={() => setAction({ kind: 'accept', trip: t })} style={{ flex: 1 }} /> : null}
-          {bid ? <Btn kind="bid" title={`My bid ${rupees(bid.vendorCounterRate)}`} icon="create-outline" onPress={() => setAction({ kind: 'bid-detail', bid })} style={{ flex: 1 }} />
-            : bidOpen ? <Btn kind="bid" title="Place bid" icon="trending-up" onPress={() => setAction({ kind: 'bid', trip: t })} style={{ flex: 1 }} /> : null}
-        </View>
-      ) : isBidding(t) && !bidOpen && !opensAt ? <Notice tone="neutral" title="Bidding closed" text="This duty no longer takes bids." style={{ marginBottom: 14 }} /> : null}
-
-      <Grid>
-        <Panel>
-          <Between><H2>Duty information</H2>{mode ? <Badge label={mode} tone={isBidding(t) ? 'blue' : 'green'} /> : null}</Between>
-          <RouteStack from={t.pickup.address || marketFrom(t)} fromSub={`Pickup · ${numericDate(pickup)} · ${pickup ? timeText(pickup) : t.pickup.time || '—'}`} to={t.drop.address || marketTo(t)} toSub={t.drop.city || undefined} />
-          <KV rows={[
-            ['Duty ID', t.bookingId],
-            ['Pickup date', pickup ? numericDate(pickup) : t.travelDate || '—'],
-            ['Pickup time', pickup ? timeText(pickup) : t.pickup.time || '—'],
-            ['Trip type', marketType(t)],
-            ...(t.packageLine ? [['Package', t.packageLine] as [string, string]] : []),
-            t.via?.length ? ['Tour cities', [marketFrom(t), ...t.via, marketTo(t)].join(' → ')] : null,
-            ['Vehicle category', t.vehicleCategory || '—'],
-            t.fuelType ? ['Fuel', t.fuelType === 'cng' ? 'CNG' : 'Diesel / Petrol'] : null,
-            t.distanceKm ? ['Included distance', `${Math.round(t.distanceKm)} km`] : null,
-            [isBidding(t) ? 'Current payout' : 'Vendor payout', payout],
-            t.cutoffMs ? ['Offer closes', dayTime(new Date(t.cutoffMs))] : null,
-            isBidding(t) ? ['Bids so far', String(t.bidCount)] : null,
-            bid ? ['Your bid', `${rupees(bid.vendorCounterRate)} · ${bid.autoAcceptConsent ? 'allocates when the payout reaches it' : 'update to confirm'}`] : null,
-          ]} />
-        </Panel>
-        <Panel>
-          <H2>Charges</H2>
-          {t.addOns?.roofCarrier || t.addOns?.pets ? (
-            <>
-              <Text style={styles.chargeHead}>Included in your payout</Text>
-              <BulletList items={[...(t.addOns?.roofCarrier ? ['Roof carrier (required for this trip)'] : []), ...(t.addOns?.pets ? ['Pet travel (customer travels with a pet)'] : [])]} />
-            </>
-          ) : null}
-          <Text style={[styles.chargeHead, { marginTop: t.addOns?.roofCarrier || t.addOns?.pets ? 18 : 12 }]}>Excluded · collected from the customer</Text>
-          <Small style={{ marginBottom: 10 }}>The driver collects these from the customer and gives the customer a receipt for each one.</Small>
-          <BulletList items={['Toll', 'Parking', 'State permit / tax', 'Hill charges']} />
-        </Panel>
-      </Grid>
+      <DetailGrid
+        sideWidth={360}
+        main={
+          <View style={styles.sheet}>
+            <View style={styles.route}>
+              <View style={styles.head}>
+                <Text style={styles.dutyId} numberOfLines={1}>{t.bookingId}</Text>
+                {untilMs > 0 ? (
+                  <View style={styles.eta}>
+                    <Ionicons name="time-outline" size={14} color={urgent ? colors.warning : colors.muted} />
+                    <Text style={[styles.etaText, urgent && { color: colors.warning }]} numberOfLines={1}>Pickup {untilText(untilMs)}</Text>
+                  </View>
+                ) : null}
+              </View>
+              <Text style={[styles.place, styles.placeTop]}>{fromName}</Text>
+              {fromAddress ? <Text style={styles.address} numberOfLines={2}>{fromAddress}</Text> : null}
+              <Road distance={km} style={styles.road} />
+              <Text style={[styles.place, styles.right]}>{toName}</Text>
+              {toAddress ? <Text style={[styles.address, styles.right]} numberOfLines={2}>{toAddress}</Text> : null}
+            </View>
+            <View style={styles.pay} accessible accessibilityLabel={`${payLabel} ${payout}`}>
+              <Text style={[styles.payLabel, { color: payColor }]}>{payLabel.toUpperCase()}</Text>
+              <Amount text={payout} big />
+              {terms ? <Text style={styles.terms}>{terms}</Text> : null}
+            </View>
+          </View>
+        }
+        side={
+          <View style={styles.sheet}>
+            <FactGrid
+              items={[
+                ['Pickup date', pickup ? keep(dayText(pickup)) : t.travelDate || '—'],
+                ['Pickup time', pickup ? keep(timeText(pickup)) : t.pickup.time || '—'],
+                ['Trip type', marketType(t)],
+                ['Vehicle', t.vehicleCategory || '—'],
+                t.fuelType ? ['Fuel', t.fuelType === 'cng' ? 'CNG' : 'Diesel / Petrol'] : null,
+                km ? ['Included km', km] : null,
+                t.cutoffMs ? ['Valid until', `${keep(dayText(new Date(t.cutoffMs)))}, ${keep(timeText(new Date(t.cutoffMs)))}`] : null,
+                isBidding(t) ? ['Bids', String(t.bidCount)] : null,
+              ]}
+              wide={[
+                t.packageLine ? ['Package', t.packageLine.split(' · ').join('\n')] : null,
+                t.via?.length ? ['Tour route', [fromName, ...t.via, toName].join('  →  ')] : null,
+                bid ? ['Your bid', `${rupees(bid.vendorCounterRate)} · ${bid.autoAcceptConsent ? 'allocated when the payout reaches this amount' : 'update to confirm allocation terms'}`] : null,
+                included ? ['Included in payout', included] : null,
+              ]}
+            />
+            <View style={styles.charges}>
+              <Ionicons name="receipt-outline" size={17} color={colors.muted} />
+              <Text style={styles.chargesLabel}>NOT INCLUDED IN PAYOUT</Text>
+              <Text style={styles.chargesText}>{'Toll, parking, state permit / tax\nand hill charges'}</Text>
+              <Text style={styles.chargesNote}>The customer pays these. The driver collects each one and gives a receipt.</Text>
+            </View>
+          </View>
+        }
+      />
       <DutyDialogs action={action} setAction={setAction} onAccepted={() => goSection('Bookings', { tab: 'Accepted' })} />
     </Page>
   );
 }
 
+type Fact = [string, string] | null;
+
+/** Keeps "28 Nov 2026" or "09:30 AM" on one line (no-break spaces). */
+const keep = (text: string) => text.replace(/ /g, '\u00A0');
+
+/**
+ * The trip's short facts in rows of up to three (two on very small phones), each centred under its label with hairlines between; the rows are kept
+ * as even as possible (four facts make two rows of two). Longer facts (package, tour route) get a full row each.
+ */
+function FactGrid({ items, wide }: { items: Fact[]; wide: Fact[] }) {
+  const perRow = useWindowWidth() < 360 ? 2 : 3;
+  const short = items.filter(Boolean) as [string, string][];
+  const long = wide.filter(Boolean) as [string, string][];
+  const count = Math.ceil(short.length / perRow);
+  const rows: [string, string][][] = [];
+  for (let r = 0, at = 0; r < count; r += 1) {
+    const size = Math.floor(short.length / count) + (r < short.length % count ? 1 : 0);
+    rows.push(short.slice(at, at + size));
+    at += size;
+  }
+  return (
+    <View>
+      {rows.map((row, r) => (
+        <View key={r} style={[styles.row, r > 0 && styles.rowLine]}>
+          {row.map(([label, value], i) => <FactCell key={label} label={label} value={value} line={i > 0} />)}
+        </View>
+      ))}
+      {long.map(([label, value]) => (
+        <View key={label} style={[styles.row, styles.rowLine]}>
+          <FactCell label={label} value={value} />
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function FactCell({ label, value, line }: { label: string; value: string; line?: boolean }) {
+  return (
+    <View style={[styles.cell, line && styles.cellLine]}>
+      <Text style={styles.cellLabel} numberOfLines={1}>{label.toUpperCase()}</Text>
+      <Text style={styles.cellValue}>{value}</Text>
+    </View>
+  );
+}
+
+const shadow = Platform.select({ web: { boxShadow: '0 6px 22px rgba(22,32,51,0.07)' } as object, default: { shadowColor: '#162033', shadowOpacity: 0.07, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 2 } });
+const HAIRLINE = '#EDF0F4';
+
 const styles = StyleSheet.create({
-  chargeHead: { fontFamily, fontSize: 13, fontWeight: '700', color: colors.ink, marginTop: 12, marginBottom: 6 },
+  sheet: { backgroundColor: colors.white, borderRadius: 16, borderWidth: 1, borderColor: '#E3E7ED', overflow: 'hidden', ...shadow },
+  route: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 16 },
+  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: 20 },
+  dutyId: { fontSize: 12, fontWeight: '600', color: colors.muted, letterSpacing: 0.4, flexShrink: 1 },
+  eta: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 0 },
+  etaText: { fontSize: 12, fontWeight: '600', color: colors.muted },
+  place: { fontSize: 18, fontWeight: '700', color: colors.ink, lineHeight: 24, letterSpacing: -0.3 },
+  placeTop: { marginTop: 14 },
+  address: { fontSize: 12, color: colors.muted, lineHeight: 17, marginTop: 1 },
+  right: { textAlign: 'right' },
+  road: { marginTop: 8, marginBottom: 4 },
+  pay: { alignItems: 'center', paddingHorizontal: 16, paddingTop: 14, paddingBottom: 16, borderTopWidth: 1, borderTopColor: HAIRLINE, backgroundColor: '#FBFCFD' },
+  payLabel: { fontSize: 10.5, fontWeight: '700', letterSpacing: 0.8 },
+  terms: { fontSize: 12, color: colors.muted, lineHeight: 17, textAlign: 'center', marginTop: 2 },
+  row: { flexDirection: 'row' },
+  rowLine: { borderTopWidth: 1, borderTopColor: HAIRLINE },
+  cell: { flex: 1, minWidth: 0, alignItems: 'center', paddingVertical: 11, paddingHorizontal: 6 },
+  cellLine: { borderLeftWidth: 1, borderLeftColor: HAIRLINE },
+  cellLabel: { fontSize: 10, fontWeight: '700', color: colors.muted, letterSpacing: 0.6, textAlign: 'center' },
+  cellValue: { fontSize: 13.5, fontWeight: '600', color: colors.ink, lineHeight: 19, textAlign: 'center', marginTop: 3 },
+  charges: { alignItems: 'center', paddingHorizontal: 18, paddingTop: 12, paddingBottom: 14, borderTopWidth: 1, borderTopColor: HAIRLINE, backgroundColor: '#FBFCFD' },
+  chargesLabel: { fontSize: 10, fontWeight: '700', color: colors.muted, letterSpacing: 0.6, marginTop: 4 },
+  chargesText: { fontSize: 13, fontWeight: '600', color: colors.ink, lineHeight: 19, textAlign: 'center', marginTop: 3 },
+  chargesNote: { fontSize: 11.5, color: colors.muted, lineHeight: 17, textAlign: 'center', marginTop: 2 },
+  actions: { flexDirection: 'row', gap: 10 },
+  actionsSide: { width: 360, alignSelf: 'flex-end' },
 });

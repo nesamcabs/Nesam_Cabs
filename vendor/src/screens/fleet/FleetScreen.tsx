@@ -148,7 +148,8 @@ function VehicleCard({ v }: { v: FleetVehicle }) {
       <View style={{ flex: 1 }} />
       <Between style={{ marginTop: 14 }}>
         <View style={styles.paired}><Ionicons name="person-outline" size={14} color="#6F7785" /><Small lines={1}>{v.assignedDriverName || 'No paired driver'}</Small></View>
-        <TextLink title="View details" onPress={() => navigation.navigate('Vehicle', { id: v.id })} />
+        {/* The whole card opens the details: a button inside it would be a <button> in a <button> on the web. */}
+        <Text style={styles.viewDetails}>View details</Text>
       </Between>
     </Panel>
   );
@@ -177,7 +178,7 @@ function DriverCard({ x }: { x: FleetDriver }) {
       <View style={{ flex: 1 }} />
       <Between style={{ marginTop: 14 }}>
         <View style={styles.paired}><Ionicons name="car-outline" size={14} color="#6F7785" /><Small lines={1}>{x.assignedVehicleNumber ? plate(x.assignedVehicleNumber) : 'No paired vehicle'}</Small></View>
-        <TextLink title="View details" onPress={() => navigation.navigate('Driver', { id: x.id })} />
+        <Text style={styles.viewDetails}>View details</Text>
       </Between>
     </Panel>
   );
@@ -193,4 +194,5 @@ const styles = StyleSheet.create({
   person: { flexDirection: 'row', alignItems: 'center', gap: 13, marginTop: 18 },
   name: { fontFamily, fontSize: 16, fontWeight: '600', color: colors.ink, marginBottom: 3 },
   paired: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
+  viewDetails: { fontFamily, fontSize: 12.5, fontWeight: '700', color: colors.primary, lineHeight: 32 },
 });

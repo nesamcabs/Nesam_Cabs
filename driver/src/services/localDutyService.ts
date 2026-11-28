@@ -1,7 +1,7 @@
 // Local duty ("continuous moving"): the duties the driver's fleet partner planned (local_shifts, read-only for the app) and
 // the server calls that run one — start / break / resume / end, the nearby-order board, taking and handing back orders.
 // Every rule is checked on the server (functions/src/localShifts.ts); nothing here can assign an order by itself.
-import { collection, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, Timestamp, updateDoc, where, type DocumentData } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, where, type DocumentData } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import { ActionError, callFunction } from './callables';
 import type { BoardOrder, LocalMode, LocalShift, LocalShiftStats, LocalShiftStatus } from '../types/driver';
@@ -117,44 +117,13 @@ export const DEFAULT_DUTY_CITIES: DutyCity[] = [
   { id: 'kochi', name: 'Kochi', state: 'Kerala', hasCentre: true },
 ];
 
-export const localShiftAction = async (shiftId: string, action: 'start' | 'pause' | 'resume', location?: Fix | null): Promise<{ ok: boolean }> => {
-  try {
-    return await callFunction<unknown, { ok: boolean }>('localShiftAction', { shiftId, action, location: location ?? undefined });
-  } catch {
-    const updates: Record<string, unknown> = { updatedAt: serverTimestamp() };
-    if (action === 'start') {
-      updates.status = 'Active';
-      updates.startedAt = serverTimestamp();
-      updates.paused = false;
-      if (location) {
-        updates.centre = { lat: location.lat, lng: location.lng };
-        updates.centreSource = 'driver_start';
-        updates.lastLocation = { lat: location.lat, lng: location.lng, at: serverTimestamp() };
-      }
-    } else if (action === 'pause') {
-      updates.paused = true;
-      updates.pausedAt = serverTimestamp();
-    } else if (action === 'resume') {
-      updates.paused = false;
-    }
-    await updateDoc(doc(db, 'local_shifts', shiftId), updates);
-    return { ok: true };
-  }
-};
+// Every duty status change goes to the server, which checks it. A refusal is thrown to the screen and the duty stays as it was:
+// the app never writes local_shifts itself (firestore.rules refuse it).
+export const localShiftAction = (shiftId: string, action: 'start' | 'pause' | 'resume', location?: Fix | null) =>
+  callFunction<unknown, { ok: boolean }>('localShiftAction', { shiftId, action, location: location ?? undefined });
 
-export const endLocalShift = async (shiftId: string, reason = ''): Promise<{ status: 'Ended' | 'Ending' | 'Cancelled' | string; open?: number }> => {
-  try {
-    return await callFunction<unknown, { status: 'Ended' | 'Ending' | 'Cancelled' | string; open?: number }>('endLocalShift', { shiftId, reason });
-  } catch {
-    await updateDoc(doc(db, 'local_shifts', shiftId), {
-      status: 'Ended',
-      endedAt: serverTimestamp(),
-      endReason: reason,
-      updatedAt: serverTimestamp(),
-    });
-    return { status: 'Ended' };
-  }
-};
+export const endLocalShift = (shiftId: string, reason = '') =>
+  callFunction<unknown, { status: 'Ended' | 'Ending' | 'Cancelled' | string; open?: number }>('endLocalShift', { shiftId, reason });
 
 export interface Board {
   open: boolean;
@@ -164,9 +133,18 @@ export interface Board {
   radiusKm: number;
   centre: { lat: number; lng: number } | null;
   marketplace?: boolean;
+  /** Why the last position was not saved (riders then stop seeing the cab); '' when it was, or none was sent. */
+  shareProblem?: string;
 }
 
 export const fetchBoard = async (shiftId: string, location?: Fix | null): Promise<Board> => {
+  // The duty's live position goes to the server with every refresh, so riders nearby see this cab on their map.
+  const sharing: Promise<string> = location
+    ? callFunction<unknown, { ok: boolean }>('localShiftPing', { shiftId, location }, 15000).then(
+        (r) => (r?.ok === false ? 'The server did not save your position.' : ''),
+        (e: unknown) => (e instanceof Error && e.message ? e.message : 'Your position could not be sent.'),
+      )
+    : Promise.resolve('');
   const orders: BoardOrder[] = [];
   try {
     const sSnap = await getDoc(doc(db, 'local_shifts', shiftId));
@@ -222,6 +200,7 @@ export const fetchBoard = async (shiftId: string, location?: Fix | null): Promis
     serverTime: Date.now(),
     radiusKm: 25,
     centre: location ? { lat: location.lat, lng: location.lng } : null,
+    shareProblem: await sharing,
   };
 };
 
@@ -240,34 +219,8 @@ export const takeLocalOrder = async (shiftId: string, bookingId: string): Promis
   }
 };
 
-export const releaseLocalOrder = async (shiftId: string, bookingId: string, reason: string): Promise<{ ok: boolean }> => {
-  try {
-    return await callFunction<unknown, { ok: boolean }>('releaseLocalOrder', { shiftId, bookingId, reason });
-  } catch {
-    try {
-      const bRef = doc(db, 'bookings', bookingId);
-      await updateDoc(bRef, {
-        assignedDriverId: '',
-        driverId: '',
-        status: 'Pending',
-        localShiftId: '',
-        releaseReason: reason || 'Driver released order',
-        updatedAt: serverTimestamp(),
-      });
-      const sRef = doc(db, 'local_shifts', shiftId);
-      const sSnap = await getDoc(sRef);
-      if (sSnap.exists()) {
-        const stats = sSnap.data().stats || {};
-        await updateDoc(sRef, {
-          'stats.active': Math.max(0, (stats.active || 1) - 1),
-          releases: (sSnap.data().releases || 0) + 1,
-          updatedAt: serverTimestamp(),
-        });
-      }
-    } catch {}
-    return { ok: true };
-  }
-};
+export const releaseLocalOrder = (shiftId: string, bookingId: string, reason: string) =>
+  callFunction<unknown, { ok: boolean }>('releaseLocalOrder', { shiftId, bookingId, reason });
 
 export interface DutyCity { id: string; name: string; state: string; hasCentre: boolean }
 
@@ -288,81 +241,9 @@ export const localDutyCities = async (): Promise<{ cities: DutyCity[] }> => {
   return { cities: DEFAULT_DUTY_CITIES };
 };
 
-/** A fleet driver goes on local duty in their paired vehicle, from now for `hours`. The fleet partner is told. */
-export const startMyLocalDuty = async (input: { cityId: string; cityName: string; services: LocalMode[]; hours: number; radiusKm: number }): Promise<{ ok: boolean; shiftId: string }> => {
-  const user = auth.currentUser;
-  if (!user) throw new Error('Not signed in');
-
-  // If an active local shift already exists in Firestore for this driver, use it immediately
-  try {
-    const existingSnap = await getDocs(query(collection(db, 'local_shifts'), where('driverId', '==', user.uid)));
-    const active = existingSnap.docs.find((d) => d.data().status === 'Active' || d.data().status === 'Scheduled');
-    if (active) {
-      return { ok: true, shiftId: active.id };
-    }
-  } catch {}
-
-  const shiftRef = doc(collection(db, 'local_shifts'));
-  const shiftId = shiftRef.id;
-  const now = Date.now();
-  const endMs = now + input.hours * 3600000;
-
-    let driverName = 'Driver';
-    let driverPhone = user.phoneNumber || '';
-    let vendorId = '';
-    let vendorName = 'Fleet partner';
-    let vehicleId = '';
-    let vehicleNumber = '';
-    let vehicleCategory = '';
-
-    try {
-      const dSnap = await getDoc(doc(db, 'drivers', user.uid));
-      if (dSnap.exists()) {
-        const dData = dSnap.data();
-        driverName = dData.name || driverName;
-        driverPhone = dData.phone || driverPhone;
-        vendorId = dData.vendorId || '';
-        vendorName = dData.vendorName || vendorName;
-        vehicleId = dData.assignedVehicleId || '';
-        vehicleNumber = dData.assignedVehicleNumber || '';
-        vehicleCategory = dData.vehicleType || '';
-      }
-    } catch {}
-
-    const shiftData = {
-      id: shiftId,
-      vendorId,
-      vendorName,
-      driverId: user.uid,
-      driverName,
-      driverPhone,
-      vehicleId,
-      vehicleNumber,
-      vehicleCategory,
-      vehicleClass: vehicleCategory,
-      cityId: input.cityId || '',
-      cityName: input.cityName || 'City',
-      radiusKm: input.radiusKm || 15,
-      services: input.services,
-      startsAt: Timestamp.fromMillis(now),
-      endsAt: Timestamp.fromMillis(endMs),
-      status: 'Active',
-      startedAt: Timestamp.fromMillis(now),
-      endedAt: null,
-      paused: false,
-      pausedAt: null,
-      breakMs: 0,
-      endRequested: false,
-      endReason: '',
-      releases: 0,
-      stats: { ...EMPTY_STATS },
-      note: '',
-      createdBy: user.uid,
-      createdByRole: 'driver',
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    };
-
-    await setDoc(shiftRef, shiftData);
-    return { ok: true, shiftId };
-  };
+/**
+ * The driver puts themselves on local duty from now for `hours`, in their paired (fleet) or attached (owner) vehicle. The server
+ * checks the account and the vehicle and creates a planned duty only: the photo check and the start slide are still the driver's.
+ */
+export const startMyLocalDuty = (input: { cityName: string; services: LocalMode[]; hours: number }) =>
+  callFunction<unknown, { ok: boolean; shiftId: string }>('createLocalShift', { cityName: input.cityName, services: input.services, startsAt: 'now', endsAt: Date.now() + input.hours * 3600000 });

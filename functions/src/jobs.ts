@@ -10,7 +10,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { DocumentData, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { db } from './admin';
 import { releaseConfigOf } from './release';
-import { announceToPartners } from './marketplace';
+import { announceToPartners, backfillRoundTripDays, releaseDueLocalBookings } from './marketplace';
 import { notify } from './notify';
 import { reconcileBooking, reconcilePayout } from './reconcile';
 import { clearResolvedFlags, runUnassignedAlerts } from './scheduler';
@@ -23,6 +23,7 @@ import { runScheduledNotices } from './noticeCampaigns';
 import { reconcilePublicContent } from './publicContent';
 import { runLocalShiftSweep } from './localShifts';
 import { runTimePackageUpgrades } from './timePackageJobs';
+import { runAutoCancel } from './autoCancel';
 import { sweepGstReview } from './gstDocuments';
 
 const STATE_DOC = 'system/reconcile_state';
@@ -211,10 +212,13 @@ export async function runPeriodicJobs(): Promise<Record<string, unknown>> {
     try { report[name] = await fn(); } catch (err) { report[name] = { error: String((err as Error).message ?? err).slice(0, 200) }; console.error(`[jobs] ${name} failed`, err); }
   };
   await step('reconcile', () => reconcileBacklog());
+  await step('autoCancel', () => runAutoCancel());
   await step('unassigned', async () => { const r = await runUnassignedAlerts(); await clearResolvedFlags(); return r; });
   await step('escalation', () => runOfferEscalation());
   await step('cutoff', () => expireMarketplaceOffers());
   await step('waves', () => runReleaseWaves());
+  await step('localRelease', () => releaseDueLocalBookings());
+  await step('roundTripDays', () => backfillRoundTripDays());
   await step('settlementOverdue', () => runSettlementOverdue());
   await step('documentExpiry', () => runDocumentExpiryReminders());
   await step('scheduledNotices', () => runScheduledNotices());

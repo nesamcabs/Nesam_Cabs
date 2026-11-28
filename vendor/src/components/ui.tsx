@@ -312,12 +312,15 @@ export function Sheet({
   title,
   children,
   dismissible = true,
+  fullScreen = false,
 }: {
   visible: boolean;
   onClose: () => void;
   title: string;
   children: React.ReactNode;
   dismissible?: boolean;
+  /** A whole page (long forms such as registering a vehicle) instead of a bottom sheet or a dialog. */
+  fullScreen?: boolean;
 }) {
   // Edge-to-edge Android does not resize the window for the keyboard, so the sheet is lifted by the keyboard height
   // (reported above the navigation bar, which the sheet's bottom safe-area padding already clears). The sheet and its
@@ -337,6 +340,20 @@ export function Sheet({
       ) : null}
     </View>
   );
+  if (fullScreen) {
+    return (
+      <Modal visible={visible} animationType="slide" statusBarTranslucent onRequestClose={dismissible ? onClose : () => undefined}>
+        <SafeAreaView edges={['top', 'bottom']} style={styles.fullPage}>
+          <KeyboardAvoid keyboardOnly>
+            {header}
+            <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.sheetBody, styles.fullPageBody]}>
+              {children}
+            </ScrollView>
+          </KeyboardAvoid>
+        </SafeAreaView>
+      </Modal>
+    );
+  }
   return (
     <Modal visible={visible} transparent animationType={dialog ? 'fade' : 'slide'} statusBarTranslucent onRequestClose={dismissible ? onClose : () => undefined}>
       <KeyboardAvoid style={styles.sheetBackdrop} innerStyle={dialog ? styles.dialogBackdrop : undefined} keyboardOnly={!dialog}>
@@ -572,6 +589,8 @@ const styles = StyleSheet.create({
   sheetTitle: { flex: 1, fontSize: 18, fontWeight: '600', color: colors.ink, letterSpacing: -0.35, fontFamily },
   sheetClose: { width: 32, height: 32, borderRadius: 9, backgroundColor: '#F6F7F9', alignItems: 'center', justifyContent: 'center' },
   sheetBody: { paddingHorizontal: 22, paddingTop: 20, paddingBottom: 24 },
+  fullPage: { flex: 1, backgroundColor: colors.white },
+  fullPageBody: { width: '100%', maxWidth: 720, alignSelf: 'center', flexGrow: 1 },
   stat: { flexGrow: 1, flexBasis: '46%', backgroundColor: colors.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, paddingVertical: 12, paddingHorizontal: 14 },
   statValue: { fontSize: 20, fontWeight: '700', letterSpacing: -0.3 },
   statLabel: { fontSize: 12, color: colors.muted, marginTop: 2 },

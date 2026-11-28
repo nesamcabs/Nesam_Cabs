@@ -13,7 +13,7 @@
 // Exact reuse of a file from another trip is refused outright.
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
-import { getStorage } from 'firebase-admin/storage';
+import { getDownloadURL, getStorage } from 'firebase-admin/storage';
 import exifr from 'exifr';
 import { db } from './admin';
 import { audit } from './audit';
@@ -360,3 +360,37 @@ async function finalizeShiftVerification(driver: { uid: string; name: string }, 
   }
   return { ok: true, flagged: res.flagged };
 }
+
+/**
+ * For the rider of a booking: the driver's live selfie and the cab's front photo from the pre-trip check (a local ride uses its
+ * duty's check), and the driver's profile photo, as links the booking page can show. Only the booking's own customer gets them,
+ * only while a driver is on it, and only the current driver's photos. The rear and dashboard photos stay with the office.
+ */
+export const customerDriverPhotos = onCall(async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Sign in to see your driver.');
+  const bookingId = docId(request.data?.bookingId, 'booking');
+  const snap = await db.doc(`bookings/${bookingId}`).get();
+  const b = snap.data();
+  if (!snap.exists || !b || b.customerId !== uid) throw new HttpsError('not-found', 'This trip does not exist.');
+  const none = { selfieUrl: '', carUrl: '', profileUrl: '', checkedAt: '' };
+  const driverId = text(b.assignedDriverId, 128);
+  if (!driverId || ['Cancelled', 'Rejected'].includes(text(b.status))) return none;
+  const own = `drivers/${driverId}/`;
+  const link = async (path: string): Promise<string> => {
+    if (!path.startsWith(own) || path.includes('..')) return '';
+    try {
+      return await getDownloadURL(getStorage().bucket().file(path));
+    } catch {
+      return '';
+    }
+  };
+  const pre = (b.preTrip ?? {}) as Record<string, unknown>;
+  const [selfieUrl, carUrl, driver] = await Promise.all([
+    link(text(b.driverSelfiePhoto, 600) || text(pre.driverSelfie, 600)),
+    link(text(b.vehicleFrontPhoto, 600) || text(pre.vehicleFront, 600)),
+    db.doc(`drivers/${driverId}`).get(),
+  ]);
+  const photo = text(driver.data()?.photoUrl, 2000);
+  return { selfieUrl, carUrl, profileUrl: /^https:\/\//.test(photo) ? photo : '', checkedAt: selfieUrl || carUrl ? text(pre.capturedAt, 40) : '' };
+});

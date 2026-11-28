@@ -145,10 +145,144 @@ export function dutyTermsOf(v: any, booking?: DocumentData | null): DocumentData
 
 // ── Publish to the marketplace ────────────────────────────────────────────
 
-/** Tell eligible approved partners a published trip is available. Best effort, de-duplicated. */
-export type Audience = 'all' | 'topOwners' | 'otherOwners' | 'vendors';
+/** The days a round trip was booked for; 0 for any other trip. */
+const roundTripDaysOf = (b: DocumentData): number => (b.tripType === 'Round Trip' ? Math.max(0, Math.round(Number(b.billableDays || b.pricing?.days) || 0)) : 0);
 
-export async function announceToPartners(bookingId: string, b: DocumentData, offer: DocumentData, audience: Audience = 'all', topRatedMin = 4.5): Promise<number> {
+/** Gives open round-trip duties published without their days the booking's days (run by the periodic jobs). */
+export async function backfillRoundTripDays(): Promise<{ checked: number; updated: number }> {
+  const snap = await db.collection('marketplace_trips').where('status', 'in', ['Open', 'Bidding']).limit(300).get();
+  let checked = 0, updated = 0;
+  for (const d of snap.docs) {
+    const t = d.data();
+    if (t.tripType !== 'Round Trip' || Number(t.tripDays) > 0) continue;
+    checked += 1;
+    const booking = await db.doc(`bookings/${d.id}`).get();
+    const days = booking.exists ? roundTripDaysOf(booking.data()!) : 0;
+    if (!days) continue;
+    await d.ref.update({ tripDays: days });
+    updated += 1;
+  }
+  return { checked, updated };
+}
+
+/** What partners see of a booking on Open Duties: area-level places, the trip, the vehicle and the payout. */
+function marketOfferBase(bookingId: string, b: DocumentData, category: ReturnType<typeof mapCategory> | null, payout: number, pickupAt: Date | null): Record<string, unknown> {
+  return {
+    id: bookingId, bookingId: code(b, bookingId), route: `${text(b.pickup)} → ${text(b.drop)}`,
+    // Area only, approximate coordinates: the exact address is shared once the trip is theirs.
+    pickup: { address: text(b.pickup), city: text(b.pickup), time: text(b.time), ...(Number.isFinite(b.pickupLat) ? { lat: Math.round(b.pickupLat * 100) / 100, lng: Math.round(b.pickupLng * 100) / 100 } : {}) },
+    drop: { address: text(b.drop), city: text(b.drop), ...(Number.isFinite(b.dropLat) ? { lat: Math.round(b.dropLat * 100) / 100, lng: Math.round(b.dropLng * 100) / 100 } : {}) },
+    travelDate: text(b.date), service: text(b.service), tripType: text(b.tripType),
+    // A time-based round trip: partners see which package it is and when it must end (the 9 AM Morning Return cutoff included).
+    ...(b.timePackage && typeof b.timePackage === 'object' ? { timePackage: { label: text(b.timePackage.label), kind: text(b.timePackage.kind), includedKm: money(b.timePackage.includedKm), ...(Number(b.timePackage.hours) > 0 ? { hours: Number(b.timePackage.hours) } : {}), ...(b.timePackage.coverageEndAt ? { coverageEndAt: b.timePackage.coverageEndAt } : {}), ...(b.timePackage.morningCutoffAt ? { morningCutoffAt: b.timePackage.morningCutoffAt } : {}) } } : {}),
+    // How many days a round trip was booked for (partners see it on the duty card).
+    ...(roundTripDaysOf(b) ? { tripDays: roundTripDaysOf(b) } : {}),
+    // A Multicity tour (or a round trip) passes through these places, in order; partners see them by name only.
+    ...(viaNames(b).length ? { via: viaNames(b) } : {}), ...(text(b.tourType) ? { tourType: text(b.tourType) } : {}),
+    vehicleCategory: text(b.vehicleCategory) || text(b.vehicle), vehicleCategoryId: text(b.vehicleCategoryId),
+    // The fuel the customer booked: a CNG car, or any petrol / diesel car (the vendor sees it on the duty).
+    fuelType: b.fuelType === 'cng' ? 'cng' : 'diesel_petrol',
+    addOns: bookingAddOnsOf(b.addOns ?? b.fareBreakdown?.addOns ?? b.tripExtras),
+    // Lower-case aliases an older claim compared a vehicle type against; the vehicle classes are authoritative.
+    eligibleVehicleTypes: category?.matchVehicleTypes ?? [],
+    dutyClass: bookingDutyClass(b) ?? '', eligibleVehicleClasses: eligibleClassesFor(bookingDutyClass(b)),
+    distanceKm: money(b.distanceKm), offeredPayout: payout, ...(pickupAt ? { pickupAt: Timestamp.fromDate(pickupAt) } : {}),
+  };
+}
+
+// ── Automatic release of local bookings ───────────────────────────────────
+
+/** A customer's Local Pickup & Drop or Hourly Rental booking: released to partners without waiting for the office. */
+export const LOCAL_INSTANT_MINUTES = 15;
+export const LOCAL_RELEASE_MINUTES = 30;
+export const isLocalBooking = (b: DocumentData): boolean => b.tripType === 'Local Rental' || (b.tripType === 'One Way' && b.service === 'Local');
+
+/**
+ * Approves (when still pending) and publishes (when not yet open) an unassigned local booking, then tells every online
+ * owner-driver. Used straight after booking when the pickup is within 15 minutes, and by the periodic job 30 minutes before
+ * pickup. Safe to run twice: a booking already assigned, cancelled or released is left alone. Never throws.
+ */
+export async function releaseLocalBooking(bookingId: string, why: 'instant' | 'before_pickup'): Promise<{ released: boolean; reason?: string }> {
+  try {
+    const ref = db.doc(`bookings/${bookingId}`);
+    const market = db.doc(`marketplace_trips/${bookingId}`);
+    const stamp = FieldValue.serverTimestamp();
+    const out = await db.runTransaction(async (tx) => {
+      const [snap, prior, policy, privatePricing] = await Promise.all([tx.get(ref), tx.get(market), loadCommissionPolicy(tx), loadPrivatePricing(tx, bookingId)]);
+      if (!snap.exists) return { released: false, reason: 'missing' };
+      const b = snap.data()!;
+      if (b.autoReleasedAt) return { released: false, reason: 'already released' };
+      if (!isLocalBooking(b) || b.fareVerified !== true || b.awaitingOnlinePayment === true || b.officeConfirmationRequired === true) return { released: false, reason: 'not eligible' };
+      const approving = b.status === 'Pending';
+      if (!approving && !awaitingFulfilment(b)) return { released: false, reason: `status ${text(b.status)}` };
+      if (b.assignedVendorId || b.assignedDriverId) return { released: false, reason: 'assigned' };
+      const pickupAt = pickupInstant(b);
+      const priorStatus = prior.exists ? String(prior.data()!.status) : '';
+      const open = priorStatus === 'Open' || priorStatus === 'Bidding';
+      const label = why === 'instant' ? 'Auto approval · pickup within 15 minutes' : 'Auto release · 30 minutes before pickup';
+      const booking = { ...b, status: 'Approved' };
+      if (approving) {
+        tx.update(ref, { status: 'Approved', approvedAt: stamp, approvedBy: 'system', approvedByName: 'Auto approval (local)', approvalNote: label, updatedAt: stamp });
+        tx.create(ref.collection('events').doc(), { type: 'approved', actorId: 'system', actorRole: 'system', note: label, at: stamp });
+        auditInTx(tx, { action: 'booking_approved', entity: 'booking', entityId: bookingId, performedBy: 'system', performedByName: 'Auto approval (local)', role: 'system', bookingId, previous: { status: b.status }, next: { status: 'Approved' }, reason: label });
+      }
+      let offer: DocumentData = prior.exists ? prior.data()! : {};
+      if (!open) {
+        const categoryDoc = text(b.vehicleCategoryId) ? await tx.get(db.doc(`vehicle_categories/${text(b.vehicleCategoryId)}`)) : null;
+        const category = categoryDoc?.exists ? mapCategory(categoryDoc.id, categoryDoc.data()!) : null;
+        const payout = resolvePayout(withPrivatePricing(b, privatePricing), policy, null, { uid: 'system', name: 'Auto release', permissions: [] } as unknown as AdminAccess, 'offer');
+        offer = {
+          ...marketOfferBase(bookingId, b, category, payout.amount, pickupAt),
+          mode: 'accept_offer', startOffer: payout.amount,
+          status: 'Open', publishedAt: stamp, publishedBy: 'system', autoReleased: why, createdAt: prior.exists ? prior.data()!.createdAt ?? stamp : stamp, updatedAt: stamp,
+        };
+        tx.set(market, offer);
+        tx.update(ref, { ...(payout.commission ? { commission: payout.commission } : {}), payoutSource: payout.source, fulfilmentRoute: 'marketplace', marketplacePublishedAt: stamp, marketplacePublishedBy: 'system' });
+        tx.create(ref.collection('events').doc(), { type: 'posted_to_marketplace', actorId: 'system', actorRole: 'system', payout: payout.amount, payoutSource: payout.source, note: label, at: stamp });
+        auditInTx(tx, { action: 'booking_published', entity: 'booking', entityId: bookingId, performedBy: 'system', performedByName: 'Auto release', role: 'system', bookingId, previous: { marketplace: priorStatus || 'none' }, next: { marketplace: 'Open', offeredPayout: payout.amount, payoutSource: payout.source }, reason: label });
+      }
+      tx.update(ref, { autoReleasedAt: stamp, autoRelease: why, updatedAt: stamp });
+      return { released: true, approving, booking, offer };
+    });
+    if (!out.released || !('booking' in out)) return { released: false, reason: out.reason };
+    const b = out.booking as DocumentData;
+    if (out.approving && b.customerId) {
+      await notify({
+        recipientType: 'customer', brand: b.brand, recipientId: b.customerId, category: 'approvals', severity: 'success', sound: 'approval', event: 'booking_approved', title: 'Booking approved',
+        message: `Your booking ${code(b, bookingId)} is approved. We are arranging your vehicle and will share driver details before your pickup.`, bookingId, bookingCode: code(b, bookingId), push: true, sentBy: 'system',
+      }).catch(() => null);
+      const secret = await db.doc(`booking_secrets/${bookingId}`).get().catch(() => null);
+      await sendCustomerMessage(bookingId, b, 'booking_approved', { otp: secret?.data()?.otp }).catch((err) => console.warn('customer message failed', err));
+    }
+    // Every online owner-driver hears about it (a separate notice from the publish one, so it is not de-duplicated away).
+    await announceToPartners(bookingId, b, out.offer as DocumentData, 'drivers', 4.5, `local_release_${why}`).catch((err) => console.warn('local release announce failed', err));
+    return { released: true };
+  } catch (err) {
+    console.warn('local release failed', bookingId, err);
+    return { released: false, reason: String((err as Error)?.message ?? err).slice(0, 120) };
+  }
+}
+
+/** The periodic job: every customer local booking still without a partner 30 minutes before pickup. */
+export async function releaseDueLocalBookings(nowMs = Date.now()): Promise<{ checked: number; released: number }> {
+  const snap = await db.collection('bookings').where('autoReleaseEligible', '==', true).where('status', 'in', ['Pending', 'Approved']).limit(300).get();
+  let released = 0, checked = 0;
+  for (const d of snap.docs) {
+    const b = d.data();
+    const at = pickupInstant(b)?.getTime() ?? 0;
+    // Due from 30 minutes before pickup until 15 minutes after it (a late start is still worth a driver).
+    if (!at || b.autoReleasedAt || at - nowMs > LOCAL_RELEASE_MINUTES * 60000 || nowMs - at > 15 * 60000) continue;
+    checked++;
+    if ((await releaseLocalBooking(d.id, 'before_pickup')).released) released++;
+  }
+  return { checked, released };
+}
+
+/** Tell eligible approved partners a published trip is available. Best effort, de-duplicated. */
+export type Audience = 'all' | 'topOwners' | 'otherOwners' | 'vendors' | 'drivers';
+
+/** `tag` makes this a separate notice from an earlier one about the same trip (it would otherwise be de-duplicated). */
+export async function announceToPartners(bookingId: string, b: DocumentData, offer: DocumentData, audience: Audience = 'all', topRatedMin = 4.5, tag = ''): Promise<number> {
   const aliases: string[] = Array.isArray(offer.eligibleVehicleTypes) ? offer.eligibleVehicleTypes : [];
   const [drivers, vendors] = await Promise.all([
     db.collection('drivers').where('status', '==', 'Approved').where('presenceStatus', '==', 'Online').limit(300).get(),
@@ -167,7 +301,7 @@ export async function announceToPartners(bookingId: string, b: DocumentData, off
         && (!aliases.length || aliases.includes(String(d.data().vehicleType ?? '').trim().toLowerCase())))
       .filter((d) => {
         const top = typeof d.data().rating === 'number' && d.data().rating >= topRatedMin;
-        return audience === 'all' || (audience === 'topOwners' ? top : !top);
+        return audience === 'all' || audience === 'drivers' || (audience === 'topOwners' ? top : !top);
       })
       .map((d) => ({ id: d.id, type: 'driver' as const }))),
     ...(audience === 'all' || audience === 'vendors' ? vendors.docs.map((v) => ({ id: v.id, type: 'vendor' as const })) : []),
@@ -175,7 +309,7 @@ export async function announceToPartners(bookingId: string, b: DocumentData, off
   let sent = 0;
   for (let i = 0; i < targets.length; i += 25) {
     await Promise.all(targets.slice(i, i + 25).map(async (t) => {
-      const id = await notify({ ...base, recipientId: t.id, recipientType: t.type, dedupeKey: `trip_available_${bookingId}_${t.id}` }).catch(() => null);
+      const id = await notify({ ...base, recipientId: t.id, recipientType: t.type, dedupeKey: `trip_available_${tag ? `${tag}_` : ''}${bookingId}_${t.id}` }).catch(() => null);
       if (id) sent++;
     }));
   }
@@ -225,26 +359,10 @@ export const postBookingToMarketplace = onCall({ timeoutSeconds: 120 }, async (r
     const stamp = FieldValue.serverTimestamp();
     const pickupAt = pickupInstant(b);
     const offer = {
-      id: bookingId, bookingId: code(b, bookingId), route: `${text(b.pickup)} → ${text(b.drop)}`,
-      // Area only, approximate coordinates: the exact address is shared once the trip is theirs.
-      pickup: { address: text(b.pickup), city: text(b.pickup), time: text(b.time), ...(Number.isFinite(b.pickupLat) ? { lat: Math.round(b.pickupLat * 100) / 100, lng: Math.round(b.pickupLng * 100) / 100 } : {}) },
-      drop: { address: text(b.drop), city: text(b.drop), ...(Number.isFinite(b.dropLat) ? { lat: Math.round(b.dropLat * 100) / 100, lng: Math.round(b.dropLng * 100) / 100 } : {}) },
-      travelDate: text(b.date), service: text(b.service), tripType: text(b.tripType),
-      // A time-based round trip: partners see which package it is and when it must end (the 9 AM Morning Return cutoff included).
-      ...(b.timePackage && typeof b.timePackage === 'object' ? { timePackage: { label: text(b.timePackage.label), kind: text(b.timePackage.kind), includedKm: money(b.timePackage.includedKm), ...(b.timePackage.coverageEndAt ? { coverageEndAt: b.timePackage.coverageEndAt } : {}), ...(b.timePackage.morningCutoffAt ? { morningCutoffAt: b.timePackage.morningCutoffAt } : {}) } } : {}),
-      // A Multicity tour (or a round trip) passes through these places, in order; partners see them by name only.
-      ...(viaNames(b).length ? { via: viaNames(b) } : {}), ...(text(b.tourType) ? { tourType: text(b.tourType) } : {}),
-      vehicleCategory: text(b.vehicleCategory) || text(b.vehicle), vehicleCategoryId: text(b.vehicleCategoryId),
-      // The fuel the customer booked: a CNG car, or any petrol / diesel car (the vendor sees it on the duty).
-      fuelType: b.fuelType === 'cng' ? 'cng' : 'diesel_petrol',
-      addOns: bookingAddOnsOf(b.addOns ?? b.fareBreakdown?.addOns ?? b.tripExtras),
-      // Lower-case aliases an older claim compared a vehicle type against; the vehicle classes are authoritative.
-      eligibleVehicleTypes: category?.matchVehicleTypes ?? [],
-      dutyClass: bookingDutyClass(b) ?? '', eligibleVehicleClasses: eligibleClassesFor(bookingDutyClass(b)),
+      ...marketOfferBase(bookingId, b, category, payout.amount, pickupAt),
       mode, ...(escalationOf(esc, payout.amount, money(b.fare)) ? { escalation: escalationOf(esc, payout.amount, money(b.fare)) } : {}),
       ...(esc && money(esc.ceiling) > 0 ? { ceiling: money(esc.ceiling) } : {}), startOffer: payout.amount,
       ...(cutoffMinutes && pickupAt ? { cutoffAt: Timestamp.fromMillis(pickupAt.getTime() - cutoffMinutes * 60000) } : {}),
-      distanceKm: money(b.distanceKm), offeredPayout: payout.amount, ...(pickupAt ? { pickupAt: Timestamp.fromDate(pickupAt) } : {}),
       ...(terms ? { terms } : {}),
       status: 'Open', publishedAt: stamp, publishedBy: admin.uid, createdAt: prior.exists ? prior.data()!.createdAt ?? stamp : stamp, updatedAt: stamp,
     };

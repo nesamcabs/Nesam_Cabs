@@ -54,6 +54,7 @@ import Verification from "./pages/Verification";
 import Accounts from "./pages/Accounts";
 import FullFinal from "./pages/FullFinal";
 import { AccessProvider } from "./components/AccessContext";
+import { useAutoCancelSweep } from "./hooks/useAutoCancelSweep";
 import { endStaffSession, logActivity, startStaffSession } from "./services/staffSessionService";
 import { NotificationProvider } from "./components/NotificationHost";
 import { Toast, useToast } from "./components/Feedback";
@@ -130,6 +131,7 @@ function AdminShell({ session }: { session: AdminSession }) {
   );
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const badges = useNavBadges(session.access);
+  useAutoCancelSweep(session.access.permissions.includes("operations"));
   const [bookingsTab, setBookingsTab] = useState<string | undefined>(undefined);
   const { toast, show: showToast } = useToast(9000);
   // Creating a booking needs the Bookings → Create right; Quick Fare hides its Book buttons without it.

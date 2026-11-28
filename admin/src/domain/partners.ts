@@ -7,10 +7,11 @@
  * status fields when the new ones are absent. Writes keep the existing fields in step because the
  * server's eligibility checks (approved status, fleetStatus) read those.
  */
-import { arrayUnion, doc, serverTimestamp, Timestamp, updateDoc, addDoc, collection } from "firebase/firestore";
+import { arrayUnion, doc, serverTimestamp, Timestamp, updateDoc, addDoc, collection, getDocs, writeBatch } from "firebase/firestore";
 import { auth, db } from "../services/firebase";
 import { normalizeVendorStatus } from "../utils/vendorStatus";
 import { notifyPartner as sendPartnerNotice } from "../services/partnerNotices";
+import { formatRegNumber, regKey } from "../services/vehicleService";
 
 export type PartnerKind = "driver" | "vendor-driver" | "vendor" | "vehicle";
 export const APPROVALS = ["Unapproved", "Changes requested", "Approved", "Rejected", "Incomplete"] as const;
@@ -105,7 +106,74 @@ async function notifyPartner(kind: PartnerKind, id: string, title: string, messa
   });
 }
 
-export async function decideApproval(kind: PartnerKind, r: Raw, decision: Approval, reason: string) {
+/**
+ * An already-approved driver sent new documents that the office does not accept: the documents are rejected with the
+ * reason, while the account itself keeps working (same as the KYC review desk).
+ */
+export async function rejectDriverDocuments(kind: "driver" | "vendor-driver", r: Raw, reason: string) {
+  const entry: HistoryEntry = { action: "Documents rejected", from: "Approved", to: "Approved", reason, byName: who(), at: Timestamp.now() };
+  await updateDoc(doc(db, colOf(kind), r.id), { docStatus: "Rejected", rejectionReason: reason, reviewedAt: new Date().toISOString(), approvalHistory: arrayUnion(entry), updatedAt: serverTimestamp() });
+  await notifyPartner(kind, r.id, "Document update rejected", reason);
+}
+
+/** The car names the driver app offers at registration, as vehicle categories are named. */
+const REGISTERED_CATEGORY: Record<string, string> = { "Premium SUV": "Innova Crysta" };
+
+/**
+ * An owner-driver registers with their vehicle, but it is kept on the driver record (vehicleInfo), not as a vehicle record, and
+ * a duty needs an approved vehicle record paired with the driver. On approval it is made from the registration and paired, with
+ * its documents Pending: the office approves them in Verification, then duties unlock. A free owner-driver vehicle with the same
+ * number is paired instead of a duplicate. Never throws: returns a line for the office, or null when there is nothing to do.
+ */
+async function attachRegisteredVehicle(r: Raw): Promise<string | null> {
+  if (str(r.vendorId) || str(r.assignedVehicleId)) return null;
+  const info = (r.vehicleInfo && typeof r.vehicleInfo === "object" ? r.vehicleInfo : {}) as Record<string, unknown>;
+  const key = regKey(str(info.vehicleNumber) || str(r.vehicleNumber));
+  if (!key) return null;
+  const number = formatRegNumber(str(info.vehicleNumber) || str(r.vehicleNumber));
+  const driverName = str(r.name);
+  try {
+    const all = await getDocs(collection(db, "vehicles"));
+    const same = all.docs.find((d) => regKey(str(d.data().vehicleNumber) || str(d.data().number)) === key);
+    const batch = writeBatch(db);
+    const stamp = serverTimestamp();
+    let id: string;
+    if (same) {
+      const v = same.data();
+      if (str(v.vendorId) || (str(v.assignedDriverId) && str(v.assignedDriverId) !== r.id)) {
+        return `Vehicle ${number} is already registered to another partner. Check it in Vehicles before pairing this driver.`;
+      }
+      id = same.id;
+      batch.update(same.ref, { assignedDriverId: r.id, assignedDriverName: driverName, updatedAt: stamp });
+    } else {
+      const ref = doc(collection(db, "vehicles"));
+      id = ref.id;
+      const n = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : Number(v) || 0);
+      const type = str(info.vehicleType) || str(r.vehicleType);
+      batch.set(ref, {
+        id, vehicleNumber: number, vendorId: "", vendorName: "",
+        categoryId: "", category: REGISTERED_CATEGORY[type] ?? type,
+        make: str(info.make), model: str(info.model), year: str(info.year), seatingCapacity: n(info.capacity), fuelType: str(info.fuelType),
+        status: "Active", assignedDriverId: r.id, assignedDriverName: driverName,
+        rcNumber: key, rcDocUrl: str(info.rcDocUrl),
+        insuranceExpiry: str(info.insuranceExpiry), insuranceDocUrl: str(info.insuranceDocUrl),
+        fitnessExpiry: str(info.fitnessExpiry), fitnessDocUrl: str(info.fitnessDocUrl),
+        permitExpiry: str(info.permitExpiry), statePermitDocUrl: str(info.statePermitDocUrl),
+        photoUrl: str(info.frontPhotoUrl),
+        // Reviewed on its own in Verification, like any vehicle the office adds.
+        docStatus: "Pending", rejectionReason: "", source: "driver-registration", createdAt: stamp, updatedAt: stamp,
+      });
+    }
+    batch.update(doc(db, "drivers", r.id), { assignedVehicleId: id, assignedVehicleNumber: number, updatedAt: stamp });
+    await batch.commit();
+    return `Vehicle ${number} ${same ? "paired" : "added"}. Approve its documents in Verification to unlock duties.`;
+  } catch {
+    return `The vehicle ${number} could not be added automatically. Add it in Vehicles and pair this driver.`;
+  }
+}
+
+/** Returns a line for the office when approving an owner-driver also added (or could not add) their vehicle. */
+export async function decideApproval(kind: PartnerKind, r: Raw, decision: Approval, reason: string): Promise<string | null> {
   const from = approvalOf(kind, r);
   const entry: HistoryEntry = { action: `Approval: ${decision}`, from, to: decision, reason, byName: who(), at: Timestamp.now() };
   const base: Record<string, unknown> = { approvalStatus: decision, approvalHistory: arrayUnion(entry), updatedAt: serverTimestamp() };
@@ -128,8 +196,9 @@ export async function decideApproval(kind: PartnerKind, r: Raw, decision: Approv
     });
   }
   await updateDoc(doc(db, colOf(kind), r.id), base);
-  const titles: Record<Approval, string> = { Approved: "You're approved", "Changes requested": "Application needs changes", Rejected: "Application rejected", Incomplete: "Application incomplete", Unapproved: "Application under review" };
+  const titles: Record<Approval, string> = { Approved: "Account approved", "Changes requested": "Application needs changes", Rejected: "Application rejected", Incomplete: "Application incomplete", Unapproved: "Application under review" };
   await notifyPartner(kind, r.id, titles[decision], reason || (decision === "Approved" ? "Your NESAM partner account is approved." : "Open the app to see what to update."));
+  return kind === "driver" && decision === "Approved" ? attachRegisteredVehicle(r) : null;
 }
 
 export async function changeAccount(kind: PartnerKind, r: Raw, action: AccountAction, p: { reason: string; remarks: string; until?: Date | null; handler?: string; holdDuties?: boolean }) {

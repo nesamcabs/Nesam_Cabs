@@ -18,6 +18,7 @@ import { formatDateTime12, pickupInstant } from './domain/time';
 import { notify, notifyInTx, pushAfterCommit, NotifyInput, inr } from './notify';
 import { txnsRef } from './bookingPayments';
 import { loadPrivatePricing, withPrivatePricing } from './pricingPrivate';
+import { CANCEL_FAULTS, CancelFault, pickupExpired } from './domain/autoCancel';
 import { approved, requireAdmin, requirePermission, requireSuperAdmin, text, requireDuty, requireAction, requireStaffFlag } from './shared';
 
 const code = (b: DocumentData, id: string) => text(b.bookingId) || id;
@@ -46,6 +47,7 @@ export const approveBooking = onCall({ timeoutSeconds: 120 }, async (request) =>
     const b = snap.data()!;
     const blocker = transitionBlocker(b.status, 'Approved');
     if (blocker) throw new HttpsError('failed-precondition', blocker);
+    if (pickupExpired(b, Date.now())) throw new HttpsError('failed-precondition', 'The pickup time passed more than 30 minutes ago, so this booking can no longer be approved.');
     if (b.fareVerified !== true) throw new HttpsError('failed-precondition', 'Verify the fare first (Booking Details → Set fare).');
     const stamp = FieldValue.serverTimestamp();
     tx.update(ref, { status: 'Approved', approvedAt: stamp, approvedBy: admin.uid, approvedByName: admin.name, approvalNote: note, updatedAt: stamp });
@@ -127,6 +129,9 @@ export const cancelBooking = onCall(async (request) => {
   if (typeof charge !== 'number' || !Number.isFinite(charge) || charge < 0 || charge > 1000000) throw new HttpsError('invalid-argument', 'Enter the cancellation charge in rupees (0 or more).');
   if (charge > 0 && !admin.permissions.includes('finance')) throw new HttpsError('permission-denied', 'Setting a cancellation charge needs finance access.');
   const refundMethod = text(input.refundMethod, 30);
+  // For an accepted trip that did not run: whose side it was, after the office checked.
+  const fault = (input.faultParty || '') as CancelFault | '';
+  if (fault && !CANCEL_FAULTS.includes(fault)) throw new HttpsError('invalid-argument', 'Choose whether it was the customer, the driver / partner, or another reason.');
   const ref = db.doc(`bookings/${bookingId}`);
   const market = db.doc(`marketplace_trips/${bookingId}`);
   const pushes: { id: string; input: NotifyInput }[] = [];
@@ -153,12 +158,12 @@ export const cancelBooking = onCall(async (request) => {
       : { status: 'Not Applicable', eligible: false, amount: 0, method: '', reference: '', history: [] };
     tx.update(ref, {
       status: 'Cancelled', cancelledAt: stamp, cancelReason: reason, cancelledBy: 'admin', cancellationFee: charge,
-      cancellation: { cancelledBy: { type: 'admin', id: admin.uid, name: admin.name }, reason, charge, at: stamp, amountPaid: paid },
+      cancellation: { cancelledBy: { type: 'admin', id: admin.uid, name: admin.name }, reason, charge, at: stamp, amountPaid: paid, ...(fault ? { fault } : {}) },
       refund, updatedAt: stamp,
     });
     if (m.exists) tx.update(market, { status: 'Closed', updatedAt: stamp });
     tx.create(ref.collection('events').doc(), { type: 'cancelled', actorId: admin.uid, actorRole: 'admin', reason, charge, refundAmount: eligible ? wanted : 0, at: stamp });
-    auditInTx(tx, { action: 'booking_cancelled', entity: 'booking', entityId: bookingId, performedBy: admin.uid, performedByName: admin.name, role: 'admin', bookingId, previous: { status: b.status }, next: { status: 'Cancelled', charge, refund: eligible ? wanted : 0, paid }, reason });
+    auditInTx(tx, { action: 'booking_cancelled', entity: 'booking', entityId: bookingId, performedBy: admin.uid, performedByName: admin.name, role: 'admin', bookingId, previous: { status: b.status }, next: { status: 'Cancelled', charge, refund: eligible ? wanted : 0, paid, ...(fault ? { fault } : {}) }, reason });
     const label = code(b, bookingId);
     for (const [recipientId, recipientType] of [[b.assignedDriverId, 'driver'], [b.assignedVendorId, 'vendor']] as const) {
       if (!recipientId) continue;

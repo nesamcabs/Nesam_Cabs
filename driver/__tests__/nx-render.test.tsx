@@ -199,8 +199,8 @@ describe('tab screens render', () => {
     const text = textOf(mount(<MarketplaceScreen />));
     expect(text).toContain('Sedan (');
     expect(text).toContain('All categories');
-    expect(text).toContain('Bid duty');
     expect(text).toContain('Place bid');
+    expect(text).toContain('Accept');
   });
 
   it('Profile is a short menu; each option opens its own page', () => {

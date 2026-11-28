@@ -323,14 +323,14 @@ export function vehicleDocsMissing(v: FleetVehicleDoc): string[] {
 }
 
 /**
- * Business registration + identity proof, and the RC, insurance, FC, permit and vehicle photo of the fleet. The same
- * test runs in firestore.rules (vendorDocsComplete) and in the duty functions (functions/src/claims.ts), so a partner
+ * Identity proof, and the RC, insurance, FC, permit and vehicle photo of the fleet (business proof such as GST is
+ * optional). The same test runs in firestore.rules (vendorDocsComplete) and in the duty functions (functions/src/claims.ts), so a partner
  * without verified documents cannot take or bid on duties.
  */
 export function vendorDocsComplete(record: Pick<VendorRecord, 'documents' | 'fleet'>): boolean {
   const d = record.documents;
   const f = record.fleet;
-  return !!d?.businessRegistration?.files?.length && !!d?.identityProof?.files?.length
+  return !!d?.identityProof?.files?.length
     && !!f?.rcFiles?.length && !!f?.insuranceFiles?.length && !!f?.fcFiles?.length && !!f?.permitFiles?.length && !!f?.vehiclePhotos?.length;
 }
 
@@ -341,7 +341,7 @@ export function missingSections(record: VendorRecord): OnboardingSection[] {
   const missing: OnboardingSection[] = [];
   if (!record.business?.businessName || !record.business?.vendorName) missing.push('business');
   if (!record.payoutSummary?.bankLast4) missing.push('payout');
-  if (!record.documents?.businessRegistration?.files?.length || !record.documents?.identityProof?.files?.length) missing.push('documents');
+  if (!record.documents?.identityProof?.files?.length) missing.push('documents');
   if (!fleetIsComplete(record.fleet) || (record.fleet?.vehicles ?? []).some((v) => vehicleDocsMissing(v).length > 0)) missing.push('fleet');
   return missing;
 }

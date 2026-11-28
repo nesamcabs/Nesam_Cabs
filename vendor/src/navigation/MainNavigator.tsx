@@ -37,7 +37,7 @@ export { useSignOut } from './signOut';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const TITLES: Record<keyof RootStackParamList, string> = {
-  Trips: 'Bookings', Bookings: 'My Trips', Fleet: 'Fleet', Earnings: 'Earnings', Wallet: 'Wallet', MyBids: 'My bids', Duty: 'Duty details',
+  Trips: 'Duties', Bookings: 'My Trips', Fleet: 'Fleet', Earnings: 'Earnings', Wallet: 'Wallet', MyBids: 'My bids', Duty: 'Duty details',
   Booking: 'Booking details', Assign: 'Assign driver', DriverTripRequests: 'Round trip requests', FleetAdd: 'Add to fleet', Vehicle: 'Vehicle details', Driver: 'Driver details', LocalShift: 'Local duty',
   Documents: 'Documents & verification', Penalty: 'Penalty notice', Account: 'Profile',
   Business: 'Business & contact', Agreements: 'Agreements', Alerts: 'Notifications',

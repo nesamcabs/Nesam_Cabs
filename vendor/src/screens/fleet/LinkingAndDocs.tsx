@@ -114,7 +114,7 @@ export function DocumentsScreen() {
   const d = record.documents;
   const f = record.fleet;
   const groups: [string, StoredFile[] | undefined, string?][] = [
-    ...(d ? [[BUSINESS_REG_TYPES.find((t) => t.value === d.businessRegistration.type)?.label ?? 'Business registration', d.businessRegistration.files, d.businessRegistration.number] as [string, StoredFile[], string]] : []),
+    ...(d?.businessRegistration.files.length ? [[BUSINESS_REG_TYPES.find((t) => t.value === d.businessRegistration.type)?.label ?? 'Business registration', d.businessRegistration.files, d.businessRegistration.number] as [string, StoredFile[], string]] : []),
     ...(d ? [[IDENTITY_PROOF_TYPES.find((t) => t.value === d.identityProof.type)?.label ?? 'Identity proof', d.identityProof.files, d.identityProof.maskedNumber] as [string, StoredFile[], string]] : []),
     ['Vehicle RCs (onboarding)', f?.rcFiles],
     ['Insurance (onboarding)', f?.insuranceFiles],

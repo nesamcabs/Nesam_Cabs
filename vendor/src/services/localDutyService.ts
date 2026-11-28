@@ -1,8 +1,8 @@
 // Local duty ("continuous moving") for the fleet partner: put a driver + vehicle on local duty for a city and a time window
 // (Hourly Rental and / or Pickup & Drop), follow it live, change its end time or services, and end it. The duty record is
 // read-only here (local_shifts, firestore.rules); every change is a server call (functions/src/localShifts.ts).
-import { collection, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, Timestamp, updateDoc, where, type DocumentData } from 'firebase/firestore';
-import { auth, db } from '../config/firebase';
+import { collection, getDocs, limit, onSnapshot, query, where, type DocumentData } from 'firebase/firestore';
+import { db } from '../config/firebase';
 import { callFunction } from './callables';
 import { num, str, toDate } from '../utils/format';
 
@@ -132,6 +132,9 @@ export const DEFAULT_DUTY_CITIES: DutyCity[] = [
   { id: 'kochi', name: 'Kochi', state: 'Kerala', hasCentre: true },
 ];
 
+/** The id to send for a chosen city. A built-in city has no server record, so it goes by name alone (the server refuses unknown ids). */
+export const masterCityId = (city: DutyCity | null): string => (city && !DEFAULT_DUTY_CITIES.includes(city) ? city.id : '');
+
 export async function localDutyOptions(): Promise<{ cities: DutyCity[]; radius: { default: number; min: number; max: number } }> {
   try {
     const snap = await getDocs(query(collection(db, 'locations'), where('type', '==', 'City'), where('status', '==', 'Active'), limit(100)));
@@ -158,12 +161,7 @@ export async function localDutyOptions(): Promise<{ cities: DutyCity[]; radius: 
 
 export interface CreateLocalShiftInput {
   driverId: string;
-  driverName?: string;
-  driverPhone?: string;
   vehicleId: string;
-  vehicleNumber?: string;
-  vehicleCategory?: string;
-  vehicleClass?: string;
   cityId: string;
   cityName: string;
   services: LocalMode[];
@@ -173,122 +171,16 @@ export interface CreateLocalShiftInput {
   note: string;
 }
 
-export const createLocalShift = async (input: CreateLocalShiftInput): Promise<{ ok: boolean; shiftId: string }> => {
-  try {
-    return await callFunction<unknown, { ok: boolean; shiftId: string }>('createLocalShift', input);
-  } catch {
-    const user = auth.currentUser;
-    if (!user) throw new Error('You must be signed in to start a local duty.');
-    const vendorId = user.uid;
-    const shiftRef = doc(collection(db, 'local_shifts'));
-    const shiftId = shiftRef.id;
-    const now = Date.now();
-    const startMs = input.startsAt === 'now' || input.startsAt == null ? now : Number(input.startsAt);
-    const endMs = Number(input.endsAt);
-    const isStartNow = input.startsAt === 'now' || startMs <= now + 60000;
+// Every duty change goes to the server, which checks it. A refusal is thrown to the screen and the duty stays as it was: the app
+// never writes local_shifts itself (firestore.rules refuse it). A new duty is planned: it starts after the driver's photo check.
+export const createLocalShift = (input: CreateLocalShiftInput) =>
+  callFunction<unknown, { ok: boolean; shiftId: string }>('createLocalShift', input);
 
-    let driverName = input.driverName || 'Driver';
-    let driverPhone = input.driverPhone || '';
-    if (!driverPhone) {
-      try {
-        const dSnap = await getDoc(doc(db, 'drivers', input.driverId));
-        if (dSnap.exists()) {
-          const dData = dSnap.data();
-          driverName = dData.name || driverName;
-          driverPhone = dData.phone || driverPhone;
-        }
-      } catch {}
-    }
+export const updateLocalShift = (input: { shiftId: string; endsAt?: number; services?: LocalMode[]; radiusKm?: number }) =>
+  callFunction<unknown, { ok: boolean; changed: boolean }>('updateLocalShift', input);
 
-    let vehicleNumber = input.vehicleNumber || '';
-    let vehicleCategory = input.vehicleCategory || '';
-    if (!vehicleNumber) {
-      try {
-        const vSnap = await getDoc(doc(db, 'vehicles', input.vehicleId));
-        if (vSnap.exists()) {
-          const vData = vSnap.data();
-          vehicleNumber = vData.vehicleNumber || vehicleNumber;
-          vehicleCategory = vData.category || vehicleCategory;
-        }
-      } catch {}
-    }
-
-    let vendorName = 'Fleet partner';
-    try {
-      const vendSnap = await getDoc(doc(db, 'vendors', vendorId));
-      if (vendSnap.exists()) {
-        vendorName = vendSnap.data().companyName || vendSnap.data().name || vendorName;
-      }
-    } catch {}
-
-    const shiftData = {
-      id: shiftId,
-      vendorId,
-      vendorName,
-      driverId: input.driverId,
-      driverName,
-      driverPhone,
-      vehicleId: input.vehicleId,
-      vehicleNumber,
-      vehicleCategory,
-      vehicleClass: input.vehicleClass || vehicleCategory,
-      cityId: input.cityId || '',
-      cityName: input.cityName || 'City',
-      radiusKm: input.radiusKm || 15,
-      services: input.services,
-      startsAt: Timestamp.fromMillis(startMs),
-      endsAt: Timestamp.fromMillis(endMs),
-      status: isStartNow ? 'Active' : 'Scheduled',
-      startedAt: isStartNow ? Timestamp.fromMillis(now) : null,
-      endedAt: null,
-      paused: false,
-      pausedAt: null,
-      breakMs: 0,
-      endRequested: false,
-      endReason: '',
-      releases: 0,
-      stats: { ...EMPTY_STATS },
-      note: input.note || '',
-      createdBy: vendorId,
-      createdByRole: 'vendor',
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    };
-
-    await setDoc(shiftRef, shiftData);
-    return { ok: true, shiftId };
-  }
-};
-
-export const updateLocalShift = async (input: { shiftId: string; endsAt?: number; services?: LocalMode[]; radiusKm?: number }): Promise<{ ok: boolean; changed: boolean }> => {
-  try {
-    return await callFunction<unknown, { ok: boolean; changed: boolean }>('updateLocalShift', input);
-  } catch {
-    const updates: Record<string, unknown> = { updatedAt: serverTimestamp() };
-    if (input.endsAt) updates.endsAt = Timestamp.fromMillis(input.endsAt);
-    if (input.services) updates.services = input.services;
-    if (input.radiusKm) updates.radiusKm = input.radiusKm;
-    await updateDoc(doc(db, 'local_shifts', input.shiftId), updates);
-    return { ok: true, changed: true };
-  }
-};
-
-export const endLocalShift = async (shiftId: string, reason = ''): Promise<{ status: string; open?: number }> => {
-  try {
-    return await callFunction<unknown, { status: string; open?: number }>('endLocalShift', { shiftId, reason });
-  } catch {
-    const user = auth.currentUser;
-    if (!user) throw new Error('Not signed in');
-    await updateDoc(doc(db, 'local_shifts', shiftId), {
-      status: 'Ended',
-      endedAt: serverTimestamp(),
-      endedBy: user.uid,
-      endReason: reason,
-      updatedAt: serverTimestamp(),
-    });
-    return { status: 'Ended' };
-  }
-};
+export const endLocalShift = (shiftId: string, reason = '') =>
+  callFunction<unknown, { status: string; open?: number }>('endLocalShift', { shiftId, reason });
 
 /** Duty time worked so far, without breaks. */
 export function dutyMinutes(s: Pick<LocalShift, 'startedAt' | 'endedAt' | 'breakMs' | 'paused' | 'pausedAt'>, now: number): number {

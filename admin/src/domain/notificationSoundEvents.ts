@@ -44,7 +44,7 @@ export const SOUND_EVENTS: Readonly<Record<SoundAudience, readonly SoundEventInf
     { key: 'reassigned', label: 'Trip reassigned', defaultSound: 'general', sent: true, covers: '"Trip reassigned" and "Trip removed from you"' },
     { key: 'penalty', label: 'Penalty', defaultSound: 'general', sent: true, covers: '"Penalty issued" and later penalty decisions' },
     { key: 'payment', label: 'Payment / payout', defaultSound: 'general', sent: false, covers: 'No payment or payout notification is sent to drivers yet' },
-    { key: 'documents_approved', label: 'Documents approved', defaultSound: 'approval', sent: true, covers: 'Staff approvals ("You\'re approved", "Account reactivated")' },
+    { key: 'documents_approved', label: 'Documents approved', defaultSound: 'approval', sent: true, covers: 'Staff approvals ("Account approved", "Account reactivated")' },
   ],
   vendor: [
     { key: 'new_duty', label: 'New duty', defaultSound: 'new_booking', sent: true, covers: '"Trip assigned to your fleet", "Trip assigned to <driver>" and "New trip available"' },
@@ -53,7 +53,7 @@ export const SOUND_EVENTS: Readonly<Record<SoundAudience, readonly SoundEventInf
     { key: 'cancelled', label: 'Cancelled', defaultSound: 'general', sent: true, covers: '"Trip cancelled" by NESAM' },
     { key: 'penalty', label: 'Penalty', defaultSound: 'general', sent: true, covers: '"Penalty issued" and later penalty decisions' },
     { key: 'payment', label: 'Payment', defaultSound: 'general', sent: false, covers: 'No payment or payout notification is sent to vendors yet' },
-    { key: 'documents_approved', label: 'Documents approved', defaultSound: 'approval', sent: true, covers: 'Staff approvals ("You\'re approved", "Account reactivated")' },
+    { key: 'documents_approved', label: 'Documents approved', defaultSound: 'approval', sent: true, covers: 'Staff approvals ("Account approved", "Account reactivated")' },
   ],
 };
 

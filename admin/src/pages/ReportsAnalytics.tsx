@@ -165,7 +165,8 @@ export default function ReportsAnalytics() {
     const counts = new Map<string, number>();
     for (const b of cancelled) {
       const x = b as Booking & { cancelReason?: string; cancellationReason?: string; cancelledBy?: string };
-      const reason = (x.cancelReason || x.cancellationReason || "Not specified").trim();
+      // The office reason first: cancelReason is the wording shown to the customer.
+      const reason = (x.cancellation?.reason || x.cancelReason || x.cancellationReason || "Not specified").trim();
       counts.set(reason, (counts.get(reason) || 0) + 1);
     }
     return [...counts.entries()]

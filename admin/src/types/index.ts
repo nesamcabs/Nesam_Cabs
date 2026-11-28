@@ -135,7 +135,7 @@ export interface Booking {
   rejectionReason?: string;
   cancelReason?: string;
   cancelledAt?: any;
-  cancellation?: { cancelledBy?: { type?: string; id?: string; name?: string }; reason?: string; charge?: number; at?: any; amountPaid?: number; rejected?: boolean } | null;
+  cancellation?: { cancelledBy?: { type?: string; id?: string; name?: string }; reason?: string; charge?: number; at?: any; amountPaid?: number; rejected?: boolean; auto?: string; fault?: string } | null;
   refund?: {
     status: string;
     eligible?: boolean;

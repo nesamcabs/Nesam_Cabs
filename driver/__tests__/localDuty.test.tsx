@@ -192,23 +192,29 @@ describe('Local Taxi page', () => {
 
   it('shows the Drive home with the vehicle and GO when no duty is planned', () => {
     const text = textOfScreen();
-    expect(text).toContain('Local Offline');
-    expect(text).toContain('DEMO MAP');
     expect(text).toContain('Ready when you are.');
     expect(text).toContain('TN33AB1234');
     expect(text).toContain('Maruti Suzuki Dzire · Sedan');
     expect(text).toContain('Verified');
     expect(text).toContain('GO');
     expect(text).toContain('Bookings and assigned trips are available while offline.');
-    // GO only goes online: there is no duty form any more.
+    // GO only goes online: the duty form is its own dialog, opened by Start Local Duty.
     expect(text).not.toContain('Go on local duty');
+  });
+
+  it('offers Start Local Duty on the Drive page to fleet and owner drivers, since the switch alone is not on riders’ maps', () => {
+    for (const fleet of [true, false]) {
+      mockAccountFleet = fleet;
+      const text = textOfScreen();
+      expect(text).toContain('Start Local Duty');
+      expect(text).toContain('Riders see your vehicle on their map only during a running Local Duty.');
+    }
   });
 
   it('online with no request waits for nearby requests, with the local service switch', () => {
     mockOnline = true;
     mockAccountFleet = false;
     const text = textOfScreen();
-    expect(text).toContain('Local Online');
     expect(text).toContain('online');
     expect(text).toContain('Ready for nearby requests');
     expect(text).toContain('All local');
@@ -236,6 +242,30 @@ describe('Local Taxi page', () => {
     expect(text).toContain('Available to your fleet');
     expect(text).toContain('Kongu Travels assigns your trips');
     expect(text).not.toContain('All local');
+  });
+
+  it('a refused End duty shows the server’s reason inside the dialog and the duty stays on', async () => {
+    mockShifts = [shift({})];
+    const service = require('../src/services/localDutyService');
+    const { ActionError } = require('../src/services/callables');
+    const end = jest.spyOn(service, 'endLocalShift').mockRejectedValue(new ActionError('The server did not end this duty.'));
+    textOfScreen();
+    const tree = trees[trees.length - 1]!;
+    const pressLast = async (title: string) => {
+      const buttons = tree.root.findAll((n) => n.props.title === title && typeof n.props.onPress === 'function');
+      await act(async () => {
+        buttons[buttons.length - 1]!.props.onPress();
+      });
+    };
+    await pressLast('End duty');
+    await pressLast('End duty');
+    expect(end).toHaveBeenCalledTimes(1);
+    const text = JSON.stringify(tree.toJSON());
+    expect(text).toContain('End your local duty?');
+    expect(text).toContain('The server did not end this duty.');
+    expect(text).toContain('On duty');
+    expect(text).not.toContain('Local duty ended');
+    end.mockRestore();
   });
 
   it('a planned duty asks for the photo check before it can start', () => {

@@ -9,6 +9,7 @@ import { sendVerificationCode, verifyCustomerCode, type ChannelResult } from "..
 import { formatDateTime12, toDate } from "../../utils/time";
 import { PaymentBadge } from "./BookingBadges";
 import { paymentOf } from "../../domain/bookingFlow";
+import { cancelTag } from "../../domain/cancellation";
 
 const rupees = (n: number) => `₹${(Math.round(n * 100) / 100).toLocaleString("en-IN")}`;
 const when = (v: unknown) => formatDateTime12(toDate(v as never)) || "—";
@@ -87,6 +88,7 @@ export function PaymentsPanel({
       {booking.cancellation && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900 space-y-0.5">
           <div className="font-semibold">{booking.cancellation.rejected ? "Rejected" : "Cancelled"} by {booking.cancellation.cancelledBy?.name || booking.cancellation.cancelledBy?.type || "—"} · {when(booking.cancellation.at)}</div>
+          <div className="text-xs font-semibold">{cancelTag(booking)}</div>
           {booking.cancellation.reason && <div className="text-xs">Reason: {booking.cancellation.reason}</div>}
           {(booking.cancellation.charge ?? 0) > 0 && <div className="text-xs">Cancellation charge: {rupees(booking.cancellation.charge ?? 0)}</div>}
         </div>

@@ -14,9 +14,10 @@ import { PAGE_TITLES, goTab, useCurrentRoute } from '../../navigation/navItems';
 import { nx, nxRadius, nxShadow } from '../../theme/nx';
 import { NxBrand } from './Brand';
 import { NxDialog } from './Dialog';
-import { NxIcon } from './Icon';
+import { NxIcon, type NxIconName } from './Icon';
+import { NxStrip } from './NxStrip';
 import { useLayout } from './layout';
-import { NxButton, NxIconButton, isHovered } from './primitives';
+import { NxButton, isHovered } from './primitives';
 
 // ── Frame state ─────────────────────────────────────────────────────────────
 
@@ -134,6 +135,8 @@ export function NxStatusPill() {
   const { notify } = useShell();
   const presence = usePresence(notify);
   const { narrow } = useLayout();
+  // On smaller phones the switch alone shows the duty status, which leaves the logo room to stay readable.
+  const compact = useWindowDimensions().width < 380 && presence.status !== 'On Trip';
   const on = presence.online;
   return (
     <Pressable
@@ -145,7 +148,7 @@ export function NxStatusPill() {
       accessibilityLabel={presence.locked ? 'Duty status locked during a trip' : on ? 'Online. Go offline' : 'Offline. Go online'}
     >
       {narrow ? null : <View style={[styles.statusDot, !on && { backgroundColor: '#818792' }]} />}
-      <Text style={[styles.statusText, !on && { color: '#666D78' }]}>{presence.status === 'On Trip' ? 'On trip' : on ? 'Online' : 'Offline'}</Text>
+      {compact ? null : <Text style={[styles.statusText, !on && { color: '#666D78' }]}>{presence.status === 'On Trip' ? 'On trip' : on ? 'Online' : 'Offline'}</Text>}
       <View style={[styles.toggle, !on && { backgroundColor: '#9BA1AA', alignItems: 'flex-start' }]}>
         <View style={styles.toggleKnob} />
       </View>
@@ -162,27 +165,27 @@ export function NxTopbar({ title, subtitle, gutter, status = true }: { title: st
   const { phone, narrow } = useLayout();
   const name = account.driver.name || 'Driver';
   const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('') || 'D';
-  const avatar = narrow ? 37 : 40;
+  // The header of NESAM Partner and NESAM Driver is the same: the brand, then one capsule holding Notifications, Call and
+  // the profile, always in that order. Pages with the duty switch show it just before the capsule.
   const actions = (
     <View style={[styles.actions, narrow && { gap: 5 }]}>
       {status ? <NxStatusPill /> : null}
-      <NxIconButton icon="help" label="Support and emergency help" color={nx.red} onPress={() => openSupport()} size={narrow ? 37 : 40} />
-      <NxIconButton
-        icon="bell"
-        label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
-        dot={unreadCount > 0}
-        onPress={() => navigation.navigate('Notifications')}
-        size={narrow ? 37 : 40}
-      />
-      {/* The Driver 2.0 header: the avatar opens the profile and account type. */}
-      <Pressable
-        onPress={() => goTab('Profile')}
-        accessibilityRole="button"
-        accessibilityLabel={`${name}, open profile`}
-        style={(s) => [styles.avatarButton, { width: avatar, height: avatar, borderRadius: avatar / 2 }, s.pressed && { opacity: 0.8 }]}
-      >
-        <Text style={styles.avatarInitials}>{initials}</Text>
-      </Pressable>
+      <View style={styles.dock}>
+        <DockButton icon="bell" label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'} dot={unreadCount > 0} onPress={() => navigation.navigate('Notifications')} />
+        <View style={styles.dockRule} />
+        <DockButton icon="phone" label="Support and emergency help" color={nx.red} onPress={() => openSupport()} />
+        <View style={styles.dockRule} />
+        {/* The avatar opens the profile and account type. */}
+        <Pressable
+          onPress={() => goTab('Profile')}
+          accessibilityRole="button"
+          accessibilityLabel={`${name}, open profile`}
+          hitSlop={4}
+          style={(s) => [styles.dockAvatar, s.pressed && { opacity: 0.85 }]}
+        >
+          <Text style={styles.dockInitials} maxFontSizeMultiplier={1.1}>{initials}</Text>
+        </Pressable>
+      </View>
     </View>
   );
   if (phone) {
@@ -190,6 +193,7 @@ export function NxTopbar({ title, subtitle, gutter, status = true }: { title: st
       <View style={[styles.phoneBar, { paddingHorizontal: gutter }]}>
         <NxBrand size={narrow ? 'small' : 'regular'} />
         {actions}
+        <NxStrip height={2.5} style={styles.barStrip} />
       </View>
     );
   }
@@ -205,6 +209,17 @@ export function NxTopbar({ title, subtitle, gutter, status = true }: { title: st
       </View>
       {actions}
     </View>
+  );
+}
+
+/** One round button inside the header capsule. */
+function DockButton({ icon, label, onPress, dot, color = nx.ink }: { icon: NxIconName; label: string; onPress: () => void; dot?: boolean; color?: string }) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} hitSlop={4}
+      style={(s) => [styles.dockBtn, isHovered(s) && { backgroundColor: nx.white }, s.pressed && { opacity: 0.75 }]}>
+      <NxIcon name={icon} size={19} color={color} />
+      {dot ? <View style={styles.dockDot} /> : null}
+    </Pressable>
   );
 }
 
@@ -353,13 +368,18 @@ const styles = StyleSheet.create({
   floatingRow: { alignItems: 'flex-end', marginBottom: 12 },
   grabber: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: nx.fieldLine, marginTop: 9 },
   sheet: { backgroundColor: nx.white, borderTopLeftRadius: 22, borderTopRightRadius: 22, borderWidth: 1, borderColor: nx.line, shadowColor: '#162033', shadowOpacity: 0.1, shadowRadius: 20, shadowOffset: { width: 0, height: -4 }, elevation: 14 },
-  phoneBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, minHeight: 72, paddingVertical: 13, backgroundColor: nx.white, borderBottomWidth: 1, borderBottomColor: nx.line },
+  phoneBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, minHeight: 66, paddingTop: 11, paddingBottom: 13, backgroundColor: nx.white },
+  barStrip: { position: 'absolute', left: 0, right: 0, bottom: 0 },
+  dock: { flexDirection: 'row', alignItems: 'center', gap: 2, height: 42, paddingHorizontal: 3, borderRadius: 21, backgroundColor: '#F7F8FA', borderWidth: 1, borderColor: '#E4E7EC', flexShrink: 0 },
+  dockRule: { width: 1, height: 18, backgroundColor: '#E1E5EB' },
+  dockBtn: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  dockDot: { position: 'absolute', top: 7, right: 8, width: 9, height: 9, borderRadius: 5, backgroundColor: nx.red, borderWidth: 2, borderColor: nx.white },
+  dockAvatar: { width: 34, height: 34, borderRadius: 17, marginLeft: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: nx.ink },
+  dockInitials: { fontSize: 11.5, fontWeight: '700', color: nx.white, letterSpacing: 0.4 },
   wideBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, paddingTop: 26, paddingBottom: 18, backgroundColor: nx.page },
   pageTitle: { fontSize: 27, lineHeight: 34, fontWeight: '700', letterSpacing: -0.9, color: nx.ink },
   pageSubtitle: { fontSize: 12.5, color: nx.muted, marginTop: 3 },
   actions: { flexDirection: 'row', alignItems: 'center', gap: 7, flexShrink: 0 },
-  avatarButton: { alignItems: 'center', justifyContent: 'center', backgroundColor: nx.redSoft, borderWidth: 1, borderColor: nx.redBar },
-  avatarInitials: { fontSize: 13, fontWeight: '800', color: nx.red, letterSpacing: -0.2 },
   status: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 40, paddingVertical: 7, paddingHorizontal: 9, borderRadius: 24, backgroundColor: nx.statusBg, borderWidth: 1, borderColor: nx.statusBorder },
   statusOff: { backgroundColor: '#F0F1F3', borderColor: '#E2E4E8' },
   statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: nx.statusGreen },

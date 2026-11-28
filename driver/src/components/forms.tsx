@@ -21,6 +21,7 @@ export function PhotoField({
   showError,
   onBusyChange,
   cameraOnly,
+  tile,
 }: {
   label: string;
   hint?: string;
@@ -33,6 +34,8 @@ export function PhotoField({
   onBusyChange?: (busy: boolean) => void;
   /** Selfies: the live camera only, no gallery. */
   cameraOnly?: boolean;
+  /** A small square for a grid of photos (registration): the same capture, upload, replace and retry. */
+  tile?: boolean;
 }) {
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState('');
@@ -59,6 +62,53 @@ export function PhotoField({
   };
 
   const missing = showError && required && !value;
+  if (tile) {
+    const state = uploading ? `Uploading ${progress}%` : value ? 'Tap to replace' : required ? 'Required' : 'Optional';
+    return (
+      <View style={styles.tileWrap}>
+        <Pressable
+          onPress={() => void pick()}
+          style={[styles.tile, !!value && styles.tileDone, missing && styles.tileMissing]}
+          accessibilityRole="button"
+          accessibilityLabel={`${value ? 'Replace' : 'Add'} ${label}`}
+        >
+          <View style={styles.tileMedia}>
+            {value ? (
+              <Image source={{ uri: value }} style={styles.photoImg} />
+            ) : (
+              <View style={styles.tileEmpty}>
+                <NxIcon name="camera" size={20} color={missing ? colors.primary : colors.faint} />
+                <Text style={[styles.tileCta, missing && { color: colors.primary }]}>{cameraOnly ? 'Take photo' : 'Add photo'}</Text>
+              </View>
+            )}
+            {value && !uploading ? (
+              <View style={styles.tileCheck}>
+                <NxIcon name="check" size={11} color={colors.white} strokeWidth={2.6} />
+              </View>
+            ) : null}
+            {uploading ? (
+              <View style={styles.photoOverlay}>
+                <ActivityIndicator color={colors.primary} />
+              </View>
+            ) : null}
+          </View>
+          <View style={styles.tileFoot}>
+            <Text style={styles.tileLabel} numberOfLines={2}>
+              {label}
+            </Text>
+            <Text style={[styles.tileState, !!value && !uploading && { color: colors.success }, missing && { color: colors.primaryDark }]} numberOfLines={1}>
+              {state}
+            </Text>
+          </View>
+        </Pressable>
+        {error ? (
+          <Text style={styles.err} onPress={() => void pick()} accessibilityRole="button">
+            {error} Tap to retry.
+          </Text>
+        ) : null}
+      </View>
+    );
+  }
   return (
     <View style={[styles.photo, missing && styles.photoMissing]}>
       <View style={styles.photoHead}>
@@ -225,6 +275,17 @@ const styles = StyleSheet.create({
   photoOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.85)', alignItems: 'center', justifyContent: 'center' },
   progress: { marginTop: 6, fontWeight: '700', color: colors.ink, fontSize: 12 },
   replace: { textAlign: 'center', marginTop: space.sm, color: colors.muted, fontWeight: '700', fontSize: 12 },
+  tileWrap: { flexBasis: 0, flexGrow: 1, minWidth: 0 },
+  tile: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.card, overflow: 'hidden' },
+  tileDone: { borderColor: colors.successBorder },
+  tileMissing: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+  tileMedia: { height: 82, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg, overflow: 'hidden' },
+  tileEmpty: { alignItems: 'center', gap: 4 },
+  tileCta: { fontSize: 10.5, fontWeight: '700', color: colors.faint },
+  tileCheck: { position: 'absolute', top: 6, right: 6, width: 18, height: 18, borderRadius: 9, backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center' },
+  tileFoot: { paddingHorizontal: 8, paddingTop: 7, paddingBottom: 8, gap: 2 },
+  tileLabel: { fontSize: 11.5, lineHeight: 15, fontWeight: '700', color: colors.ink },
+  tileState: { fontSize: 10, fontWeight: '600', color: colors.faint },
   err: { color: colors.primaryDark, fontSize: 12, marginTop: 4 },
   date: {
     flexDirection: 'row',

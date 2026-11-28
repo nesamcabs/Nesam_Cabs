@@ -68,7 +68,7 @@ html,body,#m{height:100%;width:100%;margin:0;padding:0;background:#EEF0F3;font-f
 .car .disc{position:relative;width:34px;height:34px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(22,32,51,.28)}
 @keyframes pulse{0%{transform:scale(.72);opacity:1}100%{transform:scale(1.1);opacity:.35}}
 body.plain .leaflet-tile-pane{filter:grayscale(.6) saturate(.8) brightness(1.05) contrast(.92)}
-body.plain #fit,body.plain .leaflet-control-zoom{display:none}
+body.plain #fit{display:none}
 body.plain .leaflet-control-attribution{font-size:9px;opacity:.7}
 #fit{position:absolute;z-index:500;left:10px;bottom:10px;height:36px;padding:0 12px;border-radius:9px;border:1px solid #E7EAF0;background:#fff;color:#171B24;font:600 12px -apple-system,Roboto,'Segoe UI',Arial,sans-serif;box-shadow:0 2px 8px rgba(22,32,51,.12)}
 #off{display:none;position:absolute;inset:0;align-items:center;justify-content:center;text-align:center;padding:20px;color:#6F7785;font-size:13px}
@@ -81,7 +81,7 @@ body.plain .leaflet-control-attribution{font-size:9px;opacity:.7}
   function send(o){var s=JSON.stringify(o);if(window.ReactNativeWebView){window.ReactNativeWebView.postMessage(s);}else if(window.parent&&window.parent!==window){window.parent.postMessage({__nesamMap:true,payload:s},'*');}}
   if(!window.L){document.getElementById('off').style.display='flex';document.getElementById('fit').style.display='none';send({type:'error'});return;}
   var map=L.map('m',{zoomControl:false,attributionControl:true}).setView([${DEFAULT_VIEW.lat},${DEFAULT_VIEW.lng}],12);
-  L.control.zoom({position:'bottomright'}).addTo(map);
+  L.control.zoom({position:'topright'}).addTo(map);
   L.tileLayer(${JSON.stringify(MAP_TILE_URL)},{maxZoom:19,attribution:${JSON.stringify(MAP_TILE_ATTRIBUTION)}}).addTo(map);
   var pins=L.layerGroup().addTo(map),data=null,lastFit=null;
   function esc(t){return String(t==null?'':t).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}

@@ -2,13 +2,26 @@
 // dashboard types in ./vendor.ts carried mock-oriented unions; these mirror
 // the documents firestore.rules actually governs.
 
+/** How a published duty treats an expense: inside the payout, paid on top by the customer, or not part of the trip. */
+export type TermValue = 'Included' | 'At actuals' | 'Not applicable';
+export interface DutyTerms {
+  driverBata: TermValue;
+  toll: TermValue;
+  parking: TermValue;
+  stateTax: TermValue;
+  nightAllowance: TermValue;
+}
+
 export interface MarketTrip {
   addOns?: { roofCarrier: boolean; pets: boolean };
   id: string;
   bookingId: string;
   route: string;
-  pickup: { address: string; city: string; time: string };
+  /** Area-level places; lat / lng are approximate (about a kilometre) and only on duties that carry them. */
+  pickup: { address: string; city: string; time: string; lat?: number; lng?: number };
   drop: { address: string; city: string };
+  /** The expense terms the duty was published on (Publish duty); null for a duty published without them. */
+  terms?: DutyTerms | null;
   /** A tour's places between pickup and drop, in order (Multicity / round trip). */
   via?: string[];
   travelDate: string;
@@ -16,6 +29,8 @@ export interface MarketTrip {
   tripType: string;
   /** Round Trip: the time-based package sold (Customer UX v7), one line, e.g. "Next-Day Return · 400 km included · ends 17 Nov, 11:45 pm". */
   packageLine?: string;
+  /** Round Trip: how long it was booked for ("8 Hours", "2 Days"). */
+  duration?: string;
   vehicleCategory: string;
   /** The category's id, and its display name set in the admin panel (e.g. "Wagon R or Similar"); `vehicleCategory` stays the class used for matching. */
   vehicleCategoryId: string;

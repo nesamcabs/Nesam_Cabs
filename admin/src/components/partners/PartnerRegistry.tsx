@@ -461,7 +461,7 @@ function DocumentsTab({ row, onOpen }: { row: PartnerRow; onOpen: () => void }) 
   const r = row.raw as unknown as Driver & Vehicle & Raw;
   const docs: [string, string | undefined][] = row.kind === "vehicle"
     ? [["Registration certificate", s(r.rcExpiry) || undefined], ["Insurance", r.insuranceExpiry], ["Fitness certificate", r.fitnessExpiry], ["Permit", r.permitExpiry]]
-    : row.kind === "vendor" ? [["Business registration", undefined], ["GST certificate", undefined], ["Owner ID", undefined]]
+    : row.kind === "vendor" ? [["Owner ID", undefined], ["Business proof (optional)", undefined]]
     : [["Driving licence", r.licenseExpiry]];
   const dates = docs.map(([, d]) => d).filter(Boolean) as string[];
   const soonest = dates.sort()[0];
@@ -535,7 +535,7 @@ function ReviewSheet({ row, onClose, onDone }: { row: PartnerRow; onClose: () =>
     if (decision === row.approval && !reason.trim()) return setError("Choose a different decision or record a note.");
     if (!ok) return setError("Confirm you verified the profile, consent and required documents.");
     setBusy(true);
-    try { await decideApproval(row.kind, row.raw, decision, reason.trim()); onDone(`${row.name}: approval ${decision.toLowerCase()}.`); }
+    try { const vehicleNote = await decideApproval(row.kind, row.raw, decision, reason.trim()); onDone(`${row.name}: approval ${decision.toLowerCase()}.${vehicleNote ? ` ${vehicleNote}` : ""}`); }
     catch { setError("The decision was not recorded. Check your permissions and try again."); setBusy(false); }
   };
   return (

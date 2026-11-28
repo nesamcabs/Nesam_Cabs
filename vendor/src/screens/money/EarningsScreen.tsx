@@ -6,7 +6,7 @@ import { useVendorData } from '../../context/VendorData';
 import { useInbox } from '../../context/Inbox';
 import { Page } from '../../components/shell/Page';
 import { Sheet } from '../../components/ui';
-import { Badge, Btn, Empty, Grid, Inline, KV, Notice, Small, Tabs, TextLink } from '../../components/kit/core';
+import { Badge, Btn, Empty, Grid, Inline, KV, Notice, Small, Tabs } from '../../components/kit/core';
 import { dayTime, firstPart, rupees } from '../../components/kit/format';
 import { navigationRef } from '../../navigation/navigationRef';
 import { payoutOf, SETTLEMENT_LABEL } from '../bookings/logic';
@@ -72,7 +72,8 @@ export function EarningsScreen() {
                     <Text style={styles.amount}>{rupees(payoutOf(x))}</Text>
                     <Small>Vendor payout</Small>
                   </View>
-                  <TextLink title="View statement" onPress={() => setOpen(x.id)} />
+                  {/* The whole row opens the statement (a button inside it would be a <button> in a <button> on the web). */}
+                  <Text style={styles.linkText}>View statement</Text>
                 </View>
               </Pressable>
             );
@@ -104,6 +105,7 @@ export function EarningsScreen() {
 }
 
 const styles = StyleSheet.create({
+  linkText: { fontFamily, fontSize: 12.5, fontWeight: '700', color: colors.primary, lineHeight: 32 },
   tile: { flexGrow: 1, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14 },
   tileLabel: { fontFamily, fontSize: 11, fontWeight: '500', color: '#6F7785' },
   tileValue: { fontFamily, fontSize: 19, fontWeight: '700', color: '#2B3340', letterSpacing: -0.4, marginTop: 4 },

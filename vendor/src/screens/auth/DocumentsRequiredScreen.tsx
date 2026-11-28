@@ -1,4 +1,4 @@
-// While a partner's business or vehicle documents are missing nothing in the workspace can be used (the duty functions
+// While a partner's identity or vehicle documents are missing nothing in the workspace can be used (the duty functions
 // refuse too) until the documents are uploaded and NESAM verifies them:
 //   • VerificationLock — approved partner: the panel stays visible, view-only, with this card on top.
 //   • DocumentsRequiredScreen — application submitted without documents: a full sign-in style screen.
@@ -37,7 +37,6 @@ function Checklist({ record }: { record: VendorRecord }) {
   const vehicles = record.fleet?.vehicles ?? [];
   return (
     <View style={styles.list}>
-      <Item done={!!d?.businessRegistration?.files?.length} title="Business registration" sub={d?.businessRegistration?.files?.length ? 'Uploaded' : 'GST, registration or trade licence'} />
       <Item done={!!d?.identityProof?.files?.length} title="Identity proof" sub={d?.identityProof?.files?.length ? 'Uploaded' : 'Aadhaar, PAN or passport'} />
       {vehicles.length ? vehicles.map((v) => {
         const missing = vehicleDocsMissing(v);
@@ -81,7 +80,7 @@ export function VerificationLock({ record, onSignOut }: { record: VendorRecord; 
   const [open, setOpen] = useState(false);
   const { busy, error, start } = useReopen(record);
   const d = record.documents;
-  const missingCount = (d?.businessRegistration?.files?.length ? 0 : 1) + (d?.identityProof?.files?.length ? 0 : 1)
+  const missingCount = (d?.identityProof?.files?.length ? 0 : 1)
     + (record.fleet?.vehicles ?? []).reduce((n, v) => n + vehicleDocsMissing(v).length, 0);
   return (
     <View pointerEvents="box-none" style={[styles.lockWrap, { paddingBottom: Math.max(insets.bottom, 12) + (wide ? 16 : 0) }]}>
@@ -95,7 +94,7 @@ export function VerificationLock({ record, onSignOut }: { record: VendorRecord; 
             </View>
           </View>
           <Text style={styles.lockText}>
-            You can look around, but duties, bids, fleet and wallet are locked until your business and vehicle documents are uploaded and verified by NESAM.
+            You can look around, but duties, bids, fleet and wallet are locked until your identity and vehicle documents are uploaded and verified by NESAM.
             {missingCount ? ` ${missingCount} item${missingCount === 1 ? '' : 's'} missing.` : ''}
           </Text>
           <Pressable onPress={() => setOpen((o) => !o)} accessibilityRole="button" hitSlop={6} style={styles.toggle}>
@@ -122,8 +121,8 @@ export function DocumentsRequiredScreen({ record, onSignOut }: { record: VendorR
     <AuthFrame>
       <AuthCard eyebrow="Verification required" title="Upload your documents"
         subtitle={approved
-          ? 'Duties and bids unlock once your business and vehicle documents are uploaded and verified by NESAM.'
-          : 'Complete your application with your business and vehicle documents. NESAM verifies them before you can take duties.'}>
+          ? 'Duties and bids unlock once your identity and vehicle documents are uploaded and verified by NESAM.'
+          : 'Complete your application with your identity and vehicle documents. NESAM verifies them before you can take duties.'}>
         <Checklist record={record} />
         <View style={styles.note}>
           <Ionicons name="shield-checkmark-outline" size={16} color="#4F7A68" />

@@ -21,16 +21,17 @@ export const VEHICLE_TYPES = [
   'Commercial',
 ] as const;
 
-export const BUSINESS_REG_TYPES: { value: BusinessRegType; label: string; placeholder: string }[] = [
-  { value: 'GST', label: 'GST Certificate', placeholder: '33ABCDE1234F1Z5' },
-  { value: 'BUSINESS_REGISTRATION', label: 'Business Registration', placeholder: 'U12345TN2020PTC123456' },
-  { value: 'TRADE_LICENSE', label: 'Trade License', placeholder: 'TL/2024/001234' },
+/** `short` is the segmented-control label; `label` is used everywhere else. */
+export const BUSINESS_REG_TYPES: { value: BusinessRegType; label: string; short: string; placeholder: string }[] = [
+  { value: 'GST', label: 'GST Certificate', short: 'GST', placeholder: '33ABCDE1234F1Z5' },
+  { value: 'BUSINESS_REGISTRATION', label: 'Business Registration', short: 'Registration', placeholder: 'U12345TN2020PTC123456' },
+  { value: 'TRADE_LICENSE', label: 'Trade License', short: 'Licence', placeholder: 'TL/2024/001234' },
 ];
 
-export const IDENTITY_PROOF_TYPES: { value: IdentityProofType; label: string; placeholder: string }[] = [
-  { value: 'AADHAAR', label: 'Aadhaar Card', placeholder: '1234 5678 9012' },
-  { value: 'PAN', label: 'PAN Card', placeholder: 'ABCDE1234F' },
-  { value: 'PASSPORT', label: 'Passport', placeholder: 'A1234567' },
+export const IDENTITY_PROOF_TYPES: { value: IdentityProofType; label: string; short: string; placeholder: string }[] = [
+  { value: 'AADHAAR', label: 'Aadhaar Card', short: 'Aadhaar', placeholder: '1234 5678 9012' },
+  { value: 'PAN', label: 'PAN Card', short: 'PAN', placeholder: 'ABCDE1234F' },
+  { value: 'PASSPORT', label: 'Passport', short: 'Passport', placeholder: 'A1234567' },
 ];
 
 export const INDIAN_STATES = [
@@ -50,7 +51,7 @@ export const INDIAN_STATES = [
  */
 export const ONBOARDING_STEPS: { key: OnboardingSection | 'review'; title: string; short: string }[] = [
   { key: 'business', title: 'Business & account details', short: 'Business' },
-  { key: 'documents', title: 'Identity & business docs', short: 'Documents' },
+  { key: 'documents', title: 'Identity & documents', short: 'Documents' },
   { key: 'fleet', title: 'Fleet documentation', short: 'Fleet' },
   { key: 'review', title: 'Review & Submit', short: 'Submit' },
 ];

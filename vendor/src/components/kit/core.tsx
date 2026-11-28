@@ -14,7 +14,7 @@ export type Tone = 'neutral' | 'green' | 'amber' | 'red' | 'blue';
 
 // ── Buttons ────────────────────────────────────────────────────────────────
 
-export type BtnKind = 'primary' | 'secondary' | 'text' | 'bid' | 'light' | 'danger';
+export type BtnKind = 'primary' | 'secondary' | 'text' | 'bid' | 'light' | 'danger' | 'accept';
 const BTN: Record<BtnKind, { bg: string; fg: string; border: string; iconBg: string }> = {
   primary: { bg: colors.primary, fg: colors.white, border: colors.primary, iconBg: 'rgba(255,255,255,0.16)' },
   secondary: { bg: colors.white, fg: colors.ink, border: colors.field, iconBg: '#F6F7F9' },
@@ -22,6 +22,8 @@ const BTN: Record<BtnKind, { bg: string; fg: string; border: string; iconBg: str
   bid: { bg: colors.white, fg: colors.info, border: colors.infoBorder, iconBg: '#E5EDF9' },
   light: { bg: colors.white, fg: '#B12B2B', border: colors.white, iconBg: colors.primarySoft },
   danger: { bg: colors.white, fg: colors.danger, border: colors.primaryBorder, iconBg: colors.primarySoft },
+  // Taking a duty is the one green button, so it is never mistaken for any other action.
+  accept: { bg: colors.success, fg: colors.white, border: colors.success, iconBg: 'rgba(255,255,255,0.16)' },
 };
 
 export function Btn({
@@ -65,6 +67,7 @@ export function Btn({
         { backgroundColor: v.bg, borderColor: v.border },
         hovered && !off && kind === 'primary' && { backgroundColor: colors.primaryDark },
         hovered && !off && kind === 'bid' && { backgroundColor: colors.infoSoft },
+        hovered && !off && kind === 'accept' && { backgroundColor: '#11633F' },
         hovered && !off && kind === 'secondary' && { backgroundColor: '#FAFAFB' },
         full && { alignSelf: 'stretch' },
         off && { opacity: 0.5 },
@@ -404,9 +407,9 @@ export function Dropdown<T extends string>({ value, options, onChange, label, ic
   return (
     <>
       <Pressable ref={trigger} onPress={show} accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={`${label}: ${current?.label ?? ''}`} style={({ pressed }) => [s.select, open && s.selectOpen, pressed && { opacity: 0.85 }, style]}>
-        {icon ? <Ionicons name={icon} size={16} color="#8B919C" /> : null}
+        {icon ? <Ionicons name={icon} size={16} color="#4B5563" /> : null}
         <Text style={s.selectText} numberOfLines={1}>{current?.label ?? label}</Text>
-        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={15} color="#8B919C" />
+        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={15} color="#4B5563" />
       </Pressable>
       {open && menu ? (
         <Modal visible transparent animationType="fade" onRequestClose={close} statusBarTranslucent>
@@ -633,7 +636,7 @@ export const s = StyleSheet.create({
   search: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 9, minHeight: 46, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 14, backgroundColor: colors.white },
   searchInput: { flex: 1, minWidth: 0, fontSize: 13.5, color: '#424B5A', paddingVertical: 10, fontFamily },
   select: { minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 14, backgroundColor: colors.white, minWidth: 0 },
-  selectText: { flex: 1, fontSize: 13.5, color: '#6F7785', fontFamily },
+  selectText: { flex: 1, fontSize: 13.5, fontWeight: '600', color: colors.ink, fontFamily },
   option: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 50, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, marginBottom: 4 },
   optionOn: { backgroundColor: colors.primarySoft },
   selectOpen: { borderColor: colors.primary },

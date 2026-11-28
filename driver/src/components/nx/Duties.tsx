@@ -1,21 +1,25 @@
 // Open duties (reference "Available duties"): the duty card, the pickup-date filter and the accept / bid dialog.
 // Home and the Duties page share these, so accepting or bidding behaves the same everywhere. The server decides every
 // acceptance (acceptMarketplaceTrip) and every bid (submitDutyBid / withdrawDutyBid); the app only presents them.
-import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from './Text';
 import { useDriverData } from '../../context/DriverData';
 import { usePresence } from '../../hooks/usePresence';
 import { acceptMarketplaceTrip, DriverActionError, requestRoundTripDuty, submitDutyBid, withdrawBid, withdrawDutyBid, type DriverBid } from '../../services/driverService';
-import type { MarketplaceOffer } from '../../types/driver';
+import type { DutyTerms, MarketplaceOffer, TermValue } from '../../types/driver';
+import { useOwnPosition } from '../../hooks/useOwnPosition';
+import { formatTime12 } from '../../utils/time';
+import { kmBetween, placeParts, stateRoute, townOf } from '../../utils/places';
+import { DutyTicket, type TicketAction } from './DutyTicket';
 import { categoryMatches } from '../../utils/earnings';
 import { formatINR } from '../../utils/format';
 import { describeError } from '../../utils/retry';
 import { nx } from '../../theme/nx';
 import { PolicyDialog } from './Cancellation';
 import { NxDialog } from './Dialog';
-import { NxIcon, type NxIconName } from './Icon';
-import { NxBadge, NxButton, NxField, NxFormError, NxInfo, NxPanel, NxRouteStack, NxRow, isHovered, placeName } from './primitives';
+import { NxIcon } from './Icon';
+import { NxBadge, NxButton, NxField, NxFormError, NxInfo, NxRouteStack, NxRow, isHovered } from './primitives';
 import { useShell } from './Shell';
 import { kmText, offerWhen } from './tripFormat';
 import { timePackageLine } from '../../utils/timePackage';
@@ -34,75 +38,116 @@ export function useDutyFeed(showAll: boolean, dateFilter: string, typeFilter = '
 
 // ── Duty card ───────────────────────────────────────────────────────────────
 
-export function DutyCard({ offer, onOpen, pending }: { offer: MarketplaceOffer; onOpen: () => void; pending?: boolean }) {
-  const { account } = useDriverData();
-  const vehicleType = account.vehicle.vehicleType;
-  const w = offerWhen(offer);
-  const mismatch = !categoryMatches(offer.vehicleCategory, vehicleType);
-  const bid = offer.mode === 'bid_review';
-  const addOns = [offer.addOns?.roofCarrier ? 'Roof carrier required' : '', offer.addOns?.pets ? 'Pet travel' : ''].filter(Boolean).join(' · ');
-  return (
-    <NxPanel style={styles.card}>
-      <View style={styles.meta}>
-        <View style={styles.metaDate}>
-          <NxIcon name="calendar" size={13} color={nx.muted} />
-          <Text style={styles.metaText} numberOfLines={1}>
-            {w.date}
-            {w.time ? ` · ${w.time}` : ''}
-          </Text>
-        </View>
-        <NxBadge label={pending ? 'Pending approval' : bid ? 'Bid duty' : offer.vehicleCategory || 'Any vehicle'} tone={pending ? 'amber' : bid ? 'red' : mismatch ? 'amber' : 'neutral'} />
-      </View>
-      <View style={styles.route}>
-        <Text style={styles.routeText} numberOfLines={2}>
-          {placeName(offer.pickup.address)}
-        </Text>
-        <NxIcon name="arrow" size={16} color="#A0A5AF" />
-        <Text style={styles.routeText} numberOfLines={2}>
-          {placeName(offer.drop.address)}
-        </Text>
-      </View>
-      <View style={styles.info}>
-        <Fact icon="car" text={offer.vehicleCategory || vehicleType} />
-        {offer.distanceKm > 0 ? <Fact icon="distance" text={kmText(offer.distanceKm)} /> : null}
-        <Fact icon="pin" text={placeName(offer.pickup.address)} />
-      </View>
-      {offer.timePackage ? (
-        <View style={styles.schedule}>
-          <NxIcon name="clock" size={12} color={nx.amber} />
-          <Text style={styles.scheduleText}>{timePackageLine(offer.timePackage)}</Text>
-        </View>
-      ) : null}
-      {mismatch ? (
-        <View style={styles.schedule}>
-          <NxIcon name="info" size={12} color={nx.amber} />
-          <Text style={styles.scheduleText}>Booked as {offer.vehicleCategory} — accept only if your vehicle qualifies</Text>
-        </View>
-      ) : null}
-      {addOns ? (
-        <View style={styles.schedule}>
-          <NxIcon name="alert" size={12} color={nx.amber} />
-          <Text style={styles.scheduleText}>{addOns}</Text>
-        </View>
-      ) : null}
-      <View style={styles.bottom}>
-        <View style={{ flexShrink: 1 }}>
-          <Text style={styles.payoutLabel}>{bid ? 'NESAM offer' : 'Driver payout'}</Text>
-          <Text style={styles.payout}>{formatINR(offer.offeredPayout)}</Text>
-        </View>
-        <NxButton title={pending ? 'View request' : bid ? 'Place bid' : 'View details'} trailingIcon="arrow" variant={mismatch ? 'secondary' : 'soft'} compact onPress={onOpen} />
-      </View>
-    </NxPanel>
-  );
+/** "in 45 min", "in 3 hr 20 min", "in 9 hr", "in 2 days". */
+function untilText(ms: number): string {
+  const m = Math.max(1, Math.round(ms / 60000));
+  if (m < 60) return `in ${m} min`;
+  const h = Math.floor(m / 60), r = m % 60;
+  if (h < 24) return h < 6 && r ? `in ${h} hr ${r} min` : `in ${h} hr`;
+  const d = Math.round(h / 24);
+  return `in ${d} day${d === 1 ? '' : 's'}`;
 }
 
-function Fact({ icon, text }: { icon: NxIconName; text: string }) {
+const TERM_NAMES: [keyof DutyTerms, string][] = [['driverBata', 'Driver Bata'], ['toll', 'Toll'], ['parking', 'Parking'], ['stateTax', 'State Tax']];
+const joinNames = (names: string[]) => (names.length > 1 ? `${names.slice(0, -1).join(', ')} & ${names[names.length - 1]}` : names[0] ?? '');
+
+/**
+ * What a duty's pay covers and what the customer pays on top: from the terms it was published on, or, without them, the
+ * standing rules (an outstation fare carries the driver's bata; toll, parking and state tax are paid by the customer).
+ */
+export function dutyTags(o: Pick<MarketplaceOffer, 'terms' | 'tripType' | 'service'>): { included: string; extras: string } {
+  const terms = o.terms;
+  if (terms) {
+    const pick = (v: TermValue) => TERM_NAMES.filter(([key]) => terms[key] === v).map(([, name]) => name);
+    const included = pick('Included');
+    const extras = pick('At actuals');
+    return { included: included.length ? `${joinNames(included)} Included` : '', extras: extras.length ? `${joinNames(extras)} Extra` : '' };
+  }
+  const outstation = !/local|rental|airport/i.test(`${o.tripType} ${o.service}`);
+  return { included: outstation ? 'Driver Bata Included' : '', extras: 'Toll, Parking & State Tax Extra' };
+}
+
+const dayOf = (at: Date) => new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric' }).format(at);
+
+/** Which part of a duty a card button opens: taking it at the offer, or sending a counter amount. */
+export type DutyIntent = 'accept' | 'bid';
+
+/**
+ * One open duty, as a ticket: the route with its states and time to pickup, date and trip type, car and fuel, the pickup
+ * point and how far it is, what the pay covers, then the driver pay and Accept (a bidding duty: Place bid and Accept with
+ * the pay on it). The ticket and its buttons open the duty (the accept / bid dialog).
+ */
+export function DutyCard({ offer, onOpen, pending, requestOnly }: { offer: MarketplaceOffer; onOpen: (intent?: DutyIntent) => void; pending?: boolean; requestOnly?: boolean }) {
+  const { account } = useDriverData();
+  const vehicleType = account.vehicle.vehicleType;
+  const here = useOwnPosition();
+  // The time to pickup counts down while the list stays open.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(timer);
+  }, []);
+  const w = offerWhen(offer);
+  const at = offer.pickupMs ? new Date(offer.pickupMs) : null;
+  const untilMs = at ? at.getTime() - now : 0;
+  const pay = formatINR(offer.offeredPayout);
+  const tags = dutyTags(offer);
+  const from = townOf(offer.pickup.address);
+  const to = townOf(offer.drop.address);
+  const { lat, lng } = offer.pickup;
+  // A duty's pickup position is rounded to about a kilometre, so the distance is a whole number.
+  const away = here && lat != null && lng != null ? kmBetween(here, { lat, lng }) : null;
+  const awayText = away === null ? '' : away < 1 ? 'Nearby' : `~${Math.round(away)} km`;
+  const openPickup = () => {
+    const query = lat != null && lng != null ? `${lat},${lng}` : encodeURIComponent(offer.pickup.address);
+    void Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${query}`);
+  };
+  // A bidding duty can also be taken at its offer: Place bid, then Accept carrying the pay.
+  const actions: TicketAction[] = pending
+    ? [{ label: 'View request', icon: 'time-outline', tone: 'quiet', onPress: () => onOpen() }]
+    : requestOnly ? [{ label: 'Request trip', icon: 'checkmark-done', tone: 'accept', onPress: () => onOpen('accept') }]
+    : offer.mode === 'bid_review' ? [
+      { label: 'Place bid', icon: 'trending-up', tone: 'bid', onPress: () => onOpen('bid') },
+      { label: 'Accept', icon: 'checkmark-done', tone: 'accept', amount: pay, onPress: () => onOpen('accept') },
+    ]
+    : [{ label: 'Accept duty', icon: 'checkmark-done', tone: 'accept', onPress: () => onOpen('accept') }];
+  const lines = [
+    offer.timePackage ? timePackageLine(offer.timePackage) : '',
+    offer.via?.length ? `Via ${offer.via.join(', ')}` : '',
+    [offer.addOns?.roofCarrier ? 'Roof carrier required' : '', offer.addOns?.pets ? 'Pet travel' : ''].filter(Boolean).join(' · '),
+    pending ? 'Pending approval' : '',
+  ].filter(Boolean);
+
   return (
-    <View style={styles.fact}>
-      <NxIcon name={icon} size={12} color={nx.muted} />
-      <Text style={styles.factText} numberOfLines={1}>
-        {text}
-      </Text>
+    <View style={styles.cardWrap}>
+      <DutyTicket
+        from={from}
+        to={to}
+        region={stateRoute(offer.pickup.address, offer.drop.address)}
+        eta={untilMs > 0 ? untilText(untilMs) : undefined}
+        time={at ? formatTime12(at) : w.time}
+        date={at ? dayOf(at) : w.date}
+        service={offer.tripType || offer.service || 'Duty'}
+        duration={offer.duration || undefined}
+        distance={kmText(offer.distanceKm) || undefined}
+        vehicle={offer.vehicleCategory || vehicleType || 'Any vehicle'}
+        fuel={offer.fuelType ? (offer.fuelType === 'cng' ? 'CNG' : 'Diesel / Petrol') : undefined}
+        point={placeParts(offer.pickup.address).join(', ') || from}
+        pointAction={{ label: awayText || 'Map', accessibilityLabel: awayText ? `Pickup ${away! < 1 ? 'is nearby' : `about ${Math.round(away!)} kilometres away`}. Open it on the map` : 'Open the pickup on the map', onPress: openPickup }}
+        included={tags.included}
+        extras={tags.extras}
+        payout={pay}
+        payoutLabel="Driver pay"
+        actions={actions}
+        onPress={() => onOpen()}
+        accessibilityLabel={`${from} to ${to}, ${pay}. Open duty`}
+      >
+        {lines.length ? (
+          <View style={styles.lines}>
+            {lines.map((line) => <Text key={line} style={[styles.line, line === 'Pending approval' && { color: nx.amber }]} numberOfLines={2}>{line}</Text>)}
+          </View>
+        ) : null}
+      </DutyTicket>
     </View>
   );
 }
@@ -216,7 +261,7 @@ export function MyBidsDialog({ visible, onClose, bids, loaded }: { visible: bool
  * on-demand duty, but never a trip booked for later — the server's own schedule-overlap check is the real gate.
  * `requestOnly` additionally asks a vendor driver's own fleet for the trip instead of claiming it outright.
  */
-export function DutyDialog({ offer, onClose, onAccepted, scheduled, requestOnly, pending }: { offer: MarketplaceOffer | null; onClose: () => void; onAccepted?: (offer: MarketplaceOffer) => void; scheduled?: boolean; requestOnly?: boolean; pending?: boolean }) {
+export function DutyDialog({ offer, onClose, onAccepted, scheduled, requestOnly, pending, intent }: { offer: MarketplaceOffer | null; onClose: () => void; onAccepted?: (offer: MarketplaceOffer) => void; scheduled?: boolean; requestOnly?: boolean; pending?: boolean; intent?: DutyIntent }) {
   const { account, activeTrip, cancelPolicy } = useDriverData();
   const { notify } = useShell();
   const presence = usePresence(notify);
@@ -235,9 +280,9 @@ export function DutyDialog({ offer, onClose, onAccepted, scheduled, requestOnly,
     setNote('');
     setError('');
   }
-  const bid = !requestOnly && offer?.mode === 'bid_review';
+  // A bidding duty opens its bid form, unless "Accept duty" was chosen: then it is taken at the current offer.
+  const bid = !requestOnly && offer?.mode === 'bid_review' && intent !== 'accept';
   const blocked = scheduled ? '' : !presence.online ? (bid ? 'Go online to bid' : 'Go online to accept') : activeTrip ? 'Finish your active trip first' : '';
-  const mismatch = offer ? !categoryMatches(offer.vehicleCategory, vehicle.vehicleType) : false;
 
   const accept = async () => {
     if (!offer || (!scheduled && activeTrip)) return;
@@ -354,7 +399,6 @@ export function DutyDialog({ offer, onClose, onAccepted, scheduled, requestOnly,
               </>
             ) : null}
             <NxInfo>Toll, parking and state tax are extra. Collect separately against actual receipts and record them at the end of the trip.</NxInfo>
-            {mismatch ? <NxInfo tone="amber">Booked as {offer.vehicleCategory}. Accept only if your {vehicle.vehicleType} qualifies.</NxInfo> : null}
             {!scheduled && activeTrip ? <NxInfo tone="amber" icon="clock">You already have an active trip. Finish it before accepting another.</NxInfo> : null}
           </>
         ) : null}
@@ -365,20 +409,9 @@ export function DutyDialog({ offer, onClose, onAccepted, scheduled, requestOnly,
 }
 
 const styles = StyleSheet.create({
-  card: { paddingVertical: 17, paddingHorizontal: 18, marginBottom: 12, borderRadius: 15 },
-  meta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 10 },
-  metaDate: { flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 1 },
-  metaText: { fontSize: 11.5, color: nx.muted },
-  route: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 7 },
-  routeText: { fontSize: 15.5, fontWeight: '700', letterSpacing: -0.4, color: nx.ink, flexShrink: 1 },
-  info: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, rowGap: 4, marginTop: 8 },
-  fact: { flexDirection: 'row', alignItems: 'center', gap: 4, maxWidth: '100%' },
-  factText: { fontSize: 11.5, color: nx.muted, flexShrink: 1 },
-  schedule: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: nx.amberSoft, borderRadius: 6, paddingVertical: 6, paddingHorizontal: 8, marginTop: 11 },
-  scheduleText: { flex: 1, fontSize: 11, color: nx.amber },
-  bottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderTopWidth: 1, borderTopColor: nx.lineSoft, paddingTop: 12, marginTop: 14 },
-  payoutLabel: { fontSize: 11, color: nx.muted },
-  payout: { fontSize: 20, fontWeight: '700', letterSpacing: -0.5, color: nx.ink },
+  cardWrap: { marginBottom: 12 },
+  lines: { gap: 3, paddingHorizontal: 4 },
+  line: { fontSize: 11.5, fontWeight: '600', color: '#5B6472' },
   option: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 50, paddingHorizontal: 4, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: nx.line },
   optionText: { fontSize: 13.5, fontWeight: '600', color: nx.ink },
   bid: { paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: nx.line },

@@ -147,16 +147,21 @@ function Duty({ shift, trips, upcoming, now, initialTab }: { shift: LocalShift; 
   const [handBack, setHandBack] = useState<TripDetails | null>(null);
   const [ending, setEnding] = useState(false);
   const [busy, setBusy] = useState(false);
+  // The server's reason for the last refusal. The dialogs show it themselves: a toast is drawn underneath them.
+  const [refusal, setRefusal] = useState('');
 
   const act = async (fn: () => Promise<unknown>, ok: string, fallback: string) => {
     if (busy) return false;
     setBusy(true);
+    setRefusal('');
     try {
       await fn();
       if (ok) notify('ok', ok);
       return true;
     } catch (e) {
-      notify('error', errorText(e, fallback));
+      const why = errorText(e, fallback);
+      setRefusal(why);
+      notify('error', why);
       return false;
     } finally {
       setBusy(false);
@@ -229,7 +234,10 @@ function Duty({ shift, trips, upcoming, now, initialTab }: { shift: LocalShift; 
       onStart={start}
       onPause={() => void pause()}
       onResume={() => void resume()}
-      onEnd={() => setEnding(true)}
+      onEnd={() => {
+        setRefusal('');
+        setEnding(true);
+      }}
     />
   );
 
@@ -256,7 +264,7 @@ function Duty({ shift, trips, upcoming, now, initialTab }: { shift: LocalShift; 
         </NxInfo>
       ) : null}
       {inHandHere.map((t) => (
-        <OrderInHand key={t.id} trip={t} next={orders.current?.id !== t.id} onOpen={() => openTrip(t)} onHandBack={() => setHandBack(t)} />
+        <OrderInHand key={t.id} trip={t} next={orders.current?.id !== t.id} onOpen={() => openTrip(t)} onHandBack={() => { setRefusal(''); setHandBack(t); }} />
       ))}
     </>
   );
@@ -274,7 +282,7 @@ function Duty({ shift, trips, upcoming, now, initialTab }: { shift: LocalShift; 
         open={boardOpen}
         reason={running ? (board.board && !board.board.open ? board.board.reason : shift.paused ? 'You are on a break. Resume to see orders.' : shift.endRequested ? 'The duty is ending. Finish the orders in hand.' : '') : 'Start the duty to see nearby orders.'}
         loading={board.loading}
-        error={board.error || board.locationError}
+        error={board.error || board.locationError || (board.board?.shareProblem ? `Riders may not see you on their map. ${board.board.shareProblem}` : '')}
         updatedAt={board.updatedAt}
         now={now}
         selected={selected}
@@ -349,6 +357,7 @@ function Duty({ shift, trips, upcoming, now, initialTab }: { shift: LocalShift; 
       <HandBackDialog
         trip={handBack}
         busy={busy}
+        serverError={refusal}
         onClose={() => setHandBack(null)}
         onConfirm={async (t, reason) => {
           const ok = await act(() => releaseLocalOrder(shift.id, t.id, reason), `${t.bookingId} handed back to ${shift.vendorName}.`, 'Could not hand the order back.');
@@ -360,6 +369,7 @@ function Duty({ shift, trips, upcoming, now, initialTab }: { shift: LocalShift; 
         shift={shift}
         inHand={orders.inHand.length}
         busy={busy}
+        serverError={refusal}
         onClose={() => setEnding(false)}
         onConfirm={async (reason) => {
           let message = '';
@@ -828,7 +838,7 @@ function TakeDialog({ order, queued, busy, now, onClose, onTake }: { order: Boar
 
 const HAND_BACK_REASONS = ['Too far from me', 'Vehicle problem', 'Customer not reachable', 'Other'];
 
-function HandBackDialog({ trip, busy, onClose, onConfirm }: { trip: TripDetails | null; busy: boolean; onClose: () => void; onConfirm: (t: TripDetails, reason: string) => Promise<void> }) {
+function HandBackDialog({ trip, busy, serverError, onClose, onConfirm }: { trip: TripDetails | null; busy: boolean; serverError: string; onClose: () => void; onConfirm: (t: TripDetails, reason: string) => Promise<void> }) {
   const [choice, setChoice] = useState(HAND_BACK_REASONS[0]!);
   const [other, setOther] = useState('');
   const [error, setError] = useState('');
@@ -863,12 +873,12 @@ function HandBackDialog({ trip, busy, onClose, onConfirm }: { trip: TripDetails 
         ))}
       </View>
       {choice === 'Other' ? <NxField label="Reason" value={other} onChangeText={setOther} maxLength={200} /> : null}
-      <NxFormError message={error} />
+      <NxFormError message={error || serverError} />
     </NxDialog>
   );
 }
 
-function EndDialog({ visible, shift, inHand, busy, onClose, onConfirm }: { visible: boolean; shift: LocalShift; inHand: number; busy: boolean; onClose: () => void; onConfirm: (reason: string) => Promise<void> }) {
+function EndDialog({ visible, shift, inHand, busy, serverError, onClose, onConfirm }: { visible: boolean; shift: LocalShift; inHand: number; busy: boolean; serverError: string; onClose: () => void; onConfirm: (reason: string) => Promise<void> }) {
   const scheduled = shift.status === 'Scheduled';
   const [reason, setReason] = useState('');
   return (
@@ -888,6 +898,7 @@ function EndDialog({ visible, shift, inHand, busy, onClose, onConfirm }: { visib
             : `The duty closes now and ${shift.vendorName} gets the totals: orders, kilometres, fares and the cash you collected.`}
       </Text>
       <NxField label="Reason (optional)" value={reason} onChangeText={setReason} maxLength={200} placeholder="e.g. Vehicle needs service" />
+      <NxFormError message={serverError} />
     </NxDialog>
   );
 }

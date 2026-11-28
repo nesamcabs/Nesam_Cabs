@@ -146,15 +146,15 @@ export function AuthScreen() {
             <Ionicons name="call-outline" size={15} color={colors.primary} />
             <Text style={styles.supportNumber}>{SUPPORT_PHONE_DISPLAY}</Text>
           </Pressable>
-          <View style={styles.legalRule} accessible={false}>
-            <View style={styles.legalLine} />
-            <Ionicons name="shield-checkmark-outline" size={14} color={AUTH.muted} />
-            <View style={styles.legalLine} />
+          <View style={styles.agreement}>
+            <View style={styles.agreementIcon}><Ionicons name="shield-checkmark-outline" size={17} color={colors.primary} /></View>
+            <View style={styles.agreementBody}>
+              <Text style={styles.agreementTitle}>Partner agreement</Text>
+              <Text style={styles.agreementText}>
+                By continuing, you accept the NESAM Fleet Partner <Text style={styles.agreementDoc}>Terms & Conditions</Text> and acknowledge the <Text style={styles.agreementDoc}>Privacy Policy</Text>.
+              </Text>
+            </View>
           </View>
-          <Text style={styles.termsLead}>By continuing, you agree to NESAM’s</Text>
-          <Text style={styles.termsDocs}>
-            Terms & Conditions <Text style={styles.termsDot}>•</Text> Privacy Policy
-          </Text>
         </AuthCard>
       </AuthFrame>
     );
@@ -248,11 +248,12 @@ const styles = StyleSheet.create({
   choiceTitle: { fontFamily, fontSize: 15, fontWeight: '700', color: AUTH.ink },
   support: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, minHeight: 40, marginTop: 14 },
   supportNumber: { fontFamily, fontSize: 13, fontWeight: '700', color: AUTH.ink },
-  legalRule: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10, marginBottom: 10 },
-  legalLine: { flex: 1, height: 1, backgroundColor: AUTH.fieldLine },
-  termsLead: { fontFamily, fontSize: 11, lineHeight: 16, color: AUTH.muted, textAlign: 'center' },
-  termsDocs: { fontFamily, fontSize: 11.5, lineHeight: 18, fontWeight: '600', letterSpacing: 0.1, color: AUTH.ink, textAlign: 'center', marginTop: 2 },
-  termsDot: { color: colors.primary },
+  agreement: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginTop: 14, paddingVertical: 13, paddingHorizontal: 14, borderRadius: 14, backgroundColor: '#F7F8FA', borderWidth: 1, borderColor: AUTH.fieldLine },
+  agreementIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primarySoft },
+  agreementBody: { flex: 1, minWidth: 0 },
+  agreementTitle: { fontFamily, fontSize: 10, lineHeight: 14, fontWeight: '700', letterSpacing: 1.1, textTransform: 'uppercase', color: colors.primary },
+  agreementText: { fontFamily, fontSize: 11.5, lineHeight: 18, color: AUTH.muted, marginTop: 3 },
+  agreementDoc: { fontWeight: '700', color: AUTH.ink },
   label: { fontFamily, fontSize: 12, fontWeight: '600', color: AUTH.ink, marginTop: 20 },
   phoneField: { flexDirection: 'row', alignItems: 'center', minHeight: 54, marginTop: 8, marginBottom: 4, borderWidth: 1, borderColor: AUTH.fieldLine, borderRadius: 12, backgroundColor: colors.white, paddingHorizontal: 14 },
   fieldFocus: { borderColor: '#C3C8D0', shadowColor: colors.primary, shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 0 } },

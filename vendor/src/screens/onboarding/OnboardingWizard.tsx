@@ -1,6 +1,6 @@
 // Vendor onboarding wizard — 4 steps:
 //   0 Business & account details  (owner name, business name, contact, city, fleet estimate, bank)
-//   1 Identity & business docs    (GST/trade-licence + Aadhaar/PAN/Passport)
+//   1 Identity & documents        (Aadhaar/PAN/Passport; GST/registration/trade licence optional)
 //   2 Fleet documentation         (per-vehicle RC, insurance, FC, permit, photo)
 //   3 Review & Submit             (summary + T&C toggle)
 //
@@ -63,7 +63,8 @@ import {
 } from '../../utils/fleet';
 import { describeDataError } from '../../utils/retry';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
-import { Badge, Button, Card, Chip, FullScreenLoader, Notice, Row, TextField } from '../../components/ui';
+import { Badge, Button, FullScreenLoader, Notice, Row, Segmented, TextField } from '../../components/ui';
+import { PartnerBanner } from '../../components/shell/PartnerBanner';
 import { FileUploadField } from '../../components/FileUploadField';
 import { DateField, displayDate } from '../../components/fields';
 import { colors, radius, space, type } from '../../theme';
@@ -135,40 +136,14 @@ export function OnboardingWizard({ record, phone, notice, onSignOut }: WizardPro
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
       <View style={styles.topBar}>
-        <View style={{ flex: 1 }}>
-          <Text style={type.h3}>Fleet Partner Onboarding</Text>
+        <View style={{ flex: 1, gap: 3 }}>
+          <PartnerBanner height={22} />
           <Text style={type.tiny}>{phone}</Text>
         </View>
         <Button small variant="ghost" title="Sign out" onPress={onSignOut} />
       </View>
       <KeyboardAvoid>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {/* Step indicator */}
-        <View style={styles.stepper}>
-          {ONBOARDING_STEPS.map((s, i) => {
-            const done = i < step || (record?.onboardingStep ?? 0) > i;
-            const active = i === step;
-            const isFlagged = flagged.some((f) => stepOfSection(f) === i);
-            return (
-              <Pressable
-                key={s.key}
-                onPress={() => i <= maxReachable && setStep(i)}
-                disabled={i > maxReachable}
-                style={styles.stepItem}
-                accessibilityRole="button"
-                accessibilityLabel={`Step ${i + 1}: ${s.title}`}
-              >
-                <View style={[styles.stepDot, active && styles.stepActive, !active && isFlagged && styles.stepFlagged, !active && !isFlagged && done && styles.stepDone]}>
-                  {done && !active && !isFlagged
-                    ? <Ionicons name="checkmark" size={14} color={colors.success} />
-                    : <Text style={[styles.stepNum, active && { color: colors.white }]}>{i + 1}</Text>}
-                </View>
-                <Text style={[styles.stepLabel, active && { color: colors.ink }]} numberOfLines={1}>{s.short}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
         {!online ? <Notice tone="warning" message="You're offline. Uploads and saves will fail until you reconnect." /> : null}
         {notice && step === 0 ? <Notice tone="info" message={notice} /> : null}
         {correction ? (
@@ -180,14 +155,40 @@ export function OnboardingWizard({ record, phone, notice, onSignOut }: WizardPro
           />
         ) : null}
 
-        <Card>
-          <Text style={type.tiny}>
-            STEP {step + 1} OF {ONBOARDING_STEPS.length}
-          </Text>
-          <Text style={[type.h2, { marginBottom: space.md }]}>{current.title}</Text>
-          {body}
-        </Card>
-        <Text style={[type.tiny, { textAlign: 'center' }]}>Your progress is saved after each step — you can sign out and continue later.</Text>
+        <View style={styles.panel}>
+          {/* The step indicator is a stretch of road: one lane mark per step. */}
+          <View style={styles.road}>
+            <Text style={styles.roadStep}>
+              STEP {step + 1} OF {ONBOARDING_STEPS.length}
+            </Text>
+            <Text style={styles.roadTitle} accessibilityRole="header">{current.title}</Text>
+            <View style={styles.lanes}>
+              {ONBOARDING_STEPS.map((s, i) => {
+                const done = i < step || (record?.onboardingStep ?? 0) > i;
+                const active = i === step;
+                const isFlagged = flagged.some((f) => stepOfSection(f) === i);
+                return (
+                  <Pressable
+                    key={s.key}
+                    onPress={() => i <= maxReachable && setStep(i)}
+                    disabled={i > maxReachable}
+                    style={styles.laneItem}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Step ${i + 1}: ${s.title}`}
+                    accessibilityState={{ selected: active, disabled: i > maxReachable }}
+                  >
+                    <View style={[styles.lane, done && styles.laneDone, isFlagged && styles.laneFlagged, active && styles.laneActive]} />
+                    <Text style={[styles.laneLabel, (active || done) && { color: colors.white }]} numberOfLines={1}>
+                      {done && !active && !isFlagged ? '✓ ' : ''}{s.short}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+          <View style={styles.panelBody}>{body}</View>
+        </View>
+        <Text style={[type.tiny, { textAlign: 'center' }]}>Your progress is saved after each step.</Text>
       </ScrollView>
       </KeyboardAvoid>
     </SafeAreaView>
@@ -347,6 +348,7 @@ function DocumentsStep({
   const [idType, setIdType] = useState<IdentityProofType>(saved?.identityProof.type ?? 'AADHAAR');
   const [idNumber, setIdNumber] = useState(kyc?.identityNumber ?? '');
   const [idFiles, setIdFiles] = useState<StoredFile[]>(saved?.identityProof.files ?? []);
+  const [bizOpen, setBizOpen] = useState(() => !!(saved?.businessRegistration.number || saved?.businessRegistration.files.length));
   const [bizBusy, setBizBusy] = useState(false);
   const [idBusy, setIdBusy] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -362,13 +364,16 @@ function DocumentsStep({
     return validatePassport(val);
   };
 
+  // Business proof is optional, but once started it needs both the number and the document.
+  const bizStarted = !!bizNumber.trim() || bizFiles.length > 0;
+
   const errors = useMemo(() => ({
-    bizNumber: validateRegistrationNumber(bizNumber),
-    bizFiles: bizFiles.length === 0 ? 'Upload at least one document.' : '',
+    bizNumber: bizStarted ? validateRegistrationNumber(bizNumber) : '',
+    bizFiles: bizStarted && bizFiles.length === 0 ? 'Upload the document, or clear the number to skip.' : '',
     idNumber: validateIdNumber(idNumber),
     idFiles: idFiles.length === 0 ? 'Upload at least one document.' : '',
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [bizNumber, bizFiles, idType, idNumber, idFiles]);
+  }), [bizStarted, bizNumber, bizFiles, idType, idNumber, idFiles]);
   const err = (key: keyof typeof errors) => (submitted ? errors[key] : '');
 
   const maskedIdNumber = (): string => {
@@ -401,53 +406,13 @@ function DocumentsStep({
 
   return (
     <View>
-      {/* Business registration */}
-      <Text style={[type.h3, { marginBottom: space.sm }]}>Business registration</Text>
-      <Text style={[type.small, { color: colors.muted, marginBottom: space.sm }]}>
-        Upload a GST certificate, business registration or trade license.
-      </Text>
-      <Text style={[type.label, { marginBottom: 6 }]}>
-        Document type<Text style={{ color: colors.primary }}> *</Text>
-      </Text>
-      <View style={styles.chips}>
-        {BUSINESS_REG_TYPES.map((t) => (
-          <Chip key={t.value} label={t.label} active={bizType === t.value} onPress={() => setBizType(t.value)} />
-        ))}
-      </View>
-      <TextField
-        label={`${bizDef.label} number`}
-        required
-        value={bizNumber}
-        onChangeText={(v) => setBizNumber(v.toUpperCase().replace(/\s/g, ''))}
-        error={err('bizNumber')}
-        placeholder={bizDef.placeholder}
-        autoCapitalize="characters"
-        autoCorrect={false}
-      />
-      <FileUploadField
-        label={`${bizDef.label} (document)`}
-        required
-        category="business_registration"
-        files={bizFiles}
-        onChange={setBizFiles}
-        persistedPaths={new Set(bizFiles.map((f) => f.path))}
-        onBusyChange={setBizBusy}
-        error={err('bizFiles')}
-        max={3}
-      />
-
-      {/* Identity proof */}
-      <Text style={[type.h3, { marginVertical: space.sm }]}>Owner identity proof</Text>
-      <Text style={[type.small, { color: colors.muted, marginBottom: space.sm }]}>
-        A government-issued ID for the owner / contact person.
-      </Text>
-      <Text style={[type.label, { marginBottom: 6 }]}>
-        ID type<Text style={{ color: colors.primary }}> *</Text>
-      </Text>
-      <View style={styles.chips}>
-        {IDENTITY_PROOF_TYPES.map((t) => (
-          <Chip key={t.value} label={t.label} active={idType === t.value} onPress={() => { setIdType(t.value); setIdNumber(''); }} />
-        ))}
+      <SectionHead icon="person-outline" title="Owner identity" tag="Required" required />
+      <View style={styles.segmentWrap}>
+        <Segmented
+          options={IDENTITY_PROOF_TYPES.map((t) => ({ value: t.value, label: t.short }))}
+          value={idType}
+          onChange={(v) => { if (v !== idType) { setIdType(v); setIdNumber(''); } }}
+        />
       </View>
       <TextField
         label={`${idDef.label} number`}
@@ -464,10 +429,10 @@ function DocumentsStep({
         placeholder={idDef.placeholder}
         autoCapitalize="characters"
         autoCorrect={false}
-        hint={idType === 'AADHAAR' ? 'Stored securely — only the last 4 digits are shown afterwards' : undefined}
+        hint={idType === 'AADHAAR' ? 'Only the last 4 digits are shown after saving' : undefined}
       />
       <FileUploadField
-        label={`${idDef.label} (front & back)`}
+        label="Front & back copy"
         required
         category="identity_proof"
         files={idFiles}
@@ -477,6 +442,47 @@ function DocumentsStep({
         error={err('idFiles')}
         max={2}
       />
+
+      <View style={styles.rule} />
+      {bizOpen ? (
+        <View>
+          <SectionHead icon="business-outline" title="Business proof" tag="Optional" />
+          <View style={styles.segmentWrap}>
+            <Segmented options={BUSINESS_REG_TYPES.map((t) => ({ value: t.value, label: t.short }))} value={bizType} onChange={setBizType} />
+          </View>
+          <TextField
+            label={`${bizDef.label} number`}
+            value={bizNumber}
+            onChangeText={(v) => setBizNumber(v.toUpperCase().replace(/\s/g, ''))}
+            error={err('bizNumber')}
+            placeholder={bizDef.placeholder}
+            autoCapitalize="characters"
+            autoCorrect={false}
+          />
+          <FileUploadField
+            label="Certificate copy"
+            category="business_registration"
+            files={bizFiles}
+            onChange={setBizFiles}
+            persistedPaths={new Set(bizFiles.map((f) => f.path))}
+            onBusyChange={setBizBusy}
+            error={err('bizFiles')}
+            max={3}
+          />
+          {!bizStarted && !bizBusy ? (
+            <Text style={styles.skip} onPress={() => setBizOpen(false)} accessibilityRole="button">Skip business proof</Text>
+          ) : null}
+        </View>
+      ) : (
+        <Pressable style={styles.optional} onPress={() => setBizOpen(true)} accessibilityRole="button" accessibilityLabel="Add business proof (optional)">
+          <View style={styles.sectionIcon}><Ionicons name="business-outline" size={17} color={colors.primary} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.sectionTitle}>Business proof</Text>
+            <Text style={type.tiny}>Optional · GST, registration or licence</Text>
+          </View>
+          <Ionicons name="add-circle-outline" size={22} color={colors.primary} />
+        </Pressable>
+      )}
 
       {submitted && hasErrors(errors) ? <Notice message={fixMessage(errors)} /> : null}
       {uploading ? <Notice tone="info" message="Upload in progress — please wait before saving." /> : null}
@@ -689,7 +695,7 @@ function ReviewStep({ record, onEdit, onBack }: { record: VendorRecord; onEdit: 
         <Row label="UPI" value={p?.upiId || '—'} />
       </ReviewSection>
       <ReviewSection id="documents" missing={missing} flagged={flaggedNow} onEdit={onEdit}>
-        <Row label="Business registration" value={d ? `${d.businessRegistration.type} — ${d.businessRegistration.number}` : ''} />
+        <Row label="Business proof" value={d?.businessRegistration.files.length ? `${d.businessRegistration.type} — ${d.businessRegistration.number}` : 'Not provided (optional)'} />
         <Row label="Identity proof" value={d ? `${d.identityProof.type} — ${d.identityProof.maskedNumber}` : ''} />
         <Row label="Documents uploaded" value={d ? `${d.businessRegistration.files.length + d.identityProof.files.length} file(s)` : ''} />
       </ReviewSection>
@@ -727,6 +733,16 @@ function ReviewStep({ record, onEdit, onBack }: { record: VendorRecord; onEdit: 
   );
 }
 
+function SectionHead({ icon, title, tag, required }: { icon: React.ComponentProps<typeof Ionicons>['name']; title: string; tag: string; required?: boolean }) {
+  return (
+    <View style={styles.sectionRow}>
+      <View style={styles.sectionIcon}><Ionicons name={icon} size={17} color={colors.primary} /></View>
+      <Text style={[styles.sectionTitle, { flex: 1 }]} accessibilityRole="header">{title}</Text>
+      <View><Badge label={tag} tone={required ? 'brand' : 'neutral'} /></View>
+    </View>
+  );
+}
+
 function ReviewSection({
   id, missing, flagged, onEdit, children,
 }: {
@@ -752,16 +768,26 @@ function ReviewSection({
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   topBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.lg, paddingVertical: space.sm, backgroundColor: colors.card, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  content: { padding: space.lg, paddingBottom: space.xxl },
-  stepper: { flexDirection: 'row', marginBottom: space.md },
-  stepItem: { flex: 1, alignItems: 'center', gap: 4 },
-  stepDot: { width: 30, height: 30, borderRadius: 15, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card },
-  stepActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  stepDone: { borderColor: colors.success, backgroundColor: colors.successSoft },
-  stepFlagged: { borderColor: colors.warning, backgroundColor: colors.warningSoft },
-  stepNum: { fontSize: 12, fontWeight: '800', color: colors.muted },
-  stepLabel: { fontSize: 10, fontWeight: '700', color: colors.muted },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.xs, marginBottom: space.sm },
+  content: { padding: space.lg, paddingBottom: space.xxl, width: '100%', maxWidth: 640, alignSelf: 'center' },
+  panel: { backgroundColor: colors.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, overflow: 'hidden', marginBottom: space.md },
+  road: { backgroundColor: '#121212', paddingHorizontal: space.lg, paddingTop: 14, paddingBottom: 8 },
+  roadStep: { fontSize: 10, fontWeight: '700', letterSpacing: 1.4, color: '#A9AEB8' },
+  roadTitle: { fontSize: 17, fontWeight: '700', letterSpacing: -0.3, color: colors.white, marginTop: 2 },
+  lanes: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  laneItem: { flex: 1, minWidth: 0, gap: 6, paddingVertical: 6 },
+  lane: { height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.18)' },
+  laneDone: { backgroundColor: colors.white },
+  laneFlagged: { backgroundColor: colors.warning },
+  laneActive: { backgroundColor: colors.primary },
+  laneLabel: { fontSize: 10.5, fontWeight: '600', color: '#8B919C' },
+  panelBody: { padding: space.lg },
+  sectionRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: space.md },
+  sectionIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primarySoft },
+  sectionTitle: { fontSize: 14.5, fontWeight: '700', color: colors.ink },
+  segmentWrap: { marginBottom: space.md },
+  rule: { height: 1, backgroundColor: colors.border, marginBottom: space.md },
+  optional: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderStyle: 'dashed', borderColor: '#D8DFE9', borderRadius: radius.md, padding: space.md, marginBottom: space.md },
+  skip: { color: colors.muted, fontWeight: '700', fontSize: 12, textAlign: 'center', paddingVertical: 6, marginBottom: space.sm },
   err: { color: colors.primaryDark, fontSize: 12, marginBottom: space.sm },
   section: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: space.md, marginBottom: space.md },
   sectionHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },

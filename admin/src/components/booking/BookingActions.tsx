@@ -10,6 +10,7 @@ import {
 import { ActionError } from "../../services/callables";
 import { paymentOf, refundNext } from "../../domain/bookingFlow";
 import { routeLabel } from "../../domain/officeStage";
+import { FAULT_LABEL, FAULT_REASON, needsFault, reachedPickup, type CancelFault } from "../../domain/cancellation";
 import { formatDateTime12 } from "../../utils/time";
 
 const rupees = (n: number) => `₹${Math.round(n * 100) / 100 === Math.round(n) ? Math.round(n).toLocaleString("en-IN") : (Math.round(n * 100) / 100).toLocaleString("en-IN")}`;
@@ -317,7 +318,15 @@ export function AssignVendorModal({ booking, vendors, canSetPayout, onClose, onD
 export function CancelBookingModal({ booking, canCharge, onClose, onDone }: { booking: Booking; canCharge: boolean; onClose: () => void; onDone: (text: string) => void }) {
   const pay = paymentOf(booking);
   const [reason, setReason] = useState("");
+  // An accepted trip past its pickup time: the office records what it found before cancelling.
+  const [askFault] = useState(() => needsFault(booking));
+  const [fault, setFault] = useState<CancelFault | "">("");
   const [charge, setCharge] = useState("0");
+  const chooseFault = (next: CancelFault) => {
+    // Keep what the office typed; replace only an empty or untouched suggestion.
+    if (!reason.trim() || (fault && reason === FAULT_REASON[fault])) setReason(FAULT_REASON[next]);
+    setFault(next);
+  };
   const [refundEligible, setRefundEligible] = useState(true);
   const [refundAmount, setRefundAmount] = useState("");
   const [method, setMethod] = useState("UPI");
@@ -328,6 +337,7 @@ export function CancelBookingModal({ booking, canCharge, onClose, onDone }: { bo
   const amountN = refundAmount.trim() === "" ? refundable : Number(refundAmount);
 
   const go = async () => {
+    if (askFault && !fault) return setError("Check with the customer and the driver, then choose what happened.");
     if (reason.trim().length < 5) return setError("Give the cancellation reason (at least 5 characters).");
     if (!Number.isFinite(chargeN) || chargeN < 0) return setError("Enter the cancellation charge (0 or more).");
     if (refundEligible && refundable > 0 && !(amountN > 0 && amountN <= refundable + 0.005)) return setError(`The refund must be between ₹1 and ${rupees(refundable)}.`);
@@ -335,7 +345,7 @@ export function CancelBookingModal({ booking, canCharge, onClose, onDone }: { bo
     setError(null);
     try {
       const r = await cancelBooking({
-        bookingId: booking.id, reason: reason.trim(), cancellationCharge: chargeN, refundEligible: refundEligible && refundable > 0,
+        bookingId: booking.id, reason: reason.trim(), ...(fault ? { faultParty: fault } : {}), cancellationCharge: chargeN, refundEligible: refundEligible && refundable > 0,
         ...(refundEligible && refundable > 0 ? { refundAmount: amountN, refundMethod: method } : {}),
       });
       onDone(`${code(booking)} cancelled.${r.refundAmount > 0 ? ` Refund of ${rupees(r.refundAmount)} is pending.` : ""}`);
@@ -352,7 +362,24 @@ export function CancelBookingModal({ booking, canCharge, onClose, onDone }: { bo
     >
       <div className="space-y-3 text-sm">
         {error && <Notice tone="error">{error}</Notice>}
-        <Field label="Cancellation reason" required><input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} className={inputCls} /></Field>
+        {askFault && (
+          <fieldset className="rounded-lg border border-line p-3 space-y-2">
+            <legend className="px-1 font-semibold">What happened? (check first)</legend>
+            <Notice tone="info">
+              {booking.assignedDriverId
+                ? reachedPickup(booking)
+                  ? `Driver app record: Reached pickup was marked${booking.reachedPickupAt ? ` at ${formatDateTime12(booking.reachedPickupAt)}` : ""}. Confirm with the customer.`
+                  : "Driver app record: Reached pickup was not marked. Confirm with the driver and the customer."
+                : "A vendor accepted this booking but no driver is set. Confirm with the vendor and the customer."}
+            </Notice>
+            {(Object.keys(FAULT_LABEL) as CancelFault[]).map((k) => (
+              <label key={k} className="flex items-center gap-2 font-semibold">
+                <input type="radio" name="cancel-fault" checked={fault === k} onChange={() => chooseFault(k)} className="w-4 h-4 accent-brand" />{FAULT_LABEL[k]}
+              </label>
+            ))}
+          </fieldset>
+        )}
+        <Field label="Cancellation reason" required hint="The customer and the driver / partner see this text."><input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} className={inputCls} /></Field>
         <div className="rounded-lg border border-line bg-gray-50 p-3 flex justify-between"><span>Customer has paid</span><strong>{rupees(pay.totalPaid)}</strong></div>
         {canCharge ? (
           <Field label="Cancellation charge (₹)" hint="Deducted from what the customer paid."><input value={charge} onChange={(e) => setCharge(e.target.value.replace(/[^\d.]/g, ""))} inputMode="decimal" className={inputCls} /></Field>

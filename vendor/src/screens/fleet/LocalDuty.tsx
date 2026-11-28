@@ -26,7 +26,7 @@ import { useVendorData } from '../../context/VendorData';
 import { goSection } from '../../navigation/navigationRef';
 import type { RootStackParamList } from '../../navigation/types';
 import {
-  DEFAULT_DUTY_CITIES, LOCAL_MODE_LABEL, createLocalShift, dutyMinutes, endLocalShift, localDutyOptions, shiftState, spanText, subscribeToLocalShifts, updateLocalShift,
+  DEFAULT_DUTY_CITIES, LOCAL_MODE_LABEL, createLocalShift, dutyMinutes, endLocalShift, localDutyOptions, masterCityId, shiftState, spanText, subscribeToLocalShifts, updateLocalShift,
   type DutyCity, type LocalMode, type LocalShift,
 } from '../../services/localDutyService';
 import type { FleetDriver, FleetVehicle, VendorBooking } from '../../types/operations';
@@ -292,16 +292,10 @@ export function LocalDutySheet({ onClose, driverId: initialDriver }: { onClose: 
     setBusy(true);
     setError('');
     try {
-      const v = vehicles.find((veh) => veh.id === vehicleId);
       await createLocalShift({
         driverId: driver.id,
-        driverName: driver.name,
-        driverPhone: driver.phone,
         vehicleId,
-        vehicleNumber: v?.vehicleNumber ?? '',
-        vehicleCategory: v?.category ?? '',
-        vehicleClass: v?.vehicleClass ?? v?.category ?? '',
-        cityId: chosenCity?.id ?? '',
+        cityId: masterCityId(chosenCity),
         cityName: cityLabel,
         services,
         startsAt: startNow ? 'now' : startMs,
@@ -309,7 +303,7 @@ export function LocalDutySheet({ onClose, driverId: initialDriver }: { onClose: 
         radiusKm: radius,
         note: note.trim(),
       });
-      flash(`${driver.name} is on local duty in ${cityLabel}. The driver has been notified.`);
+      flash(`Local duty in ${cityLabel} sent to ${driver.name}. It starts after their photo check and start slide.`);
       onClose();
     } catch (e) {
       setError(message(e, 'The local duty was not saved.'));
@@ -361,7 +355,7 @@ export function LocalDutySheet({ onClose, driverId: initialDriver }: { onClose: 
             setCityName('');
           }
         }}
-        hint={chosenCity && !chosenCity.hasCentre ? 'The duty area is set around the driver when they start.' : undefined}
+        hint={chosenCity && (!chosenCity.hasCentre || !masterCityId(chosenCity)) ? 'The duty area is set around the driver when they start.' : undefined}
       />
       {cityId === '' ? (
         <TextField

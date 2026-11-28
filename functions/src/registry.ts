@@ -24,6 +24,7 @@ export const CALLABLES: Readonly<Record<string, CallableLike>> = Object.freeze({
   approveBooking: fns.approveBooking,
   rejectBooking: fns.rejectBooking,
   cancelBooking: fns.cancelBooking,
+  runBookingAutoCancel: fns.runBookingAutoCancel,
   updateRefund: fns.updateRefund,
   assignDriver: fns.assignDriver,
   acknowledgeUnassignedAlert: fns.acknowledgeUnassignedAlert,
@@ -84,6 +85,8 @@ export const CALLABLES: Readonly<Record<string, CallableLike>> = Object.freeze({
   endLocalShift: fns.endLocalShift,
   localShiftAction: fns.localShiftAction,
   localShiftBoard: fns.localShiftBoard,
+  localShiftPing: fns.localShiftPing,
+  nearbyLocalDrivers: fns.nearbyLocalDrivers,
   takeLocalOrder: fns.takeLocalOrder,
   releaseLocalOrder: fns.releaseLocalOrder,
   findPartnerDriver: fns.findPartnerDriver,
@@ -176,6 +179,7 @@ export const CALLABLES: Readonly<Record<string, CallableLike>> = Object.freeze({
   getGoogleRoute: fns.getGoogleRoute,
   // local taxi
   rateDriver: fns.rateDriver, reviewDriverRating: fns.reviewDriverRating,
+  customerDriverPhotos: fns.customerDriverPhotos,
 });
 
 /** Names whose result changes a booking, so the booking is reconciled right after the call. */
@@ -191,4 +195,4 @@ export const RECONCILES_BOOKING = new Set([
 export const RECONCILES_PAYOUT = new Set(['requestPartnerPayout']);
 
 /** Callables a signed-out visitor may use: read-only fare quotes, support requests, and AI chatbot. */
-export const PUBLIC_CALLABLES: ReadonlySet<string> = new Set(['quoteBooking', 'chatWithBot', 'submitSupportRequest', 'searchGooglePlaces', 'reverseGoogleGeocode', 'getGoogleRoute']);
+export const PUBLIC_CALLABLES: ReadonlySet<string> = new Set(['quoteBooking', 'chatWithBot', 'submitSupportRequest', 'searchGooglePlaces', 'reverseGoogleGeocode', 'getGoogleRoute', 'nearbyLocalDrivers']);

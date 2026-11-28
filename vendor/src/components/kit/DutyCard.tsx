@@ -1,21 +1,12 @@
-// The duty / booking card of the Partner panel. Two looks of one card:
-//   • the full card (duty page, Bookings list): date and time chips, the route, a row of chips (service, distance, vehicle) and the
-//     vendor payout beside the action;
-//   • the compact card (`compact`, the marketplace list): three quiet bands, so many duties can be scanned quickly —
-//       date · time ................................ price
-//       Pickup → Drop (the hero line)
-//       ─────────────────────────────────────────────
-//       service, distance · vehicle ................ mode tag
-//     The whole card is the tap target, so it has no button.
-//
-// Phones keep exactly the same layout as wide screens, only smaller; a long vehicle name is shortened with "…" rather than wrapping.
-import React from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+// The booking card of the Partner panel (Bookings list): date and time chips, the route, a row of chips (service, distance,
+// vehicle) and the vendor payout beside the action. It keeps the same layout on phones as on wide screens, only smaller.
+// The Duties list draws its duties with DutyTicket. Amount and Road are shared with the Duty details page.
+import React, { useState } from 'react';
+import { Platform, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Text } from './Text';
 import { colors } from '../../theme';
 import { useWindowWidth } from '../../theme/responsive';
-import { Blink } from './Blink';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -38,11 +29,7 @@ export interface DutyCardProps {
   action?: { label: string; onPress: () => void; icon?: IconName };
   /** The card as a whole opens something (the list); the button then only repeats it for clarity. */
   onPress?: () => void;
-  /** The quiet, button-free list card. */
-  compact?: boolean;
-  /** The fuel the vehicle runs on: 'cng', or any other value for petrol / diesel. Shown as an icon beside the vehicle. */
-  fuel?: string;
-  /** A status badge (the publish mode, a booking state). */
+  /** A status badge (a booking state). */
   badge?: React.ReactNode;
   /** Extra lines under the card's main content (fuel, deadline, notes). */
   children?: React.ReactNode;
@@ -61,77 +48,48 @@ function Chip({ icon, text, tone = 'grey', sm, shrink }: { icon: IconName; text:
 
 const Divider = ({ sm, tall }: { sm: boolean; tall?: boolean }) => <View style={[s.vline, sm && c.vline, tall && { height: sm ? 40 : 46 }]} />;
 
-/** The compact list card: date·time and the mode tag, the route, then the facts and the price. */
-function CompactCard({ date, time, from, to, service, distance, vehicle, payout, badge, fuel, children, sm }: Pick<DutyCardProps, 'date' | 'time' | 'from' | 'to' | 'service' | 'distance' | 'vehicle' | 'payout' | 'badge' | 'fuel' | 'children'> & { sm: boolean }) {
-  const cng = fuel === 'cng';
+/** "₹6,255.30" as a small ₹, large 6,255 and small .30; any other text ("Your quote") as it is. `big` is the duty page's size. */
+export function Amount({ text, sm, big }: { text: string; sm?: boolean; big?: boolean }) {
+  const m = /^(₹)([\d,]+)(\.\d+)?$/.exec(text);
+  const size = [q.amount, sm && q.amountSm, big && q.amountBig];
+  if (!m) return <Text style={size} numberOfLines={1}>{text}</Text>;
   return (
-    <View style={[s.card, q.card]}>
-      <View style={s.accent} />
-      <View style={[q.inner, sm && q.innerSm]}>
-        <View style={q.head}>
-          <View style={q.when}>
-            <Ionicons name="calendar-outline" size={sm ? 14 : 15} color="#8A94A6" />
-            <Text style={[q.whenText, sm && q.whenTextSm]} numberOfLines={1}>{date || '—'}</Text>
-            <View style={q.dot} />
-            <Ionicons name="time-outline" size={sm ? 14 : 15} color="#8A94A6" />
-            <Text style={[q.whenText, sm && q.whenTextSm]} numberOfLines={1}>{time || '—'}</Text>
-          </View>
-          {badge ? <View style={{ flexShrink: 0 }}>{badge}</View> : null}
-        </View>
+    <Text style={size} numberOfLines={1}>
+      <Text style={[q.amountSym, sm && q.amountSymSm, big && q.amountSymBig]}>{m[1]}</Text>{m[2]}{m[3] ? <Text style={[q.amountFrac, sm && q.amountFracSm, big && q.amountFracBig]}>{m[3]}</Text> : null}
+    </Text>
+  );
+}
 
-        <Text style={[q.route, sm && q.routeSm]} numberOfLines={2}>
-          {from}<Text style={s.arrow}>  →  </Text>{to}
-        </Text>
-
-        <View style={q.rule} />
-
-        <View style={q.foot}>
-          <View style={q.facts}>
-            <View style={q.serviceRow}>
-              <Ionicons name={serviceIcon(service)} size={sm ? 14 : 15} color={colors.primary} />
-              <Text style={[q.serviceText, sm && q.serviceTextSm]} numberOfLines={1}>{service}</Text>
-              {distance ? <Text style={[q.factText, sm && q.factTextSm, q.distance]} numberOfLines={1}>·  {distance}</Text> : null}
-            </View>
-            {vehicle ? (
-              // Same icon column and gap as the service line above, so both lines start at the same edge.
-              <View style={q.serviceRow}>
-                <Ionicons name="car-sport-outline" size={sm ? 14 : 15} color="#475569" />
-                <Text style={[q.factText, sm && q.factTextSm, q.vehicleText, { flexShrink: 1 }]} numberOfLines={1}>{vehicle}</Text>
-              </View>
-            ) : null}
-            {fuel ? (
-              // A CNG vehicle gets a green leaf icon (clean fuel), a petrol / diesel one a fuel-pump icon.
-              <View style={q.serviceRow}>
-                <MaterialCommunityIcons name={cng ? 'leaf' : 'gas-station'} size={sm ? 14 : 15} color={cng ? '#15803D' : '#475569'} />
-                <Text style={[q.factText, sm && q.factTextSm, q.vehicleText, cng && { color: '#15803D' }, { flexShrink: 1 }]} numberOfLines={1}>{cng ? 'CNG' : 'Diesel / Petrol'}</Text>
-              </View>
-            ) : null}
-          </View>
-          <View style={q.priceCol} accessible accessibilityLabel={`Vendor payout ${payout}`}>
-            <Text style={q.priceLabel} numberOfLines={1}>Vendor payout</Text>
-            {/* The red box blinks, to draw the eye to what the duty pays. */}
-            <Blink style={q.priceBlink} duration={1000}>
-              <View style={q.price}>
-                <Text style={[q.priceText, sm && q.priceTextSm]} numberOfLines={1} adjustsFontSizeToFit>{payout}</Text>
-              </View>
-            </Blink>
-          </View>
-        </View>
-        {children}
+/** The NESAM road from the pickup (a ring) to the drop (a red dot): dark, with red lane marks and the distance on a tag in the middle. */
+export function Road({ distance, style }: { distance?: string; style?: StyleProp<ViewStyle> }) {
+  const [width, setWidth] = useState(0);
+  const lanes = Math.max(0, Math.floor((width - 16) / 14));
+  return (
+    <View style={[r.wrap, style]}>
+      <View style={r.road} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+        {Array.from({ length: lanes }, (_, i) => <View key={i} style={r.lane} />)}
       </View>
+      <View style={[r.dot, r.start]} />
+      <View style={[r.dot, r.end]} />
+      {distance ? (
+        <View style={r.middle}>
+          <View style={r.tag}>
+            <Ionicons name="car-sport" size={12} color={colors.ink} />
+            <Text style={r.tagText} numberOfLines={1}>{distance}</Text>
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 }
 
-export function DutyCard({ date, time, from, to, service, distance, vehicle, payout, payoutLabel = 'Vendor payout', action, onPress, badge, fuel, children, accessibilityLabel, compact }: DutyCardProps) {
+export function DutyCard({ date, time, from, to, service, distance, vehicle, payout, payoutLabel = 'Vendor payout', action, onPress, badge, children, accessibilityLabel }: DutyCardProps) {
   const width = useWindowWidth();
   const sm = width < 560;
   const xs = width < 360;
   // A long button label ("Assign driver", "View booking") cannot sit beside the payout on a phone: it goes under it, full width.
   const stack = sm && (action?.label.length ?? 0) > 10;
-  const body = compact ? (
-    <CompactCard date={date} time={time} from={from} to={to} service={service} distance={distance} vehicle={vehicle} payout={payout} badge={badge} fuel={fuel} sm={sm}>{children}</CompactCard>
-  ) : (
+  const body = (
     <View style={[s.card, sm && c.card]}>
       <View style={s.accent} />
       <View style={[s.inner, sm && c.inner]}>
@@ -189,7 +147,8 @@ export function DutyCard({ date, time, from, to, service, distance, vehicle, pay
     </View>
   );
   return onPress ? (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={accessibilityLabel} style={({ hovered }: { pressed: boolean; hovered?: boolean }) => [hovered && { opacity: 0.985 }]}>{body}</Pressable>
+    // With a button of its own inside, the card is not itself a "button" (on the web that would be a <button> in a <button>).
+    <Pressable onPress={onPress} accessibilityRole={action ? undefined : 'button'} accessibilityLabel={accessibilityLabel} style={({ hovered }: { pressed: boolean; hovered?: boolean }) => [hovered && { opacity: 0.985 }]}>{body}</Pressable>
   ) : body;
 }
 
@@ -243,37 +202,31 @@ const c = StyleSheet.create({
   buttonText: { fontSize: 14 },
 });
 
-// The compact list card: a calm, airy three-band layout with one hero line (the route) and one strong figure (the price).
+// The amount (Duty details page).
 const q = StyleSheet.create({
-  card: { borderRadius: 16 },
-  inner: { flex: 1, minWidth: 0, paddingVertical: 13, paddingHorizontal: 18, gap: 9 },
-  innerSm: { paddingVertical: 12, paddingHorizontal: 14, gap: 8 },
-  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  when: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1, minWidth: 0 },
-  whenText: { fontSize: 14, fontWeight: '600', color: '#334155', flexShrink: 1 },
-  whenTextSm: { fontSize: 13 },
-  dot: { width: 3, height: 3, borderRadius: 2, backgroundColor: '#C3CAD6', marginHorizontal: 3 },
-  // The price sits in a soft tinted pill of a minimum width, so the amounts line up down the list.
-  // "Vendor payout" sits above the price box, small and grey; the box itself is solid red and stretches down to the last row beside it.
-  priceCol: { alignSelf: 'center', alignItems: 'center', gap: 3, flexShrink: 0 },
-  priceLabel: { fontSize: 10, fontWeight: '600', color: '#8A94A6', letterSpacing: 0.2 },
-  priceBlink: { alignSelf: 'center' },
-  price: { flex: 1, minWidth: 112, minHeight: 36, paddingHorizontal: 12, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  priceText: { fontSize: 20, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5 },
-  priceTextSm: { fontSize: 18 },
-  route: { fontSize: 19, fontWeight: '700', color: colors.ink, lineHeight: 26, letterSpacing: -0.4 },
-  routeSm: { fontSize: 17, lineHeight: 23 },
-  rule: { height: 1, backgroundColor: '#EEF1F5' },
-  foot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  facts: { flex: 1, minWidth: 0, gap: 2 },
-  serviceRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  distance: { flexShrink: 0 },
-  serviceText: { fontSize: 14.5, fontWeight: '800', color: colors.primary, flexShrink: 1 },
-  serviceTextSm: { fontSize: 13.5 },
-  factText: { fontSize: 13, color: '#64748B', lineHeight: 18 },
-  factTextSm: { fontSize: 12.5 },
-  // The vehicle (class or car name) reads as the second line of the card, so it is bold and dark.
-  vehicleText: { fontWeight: '700', color: '#1F2937' },
+  amount: { fontSize: 24, fontWeight: '700', color: colors.ink, letterSpacing: -0.6, lineHeight: 30 },
+  amountSm: { fontSize: 23, lineHeight: 29 },
+  amountSym: { fontSize: 16, fontWeight: '600', color: '#475569', letterSpacing: 0 },
+  amountSymSm: { fontSize: 15 },
+  amountFrac: { fontSize: 14, fontWeight: '600', color: '#475569', letterSpacing: 0 },
+  amountFracSm: { fontSize: 13 },
+  amountBig: { fontSize: 32, lineHeight: 40, letterSpacing: -0.9 },
+  amountSymBig: { fontSize: 20 },
+  amountFracBig: { fontSize: 18 },
+});
+
+// The NESAM road between the places (Duty details): the dark road, its red lane marks, the two ends and the distance tag.
+const ROAD = '#1D2129';
+const r = StyleSheet.create({
+  wrap: { height: 22, marginTop: 6, justifyContent: 'center' },
+  road: { position: 'absolute', left: 7, right: 7, top: 8, height: 6, borderRadius: 3, backgroundColor: ROAD, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-evenly', overflow: 'hidden', paddingHorizontal: 8 },
+  lane: { width: 7, height: 2, borderRadius: 1, backgroundColor: colors.primary },
+  dot: { position: 'absolute', top: 4, width: 14, height: 14, borderRadius: 7 },
+  start: { left: 0, backgroundColor: colors.white, borderWidth: 3.5, borderColor: ROAD },
+  end: { right: 0, backgroundColor: colors.primary },
+  middle: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
+  tag: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 22, paddingHorizontal: 10, borderRadius: 11, backgroundColor: colors.white, borderWidth: 1, borderColor: '#D9DEE6' },
+  tagText: { fontSize: 11.5, fontWeight: '700', color: colors.ink },
 });
 
 // Very small phones (under 360 px).

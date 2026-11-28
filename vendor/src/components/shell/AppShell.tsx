@@ -15,13 +15,14 @@ import { FlashHost } from '../kit/flash';
 import { initials } from '../kit/format';
 import { Text } from '../kit/Text';
 import { PartnerBanner } from './PartnerBanner';
+import { NesamStrip } from '../kit/NesamStrip';
 import type { IconName } from '../kit/core';
 import { SUPPORT_PHONE } from '../../config/constants';
 
 const NAV: Record<Section, { on: IconName; off: IconName; label: string }> = {
   Bookings: { on: 'ticket', off: 'ticket-outline', label: 'My Trips' },
   Fleet: { on: 'car-sport', off: 'car-sport-outline', label: 'Fleet' },
-  Trips: { on: 'map', off: 'map-outline', label: 'Bookings' },
+  Trips: { on: 'map', off: 'map-outline', label: 'Duties' },
   Earnings: { on: 'stats-chart', off: 'stats-chart-outline', label: 'Earnings' },
   Wallet: { on: 'wallet', off: 'wallet-outline', label: 'Wallet' },
 };
@@ -88,30 +89,42 @@ function IconButton({ icon, label, onPress, dot, active, color, size = 40 }: { i
 }
 
 /**
- * Phones: the brand with the bell, help and profile buttons. Wider screens: just the buttons, right-aligned over the page
- * (the sidebar already carries the brand), lined up with the page content.
+ * The header, the same in NESAM Partner and NESAM Driver: the brand, then one capsule holding Notifications, Call and the
+ * profile, always in that order, over the NESAM strip. Wider screens drop the brand and the profile (the sidebar has both)
+ * and set the capsule right-aligned over the page, lined up with its content.
  */
 function Topbar({ current, route }: { current: string; route: string }) {
   const insets = useSafeAreaInsets();
   const { wide, compact, gutter } = useLayout();
+  const { profile } = useVendorData();
   const { unreadCount, unacknowledged } = useInbox();
   const dot = unreadCount > 0 || unacknowledged.length > 0;
-  const size = compact ? 37 : 40;
   const alerts = route === 'Alerts';
+  const account = current === 'Account' && !alerts;
   const actions = (
-    <View style={[styles.actions, compact && { gap: 5 }]}>
-      <IconButton icon="notifications-outline" label={dot ? 'Notifications, unread' : 'Notifications'} onPress={openAlerts} dot={dot} active={alerts} size={size} />
-      <IconButton icon="call-outline" label="Call Nesam office" onPress={() => void Linking.openURL(`tel:${SUPPORT_PHONE}`)} color={colors.primary} size={size} />
-      {wide ? null : <IconButton icon="person-circle-outline" label="Profile and My Business" onPress={() => goSection('Account')} active={current === 'Account' && !alerts} size={size} />}
+    <View style={styles.dock}>
+      <DockButton icon={alerts ? 'notifications' : 'notifications-outline'} label={dot ? 'Notifications, unread' : 'Notifications'} onPress={openAlerts} dot={dot} active={alerts} />
+      <View style={styles.dockRule} />
+      <DockButton icon="call-outline" label="Call Nesam office" onPress={() => void Linking.openURL(`tel:${SUPPORT_PHONE}`)} color={colors.primary} />
+      {wide ? null : (
+        <>
+          <View style={styles.dockRule} />
+          <Pressable onPress={() => goSection('Account')} accessibilityRole="button" accessibilityLabel="Profile and My Business" hitSlop={4}
+            style={({ pressed }) => [styles.dockAvatar, account && styles.dockAvatarOn, pressed && { opacity: 0.85 }]}>
+            <Text style={styles.dockInitials} maxFontSizeMultiplier={1.1}>{initials(profile.companyName || 'Fleet partner')}</Text>
+          </Pressable>
+        </>
+      )}
     </View>
   );
   if (!wide) {
     return (
-      <View style={[styles.phoneBar, { paddingTop: insets.top + 12, paddingHorizontal: gutter, minHeight: 64 + insets.top }]}>
+      <View style={[styles.phoneBar, { paddingTop: insets.top + 11, paddingHorizontal: gutter, minHeight: 66 + insets.top }]}>
         <Pressable style={styles.brandLink} onPress={() => goSection('Bookings')} accessibilityRole="button" accessibilityLabel="NESAM Partner — Bookings">
           <PartnerBanner height={compact ? 24 : 29} />
         </Pressable>
         {actions}
+        <NesamStrip height={2.5} style={styles.barStrip} />
       </View>
     );
   }
@@ -119,6 +132,17 @@ function Topbar({ current, route }: { current: string; route: string }) {
     <View style={[styles.wideBar, { paddingTop: insets.top }]}>
       <View style={[styles.wideBarInner, { paddingHorizontal: gutter }]}>{actions}</View>
     </View>
+  );
+}
+
+/** One round button inside the header capsule. */
+function DockButton({ icon, label, onPress, dot, active, color }: { icon: IconName; label: string; onPress: () => void; dot?: boolean; active?: boolean; color?: string }) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} hitSlop={4}
+      style={({ hovered }: Hover) => [styles.dockBtn, active && styles.dockBtnOn, hovered && !active && { backgroundColor: colors.white }]}>
+      <Ionicons name={icon} size={19} color={color ?? (active ? colors.primary : colors.ink)} />
+      {dot ? <View style={styles.dot} /> : null}
+    </Pressable>
   );
 }
 
@@ -209,7 +233,7 @@ function BottomBar({ current }: { current: string }) {
       {SECTIONS.map((sec) => {
         const on = current === sec;
         const n = badges[sec] ?? 0;
-        const tint = on ? colors.primary : colors.muted;
+        const tint = on ? colors.primary : '#374151';
         return (
           <Pressable key={sec} onPress={() => goSection(sec)} style={styles.bottomItem} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={n ? `${NAV[sec].label}, ${n}` : NAV[sec].label}>
             {on ? <View style={styles.bottomIndicator} /> : null}
@@ -232,14 +256,21 @@ const styles = StyleSheet.create({
   workspace: { flex: 1, minWidth: 0 },
   main: { flex: 1, minHeight: 0 },
   // top bar
-  phoneBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingBottom: 12, backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border, zIndex: 10 },
+  phoneBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingBottom: 13, backgroundColor: colors.white, zIndex: 10 },
+  barStrip: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   brandLink: { flexShrink: 1, minHeight: 40, justifyContent: 'center' },
   wideBar: { backgroundColor: colors.bg, zIndex: 10 },
   wideBarInner: { width: '100%', maxWidth: 1360, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', minHeight: 66, paddingTop: 14, paddingBottom: 4 },
-  actions: { flexDirection: 'row', alignItems: 'center', gap: 7, flexShrink: 0 },
+  dock: { flexDirection: 'row', alignItems: 'center', gap: 2, height: 42, paddingHorizontal: 3, borderRadius: 21, backgroundColor: '#F7F8FA', borderWidth: 1, borderColor: '#E4E7EC', flexShrink: 0 },
+  dockRule: { width: 1, height: 18, backgroundColor: '#E1E5EB' },
+  dockBtn: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  dockBtnOn: { backgroundColor: colors.primarySoft },
+  dockAvatar: { width: 34, height: 34, borderRadius: 17, marginLeft: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.ink },
+  dockAvatarOn: { backgroundColor: colors.primary },
+  dockInitials: { fontSize: 11.5, fontWeight: '700', color: colors.white, letterSpacing: 0.4 },
   iconBtn: { borderRadius: 12, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   iconBtnOn: { backgroundColor: colors.primarySoft, borderColor: colors.primaryBorder },
-  dot: { position: 'absolute', top: 9, right: 10, width: 9, height: 9, borderRadius: 5, backgroundColor: colors.primary, borderWidth: 2, borderColor: colors.white },
+  dot: { position: 'absolute', top: 7, right: 8, width: 9, height: 9, borderRadius: 5, backgroundColor: colors.primary, borderWidth: 2, borderColor: colors.white },
   // sidebar
   sidebar: { backgroundColor: colors.white, borderRightWidth: 1, borderRightColor: colors.border },
   brand: { marginLeft: 2, marginBottom: 34 },

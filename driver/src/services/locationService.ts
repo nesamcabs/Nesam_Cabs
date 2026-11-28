@@ -1,6 +1,7 @@
 // Device location for the driver (expo-location): pickup-radius check and
 // live position sharing during a trip. Same permission / GPS handling as the
 // Customer app's geoService.
+import { Platform } from 'react-native';
 import * as Location from 'expo-location';
 import type { LatLng } from '../utils/geo';
 
@@ -122,6 +123,8 @@ export function watchPosition(onPosition: (p: DevicePosition) => void, onError: 
 
 /** The town / city a position is in, for a label on the Drive page. '' when it cannot be told (offline, web, no geocoder). */
 export async function reverseCity(lat: number, lng: number): Promise<string> {
+  // expo-location has no geocoder on the web (its Google Geocoding fallback was removed and only logs a warning).
+  if (Platform.OS === 'web') return '';
   try {
     const [place] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
     return (place?.city || place?.subregion || place?.district || '').trim();

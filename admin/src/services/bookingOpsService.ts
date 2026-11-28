@@ -64,8 +64,13 @@ export interface CancelInput {
   refundEligible?: boolean;
   refundAmount?: number;
   refundMethod?: string;
+  /** An accepted trip that did not run: whose side it was. */
+  faultParty?: "customer" | "driver" | "other";
 }
 export const cancelBooking = (i: CancelInput) => callFunction<CancelInput, { ok: boolean; refundAmount: number; amountPaid: number }>("cancelBooking", i);
+
+/** Runs the auto-cancel check now (bookings nobody accepted, 30 minutes after pickup). */
+export const runBookingAutoCancel = () => callFunction<unknown, { ok: boolean; ran: boolean; cancelled?: number }>("runBookingAutoCancel", {});
 
 export interface RefundUpdate {
   bookingId: string;
