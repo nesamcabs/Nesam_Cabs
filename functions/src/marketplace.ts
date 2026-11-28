@@ -182,6 +182,11 @@ export async function announceToPartners(bookingId: string, b: DocumentData, off
   return sent;
 }
 
+/** The days a round trip was booked for; 0 for any other trip. */
+const roundTripDaysOf = (b: DocumentData): number => (b.tripType === 'Round Trip' ? Math.max(0, Math.round(Number(b.billableDays || b.pricing?.days) || 0)) : 0);
+/** The hours an hourly rental was booked for; 0 for any other trip. */
+const rentalHoursOfBooking = (b: DocumentData): number => (b.tripType === 'Local Rental' ? Math.max(0, Math.round(Number(b.pricing?.rentalHours || b.rentalHours) || 0)) : 0);
+
 /**
  * Explicitly publishes an approved, unassigned booking to Open Duties. This is
  * the only step that makes a booking visible to partners. Idempotent: posting a
@@ -232,6 +237,9 @@ export const postBookingToMarketplace = onCall({ timeoutSeconds: 120 }, async (r
       travelDate: text(b.date), service: text(b.service), tripType: text(b.tripType),
       // A time-based round trip: partners see which package it is and when it must end (the 9 AM Morning Return cutoff included).
       ...(b.timePackage && typeof b.timePackage === 'object' ? { timePackage: { label: text(b.timePackage.label), kind: text(b.timePackage.kind), includedKm: money(b.timePackage.includedKm), ...(b.timePackage.coverageEndAt ? { coverageEndAt: b.timePackage.coverageEndAt } : {}), ...(b.timePackage.morningCutoffAt ? { morningCutoffAt: b.timePackage.morningCutoffAt } : {}) } } : {}),
+      // How long it was booked for, shown beside the distance on the partner's duty card.
+      ...(roundTripDaysOf(b) ? { tripDays: roundTripDaysOf(b) } : {}),
+      ...(rentalHoursOfBooking(b) ? { rentalHours: rentalHoursOfBooking(b) } : {}),
       // A Multicity tour (or a round trip) passes through these places, in order; partners see them by name only.
       ...(viaNames(b).length ? { via: viaNames(b) } : {}), ...(text(b.tourType) ? { tourType: text(b.tourType) } : {}),
       vehicleCategory: text(b.vehicleCategory) || text(b.vehicle), vehicleCategoryId: text(b.vehicleCategoryId),
