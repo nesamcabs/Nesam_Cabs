@@ -322,6 +322,11 @@ export async function announceToPartners(bookingId: string, b: DocumentData, off
   return sent;
 }
 
+/** The days a round trip was booked for; 0 for any other trip. */
+const roundTripDaysOf = (b: DocumentData): number => (b.tripType === 'Round Trip' ? Math.max(0, Math.round(Number(b.billableDays || b.pricing?.days) || 0)) : 0);
+/** The hours an hourly rental was booked for; 0 for any other trip. */
+const rentalHoursOfBooking = (b: DocumentData): number => (b.tripType === 'Local Rental' ? Math.max(0, Math.round(Number(b.pricing?.rentalHours || b.rentalHours) || 0)) : 0);
+
 /**
  * Explicitly publishes an approved, unassigned booking to Open Duties. This is
  * the only step that makes a booking visible to partners. Idempotent: posting a
@@ -365,7 +370,29 @@ export const postBookingToMarketplace = onCall({ timeoutSeconds: 120 }, async (r
     const stamp = FieldValue.serverTimestamp();
     const pickupAt = pickupInstant(b);
     const offer = {
+<<<<<<< HEAD
       ...marketOfferBase(bookingId, b, category, payout.amount, pickupAt),
+=======
+      id: bookingId, bookingId: code(b, bookingId), route: `${text(b.pickup)} → ${text(b.drop)}`,
+      // Area only, approximate coordinates: the exact address is shared once the trip is theirs.
+      pickup: { address: text(b.pickup), city: text(b.pickup), time: text(b.time), ...(Number.isFinite(b.pickupLat) ? { lat: Math.round(b.pickupLat * 100) / 100, lng: Math.round(b.pickupLng * 100) / 100 } : {}) },
+      drop: { address: text(b.drop), city: text(b.drop), ...(Number.isFinite(b.dropLat) ? { lat: Math.round(b.dropLat * 100) / 100, lng: Math.round(b.dropLng * 100) / 100 } : {}) },
+      travelDate: text(b.date), service: text(b.service), tripType: text(b.tripType),
+      // A time-based round trip: partners see which package it is and when it must end (the 9 AM Morning Return cutoff included).
+      ...(b.timePackage && typeof b.timePackage === 'object' ? { timePackage: { label: text(b.timePackage.label), kind: text(b.timePackage.kind), includedKm: money(b.timePackage.includedKm), ...(b.timePackage.coverageEndAt ? { coverageEndAt: b.timePackage.coverageEndAt } : {}), ...(b.timePackage.morningCutoffAt ? { morningCutoffAt: b.timePackage.morningCutoffAt } : {}) } } : {}),
+      // How long it was booked for, shown beside the distance on the partner's duty card.
+      ...(roundTripDaysOf(b) ? { tripDays: roundTripDaysOf(b) } : {}),
+      ...(rentalHoursOfBooking(b) ? { rentalHours: rentalHoursOfBooking(b) } : {}),
+      // A Multicity tour (or a round trip) passes through these places, in order; partners see them by name only.
+      ...(viaNames(b).length ? { via: viaNames(b) } : {}), ...(text(b.tourType) ? { tourType: text(b.tourType) } : {}),
+      vehicleCategory: text(b.vehicleCategory) || text(b.vehicle), vehicleCategoryId: text(b.vehicleCategoryId),
+      // The fuel the customer booked: a CNG car, or any petrol / diesel car (the vendor sees it on the duty).
+      fuelType: b.fuelType === 'cng' ? 'cng' : 'diesel_petrol',
+      addOns: bookingAddOnsOf(b.addOns ?? b.fareBreakdown?.addOns ?? b.tripExtras),
+      // Lower-case aliases an older claim compared a vehicle type against; the vehicle classes are authoritative.
+      eligibleVehicleTypes: category?.matchVehicleTypes ?? [],
+      dutyClass: bookingDutyClass(b) ?? '', eligibleVehicleClasses: eligibleClassesFor(bookingDutyClass(b)),
+>>>>>>> 8f133af1fd0ce5f9bdd0b956486aec0f97e7a732
       mode, ...(escalationOf(esc, payout.amount, money(b.fare)) ? { escalation: escalationOf(esc, payout.amount, money(b.fare)) } : {}),
       ...(esc && money(esc.ceiling) > 0 ? { ceiling: money(esc.ceiling) } : {}), startOffer: payout.amount,
       ...(cutoffMinutes && pickupAt ? { cutoffAt: Timestamp.fromMillis(pickupAt.getTime() - cutoffMinutes * 60000) } : {}),

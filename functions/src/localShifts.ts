@@ -783,7 +783,11 @@ export async function runLocalShiftSweep(budgetMs = 30000): Promise<{ ending: nu
   return { ending, missed, refreshed };
 }
 
+<<<<<<< HEAD
 // ── Live position of a running duty, and the duty drivers near a rider ───────────────────────────────────────────────────────
+=======
+// Live position of a running duty and duty drivers near a rider
+>>>>>>> 8f133af1fd0ce5f9bdd0b956486aec0f97e7a732
 
 /** A duty driver's position older than this is not shown to riders (the app sends it every 25 s while the duty page is open). */
 const NEARBY_FRESH_MS = 10 * 60000;
