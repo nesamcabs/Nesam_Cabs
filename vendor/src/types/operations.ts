@@ -29,7 +29,7 @@ export interface MarketTrip {
   tripType: string;
   /** Round Trip: the time-based package sold (Customer UX v7), one line, e.g. "Next-Day Return · 400 km included · ends 17 Nov, 11:45 pm". */
   packageLine?: string;
-  /** Round Trip: how long it was booked for ("8 Hours", "2 Days"). */
+  /** How long a round trip or an hourly rental was booked for ("2 Days", "5 Hrs"). */
   duration?: string;
   vehicleCategory: string;
   /** The category's id, and its display name set in the admin panel (e.g. "Wagon R or Similar"); `vehicleCategory` stays the class used for matching. */

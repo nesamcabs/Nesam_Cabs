@@ -81,6 +81,8 @@ export const convertMulticityEnquiry = onCall(async request => {
       vehicle: cat.name, vehicleCategory: cat.name, vehicleCategoryId: quote.categoryId, passengerSeatsRequired: seats,
       dutyClass: dutyClassOf(cat) || '', tariffClass: pricing.tariffClass || '',
       fare: quote.fare.total, fareBreakdown: quote.fare, fareBreakup: quote.breakup, pricing: publicPricing, fareVerified: true,
+      // A tour priced on the CNG card is a CNG booking: duty cards, messages and invoices read the booking's own fuel.
+      ...(pricing.fuelType === 'cng' ? { fuelType: 'cng' } : {}),
       distanceKm: quote.fare.distanceKm, durationMin: quote.fare.durationMin, billableDays: pricing.days,
       scheduledAt: quote.pickupAt, pickupAt: quote.pickupAt, tripEndAt: quote.tripEndAt, endDate: pricing.endDate,
       date: formatDate(when), time: formatTime12(when), rideTiming: 'scheduled', bookingType: 'advance', status: 'Pending', tripSubStatus: 'Not Started',

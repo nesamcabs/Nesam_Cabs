@@ -328,7 +328,7 @@ export interface MarketplaceOffer {
   terms?: DutyTerms | null;
   /** Round Trip: the time-based package sold. */
   timePackage?: TimePackageInfo | null;
-  /** Round Trip: how long it was booked for ("8 Hours", "2 Days"). */
+  /** How long a round trip or an hourly rental was booked for ("2 Days", "5 Hrs"). */
   duration?: string;
   addOns?: { roofCarrier: boolean; pets: boolean };
   id: string;

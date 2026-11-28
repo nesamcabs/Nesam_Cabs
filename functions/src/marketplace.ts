@@ -148,18 +148,22 @@ export function dutyTermsOf(v: any, booking?: DocumentData | null): DocumentData
 /** The days a round trip was booked for; 0 for any other trip. */
 const roundTripDaysOf = (b: DocumentData): number => (b.tripType === 'Round Trip' ? Math.max(0, Math.round(Number(b.billableDays || b.pricing?.days) || 0)) : 0);
 
-/** Gives open round-trip duties published without their days the booking's days (run by the periodic jobs). */
+/** The hours an hourly rental was booked for; 0 for any other trip. */
+const rentalHoursOfBooking = (b: DocumentData): number => (b.tripType === 'Local Rental' ? Math.max(0, Math.round(Number(b.pricing?.rentalHours || b.rentalHours) || 0)) : 0);
+
+/** Gives open duties published without their booked days (round trip) or hours (rental) the booking's own (run by the periodic jobs). */
 export async function backfillRoundTripDays(): Promise<{ checked: number; updated: number }> {
   const snap = await db.collection('marketplace_trips').where('status', 'in', ['Open', 'Bidding']).limit(300).get();
   let checked = 0, updated = 0;
   for (const d of snap.docs) {
     const t = d.data();
-    if (t.tripType !== 'Round Trip' || Number(t.tripDays) > 0) continue;
+    const rental = t.tripType === 'Local Rental';
+    if (rental ? Number(t.rentalHours) > 0 : t.tripType !== 'Round Trip' || Number(t.tripDays) > 0) continue;
     checked += 1;
     const booking = await db.doc(`bookings/${d.id}`).get();
-    const days = booking.exists ? roundTripDaysOf(booking.data()!) : 0;
-    if (!days) continue;
-    await d.ref.update({ tripDays: days });
+    const booked = booking.exists ? (rental ? rentalHoursOfBooking : roundTripDaysOf)(booking.data()!) : 0;
+    if (!booked) continue;
+    await d.ref.update(rental ? { rentalHours: booked } : { tripDays: booked });
     updated += 1;
   }
   return { checked, updated };
@@ -177,6 +181,8 @@ function marketOfferBase(bookingId: string, b: DocumentData, category: ReturnTyp
     ...(b.timePackage && typeof b.timePackage === 'object' ? { timePackage: { label: text(b.timePackage.label), kind: text(b.timePackage.kind), includedKm: money(b.timePackage.includedKm), ...(Number(b.timePackage.hours) > 0 ? { hours: Number(b.timePackage.hours) } : {}), ...(b.timePackage.coverageEndAt ? { coverageEndAt: b.timePackage.coverageEndAt } : {}), ...(b.timePackage.morningCutoffAt ? { morningCutoffAt: b.timePackage.morningCutoffAt } : {}) } } : {}),
     // How many days a round trip was booked for (partners see it on the duty card).
     ...(roundTripDaysOf(b) ? { tripDays: roundTripDaysOf(b) } : {}),
+    // How many hours an hourly rental was booked for.
+    ...(rentalHoursOfBooking(b) ? { rentalHours: rentalHoursOfBooking(b) } : {}),
     // A Multicity tour (or a round trip) passes through these places, in order; partners see them by name only.
     ...(viaNames(b).length ? { via: viaNames(b) } : {}), ...(text(b.tourType) ? { tourType: text(b.tourType) } : {}),
     vehicleCategory: text(b.vehicleCategory) || text(b.vehicle), vehicleCategoryId: text(b.vehicleCategoryId),
